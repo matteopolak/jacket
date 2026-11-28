@@ -9,8 +9,10 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 /// `jaic -check` on `source`, with the diagnostics layout `layout` (empty for the plain one).
 fn check(name: &str, source: &str, layout: &str) -> String {
     let dir = TempDir::new(name);
+
     std::fs::write(dir.join("t.jai"), source).unwrap();
     let mut command = Command::new(JAIC);
+
     command
         .args(["-check", "t.jai", "-no_color"])
         .current_dir(&dir)
@@ -18,15 +20,18 @@ fn check(name: &str, source: &str, layout: &str) -> String {
         .env_remove("CLICOLOR_FORCE")
         .env_remove("NO_COLOR")
         .env_remove("JAIC_DIAGNOSTICS");
+
     if !layout.is_empty() {
         command.env("JAIC_DIAGNOSTICS", layout);
     }
+
     String::from_utf8_lossy(&command.output().unwrap().stderr).into_owned()
 }
 
 #[track_caller]
 fn assert_in_order(text: &str, needles: &[&str]) {
     let mut rest = text;
+
     for needle in needles {
         match rest.find(needle) {
             Some(at) => rest = &rest[at + needle.len()..],
@@ -41,6 +46,7 @@ const TYPO: &str =
 #[test]
 fn a_replacement_is_a_help_line() {
     let plain = check("replacement-plain", TYPO, "");
+
     assert_in_order(
         &plain,
         &[
@@ -53,6 +59,7 @@ fn a_replacement_is_a_help_line() {
 #[test]
 fn a_replacement_shows_the_changed_code_in_the_rich_layouts() {
     let rich = check("replacement-rich", TYPO, "unicode");
+
     assert_in_order(
         &rich,
         &[
@@ -65,6 +72,7 @@ fn a_replacement_shows_the_changed_code_in_the_rich_layouts() {
 #[test]
 fn an_import_is_a_help_line_and_the_other_modules_one_more() {
     let output = check("import", "main :: () {\n    x := log(2.0);\n}\n", "");
+
     // The first module is the suggestion, the rest are named together after it.
     assert_in_order(
         &output,
@@ -84,6 +92,7 @@ fn a_diagnostic_without_suggestions_keeps_its_plain_help() {
         "main :: () {\n    x: s32 = 1;\n    y: s64 = x;\n    z: string = y;\n}\n",
         "",
     );
+
     assert!(
         output.contains("error[type-mismatch]: type mismatch"),
         "{output}"

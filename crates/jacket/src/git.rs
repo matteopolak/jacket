@@ -136,11 +136,13 @@ impl<'a> Repo<'a> {
         {
             return None;
         }
+
         let own = self
             .spawn(&[], &["config", "--get", "core.sshCommand"], None)
             .ok()
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty());
+
         Some(format!(
             "{} -o BatchMode=yes",
             own.as_deref().unwrap_or("ssh")
@@ -161,19 +163,25 @@ impl<'a> Repo<'a> {
                 said: format!("{} is not a folder", dir.display()),
             });
         }
+
         let mut command = Command::new("git");
+
         if let Some(dir) = self.dir {
             command.current_dir(dir);
         }
+
         for setting in config {
             command.args(["-c", setting]);
         }
+
         for var in LOCATING {
             command.env_remove(var);
         }
+
         if let Some(ssh) = ssh {
             command.env("GIT_SSH_COMMAND", ssh);
         }
+
         let output = command
             .args(args)
             .env("GIT_TERMINAL_PROMPT", "0")
@@ -184,11 +192,13 @@ impl<'a> Repo<'a> {
                 std::io::ErrorKind::NotFound => Failure::Missing,
                 _ => Failure::Unusable(e.to_string()),
             })?;
+
         if !output.status.success() {
             return Err(Failure::Failed {
                 said: String::from_utf8_lossy(&output.stderr).trim().to_string(),
             });
         }
+
         String::from_utf8(output.stdout)
             .map_err(|_| Failure::Unusable("git printed text that is not UTF-8".into()))
     }
@@ -226,6 +236,7 @@ impl<'a> Repo<'a> {
     pub fn git_path(&self, name: &str) -> Result<PathBuf> {
         let path = self.ask(&["rev-parse", "--git-path", name])?;
         let path = PathBuf::from(path.trim());
+
         Ok(match self.dir {
             Some(dir) if path.is_relative() => dir.join(path),
             _ => path,
@@ -243,6 +254,7 @@ impl<'a> Repo<'a> {
         let text = self
             .run(&["rev-parse", "--verify", "--quiet", &spelled])
             .ok()?;
+
         CommitId::parse(&text).ok()
     }
 
@@ -267,20 +279,25 @@ impl<'a> Repo<'a> {
             "--",
         ];
         let targets: Vec<String> = targets.iter().map(|t| t.display().to_string()).collect();
+
         args.extend(targets.iter().map(String::as_str));
         let text = self.ask(&args)?;
         // Each entry is `XY path`, NUL-terminated; a rename adds the old path as a second field.
         let mut dirty = Vec::new();
         let mut fields = text.split('\0').filter(|f| !f.is_empty());
+
         while let Some(entry) = fields.next() {
             let Some(path) = entry.get(3..) else {
                 continue;
             };
+
             if entry.starts_with(['R', 'C']) {
                 fields.next();
             }
+
             dirty.push(path.to_string());
         }
+
         Ok(dirty)
     }
 
@@ -322,6 +339,7 @@ impl<'a> Repo<'a> {
         } else {
             &[]
         };
+
         self.run_net(config, &args)
             .map(drop)
             .map_err(|f| reach(&f, url))
@@ -330,9 +348,11 @@ impl<'a> Repo<'a> {
     /// Checks out the recorded commits of `paths`, initialising them.
     pub fn submodule_update(&self, paths: &[SubPath], reach_of: Reach) -> Result<()> {
         let mut args = vec!["submodule", "update", "--init"];
+
         if reach_of == Reach::Nested {
             args.push("--recursive");
         }
+
         args.push("--");
         args.extend(paths.iter().map(SubPath::as_str));
         self.run_net(&[], &args).map(drop).map_err(|f| {
@@ -344,6 +364,7 @@ impl<'a> Repo<'a> {
     /// Brings tags and objects up to date with `origin`.
     pub fn fetch_tags(&self) -> Result<()> {
         let args = ["fetch", "--tags", "--force", "origin"];
+
         self.run_net(&[], &args)
             .map(drop)
             .map_err(|f| reach(&f, &self.origin()))
@@ -352,6 +373,7 @@ impl<'a> Repo<'a> {
     /// Fetches one commit by name from `origin`.
     pub fn fetch_commit(&self, commit: &Target) -> Result<()> {
         let args = ["fetch", "origin", commit.as_str()];
+
         self.run_net(&[], &args)
             .map(drop)
             .map_err(|f| reach(&f, &self.origin()))
@@ -364,13 +386,17 @@ impl<'a> Repo<'a> {
     /// The refs of a remote (`ls-remote`).
     pub fn ls_remote(&self, url: &RepoUrl, refs: Refs) -> Result<String> {
         let mut args = vec!["ls-remote"];
+
         if refs == Refs::Tags {
             args.push("--tags");
         }
+
         args.extend(["--", url.as_str()]);
+
         if refs == Refs::Head {
             args.push("HEAD");
         }
+
         self.run_net(&[], &args).map_err(|f| reach(&f, url))
     }
 
@@ -394,6 +420,7 @@ pub fn cause(said: &str) -> Vec<&str> {
 /// A failed command as an error: git's own words, or the install note when git is missing.
 pub fn failed(failure: &Failure, args: &[&str]) -> GitError {
     let command = args.first().copied().unwrap_or("");
+
     match failure {
         Failure::Missing => missing(),
         Failure::Unusable(why) => GitError::new(format!("could not run `git {command}`: {why}")),
@@ -405,9 +432,11 @@ pub fn failed(failure: &Failure, args: &[&str]) -> GitError {
                 "`git {command}` failed: {}",
                 lines.last().copied().unwrap_or("no output")
             ));
+
             if lines.len() > 1 {
                 error = error.note(format!("git said:\n{}", lines.join("\n")));
             }
+
             error
         }
     }
@@ -432,9 +461,11 @@ pub fn reach(failure: &Failure, url: &dyn std::fmt::Display) -> GitError {
         GitError::new(format!("could not reach {url}: {last}"))
             .note("check the address and your network connection, then try again")
     };
+
     if lines.len() > 1 {
         error = error.note(format!("git said:\n{}", lines.join("\n")));
     }
+
     error
 }
 
@@ -447,12 +478,14 @@ pub fn cloned_from(failure: &Failure) -> Option<String> {
         return None;
     };
     let after = said.split("clone of '").nth(1)?;
+
     Some(after.split('\'').next()?.to_string())
 }
 
 /// Whether git's message is a refusal rather than an unreachable host.
 pub fn is_denied(said: &str) -> bool {
     let said = said.to_ascii_lowercase();
+
     [
         "authentication failed",
         "could not read username",
@@ -472,6 +505,7 @@ pub fn is_denied(said: &str) -> bool {
 pub fn missing() -> GitError {
     let text =
         crate::prerequisite::missing(&jaic_toolchain::package::Need::Git, "git", "jacket dep");
+
     match text.split_once("\nnote: ") {
         Some((message, note)) => GitError::new(message).note(note),
         None => GitError::new(text),
@@ -493,6 +527,7 @@ pub fn staged_entries(text: &str) -> Vec<(&str, &str, &str, &str)> {
         .filter_map(|entry| {
             let (meta, path) = entry.split_once('\t')?;
             let mut fields = meta.split_whitespace();
+
             Some((fields.next()?, fields.next()?, fields.next()?, path))
         })
         .collect()
@@ -540,9 +575,11 @@ mod tests {
             &said("fatal: unable to access: Could not resolve host"),
             &url,
         );
+
         assert!(unreachable.message.contains(url));
         assert!(unreachable.notes[0].contains("network"));
         let denied = reach(&said("git@host: Permission denied (publickey)."), &url);
+
         assert!(denied.message.starts_with("git was not allowed to read"));
         assert!(denied.notes[0].contains("SSH key"));
     }
@@ -550,14 +587,17 @@ mod tests {
     #[test]
     fn git_s_hints_are_not_its_cause() {
         let text = "fatal: the thing is wrong\nhint: try this\nhint: or that";
+
         assert_eq!(cause(text), ["fatal: the thing is wrong"]);
         let error = failed(&said(text), &["fetch"]);
+
         assert_eq!(
             error.message,
             "`git fetch` failed: fatal: the thing is wrong"
         );
         assert!(error.notes.is_empty());
         let long = failed(&said("error: first\nfatal: last"), &["fetch"]);
+
         assert!(long.message.ends_with("fatal: last"));
         assert!(long.notes[0].contains("error: first"));
     }
@@ -565,6 +605,7 @@ mod tests {
     #[test]
     fn a_failed_submodule_clone_names_its_address() {
         let failure = said("fatal: clone of 'https://h/x/y' into submodule path '/p/m' failed");
+
         assert_eq!(cloned_from(&failure).as_deref(), Some("https://h/x/y"));
         assert_eq!(cloned_from(&Failure::Missing), None);
     }
@@ -572,6 +613,7 @@ mod tests {
     #[test]
     fn config_and_index_output_is_read_by_nul() {
         let config = "submodule.a b.path\nmodules/é\0submodule.a b.url\nhttps://h/x\0";
+
         assert_eq!(
             config_entries(config),
             [
@@ -580,6 +622,7 @@ mod tests {
             ]
         );
         let staged = "160000 abc 0\tmodules/\u{e9}\u{3b1}\x00100644 def 2\ta\tb\0";
+
         assert_eq!(
             staged_entries(staged),
             [

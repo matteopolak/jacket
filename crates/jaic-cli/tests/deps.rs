@@ -23,6 +23,7 @@ fn lines(output: &Output) -> Vec<String> {
 #[test]
 fn lists_loaded_imported_and_prelude_files() {
     let dir = TempDir::new("deps-list");
+
     std::fs::write(
         dir.join("main.jai"),
         "#import \"Basic\";\n#load \"part.jai\";\nmain :: () { print(\"%\\n\", part_value()); }\n",
@@ -34,6 +35,7 @@ fn lists_loaded_imported_and_prelude_files() {
     )
     .unwrap();
     let output = deps(&dir.join("main.jai"), &[]);
+
     assert!(
         output.status.success(),
         "{}",
@@ -41,6 +43,7 @@ fn lists_loaded_imported_and_prelude_files() {
     );
     let files = lines(&output);
     let has = |suffix: &str| files.iter().any(|f| f.ends_with(suffix));
+
     assert!(has("main.jai"), "{files:?}");
     assert!(has("part.jai"), "{files:?}");
     assert!(has("Basic/module.jai"), "{files:?}");
@@ -60,8 +63,10 @@ fn lists_loaded_imported_and_prelude_files() {
 #[test]
 fn a_program_that_does_not_compile_lists_nothing() {
     let dir = TempDir::new("deps-error");
+
     std::fs::write(dir.join("main.jai"), "main :: () { missing(); }\n").unwrap();
     let output = deps(&dir.join("main.jai"), &[]);
+
     assert_eq!(output.status.code(), Some(1));
     assert!(
         output.stdout.is_empty(),
@@ -72,6 +77,7 @@ fn a_program_that_does_not_compile_lists_nothing() {
 #[test]
 fn files_of_a_plugins_program_are_listed() {
     let dir = TempDir::new("deps-plugin");
+
     std::fs::write(
         dir.join("main.jai"),
         "#load \"part.jai\";\nmain :: () { part(); }\n",
@@ -79,6 +85,7 @@ fn files_of_a_plugins_program_are_listed() {
     .unwrap();
     std::fs::write(dir.join("part.jai"), "part :: () {}\n").unwrap();
     let output = deps(&dir.join("main.jai"), &["+Check"]);
+
     assert!(
         output.status.success(),
         "{}",
@@ -86,6 +93,7 @@ fn files_of_a_plugins_program_are_listed() {
     );
     let files = lines(&output);
     let has = |suffix: &str| files.iter().any(|f| f.ends_with(suffix));
+
     assert!(has("part.jai"), "{files:?}");
     assert!(has("Check/module.jai"), "{files:?}");
 }
@@ -93,8 +101,10 @@ fn files_of_a_plugins_program_are_listed() {
 #[test]
 fn deps_cannot_be_combined_with_interp() {
     let dir = TempDir::new("deps-interp");
+
     std::fs::write(dir.join("main.jai"), "main :: () {}\n").unwrap();
     let output = deps(&dir.join("main.jai"), &["-interp"]);
+
     assert_eq!(output.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&output.stderr).contains("`-deps` and `-interp`"));
 }
@@ -129,8 +139,10 @@ fn deps_file_matches_deps_in_check_mode() {
     let printed = lines(&deps(&main, &[]));
     let list = dir.join("main.deps");
     let output = jaic(&main, &["-check", "-deps_file", list.to_str().unwrap()]);
+
     assert!(output.status.success());
     let written = std::fs::read_to_string(&list).unwrap();
+
     assert_eq!(written.lines().collect::<Vec<_>>(), printed);
     assert!(output.stdout.is_empty(), "the list goes to the file only");
 }
@@ -151,12 +163,14 @@ fn deps_file_is_written_by_a_build() {
             list.to_str().unwrap(),
         ],
     );
+
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
     let written = std::fs::read_to_string(&list).unwrap();
+
     assert_eq!(written.lines().collect::<Vec<_>>(), printed);
 }
 
@@ -166,8 +180,10 @@ fn deps_file_is_written_by_interp() {
     let main = program(&dir);
     let list = dir.join("main.deps");
     let output = jaic(&main, &["-interp", "-deps_file", list.to_str().unwrap()]);
+
     assert!(output.status.success());
     let written = std::fs::read_to_string(&list).unwrap();
+
     assert!(
         written.lines().any(|f| f.ends_with("part.jai")),
         "{written}"
@@ -177,12 +193,14 @@ fn deps_file_is_written_by_interp() {
 #[test]
 fn deps_file_is_not_written_for_a_failed_compile() {
     let dir = TempDir::new("deps-file-error");
+
     std::fs::write(dir.join("main.jai"), "main :: () { missing(); }\n").unwrap();
     let list = dir.join("main.deps");
     let output = jaic(
         &dir.join("main.jai"),
         &["-check", "-deps_file", list.to_str().unwrap()],
     );
+
     assert_eq!(output.status.code(), Some(1));
     assert!(!list.exists());
 }

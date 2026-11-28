@@ -52,6 +52,7 @@ impl AsmBlockSyntax {
         } else {
             self.body.end.max(self.header_end)
         };
+
         Span {
             end,
             ..self.directive
@@ -60,19 +61,23 @@ impl AsmBlockSyntax {
 
     pub fn place(&self, byte: usize) -> Option<AsmPlace> {
         let byte = byte as u32;
+
         if byte <= self.directive.start {
             return None;
         }
+
         if byte > self.directive.end && byte <= self.header_end {
             let word_start = self
                 .features
                 .iter()
                 .find(|f| f.start < byte && byte <= f.end)
                 .map_or(byte, |f| f.start);
+
             return Some(AsmPlace::Features {
                 word_start,
             });
         }
+
         (self.open.is_some() && self.body.start <= byte && byte <= self.body.end)
             .then_some(AsmPlace::Body)
     }
@@ -80,6 +85,7 @@ impl AsmBlockSyntax {
     /// The statement holding `byte` (`start <= byte <= end`).
     pub fn statement_at(&self, byte: usize) -> Option<&AsmStmtSyntax> {
         let byte = byte as u32;
+
         self.statements
             .iter()
             .find(|s| s.span.start <= byte && byte <= s.span.end)
@@ -160,18 +166,22 @@ pub fn asm_blocks(text: &str) -> Vec<AsmBlockSyntax> {
     if !text.contains("#asm") {
         return Vec::new();
     }
+
     let (tokens, _) = lexer::lex_ide(FILE, text);
     let mut out = Vec::new();
     let mut i = 0;
+
     while i < tokens.len() {
         if is_asm(&tokens[i]) {
             let (block, next) = block_at(text, &tokens, i);
+
             out.push(block);
             i = next.max(i + 1);
         } else {
             i += 1;
         }
     }
+
     out
 }
 
@@ -179,11 +189,14 @@ pub fn asm_blocks(text: &str) -> Vec<AsmBlockSyntax> {
 /// what is before the cursor, so it asks about a statement cut there.
 pub fn parse_asm_statement(text: &str, start: usize, end: usize) -> AsmStmtSyntax {
     let (mut tokens, _) = lexer::lex_ide(FILE, text.get(start..end).unwrap_or(""));
+
     tokens.retain(|t| t.tok != Tok::Eof);
+
     for t in &mut tokens {
         t.span.start += start as u32;
         t.span.end += start as u32;
     }
+
     statement(&tokens, start as u32, end as u32)
 }
 
@@ -192,13 +205,17 @@ pub fn word_range(text: &str, byte: usize) -> (usize, usize) {
     let b = text.as_bytes();
     let byte = byte.min(b.len());
     let mut start = byte;
+
     while start > 0 && lexer::is_ident_char(b[start - 1]) {
         start -= 1;
     }
+
     let mut end = byte;
+
     while end < b.len() && lexer::is_ident_char(b[end]) {
         end += 1;
     }
+
     (start, end)
 }
 
@@ -221,25 +238,30 @@ fn block_at(text: &str, tokens: &[Token], at: usize) -> (AsmBlockSyntax, usize) 
     let mut width = 16;
     let mut i = at + 1;
     let mut header_last = directive.end;
+
     while let Some(t) = tokens.get(i) {
         match t.tok {
             Tok::Ident(_) => {
                 let name = text
                     .get(t.span.start as usize..t.span.end as usize)
                     .unwrap_or("");
+
                 if name.starts_with("AVX512") {
                     width = 64;
                 } else if name.starts_with("AVX") && width < 32 {
                     width = 32;
                 }
+
                 features.push(t.span);
             }
             Tok::Punct(P::Comma) => {}
             _ => break,
         }
+
         header_last = t.span.end;
         i += 1;
     }
+
     let text_end = text.len() as u32;
     let Some(open) = tokens.get(i).filter(|t| is(t, P::LBrace)) else {
         let header_end = tokens
@@ -257,23 +279,28 @@ fn block_at(text: &str, tokens: &[Token], at: usize) -> (AsmBlockSyntax, usize) 
             width,
             statements: Vec::new(),
         };
+
         return (block, i);
     };
     let mut depth = 1;
     let mut close = None;
     let mut j = i + 1;
+
     while let Some(t) = tokens.get(j) {
         if opens_brace(t) {
             depth += 1;
         } else if is(t, P::RBrace) {
             depth -= 1;
+
             if depth == 0 {
                 close = Some(j);
                 break;
             }
         }
+
         j += 1;
     }
+
     let body_end = close.map_or(text_end, |c| tokens[c].span.start);
     let body_tokens = &tokens[i + 1..close.unwrap_or(tokens.len())];
     let body_tokens = match body_tokens.last() {
@@ -283,6 +310,7 @@ fn block_at(text: &str, tokens: &[Token], at: usize) -> (AsmBlockSyntax, usize) 
     let mut statements = Vec::new();
     let mut from = open.span.end;
     let mut first = 0;
+
     for (n, t) in body_tokens.iter().enumerate() {
         if is(t, P::Semi) {
             statements.push(statement(&body_tokens[first..n], from, t.span.start));
@@ -290,6 +318,7 @@ fn block_at(text: &str, tokens: &[Token], at: usize) -> (AsmBlockSyntax, usize) 
             first = n + 1;
         }
     }
+
     statements.push(statement(&body_tokens[first..], from, body_end));
     let block = AsmBlockSyntax {
         directive,
@@ -316,13 +345,16 @@ fn decl_in(tokens: &[Token], end: u32) -> Option<AsmDeclSyntax> {
     let [name, colon, rest @ ..] = tokens else {
         return None;
     };
+
     if !matches!(name.tok, Tok::Ident(_)) || !is(colon, P::Colon) {
         return None;
     }
+
     let class = rest
         .first()
         .filter(|t| matches!(t.tok, Tok::Ident(_)))
         .map(|t| t.span);
+
     Some(AsmDeclSyntax {
         name: name.span,
         class,
@@ -349,6 +381,7 @@ fn statement(tokens: &[Token], start: u32, end: u32) -> AsmStmtSyntax {
         }
         _ => AsmStmtKind::Other,
     };
+
     AsmStmtSyntax {
         span,
         kind,
@@ -359,12 +392,15 @@ fn instruction(mnemonic: &Token, rest: &[Token], end: u32) -> AsmStmtKind {
     let mut used = 0;
     let mut stop = mnemonic.span.end;
     let mut suffix = None;
+
     match rest.first().map(|t| &t.tok) {
         Some(Tok::Punct(P::Dot)) => {
             let dot = &rest[0];
+
             stop = dot.span.end;
             used = 1;
             suffix = Some(Span::new(FILE, stop as usize, stop as usize));
+
             if let Some(t) = rest.get(1)
                 && t.span.start == dot.span.end
                 && matches!(t.tok, Tok::Ident(_) | Tok::Int(_))
@@ -385,6 +421,7 @@ fn instruction(mnemonic: &Token, rest: &[Token], end: u32) -> AsmStmtKind {
         }
         _ => {}
     }
+
     let after = &rest[used..];
     let operands_start = match after.first() {
         Some(t) if t.span.start == stop => return AsmStmtKind::Other,
@@ -392,6 +429,7 @@ fn instruction(mnemonic: &Token, rest: &[Token], end: u32) -> AsmStmtKind {
         None => (end > stop).then_some(end),
     };
     let operands = operands_start.map_or_else(Vec::new, |s| operands(after, s, end));
+
     AsmStmtKind::Inst(AsmInstSyntax {
         mnemonic: mnemonic.span,
         suffix,
@@ -410,6 +448,7 @@ fn operands(tokens: &[Token], start: u32, end: u32) -> Vec<AsmOperandSyntax> {
             pin: pin_in(tokens),
         });
     };
+
     for (n, t) in tokens.iter().enumerate() {
         match t.tok {
             Tok::Punct(P::LBracket | P::LParen) => depth += 1,
@@ -422,6 +461,7 @@ fn operands(tokens: &[Token], start: u32, end: u32) -> Vec<AsmOperandSyntax> {
             _ => {}
         }
     }
+
     push(&tokens[first..], from, end, &mut out);
     out
 }
@@ -438,13 +478,17 @@ mod tests {
     fn statements_and_operands_are_split() {
         let text = "x := 1; #asm AVX2 {\n  t: gpr === a; mov.q tmp:, [p + 8]; // c;\n  vaddps.y a, b, c\n} y := 2;";
         let blocks = asm_blocks(text);
+
         assert_eq!(blocks.len(), 1);
         let b = &blocks[0];
+
         assert!(b.closed);
         assert_eq!(b.width, 32);
         let whole = &text[text.find("#asm").unwrap()..=text.find("} y").unwrap()];
+
         assert_eq!(text_of(text, b.span()), whole);
         let kinds: Vec<_> = b.statements.iter().map(|s| &s.kind).collect();
+
         assert_eq!(kinds.len(), 3);
         let AsmStmtKind::Decl {
             decl,
@@ -453,10 +497,12 @@ mod tests {
         else {
             panic!("{:?}", kinds[0])
         };
+
         assert_eq!(text_of(text, decl.name), "t");
         let AsmStmtKind::Inst(mov) = kinds[1] else {
             panic!("{:?}", kinds[1])
         };
+
         assert_eq!(text_of(text, mov.suffix.unwrap()), "q");
         assert_eq!(mov.operands.len(), 2);
         assert!(mov.operands[0].decl.is_some());
@@ -464,6 +510,7 @@ mod tests {
         let AsmStmtKind::Inst(add) = kinds[2] else {
             panic!("{:?}", kinds[2])
         };
+
         assert_eq!(add.operands.len(), 3);
     }
 
@@ -476,11 +523,13 @@ mod tests {
     fn an_unterminated_body_runs_to_the_end() {
         let text = "f :: () {\n #asm {\n mov.q x, 1;\n ad";
         let blocks = asm_blocks(text);
+
         assert_eq!(blocks.len(), 1);
         assert!(!blocks[0].closed);
         assert_eq!(blocks[0].body.end as usize, text.len());
         assert_eq!(blocks[0].statements.len(), 2);
         let last = &blocks[0].statements[1];
+
         assert!(matches!(&last.kind, AsmStmtKind::Inst(i) if i.operands_start.is_none()));
     }
 
@@ -491,16 +540,19 @@ mod tests {
         let AsmStmtKind::Inst(inst) = stmt.kind else {
             panic!()
         };
+
         assert_eq!(inst.operands.len(), 2);
         assert_eq!(inst.operands[1].span.end as usize, text.len());
         let text = "#asm { t: g";
         let stmt = parse_asm_statement(text, 7, text.len());
+
         assert!(matches!(stmt.kind, AsmStmtKind::Decl { decl, .. } if decl.class_open));
     }
 
     #[test]
     fn header_only_blocks_report_the_header() {
         let blocks = asm_blocks("#asm AVX, AV");
+
         assert_eq!(blocks[0].features.len(), 2);
         assert!(blocks[0].open.is_none());
         assert_eq!(

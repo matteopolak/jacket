@@ -28,8 +28,10 @@ impl Compiler {
         if !self.ide_wants_file(span.file) {
             return;
         }
+
         let header = self.proc(proc).lit.header.clone();
         let mut subst: HashMap<Sym, Argument> = HashMap::default();
+
         for (i, param) in header.params.iter().enumerate() {
             let Some(name) = param.name else {
                 continue;
@@ -37,6 +39,7 @@ impl Compiler {
             let is_code = self.param_is_code(proc, param);
             let arg_text = |a: usize| -> (String, bool) {
                 let arg = &args[a];
+
                 if let Some(Operand::Const {
                     value: Value::Code(c),
                     ..
@@ -44,6 +47,7 @@ impl Compiler {
                 {
                     return (self.ide_code_text(*c), false);
                 }
+
                 match &arg.expr {
                     Some(ast::Expr {
                         kind: ast::ExprKind::Code(body),
@@ -81,6 +85,7 @@ impl Compiler {
                     None => continue,
                 },
             };
+
             subst.insert(
                 name.name,
                 Argument {
@@ -91,6 +96,7 @@ impl Compiler {
                 },
             );
         }
+
         let source = self.ide_snippet(body.span).trim().to_string();
         let text = match substitute(&source, &subst) {
             Some(text) => text,
@@ -101,6 +107,7 @@ impl Compiler {
             None => text,
         };
         let name = self.proc(proc).name.to_string();
+
         self.ide_note_expansion(
             span,
             IdeExpansionKind::Macro,
@@ -116,6 +123,7 @@ impl Compiler {
         if !self.ide_wants_file(string.file) {
             return;
         }
+
         let Some(ide) = self.ed.facts_mut() else {
             return;
         };
@@ -123,6 +131,7 @@ impl Compiler {
             string,
             mode,
         };
+
         if ide.interpolations.len() < MAX_CALLS && !ide.interpolations.contains(&fact) {
             ide.interpolations.push(fact);
         }
@@ -140,11 +149,14 @@ impl Compiler {
     ) {
         self.ide_note_polymorph(chosen);
         self.ide_note_callee(span, chosen);
+
         if !self.ide_wants_file(span.file) {
             return;
         }
+
         let header = self.proc(chosen).lit.header.clone();
         let mut out = Vec::new();
+
         for (param, slot) in slots.iter().enumerate() {
             let variadic = header.params.get(param).is_some_and(|p| p.variadic);
             let list: Vec<usize> = match slot {
@@ -152,8 +164,10 @@ impl Compiler {
                 Slot::Variadic(l) => l.clone(),
                 Slot::Default => Vec::new(),
             };
+
             for a in list {
                 let arg = &args[a];
+
                 out.push(IdeArg {
                     span: arg.span,
                     param,
@@ -164,14 +178,17 @@ impl Compiler {
                 });
             }
         }
+
         out.sort_by_key(|a| a.span.start);
         self.ide_note_named_args(chosen, slots, args);
         let Some(ide) = self.ed.facts_mut() else {
             return;
         };
+
         if ide.calls.len() >= MAX_CALLS || !ide.call_spans.insert(span) {
             return;
         }
+
         ide.calls.push(IdeCall {
             span,
             candidates: candidates.to_vec(),
@@ -186,9 +203,11 @@ impl Compiler {
         if self.ed.sketching() {
             return;
         }
+
         let Some(ide) = self.ed.facts_mut() else {
             return;
         };
+
         ide.callees
             .entry(span)
             .and_modify(|seen| {
@@ -206,6 +225,7 @@ impl Compiler {
         if self.ed.sketching() || !self.ide_wants_file(span.file) {
             return;
         }
+
         let keyword = Span {
             end: span.start + 3,
             ..span
@@ -217,13 +237,16 @@ impl Compiler {
             .for_expansions
             .entry(keyword)
             .or_insert_with(|| Some(Vec::new()));
+
         if ambiguous {
             *selections = None;
             return;
         }
+
         let Some(procs) = selections else {
             return;
         };
+
         if !procs.contains(&chosen) {
             procs.push(chosen);
         }
@@ -240,16 +263,21 @@ impl Compiler {
         if self.ed.sketching() || !self.ide_wants_file(at.file) {
             return;
         }
+
         let mut names = Vec::new();
+
         if for_.it.is_none() {
             names.push(("it", types[0]));
         }
+
         if for_.index.is_none() {
             names.push(("it_index", types[1]));
         }
+
         if names.is_empty() {
             return;
         }
+
         let key = Span {
             end: at.start,
             ..at
@@ -257,6 +285,7 @@ impl Compiler {
         let Some(ide) = self.ed.facts_mut() else {
             return;
         };
+
         match ide.implicit_loop_names.entry(key) {
             std::collections::hash_map::Entry::Vacant(slot) => {
                 slot.insert(Some(names));
@@ -274,6 +303,7 @@ impl Compiler {
     fn ide_note_named_args(&mut self, chosen: ProcId, slots: &[Slot], args: &[CallArg]) {
         let header = self.proc(chosen).lit.header.clone();
         let sig = self.proc(chosen).sig.clone();
+
         self.ide_note_parameter_names(slots, args, |param| {
             let ty = sig
                 .as_ref()
@@ -316,10 +346,12 @@ impl Compiler {
                 Slot::Variadic(list) => list,
                 Slot::Default => &[],
             };
+
             list.iter()
                 .filter_map(|&a| args[a].name)
                 .map(move |name| (param, name))
         });
+
         for (param, name) in named.collect::<Vec<_>>() {
             let at = name.span;
             let (ty, declared) = parameter(param);
@@ -329,12 +361,14 @@ impl Compiler {
             let Some(ide) = self.ed.facts_mut() else {
                 return;
             };
+
             ide.refs.push(IdeRef {
                 span: at,
                 what: IdeWhat::Member(name.name),
                 ty,
                 decl: false,
             });
+
             if let Some(decl) = decl {
                 ide.member_uses.insert((at, decl));
             }

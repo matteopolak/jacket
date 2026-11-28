@@ -48,6 +48,7 @@ impl Interp {
                         "dynamic interpreter stack allocation exceeds the frame stack",
                     );
                 };
+
                 self.sp = end;
                 vals[dst.0 as usize] = self.program_addr(base + start);
             }
@@ -75,6 +76,7 @@ impl Interp {
                 b,
             } => {
                 let (x, y) = (vals[a.0 as usize], vals[b.0 as usize]);
+
                 vals[dst.0 as usize] = self.bin(*op, self.addresses().int_ty(*ty), x, y)?;
             }
             Inst::Un {
@@ -85,6 +87,7 @@ impl Interp {
             } => {
                 let x = vals[a.0 as usize];
                 let ty = self.addresses().int_ty(*ty);
+
                 vals[dst.0 as usize] = match op {
                     UnOp::Neg => mask(ty, x.wrapping_neg()),
                     UnOp::Not => mask(ty, !x),
@@ -105,6 +108,7 @@ impl Interp {
                 b,
             } => {
                 let (x, y) = (vals[a.0 as usize], vals[b.0 as usize]);
+
                 vals[dst.0 as usize] = cmp(*op, self.addresses().int_ty(*ty), x, y) as u64;
             }
             Inst::Conv {
@@ -139,9 +143,11 @@ impl Interp {
                 addr,
             } => {
                 let at = vals[addr.0 as usize];
+
                 if self.near_note(at, 8) {
                     self.note_read(at, ty.size(self.data_layout()));
                 }
+
                 vals[dst.0 as usize] = self.load(*ty, at)?;
             }
             Inst::Store {
@@ -165,13 +171,17 @@ impl Interp {
                 size,
             } => {
                 let (d, s) = (vals[dst.0 as usize], vals[src.0 as usize]);
+
                 if d < 4096 || s < 4096 {
                     return self.null_trap("memory copy through a null pointer");
                 }
+
                 self.check_writable(d, *size as usize)?;
+
                 if self.near_note(s, *size) {
                     self.note_read(s, *size);
                 }
+
                 // SAFETY: operands are host addresses of live program memory, which `ptr::copy` may
                 // overlap; the null case was trapped above.
                 unsafe {
@@ -187,9 +197,11 @@ impl Interp {
                 size,
             } => {
                 let d = vals[dst.0 as usize];
+
                 if d < 4096 {
                     return self.null_trap("memory fill through a null pointer");
                 }
+
                 self.check_writable(d, *size as usize)?;
                 // SAFETY: `d` is non-null (trapped above) and addresses `size` writable bytes of
                 // program memory.
@@ -211,6 +223,7 @@ impl Interp {
                     }
                     Callee::Indirect(target, sig) => {
                         let addr = vals[target.0 as usize];
+
                         match proc_addr::proc_of(self.proc_width(), addr) {
                             Some(proc_addr::Proc::Func(id)) => self.exec(program, id, argv)?,
                             Some(proc_addr::Proc::Foreign(id)) => {
@@ -239,6 +252,7 @@ impl Interp {
                         }
                     }
                 };
+
                 for (r, &v) in results.iter().zip(out.iter()) {
                     vals[r.0 as usize] = v;
                 }
@@ -251,9 +265,11 @@ impl Interp {
                 } = &**call;
                 let (mut small, mut heap) = ([0u64; 8], Vec::new());
                 let argv = gather(vals, args, &mut small, &mut heap);
+
                 if *op == ir::Intrinsic::CheckFailed {
                     return self.check_failed(program, argv);
                 }
+
                 if matches!(
                     op,
                     ir::Intrinsic::FiberInit
@@ -262,8 +278,10 @@ impl Interp {
                 ) {
                     return self.fiber_intrinsic(program, *op, argv);
                 }
+
                 let result_type = results.first().map(|r| value_types[r.0 as usize]);
                 let out = self.intrinsic(*op, argv, result_type)?;
+
                 for (r, &v) in results.iter().zip(out.iter()) {
                     vals[r.0 as usize] = v;
                 }
@@ -275,6 +293,7 @@ impl Interp {
                 ..
             } => self.loc = Some((*file, *line, *col)),
         }
+
         Ok(())
     }
 
@@ -305,20 +324,24 @@ impl Interp {
         {
             return Ok(());
         }
+
         if a[3] & 0xff != 0 {
             return self.check_trap(ir::CheckReason::from_raw(a[0]), a[1], a[2]);
         }
+
         let message = ir::check_message(ir::CheckReason::from_raw(a[0]), a[1], a[2]);
         let at = self
             .loc
             .and_then(|(file, line, _)| {
                 let path = program.file_paths.get(file as usize)?;
+
                 Some(format!(
                     "{}:{line}: ",
                     crate::display_path(std::path::Path::new(path))
                 ))
             })
             .unwrap_or_default();
+
         self.effects += 1;
         self.host
             .write(format!("{at}warning: {message}\n").as_bytes(), true);
@@ -337,6 +360,7 @@ pub(super) fn gather<'a>(
         for (slot, a) in small.iter_mut().zip(args) {
             *slot = vals[a.0 as usize];
         }
+
         &small[..args.len()]
     } else {
         *heap = args.iter().map(|a| vals[a.0 as usize]).collect();

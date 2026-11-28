@@ -25,12 +25,16 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         let count = p.header.params.len();
+
         if count <= cx.max_arguments || p.header.uses_c_abi() {
             continue;
         }
+
         let (span, name) = proc_label(p);
+
         out.push(super::finding(
             span,
             format!(

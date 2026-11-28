@@ -40,9 +40,11 @@ pub fn render(
     let compiler =
         Code::parse(lint.rule).filter(|_| crate::RULES.iter().all(|r| r.name != lint.rule));
     let mut report = Report::new(compiler.unwrap_or(Code::LintFinding), lint.message.clone());
+
     if compiler.is_none() {
         report.name = Some(lint.rule);
     }
+
     report.severity = match lint.level {
         Level::Deny => Severity::Error,
         _ => Severity::Warning,
@@ -67,6 +69,7 @@ pub fn render(
             }
         })
         .collect();
+
     for (label, path) in lint.secondary.iter().zip(&related_paths) {
         report = report.with_secondary_label(Label {
             path,
@@ -77,6 +80,7 @@ pub fn render(
             lines: None,
         });
     }
+
     // One `help:` per line; the fix is shown under the first.
     for (i, help) in lint.help.iter().flat_map(|h| h.lines()).enumerate() {
         report.help.push(Help {
@@ -92,10 +96,13 @@ pub fn render(
             }),
         });
     }
+
     report.notes.extend(lint.notes.iter().cloned());
+
     if compiler.is_some() {
         return report.render_with(*style);
     }
+
     if lint.level == default {
         report.notes.push(format!(
             "`{}` is `{}` by default",
@@ -103,6 +110,7 @@ pub fn render(
             default.as_str()
         ));
     }
+
     report
         .notes
         .push(format!("see {}", crate::rule_url(lint.rule)));

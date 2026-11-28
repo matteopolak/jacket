@@ -21,6 +21,7 @@ pub(super) struct Set {
 impl Set {
     fn join(&mut self, other: &Self) -> bool {
         let before = (self.procedures.len(), self.formals.len(), self.unknown);
+
         self.procedures.extend(&other.procedures);
         self.formals.extend(&other.formals);
         self.unknown |= other.unknown;
@@ -35,6 +36,7 @@ impl Set {
 
     pub fn ordered(&self) -> Vec<ProcId> {
         let mut ids: Vec<_> = self.procedures.iter().copied().collect();
+
         ids.sort_unstable_by_key(|p| p.0);
         ids
     }
@@ -71,28 +73,37 @@ impl Universe {
             ..Self::default()
         };
         let mut ids: Vec<_> = graphs.keys().copied().collect();
+
         ids.sort_unstable_by_key(|id| id.0);
+
         loop {
             let mut changed = false;
+
             for &id in &ids {
                 let next = graphs[&id].solve(&this, valid);
+
                 for (global, mut set) in next.globals {
                     set.unknown |= !set.formals.is_empty();
                     set.formals.clear();
                     changed |= this.globals.entry(global).or_default().join(&set);
                 }
+
                 let old = this.bodies.entry(id).or_default();
+
                 for (v, set) in next.values {
                     changed |= old.values.entry(v).or_default().join(&set);
                 }
+
                 for (v, set) in next.returns {
                     changed |= old.returns.entry(v).or_default().join(&set);
                 }
             }
+
             if !changed {
                 break;
             }
         }
+
         this
     }
 
@@ -144,7 +155,9 @@ impl Graph {
         if let Some(&id) = self.ids.get(&cell) {
             return id;
         }
+
         let id = self.seeds.len();
+
         self.ids.insert(cell, id);
         self.seeds.push(Set::default());
         self.defined.push(false);
@@ -155,12 +168,14 @@ impl Graph {
     fn edge(&mut self, destination: Cell, source: Cell) {
         let a = self.id(destination);
         let b = self.id(source);
+
         self.forward[b].push(a);
         self.defined[a] = true;
     }
 
     fn new(compiler: &Compiler, body: &LifetimeBody) -> Option<Self> {
         let events: Vec<_> = body.blocks.iter().flat_map(|b| &b.events).collect();
+
         if !events.iter().any(|e| match e {
             Event::Procedure {
                 ..
@@ -187,6 +202,7 @@ impl Graph {
         }) {
             return None;
         }
+
         let mut places = Places::new(compiler, body);
         let owned: HashSet<_> = body.stack_places.iter().copied().collect();
         let exposed: HashSet<_> = events
@@ -202,16 +218,22 @@ impl Graph {
             .collect();
         let global_slots = globals::slots(compiler, body);
         let mut global_places = HashMap::default();
+
         for (&value, slot) in &global_slots {
             let p = places.place(value, slot.ty);
+
             global_places.insert(p, slot.global);
         }
+
         let mut graph = Self::default();
+
         for (&place, &global) in &global_places {
             let cell = graph.id(Cell::Place(place));
+
             graph.defined[cell] = true;
             graph.globals.push((global, cell));
         }
+
         for e in &events {
             match *e {
                 Event::Procedure {
@@ -220,6 +242,7 @@ impl Graph {
                     ..
                 } => {
                     let n = graph.id(Cell::Value(*value));
+
                     graph.seeds[n].procedures.insert(*callee);
                     graph.defined[n] = true;
                 }
@@ -230,6 +253,7 @@ impl Graph {
                     ..
                 } if procedure(compiler, *ty) => {
                     let n = graph.id(Cell::Value(*incoming));
+
                     graph.seeds[n].formals.insert(*formal);
                     graph.defined[n] = true;
                 }
@@ -247,8 +271,10 @@ impl Graph {
                         }
                     ) {
                         let n = graph.id(Cell::Value(*value));
+
                         graph.defined[n] = true;
                     }
+
                     graph.edge(Cell::Place(places.place(*place, *ty)), Cell::Value(*value));
                 }
                 Event::Load {
@@ -258,7 +284,9 @@ impl Graph {
                     ..
                 } if procedure(compiler, *ty) => {
                     let p = places.place(*place, *ty);
+
                     graph.edge(Cell::Value(*value), Cell::Place(p));
+
                     if !global_places.contains_key(&p)
                         && (!owned.contains(&places.paths[p].0.0)
                             || places.unresolved(p)
@@ -266,6 +294,7 @@ impl Graph {
                             || places.ancestors(p).any(|a| exposed.contains(&a)))
                     {
                         let n = graph.id(Cell::Place(p));
+
                         graph.seeds[n].unknown = true;
                     }
                 }
@@ -284,6 +313,7 @@ impl Graph {
                     ..
                 } => {
                     let n = graph.id(Cell::Value(*callee));
+
                     graph.call(compiler, Callee::Indirect(n), args, results);
                 }
                 Event::Return {
@@ -293,11 +323,13 @@ impl Graph {
                     ..
                 } if procedure(compiler, *ty) => {
                     let n = graph.id(Cell::Value(*value));
+
                     graph.returns.push((*index, n));
                 }
                 _ => {}
             }
         }
+
         // Copy edges may erase a procedure type (e.g. through *void) and recover it later.
         // Follow only the backwards closure of values needed by a typed operation.
         let copies: HashMap<_, Vec<_>> = events
@@ -322,18 +354,22 @@ impl Graph {
             })
             .collect();
         let mut seen = HashSet::default();
+
         while let Some(v) = queue.pop_front() {
             if !seen.insert(v) {
                 continue;
             }
+
             for &source in copies.get(&v).into_iter().flatten() {
                 graph.edge(Cell::Value(v), Cell::Value(source));
                 queue.push_back(source);
             }
         }
+
         for (n, defined) in graph.defined.iter().enumerate() {
             graph.seeds[n].unknown |= !defined;
         }
+
         Some(graph)
     }
 
@@ -350,19 +386,24 @@ impl Graph {
             .filter_map(|a| match a.operand {
                 LifetimeOperand::Value(v) | LifetimeOperand::Place(v) => {
                     let n = self.id(Cell::Value(v));
+
                     if a.constant == Some(0) {
                         self.defined[n] = true;
                     }
+
                     Some((a.formal, n))
                 }
                 LifetimeOperand::Other => None,
             })
             .collect();
+
         for &(result, value, ty) in results {
             if !procedure(compiler, ty) {
                 continue;
             }
+
             let destination = self.id(Cell::Value(value));
+
             self.defined[destination] = true;
             self.calls.push(Call {
                 destination,
@@ -378,19 +419,24 @@ impl Graph {
 
     fn solve(&self, all: &Universe, valid: &HashMap<ProcId, &LifetimeBody>) -> Local {
         let mut values = self.seeds.clone();
+
         for &(global, n) in &self.globals {
             if let Some(set) = all.globals.get(&global) {
                 values[n].join(set);
             }
         }
+
         loop {
             let mut changed = false;
+
             for (from, tos) in self.forward.iter().enumerate() {
                 let set = values[from].clone();
+
                 for &to in tos {
                     changed |= values[to].join(&set);
                 }
             }
+
             for call in &self.calls {
                 let targets = match call.callee {
                     Callee::Direct(p) => Set {
@@ -403,11 +449,13 @@ impl Graph {
                     unknown: targets.unknown || !targets.formals.is_empty(),
                     ..Set::default()
                 };
+
                 for proc in targets.procedures {
                     if !valid.contains_key(&proc) {
                         result.unknown = true;
                         continue;
                     }
+
                     let Some(set) = all
                         .bodies
                         .get(&proc)
@@ -415,8 +463,10 @@ impl Graph {
                     else {
                         continue;
                     };
+
                     result.procedures.extend(&set.procedures);
                     result.unknown |= set.unknown;
+
                     for formal in &set.formals {
                         if let Some(&n) = call.arguments.get(formal) {
                             result.join(&values[n]);
@@ -425,24 +475,31 @@ impl Graph {
                         }
                     }
                 }
+
                 changed |= values[call.destination].join(&result);
             }
+
             if !changed {
                 break;
             }
         }
+
         let mut result = Local::default();
+
         for &(global, n) in &self.globals {
             result.globals.entry(global).or_default().join(&values[n]);
         }
+
         for (cell, n) in &self.ids {
             if let Cell::Value(v) = cell {
                 result.values.insert(*v, values[*n].clone());
             }
         }
+
         for &(index, n) in &self.returns {
             result.returns.entry(index).or_default().join(&values[n]);
         }
+
         result
     }
 }

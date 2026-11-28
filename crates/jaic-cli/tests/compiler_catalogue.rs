@@ -11,6 +11,7 @@ fn quoted_insert_executes_its_local_assertions_and_rejects_local_duplicates() {
         .arg("-interp")
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}{}",
@@ -23,6 +24,7 @@ fn quoted_insert_executes_its_local_assertions_and_rejects_local_duplicates() {
         .arg("-check")
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr)
@@ -33,6 +35,7 @@ fn quoted_insert_executes_its_local_assertions_and_rejects_local_duplicates() {
 #[test]
 fn custom_iteration_remove_and_operator_values_preserve_semantics() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+
     for name in ["custom-for-array-remove", "operator-name-values"] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", root.join("stdlib"))
@@ -40,6 +43,7 @@ fn custom_iteration_remove_and_operator_values_preserve_semantics() {
             .arg("-interp")
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{name}: {}{}",
@@ -47,12 +51,14 @@ fn custom_iteration_remove_and_operator_values_preserve_semantics() {
             String::from_utf8_lossy(&output.stderr)
         );
     }
+
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .env("JAIC_STDLIB", root.join("stdlib"))
         .arg(root.join("tests/compiler/semantics/custom-for-range-remove-rejected.jai"))
         .arg("-check")
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr)
@@ -65,6 +71,7 @@ fn a_qualified_namespace_does_not_import_operators_but_the_type_module_supplies_
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let dir = TempDir::new("operator-namespace-visibility");
     let source = dir.join("main.jai");
+
     std::fs::write(
         &source,
         "Probe :: #import \"Operator_Probe\"; main :: () { value: Probe.Scalar; result := -value; }\n",
@@ -80,6 +87,7 @@ fn a_qualified_namespace_does_not_import_operators_but_the_type_module_supplies_
         .unwrap();
     // Not in scope through `Probe`, but found with the type: accepted, with a warning.
     let error = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "{error}");
     assert!(
         error.contains("`operator -` is not in scope here"),
@@ -90,6 +98,7 @@ fn a_qualified_namespace_does_not_import_operators_but_the_type_module_supplies_
 #[test]
 fn called_library_body_interception_and_filters_complete_successfully() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+
     for path in [
         "tests/fixtures/profiler-context/profiler-stdlib-bodies.jai",
         "tests/compiler/semantics/interception-canonical-bodies.jai",
@@ -100,6 +109,7 @@ fn called_library_body_interception_and_filters_complete_successfully() {
             .arg("-check")
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{path}: {}{}",
@@ -112,6 +122,7 @@ fn called_library_body_interception_and_filters_complete_successfully() {
 #[test]
 fn decimal_required_precision_rejects_implicit_narrowing() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+
     for name in [
         "decimal-implicit-narrowing-rejected",
         "code-roundtrip-narrowing-rejected",
@@ -122,6 +133,7 @@ fn decimal_required_precision_rejects_implicit_narrowing() {
             .arg("-check")
             .output()
             .unwrap();
+
         assert!(!output.status.success());
         assert!(String::from_utf8_lossy(&output.stderr).contains("requires float64 precision"));
     }
@@ -130,6 +142,7 @@ fn decimal_required_precision_rejects_implicit_narrowing() {
 #[test]
 fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+
     for name in [
         "statements",
         "control",
@@ -152,6 +165,7 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
             .arg("-interp")
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{name}: {}{}",
@@ -159,12 +173,14 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
             String::from_utf8_lossy(&output.stderr)
         );
     }
+
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .env("JAIC_STDLIB", root.join("stdlib"))
         .arg(root.join("tests/compiler/semantics/code-modify-control.jai"))
         .arg("-check")
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -175,6 +191,7 @@ fn source_reconstruction_executes_original_semantics_and_retains_rejections() {
 #[test]
 fn retained_member_and_real_library_bodies_are_modifiable() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+
     for path in [
         "tests/compiler/semantics/code-modify-members.jai",
         "tests/compiler/semantics/code-modify-from-nodes.jai",
@@ -188,6 +205,7 @@ fn retained_member_and_real_library_bodies_are_modifiable() {
             .arg("-check")
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{path}: {}{}",
@@ -206,6 +224,7 @@ fn unavailable_debugger_is_a_required_diagnostic() {
         .arg("-check")
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr)
@@ -222,6 +241,7 @@ fn baking_context_arguments_into_a_struct_is_rejected() {
         .arg("-check")
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr)

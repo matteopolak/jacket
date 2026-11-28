@@ -16,6 +16,7 @@ fn a_range_length_that_disagrees_with_the_range_is_ignored() {
             character: 4,
         },
     };
+
     s.change(
         &uri(),
         2,

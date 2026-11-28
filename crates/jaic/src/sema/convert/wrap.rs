@@ -102,11 +102,14 @@ impl From<&Box<Expr>> for Site {
 fn trimmed(sources: &SourceMap, span: Span) -> Option<(Span, &str)> {
     let text = sources.snippet(span);
     let body = text.trim();
+
     if body.is_empty() {
         return None;
     }
+
     let lead = text.len() - text.trim_start().len();
     let start = span.start as usize + lead;
+
     Some((Span::new(span.file, start, start + body.len()), body))
 }
 
@@ -115,8 +118,10 @@ pub(in crate::sema) fn wrapped_text(sources: &SourceMap, at: Site, wrap: &Wrap) 
     if !at.wrappable {
         return None;
     }
+
     let (_, body) = trimmed(sources, at.extent)?;
     let primary = at.atomic;
+
     Some(match wrap {
         Wrap::Cast(ty) if primary => format!("cast({ty}) {body}"),
         Wrap::Cast(ty) => format!("cast({ty}) ({body})"),
@@ -148,6 +153,7 @@ pub(in crate::sema) fn wrap_suggestion(
         Wrap::AddressOf => "Take the address with `*`".into(),
         Wrap::NotZero => "Compare with `!= 0`".into(),
     };
+
     Some(
         Suggestion::with_edits(
             title,
@@ -174,6 +180,7 @@ impl Compiler {
         let Some((help, wrap)) = self.ty.conversion_hint(from, to) else {
             return d;
         };
+
         match wrap.and_then(|w| wrap_suggestion(&self.src.sources, help.clone(), at, &w)) {
             Some(suggestion) => d.with_suggestion(suggestion),
             None => d.with_help(help),
@@ -192,6 +199,7 @@ impl TypeState {
         let to_name = self.types.name(to);
         let kind = |t| self.types.kind(t).clone();
         let cast = || Some(Wrap::cast(to_name.clone()));
+
         Some(match (kind(from), kind(to)) {
             (TypeKind::Float { .. }, TypeKind::Int { .. }) => (
                 format!("convert with `cast({to_name})`, which drops the fraction"),

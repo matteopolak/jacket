@@ -4,8 +4,10 @@ use std::rc::Rc;
 
 fn check(source: &str) {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", error.render(&c.src.sources));
     }
@@ -14,8 +16,10 @@ fn check(source: &str) {
 /// The rendered error `source` fails with.
 fn failure(source: &str) -> String {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     match c.compile_sources(&[ProgramSource::String(source.into())]) {
         Ok(()) => panic!("compiled: {source}"),
         Err(error) => error.render(&c.src.sources),
@@ -27,6 +31,7 @@ fn compile_time_code_cannot_write_into_a_string_literal() {
     let error = failure(
         "change :: () -> u8 { s := \"abc\"; s[1] = #char \"x\"; return s[1]; } #assert(#run change() == #char \"x\");",
     );
+
     assert!(
         error.contains("cannot write to a string literal or other constant"),
         "{error}"
@@ -101,11 +106,13 @@ fn scalar_float_intrinsics_reject_inconsistent_signatures() {
         "sqrt :: (x: float32, y: float32) -> float32 #intrinsic; #run sqrt(cast(float32) 9, cast(float32) 1);",
     ] {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         let error = c
             .compile_sources(&[ProgramSource::String(source.into())])
             .expect_err("invalid floating intrinsic signature accepted");
+
         assert!(
             error.message.contains("floating intrinsic signature"),
             "{}",
@@ -118,14 +125,17 @@ fn scalar_float_intrinsics_reject_inconsistent_signatures() {
 fn hex_float_spellings_require_four_eight_or_sixteen_digits() {
     for literal in ["0h0", "0h123", "0h12345", "0h123456789", "0h123456789abcde"] {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         let result = c.compile_sources(&[ProgramSource::String(format!("value :: {literal};"))]);
+
         assert!(
             result.is_err(),
             "invalid bit pattern width accepted: {literal}"
         );
     }
+
     check(
         "#assert(type_of(0h3c00) == float32); #assert(type_of(0h3f800000) == float32); #assert(type_of(0h3ff0000000000000) == float64);",
     );
@@ -141,14 +151,17 @@ fn required_float_precision_survives_aliases_and_constant_arithmetic() {
         "consume :: (x: float32) {} main :: () { consume(0.123456789); }",
     ] {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         assert!(
             c.compile_sources(&[ProgramSource::String(source.into())])
                 .is_err(),
             "required precision was silently narrowed: {source}"
         );
     }
+
     check(
         "value: float32 = 0.12345678; precise :: 0.123456789; narrowed: float32 = cast(float32) precise; #assert(type_of(narrowed) == float32);",
     );
@@ -160,8 +173,10 @@ fn required_float_precision_survives_aliases_and_constant_arithmetic() {
 fn literal_record_flags(literal: &str) -> i64 {
     use jaic::records::{FieldRef, Item, RecordTag, Records};
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     c.compile_sources(&[ProgramSource::String(format!("value :: {literal};"))])
         .unwrap();
     let mut records = Records::default();
@@ -178,7 +193,9 @@ fn literal_record_flags(literal: &str) -> i64 {
     let Some(FieldRef::Ref(value)) = records.field(decl, "expression") else {
         panic!("literal missing");
     };
+
     assert_eq!(records.get(value).unwrap().tag, RecordTag::CodeLiteral);
+
     match records.field(value, "value_flags") {
         Some(FieldRef::Int(v)) => v,
         None => 0,

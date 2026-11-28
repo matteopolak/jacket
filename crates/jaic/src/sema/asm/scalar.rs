@@ -143,11 +143,13 @@ pub(super) fn lookup_xop(name: &str) -> Option<XOp> {
             };
             // `rep` goes with moves, stores and loads; `repe`/`repne` with compares and scans.
             let compares = matches!(op, StrOp::Cmps | StrOp::Scas);
+
             match rep {
                 Rep::Count if compares => return None,
                 Rep::Repe | Rep::Repne if !compares => return None,
                 _ => {}
             }
+
             XOp::Str(op, rep)
         }
     })
@@ -170,11 +172,13 @@ fn udiv128(f: &mut FnCtx, hi: Val, lo: Val, d: Val) -> (Val, Val) {
     let body = f.b.new_block();
     let done = f.b.new_block();
     let small = is_zero(f, Ty::I64, hi);
+
     f.b.branch(small, fast, slow);
 
     f.b.switch_to(fast);
     let q = bin(f, BinOp::UDiv, Ty::I64, lo, d);
     let r = bin(f, BinOp::URem, Ty::I64, lo, d);
+
     f.b.store(Ty::I64, q_slot, q);
     f.b.store(Ty::I64, r_slot, r);
     f.b.jump(done);
@@ -182,19 +186,23 @@ fn udiv128(f: &mut FnCtx, hi: Val, lo: Val, d: Val) -> (Val, Val) {
     f.b.switch_to(slow);
     f.b.store(Ty::I64, r_slot, hi);
     let zero = konst(f, Ty::I64, 0);
+
     f.b.store(Ty::I64, q_slot, zero);
     let n = konst(f, Ty::I64, 64);
+
     f.b.store(Ty::I64, i_slot, n);
     f.b.jump(head);
 
     f.b.switch_to(head);
     let i = f.b.load(Ty::I64, i_slot);
     let finished = is_zero(f, Ty::I64, i);
+
     f.b.branch(finished, done, body);
 
     f.b.switch_to(body);
     let one = konst(f, Ty::I64, 1);
     let i = bin(f, BinOp::Sub, Ty::I64, i, one);
+
     f.b.store(Ty::I64, i_slot, i);
     let rem = f.b.load(Ty::I64, r_slot);
     let q = f.b.load(Ty::I64, q_slot);
@@ -212,6 +220,7 @@ fn udiv128(f: &mut FnCtx, hi: Val, lo: Val, d: Val) -> (Val, Val) {
     let rem = select(f, Ty::I64, take, less, rem);
     let take64 = resize(f, take, Ty::I8, Ty::I64, false);
     let q = bin(f, BinOp::Or, Ty::I64, q, take64);
+
     f.b.store(Ty::I64, r_slot, rem);
     f.b.store(Ty::I64, q_slot, q);
     f.b.jump(head);
@@ -226,21 +235,26 @@ fn crc32c(f: &mut FnCtx, crc: Val, data: Val, bytes: u64) -> Val {
     let one = konst(f, Ty::I32, 1);
     let zero = konst(f, Ty::I32, 0);
     let mut crc = crc;
+
     for k in 0..bytes {
         let shift = konst(f, Ty::I64, k * 8);
         let byte = bin(f, BinOp::LShr, Ty::I64, data, shift);
         let mask = konst(f, Ty::I64, 0xff);
         let byte = bin(f, BinOp::And, Ty::I64, byte, mask);
         let byte = resize(f, byte, Ty::I64, Ty::I32, false);
+
         crc = bin(f, BinOp::Xor, Ty::I32, crc, byte);
+
         for _ in 0..8 {
             let low = bin(f, BinOp::And, Ty::I32, crc, one);
             let m = bin(f, BinOp::Sub, Ty::I32, zero, low);
             let p = bin(f, BinOp::And, Ty::I32, poly, m);
             let shifted = bin(f, BinOp::LShr, Ty::I32, crc, one);
+
             crc = bin(f, BinOp::Xor, Ty::I32, shifted, p);
         }
     }
+
     crc
 }
 
@@ -259,6 +273,7 @@ impl Compiler {
         };
         let name = inst.mnemonic.name.as_str();
         let span = inst.span;
+
         if lock && !matches!(op, XOp::CmpxchgPair(_)) {
             return err(
                 Code::AsmCannotTakeLock,
@@ -266,10 +281,13 @@ impl Compiler {
                 format!("`{name}` cannot take the lock_ prefix"),
             );
         }
+
         let mut opds = Vec::with_capacity(inst.operands.len());
+
         for o in &inst.operands {
             opds.push(self.asm_operand(f, cx, o)?);
         }
+
         let c = AsmArgs {
             name,
             base,
@@ -277,6 +295,7 @@ impl Compiler {
             span,
             opds,
         };
+
         match op {
             XOp::Div(..)
             | XOp::WidenA(..)
@@ -306,6 +325,7 @@ impl Compiler {
             | XOp::Ldmxcsr
             | XOp::Rdpid => self.scalar_machine(f, cx, inst, &c, op)?,
         }
+
         Ok(true)
     }
 
@@ -319,6 +339,7 @@ impl Compiler {
             }
             (None, o) => o,
         };
+
         Flags {
             cf: pick(f, new.cf, old.cf),
             zf: pick(f, new.zf, old.zf),
@@ -332,6 +353,7 @@ impl Compiler {
     fn divide_trap_if(&mut self, f: &mut FnCtx, span: Span, cond: Val) -> Result<()> {
         let bad = f.b.new_block();
         let ok = f.b.new_block();
+
         f.b.branch(cond, bad, ok);
         f.b.switch_to(bad);
         self.emit_trap(f, crate::ir::CheckReason::AsmDivide, span)?;
@@ -365,6 +387,7 @@ impl Compiler {
                 let hi = select(f, Ty::I64, dn, nhi, hi);
                 let nd = neg(f, Ty::I64, d);
                 let d = select(f, Ty::I64, sn, nd, d);
+
                 (Some(dn), Some(sn), hi, lo, d)
             } else {
                 (None, None, hi, lo, d)
@@ -378,6 +401,7 @@ impl Compiler {
             let v = bin(f, BinOp::Or, Ty::I64, h, l);
             let d = resize(f, d, sz, Ty::I64, signed);
             let zero = konst(f, Ty::I64, 0);
+
             if signed {
                 let dn = is_neg(f, Ty::I64, v);
                 let sn = is_neg(f, Ty::I64, d);
@@ -385,6 +409,7 @@ impl Compiler {
                 let v = select(f, Ty::I64, dn, nv, v);
                 let nd = neg(f, Ty::I64, d);
                 let d = select(f, Ty::I64, sn, nd, d);
+
                 (Some(dn), Some(sn), zero, v, d)
             } else {
                 (None, None, zero, v, d)
@@ -392,10 +417,12 @@ impl Compiler {
         };
         let zero = konst(f, Ty::I64, 0);
         let by_zero = cmp(f, CmpOp::Eq, Ty::I64, d, zero);
+
         self.divide_trap_if(f, span, by_zero)?;
         // Unsigned magnitude limit: the quotient must stay below 2^w (2^(w-1) + sign when signed).
         let (q, r) = if sz == Ty::I64 {
             let too_big = cmp(f, CmpOp::UGe, Ty::I64, hi, d);
+
             self.divide_trap_if(f, span, too_big)?;
             udiv128(f, hi, lo, d)
         } else {
@@ -404,17 +431,20 @@ impl Compiler {
                 bin(f, BinOp::URem, Ty::I64, lo, d),
             )
         };
+
         Ok(if let (Some(dn), Some(sn)) = (dividend_neg, divisor_neg) {
             let qneg = flag_xor(f, dn, sn);
             let max_pos = konst(f, Ty::I64, (1u64 << (w - 1)) - 1);
             let max_neg = konst(f, Ty::I64, 1u64 << (w - 1));
             let limit = select(f, Ty::I64, qneg, max_neg, max_pos);
             let over = cmp(f, CmpOp::UGt, Ty::I64, q, limit);
+
             self.divide_trap_if(f, span, over)?;
             let nq = neg(f, Ty::I64, q);
             let q = select(f, Ty::I64, qneg, nq, q);
             let nr = neg(f, Ty::I64, r);
             let r = select(f, Ty::I64, dn, nr, r);
+
             (
                 resize(f, q, Ty::I64, sz, false),
                 resize(f, r, Ty::I64, sz, false),
@@ -423,8 +453,10 @@ impl Compiler {
             if sz != Ty::I64 {
                 let limit = konst(f, Ty::I64, (1u64 << w) - 1);
                 let over = cmp(f, CmpOp::UGt, Ty::I64, q, limit);
+
                 self.divide_trap_if(f, span, over)?;
             }
+
             (
                 resize(f, q, Ty::I64, sz, false),
                 resize(f, r, Ty::I64, sz, false),
@@ -444,15 +476,18 @@ impl Compiler {
             let a = bin(f, BinOp::Shl, sz, dst, c);
             let b = bin(f, BinOp::LShr, sz, src, back);
             let res = bin(f, BinOp::Or, sz, a, b);
+
             (res, bin(f, BinOp::LShr, sz, dst, back))
         } else {
             let a = bin(f, BinOp::LShr, sz, dst, c);
             let b = bin(f, BinOp::Shl, sz, src, back);
             let res = bin(f, BinOp::Or, sz, a, b);
             let prev = bin(f, BinOp::Sub, sz, c, one);
+
             (res, bin(f, BinOp::LShr, sz, dst, prev))
         };
         let cf = bin(f, BinOp::And, sz, out, one);
+
         (res, resize(f, cf, sz, Ty::I8, false))
     }
 
@@ -465,6 +500,7 @@ impl Compiler {
         let cin = resize(f, cin, Ty::I8, sz, false);
         let width = konst(f, sz, w);
         let zero_count = is_zero(f, sz, c);
+
         if left {
             // res = x << c | cin << (c-1) | x >> (w+1-c); cf = bit (w-c) of x.
             let a = bin(f, BinOp::Shl, sz, x, c);
@@ -484,6 +520,7 @@ impl Compiler {
             let out = resize(f, out, sz, Ty::I8, false);
             let cin8 = resize(f, cin, sz, Ty::I8, false);
             let res = select(f, sz, zero_count, x, res);
+
             (res, select(f, Ty::I8, zero_count, cin8, out))
         } else {
             // res = x >> c | cin << (w-c) | x << (w+1-c); cf = bit (c-1) of x.
@@ -504,6 +541,7 @@ impl Compiler {
             let out = resize(f, out, sz, Ty::I8, false);
             let cin8 = resize(f, cin, sz, Ty::I8, false);
             let res = select(f, sz, zero_count, x, res);
+
             (res, select(f, Ty::I8, zero_count, cin8, out))
         }
     }
@@ -515,16 +553,19 @@ impl Compiler {
         let r_slot = f.b.alloca(8, 8);
         let zero = konst(f, Ty::I64, 0);
         let one = konst(f, Ty::I64, 1);
+
         f.b.store(Ty::I64, m_slot, mask);
         f.b.store(Ty::I64, k_slot, one);
         f.b.store(Ty::I64, r_slot, zero);
         let head = f.b.new_block();
         let body = f.b.new_block();
         let done = f.b.new_block();
+
         f.b.jump(head);
         f.b.switch_to(head);
         let m = f.b.load(Ty::I64, m_slot);
         let empty = is_zero(f, Ty::I64, m);
+
         f.b.branch(empty, done, body);
         f.b.switch_to(body);
         // `low` is the lowest set mask bit, `k` the matching bit of the packed value.
@@ -541,11 +582,14 @@ impl Compiler {
         let hit = cmp(f, CmpOp::Ne, Ty::I64, hit, zero);
         let add = select(f, Ty::I64, hit, set, zero);
         let r = bin(f, BinOp::Or, Ty::I64, r, add);
+
         f.b.store(Ty::I64, r_slot, r);
         let k = bin(f, BinOp::Shl, Ty::I64, k, one);
+
         f.b.store(Ty::I64, k_slot, k);
         let m1 = bin(f, BinOp::Sub, Ty::I64, m, one);
         let m = bin(f, BinOp::And, Ty::I64, m, m1);
+
         f.b.store(Ty::I64, m_slot, m);
         f.b.jump(head);
         f.b.switch_to(done);
@@ -585,6 +629,7 @@ impl Compiler {
             let p = f.b.global_addr(global);
             let spin = f.b.new_block();
             let held = f.b.new_block();
+
             f.b.jump(spin);
             f.b.switch_to(spin);
             let zero = konst(f, Ty::I64, 0);
@@ -595,6 +640,7 @@ impl Compiler {
                 vec![p, zero, one, width],
                 &[Ty::I8, Ty::I64],
             );
+
             f.b.branch(r[0], held, spin);
             f.b.switch_to(held);
             Some(p)
@@ -616,18 +662,22 @@ impl Compiler {
         let eq = bin(f, BinOp::And, Ty::I8, eq_lo, eq_hi);
         let new_lo = select(f, half, eq, b, mem_lo);
         let new_hi = select(f, half, eq, c, mem_hi);
+
         self.asm_write(f, Opd::Mem(lo_addr), half, new_lo, span)?;
         self.asm_write(f, Opd::Mem(hi_addr), half, new_hi, span)?;
+
         if let Some(p) = lock_ptr {
             let zero = konst(f, Ty::I64, 0);
             let one = konst(f, Ty::I64, 1);
             let width = konst(f, Ty::I64, 8);
+
             f.b.intrinsic(
                 Intrinsic::CompareAndSwap,
                 vec![p, one, zero, width],
                 &[Ty::I8, Ty::I64],
             );
         }
+
         // On failure the accumulator pair receives the memory value (unchanged on success).
         self.asm_write(f, opds[1], half, mem_lo, span)?;
         self.asm_write(f, opds[0], half, mem_hi, span)?;
@@ -652,6 +702,7 @@ impl Compiler {
         } else {
             3
         };
+
         if opds.len() != want {
             let regs = match op {
                 StrOp::Movs | StrOp::Cmps => "di, si",
@@ -663,12 +714,14 @@ impl Compiler {
             } else {
                 ", c"
             };
+
             return err(
                 Code::AsmOperandCount,
                 span,
                 format!("`{name}` takes the operands {regs}{count}"),
             );
         }
+
         let sz = match &inst.size {
             Some(_) => self.asm_size(f, cx, inst, &[])?,
             None => {
@@ -679,6 +732,7 @@ impl Compiler {
                 );
             }
         };
+
         for &o in opds {
             if !matches!(o, Opd::Reg(_)) {
                 return err(
@@ -688,6 +742,7 @@ impl Compiler {
                 );
             }
         }
+
         let step = konst(
             f,
             Ty::I64,
@@ -708,12 +763,15 @@ impl Compiler {
                 cx.flags.of,
                 cx.flags.pf,
             ];
+
             for (slot, v) in slots.iter_mut().zip(current) {
                 let p = f.b.alloca(1, 1);
                 let v = v.unwrap_or_else(|| konst(f, Ty::I8, 0));
+
                 f.b.store(Ty::I8, p, v);
                 *slot = Some(p);
             }
+
             Some(slots.map(Option::unwrap))
         } else {
             None
@@ -725,25 +783,31 @@ impl Compiler {
             None
         } else {
             let head = f.b.new_block();
+
             f.b.jump(head);
             f.b.switch_to(head);
             let c = self.asm_read(f, opds[2], Ty::I64, span)?;
             let done = is_zero(f, Ty::I64, c);
+
             f.b.branch(done, exit, body);
             Some(head)
         };
+
         f.b.switch_to(body);
         // Operand roles: (di, si) for movs/cmps, (di, a) for stos/scas, (a, si) for lods.
         let advance = |this: &mut Self, f: &mut FnCtx, o: Opd| -> Result<()> {
             let p = this.asm_read(f, o, Ty::I64, span)?;
             let p = bin(f, BinOp::Add, Ty::I64, p, step);
+
             this.asm_write(f, o, Ty::I64, p, span)
         };
+
         match op {
             StrOp::Movs => {
                 let di = self.asm_read(f, opds[0], Ty::I64, span)?;
                 let si = self.asm_read(f, opds[1], Ty::I64, span)?;
                 let v = self.asm_read(f, Opd::Mem(si), sz, span)?;
+
                 self.asm_write(f, Opd::Mem(di), sz, v, span)?;
                 advance(self, f, opds[0])?;
                 advance(self, f, opds[1])?;
@@ -751,12 +815,14 @@ impl Compiler {
             StrOp::Stos => {
                 let di = self.asm_read(f, opds[0], Ty::I64, span)?;
                 let v = self.asm_read(f, opds[1], sz, span)?;
+
                 self.asm_write(f, Opd::Mem(di), sz, v, span)?;
                 advance(self, f, opds[0])?;
             }
             StrOp::Lods => {
                 let si = self.asm_read(f, opds[1], Ty::I64, span)?;
                 let v = self.asm_read(f, Opd::Mem(si), sz, span)?;
+
                 self.asm_write(f, opds[0], sz, v, span)?;
                 advance(self, f, opds[1])?;
             }
@@ -770,11 +836,14 @@ impl Compiler {
                 } else {
                     self.asm_read(f, opds[1], sz, span)?
                 };
+
                 self.asm_alu(f, cx, Alu::Cmp, sz, left, right);
                 advance(self, f, opds[0])?;
+
                 if op == StrOp::Cmps {
                     advance(self, f, opds[1])?;
                 }
+
                 let slots = flag_slots.unwrap();
                 let now = [
                     cx.flags.cf,
@@ -783,18 +852,22 @@ impl Compiler {
                     cx.flags.of,
                     cx.flags.pf,
                 ];
+
                 for (p, v) in slots.into_iter().zip(now) {
                     f.b.store(Ty::I8, p, v.unwrap());
                 }
             }
         }
+
         match head {
             None => f.b.jump(exit),
             Some(head) => {
                 let c = self.asm_read(f, opds[2], Ty::I64, span)?;
                 let one = konst(f, Ty::I64, 1);
                 let c = bin(f, BinOp::Sub, Ty::I64, c, one);
+
                 self.asm_write(f, opds[2], Ty::I64, c, span)?;
+
                 match rep {
                     Rep::Repe | Rep::Repne => {
                         let zf = cx.flags.zf.unwrap();
@@ -803,15 +876,19 @@ impl Compiler {
                         } else {
                             (exit, head)
                         };
+
                         f.b.branch(zf, more, stop);
                     }
                     _ => f.b.jump(head),
                 }
             }
         }
+
         f.b.switch_to(exit);
+
         if let Some(slots) = flag_slots {
             let [cf, zf, sf, of, pf] = slots.map(|p| f.b.load(Ty::I8, p));
+
             cx.flags = Flags {
                 cf: Some(cf),
                 zf: Some(zf),
@@ -820,6 +897,7 @@ impl Compiler {
                 pf: Some(pf),
             };
         }
+
         Ok(())
     }
 }

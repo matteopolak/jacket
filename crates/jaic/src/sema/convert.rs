@@ -27,6 +27,7 @@ impl Compiler {
         if op.ty() == TypeId::ANY {
             return Ok(op);
         }
+
         let temporary = !matches!(op, Operand::Place { .. });
         let (ty, addr) = match op {
             Operand::Type(t) => {
@@ -44,6 +45,7 @@ impl Compiler {
             other => {
                 let other = self.settle_untyped(other, None);
                 let (ty, v) = self.rvalue(f, other, span)?;
+
                 (ty, self.spill(f, ty, v, span)?)
             }
         };
@@ -52,9 +54,12 @@ impl Compiler {
         let any = f.b.alloca(layout.size, layout.align);
         let ti = f.b.global_addr(info);
         let tp = f.b.ptr_offset(any, layout.type_);
+
         f.b.store(Ty::Ptr, tp, ti);
         let vp = f.b.ptr_offset(any, layout.value_pointer);
+
         f.b.store(Ty::Ptr, vp, addr);
+
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
         {
@@ -69,6 +74,7 @@ impl Compiler {
                 },
             );
         }
+
         Ok(Operand::Value {
             ty: TypeId::ANY,
             val: any,
@@ -84,11 +90,14 @@ pub fn int_constant_fits(v: i128, bits: u8, signed: bool, bit_pattern: bool) -> 
     if bits >= 128 {
         return true;
     }
+
     if signed && bits == 64 {
         // Every 64-bit literal fits `s64`: `9223372036854775808` is `S64_MIN`.
         return v >= i64::MIN as i128 && v <= u64::MAX as i128;
     }
+
     let span = 1i128 << bits;
+
     if signed {
         let half = span >> 1;
         (-half..half).contains(&v) || (bit_pattern && (0..span).contains(&v))
@@ -102,6 +111,7 @@ pub fn int_fits(v: i128, bits: u8, signed: bool) -> bool {
         // Accept both the signed and unsigned spelling of 64-bit constants.
         return v >= i64::MIN as i128 && v <= u64::MAX as i128;
     }
+
     if signed {
         let max = (1i128 << (bits - 1)) - 1;
         // Also accept bit patterns written as unsigned literals (e.g. 0xFFFF_FFFF for s32).
@@ -122,9 +132,11 @@ pub fn numeric_conv(
     layout: &crate::layout::DataLayout,
 ) -> ir::Val {
     let _ = tsigned;
+
     if ft == tt {
         return v;
     }
+
     match (ft.is_float(), tt.is_float()) {
         (true, true) => f.b.conv(
             if tt.size(layout) > ft.size(layout) {
@@ -141,6 +153,7 @@ pub fn numeric_conv(
                 let i = f.b.conv(ConvOp::FToS, ft, Ty::I64, v);
                 return f.b.conv(ConvOp::Bitcast, Ty::I64, Ty::Ptr, i);
             }
+
             f.b.conv(
                 if tsigned {
                     ConvOp::FToS
@@ -163,6 +176,7 @@ pub fn numeric_conv(
             } else {
                 ft
             };
+
             f.b.conv(
                 if fsigned {
                     ConvOp::SToF
@@ -196,12 +210,14 @@ pub fn numeric_conv(
                     tsigned,
                     layout,
                 );
+
                 return if tt == Ty::Ptr {
                     f.b.conv(ConvOp::Bitcast, Ty::I64, Ty::Ptr, v)
                 } else {
                     v
                 };
             }
+
             if tt.size(layout) < ft.size(layout) {
                 f.b.conv(ConvOp::Trunc, ft, tt, v)
             } else if fsigned {

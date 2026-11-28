@@ -8,6 +8,7 @@ mod fixture;
 #[test]
 fn inserted_condition_binding_preserves_value_identity_and_labelled_control() {
     let (c, result) = compile(&format!("{}\n#assert(check()==0);", fixture::SOURCE));
+
     if let Err(error) = result {
         panic!("{}", error.render(&c.src.sources));
     }
@@ -22,6 +23,7 @@ fn private_macro_condition_does_not_leak_to_inserted_caller_code() {
     ",
     );
     let error = result.expect_err("private macro binding must stay private");
+
     assert!(
         error.message.contains("unknown identifier `hidden`"),
         "{}",
@@ -37,6 +39,7 @@ fn backtick_condition_without_expansion_remains_loop_local() {
     ",
     );
     let error = result.expect_err("ordinary loop binding must not escape");
+
     assert!(
         error.message.contains("unknown identifier `local`"),
         "{}",
@@ -53,6 +56,7 @@ fn private_macro_condition_preserves_an_outer_caller_binding() {
         #assert(check()==9);
     ",
     );
+
     if let Err(error) = result {
         panic!("{}", error.render(&c.src.sources));
     }
@@ -67,6 +71,7 @@ fn invalid_loop_targets_still_diagnose() {
     ",
     );
     let error = result.expect_err("only an enclosing loop is a control target");
+
     assert!(
         error
             .message

@@ -13,12 +13,14 @@ impl Exporter<'_> {
         if d.names.len() > 1 {
             return self.compound_decl(d);
         }
+
         let name = d.names.first().map_or(Sym::intern(""), |n| n.name);
         let ty = self
             .c
             .as_deref()
             .and_then(|c| c.pr.local_decl_types.get(&(d.id, 0)).copied());
         let rec = self.decl(d, name, ty, None, true, 0);
+
         // `x := value`: the value has the declared type (its own typing may not see locals).
         if d.ty.is_none()
             && let Some(FieldRef::Ref(ty)) = self.r.field(rec, "type")
@@ -31,9 +33,11 @@ impl Exporter<'_> {
         {
             value.ptr("type", ty);
         }
+
         for n in &d.names {
             self.locals.push((n.name, rec));
         }
+
         rec
     }
 
@@ -45,17 +49,21 @@ impl Exporter<'_> {
             None
         } else {
             let mut ids = Vec::new();
+
             for v in d.value.iter().chain(d.extra_values()) {
                 let node = self.expr(v);
                 let mut a = Record::new(RecordTag::CodeCommaSeparatedArgument);
+
                 a.ptr("node", node);
                 ids.push(self.r.add(a));
             }
+
             let mut rec = self.node(
                 RecordTag::CodeCommaSeparatedArguments,
                 node::COMMA_SEPARATED_ARGUMENTS,
                 d.span,
             );
+
             rec.refs("arguments", ids);
             Some(self.add(rec))
         };
@@ -63,6 +71,7 @@ impl Exporter<'_> {
         let properties = self.decl(d, Sym::intern(""), None, values, false, 0);
         let mut arguments = Vec::new();
         let mut declared = Vec::new();
+
         for (i, n) in d.names.iter().enumerate() {
             let assign = d.existing().get(i).copied().unwrap_or(false);
             let target = if let Some(Some(place)) = d.targets().get(i) {
@@ -77,6 +86,7 @@ impl Exporter<'_> {
                     .map_or(0, |t| self.ty(t));
                 let mut rec = self.node(RecordTag::CodeDeclaration, node::DECLARATION, n.span);
                 let backticked = d.backtick || d.backtick_names().get(i).copied().unwrap_or(false);
+
                 rec.str("name", n.name.as_str().as_bytes())
                     .ptr("type", ty)
                     .int(
@@ -89,10 +99,12 @@ impl Exporter<'_> {
                             },
                     );
                 let id = self.add(rec);
+
                 declared.push((n.name, id));
                 id
             };
             let mut a = Record::new(RecordTag::CodeCommaSeparatedArgument);
+
             a.ptr("node", target).int(
                 "modifier",
                 if assign {
@@ -103,6 +115,7 @@ impl Exporter<'_> {
             );
             arguments.push(self.r.add(a));
         }
+
         self.compound_members = declared.iter().map(|&(_, id)| id).collect();
         self.locals.extend(declared);
         let mut names = self.node(
@@ -110,6 +123,7 @@ impl Exporter<'_> {
             node::COMMA_SEPARATED_ARGUMENTS,
             d.span,
         );
+
         names.refs("arguments", arguments);
         let names = self.add(names);
         let mut rec = self.node(
@@ -117,6 +131,7 @@ impl Exporter<'_> {
             node::COMPOUND_DECLARATION,
             d.span,
         );
+
         rec.ptr("comma_separated_assignment", names)
             .ptr("declaration_properties", properties)
             .int("node_flags", 0x4);
@@ -146,26 +161,33 @@ impl Exporter<'_> {
         let notes: Vec<&ast::Note> = d.notes.iter().collect();
         let notes = self.notes(&notes);
         let mut flags = extra_flags;
+
         if d.kind == ast::DeclKind::Const {
             flags |= 0x1;
         }
+
         if d.as_ {
             flags |= 0x2;
         }
+
         if matches!(&d.value, Some(v) if matches!(v.kind, ast::ExprKind::Uninit)) {
             flags |= 0x80;
         }
+
         let backticked = d.backtick
             || d.names
                 .iter()
                 .zip(d.backtick_names())
                 .any(|(n, &b)| b && n.name == name);
+
         if backticked {
             flags |= 0x0020_0000; // HAS_SCOPE_MODIFIER
         }
+
         let ty = ty.map_or(0, |t| self.ty(t));
         let alignment = self.opt_expr(d.align());
         let mut rec = self.node(RecordTag::CodeDeclaration, node::DECLARATION, d.span);
+
         rec.str("name", name.as_str().as_bytes())
             .ptr("type", ty)
             .ptr("type_inst", type_inst)
@@ -182,30 +204,39 @@ impl Exporter<'_> {
                     .collect::<String>()
                     .as_bytes(),
             );
+
         if let Some(filter) = d.using_filter() {
             rec.str(SyntaxKey::Filter, Self::filter_syntax(filter).as_bytes());
             let (kind, expression) = self.using_filter(filter);
+
             rec.int(SyntaxKey::FilterKind, kind)
                 .ptr(SyntaxKey::FilterExpression, expression);
         }
+
         if let Some(tag) = d.union_tag() {
             let tag = self.expr(tag);
+
             rec.ptr(SyntaxKey::UnionTag, tag);
         }
+
         if let Some(foreign) = d.foreign() {
             let library = foreign
                 .library
                 .map_or(0, |name| self.name_ident(name.name, name.span));
+
             rec.int(SyntaxKey::Foreign, 1)
                 .ptr(SyntaxKey::ForeignLibrary, library);
+
             if let ast::ForeignName::Named(symbol) = &foreign.name {
                 rec.str(SyntaxKey::ForeignSymbol, symbol.as_bytes())
                     .int(SyntaxKey::ForeignNamed, 1);
             }
         }
+
         if statement {
             rec.int("node_flags", 0x4); // ALLOWED_BY_CONTEXT
         }
+
         self.add(rec)
     }
 
@@ -231,11 +262,13 @@ impl Exporter<'_> {
                 let sig = c.signature(p, span).ok();
                 let lit = c.proc(p).lit.clone();
                 let header = self.proc(&lit, &d.notes, Some((p, sig.clone())), span);
+
                 if let Some(value) = &d.value
                     && !matches!(value.kind, ast::ExprKind::Proc(_))
                 {
                     alias_expression = Some((header, self.expr(value)));
                 }
+
                 let ty = match sig {
                     Some(s) => Some(s.ty),
                     // A polymorphic procedure's type shows `$` where a type variable decides.
@@ -280,6 +313,7 @@ impl Exporter<'_> {
                 0
             };
         let declaration = self.decl(d, name, ty, expression, false, scope);
+
         if let Some((initial, alias)) = alias_expression {
             self.r
                 .get_mut(declaration)
@@ -287,6 +321,7 @@ impl Exporter<'_> {
                 .ptr(SyntaxKey::InitialExpression, initial)
                 .ptr(SyntaxKey::AliasExpression, alias);
         }
+
         declaration
     }
 
@@ -309,6 +344,7 @@ impl Exporter<'_> {
         let block = self.enum_block(&lit.items, span);
         let base = lit.base.as_ref().map_or(0, |base| self.type_inst(base));
         let mut rec = self.node(RecordTag::CodeEnum, node::ENUM, span);
+
         rec.refs("notes", notes)
             .ptr("block", block)
             .ptr("internal_type_inst", base)
@@ -331,6 +367,7 @@ impl Exporter<'_> {
                         node::DECLARATION,
                         member.name.span,
                     );
+
                     rec.str("name", member.name.name.as_str().as_bytes())
                         .ptr("expression", value)
                         .refs("notes", notes)
@@ -341,6 +378,7 @@ impl Exporter<'_> {
                     let value = self.expr(value);
                     let mut rec =
                         self.node(RecordTag::CodeDirectiveInsert, node::DIRECTIVE_INSERT, span);
+
                     rec.ptr("expression", value);
                     self.add(rec)
                 }
@@ -348,6 +386,7 @@ impl Exporter<'_> {
                     let value = self.expr(&using.value);
                     let (filter_type, filter_expression) = self.using_filter(&using.filter);
                     let mut rec = self.node(RecordTag::CodeUsing, node::USING, span);
+
                     rec.ptr("expression", value)
                         .int("filter_type", filter_type)
                         .ptr("filter_expression", filter_expression)
@@ -378,6 +417,7 @@ impl Exporter<'_> {
                     let then_block = self.enum_block(then_items, span);
                     let else_block = self.enum_block(else_items, span);
                     let mut rec = self.node(RecordTag::CodeIf, node::IF, span);
+
                     rec.ptr("condition", condition)
                         .ptr("then_block", then_block)
                         .ptr("else_block", else_block)
@@ -387,6 +427,7 @@ impl Exporter<'_> {
             })
             .collect();
         let mut rec = self.node(RecordTag::CodeBlock, node::BLOCK, span);
+
         rec.refs("statements", statements).int("block_type", 2);
         self.add(rec)
     }
@@ -400,13 +441,16 @@ impl Exporter<'_> {
         name: Sym,
     ) -> i64 {
         let previous = (self.scope, self.procedure);
+
         self.procedure = None;
+
         if let Some(scope) = defined.and_then(|ty| {
             let c = self.c.as_ref()?;
             Some(c.ty.struct_asts.get(&c.ty.types.as_struct(ty)?)?.scope)
         }) {
             self.scope = scope;
         }
+
         let start = self.sub.len();
         let block = self.block(&lit.body, 2, lit.span);
         let arguments = if lit.params.is_empty() {
@@ -424,6 +468,7 @@ impl Exporter<'_> {
                 _ => Vec::new(),
             };
             let mut rec = self.node(RecordTag::CodeBlock, node::BLOCK, lit.span);
+
             rec.refs("statements", args).int("block_type", 5);
             self.add(rec)
         };
@@ -435,6 +480,7 @@ impl Exporter<'_> {
             let ty = tag.ty.as_deref().map_or(0, |ty| self.type_inst(ty));
             let value = tag.value.as_deref().map_or(0, |value| self.expr(value));
             let mut rec = self.node(RecordTag::CodeDeclaration, node::DECLARATION, tag.name.span);
+
             rec.str("name", tag.name.name.as_str().as_bytes())
                 .ptr("type_inst", ty)
                 .ptr("expression", value);
@@ -453,6 +499,7 @@ impl Exporter<'_> {
             .filter(|&t| t != 0);
         let defined = defined.unwrap_or_else(|| {
             let mut generic = Record::new(RecordTag::TypeInfoStruct);
+
             generic
                 .int("type", 7)
                 .str("name", name.as_str().as_bytes())
@@ -460,6 +507,7 @@ impl Exporter<'_> {
             self.r.add(generic)
         });
         let mut rec = self.node(RecordTag::CodeStruct, node::STRUCT, lit.span);
+
         rec.ptr("block", block)
             .ptr("arguments_block", arguments)
             .ptr(SyntaxKey::Alignment, alignment)
@@ -470,6 +518,7 @@ impl Exporter<'_> {
             .int("textual_flags", flags);
         let id = self.add(rec);
         let sub = self.sub[start..].to_vec();
+
         self.out.structs.push((id, sub));
         (self.scope, self.procedure) = previous;
         id

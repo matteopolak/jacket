@@ -11,9 +11,11 @@ main :: () {}
 ";
     let s = open(program);
     let field = s.definition(&uri(), at(program, "T; }")).unwrap();
+
     assert_eq!(field.len(), 1, "{field:?}");
     assert_eq!(field[0].range.start.line, 0, "{field:?}");
     let result = s.definition(&uri(), at_last(program, "T {")).unwrap();
+
     assert_eq!(result.len(), 1, "{result:?}");
     assert_eq!(result[0].range.start, at(program, "T)) ->"), "{result:?}");
 }

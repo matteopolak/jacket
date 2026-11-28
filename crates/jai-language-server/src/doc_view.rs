@@ -21,6 +21,7 @@ pub(crate) const EAGER_DOCS: usize = 24;
 pub(crate) fn url(path: &str, text: &str, start: usize) -> Option<String> {
     let start = text.floor_char_boundary(start.min(text.len()));
     let line = jaic::source::LineIndex::new(text).line_of(start) + 1;
+
     Some(format!(
         "{}#L{line}",
         DocumentUri::from_path(Path::new(path)).ok()?.as_str()
@@ -30,12 +31,14 @@ pub(crate) fn url(path: &str, text: &str, start: usize) -> Option<String> {
 /// How an editor should color the declaration a link leads to.
 fn target_kind(names: usize, text: &str, start: usize, end: usize) -> (SemanticTokenKind, bool) {
     let after = text.get(end..).unwrap_or("").trim_start();
+
     if let Some(value) = after.strip_prefix("::") {
         let value = value.trim_start();
         let word = value
             .split(|c: char| !(jaic::lexicon::is_identifier_char(c) || c == '#'))
             .next()
             .unwrap_or("");
+
         return match word {
             "struct" | "enum" | "enum_flags" | "union" | jaic::lexicon::spelled::TYPE => {
                 (SemanticTokenKind::Type, false)
@@ -51,7 +54,9 @@ fn target_kind(names: usize, text: &str, start: usize, end: usize) -> (SemanticT
             _ => (SemanticTokenKind::Variable, true),
         };
     }
+
     let _ = start;
+
     if after.starts_with(';') || after.starts_with(',') || after.is_empty() {
         return if names > 1 {
             (SemanticTokenKind::EnumMember, true)
@@ -59,6 +64,7 @@ fn target_kind(names: usize, text: &str, start: usize, end: usize) -> (SemanticT
             (SemanticTokenKind::Variable, false)
         };
     }
+
     if names > 1 {
         (SemanticTokenKind::Property, false)
     } else {
@@ -78,6 +84,7 @@ impl Session {
         if names.is_empty() {
             return HashMap::default();
         }
+
         let Ok(doc) = self.document(uri) else {
             return HashMap::default();
         };
@@ -95,6 +102,7 @@ impl Session {
                     .collect(),
             )
         };
+
         self.with_semantic(uri, &doc.text, resolve)
             .unwrap_or_default()
     }
@@ -116,7 +124,9 @@ impl Session {
                 .map(|raw| docs::strip_experimental(raw).0)
                 .collect();
         }
+
         let mut names: Vec<Vec<String>> = Vec::new();
+
         for raw in raws {
             for name in docs::link_names(raw) {
                 if !names.contains(&name) {
@@ -124,7 +134,9 @@ impl Session {
                 }
             }
         }
+
         let urls = self.link_urls(uri, path, scope_at, &names);
+
         raws.iter()
             .map(|raw| docs::markdown(raw, &|n| urls.get(n).cloned()))
             .collect()
@@ -139,6 +151,7 @@ impl Session {
     ) -> Option<String> {
         let (path, text, start, _) = decl;
         let raw = docs::declaration(text, *start)?;
+
         self.render_docs(uri, path, *start, &[raw], kind).pop()
     }
 
@@ -158,17 +171,22 @@ impl Session {
             .map(|d| self.declaration_docs(uri, d, kind))
             .collect();
         let mut blocks = Vec::new();
+
         if decls.len() > 1 && lines.len() == decls.len() && docs.iter().any(Option::is_some) {
             for (line, doc) in lines.iter().zip(docs) {
                 blocks.push(Block::Code((*line).into()));
                 blocks.extend(doc.map(Block::Doc));
             }
+
             return HoverText::new(blocks);
         }
+
         blocks.push(Block::Code(value.clone()));
+
         if let Some(layout) = layout {
             blocks.push(Block::Para(vec![crate::hover::Inline::Text(layout)]));
         }
+
         blocks.extend(docs.into_iter().flatten().next().map(Block::Doc));
         HoverText::new(blocks)
     }
@@ -178,12 +196,15 @@ impl Session {
     /// What each link of `sites` (in the document `uri`) leads to.
     fn resolve_sites(&self, uri: &DocumentUri, sites: &[Site]) -> Vec<Vec<Decl>> {
         let none = || vec![Vec::new(); sites.len()];
+
         if sites.is_empty() || self.environment.is_none() {
             return none();
         }
+
         let Ok(doc) = self.document(uri) else {
             return none();
         };
+
         self.with_semantic(uri, &doc.text, |a, path| {
             Some(
                 sites
@@ -204,6 +225,7 @@ impl Session {
             .find(|s| s.label.0 <= byte && byte <= s.label.1)?
             .clone();
         let decls = self.resolve_sites(uri, std::slice::from_ref(&site)).pop()?;
+
         (!decls.is_empty()).then_some((site, decls))
     }
 
@@ -218,6 +240,7 @@ impl Session {
         let target = decls.first()?;
         let header = docs::signature_line(&target.1, target.2);
         let text = self.hover_with_docs(uri, header, None, std::slice::from_ref(target), kind);
+
         Some((site.label.0, site.label.1, text))
     }
 
@@ -232,6 +255,7 @@ impl Session {
             .iter()
             .filter_map(|(path, text, start, end)| self.location_in(path, text, *start, *end))
             .collect();
+
         (!found.is_empty()).then_some(found)
     }
 
@@ -242,6 +266,7 @@ impl Session {
         };
         let sites = doc.sites().to_vec();
         let resolved = self.resolve_sites(uri, &sites);
+
         sites
             .into_iter()
             .zip(resolved)
@@ -280,10 +305,12 @@ impl Session {
     pub(crate) fn fence_tokens(text: &str) -> Vec<(Span, SemanticTokenKind)> {
         use jaic::lexer::{P, Tok};
         let mut out = Vec::new();
+
         for (start, end) in docs::fenced_code(text) {
             let Ok(tokens) = jaic::lexer::lex(jaic::source::FileId(0), &text[start..end]) else {
                 continue;
             };
+
             for (i, token) in tokens.iter().enumerate() {
                 let kind = match &token.tok {
                     Tok::Ident(name) if jaic::lexicon::is_reserved(name.as_str()) => {
@@ -313,9 +340,11 @@ impl Session {
                     start + token.span.start as usize,
                     start + token.span.end as usize,
                 );
+
                 out.push((span, kind));
             }
         }
+
         out
     }
 
@@ -337,6 +366,7 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return none();
         };
+
         // (file, offset of the declaration, the procedure's docs, each parameter's docs)
         type Raw = Option<(String, usize, Option<String>, Vec<Option<String>>)>;
         let raws: Vec<Raw> = self
@@ -357,15 +387,18 @@ impl Session {
                                     own.iter().find(|(f, _)| f == n).map(|(_, d)| d.clone())
                                 })
                                 .collect();
+
                             Some((path, start, docs::above(&text, start), params))
                         })
                         .collect(),
                 )
             })
             .unwrap_or_default();
+
         if raws.len() != signatures.len() {
             return none();
         }
+
         raws.into_iter()
             .zip(signatures)
             .map(|(raw, s)| {
@@ -373,6 +406,7 @@ impl Session {
                     return (None, vec![None; s.params.len()]);
                 };
                 let mut all: Vec<String> = Vec::new();
+
                 all.extend(proc_doc.clone());
                 all.extend(params.iter().flatten().cloned());
                 let mut rendered = self.render_docs(uri, &path, start, &all, kind).into_iter();
@@ -381,6 +415,7 @@ impl Session {
                     .iter()
                     .map(|p| p.as_ref().and_then(|_| rendered.next()))
                     .collect();
+
                 (proc_doc, params)
             })
             .collect()
@@ -392,6 +427,7 @@ impl Session {
         let file = DocumentUri::from_path(Path::new(&data.path)).ok()?;
         let text = self.source(&file)?;
         let raw = docs::declaration(&text, data.offset)?;
+
         self.render_docs(
             &document,
             &data.path,

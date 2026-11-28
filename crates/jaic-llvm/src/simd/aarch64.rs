@@ -16,7 +16,9 @@ pub fn byte_lookup<'ctx>(
     if cx.target.family != Family::Aarch64 || !cx.target.has(Feature::Neon) {
         return Ok(false);
     }
+
     let ty = cx.ctx.i8_type().vec_type(16);
+
     // tbl already gives 0 for an index of 16 or more.
     cx.map_blocks(width, 16, idx, dst, |indices| {
         cx.call(

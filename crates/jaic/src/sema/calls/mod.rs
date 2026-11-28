@@ -178,9 +178,11 @@ fn autocast_arithmetic(expr: &ast::Expr) -> bool {
                     }
                 )
             };
+
             if bare(a) || bare(b) {
                 return true;
             }
+
             (a, b)
         }
         _ => return false,
@@ -195,6 +197,7 @@ fn autocast_arithmetic(expr: &ast::Expr) -> bool {
         ) || autocast_arithmetic(e)
     };
     let literal = |e: &ast::Expr| matches!(e.kind, E::Int(..) | E::Float(..) | E::Char(_));
+
     (autocast(a) && (literal(b) || autocast(b))) || (literal(a) && autocast(b))
 }
 
@@ -241,12 +244,17 @@ impl Compiler {
                 args.iter().cloned().partition(|a| a.context);
             let ctx = self.context_with_overrides(f, scope, &overrides, span)?;
             let saved = f.lifetime_current_context();
+
             f.set_context(Some(ctx));
             let result = self.check_call(f, scope, callee, &plain, expected, span);
+
             f.set_context(saved);
+
             return result;
         }
+
         let callee_op = self.check_expr(f, scope, callee, None)?;
+
         match callee_op {
             Operand::Builtin(b) => self.check_builtin(f, scope, b, args, expected, span),
             Operand::PolyStruct(ps) => self.instantiate_poly_call(scope, ps, args, span),
@@ -259,15 +267,18 @@ impl Compiler {
                     self.precheck_args_deferring(f, scope, args, &as_code, &discarded)?;
                 let wants_code = procs.iter().any(|&p| {
                     let header = &self.proc(p).lit.header;
+
                     header.params.iter().any(|p| {
                         p.default
                             .as_ref()
                             .is_some_and(|d| matches!(d.kind, E::CallerCode))
                     })
                 });
+
                 if !wants_code {
                     return self.call_procs(f, scope, &procs, call_args, expected, span);
                 }
+
                 let call = ast::Expr {
                     kind: E::Call {
                         callee: Box::new(callee.clone()),
@@ -277,8 +288,10 @@ impl Compiler {
                     span,
                     parens: None,
                 };
+
                 self.pr.calls_in_flight.push((Arc::new(call), scope));
                 let result = self.call_procs(f, scope, &procs, call_args, expected, span);
+
                 self.pr.calls_in_flight.pop();
                 result
             }
@@ -290,6 +303,7 @@ impl Compiler {
                 {
                     return self.instantiate_poly_call(scope, ps, args, span);
                 }
+
                 // `Type(x)` is not Jai; but `T.{}` etc are handled elsewhere.
                 let name = self.ty.types.name(t);
                 let mut d = Diagnostic::new(
@@ -297,6 +311,7 @@ impl Compiler {
                     span,
                     format!("cannot call type {name}"),
                 );
+
                 // `s32(x)`: a conversion is written `cast(s32) x`.
                 if let [arg] = args
                     && arg.name.is_none()
@@ -320,12 +335,14 @@ impl Compiler {
                         .with_action(format!("Convert with `cast({name})`")),
                     );
                 }
+
                 Err(Box::new(d))
             }
             other => {
                 let parameters = self.callable_operand_parameters(&other)?;
                 let (ty, v) = self.rvalue(f, other, span)?;
                 let call_args = self.precheck_args(f, scope, args)?;
+
                 self.call_indirect(f, ty, v, parameters, call_args, span)
             }
         }
@@ -340,6 +357,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let mut values = Vec::new();
+
         for (i, a) in args.iter().enumerate() {
             let expected = match &a.value.kind {
                 E::InferredMember(_) => self.poly_struct_param_type(ps, i, a.name.map(|n| n.name)),
@@ -354,12 +372,15 @@ impl Compiler {
                 }
                 _ => None,
             };
+
             values.push((
                 a.name.map(|n| n.name),
                 self.eval_const_or_run(scope, &a.value, expected)?,
             ));
         }
+
         let ty = self.instantiate_struct(ps, values, span)?;
+
         self.ide_note_struct_arguments(ty, args);
         Ok(Operand::Type(ty))
     }
@@ -391,6 +412,7 @@ impl Compiler {
             .filter(|(slot, p)| p.baked && p.default.is_some() && !matches!(slot, Slot::Default))
             .count();
         let variadic = params.iter().any(|param| param.variadic);
+
         (
             variadic,
             self.proc(c.proc).bindings.is_some(),
@@ -406,6 +428,7 @@ impl Compiler {
         if best.len() > 1 {
             best.sort_by_key(|c| self.candidate_rank(c));
         }
+
         best.len() > 1 && self.candidate_rank(&best[0]) == self.candidate_rank(&best[1])
     }
 
@@ -421,9 +444,11 @@ impl Compiler {
                 best.len()
             ),
         );
+
         for c in best {
             d = d.with_note(self.proc(c.proc).span, "this overload matches");
         }
+
         d
     }
 
@@ -434,22 +459,27 @@ impl Compiler {
     fn brought_by_nearer_using(&self, scope: ScopeId, proc: ProcId) -> bool {
         let provider = self.scope(self.proc(proc).scope).module;
         let mut current = Some(scope);
+
         while let Some(sid) = current {
             let s = self.scope(sid);
+
             if matches!(
                 s.kind,
                 ScopeKind::Module | ScopeKind::File | ScopeKind::Root
             ) {
                 return false;
             }
+
             if s.usings
                 .iter()
                 .any(|u| matches!(u, UsingEntry::Module(m, _) if *m == provider))
             {
                 return true;
             }
+
             current = s.parent;
         }
+
         false
     }
 
@@ -469,6 +499,7 @@ impl Compiler {
         scope: ScopeId,
     ) -> Result<(Candidate, bool)> {
         let ambiguous = self.order_candidates(&mut best);
+
         if ambiguous {
             let rank = self.candidate_rank(&best[0]);
             let caller = self.scope(scope).module;
@@ -481,10 +512,12 @@ impl Compiler {
             let nearer = best[..tied_run]
                 .iter()
                 .any(|c| !own(c) && self.brought_by_nearer_using(scope, c.proc));
+
             if own_count > 0 && own_count < tied_run && !nearer {
                 best[..tied_run].sort_by_key(|c| !own(c));
                 return Ok((best.swap_remove(0), true));
             }
+
             let home = self.proc(best[0].proc).scope;
             let tied = best
                 .iter()
@@ -494,10 +527,12 @@ impl Compiler {
             let rivals = best[..tied]
                 .iter()
                 .any(|c| self.proc(c.proc).span != declared);
+
             if rivals && (rank.1 || args.iter().any(is_untyped_argument)) {
                 return Err(Box::new(self.ambiguous_overloads(&best[..tied], span)));
             }
         }
+
         Ok((best.swap_remove(0), ambiguous))
     }
 
@@ -511,26 +546,31 @@ impl Compiler {
         span: Span,
     ) -> Vec<TypeId> {
         let mut args = args.to_vec();
+
         args[argument].op = None;
         args[argument].expr = None;
         self.probing_types(|this| {
             let (mut best, _) = this.rank_candidates(procs, &args, span);
+
             this.order_candidates(&mut best);
             let Some(first) = best.first() else {
                 return Vec::new();
             };
             let rank = this.candidate_rank(first);
             let mut types = Vec::new();
+
             for candidate in &best {
                 if this.candidate_rank(candidate) != rank {
                     break;
                 }
+
                 if let Ok(Some(ty)) = this.argument_param_type(candidate, argument, span)
                     && !types.contains(&ty)
                 {
                     types.push(ty);
                 }
             }
+
             types
         })
     }
@@ -542,6 +582,7 @@ impl Compiler {
         let previous = std::mem::replace(&mut self.ed.type_probe, true);
         let recorded = self.ed.error_count();
         let result = probe(self);
+
         self.ed.forget_errors(recorded);
         self.ed.type_probe = previous;
         result
@@ -558,11 +599,13 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let _ = expected;
+
         // A multi-value call result passes its first value.
         if args.len() == 1
             && let Some(Operand::Multi(values)) = &args[0].op
         {
             let a = args[0].clone();
+
             args = vec![CallArg {
                 name: a.name,
                 spread: false,
@@ -572,7 +615,9 @@ impl Compiler {
                 scope: a.scope,
             }];
         }
+
         let (mut best, mut errors) = self.rank_candidates(procs, &args, span);
+
         // A candidate's own declaration is wrong, whichever overload the call picks.
         if let Some(i) = errors
             .iter()
@@ -580,6 +625,7 @@ impl Compiler {
         {
             return Err(Box::new(errors.swap_remove(i)));
         }
+
         // Two positional arguments that match no overload may match a `#symmetric` one with
         // the arguments exchanged.
         if best.is_empty() && args.len() == 2 && args.iter().all(|a| a.name.is_none() && !a.spread)
@@ -589,43 +635,55 @@ impl Compiler {
                 .copied()
                 .filter(|&p| self.proc(p).lit.header.flags.symmetric())
                 .collect();
+
             if !symmetric.is_empty() {
                 let swapped = vec![args[1].clone(), args[0].clone()];
                 let (b, e) = self.rank_candidates(&symmetric, &swapped, span);
+
                 if !b.is_empty() {
                     (best, errors, args) = (b, e, swapped);
                 }
             }
         }
+
         if best.is_empty() {
             if self.ed.is_live() {
                 self.ide_note_unmatched_inferred(procs, &args, span);
             }
+
             let name = procs
                 .first()
                 .map(|&p| self.proc(p).name.to_string())
                 .unwrap_or_default();
+
             if procs.len() == 1 {
                 let error = errors.into_iter().next();
                 return Err(Box::new(self.call_mismatch(procs[0], &name, error, span)));
             }
+
             let mut d = Diagnostic::new(
                 Code::CallNoOverloadMatchesArguments,
                 span,
                 format!("no overload of `{name}` matches these arguments"),
             );
+
             for (i, &p) in procs.iter().enumerate().take(8) {
                 d = d.with_note(
                     self.proc(p).span,
                     errors.get(i).map(|e| e.message.clone()).unwrap_or_default(),
                 );
             }
+
             return Err(Box::new(d));
         }
+
         let (chosen, ambiguous) = self.choose_candidate(best, &args, span, scope)?;
+
         self.check_format_call(span, chosen.proc, &chosen.slots, &args)?;
+
         if self.ed.is_live() {
             self.ide_note_call(span, procs, chosen.proc, &chosen.slots, &args, ambiguous);
+
             if f.pending_for_body
                 .as_ref()
                 .is_some_and(|body| body.call_span == span)
@@ -633,6 +691,7 @@ impl Compiler {
                 self.ide_note_for_keyword(span, chosen.proc, ambiguous);
             }
         }
+
         self.emit_call(f, scope, chosen, args, span)
     }
 }

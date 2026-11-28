@@ -19,6 +19,7 @@ pub(super) const PARSES_KEPT: usize = 1024;
 pub(crate) fn text_key(text: &str) -> (u64, usize) {
     use std::hash::{Hash, Hasher};
     let mut h = jaic::fxhash::FxHasher::default();
+
     text.hash(&mut h);
     (h.finish(), text.len())
 }
@@ -26,12 +27,16 @@ pub(crate) fn text_key(text: &str) -> (u64, usize) {
 /// Remember that `text` parses (`None`) or fails at a byte offset, for `parse_error`.
 pub fn note_parse(text: &str, error: Option<usize>) {
     let (hash, len) = text_key(text);
+
     PARSES.with(|p| {
         let mut p = p.borrow_mut();
+
         p.retain(|e| (e.0, e.1) != (hash, len));
+
         if p.len() >= PARSES_KEPT {
             p.remove(0);
         }
+
         p.push((hash, len, error));
     });
 }
@@ -44,6 +49,7 @@ pub fn parse_error(text: &str) -> Option<usize> {
     }) {
         return found;
     }
+
     let (hash, len) = text_key(text);
     let error = if let Some(found) = PARSES.with(|p| {
         p.borrow()
@@ -56,11 +62,14 @@ pub fn parse_error(text: &str) -> Option<usize> {
         let error = jaic::parser::parse_file(FileId(0), text)
             .err()
             .map(|d| d.span.start as usize);
+
         note_parse(text, error);
         error
     };
+
     LAST_PARSE.with(|last| {
         let mut last = last.borrow_mut();
+
         last.0.clear();
         last.0.push_str(text);
         last.1 = error;

@@ -50,6 +50,7 @@ impl Session {
         if !context.wants("quickfix") {
             return Vec::new();
         }
+
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
@@ -62,23 +63,28 @@ impl Session {
             .filter_map(|(start, end)| self.range_of(uri, Span::new(start, end)))
             .collect();
         let mut out = Vec::new();
+
         for diagnostic in self.check_diagnostics(uri) {
             if !incomplete.contains(&diagnostic.range) {
                 continue;
             }
+
             let a = doc.index.byte(&doc.text, diagnostic.range.start);
             let b = doc.index.byte(&doc.text, diagnostic.range.end);
             let named = context.diagnostics.iter().any(|(code, range)| {
                 code == crate::suggestion_fixes::CHECK_CODE && *range == diagnostic.range
             });
+
             if !named && (a > end || start > b) {
                 continue;
             }
+
             // The error is on the switched value, which the refactoring reads as "in the switch".
             let fill = self
                 .refactor_actions(uri, a, a, Pick::FillSwitch)
                 .into_iter()
                 .next();
+
             if let Some(mut fix) = fill {
                 fix.kind = Some("quickfix");
                 fix.is_preferred = true;
@@ -86,6 +92,7 @@ impl Session {
                 out.push(fix);
             }
         }
+
         out
     }
 
@@ -101,18 +108,22 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
+
         if !self.analysis_for(uri).is_some_and(|a| a.complete) {
             return Vec::new();
         }
+
         let Ok(file) = jaic::parser::parse_file(FileId(0), &doc.text) else {
             return Vec::new();
         };
         let mut bodies = Vec::new();
+
         proc_bodies(&file.stmts, &mut bodies);
         let mut roots: Vec<Root> = vec![Root {
             stmts: &file.stmts,
             in_proc: false,
         }];
+
         roots.extend(bodies.iter().map(|b| Root {
             stmts: &b.1.stmts,
             in_proc: true,
@@ -134,19 +145,23 @@ impl Session {
             types: OnceCell::new(),
         };
         let mut out = Vec::new();
+
         if pick != Pick::FillSwitch {
             cx.extract_variable(&mut out);
             cx.extract_procedure(&mut out);
             cx.inline_variable(&mut out);
         }
+
         if pick != Pick::AllButFillSwitch {
             cx.fill_switch(&mut out);
         }
+
         if pick != Pick::FillSwitch {
             cx.fill_struct(&mut out);
             cx.ifx_to_if(&mut out);
             cx.if_to_ifx(&mut out);
         }
+
         out
     }
 }
@@ -215,6 +230,7 @@ impl<'a> Cx<'a> {
         edits: Vec<Option<TextEdit>>,
     ) -> Option<CodeAction> {
         let edits: Option<Vec<TextEdit>> = edits.into_iter().collect();
+
         Some(CodeAction {
             title,
             kind: Some(kind),
@@ -245,6 +261,7 @@ impl<'a> Cx<'a> {
         {
             return Some(self.slice(self.ex(ty)).to_string());
         }
+
         self.declared(d.names.get(index)?.span.start as usize)
     }
 
@@ -257,20 +274,25 @@ impl<'a> Cx<'a> {
     ) -> Option<(T, Vec<Node<'a>>)> {
         for root in self.roots.iter().filter(|r| anywhere || r.in_proc) {
             let mut found = None;
+
             walk(root.stmts, &mut |n, parents| {
                 if found.is_some() {
                     return false;
                 }
+
                 if let Some(t) = pick(n, parents) {
                     found = Some((t, parents.to_vec()));
                     return false;
                 }
+
                 true
             });
+
             if found.is_some() {
                 return found;
             }
         }
+
         None
     }
 
@@ -281,11 +303,13 @@ impl<'a> Cx<'a> {
         mut pick: impl FnMut(Node<'a>) -> Option<(T, (usize, usize))>,
     ) -> Option<(T, Vec<Node<'a>>)> {
         let mut best: Option<(usize, T, Vec<Node<'a>>)> = None;
+
         for root in &self.roots {
             walk(root.stmts, &mut |n, parents| {
                 if n.expr().is_some() != exprs {
                     return true;
                 }
+
                 if let Some((t, (a, b))) = pick(n)
                     && a <= self.cursor
                     && self.cursor <= b
@@ -293,9 +317,11 @@ impl<'a> Cx<'a> {
                 {
                     best = Some((b - a, t, parents.to_vec()));
                 }
+
                 true
             });
         }
+
         best.map(|(_, t, p)| (t, p))
     }
 }

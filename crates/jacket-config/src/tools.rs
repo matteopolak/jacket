@@ -13,14 +13,17 @@ pub fn file_name(tool: &str) -> String {
 #[must_use]
 pub fn locate(tool: &str) -> Option<PathBuf> {
     let name = file_name(tool);
+
     if let Ok(me) = std::env::current_exe().and_then(|me| me.canonicalize())
         && let Some(dir) = me.parent()
     {
         let beside = dir.join(&name);
+
         if beside.is_file() {
             return Some(beside);
         }
     }
+
     on_path(Path::new(&name))
 }
 
@@ -28,6 +31,7 @@ pub fn locate(tool: &str) -> Option<PathBuf> {
 #[must_use]
 pub fn on_path(program: &Path) -> Option<PathBuf> {
     let path = crate::env::PATH.os()?;
+
     std::env::split_paths(&path)
         .map(|dir| dir.join(program))
         .find(|candidate| candidate.is_file())

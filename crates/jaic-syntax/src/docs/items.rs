@@ -7,14 +7,17 @@ pub fn without_items(doc: &str, names: &[&str]) -> String {
     let mut out: Vec<&str> = Vec::new();
     let mut fenced = false;
     let mut dropping = false;
+
     for line in doc.lines() {
         let trimmed = line.trim_start();
+
         if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
             fenced = !fenced;
             dropping = false;
         } else if !fenced {
             if let Some((name, _)) = list_item(trimmed) {
                 dropping = names.contains(&name.as_str());
+
                 if dropping {
                     continue;
                 }
@@ -24,18 +27,24 @@ pub fn without_items(doc: &str, names: &[&str]) -> String {
                 dropping = false;
             }
         }
+
         out.push(line);
     }
+
     // Dropping a list can leave blank lines at its ends or two in a row.
     let mut tidy: Vec<&str> = Vec::new();
+
     for line in out {
         if line.trim().is_empty() && tidy.last().is_none_or(|l| l.trim().is_empty()) {
             continue;
         }
+
         tidy.push(line);
     }
+
     while tidy.last().is_some_and(|l| l.trim().is_empty()) {
         tidy.pop();
     }
+
     tidy.join("\n")
 }

@@ -5,6 +5,7 @@ use test_support::compiler::compile_source;
 /// Compiles `source`, which must hold.
 fn holds(source: &str) {
     let (c, result) = compile_source(source);
+
     if let Err(error) = result {
         panic!("{}\n{source}", error.render(&c.src.sources));
     }
@@ -15,6 +16,7 @@ fn rejected(source: &str, needle: &str) {
     let (c, result) = compile_source(source);
     let error = result.expect_err(source);
     let rendered = error.render(&c.src.sources);
+
     assert!(error.message.contains(needle), "{rendered}\n{source}");
 }
 
@@ -290,9 +292,11 @@ fn procedures_cast_by_address() {
 fn checked_casts_report_the_value_and_the_target() {
     let (c, result) = compile_source(&narrowing("s64", "u8", "-1"));
     let rendered = result.expect_err("overflow").render(&c.src.sources);
+
     assert!(rendered.contains("-1"), "{rendered}");
     let (c, result) = compile_source(&narrowing("s32", "u8", "300"));
     let rendered = result.expect_err("overflow").render(&c.src.sources);
+
     assert!(rendered.contains("300"), "{rendered}");
 }
 

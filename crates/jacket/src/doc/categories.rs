@@ -29,14 +29,17 @@ fn channels(color: &str) -> Option<[f64; 4]> {
     if let Some(args) = color.strip_prefix("oklch(") {
         return oklch(args.strip_suffix(')')?);
     }
+
     let named;
     let hex = if let Some(hex) = color.strip_prefix('#') {
         hex
     } else {
         named = color.to_ascii_lowercase();
+
         if named == "transparent" {
             return Some([0.0; 4]);
         }
+
         include_str!("categories/colors.tsv")
             .lines()
             .find_map(|line| {
@@ -44,17 +47,21 @@ fn channels(color: &str) -> Option<[f64; 4]> {
                 (name == named).then_some(&value[1..])
             })?
     };
+
     if !matches!(hex.len(), 3 | 4 | 6 | 8) || !hex.is_ascii() {
         return None;
     }
+
     let mut rgba = [1.0; 4];
     let width = if hex.len() <= 4 {
         1
     } else {
         2
     };
+
     for (i, value) in rgba.iter_mut().enumerate().take(hex.len() / width) {
         let n = u8::from_str_radix(&hex[i * width..(i + 1) * width], 16).ok()?;
+
         *value = f64::from(n)
             / if width == 1 {
                 15.0
@@ -62,6 +69,7 @@ fn channels(color: &str) -> Option<[f64; 4]> {
                 255.0
             };
     }
+
     Some(rgba)
 }
 
@@ -75,6 +83,7 @@ fn oklch(args: &str) -> Option<[f64; 4]> {
     let number = |s: &str, percent: f64| -> Option<f64> {
         let (s, scale) = s.strip_suffix('%').map_or((s, 1.0), |s| (s, percent));
         let v: f64 = s.parse().ok()?;
+
         v.is_finite().then_some(v * scale)
     };
     let (lch, alpha) = args.split_once('/').unwrap_or((args, "1"));
@@ -98,12 +107,14 @@ fn oklch(args: &str) -> Option<[f64; 4]> {
     .map(|row| row.iter().zip(lms).map(|(m, v)| m * v).sum::<f64>());
     let [r, g, b] = linear.map(|v| {
         let v = v.clamp(0.0, 1.0);
+
         if v <= 0.003_130_8 {
             v * 12.92
         } else {
             1.055 * v.powf(1.0 / 2.4) - 0.055
         }
     });
+
     Some([r, g, b, alpha])
 }
 
@@ -131,17 +142,20 @@ fn contrast(color: &str, background: &str) -> Option<f64> {
         .collect();
     let a = luminance(&rgb);
     let b = luminance(&bg[..3]);
+
     Some((a.max(b) + 0.05) / (a.min(b) + 0.05))
 }
 
 /// The index of the last entry whose patterns match `folder`.
 fn last_match<'a>(entries: impl Iterator<Item = &'a [PathPattern]>, folder: &str) -> Option<usize> {
     let mut found = None;
+
     for (i, patterns) in entries.enumerate() {
         if patterns.iter().any(|p| p.is_match(folder)) {
             found = Some(i);
         }
     }
+
     found
 }
 
@@ -155,9 +169,11 @@ pub fn layout(
 ) -> Result<Layout, String> {
     let mut problems = Vec::new();
     let mut out = Vec::with_capacity(categories.len());
+
     for c in categories {
         let mut color = c.color.clone().unwrap_or_default();
         let mut color_dark = c.color_dark.clone().unwrap_or_else(|| color.clone());
+
         for (key, value) in [("color", &mut color), ("color_dark", &mut color_dark)] {
             if !value.is_empty() && channels(value).is_none() {
                 problems.push(format!(
@@ -167,6 +183,7 @@ pub fn layout(
                 value.clear();
             }
         }
+
         for (key, value, bg) in [
             ("color", &color, "oklch(98.5% 0 0deg)"),
             ("color_dark", &color_dark, "oklch(22.4% 0.008 285.8deg)"),
@@ -177,6 +194,7 @@ pub fn layout(
                 problems.push(format!("category `{}`: `{key}` `{value}` has contrast {ratio:.3}:1 against {bg}; needs 4.5:1", c.name));
             }
         }
+
         out.push(Category {
             name: c.name.clone(),
             badge: c.badge.clone().unwrap_or_default(),
@@ -185,7 +203,9 @@ pub fn layout(
             color_dark,
         });
     }
+
     let mut names: Vec<String> = Vec::new();
+
     for g in groups {
         if names.contains(&g.name) {
             problems.push(format!("group `{}` is declared twice", g.name));
@@ -193,6 +213,7 @@ pub fn layout(
             names.push(g.name.clone());
         }
     }
+
     let unused = |kind: &str, name: &str, patterns: &[PathPattern]| {
         patterns
             .iter()
@@ -200,13 +221,17 @@ pub fn layout(
             .map(|p| format!("`{p}` (in {kind} `{name}`) matches no module"))
             .collect::<Vec<_>>()
     };
+
     for c in categories {
         problems.extend(unused("category", &c.name, &c.modules));
     }
+
     for g in groups {
         problems.extend(unused("group", &g.name, &g.modules));
     }
+
     let mut of = Vec::with_capacity(folders.len());
+
     for (id, folder) in ids.iter().zip(folders) {
         let category = last_match(categories.iter().map(|c| c.modules.as_slice()), folder);
         let group = last_match(groups.iter().map(|g| g.modules.as_slice()), folder);
@@ -218,8 +243,10 @@ pub fn layout(
                 String::new()
             }
         };
+
         of.push((category, group));
     }
+
     if problems.is_empty() {
         Ok(Layout {
             categories: out,
@@ -267,6 +294,7 @@ mod tests {
             category("Extensions", &["lib/Extensions/**"]),
         ];
         let l = layout(&cats, &[], &ids, &folders).unwrap();
+
         assert_eq!(l.of, [(Some(0), String::new()), (Some(1), String::new())]);
         assert_eq!(l.categories[1].tip, "Extensions");
     }
@@ -277,6 +305,7 @@ mod tests {
         let err = layout(&[], &[group("G", &["A", "Z"])], &ids, &ids)
             .err()
             .unwrap();
+
         assert!(
             err.contains("`Z` (in group `G`) matches no module"),
             "{err}"
@@ -288,6 +317,7 @@ mod tests {
     fn a_module_folder_pattern_takes_the_modules_inside_it() {
         let ids = strings(&["Android", "Android/Toolchain"]);
         let l = layout(&[], &[group("Platform", &["Android"])], &ids, &ids).unwrap();
+
         assert_eq!(l.of[1].1, "Platform");
     }
 
@@ -299,11 +329,13 @@ mod tests {
         assert!(contrast("LightGoldenRodYellow", "#fafafa").unwrap() < 4.5);
         assert_eq!(channels("madeup"), None);
         let mut c = category("X", &["A"]);
+
         c.color = Some("#fff".into());
         c.color_dark = Some("#000".into());
         let error = layout(&[c], &[], &strings(&["A"]), &strings(&["A"]))
             .err()
             .unwrap();
+
         assert!(error.contains("1.044:1"), "{error}");
         assert!(error.contains("color_dark"), "{error}");
     }
@@ -314,6 +346,7 @@ mod tests {
         assert!((contrast("oklch(0% 0 0)", "#ffffff").unwrap() - 21.0).abs() < 0.001);
         // #1d7282 and #6cc4d4, the stdlib's Experimental badge.
         let teal = channels("oklch(51.1% 0.081 213.4deg)").unwrap();
+
         assert!(
             teal[..3]
                 .iter()
@@ -324,6 +357,7 @@ mod tests {
         assert!(contrast("oklch(0.771 0.088 210.7deg)", "#1b1b1f").unwrap() > 4.5);
         assert_eq!(contrast("oklch(0% 0 0deg / 0%)", "#ffffff"), Some(1.0));
         assert_eq!(channels("oklch(0% 0 0deg / 0.5)").unwrap()[3], 0.5);
+
         for bad in [
             "oklch(0.5 0.1)",
             "oklch(50% 0.1 20deg 30)",
@@ -338,10 +372,12 @@ mod tests {
     #[test]
     fn colours_must_be_plain() {
         let mut c = category("X", &["A"]);
+
         c.color = Some("red;}body{".into());
         let err = layout(&[c], &[], &strings(&["A"]), &strings(&["A"]))
             .err()
             .unwrap();
+
         assert!(
             err.contains("not a `#rrggbb`, `oklch()` or named colour"),
             "{err}"

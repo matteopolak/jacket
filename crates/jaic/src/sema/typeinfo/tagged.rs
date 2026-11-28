@@ -25,18 +25,23 @@ impl Compiler {
         let Some(vs) = self.ty.types.as_struct(variants.ty) else {
             return Ok((fields.to_vec(), Vec::new()));
         };
+
         self.layout_struct(vs, span)?;
         let mut flat = vec![tag.clone()];
+
         for f in self.ty.types.struct_info(vs).fields.iter() {
             let mut f = f.clone();
+
             f.offset += variants.offset;
             flat.push(f);
         }
+
         let tag_members = match self.ty.types.kind(tag.ty) {
             TypeKind::Enum(e) => self.ty.types.enum_info(*e).members.clone(),
             _ => Vec::new(),
         };
         let mut bindings = Vec::new();
+
         for stmt in &src.lit.body {
             let ast::StmtKind::Decl(d) = &stmt.kind else {
                 continue;
@@ -62,12 +67,14 @@ impl Compiler {
                     _ => continue,
                 },
             };
+
             for n in &d.names {
                 if let Some(index) = flat.iter().position(|f| f.name == Some(n.name)) {
                     bindings.push((value.clone(), index));
                 }
             }
         }
+
         Ok((flat, bindings))
     }
 
@@ -86,12 +93,14 @@ impl Compiler {
             bytes: vec![0; size as usize * bindings.len()],
             relocs: Vec::new(),
         };
+
         for (i, (value, index)) in bindings.iter().enumerate() {
             let index = *index;
             let mut b = Aggregate {
                 bytes: vec![0; size as usize],
                 relocs: Vec::new(),
             };
+
             match value {
                 // A `Type` tag's constant is the type's descriptor address.
                 Value::Type(t) => {
@@ -99,6 +108,7 @@ impl Compiler {
                 }
                 v => self.set_field(&mut b, binding_ty, "constant_value", v.clone(), span)?,
             }
+
             self.set_field(
                 &mut b,
                 binding_ty,
@@ -108,6 +118,7 @@ impl Compiler {
             )?;
             structs::write_agg(&mut items, i as u64 * size, &b);
         }
+
         self.set_view(
             agg,
             desc,
@@ -126,6 +137,7 @@ impl Compiler {
         let Some(scope) = self.ty.struct_asts.get(&s).map(|src| src.scope) else {
             return Vec::new();
         };
+
         self.scope(scope)
             .declared()
             .into_iter()

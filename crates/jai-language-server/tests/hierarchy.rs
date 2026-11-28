@@ -27,6 +27,7 @@ fn prepares_the_procedure_at_a_declaration_or_a_use() {
     let at_decl = s
         .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "middle ::", 2))
         .unwrap();
+
     assert_eq!(at_decl.len(), 1);
     assert_eq!(at_decl[0].name, "middle");
     assert_eq!(at_decl[0].detail, "(n: int) -> int");
@@ -36,6 +37,7 @@ fn prepares_the_procedure_at_a_declaration_or_a_use() {
     let at_use = s
         .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "middle(x)", 2))
         .unwrap();
+
     assert_eq!(at_use, at_decl);
     // Not on a procedure.
     assert_eq!(
@@ -56,6 +58,7 @@ fn lists_incoming_calls_with_their_sites() {
         .iter()
         .map(|c| (c.item.name.as_str(), c.from_ranges.len()))
         .collect();
+
     assert_eq!(summary, [("middle", 2), ("other", 1)]);
     assert_eq!(calls[0].from_ranges[0].start.line, 4);
     assert_eq!(calls[0].from_ranges[1].start.line, 5);
@@ -63,6 +66,7 @@ fn lists_incoming_calls_with_their_sites() {
     let main = s
         .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "main ::", 1))
         .unwrap();
+
     assert_eq!(
         s.incoming_calls(&main[0]).unwrap(),
         [] as [jai_language_server::CallHierarchyCall; 0]
@@ -80,6 +84,7 @@ fn lists_outgoing_calls_with_their_sites() {
         .iter()
         .map(|c| (c.item.name.as_str(), c.from_ranges.len()))
         .collect();
+
     assert_eq!(summary, [("leaf", 1), ("middle", 1)]);
     let main = s
         .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "main ::", 1))
@@ -90,11 +95,13 @@ fn lists_outgoing_calls_with_their_sites() {
         .into_iter()
         .map(|c| c.item.name)
         .collect();
+
     assert_eq!(names, ["other", "middle"]);
     // A leaf calls nothing in this file.
     let leaf = s
         .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "leaf ::", 1))
         .unwrap();
+
     assert_eq!(
         s.outgoing_calls(&leaf[0]).unwrap(),
         [] as [jai_language_server::CallHierarchyCall; 0]
@@ -112,9 +119,11 @@ main :: () { helper(); }
         .prepare_call_hierarchy(&uri(), at_offset(text, "main ::", 1))
         .unwrap();
     let calls = s.outgoing_calls(&main[0]).unwrap();
+
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].item.name, "helper");
     let helper = s.outgoing_calls(&calls[0].item).unwrap();
+
     assert_eq!(helper.len(), 1);
     assert_eq!(helper[0].item.name, "print");
     // A replaced library's private file layout is not the navigation contract.
@@ -122,6 +131,7 @@ main :: () { helper(); }
     let destination = DocumentUri::parse(&helper[0].item.uri).unwrap();
     let stdlib =
         jaic::canonicalize(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib")).unwrap();
+
     assert!(
         jaic::canonicalize(destination.path())
             .unwrap()
@@ -129,6 +139,7 @@ main :: () { helper(); }
     );
     let source = s.source(&destination).expect("readable declaration");
     let range = helper[0].item.selection_range;
+
     assert_eq!(range.start.line, range.end.line);
     assert_eq!(text_in_range(&source, range), "print");
 }
@@ -136,23 +147,29 @@ main :: () { helper(); }
 #[test]
 fn call_hierarchy_survives_checks_of_other_open_documents() {
     let mut session = open(PROGRAM);
+
     session.defer_compiles(true);
     let others: Vec<_> = (0..8)
         .map(|n| DocumentUri::parse(&format!("file:///hierarchy-eviction/other{n}.jai")).unwrap())
         .collect();
     let other_text = format!("{}main :: () {{}}", "// padding\n".repeat(512));
+
     for other in &others {
         session.open(other.clone(), 1, other_text.clone()).unwrap();
     }
+
     session.diagnostics(&uri()).unwrap();
+
     for other in &others {
         session.diagnostics(other).unwrap();
     }
+
     let compiles = session.compile_counts().0;
     let leaf = session
         .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "leaf ::", 1))
         .unwrap();
     let incoming = session.incoming_calls(&leaf[0]).unwrap();
+
     assert_eq!(
         incoming
             .iter()
@@ -164,6 +181,7 @@ fn call_hierarchy_survives_checks_of_other_open_documents() {
         .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "middle ::", 1))
         .unwrap();
     let outgoing = session.outgoing_calls(&middle[0]).unwrap();
+
     assert_eq!(outgoing.len(), 1);
     assert_eq!(outgoing[0].item.name, "leaf");
     assert_eq!(outgoing[0].from_ranges.len(), 2);
@@ -173,14 +191,17 @@ fn call_hierarchy_survives_checks_of_other_open_documents() {
 #[test]
 fn resetting_caches_discards_retained_call_graphs() {
     let session = open(PROGRAM);
+
     session.defer_compiles(true);
     session.diagnostics(&uri()).unwrap();
     let leaf = session
         .prepare_call_hierarchy(&uri(), at_offset(PROGRAM, "leaf ::", 1))
         .unwrap();
+
     assert!(!session.incoming_calls(&leaf[0]).unwrap().is_empty());
     session.reset_caches();
     let compiles = session.compile_counts().0;
+
     assert!(session.incoming_calls(&leaf[0]).unwrap().is_empty());
     assert_eq!(session.compile_counts().0, compiles);
     session.diagnostics(&uri()).unwrap();
@@ -194,12 +215,14 @@ fn changed_external_callees_wait_for_a_fresh_check() {
     let mut session = open(main);
     let target =
         DocumentUri::from_path(&PathBuf::from(uri().path()).with_file_name("callee.jai")).unwrap();
+
     session.open(target.clone(), 1, callee.into()).unwrap();
     session.defer_compiles(true);
     session.diagnostics(&uri()).unwrap();
     let caller = session
         .prepare_call_hierarchy(&uri(), at_offset(main, "main ::", 1))
         .unwrap();
+
     assert_eq!(session.outgoing_calls(&caller[0]).unwrap().len(), 1);
     session
         .change(
@@ -213,10 +236,12 @@ fn changed_external_callees_wait_for_a_fresh_check() {
         )
         .unwrap();
     let compiles = session.compile_counts().0;
+
     assert!(session.outgoing_calls(&caller[0]).unwrap().is_empty());
     assert_eq!(session.compile_counts().0, compiles);
     session.diagnostics(&uri()).unwrap();
     let calls = session.outgoing_calls(&caller[0]).unwrap();
+
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].item.name, "leaf");
     assert_eq!(calls[0].item.selection_range.start.line, 1);
@@ -225,9 +250,11 @@ fn changed_external_callees_wait_for_a_fresh_check() {
 #[test]
 fn outgoing_calls_move_with_unchecked_edits_without_compiling() {
     let mut session = open(PROGRAM);
+
     session.publications();
     session.defer_compiles(true);
     let edited = format!("\n{PROGRAM}");
+
     session
         .change(
             &uri(),
@@ -244,6 +271,7 @@ fn outgoing_calls_move_with_unchecked_edits_without_compiling() {
         .prepare_call_hierarchy(&uri(), at_offset(&edited, "middle ::", 1))
         .unwrap();
     let calls = session.outgoing_calls(&middle[0]).unwrap();
+
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].item.name, "leaf");
     assert_eq!(calls[0].item.selection_range.start.line, 1);
@@ -258,9 +286,11 @@ fn outgoing_calls_move_with_unchecked_edits_without_compiling() {
 fn outgoing_calls_omit_changed_calls_before_the_next_check() {
     for replacement in ["a := n;", "a := leaf(1);"] {
         let mut session = open(PROGRAM);
+
         session.publications();
         session.defer_compiles(true);
         let edited = PROGRAM.replace("a := leaf(n);", replacement);
+
         session
             .change(
                 &uri(),
@@ -277,6 +307,7 @@ fn outgoing_calls_omit_changed_calls_before_the_next_check() {
             .prepare_call_hierarchy(&uri(), at_offset(&edited, "middle ::", 1))
             .unwrap();
         let calls = session.outgoing_calls(&middle[0]).unwrap();
+
         assert_eq!(calls.len(), 1);
         assert_eq!(calls[0].item.name, "leaf");
         assert_eq!(calls[0].from_ranges.len(), 1);
@@ -304,6 +335,7 @@ outer :: () {
         .into_iter()
         .map(|c| c.item.name)
         .collect();
+
     assert_eq!(callers, ["inner"]);
     let outer = s
         .prepare_call_hierarchy(&uri(), at_offset(text, "outer ::", 1))
@@ -314,6 +346,7 @@ outer :: () {
         .into_iter()
         .map(|c| c.item.name)
         .collect();
+
     assert_eq!(callees, ["inner"]);
 }
 
@@ -323,6 +356,7 @@ fn request(json: &mut JsonSession, id: u32, method: &str, params: Value) -> Valu
     let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
     let out = json.handle_json(&message.to_string()).unwrap();
     let last: Value = serde_json::from_str(out.last().unwrap()).unwrap();
+
     last["result"].clone()
 }
 
@@ -330,14 +364,17 @@ fn request(json: &mut JsonSession, id: u32, method: &str, params: Value) -> Valu
 fn the_server_advertises_and_answers_the_requests() {
     let mut json = JsonSession::with_environment(Limits::default(), environment());
     let init = request(&mut json, 1, "initialize", json!({}));
+
     assert_eq!(init["capabilities"]["callHierarchyProvider"], true);
     assert_eq!(init["capabilities"]["selectionRangeProvider"], true);
     let kinds = init["capabilities"]["codeActionProvider"]["codeActionKinds"]
         .as_array()
         .unwrap();
+
     for kind in ["refactor.extract", "refactor.inline", "refactor.rewrite"] {
         assert!(kinds.contains(&json!(kind)), "{kinds:?}");
     }
+
     json.handle_json(
         &json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
             "uri": uri().as_str(), "languageId": "jai", "version": 1, "text": PROGRAM}}})
@@ -350,6 +387,7 @@ fn the_server_advertises_and_answers_the_requests() {
         "textDocument/prepareCallHierarchy",
         json!({"textDocument": {"uri": uri().as_str()}, "position": at_offset(PROGRAM, "leaf ::", 1)}),
     );
+
     assert_eq!(items[0]["name"], "leaf");
     assert_eq!(items[0]["kind"], 12);
     let incoming = request(
@@ -358,6 +396,7 @@ fn the_server_advertises_and_answers_the_requests() {
         "callHierarchy/incomingCalls",
         json!({"item": items[0]}),
     );
+
     assert_eq!(incoming[0]["from"]["name"], "middle");
     assert_eq!(incoming[0]["fromRanges"].as_array().unwrap().len(), 2);
     let middle = request(
@@ -372,6 +411,7 @@ fn the_server_advertises_and_answers_the_requests() {
         "callHierarchy/outgoingCalls",
         json!({"item": middle[0]}),
     );
+
     assert_eq!(outgoing[0]["to"]["name"], "leaf");
     let nothing = request(
         &mut json,
@@ -379,12 +419,14 @@ fn the_server_advertises_and_answers_the_requests() {
         "textDocument/prepareCallHierarchy",
         json!({"textDocument": {"uri": uri().as_str()}, "position": at_offset(PROGRAM, "x := other", 0)}),
     );
+
     assert!(nothing.is_null());
 }
 
 #[test]
 fn a_diagnostics_pull_makes_a_cold_call_hierarchy_ready() {
     let mut json = JsonSession::with_environment(Limits::default(), environment());
+
     json.defer_compiles(true);
     json.defer_publications(true);
     request(
@@ -412,6 +454,7 @@ fn a_diagnostics_pull_makes_a_cold_call_hierarchy_ready() {
         "callHierarchy/outgoingCalls",
         json!({"item": middle[0]}),
     );
+
     assert_eq!(cold, json!([]));
     assert_eq!(json.compile_counts().0, before);
     let diagnostics = request(
@@ -420,6 +463,7 @@ fn a_diagnostics_pull_makes_a_cold_call_hierarchy_ready() {
         "textDocument/diagnostic",
         json!({"textDocument": {"uri": uri().as_str()}}),
     );
+
     assert_eq!(diagnostics["kind"], "full");
     assert!(json.compile_counts().0 > before);
     let ready = request(
@@ -428,6 +472,7 @@ fn a_diagnostics_pull_makes_a_cold_call_hierarchy_ready() {
         "callHierarchy/outgoingCalls",
         json!({"item": middle[0]}),
     );
+
     assert_eq!(ready[0]["to"]["name"], "leaf");
     assert_eq!(ready[0]["fromRanges"].as_array().unwrap().len(), 2);
 }
@@ -448,16 +493,19 @@ fn chain(text: &str, position: Position) -> Vec<String> {
     let s = open(text);
     let mut selection = Some(s.selection_ranges(&uri(), &[position]).unwrap().remove(0));
     let mut out = Vec::new();
+
     while let Some(sel) = selection {
         out.push(text_in_range(text, sel.range));
         selection = sel.parent.map(|p| *p);
     }
+
     out
 }
 
 #[test]
 fn selection_grows_from_the_token_to_the_file() {
     let chain = chain(NESTED, at_offset(NESTED, "a, 3", 0));
+
     assert_eq!(chain[0], "a");
     assert_eq!(chain[1], "scale(a, 3)");
     assert_eq!(chain[2], "total -= scale(a, 3);");
@@ -465,6 +513,7 @@ fn selection_grows_from_the_token_to_the_file() {
     assert_eq!(chain[3], "{\n        total -= scale(a, 3);\n    }");
     assert!(chain[4].starts_with("if total > 10 {"), "{chain:?}");
     assert_eq!(chain.last().unwrap(), NESTED);
+
     // Every range holds the one before it.
     for pair in chain.windows(2) {
         assert!(pair[1].len() > pair[0].len(), "{chain:?}");
@@ -474,6 +523,7 @@ fn selection_grows_from_the_token_to_the_file() {
 #[test]
 fn selection_steps_through_blocks_and_the_declaration() {
     let chain = chain(NESTED, at_offset(NESTED, "total > 10", 0));
+
     assert_eq!(chain[0], "total");
     assert_eq!(chain[1], "total > 10");
     assert!(chain.iter().any(|c| c.starts_with("if total > 10 {")));
@@ -482,6 +532,7 @@ fn selection_steps_through_blocks_and_the_declaration() {
         .iter()
         .position(|c| c.starts_with("total := (a + b) * 2;"))
         .unwrap();
+
     assert!(chain[body].ends_with("return total;"));
     assert!(chain[body + 1].starts_with('{') && chain[body + 1].ends_with('}'));
     assert!(
@@ -494,11 +545,13 @@ fn selection_steps_through_blocks_and_the_declaration() {
 #[test]
 fn selection_includes_parenthesized_operands_and_string_text() {
     let chain_a = chain(NESTED, at_offset(NESTED, "a + b", 0));
+
     assert_eq!(chain_a[0], "a");
     assert_eq!(chain_a[1], "a + b");
     assert!(chain_a.contains(&"(a + b) * 2".to_string()), "{chain_a:?}");
     let text = "main :: () {\n    s := \"hello world\";\n}\n";
     let c = chain(text, at_offset(text, "world", 1));
+
     assert!(c.contains(&"\"hello world\"".to_string()), "{c:?}");
     assert!(c.contains(&"hello world".to_string()), "{c:?}");
 }
@@ -507,6 +560,7 @@ fn selection_includes_parenthesized_operands_and_string_text() {
 fn selection_works_without_a_parse() {
     let text = "main :: () {\n    x := ;\n";
     let c = chain(text, at_offset(text, "x :=", 0));
+
     assert_eq!(c.first().unwrap(), "x");
     assert_eq!(c.last().unwrap(), text);
 }
@@ -519,8 +573,10 @@ fn selection_answers_every_position() {
         at_offset(NESTED, "return", 7),
     ];
     let ranges = s.selection_ranges(&uri(), &positions).unwrap();
+
     assert_eq!(ranges.len(), 2);
     let mut json = JsonSession::with_environment(Limits::default(), environment());
+
     request(&mut json, 1, "initialize", json!({}));
     json.handle_json(
         &json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
@@ -534,6 +590,7 @@ fn selection_answers_every_position() {
         "textDocument/selectionRange",
         json!({"textDocument": {"uri": uri().as_str()}, "positions": positions}),
     );
+
     assert_eq!(wire.as_array().unwrap().len(), 2);
     assert!(wire[0]["range"]["start"].is_object());
     assert!(wire[0]["parent"]["range"].is_object());

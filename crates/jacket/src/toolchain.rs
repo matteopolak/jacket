@@ -33,6 +33,7 @@ pub fn fill_sysroot(runner: &str, target: &Target) -> Result<String, String> {
     if !runner.contains("{sysroot}") {
         return Ok(runner.to_string());
     }
+
     let triple = target.effective_triple().ok_or_else(|| {
         format!(
             "`{}` has a `{{sysroot}}` in its runner but no triple",
@@ -48,11 +49,13 @@ pub fn fill_sysroot(runner: &str, target: &Target) -> Result<String, String> {
             target: triple,
         }
         .note(lookup.host.os(), PackageManager::detect(&lookup));
+
         return Err(format!(
             "the runner of `{}` needs a sysroot for {triple}\nnote: {note}",
             target.name
         ));
     };
+
     Ok(runner.replace("{sysroot}", &found.program.to_string_lossy()))
 }
 
@@ -97,6 +100,7 @@ impl Row {
 pub fn host_row(lookup: &Lookup, overrides: &Overrides) -> Row {
     let triple = host_target(lookup.host);
     let mut row = triple_row(&triple.to_string(), triple, lookup, overrides);
+
     row.name = "host".to_string();
     row.from = "-";
     row
@@ -117,6 +121,7 @@ pub fn target_row(target: &Target, lookup: &Lookup, overrides: &Overrides) -> Ro
         },
         None => triple_row(&target.name, host_target(lookup.host), lookup, overrides),
     };
+
     row.from = if target.project {
         "project"
     } else {
@@ -150,6 +155,7 @@ fn triple_row(name: &str, triple: Triple, lookup: &Lookup, overrides: &Overrides
     } else {
         Piece::NotNeeded
     };
+
     Row {
         name: name.to_string(),
         from: "-",
@@ -170,6 +176,7 @@ pub fn program_piece(name: &str, lookup: &Lookup) -> Piece {
     if let Some(path) = lookup.which(name) {
         return Piece::Found(Found::new(path, jaic_toolchain::Origin::System));
     }
+
     let note = Need::for_program(name).note(lookup.host.os(), PackageManager::detect(lookup));
     Piece::Missing(Missing::new(format!("{name} is not installed"), vec![note]))
 }
@@ -208,15 +215,18 @@ pub fn listing(rows: &[Row], lookup: &Lookup) -> String {
         })
         .collect();
     let mut text = String::new();
+
     for row in std::iter::once(&header).chain(&cells) {
         let line: Vec<String> = row
             .iter()
             .zip(&widths)
             .map(|(cell, width)| format!("{cell:<width$}"))
             .collect();
+
         text.push_str(line.join("  ").trim_end());
         text.push('\n');
     }
+
     text.push_str(&problems(rows));
     text
 }
@@ -234,9 +244,11 @@ pub fn list(
     overrides: &Overrides,
 ) -> Report {
     let mut rows = vec![host_row(lookup, overrides)];
+
     for target in crate::target::all(config) {
         rows.push(target_row(&target, lookup, overrides));
     }
+
     // Listing every board is not a failure on a machine that has none of their emulators.
     Report {
         text: listing(&rows, lookup),
@@ -259,32 +271,40 @@ pub fn check(
     overrides: &Overrides,
 ) -> Result<Report, String> {
     let mut rows = Vec::new();
+
     for name in names {
         let target = crate::target::named(name, config)?;
+
         rows.push(target_row(&target, lookup, overrides));
     }
+
     if names.is_empty() && tools.is_empty() {
         rows.push(host_row(lookup, overrides));
     }
+
     let mut text = if rows.is_empty() {
         String::new()
     } else {
         listing(&rows, lookup)
     };
     let mut complete = rows.iter().all(Row::complete);
+
     for tool in tools {
         match program_piece(tool, lookup) {
             Piece::Found(found) => text.push_str(&format!("{tool}: {}\n", tilde(&found.program))),
             Piece::Missing(missing) => {
                 complete = false;
+
                 if !text.is_empty() {
                     text.push('\n');
                 }
+
                 text.push_str(&format!("{tool}: {missing}\n"));
             }
             Piece::NotNeeded => {}
         }
     }
+
     Ok(Report {
         text,
         complete,
@@ -294,6 +314,7 @@ pub fn check(
 /// What each missing piece of `rows` needs, one block per target.
 pub fn problems(rows: &[Row]) -> String {
     let mut text = String::new();
+
     for row in rows {
         for (_, piece) in row.pieces() {
             if let Piece::Missing(missing) = piece {
@@ -301,6 +322,7 @@ pub fn problems(rows: &[Row]) -> String {
             }
         }
     }
+
     text
 }
 
@@ -317,6 +339,7 @@ mod tests {
             runner: runner.map(str::to_string),
             ..Target::default()
         };
+
         target_row(&target, &lookup, &Overrides::default())
     }
 
@@ -329,6 +352,7 @@ mod tests {
             Some("Mps2_An386"),
             Some("qemu-system-arm -M x"),
         );
+
         assert_eq!(row.triple, "thumbv7em-none-eabihf");
         assert!(matches!(row.linker, Piece::Missing(_)));
         assert!(matches!(row.runner, Piece::Missing(_)));
@@ -338,6 +362,7 @@ mod tests {
     #[test]
     fn a_missing_piece_prints_its_note_under_the_table() {
         let mut host = FakeHost::mac();
+
         host.file("/opt/homebrew/bin/brew");
         let lookup = Lookup::new(&host);
         let row = row_for(
@@ -347,6 +372,7 @@ mod tests {
             Some("qemu-system-avr -M uno"),
         );
         let text = listing(&[row], &lookup);
+
         assert!(text.starts_with("TARGET"), "{text}");
         assert!(
             text.contains("Arduino_Uno: no linker for avr-none-elf"),
@@ -366,6 +392,7 @@ mod tests {
             ..Target::default()
         };
         let row = target_row(&target, &Lookup::new(&host), &Overrides::default());
+
         assert_eq!(row.triple, "thumbv6m-none-eabi");
         assert!(
             matches!(&row.linker, Piece::Missing(m) if m.what.contains("unsupported")),
@@ -376,9 +403,11 @@ mod tests {
     #[test]
     fn a_found_runner_is_listed_by_path() {
         let mut host = FakeHost::mac();
+
         host.file("/opt/homebrew/bin/qemu-system-arm");
         let lookup = Lookup::new(&host);
         let piece = runner_piece("qemu-system-arm", &lookup);
+
         assert!(matches!(piece, Piece::Found(_)), "{piece:?}");
     }
 }

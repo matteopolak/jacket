@@ -31,6 +31,7 @@ impl Compiler {
         else {
             return Ok(op);
         };
+
         if mode == 0
             || f.type_only
             || op.is_const()
@@ -41,6 +42,7 @@ impl Compiler {
         {
             return Ok(op);
         }
+
         let range = |bits: u8, signed: bool| -> (i128, i128) {
             if signed {
                 (-(1i128 << (bits - 1)), (1i128 << (bits - 1)) - 1)
@@ -50,9 +52,11 @@ impl Compiler {
         };
         let (smin, smax) = range(sbits, ssigned);
         let (tmin, tmax) = range(tbits, tsigned);
+
         if tmin <= smin && smax <= tmax {
             return Ok(op);
         }
+
         let Some(t) = self.ir_ty(from) else {
             return Ok(op);
         };
@@ -60,11 +64,14 @@ impl Compiler {
         // Constants are the bits of the source type.
         let bits = |v: i128| (v as u64) & (u64::MAX >> (64 - u32::from(sbits)));
         let mut bad = None;
+
         if tmin > smin {
             // Only a signed value can be below the target's minimum.
             let min = f.b.iconst(t, bits(tmin));
+
             bad = Some(f.b.cmp(ir::CmpOp::SLt, t, x, min));
         }
+
         if tmax < smax {
             let max = f.b.iconst(t, bits(tmax));
             let over = if ssigned {
@@ -73,14 +80,17 @@ impl Compiler {
                 ir::CmpOp::UGt
             };
             let high = f.b.cmp(over, t, x, max);
+
             bad = Some(match bad {
                 Some(low) => f.b.bin(ir::BinOp::Or, Ty::I8, low, high),
                 None => high,
             });
         }
+
         if let Some(bad) = bad {
             let fail = f.b.new_block();
             let cont = f.b.new_block();
+
             f.b.branch(bad, fail, cont);
             f.b.switch_to(fail);
             let value = if t == Ty::I64 {
@@ -97,7 +107,9 @@ impl Compiler {
                 ir::cast_check_code(u64::from(tbits / 8), tsigned, ssigned, u64::from(sbits / 8));
             let code = f.b.iconst(Ty::I64, bits);
             let fatal = mode == 2;
+
             self.emit_check_failed(f, ir::CheckReason::CastOverflow, value, code, fatal, span)?;
+
             // A warning goes on, and so does a cast between `s64` and `u64` run at compile time,
             // which only reinterprets the bits; any other fatal failure stops here.
             if fatal && !ir::cast_check_is_64_bit_sign_change(bits) {
@@ -105,8 +117,10 @@ impl Compiler {
             } else {
                 f.b.jump(cont);
             }
+
             f.b.switch_to(cont);
         }
+
         Ok(Operand::Value {
             ty,
             val: x,
@@ -128,6 +142,7 @@ impl Compiler {
         else {
             return Ok(());
         };
+
         if matches!(self.ty.types.kind(to), TypeKind::Enum(_))
             || matches!(
                 self.ty.types.kind(self.ty.types.repr(to)),
@@ -136,22 +151,27 @@ impl Compiler {
         {
             return Ok(());
         }
+
         let Some((bits, signed)) = self.ty.types.int_info(to) else {
             return Ok(());
         };
         let bit_pattern = op.bit_pattern();
+
         if int_constant_fits(*v, bits, signed, bit_pattern) {
             return Ok(());
         }
+
         // A complement is a 64-bit pattern whose high bits repeat its sign: an explicit cast
         // keeps the low bits when they hold the same value (`xx ~4` is `-5` in an `s32`).
         let wrapped = *v - (1i128 << 64);
+
         if bit_pattern
             && (1i128 << 63..1i128 << 64).contains(v)
             && int_constant_fits(wrapped, bits, signed, false)
         {
             return Ok(());
         }
+
         let name = self.ty.types.name(to);
         let mut d = Diagnostic::new(
             Code::ConstantOutOfRange,
@@ -160,6 +180,7 @@ impl Compiler {
                 "constant {v} is out of range for {name}; write `cast,trunc({name})` to keep the low bits"
             ),
         );
+
         if let Some(suggestion) = self.cast_flag_suggestion(
             cast,
             ",trunc",
@@ -167,6 +188,7 @@ impl Compiler {
         ) {
             d = d.with_suggestion(suggestion);
         }
+
         Err(Box::new(d))
     }
 
@@ -176,11 +198,13 @@ impl Compiler {
         if !self.src.sources.snippet(cast).starts_with("cast(") {
             return None;
         }
+
         let at = Span {
             start: cast.start + 4,
             end: cast.start + 4,
             ..cast
         };
+
         Some(
             Suggestion::replace(title, at, flag, Applicability::MaybeIncorrect)
                 .with_action(format!("Write `cast{flag}`")),
@@ -207,21 +231,25 @@ impl Compiler {
                 TypeKind::Struct(_) | TypeKind::Array { .. } | TypeKind::String
             )
         };
+
         if aggregate(from) && single(to) {
             return Some(format!(
                 "{from_name} holds several values: cast one of its members to {to_name} instead"
             ));
         }
+
         if single(from) && matches!(types.kind(types.repr(to)), TypeKind::Struct(_)) {
             return Some(format!(
                 "build a {to_name} from its members with a struct literal instead: `{to_name}.{{...}}`"
             ));
         }
+
         if single(from) && to == TypeId::STRING {
             return Some(
                 "to turn a number into text, format it: `tprint(\"%\", value)` (from Basic)".into(),
             );
         }
+
         None
     }
 
@@ -238,6 +266,7 @@ impl Compiler {
         let op = match op {
             Operand::Procs(_) => {
                 let (ty, val) = self.rvalue(f, op, span)?;
+
                 Operand::Value {
                     ty,
                     val,
@@ -246,6 +275,7 @@ impl Compiler {
             op => op,
         };
         let from = op.ty();
+
         if from == to
             && !matches!(
                 op,
@@ -257,9 +287,11 @@ impl Compiler {
         {
             return Ok(op);
         }
+
         if let Some(converted) = self.wide_cast(f, op.clone(), to, span)? {
             return Ok(converted);
         }
+
         // `cast(u8, "\u001F")`: a one-character string is its byte, as it is implicitly.
         if let Operand::Const {
             value: Value::String(s),
@@ -270,12 +302,14 @@ impl Compiler {
         {
             return self.explicit_cast(f, Operand::untyped_int(s[0] as i128), to, flags, span);
         }
+
         // Constant folding of numeric casts.
         if let Operand::Const {
             value, ..
         } = &op
         {
             let folded = self.fold_cast(value, op.ty(), to, flags);
+
             if let Some(value) = folded {
                 return Ok(Operand::Const {
                     ty: to,
@@ -285,6 +319,7 @@ impl Compiler {
                 });
             }
         }
+
         if matches!(
             op,
             Operand::Const {
@@ -295,17 +330,21 @@ impl Compiler {
         {
             return self.convert(f, op, to, Site::opaque(span));
         }
+
         if let Operand::Type(t) = op {
             if to == TypeId::TYPE {
                 return Ok(Operand::Type(t));
             }
+
             // cast(*Type_Info) T: the descriptor address.
             let v = self.materialize(f, &Value::Type(t), TypeId::TYPE, span)?;
+
             return Ok(Operand::Value {
                 ty: to,
                 val: v,
             });
         }
+
         let untyped = matches!(
             op,
             Operand::Const {
@@ -313,6 +352,7 @@ impl Compiler {
                 ..
             }
         );
+
         // A number, enum or pointer cast to `bool` tests for non-zero; keeping its low byte
         // would make `cast(bool) 2` a bool that `!` does not negate.
         if self.ty.types.repr(to) == TypeId::BOOL
@@ -322,17 +362,20 @@ impl Compiler {
         {
             let (ty, v) = self.rvalue(f, op, span)?;
             let val = self.truthy(f, ty, v, span)?;
+
             return Ok(Operand::Value {
                 ty: to,
                 val,
             });
         }
+
         if self.implicit_cost(from, untyped, to).is_some()
             && !self.ty.types.is_integer(to)
             && !self.ty.types.is_float(to)
         {
             return self.convert(f, op, to, Site::opaque(span));
         }
+
         self.cast_between_representations(f, op, to, flags, untyped, span)
     }
 
@@ -347,6 +390,7 @@ impl Compiler {
     ) -> Option<Value> {
         let tr = self.ty.types.repr(to);
         let fr = self.ty.types.repr(from);
+
         match value {
             Value::Int(i)
                 if self.ty.types.is_pointer(tr)
@@ -356,6 +400,7 @@ impl Compiler {
                 // pointed-to memory. Use the target width, never the host's usize.
                 let bits = self.options.layout.ptr_bits() as u8;
                 let address = crate::int_arith::wrap(*i, bits, false);
+
                 Some(if address == 0 {
                     Value::Null
                 } else {
@@ -377,6 +422,7 @@ impl Compiler {
                     x.to_bits() as i128
                 };
                 let (width, signed) = self.ty.types.int_info(tr).unwrap();
+
                 Some(Value::Int(crate::int_arith::wrap(bits, width, signed)))
             }
             Value::Int(i) if self.ty.types.is_integer(tr) => {
@@ -417,6 +463,7 @@ impl Compiler {
         // Same-representation reinterpretations (distinct/enum/struct-of-same-size are not allowed except via pointer).
         let fr = self.ty.types.repr(from);
         let tr = self.ty.types.repr(to);
+
         if flags.force
             && let (Some(fi), Some(ti)) = (self.ir_ty(fr), self.ir_ty(tr))
             && fi.is_float() != ti.is_float()
@@ -424,11 +471,13 @@ impl Compiler {
         {
             let (_, v) = self.rvalue(f, op, span)?;
             let val = f.b.conv(ConvOp::Bitcast, fi, ti, v);
+
             return Ok(Operand::Value {
                 ty: to,
                 val,
             });
         }
+
         // A string constant cast to a fixed byte array of matching length.
         if let Operand::Const {
             value: Value::String(bytes),
@@ -451,26 +500,32 @@ impl Compiler {
                 origin: Origin::Computed,
             });
         }
+
         // Strings and arrays cast to `bool` as "is non-empty".
         if tr == TypeId::BOOL && self.ir_ty(fr).is_none() && fr != TypeId::ANY {
             let (ty, v) = self.rvalue(f, op, span)?;
             let val = self.truthy(f, ty, v, span)?;
+
             return Ok(Operand::Value {
                 ty: to,
                 val,
             });
         }
+
         if self.ir_ty(fr).is_some() && self.ir_ty(tr).is_some() {
             let op = self.settle_untyped(op, Some(to));
             return self.scalar_convert(f, op, to, span);
         }
+
         if fr == tr {
             let (_, v) = self.rvalue(f, op, span)?;
+
             return Ok(Operand::Value {
                 ty: to,
                 val: v,
             });
         }
+
         // Array conversions.
         if let (
             TypeKind::Array {
@@ -485,15 +540,19 @@ impl Compiler {
             self.ty.types.kind(tr).clone(),
         ) {
             let (_, addr) = self.address_of(f, op, span)?;
+
             f.lifetime_view(addr, addr, from, to, span);
+
             return Ok(Operand::Value {
                 ty: to,
                 val: addr,
             });
         }
+
         if self.implicit_cost(from, untyped, to).is_some() {
             return self.convert(f, op, to, Site::opaque(span));
         }
+
         // `string` and `[] u8` share the same layout (count, data).
         let is_bytes_view = |s: &Self, t: TypeId| {
             matches!(
@@ -504,16 +563,20 @@ impl Compiler {
                 } if *elem == TypeId::U8
             )
         };
+
         if (from == TypeId::STRING && is_bytes_view(self, to))
             || (to == TypeId::STRING && is_bytes_view(self, from))
         {
             let (_, addr) = self.address_of(f, op, span)?;
+
             f.lifetime_view(addr, addr, from, to, span);
+
             return Ok(Operand::Place {
                 ty: to,
                 addr,
             });
         }
+
         // `xx bytes` where `bytes: [N] u8` / `[..] u8`: view the array, then as a string.
         if to == TypeId::STRING
             && let TypeKind::Array {
@@ -522,8 +585,10 @@ impl Compiler {
         {
             let view = self.ty.types.array(TypeId::U8, ArrayKind::View);
             let op = self.explicit_cast(f, op, view, flags, span)?;
+
             return self.explicit_cast(f, op, to, flags, span);
         }
+
         // `cast,force` reinterprets an aggregate as another of the same size.
         if flags.force
             && self.ir_ty(fr).is_none()
@@ -531,11 +596,13 @@ impl Compiler {
             && self.size_of(from, span)? == self.size_of(to, span)?
         {
             let (_, addr) = self.address_of(f, op, span)?;
+
             return Ok(Operand::Place {
                 ty: to,
                 addr,
             });
         }
+
         // A pointer to a value cast to a fixed array of the same size reads that value as the array.
         if let Some(pointee) = self.ty.types.pointee(fr)
             && pointee != TypeId::VOID
@@ -549,11 +616,13 @@ impl Compiler {
             && self.size_of(pointee, span)? == self.size_of(to, span)?
         {
             let (_, addr) = self.rvalue(f, op, span)?;
+
             return Ok(Operand::Place {
                 ty: to,
                 addr,
             });
         }
+
         let mut d = Diagnostic::new(
             Code::ConvertCannotCast,
             span,
@@ -570,6 +639,7 @@ impl Compiler {
                 (self.size_of(from, span), self.size_of(to, span)),
                 (Ok(a), Ok(b)) if a == b
             );
+
         if same_size
             && let Some(suggestion) = self.cast_flag_suggestion(
                 span,
@@ -581,6 +651,7 @@ impl Compiler {
         } else if let Some(help) = self.cannot_cast_help(from, to) {
             d = d.with_help(help);
         }
+
         Err(Box::new(d))
     }
 }

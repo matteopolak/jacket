@@ -10,6 +10,7 @@ T :: struct { a, b, c: float; }
 /// The rendered error `source` fails with.
 fn failure(source: &str) -> String {
     let (c, result) = compile_source(source);
+
     match result {
         Ok(()) => panic!("compiled: {source}"),
         Err(error) => error.render(&c.src.sources),
@@ -18,6 +19,7 @@ fn failure(source: &str) -> String {
 
 fn accepts(source: &str) {
     let (c, result) = compile_source(source);
+
     if let Err(error) = result {
         panic!("{}", error.render(&c.src.sources));
     }
@@ -67,6 +69,7 @@ fn equally_good_overloads_for_a_literal_operand_are_ambiguous() {
          operator * :: (x: T, f: float) -> T { return x; }
          main :: () { x := .{ 1.0, 2.0 } * 2.0; }",
     );
+
     assert!(
         error.contains("Procedure call matches 2 possible overloads"),
         "{error}"
@@ -83,6 +86,7 @@ fn equally_good_overloads_for_a_literal_operand_are_ambiguous() {
 #[test]
 fn a_literal_operand_without_any_overload_is_still_an_error() {
     let error = failure("main :: () { x := .{ 1, 2 } * 2; }");
+
     assert!(
         error.contains("cannot infer the type of `.{...}`"),
         "{error}"
@@ -95,6 +99,7 @@ fn a_literal_that_fits_no_overload_is_an_error() {
         "{TYPES} operator * :: (x: T, f: float) -> T {{ return x; }}
          main :: () {{ x := .{{ 1.0, 2.0 }} * 2.0; }}"
     ));
+
     assert!(error.contains("operator"), "{error}");
 }
 
@@ -104,6 +109,7 @@ fn a_type_is_not_an_operand_of_an_overloaded_operator() {
         "{TYPES} operator * :: (x: S, f: float) -> S {{ return x; }}
          main :: () {{ x := .{{ 1.0, 2.0 }} * S; }}"
     ));
+
     assert!(
         error.contains("a type cannot be an operand of an overloaded operator"),
         "{error}"

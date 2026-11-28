@@ -9,8 +9,10 @@ use std::{path::Path, rc::Rc};
 
 fn compile(source: &str) -> Result<(), Box<Diagnostic>> {
     let mut fs = VirtualFs::default();
+
     fs.insert("/main.jai", source.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(fs));
     compiler.compile_program(Path::new("/main.jai"))
@@ -37,6 +39,7 @@ fn literal_keywords_cannot_be_declared() {
         ),
     ] {
         let error = compile(source).expect_err(source);
+
         assert_eq!(
             error.message,
             format!("`{word}` is a keyword and cannot be declared"),
@@ -59,12 +62,14 @@ fn statement_keywords_cannot_be_declared() {
         ("f :: (using: int) {}\nmain :: () { f(1); }\n", "using"),
     ] {
         let error = compile(source).expect_err(source);
+
         assert_eq!(
             error.message,
             format!("`{word}` is a keyword and cannot be declared"),
             "{source}"
         );
     }
+
     // A backticked declaration is not read as a statement, so it may use the word.
     compile("S :: struct { `remove: int; }\nmain :: () { s: S; s.remove = 1; }\n").unwrap();
 }
@@ -81,12 +86,14 @@ fn if_keywords_cannot_be_declared() {
         ("S :: struct { else: int; }\nmain :: () {}\n", "else"),
     ] {
         let error = compile(source).expect_err(source);
+
         assert_eq!(
             error.message,
             format!("`{word}` is a keyword and cannot be declared"),
             "{source}"
         );
     }
+
     compile("S :: struct { `ifx: int; }\nmain :: () { s: S; s.ifx = 1; }\n").unwrap();
 }
 
@@ -95,5 +102,6 @@ fn members_and_assignments_may_use_them() {
     let source = "S :: struct { null: bool; true: int; }\n\
                   f :: () -> int, bool { return 1, true; }\n\
                   main :: () { s: S; s.null = true; a: int; a, s.null = f(); }\n";
+
     compile(source).unwrap();
 }

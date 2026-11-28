@@ -32,6 +32,7 @@ impl Compiler {
                         ..
                     } = &**boxed;
                     let taken = self.eval_static_condition(scope, cond)?;
+
                     self.ide_note_branches(boxed, taken);
                     self.collect_fields(
                         scope,
@@ -47,12 +48,15 @@ impl Compiler {
                     let crate::ast::InsertStmt {
                         value, ..
                     } = &**boxed;
+
                     // The descriptors of this struct's variadic arguments must exist before the
                     // inserted code reads them.
                     if let ScopeKind::Struct(owner) = self.scope(scope).kind {
                         self.build_variadic_cases(owner, value.span)?;
                     }
+
                     let inserted = self.eval_insert_stmts(scope, value)?;
+
                     // Constants the inserted text declares are members like any written in the
                     // body, visible to the fields that follow and to the struct's users.
                     for stmt in &inserted {
@@ -73,6 +77,7 @@ impl Compiler {
                             }
                         }
                     }
+
                     self.collect_fields(scope, &inserted, out)?;
                 }
                 ast::StmtKind::Place(e) => {
@@ -83,6 +88,7 @@ impl Compiler {
                             "#place needs a field name",
                         );
                     };
+
                     out.push(FieldItem::Place(path, member_path_spans(e), e.span));
                 }
                 ast::StmtKind::Overlay(e) => {
@@ -93,6 +99,7 @@ impl Compiler {
                             "#overlay needs a field name",
                         );
                     };
+
                     out.push(FieldItem::Overlay(path, member_path_spans(e), e.span));
                 }
                 ast::StmtKind::Expr(e) => match &e.kind {
@@ -106,6 +113,7 @@ impl Compiler {
                             Vec::new(),
                             None,
                         );
+
                         out.push(FieldItem::Field(FieldDecl {
                             name: None,
                             ty: t,
@@ -132,6 +140,7 @@ impl Compiler {
                         value,
                         filter,
                     } = &**boxed;
+
                     // `using inner.member;` naming fields of this struct: an alias.
                     if let Some(path) = member_path(value)
                         && out.iter().any(|item| match item {
@@ -148,8 +157,10 @@ impl Compiler {
                         }));
                         continue;
                     }
+
                     // `using Other_Struct;` imports another struct's fields.
                     let t = self.eval_type(scope, value)?;
+
                     out.push(FieldItem::Field(FieldDecl {
                         name: None,
                         ty: t,
@@ -166,6 +177,7 @@ impl Compiler {
                 _ => {}
             }
         }
+
         Ok(())
     }
 
@@ -181,7 +193,9 @@ impl Compiler {
         {
             return Ok(*ty);
         }
+
         let key = (scope, decl.id);
+
         if !self.ty.field_type_pending.insert(key) {
             return err(
                 Code::StructCycleFieldTypes,
@@ -189,8 +203,11 @@ impl Compiler {
                 "cycle in struct field types",
             );
         }
+
         let result = self.field_decl_type_inner(scope, decl);
+
         self.ty.field_type_pending.remove(&key);
+
         if let Ok(ty) = result {
             for name in &decl.names {
                 self.ty
@@ -200,6 +217,7 @@ impl Compiler {
                     .insert(name.name, ty);
             }
         }
+
         result
     }
 
@@ -208,6 +226,7 @@ impl Compiler {
             (Some(t), _) => self.eval_type(scope, t)?,
             (None, Some(v)) => {
                 let op = self.eval_const(scope, v, None)?;
+
                 match op {
                     Operand::Const {
                         ty,
@@ -240,6 +259,7 @@ impl Compiler {
             None => None,
         };
         let notes: Vec<ast::Note> = decl.notes.iter().cloned().collect();
+
         for name in &decl.names {
             out.push(FieldItem::Field(FieldDecl {
                 name: Some(name.name),
@@ -254,6 +274,7 @@ impl Compiler {
                 filter: filter.clone(),
             }));
         }
+
         Ok(())
     }
 
@@ -263,10 +284,13 @@ impl Compiler {
         if let Some(t) = self.ty.context_type {
             return Ok(t);
         }
+
         self.expand_all()?;
         let mut extra: Vec<(Arc<ast::Decl>, ScopeId)> = Vec::new();
+
         if let Some(preload) = self.ns.preload {
             let ids = self.module_declarations(preload, Sym::intern("FIRST_ADD_CONTEXT"))?;
+
             if let Some(&id) = ids.first()
                 && let Resolved::Const {
                     value: Value::Code(code),
@@ -284,6 +308,7 @@ impl Compiler {
                     ast::CodeBody::Stmt(stmt) => std::slice::from_ref(stmt),
                     ast::CodeBody::Expr(_) => &[],
                 };
+
                 for stmt in statements {
                     if let ast::StmtKind::AddContext(decl) = &stmt.kind {
                         extra.push((decl.clone(), scope));
@@ -291,6 +316,7 @@ impl Compiler {
                 }
             }
         }
+
         extra.extend(self.ns.add_contexts.iter().cloned());
         let lit = Arc::new(ast::StructLit {
             id: ast::AstId::fresh(),
@@ -312,9 +338,11 @@ impl Compiler {
             .into_iter()
             .partition(|(decl, _)| decl.kind == ast::DeclKind::Const);
         let struct_scope = self.ty.struct_asts[&s].scope;
+
         for (decl, home) in consts {
             self.add_context_constant(struct_scope, &decl, home);
         }
+
         self.ty.struct_asts.get_mut(&s).unwrap().extra = extra;
         self.ty.context_type = Some(ty);
         self.layout_struct(s, span)?;
@@ -335,6 +363,7 @@ impl Compiler {
                 index,
             };
             let id = self.add_entity(struct_scope, n.name, n.span, kind, true);
+
             self.entity_mut(id).home = home;
         }
     }
@@ -352,11 +381,14 @@ impl Compiler {
     ) -> Result<()> {
         let s = self.ty.types.as_struct(context).unwrap();
         let struct_scope = self.ty.struct_asts[&s].scope;
+
         if decl.kind == ast::DeclKind::Const {
             self.add_context_constant(struct_scope, decl, home);
             return Ok(());
         }
+
         let before = self.ty.types.struct_info(s).fields.len();
+
         self.ty
             .struct_asts
             .get_mut(&s)
@@ -371,6 +403,7 @@ impl Compiler {
             return Ok(());
         };
         let capacity = self.out.program.globals[global.0 as usize].size;
+
         if size > capacity {
             return err(
                 Code::StructContextGottenBigger,
@@ -380,19 +413,24 @@ impl Compiler {
                 ),
             );
         }
+
         let from = self.ty.types.struct_info(s).fields[before..]
             .iter()
             .map(|f| f.offset)
             .min()
             .unwrap_or(size);
+
         if let Some(image) = self.default_initializer(context, span)? {
             let live = &mut self.out.program.globals[global.0 as usize];
+
             live.init.resize(size as usize, 0);
             let tail = (from as usize).min(image.bytes.len());
+
             live.init[tail..image.bytes.len()].copy_from_slice(&image.bytes[tail..]);
             live.relocs
                 .extend(image.relocs.iter().filter(|r| r.offset >= from).cloned());
         }
+
         self.ct
             .interp
             .initialize_global_tail(&self.out.program, global, from)
@@ -419,6 +457,7 @@ impl TypeState {
                 .or_default()
                 .insert(name.name, decl.clone());
         }
+
         out.push(FieldItem::Declaration(scope, decl.clone()));
         Ok(())
     }

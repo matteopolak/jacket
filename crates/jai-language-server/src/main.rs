@@ -17,17 +17,21 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
     let limits = jai_language_server::Limits::default();
     let mut session =
         jai_language_server::JsonSession::with_environment(limits, native_environment(stdlib));
+
     session.defer_publications(true);
     session.defer_compiles(true);
+
     if untrusted {
         session.set_trusted(false);
     }
+
     #[cfg(feature = "dependency-hints")]
     session.set_dependency_source(std::rc::Rc::new(
         jai_language_server::manifest::live::Live::default(),
     ));
     let stdout = std::io::stdout();
     let mut output = stdout.lock();
+
     // Decode on the reader thread so only complete interactive messages interrupt checks.
     // Background diagnostic polls and replies must not repeatedly restart idle analysis.
     #[derive(Default)]
@@ -36,6 +40,7 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
         oversized: Vec<jai_language_server::framing::Oversized>,
         ended: bool,
     }
+
     impl Input {
         fn end() -> Self {
             Self {
@@ -44,26 +49,33 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
             }
         }
     }
+
     #[derive(serde::Deserialize)]
     struct Route<'a> {
         #[serde(borrow)]
         method: Option<&'a str>,
     }
+
     let (chunks, input) = std::sync::mpsc::channel::<std::io::Result<Input>>();
+
     std::thread::spawn(move || {
         let mut stdin = std::io::stdin().lock();
         let mut chunk = vec![0u8; 64 * 1024];
         let mut decoder = jai_language_server::framing::FrameDecoder::new(limits.message_bytes);
+
         loop {
             let received = (|| -> std::io::Result<Input> {
                 let count = stdin.read(&mut chunk)?;
+
                 if count == 0 {
                     decoder.finish().map_err(std::io::Error::other)?;
                     return Ok(Input::end());
                 }
+
                 let messages = decoder
                     .push(&chunk[..count])
                     .map_err(std::io::Error::other)?;
+
                 Ok(Input {
                     messages,
                     oversized: decoder.take_oversized(),
@@ -83,18 +95,22 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
                 ),
                 Err(_) => (true, true),
             };
+
             if received
                 .as_ref()
                 .is_ok_and(|b| !b.ended && b.messages.is_empty() && b.oversized.is_empty())
             {
                 continue;
             }
+
             let disconnected = chunks.send(received).is_err();
+
             // Send before requesting interruption: the worker clears the flag then checks
             // the channel, so it cannot miss an interactive message already waiting there.
             if urgent {
                 jaic::interrupt::request(true);
             }
+
             if disconnected || done {
                 return;
             }
@@ -104,59 +120,73 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
     // How long the last publication took, which sets how long to wait for more edits.
     let mut last_publication = std::time::Duration::from_millis(40);
     let mut warm_needed = false;
+
     loop {
         // A compile (or the eviction it caused) freed many small blocks: hand their pages
         // back while the editor is idle.
         let (started, _) = session.compile_counts();
+
         if started != compiles {
             compiles = started;
             jai_language_server::release_free_memory();
         }
+
         // Compile-time service answers that compiles read as pending: once one is in, the
         // open files are checked again (published after the usual debounce).
         for message in session.dependency_arrivals()? {
             output.write_all(&jai_language_server::framing::encode(&message))?;
         }
+
         if session.services_waiting() {
             for message in session.service_arrivals()? {
                 output.write_all(&jai_language_server::framing::encode(&message))?;
             }
+
             output.flush()?;
         }
+
         // Diagnostics for edits wait until no input has come for `DIAGNOSTICS_DEBOUNCE`, so
         // requests that are queued (completion, hover) are answered first and a burst of
         // keystrokes costs one compile.
         let working = session.indexing_pending() || session.compile_pending();
         let (awaiting_progress, messages) = session.indexing_progress(working)?;
+
         for message in messages {
             output.write_all(&jai_language_server::framing::encode(&message))?;
         }
+
         output.flush()?;
         let received = if awaiting_progress {
             input.recv().unwrap_or(Ok(Input::end()))
         } else if session.publications_pending() {
             let wait = (last_publication / 4)
                 .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
+
             match input.recv_timeout(wait) {
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                     // The check stops for input that arrives while it runs; input already
                     // here is read first.
                     jaic::interrupt::request(false);
+
                     match input.try_recv() {
                         Ok(received) => received,
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Input::end()),
                         Err(std::sync::mpsc::TryRecvError::Empty) => {
                             let started = std::time::Instant::now();
                             let published = session.flush_publications_unless_interrupted()?;
+
                             // A stopped check says nothing about how long one takes.
                             if !published.is_empty() {
                                 last_publication = started.elapsed();
                             }
+
                             for response in published {
                                 output
                                     .write_all(&jai_language_server::framing::encode(&response))?;
                             }
+
                             output.flush()?;
+
                             continue;
                         }
                     }
@@ -171,6 +201,7 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
             match input.recv_timeout(*DIAGNOSTICS_DEBOUNCE.end()) {
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                     jaic::interrupt::request(false);
+
                     match input.try_recv() {
                         Ok(received) => received,
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Input::end()),
@@ -179,7 +210,9 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
                                 output
                                     .write_all(&jai_language_server::framing::encode(&message))?;
                             }
+
                             output.flush()?;
+
                             continue;
                         }
                     }
@@ -192,9 +225,11 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
             // do, so it does not hold up the next keystroke's request.
             let wait = (last_publication / 4)
                 .clamp(*DIAGNOSTICS_DEBOUNCE.start(), *DIAGNOSTICS_DEBOUNCE.end());
+
             match input.recv_timeout(wait) {
                 Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
                     jaic::interrupt::request(false);
+
                     match input.try_recv() {
                         Ok(received) => received,
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Input::end()),
@@ -203,7 +238,9 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
                                 output
                                     .write_all(&jai_language_server::framing::encode(&message))?;
                             }
+
                             output.flush()?;
+
                             continue;
                         }
                     }
@@ -215,6 +252,7 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
             // Idle after a message: read the indexes completion will want, then do the
             // work requests left for later one piece at a time, unless input is waiting.
             jaic::interrupt::request(false);
+
             match input.try_recv() {
                 Ok(received) => received,
                 Err(std::sync::mpsc::TryRecvError::Empty) => {
@@ -224,8 +262,10 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
                         for message in session.background_work()? {
                             output.write_all(&jai_language_server::framing::encode(&message))?;
                         }
+
                         output.flush()?;
                     }
+
                     continue;
                 }
                 Err(std::sync::mpsc::TryRecvError::Disconnected) => Ok(Input::end()),
@@ -239,50 +279,65 @@ fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std:
         } else {
             input.recv().unwrap_or(Ok(Input::end()))
         };
+
         warm_needed = true;
         let batch = received?;
         // Collect queued cancellations before serving requests, preserving wire order.
         let mut messages = batch.messages;
         let mut oversized = batch.oversized;
         let mut ended = batch.ended;
+
         while !ended {
             let Ok(more) = input.try_recv() else {
                 break;
             };
             let more = more?;
+
             ended = more.ended;
             messages.extend(more.messages);
             oversized.extend(more.oversized);
         }
+
         session.note_cancellations(&messages);
+
         for message in &messages {
             for response in session.handle_json(message)? {
                 output.write_all(&jai_language_server::framing::encode(&response))?;
             }
+
             output.flush()?;
+
             if session.exit_status().is_some() {
                 break;
             }
         }
+
         if let Some(status) = session.exit_status() {
             for response in session.flush_publications()? {
                 output.write_all(&jai_language_server::framing::encode(&response))?;
             }
+
             output.flush()?;
+
             return Ok(status);
         }
+
         if ended {
             for response in session.flush_publications()? {
                 output.write_all(&jai_language_server::framing::encode(&response))?;
             }
+
             output.flush()?;
+
             return Ok(session.exit_status().unwrap_or(1));
         }
+
         // A message over the size limit was skipped unread: say so rather than go quiet.
         for message in oversized {
             for reply in jai_language_server::oversized_replies(&message, limits.message_bytes) {
                 output.write_all(&jai_language_server::framing::encode(&reply))?;
             }
+
             output.flush()?;
         }
     }
@@ -297,17 +352,22 @@ fn main() -> std::process::ExitCode {
         Ok(untrusted) => untrusted,
     };
     let stdlib = jaic::default_stdlib_dir();
+
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         let report = jaic::render::Report::from_text(jaic::diagnostics::Code::CliFailure, &message);
+
         eprint!("{}", report.render());
+
         return std::process::ExitCode::FAILURE;
     }
+
     // Type checking recurses on the syntax tree: give it the compiler's stack (as `jaic` does),
     // not the main thread's 8 MiB.
     let worker = std::thread::Builder::new()
         .name("jailsp".into())
         .stack_size(1 << 30)
         .spawn(move || serve(untrusted, stdlib).map_err(|error| error.to_string()));
+
     match worker.map(std::thread::JoinHandle::join) {
         Ok(Ok(Ok(code))) => std::process::ExitCode::from(code),
         Ok(Ok(Err(error))) => {
@@ -344,6 +404,7 @@ To check a file from a terminal, use `jaic file.jai -check`; for lints, `jailint
 fn command_line() -> Result<bool, std::process::ExitCode> {
     use std::io::IsTerminal;
     let mut untrusted = false;
+
     for arg in std::env::args().skip(1) {
         match arg.as_str() {
             "--stdio" => {}
@@ -361,20 +422,24 @@ fn command_line() -> Result<bool, std::process::ExitCode> {
                     "error: jailsp takes no files: it is a language server that an editor starts"
                 );
                 eprintln!("help: to check `{file}` from a terminal, use `jaic {file} -check`");
+
                 return Err(std::process::ExitCode::from(2));
             }
             other => {
                 eprintln!("error: unknown option `{other}`");
                 eprintln!("help: `jailsp --help` lists the options");
+
                 return Err(std::process::ExitCode::from(2));
             }
         }
     }
+
     if std::io::stdin().is_terminal() {
         eprintln!(
             "note: jailsp is waiting for Language Server Protocol messages on stdin; an editor normally starts it (Ctrl-D quits)"
         );
     }
+
     Ok(untrusted)
 }
 
@@ -396,6 +461,7 @@ static ALLOCATOR: jai_language_server::windows_alloc::Allocator = mimalloc::MiMa
 fn native_environment(stdlib: std::path::PathBuf) -> jai_language_server::Environment {
     // Compile-time services run as separate `jaic` processes; only trusted compiles ask them.
     let services = jaic::service::Services::new(jaic::service::ServiceConfig::default());
+
     jai_language_server::Environment {
         services: Some(std::rc::Rc::new(
             jai_language_server::services::EditorServices::new(services),

@@ -32,6 +32,7 @@ impl Index {
     pub(super) fn new(model: &Model) -> Self {
         let mut out = Self::default();
         let mut frees = Vec::new();
+
         for (i, block) in model.blocks.iter().enumerate() {
             match &block.op {
                 CfgOp::Use(cell, _)
@@ -65,9 +66,11 @@ impl Index {
                     cells, ..
                 }) => {
                     out.observed.extend(cells);
+
                     for &cell in cells {
                         out.observations.entry(cell).or_default().push(i);
                     }
+
                     out.retained.extend(cells);
                 }
                 CfgOp::Copy(pairs) => {
@@ -83,6 +86,7 @@ impl Index {
                 }) => out.heap_seeds.entry(*cell).or_default().push(*span),
                 _ => {}
             }
+
             if let CfgOp::Task(
                 Task::Start {
                     token, ..
@@ -94,12 +98,14 @@ impl Index {
             {
                 out.tokens.push(*token);
             }
+
             if let CfgOp::Resource(Op::Free {
                 span, ..
             }) = &block.op
             {
                 frees.push(*span);
             }
+
             if let CfgOp::Resource(op) = &block.op {
                 match op {
                     Op::ScopeEnd(..) => out.scope.push(i),
@@ -126,6 +132,7 @@ impl Index {
                 }
             }
         }
+
         out.frees = FreeSpans::new(frees);
         out
     }
@@ -177,11 +184,13 @@ impl Index {
 
 pub(super) fn observable(model: &Model) -> Vec<bool> {
     let mut incoming = vec![Vec::new(); model.blocks.len()];
+
     for (from, block) in model.blocks.iter().enumerate() {
         for &to in &block.next {
             incoming[to].push(from);
         }
     }
+
     let mut queue: VecDeque<_> = model
         .blocks
         .iter()
@@ -197,12 +206,14 @@ pub(super) fn observable(model: &Model) -> Vec<bool> {
         })
         .collect();
     let mut reachable = vec![false; model.blocks.len()];
+
     while let Some(i) = queue.pop_front() {
         if !reachable[i] {
             reachable[i] = true;
             queue.extend(&incoming[i]);
         }
     }
+
     reachable
 }
 
@@ -222,13 +233,16 @@ pub(super) fn quiet(
     );
     let escapes = operations.escaped.iter().any(|c| relevant.contains_key(c));
     let retained = operations.retained.iter().any(|c| relevant.contains_key(c));
+
     if local && escapes || retained && matches!(kind, Origin::Stack(_)) {
         return false;
     }
+
     // This state includes every possible live alias and every pre-birth watermark. If even
     // it cannot be killed, no concrete state in the existing solver can be killed either.
     let width = relevant.len();
     let mut possible = vec![LIVE; width * 2 + 1];
+
     possible[width..width * 2].fill(DEAD);
     possible[width * 2] = UNKNOWN;
     let specific: &[usize] = match kind {
@@ -238,18 +252,22 @@ pub(super) fn quiet(
         Origin::Statement(_) => &operations.statement,
         Origin::Until(_) => &operations.until,
     };
+
     !operations.general.iter().chain(specific).any(|&i| {
         let CfgOp::Resource(op) = &model.blocks[i].op else {
             unreachable!()
         };
+
         // A terminal release cannot be observed by this closure. Return/store and
         // asynchronous observations are guarded separately because they outlive uses.
         if !escapes && !retained && !model.blocks[i].next.iter().any(|&next| observable[next]) {
             return false;
         }
+
         if matches!(op, Op::ScopeEnd(..) | Op::StatementEnd(..)) && !observable[i] && !retained {
             return false;
         }
+
         kills(cx, op, kind, region, &possible, &index)
     })
 }
@@ -258,12 +276,15 @@ pub(super) fn quiet(
 /// Giving that load a second, incoming region would merge successive loop generations.
 pub(super) fn covered_loads(model: &Model) -> Vec<bool> {
     let mut incoming = vec![0usize; model.blocks.len()];
+
     for block in model.blocks.iter() {
         for &to in &block.next {
             incoming[to] += 1;
         }
     }
+
     let mut covered = vec![false; model.blocks.len()];
+
     for (i, pair) in model.blocks.windows(2).enumerate() {
         if let CfgOp::Resource(Op::Seed {
             cell,
@@ -278,6 +299,7 @@ pub(super) fn covered_loads(model: &Model) -> Vec<bool> {
             covered[i + 1] = true;
         }
     }
+
     covered
 }
 
@@ -293,6 +315,7 @@ impl FreeSpans {
         spans.sort_unstable_by_key(|s| (s.file.0, s.start));
         let mut widest = 0;
         let mut file = None;
+
         Self {
             spans: spans
                 .into_iter()
@@ -301,6 +324,7 @@ impl FreeSpans {
                         file = Some(s.file.0);
                         widest = 0;
                     }
+
                     widest = widest.max(s.end);
                     (s.file.0, s.start, widest)
                 })
@@ -313,6 +337,7 @@ impl FreeSpans {
         let before = self
             .spans
             .partition_point(|&(file, start, _)| (file, start) <= (inner.file.0, inner.start));
+
         before > 0 && {
             let (file, _, widest) = self.spans[before - 1];
             file == inner.file.0 && widest >= inner.end

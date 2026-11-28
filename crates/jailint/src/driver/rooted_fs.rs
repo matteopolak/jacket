@@ -31,6 +31,7 @@ impl RootedFs {
         if self.overlay.is_empty() {
             return None;
         }
+
         self.overlay.get(path).or_else(|| {
             let canonical = self.resolved.canonicalize(path).ok()?;
             self.overlay.get(&canonical)
@@ -41,9 +42,11 @@ impl RootedFs {
 impl FileSystem for RootedFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         let path = self.at(path);
+
         if let Some(text) = self.overlaid(&path) {
             return Some(text.to_vec());
         }
+
         NativeFs.read(&path)
     }
 
@@ -58,6 +61,7 @@ impl FileSystem for RootedFs {
 
     fn canonical(&self, path: &Path) -> PathBuf {
         let path = self.at(path);
+
         // Not there: the compiler's lexical form, asked for again next time.
         self.resolved
             .canonicalize(&path)

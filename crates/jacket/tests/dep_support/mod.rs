@@ -21,6 +21,7 @@ pub fn git(dir: &Path, args: &[&str]) -> String {
         .env("GIT_CONFIG_SYSTEM", "/dev/null")
         .output()
         .expect("git runs");
+
     assert!(
         output.status.success(),
         "git {args:?} in {}: {}",
@@ -40,6 +41,7 @@ impl Origin {
     pub fn new(root: &Path, name: &str, files: &[(&str, &str)]) -> Self {
         let work = root.join("work").join(name);
         let bare = root.join("origins").join(format!("{name}.git"));
+
         std::fs::create_dir_all(&work).unwrap();
         std::fs::create_dir_all(bare.parent().unwrap()).unwrap();
         git(&work, &["init", "-q", "-b", "main"]);
@@ -47,6 +49,7 @@ impl Origin {
             bare,
             work,
         };
+
         origin.write(files);
         origin.commit("first");
         git(
@@ -65,6 +68,7 @@ impl Origin {
     pub fn write(&self, files: &[(&str, &str)]) {
         for (path, text) in files {
             let full = self.work.join(path);
+
             std::fs::create_dir_all(full.parent().unwrap()).unwrap();
             std::fs::write(full, text).unwrap();
         }
@@ -77,9 +81,11 @@ impl Origin {
             &self.work,
             &["commit", "-q", "--allow-empty", "-m", message],
         );
+
         if git(&self.work, &["remote"]).contains("origin") {
             git(&self.work, &["push", "-q", "origin", "HEAD:main"]);
         }
+
         git(&self.work, &["rev-parse", "HEAD"])
     }
 
@@ -87,6 +93,7 @@ impl Origin {
     pub fn release(&self, tag: &str, files: &[(&str, &str)]) -> String {
         self.write(files);
         let commit = self.commit(tag);
+
         self.tag(tag);
         commit
     }
@@ -107,6 +114,7 @@ impl Origin {
     /// (a tag or commit of `inner`). Commit afterwards.
     pub fn nest(&self, inner: &Origin, name: &str, at: &str) {
         let path = format!("modules/{name}");
+
         if !self.work.join(&path).join(".git").exists() {
             git(
                 &self.work,
@@ -122,7 +130,9 @@ impl Origin {
                 ],
             );
         }
+
         let sub = self.work.join(&path);
+
         git(&sub, &["fetch", "-q", "--tags", "origin"]);
         git(&sub, &["checkout", "-q", at]);
     }
@@ -152,12 +162,14 @@ impl Project {
             Some((before, after)) => format!("{before}[resolver]\n{waiver}{after}"),
             None => format!("{toml}\n[resolver]\n{waiver}"),
         };
+
         Self::new(&toml)
     }
 
     pub fn new(toml: &str) -> Self {
         let root = TempDir::new("dep");
         let dir = root.join("project");
+
         std::fs::create_dir_all(&dir).unwrap();
         git(&dir, &["init", "-q", "-b", "main"]);
         std::fs::write(dir.join("jacket.toml"), toml).unwrap();
@@ -183,6 +195,7 @@ impl Project {
         let rewrites = self.rewrites.borrow();
         let mut all: Vec<(String, String)> =
             vec![("GIT_CONFIG_COUNT".into(), (1 + rewrites.len()).to_string())];
+
         for (i, (url, local)) in rewrites.iter().enumerate() {
             all.push((
                 format!("GIT_CONFIG_KEY_{}", i + 1),
@@ -190,8 +203,10 @@ impl Project {
             ));
             all.push((format!("GIT_CONFIG_VALUE_{}", i + 1), url.clone()));
         }
+
         let mut pairs: Vec<(&str, &str)> =
             all.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+
         pairs.extend_from_slice(env);
         run_in(&self.dir, &self.root, args, &pairs)
     }
@@ -209,6 +224,7 @@ impl Project {
 
 pub fn run_in(dir: &Path, root: &Path, args: &[&str], env: &[(&str, &str)]) -> Run {
     let mut command = Command::new(env!("CARGO_BIN_EXE_jacket"));
+
     command
         .current_dir(dir)
         .args(args)
@@ -228,10 +244,13 @@ pub fn run_in(dir: &Path, root: &Path, args: &[&str], env: &[(&str, &str)]) -> R
         .env("GIT_CONFIG_COUNT", "1")
         .env("GIT_CONFIG_KEY_0", "protocol.file.allow")
         .env("GIT_CONFIG_VALUE_0", "always");
+
     for (k, v) in env {
         command.env(k, v);
     }
+
     let output = command.output().expect("jacket runs");
+
     Run {
         code: output.status.code().unwrap_or(-1),
         out: String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -250,8 +269,10 @@ pub fn git_shim(root: &Path, before: &str) -> String {
         .expect("sh runs");
     let real = String::from_utf8_lossy(&real.stdout).trim().to_string();
     let bin = root.join("shim-bin");
+
     std::fs::create_dir_all(&bin).unwrap();
     let script = bin.join("git");
+
     std::fs::write(
         &script,
         format!(

@@ -63,6 +63,7 @@ impl SemanticPath {
     fn observed(path: PathBuf) -> Self {
         use std::hash::{Hash, Hasher};
         let mut hash = jaic::fxhash::FxHasher::default();
+
         "semantic-path".hash(&mut hash);
         path.hash(&mut hash);
         Self {
@@ -98,6 +99,7 @@ pub struct SemanticAnalysisContext {
 pub(crate) fn text_hash(bytes: &[u8]) -> u64 {
     use std::hash::Hasher;
     let mut h = jaic::fxhash::FxHasher::default();
+
     h.write(bytes);
     h.finish()
 }
@@ -231,15 +233,19 @@ mod tests {
     fn parse_results_are_remembered_by_text() {
         let good = "main :: () { x := 1; }\n";
         let bad = "main :: () { x := ; }\n";
+
         assert_eq!(parse_error(good), None);
         let at = parse_error(bad);
+
         assert!(at.is_some());
         // Both are answered from memory now, and more texts than are kept push the oldest out.
         assert_eq!(parse_error(good), None);
         assert_eq!(parse_error(bad), at);
+
         for n in 0..=PARSES_KEPT {
             assert_eq!(parse_error(&format!("f{n} :: () {{}}\n")), None);
         }
+
         assert_eq!(parse_error(bad), at);
     }
 }

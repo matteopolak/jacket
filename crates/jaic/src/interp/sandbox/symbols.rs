@@ -261,6 +261,7 @@ mod tests {
             .map(|f| f.name())
             .chain(WinFn::ALL.iter().map(|f| f.name()))
             .chain(ObjcFn::ALL.iter().map(|f| f.name()));
+
         for name in names {
             assert!(seen.insert(name), "`{name}` is registered twice");
             assert!(SandboxFn::lookup(name).is_some());

@@ -19,8 +19,10 @@ fn jaic() -> PathBuf {
 /// Checks `program` and requires a failure whose output holds `first`.
 fn first_error(program: &Path, first: &str) {
     let output = assert_stable(&jaic(), program, &["-check"]);
+
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(stderr.contains(first), "{stderr}");
 }
 
@@ -43,6 +45,7 @@ fn namespace_suggestions_come_in_declaration_order() {
             .find(text)
             .unwrap_or_else(|| panic!("{text}\n{stderr}"))
     };
+
     assert!(at("Zed.min") < at("Alpha.min"), "{stderr}");
     assert!(at("Alpha.min") < at("Yak.min"), "{stderr}");
 }
@@ -50,6 +53,7 @@ fn namespace_suggestions_come_in_declaration_order() {
 #[test]
 fn several_errors_read_the_same_under_every_seed() {
     let output = assert_stable(&jaic(), &fixture("many-errors.jai"), &["-check"]);
+
     assert!(!output.status.success());
 }
 
@@ -57,6 +61,7 @@ fn several_errors_read_the_same_under_every_seed() {
 fn the_type_table_lists_records_in_declaration_order_under_every_seed() {
     let program = root().join("stdlib/Compiler/tests/type-table-declaration-order.jai");
     let output = assert_stable(&jaic(), &program, &["-interp"]);
+
     assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
 }
 
@@ -64,5 +69,6 @@ fn the_type_table_lists_records_in_declaration_order_under_every_seed() {
 fn a_metaprogramming_example_checks_the_same_under_every_seed() {
     let program = root().join("examples/metaprogramming/main.jai");
     let output = assert_stable(&jaic(), &program, &["-check"]);
+
     assert!(output.status.success());
 }

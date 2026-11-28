@@ -214,6 +214,7 @@ impl Types {
             .enumerate()
             .map(|(i, k)| (k.clone(), TypeId(i as u32)))
             .collect();
+
         Self {
             kinds,
             intern,
@@ -239,7 +240,9 @@ impl Types {
         if let Some(&id) = self.intern.get(&kind) {
             return id;
         }
+
         let id = TypeId(self.kinds.len() as u32);
+
         self.kinds.push(kind.clone());
         self.intern.insert(kind, id);
         id
@@ -285,12 +288,14 @@ impl Types {
 
     pub fn new_struct(&mut self, info: StructInfo) -> TypeId {
         let id = StructId(self.structs.len() as u32);
+
         self.structs.push(info);
         self.intern(TypeKind::Struct(id))
     }
 
     pub fn new_enum(&mut self, info: EnumInfo) -> TypeId {
         let id = EnumId(self.enums.len() as u32);
+
         self.enums.push(info);
         self.intern(TypeKind::Enum(id))
     }
@@ -300,13 +305,17 @@ impl Types {
         let TypeKind::Enum(e) = *self.kind(ty) else {
             return ty;
         };
+
         if self.enums[e.0 as usize].loose_of.is_some() {
             return ty;
         }
+
         if let Some(i) = self.enums.iter().position(|x| x.loose_of == Some(ty)) {
             return self.intern(TypeKind::Enum(EnumId(i as u32)));
         }
+
         let mut info = self.enums[e.0 as usize].clone();
+
         info.name = Sym::intern(&format!("{}.loose", info.name));
         info.loose_of = Some(ty);
         self.new_enum(info)
@@ -318,6 +327,7 @@ impl Types {
 
     pub fn new_distinct(&mut self, info: DistinctInfo) -> TypeId {
         let id = DistinctId(self.distincts.len() as u32);
+
         self.distincts.push(info);
         self.intern(TypeKind::Distinct(id))
     }
@@ -498,6 +508,7 @@ impl Types {
 
     fn spell(&self, ty: TypeId, mode: Spelling) -> String {
         let short = mode != Spelling::Full;
+
         match self.kind(ty) {
             TypeKind::Void => "void".into(),
             TypeKind::Bool => "bool".into(),
@@ -539,20 +550,25 @@ impl Types {
             TypeKind::Proc(p) => {
                 let params: Vec<String> = p.params.iter().map(|t| self.spell(*t, mode)).collect();
                 let mut s = format!("({})", params.join(", "));
+
                 if !p.returns.is_empty() {
                     let r: Vec<String> = p.returns.iter().map(|t| self.spell(*t, mode)).collect();
+
                     s.push_str(" -> ");
                     s.push_str(&r.join(", "));
                 }
+
                 if p.cpp_method {
                     s.push_str(" #cpp_method");
                 } else if p.c_call {
                     s.push_str(" #c_call");
                 }
+
                 s
             }
             TypeKind::Struct(s) => {
                 let info = &self.structs[s.0 as usize];
+
                 if info.poly_args.is_empty() {
                     info.name.to_string()
                 } else {
@@ -567,9 +583,11 @@ impl Types {
                             .zip(&args)
                             .any(|(v, a)| *a != v.render(self, false))
                     };
+
                     if mode == Spelling::Label && cut() {
                         return info.name.to_string();
                     }
+
                     format!("{}({})", info.name, args.join(", "))
                 }
             }

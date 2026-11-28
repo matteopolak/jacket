@@ -9,6 +9,7 @@ fn compile(entry: bool, backtrace: bool) -> (Compiler, jaic::sema::Result<()>) {
         .canonicalize()
         .unwrap();
     let mut options = Options::host();
+
     options.os = TargetOs::Windows;
     options.cpu = TargetCpu::Arm64;
     options.runtime_entry_point = entry;
@@ -19,15 +20,18 @@ fn compile(entry: bool, backtrace: bool) -> (Compiler, jaic::sema::Result<()>) {
     let result = compiler.compile_sources(&[ProgramSource::String(
         "R :: #import \"Runtime_Support\"; main :: () { ctx := R.__jai_runtime_init(0, null); R.__jai_runtime_fini(ctx); }".into(),
     )]);
+
     (compiler, result)
 }
 
 #[test]
 fn windows_arm64_entry_backtrace_uses_the_public_native_backend() {
     let (compiler, result) = compile(true, true);
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     assert!(compiler.ns.modules.iter().any(|module| {
         module
             .path
@@ -39,6 +43,7 @@ fn windows_arm64_entry_backtrace_uses_the_public_native_backend() {
 #[test]
 fn public_crash_record_facade_uses_windows_arm64_layout() {
     let (mut compiler, result) = compile(false, false);
+
     result.unwrap();
     compiler.compile_sources(&[ProgramSource::String(
         "C :: #import \"Runtime_Support_Crash_Handler\"; #assert size_of(C.CONTEXT) == 912; #assert #exists(C.CONTEXT.Sp); main :: () {}".into(),
@@ -49,9 +54,11 @@ fn public_crash_record_facade_uses_windows_arm64_layout() {
 fn disabled_backtrace_or_embedding_does_not_import_a_native_handler() {
     for (entry, backtrace) in [(true, false), (false, true)] {
         let (compiler, result) = compile(entry, backtrace);
+
         if let Err(error) = result {
             panic!("{}", error.render(&compiler.src.sources));
         }
+
         assert!(!compiler.ns.modules.iter().any(|module| {
             module.path.as_ref().is_some_and(|path| {
                 path.ends_with("Runtime_Support_Crash_Handler/module.jai")
@@ -68,6 +75,7 @@ fn early_host_query_does_not_poison_later_compile_time_context() {
         .canonicalize()
         .unwrap();
     let mut options = Options::host();
+
     options.set_stdlib(&NativeFs, &library);
     options.import_paths = vec![library];
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
@@ -83,6 +91,7 @@ contract :: () {
 main :: () {}"#
             .into(),
     )]);
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }

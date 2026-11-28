@@ -34,14 +34,18 @@ impl Interp {
             I::CompareAndSwap => (3, ir::ORDER_SEQ_CST, ir::ORDER_SEQ_CST),
             _ => return self.trap("invalid atomic operation"),
         };
+
         if args.len() != operands + 1 {
             return self.trap("invalid atomic operands");
         }
+
         let width = args[operands];
         let address = args[0];
+
         if !matches!(width, 1 | 2 | 4 | 8) {
             return self.trap("invalid atomic scalar width");
         }
+
         if !address.is_multiple_of(width) {
             return self.trap(ir::check_message(
                 ir::CheckReason::AtomicAlignment,
@@ -49,8 +53,10 @@ impl Interp {
                 width,
             ));
         }
+
         let success = order(ordering)?;
         let failed = order(failure)?;
+
         match op {
             I::AtomicLoad(2 | 3) | I::AtomicStore(1 | 3) => {
                 return self.trap("invalid atomic load/store memory order");
@@ -62,10 +68,12 @@ impl Interp {
             }
             _ => {}
         }
+
         // A big-endian program's memory holds every scalar byte-swapped. Exchange,
         // compare-exchange and the bitwise operations act on the swapped bytes directly;
         // addition and subtraction carry across bytes, so they retry a compare-exchange.
         let swap = self.swap_bytes;
+
         macro_rules! access {
             ($atomic:ty, $scalar:ty) => {{
                 let order = |v: $scalar| {
@@ -131,6 +139,7 @@ impl Interp {
                 }
             }};
         }
+
         Ok(match width {
             1 => access!(AtomicU8, u8),
             2 => access!(AtomicU16, u16),

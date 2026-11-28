@@ -45,6 +45,7 @@ pub fn mode_with(
     if quiet {
         return Mode::Off;
     }
+
     let choice = if no_color {
         crate::render::ColorChoice::Never
     } else {
@@ -56,18 +57,22 @@ pub fn mode_with(
     } else {
         Mode::Plain
     };
+
     match env(jacket_config::env::PROGRESS.name).as_deref() {
         Some("off") => return Mode::Off,
         Some("plain") => return plain,
         Some("live") => return Mode::Live,
         _ => {}
     }
+
     if !terminal {
         return Mode::Off;
     }
+
     // Redrawing the status line in place also needs a console that takes control codes, and
     // CI logs keep every redraw, so they get the plain lines.
     let ci = env("CI").is_some_and(|v| !v.is_empty() && v != "0" && v != "false");
+
     if !colored || ci || crate::render::dumb_terminal(&env) || !crate::render::ansi_console(&env) {
         plain
     } else {
@@ -183,13 +188,17 @@ pub fn enter(phase: Phase) -> PhaseGuard {
     if !live() {
         return PhaseGuard(None);
     }
+
     let mut phase = phase;
+
     if phase == Phase::Generating && OPTIMIZED.load(Ordering::Relaxed) {
         phase = Phase::Optimizing;
     }
+
     if phase == Phase::Program {
         before_output();
     }
+
     PhaseGuard(Some(PHASE.swap(phase as u8, Ordering::Relaxed)))
 }
 
@@ -208,12 +217,15 @@ pub struct Status<'a> {
 fn grouped(n: u32) -> String {
     let digits = n.to_string();
     let mut out = String::with_capacity(digits.len() + digits.len() / 3);
+
     for (i, c) in digits.chars().enumerate() {
         if i > 0 && (digits.len() - i).is_multiple_of(3) {
             out.push(',');
         }
+
         out.push(c);
     }
+
     out
 }
 
@@ -239,12 +251,15 @@ fn columns(verb: &str) -> String {
 pub fn status_line(status: &Status, width: usize) -> String {
     let counts = || {
         let mut parts = vec![plural(status.files, "file", "files")];
+
         if status.modules > 0 {
             parts.push(plural(status.modules, "module", "modules"));
         }
+
         if status.procedures > 0 {
             parts.push(plural(status.procedures, "procedure", "procedures"));
         }
+
         parts.join(", ")
     };
     let detail = match status.phase {
@@ -260,6 +275,7 @@ pub fn status_line(status: &Status, width: usize) -> String {
         columns(status.phase.verb()),
         status.elapsed.as_secs_f64()
     );
+
     truncate(line, width)
 }
 
@@ -268,6 +284,7 @@ fn truncate(mut line: String, width: usize) -> String {
     if let Some((cut, _)) = line.char_indices().nth(width) {
         line.truncate(cut);
     }
+
     line
 }
 
@@ -324,8 +341,10 @@ pub fn start(mode: Mode, verb: &str, name: &str, shown: &str) {
     if mode == Mode::Off {
         return;
     }
+
     {
         let mut term = lock();
+
         term.mode = mode;
         term.name = name.to_string();
         term.started = Some(Instant::now());
@@ -335,6 +354,7 @@ pub fn start(mode: Mode, verb: &str, name: &str, shown: &str) {
         "{}\n",
         message_line(verb, &format!("{name} ({shown})"), mode.colored())
     ));
+
     if mode == Mode::Live {
         ticker::start();
     }
@@ -383,13 +403,16 @@ mod ticker {
             .spawn(|| {
                 std::thread::sleep(FIRST_DRAW);
                 let mut last = String::new();
+
                 loop {
                     if !tick(&mut last) {
                         return;
                     }
+
                     std::thread::sleep(TICK);
                 }
             });
+
         if spawned.is_err() {
             LIVE.store(false, Ordering::Relaxed);
         }
@@ -398,20 +421,26 @@ mod ticker {
     /// One redraw; `last` is what the previous one drew. Returns whether to keep going.
     fn tick(last: &mut String) -> bool {
         let mut term = lock();
+
         if term.done {
             return false;
         }
+
         let now = Instant::now();
+
         if term.hold_until.is_some_and(|until| now < until) {
             return true;
         }
+
         let phase = PHASES
             .get(PHASE.load(Ordering::Relaxed) as usize)
             .copied()
             .unwrap_or(Phase::Checking);
+
         if phase == Phase::Program {
             return true;
         }
+
         let status = Status {
             phase,
             name: &term.name,
@@ -422,11 +451,14 @@ mod ticker {
         };
         let width = terminal_width().saturating_sub(1).max(20);
         let line = status_line(&status, width);
+
         if term.drawn && line == *last {
             return true;
         }
+
         // The verb in bold cyan, as cargo shows work in progress.
         let (verb, rest) = line.split_at(12.min(line.len()));
+
         write_err(&format!("\r\x1b[1;36m{verb}\x1b[0m{rest}\x1b[K"));
         term.drawn = true;
         *last = line;
@@ -442,6 +474,7 @@ mod ticker {
         {
             return columns;
         }
+
         ioctl_width().unwrap_or(80)
     }
 
@@ -455,19 +488,24 @@ mod ticker {
             x_pixels: u16,
             y_pixels: u16,
         }
+
         #[cfg(target_os = "macos")]
         const TIOCGWINSZ: std::ffi::c_ulong = 0x4008_7468;
+
         #[cfg(target_os = "linux")]
         const TIOCGWINSZ: std::ffi::c_ulong = 0x5413;
+
         #[allow(unsafe_code)]
         unsafe extern "C" {
             fn ioctl(fd: i32, request: std::ffi::c_ulong, ...) -> i32;
         }
+
         let mut size = WinSize::default();
         #[allow(unsafe_code)]
         // SAFETY: TIOCGWINSZ writes one `struct winsize` (four u16s) through the pointer, which
         // points at a live, correctly laid out value.
         let result = unsafe { ioctl(2, TIOCGWINSZ, &raw mut size) };
+
         (result == 0 && size.cols > 0).then_some(size.cols as usize)
     }
 
@@ -495,10 +533,12 @@ pub fn before_output() {
 #[cold]
 fn erase() {
     let mut term = lock();
+
     if term.drawn {
         write_err("\r\x1b[K");
         term.drawn = false;
     }
+
     term.hold_until = Some(Instant::now() + HOLD_AFTER_OUTPUT);
 }
 
@@ -507,6 +547,7 @@ pub fn finish(summary: &str) {
     let Some(text) = stop() else {
         return;
     };
+
     write_err(&format!(
         "{}\n",
         message_line("Finished", &format!("{summary} in {text}"), text_color())
@@ -530,9 +571,11 @@ pub fn set_verbose(on: bool) {
 /// Cross and bare-metal builds pass `always`; a host build shows it only under `-verbose`.
 pub fn tool(verb: &str, text: &str, always: bool) {
     let mode = lock().mode;
+
     if mode == Mode::Off || !(always || VERBOSE.load(Ordering::Relaxed)) {
         return;
     }
+
     before_output();
     write_err(&format!("{}\n", message_line(verb, text, mode.colored())));
 }
@@ -540,6 +583,7 @@ pub fn tool(verb: &str, text: &str, always: bool) {
 /// A line after `Finished`, such as `     Running hello`.
 pub fn announce(verb: &str, text: &str) {
     let mode = lock().mode;
+
     if mode != Mode::Off {
         write_err(&format!("{}\n", message_line(verb, text, mode.colored())));
     }
@@ -558,14 +602,18 @@ fn text_color() -> bool {
 fn stop() -> Option<String> {
     LIVE.store(false, Ordering::Relaxed);
     let mut term = lock();
+
     if term.mode == Mode::Off || term.done {
         return None;
     }
+
     term.done = true;
+
     if term.drawn {
         write_err("\r\x1b[K");
         term.drawn = false;
     }
+
     let elapsed = term.started.map_or(Duration::ZERO, |s| s.elapsed());
     Some(format!("{:.2}s", elapsed.as_secs_f64()))
 }
@@ -604,6 +652,7 @@ mod tests {
             (Phase::Optimizing, "  Optimizing 5,120 procedures (1.4s)"),
             (Phase::Linking, "     Linking hello (1.4s)"),
         ];
+
         for (phase, expected) in cases {
             assert_eq!(status_line(&status(phase), 200), expected);
         }
@@ -618,12 +667,14 @@ mod tests {
             elapsed: Duration::ZERO,
             ..status(Phase::Checking)
         };
+
         assert_eq!(status_line(&s, 200), "    Checking 1 file (0.0s)");
     }
 
     #[test]
     fn lines_never_wrap() {
         let line = status_line(&status(Phase::Running), 30);
+
         assert_eq!(line.chars().count(), 30);
         assert_eq!(line, "     Running #run, 412 files, ");
     }
@@ -659,28 +710,37 @@ mod tests {
             }
         };
         let term: &[(&str, &str)] = &[("TERM", "xterm-256color")];
+
         assert_eq!(mode_with(true, false, false, env(term)), Mode::Live);
         assert_eq!(mode_with(false, false, false, env(term)), Mode::Off);
         assert_eq!(mode_with(true, true, false, env(term)), Mode::Off);
         assert_eq!(mode_with(true, false, true, env(term)), Mode::Plain);
         let no_color: &[(&str, &str)] = &[("TERM", "xterm"), ("NO_COLOR", "1")];
+
         assert_eq!(mode_with(true, false, false, env(no_color)), Mode::Plain);
         // CI keeps every redraw, so a terminal there gets lines; they are coloured like diagnostics.
         let ci: &[(&str, &str)] = &[("TERM", "xterm"), ("CI", "true")];
+
         assert_eq!(mode_with(true, false, false, env(ci)), Mode::Colored);
         let dumb: &[(&str, &str)] = &[("TERM", "dumb")];
+
         assert_eq!(mode_with(true, false, false, env(dumb)), Mode::Plain);
         let forced: &[(&str, &str)] = &[("JAIC_PROGRESS", "plain")];
+
         assert_eq!(mode_with(false, false, false, env(forced)), Mode::Plain);
         let live: &[(&str, &str)] = &[("JAIC_PROGRESS", "live")];
+
         assert_eq!(mode_with(false, false, false, env(live)), Mode::Live);
         assert_eq!(mode_with(false, true, false, env(live)), Mode::Off);
         let colored: &[(&str, &str)] = &[("JAIC_PROGRESS", "plain"), ("FORCE_COLOR", "1")];
+
         assert_eq!(mode_with(false, false, false, env(colored)), Mode::Colored);
         assert_eq!(mode_with(false, false, true, env(colored)), Mode::Plain);
         let ci_forced: &[(&str, &str)] = &[("TERM", "xterm"), ("CI", "1"), ("FORCE_COLOR", "1")];
+
         assert_eq!(mode_with(true, false, false, env(ci_forced)), Mode::Colored);
         let off: &[(&str, &str)] = &[("TERM", "xterm"), ("JAIC_PROGRESS", "off")];
+
         assert_eq!(mode_with(true, false, false, env(off)), Mode::Off);
     }
 }

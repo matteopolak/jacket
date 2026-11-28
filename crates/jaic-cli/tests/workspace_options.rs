@@ -13,11 +13,13 @@ fn selected_workspace_options_survive_child_and_grandchild_compilation() {
     let dir = directory("projection");
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let source = root.join("tests/compiler/semantics/workspace-options/projection.jai");
+
     checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
             .arg("-interp"),
     );
+
     for mode in ["-interp", "-O0", "-O2"] {
         let grandchild = r#"C :: #import "Compiler"; #import "Basic";
             #run {
@@ -109,25 +111,34 @@ fn selected_workspace_options_survive_child_and_grandchild_compilation() {
             path = dir.to_str().unwrap()
         );
         let builder = dir.join("builder.jai");
+
         std::fs::write(&builder, parent).unwrap();
+
         for name in ["child", "grandchild"] {
             let output = dir.join(name);
+
             if output.exists() {
                 std::fs::remove_file(output).unwrap();
             }
         }
+
         let exe = dir.join("parent");
         let mut command = Command::new(env!("CARGO_BIN_EXE_jaic"));
+
         command.arg(&builder).arg(mode);
+
         if mode != "-interp" {
             command.arg("-exe").arg(&exe);
         }
+
         let result = checked(&mut command);
+
         if mode == "-interp" {
             assert_eq!(result.stdout, b"parent\n");
         } else {
             assert_eq!(checked(&mut Command::new(&exe)).stdout, b"parent\n");
         }
+
         for name in ["child", "grandchild"] {
             assert_eq!(
                 checked(&mut Command::new(dir.join(name))).stdout,
@@ -141,6 +152,7 @@ fn selected_workspace_options_survive_child_and_grandchild_compilation() {
 fn invalid_workspace_option_reads_fail() {
     let dir = directory("negative");
     let source = dir.join("invalid.jai");
+
     std::fs::write(
         &source,
         "C :: #import \"Compiler\"; #run { C.get_build_options(987654); } main :: () {}\n",
@@ -151,6 +163,7 @@ fn invalid_workspace_option_reads_fail() {
         .arg("-check")
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("invalid workspace 987654"));
 }
@@ -159,6 +172,7 @@ fn invalid_workspace_option_reads_fail() {
 fn dynamic_updates_and_optimization_reset_are_visible_in_the_selected_workspace() {
     let dir = directory("dynamic");
     let source = dir.join("dynamic.jai");
+
     std::fs::write(&source, r#"
         C :: #import "Compiler"; #import "Basic";
         #run {
@@ -190,6 +204,7 @@ fn dynamic_updates_and_optimization_reset_are_visible_in_the_selected_workspace(
 fn isolated_cross_target_host_keeps_a_separate_options_registry() {
     let dir = directory("host-isolation");
     let source = dir.join("host.jai");
+
     std::fs::write(
         &source,
         r#"
@@ -214,6 +229,7 @@ fn isolated_cross_target_host_keeps_a_separate_options_registry() {
     } else {
         "linux"
     };
+
     checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -224,8 +240,10 @@ fn isolated_cross_target_host_keeps_a_separate_options_registry() {
 #[test]
 fn build_file_paths_preserve_caller_location_and_explicit_absolute_controls() {
     let dir = directory("caller-relative");
+
     std::fs::create_dir_all(dir.join("helpers/nested")).unwrap();
     let child = dir.join("child.jai");
+
     std::fs::write(
         &child,
         "#import \"Basic\"; main :: () { print(\"main child\\n\"); }\n",
@@ -279,26 +297,32 @@ fn build_file_paths_preserve_caller_location_and_explicit_absolute_controls() {
     "#,
         absolute = child.to_str().unwrap()
     );
+
     for mode in ["-interp", "-O0", "-O2"] {
         std::fs::write(dir.join("main.jai"), &positive).unwrap();
+
         for name in ["direct", "explicit", "absolute"] {
             let output = dir.join(name);
+
             if output.exists() {
                 std::fs::remove_file(output).unwrap();
             }
         }
+
         checked(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
                 .current_dir(&dir)
                 .arg("main.jai")
                 .arg(mode),
         );
+
         for name in ["direct", "explicit", "absolute"] {
             assert_eq!(
                 checked(&mut Command::new(dir.join(name))).stdout,
                 b"main child\n"
             );
         }
+
         std::fs::write(dir.join("main.jai"), &default).unwrap();
         let rejected = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .current_dir(&dir)
@@ -306,24 +330,30 @@ fn build_file_paths_preserve_caller_location_and_explicit_absolute_controls() {
             .arg(mode)
             .output()
             .unwrap();
+
         assert_eq!(rejected.status.code(), Some(1));
         let error = String::from_utf8_lossy(&rejected.stderr);
+
         assert!(
             error.contains("helpers/nested/child.jai") && error.contains("does not exist"),
             "{error}"
         );
     }
+
     // With a real helper-local source, the omitted location must select that file.
     std::fs::write(
         dir.join("helpers/nested/child.jai"),
         "#import \"Basic\"; main :: () { print(\"helper child\\n\"); }\n",
     )
     .unwrap();
+
     for mode in ["-interp", "-O0", "-O2"] {
         let output = dir.join("default");
+
         if output.exists() {
             std::fs::remove_file(&output).unwrap();
         }
+
         checked(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
                 .current_dir(&dir)
@@ -338,6 +368,7 @@ fn build_file_paths_preserve_caller_location_and_explicit_absolute_controls() {
 fn exact_independent_portable_projection_and_relative_controls() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let pending = root.join("stdlib/Basic/tests/probes");
+
     for mode in ["-check", "-O0", "-O2"] {
         checked(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -350,6 +381,7 @@ fn exact_independent_portable_projection_and_relative_controls() {
                 .arg(mode)
                 .args(["-add", "#run,stallable run_relative_file(\"direct\");"]),
         );
+
         assert_eq!(direct.stdout, b"child compiled\n");
         let helper = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(pending.join("relative-add-file/main.jai"))
@@ -357,8 +389,10 @@ fn exact_independent_portable_projection_and_relative_controls() {
             .args(["-add", "#run,stallable run_relative_file(\"helper\");"])
             .output()
             .unwrap();
+
         assert_eq!(helper.status.code(), Some(1));
         let error = String::from_utf8_lossy(&helper.stderr);
+
         assert!(
             error.contains("helper/child.jai") && error.contains("does not exist"),
             "{error}"
@@ -370,6 +404,7 @@ fn exact_independent_portable_projection_and_relative_controls() {
 fn entry_point_named_at_compile_time_is_where_the_program_starts() {
     let dir = directory("entry-point");
     let source = dir.join("entry.jai");
+
     std::fs::write(
         &source,
         r#"#import "Basic";
@@ -384,6 +419,7 @@ fn entry_point_named_at_compile_time_is_where_the_program_starts() {
             .arg(&source)
             .arg("-interp"),
     );
+
     assert_eq!(String::from_utf8_lossy(&interp.stdout), "start_here\n");
     checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -391,5 +427,6 @@ fn entry_point_named_at_compile_time_is_where_the_program_starts() {
             .arg(&source),
     );
     let native = checked(&mut Command::new(dir.join("entry")));
+
     assert_eq!(String::from_utf8_lossy(&native.stdout), "start_here\n");
 }

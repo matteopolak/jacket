@@ -69,6 +69,7 @@ impl Builder<'_> {
             inst: ii as u32,
             loc: NO_LOC,
         };
+
         match *inst {
             Inst::StackAlloc {
                 dst,
@@ -85,6 +86,7 @@ impl Builder<'_> {
                 let Known::Frame(off) = self.known[dst.0 as usize] else {
                     return self.push(slow, None);
                 };
+
                 self.push(
                     Op::FrameAddr {
                         dst: self.v(dst),
@@ -102,6 +104,7 @@ impl Builder<'_> {
                     global,
                     off: 0,
                 };
+
                 self.push(op, self.single(dst).then_some(dst));
             }
             Inst::ForeignAddr {
@@ -112,6 +115,7 @@ impl Builder<'_> {
                     dst: self.v(dst),
                     foreign,
                 };
+
                 self.push(op, None);
             }
             Inst::Load {
@@ -133,6 +137,7 @@ impl Builder<'_> {
                         off,
                     },
                 };
+
                 self.push(op, None);
             }
             Inst::Store {
@@ -157,8 +162,10 @@ impl Builder<'_> {
                             imm,
                         },
                     };
+
                     return self.push(op, None);
                 }
+
                 let value = self.v(value);
                 let op = match self.address(addr) {
                     Address::Frame(off) => Op::StoreFrame {
@@ -173,6 +180,7 @@ impl Builder<'_> {
                         value,
                     },
                 };
+
                 self.push(op, None);
             }
             Inst::PtrAdd {
@@ -192,6 +200,7 @@ impl Builder<'_> {
                         src: self.v(src),
                         size,
                     };
+
                     self.push(op, None);
                 }
                 Err(_) => self.push(slow, None),
@@ -205,6 +214,7 @@ impl Builder<'_> {
                         dst: self.v(dst),
                         size,
                     };
+
                     self.push(op, None);
                 }
                 Err(_) => self.push(slow, None),
@@ -219,6 +229,7 @@ impl Builder<'_> {
             inst: ii as u32,
             loc: NO_LOC,
         };
+
         match *inst {
             Inst::IConst {
                 dst,
@@ -229,6 +240,7 @@ impl Builder<'_> {
                     dst: self.v(dst),
                     value: mask(self.addresses.int_ty(ty), value),
                 };
+
                 self.push(op, self.single(dst).then_some(dst));
             }
             Inst::FConst {
@@ -241,6 +253,7 @@ impl Builder<'_> {
                 } else {
                     value.to_bits()
                 };
+
                 self.push(
                     Op::Const {
                         dst: self.v(dst),
@@ -282,6 +295,7 @@ impl Builder<'_> {
                     dst: self.v(dst),
                     a: self.v(a),
                 };
+
                 self.push(op, self.single(dst).then_some(dst));
             }
             Inst::Cmp {
@@ -293,6 +307,7 @@ impl Builder<'_> {
             } => {
                 let ty = self.addresses.int_ty(ty);
                 let pure = self.single(dst).then_some(dst);
+
                 if let Some(x) = self.int(b)
                     && let Some(imm) = imm(x, ty)
                 {
@@ -304,8 +319,10 @@ impl Builder<'_> {
                         a: self.v(a),
                         imm,
                     };
+
                     return self.push(op, pure);
                 }
+
                 let op = Op::Cmp {
                     op,
                     shift: shift_of(ty),
@@ -313,6 +330,7 @@ impl Builder<'_> {
                     a: self.v(a),
                     b: self.v(b),
                 };
+
                 self.push(op, pure);
             }
             Inst::Conv {
@@ -329,6 +347,7 @@ impl Builder<'_> {
                     ConvOp::ZExt => Some(from),
                     _ => None,
                 };
+
                 if let Some(width) = width {
                     let keep = mask(width, u64::MAX);
                     let (dst_reg, src_reg) = (self.v(dst), self.v(src));
@@ -344,8 +363,10 @@ impl Builder<'_> {
                             mask: keep as u32,
                         }
                     };
+
                     return self.push(op, self.single(dst).then_some(dst));
                 }
+
                 let op = Op::Conv {
                     op,
                     from,
@@ -353,6 +374,7 @@ impl Builder<'_> {
                     dst: self.v(dst),
                     src: self.v(src),
                 };
+
                 self.push(op, self.single(dst).then_some(dst));
             }
             _ => unreachable!("dispatched only for this group's operations"),
@@ -365,6 +387,7 @@ impl Builder<'_> {
             inst: ii as u32,
             loc: NO_LOC,
         };
+
         match *inst {
             Inst::Loc {
                 line,
@@ -381,6 +404,7 @@ impl Builder<'_> {
                     self.ops.pop();
                     self.pure_def.pop();
                 }
+
                 self.push(
                     Op::Loc {
                         file,
@@ -404,6 +428,7 @@ impl Builder<'_> {
                             unreachable!("matched above");
                         };
                         let at = self.pool.len() as u32;
+
                         self.pool.push(NO_LOC);
                         self.pool.extend(call.args.iter().map(|v| v.0));
                         self.pool.extend(call.results.iter().map(|v| v.0));
@@ -448,6 +473,7 @@ impl Builder<'_> {
                     }
                     _ => slow,
                 };
+
                 self.push(op, None);
             }
             _ => unreachable!("dispatched only for this group's operations"),
@@ -462,8 +488,10 @@ impl Builder<'_> {
                 dst: self.v(dst),
                 value,
             };
+
             return self.push(op, Some(dst));
         }
+
         let pure = if divides(op) {
             None
         } else {
@@ -480,6 +508,7 @@ impl Builder<'_> {
             (a, b)
         };
         let d = self.v(dst);
+
         if let Some(x) = self.int(b)
             && let Some(imm) = imm(x, ty)
         {
@@ -516,8 +545,10 @@ impl Builder<'_> {
                     imm,
                 },
             };
+
             return self.push(op, pure);
         }
+
         let (a, b) = (self.v(a), self.v(b));
         let op = match op {
             BinOp::Add if wide => Op::Add {
@@ -550,14 +581,17 @@ impl Builder<'_> {
                 b,
             },
         };
+
         self.push(op, pure);
     }
 
     fn ptr_add(&mut self, dst: Val, base: Val, offset: Val) {
         let d = self.v(dst);
         let single = self.single(dst) && self.single(base);
+
         if let Some(x) = self.int(offset) {
             let x = x as i64;
+
             // A constant offset from the frame is itself a frame address.
             if let Known::Frame(off) = self.known[base.0 as usize]
                 && self.single(dst)
@@ -567,6 +601,7 @@ impl Builder<'_> {
                 self.known[dst.0 as usize] = Known::Frame(sum as u64);
                 self.fold(base);
                 self.fold(offset);
+
                 return self.push(
                     Op::FrameAddr {
                         dst: d,
@@ -575,6 +610,7 @@ impl Builder<'_> {
                     Some(dst),
                 );
             }
+
             // A constant offset from a global is the global's address with that offset.
             if let Known::Global(global, off) = self.known[base.0 as usize]
                 && self.single(dst)
@@ -589,9 +625,11 @@ impl Builder<'_> {
                     global,
                     off: sum,
                 };
+
                 return self.push(op, Some(dst));
             }
         }
+
         // A narrower address wraps at its own width, which the 64-bit adds below do not.
         if self.addresses.pointer_size() < 8 {
             return self.bin(
@@ -602,6 +640,7 @@ impl Builder<'_> {
                 offset,
             );
         }
+
         if let Some(x) = self.int(offset) {
             let x = x as i64;
             // Remember `base + x` for loads and stores later in this block.
@@ -609,6 +648,7 @@ impl Builder<'_> {
                 Some(o) => (o.base, o.off.checked_add(x)),
                 None => (base.0, Some(x)),
             };
+
             if single && let Some(total) = total {
                 self.offsets[dst.0 as usize] = Some(Offset {
                     base: root,
@@ -616,6 +656,7 @@ impl Builder<'_> {
                 });
                 self.offset_vals.push(dst.0);
             }
+
             if let Ok(imm) = i32::try_from(x) {
                 self.fold(offset);
                 let op = Op::AddImm {
@@ -623,9 +664,11 @@ impl Builder<'_> {
                     a: self.v(base),
                     imm,
                 };
+
                 return self.push(op, single.then_some(dst));
             }
         }
+
         // `base + i * size` when the multiply was the op just made, for this add alone.
         if self.ops.len() > self.block_start_mark
             && self.single(offset)
@@ -646,13 +689,16 @@ impl Builder<'_> {
                 b: index,
                 scale,
             };
+
             return self.push(op, None);
         }
+
         let op = Op::Add {
             dst: d,
             a: self.v(base),
             b: self.v(offset),
         };
+
         self.push(op, None);
     }
 }

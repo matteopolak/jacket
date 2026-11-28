@@ -15,6 +15,7 @@ fn rename(
 ) -> Vec<jai_language_server::TextEdit> {
     let s = open(program);
     let at = at_nth(program, needle, 0, offset);
+
     s.rename(&uri(), at, to)
         .unwrap()
         .expect("rename")
@@ -90,6 +91,7 @@ const UNICODE: &str = "main :: () {\n    größe := 1;\n    größe += 2;\n}\n";
 fn edits_reach_every_use() {
     for (program, needle, to, count) in EDIT_COUNTS {
         let edits = rename(program, needle, 0, to);
+
         assert_eq!(edits.len(), *count, "{needle} -> {to}: {edits:?}");
     }
 }
@@ -191,6 +193,7 @@ fn edits_land_on_the_right_lines() {
             .iter()
             .map(|e| e.range.start.line)
             .collect();
+
         assert_eq!(lines, *expected, "{needle} -> {to}");
     }
 }
@@ -198,17 +201,21 @@ fn edits_land_on_the_right_lines() {
 #[test]
 fn a_constant_of_an_anonymous_using_struct_has_hover_on_its_uses() {
     let mut s = session();
+
     s.open(uri(), 1, ANONYMOUS.into()).unwrap();
     let at = at_nth(ANONYMOUS, "LIMIT;", 0, 0);
     let hover = s.hover(&uri(), at).unwrap().expect("hover");
+
     assert!(hover.contents.value.contains("LIMIT"), "{hover:?}");
 }
 
 #[test]
 fn names_that_are_not_one_identifier_are_refused() {
     let mut s = session();
+
     s.open(uri(), 1, UNICODE.into()).unwrap();
     let at = at_nth(UNICODE, "größe", 0, 0);
+
     for name in ["2size", "a b", "a-b", "if"] {
         assert!(s.rename(&uri(), at, name).is_err(), "{name}");
     }
@@ -228,12 +235,15 @@ print :: (n: int) {}
 #[test]
 fn only_a_written_loop_variable_can_be_renamed() {
     let mut s = session();
+
     s.open(uri(), 1, LOOPS.into()).unwrap();
     let implicit = at_nth(LOOPS, "(it)", 0, 1);
+
     assert!(s.prepare_rename(&uri(), implicit).unwrap().is_none());
     let written = at_nth(LOOPS, "o: xs", 0, 0);
     let edits = s.rename(&uri(), written, "n").unwrap().expect("rename");
     let starts: Vec<_> = edits[0].1.iter().map(|e| e.range.start).collect();
+
     assert_eq!(starts, [written, at_nth(LOOPS, "(o)", 0, 1)]);
 }
 
@@ -255,9 +265,12 @@ main :: () {
 #[test]
 fn only_names_the_project_declares_can_be_renamed() {
     let mut s: Session = session();
+
     s.open(uri(), 1, OUTSIDE.into()).unwrap();
+
     for (needle, width) in [("int;", 3), ("print(", 5), ("Basic", 5)] {
         let at = at_nth(OUTSIDE, needle, 0, 1);
+
         assert!(
             s.prepare_rename(&uri(), at).unwrap().is_none(),
             "`{}` can be renamed",
@@ -265,9 +278,11 @@ fn only_names_the_project_declares_can_be_renamed() {
         );
         assert!(s.rename(&uri(), at, "other").unwrap().is_none());
     }
+
     // The project's own declarations still can.
     for needle in ["Point;", "p: Point", "x: int"] {
         let at = at_nth(OUTSIDE, needle, 0, 1);
+
         assert!(s.prepare_rename(&uri(), at).unwrap().is_some(), "{needle}");
     }
 }
@@ -277,6 +292,7 @@ fn a_parameter_bound_to_a_built_in_type_does_not_make_it_renamable() {
     // `T` is declared at `Box(s64)`'s instance with the value `s64`.
     let source = "Box :: struct (T: Type) {\n    v: s64;\n}\n\nmain :: () {\n    b: Box(s64);\n}\n";
     let mut s = session();
+
     s.open(uri(), 1, source.into()).unwrap();
     assert!(
         s.prepare_rename(&uri(), at_nth(source, "s64;", 0, 1))
@@ -291,6 +307,7 @@ fn renaming_a_global_reaches_the_using_line_that_borrows_its_members() {
     let source = "Data :: struct {\n    count: s64;\n}\n\ngpu: *Data;\nusing gpu;\n\nmain :: () {\n    d: Data;\n    gpu = *d;\n    count = 4;\n}\n";
     let edits = rename(source, "gpu: *Data", 0, "device");
     let mut lines: Vec<u32> = edits.iter().map(|e| e.range.start.line).collect();
+
     lines.sort_unstable();
     assert_eq!(lines, [4, 5, 9], "{edits:?}");
 }

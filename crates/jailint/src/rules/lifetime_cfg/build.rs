@@ -25,8 +25,10 @@ pub(super) fn shared(
     summaries: &Summaries,
 ) -> Rc<Built> {
     let key = body.procedure;
+
     {
         let mut kept = cx.run.cfgs.borrow_mut();
+
         if kept.0 != Some(cx.file) {
             *kept = (Some(cx.file), HashMap::default());
         } else if let Some(built) = kept.1.get(&key) {
@@ -45,6 +47,7 @@ pub(super) fn shared(
         summaries,
         &mut chains,
     );
+
     if jacket_config::env::LIFETIME_STATS.is_set() {
         eprintln!(
             "lifetime-cfg-build file={} proc={} events={} blocks={}",
@@ -54,16 +57,19 @@ pub(super) fn shared(
             blocks.len()
         );
     }
+
     let built = Rc::new(Built {
         blocks: Rc::new(blocks),
         places,
         cells,
         chains,
     });
+
     // A CFG cut short by a stop request must not be reused: callers see the stop and leave.
     if !jaic::interrupt::fired() {
         cx.run.cfgs.borrow_mut().1.insert(key, built.clone());
     }
+
     built
 }
 
@@ -102,15 +108,19 @@ fn build(
         })
         .collect();
     let mut ranges = vec![Vec::new(); body.blocks.len()];
+
     for range in &body.source_ranges {
         ranges[range.block].push(range);
     }
+
     for (i, block) in body.blocks.iter().enumerate() {
         if jaic::interrupt::should_stop() {
             return blocks;
         }
+
         let mut previous = i;
         let mut range_index = 0;
+
         for (ordinal, event) in block.events.iter().enumerate() {
             while ranges[i]
                 .get(range_index)
@@ -118,6 +128,7 @@ fn build(
             {
                 range_index += 1;
             }
+
             let site = ranges[i]
                 .get(range_index)
                 .filter(|r| r.first_event <= ordinal && ordinal < r.end_event)
@@ -129,21 +140,27 @@ fn build(
                     event: ordinal,
                 },
             );
+
             for op in ops {
                 let index = blocks.len();
+
                 blocks.push(Block {
                     op,
                     next: Vec::new(),
                     site,
                 });
+
                 if !matches!(blocks[previous].op, Op::Stop) {
                     blocks[previous].next.push(index);
                 }
+
                 previous = index;
             }
         }
+
         if block.normal_return && !matches!(blocks[previous].op, Op::Stop) {
             let index = blocks.len();
+
             blocks.push(Block {
                 op: Op::Resource(resources::Op::Exit),
                 next: Vec::new(),
@@ -152,11 +169,14 @@ fn build(
             blocks[previous].next.push(index);
             previous = index;
         }
+
         if !matches!(blocks[previous].op, Op::Stop) {
             blocks[previous].next.clone_from(&block.successors);
         }
     }
+
     let mut blocks = super::paths::feasible_paths(blocks, body);
+
     super::capacity::refine(cx, body, &mut blocks);
     blocks
 }
@@ -191,6 +211,7 @@ impl Builder<'_> {
         } else {
             self.memory(event, at)
         };
+
         if let Event::Field {
             base,
             base_ty,
@@ -206,6 +227,7 @@ impl Builder<'_> {
                 }
                 LifetimeOperand::Other => None,
             };
+
             if let Some(cell) = cell {
                 ops.insert(
                     0,
@@ -217,6 +239,7 @@ impl Builder<'_> {
                 );
             }
         }
+
         if let Event::Call {
             results,
             expands: false,
@@ -236,6 +259,7 @@ impl Builder<'_> {
                 {
                     continue;
                 }
+
                 if self.cx.compiler.ir_ty(ty).is_none() {
                     ops.push(Op::Replace(self.places.place(value, ty)));
                 } else {
@@ -243,6 +267,7 @@ impl Builder<'_> {
                 }
             }
         }
+
         ops.extend(
             self.tasks
                 .operations(
@@ -259,6 +284,7 @@ impl Builder<'_> {
         let extra = self
             .resources
             .operations(event, self.places, self.cells, &mut self.resolver);
+
         if matches!(event, Event::Store { .. }) {
             ops.splice(0..0, extra.into_iter().map(Op::Resource));
         } else {
@@ -275,9 +301,11 @@ impl Builder<'_> {
                 {
                     ops.push(Op::PointerLoad(cell, cell, region, span));
                 }
+
                 ops.push(Op::Resource(op));
             }
         }
+
         // A result borrows the post-call storage; releases within the call precede it.
         // Passthrough results still copy the argument's (possibly dead) generation.
         ops.extend(self.returns(event, at));
@@ -287,11 +315,13 @@ impl Builder<'_> {
         // same place would end the first one's retention.
         let observed = matches!(event, Event::Call { callee, .. }
             if callee.0 != u32::MAX && self.cx.compiler.proc_has_note(*callee, "AddsToArray"));
+
         for (dest, arg) in self.resolver.retained(event, &self.summaries.procs) {
             if let Some(id) = self.resolver.materialize(&dest)
                 && let Some(source) = resources::operand_cell(self.cx, self.places, self.cells, arg)
             {
                 let region = self.places.import(&self.resolver.places, id);
+
                 // The escape observation precedes the copy it checks.
                 if !observed {
                     ops.extend(
@@ -300,9 +330,11 @@ impl Builder<'_> {
                             .map(Op::Resource),
                     );
                 }
+
                 ops.push(Op::Copy(vec![(self.cells.id(Cell::Place(region)), source)]));
             }
         }
+
         ops
     }
 
@@ -318,6 +350,7 @@ impl Builder<'_> {
             ..
         } = self;
         let mut ops = Vec::new();
+
         match *event {
             Event::Initialize {
                 place,
@@ -325,7 +358,9 @@ impl Builder<'_> {
                 ..
             } => {
                 let p = places.place(place, ty);
+
                 ops.push(Op::Replace(p));
+
                 if resizable(cx, places, p) {
                     ops.push(Op::EmptyArray(p));
                 }
@@ -354,6 +389,7 @@ impl Builder<'_> {
             } => {
                 let region = places.place(region, ty);
                 let index = places.place(index, TypeId::S64);
+
                 ops.push(Op::Iteration {
                     region,
                     index,
@@ -374,10 +410,12 @@ impl Builder<'_> {
                 span,
             } => {
                 let p = places.place(place, ty);
+
                 if cx.compiler.ty.types.is_pointer(ty) {
                     if self.address_queries.contains(&span) {
                         return ops;
                     }
+
                     ops.push(Op::ObserveValue(cells.id(Cell::Place(p)), span));
                 } else {
                     ops.push(Op::Use(cells.id(Cell::Place(p)), span));
@@ -391,8 +429,10 @@ impl Builder<'_> {
             } => {
                 let r = places.place(region, region_ty);
                 let target = cells.id(Cell::Value(value));
+
                 if let Some(position) = elements.position(value, at).filter(|p| p.bounded) {
                     let region = places.import(&elements.places, position.region);
+
                     ops.push(Op::ElementBorrow(
                         target,
                         region,
@@ -414,6 +454,7 @@ impl Builder<'_> {
             } => {
                 let p = places.place(place, ty);
                 let target = resources::value_cell(cx, places, cells, value, ty);
+
                 if let Some(&(r, at)) = places.data.get(&p) {
                     if resizable(cx, places, r) {
                         ops.push(Op::Borrow(target, r, at));
@@ -437,37 +478,49 @@ impl Builder<'_> {
                 ..
             } => {
                 let p = places.place(place, ty);
+
                 ops.push(Op::IndexWrite(p));
                 let ep = elements.place_of(place, ty);
+
                 if let Some(parent) = elements.count_parent(ep) {
                     let region = places.import(&elements.places, parent);
                     let selector = elements.selector(value, Some(parent), at);
+
                     ops.push(Op::Mutate(
                         region,
                         Mutation::new(Action::Count, selector),
                         span,
                     ));
                 }
+
                 let source = places.place(value, ty);
+
                 if places.unresolved(p) && !resources.result_place(places.paths[p].0.0) {
                     ops.push(Op::Barrier);
                 }
+
                 ops.push(Op::Replace(p));
+
                 if let Some(&r) = places.descriptor_fields.get(&p)
                     && !elements.is_count(ep)
                 {
                     ops.push(Op::Replace(r));
                 }
+
                 let target = cells.id(Cell::Place(p));
+
                 if cx.compiler.ty.types.is_pointer(ty) {
                     ops.push(Op::Copy(vec![(target, cells.id(Cell::Value(value)))]));
                 } else {
                     let mut copies = vec![(target, cells.id(Cell::Place(source)))];
+
                     for (dst, src) in places.copied_fields(p, source) {
                         copies.push((cells.id(Cell::Place(dst)), cells.id(Cell::Place(src))));
                     }
+
                     ops.push(Op::Copy(copies));
                 }
+
                 if let Some(&(parent, _)) = places.data.get(&p)
                     && places.types.get(&parent).is_some_and(|&ty| view(cx, ty))
                 {
@@ -491,10 +544,13 @@ impl Builder<'_> {
                 ..
             } => {
                 let target = cells.id(Cell::Value(value));
+
                 ops.push(Op::Copy(vec![(target, cells.id(Cell::Value(source)))]));
                 ops.push(Op::ForgetElement(target));
+
                 if let Some(position) = elements.position(value, at).filter(|p| p.bounded) {
                     let region = places.import(&elements.places, position.region);
+
                     ops.push(Op::ElementBorrow(
                         target,
                         region,
@@ -514,12 +570,15 @@ impl Builder<'_> {
                 let source_cell = resources::value_cell(cx, places, cells, source, from);
                 let source = places.place(source, from);
                 let target = resources::value_cell(cx, places, cells, value, to);
+
                 if resizable(cx, places, source) {
                     ops.push(Op::Borrow(target, source, span));
                 } else {
                     ops.push(Op::Copy(vec![(target, source_cell)]));
                 }
+
                 let target_place = places.place(value, to);
+
                 ops.push(Op::Copy(vec![(
                     cells.id(Cell::Place(target_place)),
                     target,
@@ -531,6 +590,7 @@ impl Builder<'_> {
                 span,
             } => {
                 let r = places.place(region, ty);
+
                 grown.insert(span, r);
                 ops.push(Op::Grow(r, span));
             }
@@ -570,6 +630,7 @@ impl Builder<'_> {
         } = self;
         let mut ops = Vec::new();
         let strict = cx.lifetime_mode == jacket_config::LifetimeMode::Strict;
+
         for arg in resolver.read_arguments(event, &summaries.procs, !strict) {
             if let LifetimeOperand::Value(v) = arg.operand {
                 ops.push(Op::Resource(resources::Op::Read {
@@ -579,6 +640,7 @@ impl Builder<'_> {
                 }));
             }
         }
+
         if direct.is_none() {
             ops.push(Op::Indirect(resolver.call_targets(event), span));
         }
@@ -596,12 +658,14 @@ impl Builder<'_> {
                         LifetimeOperand::Other => None,
                     })
             };
+
             if let (Some(a), Some(b)) = (position(0), position(1))
                 && a.region == b.region
                 && a.bounded
                 && b.bounded
             {
                 let region = places.import(&elements.places, a.region);
+
                 ops.push(Op::Mutate(
                     region,
                     Mutation {
@@ -613,20 +677,24 @@ impl Builder<'_> {
                 ));
             }
         }
+
         let guaranteed = resolver.call_effects(event, &summaries.procs, true);
         let mut may = resolver.call_effects(event, &summaries.procs, false);
+
         may.extend(
             resolver
                 .unknown_effects(event, &summaries.procs)
                 .into_iter()
                 .map(|e| (e, vec![span])),
         );
+
         for (effect, chain) in may {
             if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
                 && !guaranteed.iter().any(|(e, _)| e == &effect)
                 && let Some(id) = resolver.materialize(&effect.target)
             {
                 let region = places.import(&resolver.places, id);
+
                 match effect.kind {
                     Kind::Resize => ops.push(Op::MayGrow(region, span)),
                     Kind::Unknown => ops.push(Op::MayReach(region, span)),
@@ -639,31 +707,39 @@ impl Builder<'_> {
                                 s
                             }
                         };
+
                         m.first = resolve(m.first);
                         m.second = resolve(m.second);
                         ops.push(Op::MayMutate(region, m, span));
                     }
                     _ => {}
                 }
+
                 chains.entry((span, region)).or_insert(chain);
             }
+
             if let Kind::Mutation(mutation) = effect.kind
                 && effect.guard.is_none()
                 && let Some(id) = resolver.materialize(&effect.target)
             {
                 let region = places.import(&resolver.places, id);
+
                 ops.push(Op::IterationMutation(region, mutation, span));
             }
+
             if effect.kind != Kind::Write {
                 continue;
             }
+
             if let Some(id) = resolver.materialize(&effect.target) {
                 let p = places.import(&resolver.places, id);
+
                 ops.push(Op::Replace(
                     places.data.get(&p).map_or(p, |(owner, _)| *owner),
                 ));
             }
         }
+
         for (effect, chain) in guaranteed {
             if let Kind::Mutation(mut mutation) = effect.kind
                 && effect.guard.is_none()
@@ -675,25 +751,31 @@ impl Builder<'_> {
                     Selector::Local(v) => elements.selector(v, local_region, at),
                     other => other,
                 };
+
                 mutation.first = resolve(mutation.first);
                 mutation.second = resolve(mutation.second);
                 ops.push(Op::Mutate(region, mutation, span));
                 chains.insert((span, region), chain.clone());
             }
+
             if effect.kind != Kind::Resize || effect.guard.is_some() {
                 continue;
             }
+
             if let Some(id) = resolver.materialize(&effect.target) {
                 let r = places.import(&resolver.places, id);
+
                 if grown.get(&span) != Some(&r) {
                     ops.push(Op::Grow(r, span));
                     chains.insert((span, r), chain);
                 }
             }
         }
+
         if resolver.call_stops(event, &summaries.procs) {
             ops.push(Op::Stop);
         }
+
         ops
     }
 
@@ -722,6 +804,7 @@ impl Builder<'_> {
             ..
         } = self;
         let mut resized = HashSet::default();
+
         for (e, _) in resolver.call_effects(event, &summaries.procs, false) {
             if e.kind == Kind::Resize
                 && let Some(p) = resolver.materialize(&e.target)
@@ -729,8 +812,10 @@ impl Builder<'_> {
                 resized.insert(places.import(&resolver.places, p));
             }
         }
+
         let allocator_resize = matches!(event, Event::IndirectCall { allocator: true, args, .. } if args.first().and_then(|a| a.constant) == Some(1));
         let mut ops = Vec::new();
+
         for &(index, value, ty) in results {
             // A memory-class POD result owns its copied bytes, including when
             // the callee copied an array element into the return slot.
@@ -739,11 +824,13 @@ impl Builder<'_> {
             {
                 continue;
             }
+
             let target = resources::value_cell(cx, places, cells, value, ty);
 
             if let Some(arg) = resolver.passthrough(event, index, &summaries.procs) {
                 if let Some(source) = resources::operand_cell(cx, places, cells, &arg) {
                     ops.push(Op::Copy(vec![(target, source)]));
+
                     if !cx.compiler.ty.types.is_pointer(arg.ty)
                         || resolver.adjusted_result(event, index, &summaries.procs)
                     {
@@ -754,6 +841,7 @@ impl Builder<'_> {
                 && let Some(p) = resolver.materialize(&path)
             {
                 let region = places.import(&resolver.places, p);
+
                 if cx.compiler.ty.types.is_pointer(ty)
                     && places
                         .types
@@ -772,6 +860,7 @@ impl Builder<'_> {
                     ops.push(Op::Borrow(target, region, span));
                 }
             }
+
             if let Some((path, key)) = resolver.element(value, &summaries.procs)
                 && let Some(id) = resolver.materialize(&path)
             {
@@ -786,15 +875,18 @@ impl Builder<'_> {
                         }),
                     other => other,
                 };
+
                 ops.push(Op::LogicalBorrow(target, region, key, None, span));
             }
         }
+
         ops
     }
 }
 
 fn address_queries(cx: &Cx, body: &LifetimeBody, summaries: &Summaries) -> HashSet<Span> {
     let mut spans = HashSet::default();
+
     for event in body.blocks.iter().flat_map(|b| &b.events) {
         match event {
             Event::Call {
@@ -804,6 +896,7 @@ fn address_queries(cx: &Cx, body: &LifetimeBody, summaries: &Summaries) -> HashS
             } => {
                 let direct =
                     crate::rules::lifetime_summary::address_query(cx.compiler, *callee, args);
+
                 spans.extend(
                     args.iter()
                         .filter(|a| {
@@ -826,5 +919,6 @@ fn address_queries(cx: &Cx, body: &LifetimeBody, summaries: &Summaries) -> HashS
             _ => {}
         }
     }
+
     spans
 }

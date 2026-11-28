@@ -9,6 +9,7 @@ const SOURCE: &str =
 #[test]
 fn folded_constants_match_the_interpreter() {
     let mut c = compiler();
+
     if let Err(error) = c.compile_sources(&[ProgramSource::String(format!(
         "{SOURCE}\n#assert(check()==0);"
     ))]) {
@@ -22,6 +23,7 @@ fn a_negative_constant_shift_is_rejected() {
     let error = c
         .compile_sources(&[ProgramSource::String("X :: (cast(u32) 1) << -1;".into())])
         .expect_err("negative shift amounts in constants are errors");
+
     assert!(
         error.message.contains("negative shift"),
         "{}",

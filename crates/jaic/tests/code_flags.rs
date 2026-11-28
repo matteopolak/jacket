@@ -49,14 +49,17 @@ fn type_instantiation_flags_preserve_array_directive_and_variadic_kinds() {
     let mut records = Records::default();
     let (root, _) = export_code(&mut records, &CodeBody::Block(proc.body.clone().unwrap()));
     let declarations = list(&records, root, "statements");
+
     for (&decl, expected) in declarations.iter().zip([2, 0, 64, 8, 16, 32, 4]) {
         assert_eq!(
             flags(&records, child(&records, decl, "type_inst")),
             expected
         );
     }
+
     let header = child(&records, declarations[7], "expression");
     let argument = list(&records, header, "arguments")[0];
+
     assert_eq!(
         flags(&records, child(&records, argument, "type_inst")),
         3,
@@ -77,6 +80,7 @@ fn static_using_arguments_are_independent_of_the_public_filter_kind() {
     };
     let mut records = Records::default();
     let (root, _) = export_code(&mut records, &CodeBody::Block(proc.body.clone().unwrap()));
+
     for (&id, (kind, arguments)) in
         list(&records, root, "statements")
             .iter()
@@ -106,6 +110,7 @@ fn exported_while_syntax_retains_caller_binding_and_label_modes() {
     };
     let mut records = Records::default();
     let (root, _) = export_code(&mut records, &CodeBody::Block(proc.body.clone().unwrap()));
+
     for (&id, (bind, tick)) in
         list(&records, root, "statements")
             .iter()

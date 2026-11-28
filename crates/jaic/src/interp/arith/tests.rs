@@ -65,6 +65,7 @@ fn each_pair(f: impl Fn(Ty, u64, u64)) {
 fn wrapping_integer_operations_match_native_arithmetic() {
     each_pair(|ty, x, y| {
         let (a, b) = (x as u128, y as u128);
+
         assert_eq!(
             bin_total(BinOp::Add, ty, x, y),
             norm(ty, a + b),
@@ -90,6 +91,7 @@ fn wrapping_integer_operations_match_native_arithmetic() {
 fn shifts_clear_or_fill_once_the_amount_reaches_the_width() {
     for ty in INTS {
         let width = bits(ty) as u64;
+
         for x in samples(ty) {
             for y in AMOUNTS {
                 let shl = if y >= width {
@@ -97,18 +99,21 @@ fn shifts_clear_or_fill_once_the_amount_reaches_the_width() {
                 } else {
                     norm(ty, (x as u128) << y)
                 };
+
                 assert_eq!(bin_total(BinOp::Shl, ty, x, y), shl, "{ty:?} {x:#x} << {y}");
                 let lshr = if y >= width {
                     0
                 } else {
                     x >> y
                 };
+
                 assert_eq!(
                     bin_total(BinOp::LShr, ty, x, y),
                     lshr,
                     "{ty:?} {x:#x} >> {y}"
                 );
                 let ashr = norm(ty, (signed(ty, x) >> y.min(127)) as u128);
+
                 assert_eq!(
                     bin_total(BinOp::AShr, ty, x, y),
                     ashr,
@@ -140,6 +145,7 @@ fn rotations_match_the_native_rotate_of_the_width() {
                     ),
                     _ => (x.rotate_left(n), x.rotate_right(n)),
                 };
+
                 assert_eq!(
                     bin_total(BinOp::Rotl, ty, x, y),
                     left,
@@ -168,6 +174,7 @@ fn float_operations_match_native_arithmetic() {
         f64::NAN,
         3.0e-310,
     ];
+
     for &a in &values {
         for &b in &values {
             for (op, want) in [
@@ -177,9 +184,12 @@ fn float_operations_match_native_arithmetic() {
                 (BinOp::FDiv, a / b),
             ] {
                 let got = bin_total(op, Ty::F64, a.to_bits(), b.to_bits());
+
                 assert_eq!(got, want.to_bits(), "{op:?} {a} {b}");
             }
+
             let (a, b) = (a as f32, b as f32);
+
             for (op, want) in [
                 (BinOp::FAdd, a + b),
                 (BinOp::FSub, a - b),
@@ -187,6 +197,7 @@ fn float_operations_match_native_arithmetic() {
                 (BinOp::FDiv, a / b),
             ] {
                 let got = bin_total(op, Ty::F32, a.to_bits() as u64, b.to_bits() as u64);
+
                 assert_eq!(got, want.to_bits() as u64, "{op:?} {a} {b} as f32");
             }
         }
@@ -219,6 +230,7 @@ fn only_division_and_remainder_can_fail() {
         BinOp::FMul,
         BinOp::FDiv,
     ];
+
     assert!(failing.iter().all(|&op| divides(op)));
     assert!(total.iter().all(|&op| !divides(op)));
 }
@@ -252,6 +264,7 @@ fn masks_sign_extension_and_comparison_shifts_follow_the_width() {
         );
         assert_eq!(shift_of(ty), shift, "{ty:?}");
     }
+
     assert_eq!(sext(Ty::I8, 0x80), -128);
     assert_eq!(sext(Ty::I8, 0x7f), 127);
     assert_eq!(sext(Ty::I8, 0x1_80), -128);
@@ -267,6 +280,7 @@ fn masks_sign_extension_and_comparison_shifts_follow_the_width() {
 fn integer_comparisons_agree_with_native_orderings() {
     each_pair(|ty, x, y| {
         let (sx, sy) = (signed(ty, x), signed(ty, y));
+
         for (op, want) in [
             (CmpOp::Eq, x == y),
             (CmpOp::Ne, x != y),
@@ -299,6 +313,7 @@ fn comparisons_ignore_bits_above_the_width() {
 )]
 fn float_comparisons_follow_ieee_including_nan() {
     let values = [0.0f64, -0.0, 1.0, -2.5, f64::INFINITY, f64::NAN];
+
     for &a in &values {
         for &b in &values {
             for (op, want) in [
@@ -315,6 +330,7 @@ fn float_comparisons_follow_ieee_including_nan() {
                     "{a} {op:?} {b}"
                 );
                 let (fa, fb) = (a as f32, b as f32);
+
                 assert_eq!(
                     cmp(op, Ty::F32, fa.to_bits() as u64, fb.to_bits() as u64),
                     want,
@@ -328,6 +344,7 @@ fn float_comparisons_follow_ieee_including_nan() {
 #[test]
 fn integer_conversions_change_width_by_truncation_and_extension() {
     let word = 0xfedc_ba98_7654_3280u64;
+
     assert_eq!(conv(ConvOp::Trunc, Ty::I64, Ty::I8, word), 0x80);
     assert_eq!(conv(ConvOp::Trunc, Ty::I64, Ty::I16, word), 0x3280);
     assert_eq!(conv(ConvOp::Trunc, Ty::I64, Ty::I32, word), 0x7654_3280);
@@ -370,10 +387,12 @@ fn float_to_integer_conversions_saturate_and_send_nan_to_zero() {
         (-1e30, i64::MIN, 0),
         (f64::NAN, 0, 0),
     ];
+
     for (x, _, _) in cases {
         let from64 = x.to_bits();
         let from32 = (x as f32).to_bits() as u64;
         let narrow = x as f32 as f64;
+
         for (from, source, f) in [(Ty::F64, from64, x), (Ty::F32, from32, narrow)] {
             assert_eq!(
                 conv(ConvOp::FToS, from, Ty::I8, source),
@@ -394,6 +413,7 @@ fn float_to_integer_conversions_saturate_and_send_nan_to_zero() {
             assert_eq!(conv(ConvOp::FToU, from, Ty::I64, source), f as u64);
         }
     }
+
     // Each width saturates at its own maximum, not at the 64-bit one cut down to it.
     assert_eq!(
         conv(ConvOp::FToU, Ty::F64, Ty::I16, 70_000.0f64.to_bits()),
@@ -418,6 +438,7 @@ fn integer_to_float_conversions_round_once_to_the_target() {
     for ty in INTS {
         for x in samples(ty) {
             let (s, u) = (signed(ty, x), norm(ty, x as u128));
+
             assert_eq!(
                 conv(ConvOp::SToF, ty, Ty::F64, x),
                 (s as i64 as f64).to_bits()
@@ -433,9 +454,11 @@ fn integer_to_float_conversions_round_once_to_the_target() {
             );
         }
     }
+
     // 2^63 + 2^39 + 1 is above the halfway point between two f32s, but rounding through f64 first
     // drops the final bit and lands on the tie.
     let tie = (1u64 << 63) + (1 << 39) + 1;
+
     assert_eq!(
         conv(ConvOp::UToF, Ty::I64, Ty::F32, tie),
         (tie as f32).to_bits() as u64
@@ -443,12 +466,14 @@ fn integer_to_float_conversions_round_once_to_the_target() {
     assert_ne!((tie as f64) as f32, tie as f32);
     // The same for a signed word, positive and negative.
     let signed_tie = (1i64 << 62) + (1 << 38) + 1;
+
     for value in [signed_tie, -signed_tie] {
         assert_eq!(
             conv(ConvOp::SToF, Ty::I64, Ty::F32, value as u64),
             (value as f32).to_bits() as u64
         );
     }
+
     assert_ne!((signed_tie as f64) as f32, signed_tie as f32);
 }
 
@@ -468,6 +493,7 @@ fn float_width_changes_round_to_the_target() {
             (x as f32).to_bits() as u64
         );
         let narrow = x as f32;
+
         assert_eq!(
             conv(ConvOp::FExt, Ty::F32, Ty::F64, narrow.to_bits() as u64),
             (narrow as f64).to_bits()

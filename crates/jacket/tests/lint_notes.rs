@@ -11,10 +11,13 @@ use test_support::TempDir;
 fn lint(name: &str, config: &str) -> Output {
     let root = TempDir::new(name);
     let bin = root.join("bin");
+
     std::fs::create_dir_all(&bin).expect("create the archive directory");
     let jacket = bin.join("jacket");
+
     std::fs::copy(env!("CARGO_BIN_EXE_jacket"), &jacket).expect("copy jacket");
     let stand_in = bin.join("jailint");
+
     std::fs::write(
         &stand_in,
         "#!/bin/sh\necho 'jailint: warning: note from the linter' >&2\n",
@@ -23,6 +26,7 @@ fn lint(name: &str, config: &str) -> Output {
     std::fs::set_permissions(&stand_in, std::fs::Permissions::from_mode(0o755))
         .expect("make it run");
     let project: PathBuf = root.join("project");
+
     std::fs::create_dir_all(&project).expect("create the project");
     std::fs::write(project.join("jacket.toml"), config).expect("write config");
     Command::new(&jacket)
@@ -36,6 +40,7 @@ fn lint(name: &str, config: &str) -> Output {
 fn lint_prints_each_note_once() {
     let out = lint("jacket-test-lint-notes", "[lint]\nmax-nesting = 3\n");
     let stderr = String::from_utf8_lossy(&out.stderr);
+
     assert_eq!(
         stderr.matches("note from the linter").count(),
         1,
@@ -48,6 +53,7 @@ fn lint_prints_each_note_once() {
 fn lint_reports_an_unknown_setting_once() {
     let out = lint("jacket-test-lint-unknown", "[lint]\nmax-nestng = 3\n");
     let stderr = String::from_utf8_lossy(&out.stderr);
+
     assert_eq!(stderr.matches("max-nestng").count(), 1, "{stderr}");
     assert!(stderr.starts_with("jacket: error:"), "{stderr}");
     assert!(

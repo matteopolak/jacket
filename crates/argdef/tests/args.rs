@@ -111,6 +111,7 @@ fn parse(args: &[&str]) -> Result<Demo, Error> {
 #[test]
 fn flags_values_and_positionals_in_any_order() {
     let demo = parse(&["-check", "a.jai", "-exe", "out", "-I=x", "-import_dir", "y"]).unwrap();
+
     assert!(demo.check);
     assert_eq!(demo.exe.as_deref(), Some("out"));
     assert_eq!(demo.imports, ["x", "y"]);
@@ -126,6 +127,7 @@ fn a_switch_can_store_a_constant_and_share_a_field() {
 #[test]
 fn a_short_option_takes_a_glued_value() {
     let demo = parse(&["-Wunused", "-W", "dead"]).unwrap();
+
     assert_eq!(
         demo.levels,
         [("unused".into(), Level::Warn), ("dead".into(), Level::Warn)]
@@ -146,6 +148,7 @@ fn a_flattened_struct_adds_its_options() {
 #[test]
 fn a_bad_value_says_which_option_and_what_it_got() {
     let error = parse(&["-threads", "many"]).unwrap_err();
+
     assert_eq!(error.message, "`-threads` takes a whole number, not `many`");
     assert_eq!(error.help, ["for example `-threads 4`"]);
 }
@@ -153,11 +156,13 @@ fn a_bad_value_says_which_option_and_what_it_got() {
 #[test]
 fn mistakes_are_typed() {
     let error = parse(&["-bogus"]).unwrap_err();
+
     assert_eq!(
         (error.kind, error.subject.as_str()),
         (ErrorKind::Unknown, "-bogus")
     );
     let error = parse(&["-exe"]).unwrap_err();
+
     assert_eq!(error.kind, ErrorKind::Missing);
     assert_eq!(error.message, "`-exe` needs an executable name");
     assert_eq!(
@@ -188,6 +193,7 @@ fn a_plugin_takes_everything_up_to_a_marker() {
         "p1",
     ])
     .unwrap();
+
     assert_eq!(demo.files, ["a.jai"]);
     assert_eq!(
         demo.plugins,
@@ -209,10 +215,12 @@ fn a_plugin_takes_everything_up_to_a_marker() {
 #[test]
 fn a_marker_with_nothing_after_it_is_still_seen() {
     let demo = parse(&["--"]).unwrap();
+
     assert_eq!(demo.program_args, Some(vec![]));
     assert_eq!(demo.command_line, None);
     // After `--` even `-` and `--` are the program's.
     let demo = parse(&["--", "-", "--", "+x"]).unwrap();
+
     assert_eq!(
         demo.program_args,
         Some(vec!["-".into(), "--".into(), "+x".into()])
@@ -222,6 +230,7 @@ fn a_marker_with_nothing_after_it_is_still_seen() {
 #[test]
 fn an_exit_option_stops_parsing() {
     let demo = parse(&["-h", "-bogus"]).unwrap();
+
     assert!(demo.help);
     assert!(parse(&["-bogus", "-h"]).is_err());
 }
@@ -233,6 +242,7 @@ fn scanning_reports_options_up_to_a_marker() {
         .map(String::from)
         .to_vec();
     let scan = spec.scan(&args);
+
     assert_eq!(scan.boundary, Some(5));
     assert!(scan.error.is_none());
     let seen: Vec<(&str, Option<&str>, &str)> = scan
@@ -240,6 +250,7 @@ fn scanning_reports_options_up_to_a_marker() {
         .iter()
         .map(|t| (t.name, t.value.as_deref(), t.opt.map_or("", |o| o.tag)))
         .collect();
+
     assert_eq!(
         seen,
         [
@@ -250,12 +261,14 @@ fn scanning_reports_options_up_to_a_marker() {
         ]
     );
     let args = ["-I"].map(String::from);
+
     assert_eq!(spec.scan(&args).error.unwrap().kind, ErrorKind::Missing);
 }
 
 #[test]
 fn help_lists_sections_in_order_with_doc_comments() {
     let text = Demo::spec().help().render(false);
+
     assert_eq!(
         text,
         "\
@@ -289,6 +302,7 @@ fn help_is_bold_only_in_colour() {
     let spec = Demo::spec();
     let plain = spec.help().render(false);
     let colored = spec.help().render(true);
+
     assert!(!plain.contains('\x1b'));
     assert!(colored.contains("\x1b[1;4mModes:\x1b[0m"));
     assert!(colored.contains("\x1b[1m-check\x1b[0m"));
@@ -308,6 +322,7 @@ fn a_tool_can_add_sections_and_paragraphs() {
         )
         .footer("exit status: 0 success");
     let text = help.render(false);
+
     assert!(text.find("Environment:").unwrap() < text.find("Plugins:").unwrap());
     // A label wider than the column puts its text on the next line.
     assert!(text.contains(
@@ -320,6 +335,7 @@ fn a_tool_can_add_sections_and_paragraphs() {
 fn completions_cover_names_values_and_hints_but_not_hidden_options() {
     let spec = Demo::spec();
     let bash = spec.completions(Shell::Bash);
+
     assert!(
         bash.contains("-check -exe -import_dir -I -O0 -O1"),
         "{bash}"
@@ -335,6 +351,7 @@ fn completions_cover_names_values_and_hints_but_not_hidden_options() {
     assert!(bash.contains("complete -o filenames -F _demo demo"));
     assert!(!bash.contains("-dev_probe"));
     let zsh = spec.completions(Shell::Zsh);
+
     assert!(zsh.starts_with("#compdef demo\n"));
     assert!(
         zsh.contains("'-exe[the executable's name]:name:_files'")
@@ -350,6 +367,7 @@ fn completions_cover_names_values_and_hints_but_not_hidden_options() {
     assert!(zsh.contains("'-exe=[the executable"), "{zsh}");
     assert!(zsh.contains("'-A-[warning levels]:code: '"), "{zsh}");
     let fish = spec.completions(Shell::Fish);
+
     assert!(
         fish.contains("complete -c demo -o check -d 'only check'"),
         "{fish}"
@@ -366,6 +384,7 @@ fn shells_are_read_by_name() {
     use argdef::FromArg;
     assert_eq!(Shell::from_arg("-completions", "zsh").unwrap(), Shell::Zsh);
     let error = Shell::from_arg("-completions", "csh").unwrap_err();
+
     assert_eq!(error.message, "unknown shell `csh` for `-completions`");
     assert_eq!(error.help, ["use bash, zsh or fish"]);
 }
@@ -393,6 +412,7 @@ struct Flavors {
 fn conflicting_constants_are_refused_and_repeats_are_fine() {
     let flavors =
         |args: &[&str]| Flavors::parse(&args.iter().map(ToString::to_string).collect::<Vec<_>>());
+
     assert!(flavors(&["-od", "-od"]).is_ok());
     assert_eq!(
         flavors(&["-o", "-od"]).err().unwrap().message,
@@ -403,6 +423,7 @@ fn conflicting_constants_are_refused_and_repeats_are_fine() {
 #[test]
 fn a_field_without_a_section_joins_the_one_before_and_skipped_fields_are_not_options() {
     let spec = Flavors::spec();
+
     assert_eq!(
         spec.opts.iter().map(|o| o.section).collect::<Vec<_>>(),
         ["Build", "Build", "Build"]
@@ -420,6 +441,7 @@ fn bash_offers(script: &str, dir: &std::path::Path, words: &[&str]) -> Vec<Strin
         words.len() - 1
     );
     let script_path = dir.join("demo.bash");
+
     std::fs::write(&script_path, script).unwrap();
     let output = std::process::Command::new("bash")
         .args(["-c", &program, "bash"])
@@ -432,6 +454,7 @@ fn bash_offers(script: &str, dir: &std::path::Path, words: &[&str]) -> Vec<Strin
         .filter(|l| *l != "demo.bash")
         .map(String::from)
         .collect();
+
     names.sort();
     names
 }
@@ -445,12 +468,15 @@ fn bash_completes_file_names_with_spaces_whole_and_after_an_equals_sign() {
     {
         return;
     }
+
     let dir = std::env::temp_dir().join(format!("argdef-bash-{}", std::process::id()));
+
     std::fs::create_dir_all(dir.join("sub dir")).unwrap();
     std::fs::write(dir.join("a b.txt"), "").unwrap();
     std::fs::write(dir.join("a*c.txt"), "").unwrap();
     let script = Demo::spec().completions(Shell::Bash);
     let both = ["a b.txt".to_string(), "a*c.txt".to_string()];
+
     // After the option, as two words.
     assert_eq!(bash_offers(&script, &dir, &["demo", "-exe", "a"]), both);
     // Bash splits `-exe=a` into `-exe`, `=` and `a`.
@@ -506,6 +532,7 @@ mod os_values {
             "a.jai".into(),
         ];
         let parsed = Bytes::parse(&argv).unwrap();
+
         assert_eq!(parsed.linker.unwrap().as_bytes(), b"/bin/\xfe");
         assert_eq!(parsed.link_args[0].as_bytes(), b"-L\xff");
         assert_eq!(parsed.link_args[1].as_bytes(), b"/x/\xfe.a");
@@ -521,6 +548,7 @@ mod os_values {
             vec![bytes(b"-name=\xff")],
         ] {
             let error = Bytes::parse(&argv).unwrap_err();
+
             assert!(
                 error.message.contains("not valid UTF-8"),
                 "{}",
@@ -537,6 +565,7 @@ mod os_values {
     fn scanning_treats_such_an_argument_as_no_option() {
         let argv = [bytes(b"\xff"), "-name".into(), "x".into()];
         let scan = Bytes::spec().scan(&argv);
+
         assert_eq!(scan.tokens.len(), 2);
         assert!(scan.tokens[0].opt.is_none());
         assert_eq!(scan.tokens[1].value.as_deref(), Some("x"));

@@ -24,10 +24,12 @@ impl Compiler {
         let Some(bytes) = self.src.fs.read(path) else {
             return Err(Box::new(self.src.unreadable_file(path, span)));
         };
+
         if let Some((text, lines)) = self.ed.kept_source(path, &bytes) {
             let file = crate::source::SourceFile::with_lines(path.into(), text, lines);
             return Ok(self.src.sources.add_file(file));
         }
+
         // `from_utf8` checks a word at a time; the lossy form walks every byte.
         let text: Arc<str> = match std::str::from_utf8(&bytes) {
             Ok(text) => text.into(),
@@ -35,6 +37,7 @@ impl Compiler {
         };
         let file = self.src.sources.add(path, text);
         let source = self.src.sources.get(file);
+
         self.ed
             .keep_source(path, &bytes, &source.text, source.lines());
         Ok(file)
@@ -46,13 +49,16 @@ impl Compiler {
         if span == Span::NONE && self.ed.is_selected_entry(&self.src.canon(path)) {
             return Ok(());
         }
+
         let Some(stdlib) = self.options.stdlib_root() else {
             return Ok(());
         };
         let internal = self.src.canon(&stdlib.join("internal"));
+
         if !self.src.canon(path).starts_with(&internal) {
             return Ok(());
         }
+
         let from_library = self
             .src
             .sources
@@ -62,9 +68,11 @@ impl Compiler {
                     .canon(&source.path.to_path())
                     .starts_with(self.src.canon(stdlib))
             });
+
         if from_library {
             return Ok(());
         }
+
         err(
             Code::ModuleStandardLibraryInternal,
             span,
@@ -89,6 +97,7 @@ impl Compiler {
     ) -> Result<()> {
         let module = self.scope(scope).module;
         let full = self.file_dir(self.scope_file(scope)).join(path);
+
         self.load_file(&full, module, span)
     }
 
@@ -96,14 +105,17 @@ impl Compiler {
     pub fn load_file(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         self.check_source_access(path, span)?;
         let path = self.src.canon(path);
+
         self.src.import_trace.edge(span, path.clone());
         let key = (path.clone(), module);
+
         if let Some(state) = self.src.file_by_path.get(&key) {
             return match state {
                 FileLoadState::Loading | FileLoadState::Ready => Ok(()),
                 FileLoadState::Failed(error) => Err(error.clone()),
             };
         }
+
         self.src
             .file_by_path
             .insert(key.clone(), FileLoadState::Loading);
@@ -112,6 +124,7 @@ impl Compiler {
             Ok(()) => FileLoadState::Ready,
             Err(error) => FileLoadState::Failed(error.clone()),
         };
+
         self.src.file_by_path.insert(key, state);
         result
     }
@@ -119,6 +132,7 @@ impl Compiler {
     fn load_file_inner(&mut self, path: &Path, module: ModuleId, span: Span) -> Result<()> {
         self.check_not_stopped(span)?;
         let parsing = crate::progress::enter(crate::progress::Phase::Parsing);
+
         if self.ed.allows_parse_ahead()
             && let Some(prepared) = self.src.ahead.as_ref().and_then(|a| a.claim(path))
         {
@@ -132,10 +146,13 @@ impl Compiler {
                     line_starts,
                 ));
             let ast = tree.finish(file);
+
             drop(parsing);
             crate::progress::file_loaded();
+
             return self.declare_loaded(path, module, file, &ast);
         }
+
         let file = self.read_source(path, span)?;
         let text = self.src.sources.get(file).text.clone();
         let shared;
@@ -149,11 +166,14 @@ impl Compiler {
                 None => crate::parser::parse_file(file, &text),
             }
             .map_err(Box::new)?;
+
             if let Some(ahead) = self.src.ahead.as_ref() {
                 ahead.discover(&own, path);
             }
+
             &own
         };
+
         drop(parsing);
         crate::progress::file_loaded();
         self.declare_loaded(path, module, file, ast)
@@ -169,6 +189,7 @@ impl Compiler {
     ) -> Result<()> {
         let module_scope = self.ns.modules[module.0 as usize].scope;
         let file_scope = self.new_scope(ScopeKind::File, Some(module_scope), module, Some(file));
+
         self.src.files.push(FileInfo {
             id: file,
             path: SourcePath::File(path.to_path_buf()),
@@ -186,9 +207,11 @@ impl Compiler {
     /// a syntax error in code the target does not build is still reported.
     fn library_platform(&mut self, path: &Path) -> Option<crate::parser::PlatformTarget> {
         let stdlib = self.options.stdlib_root()?.to_path_buf();
+
         if !path.starts_with(self.src.canon(&stdlib)) {
             return None;
         }
+
         Some(crate::parser::PlatformTarget {
             os: crate::target::os_member(self.options.os),
             cpu: crate::target::cpu_member(self.options.cpu),
@@ -225,19 +248,24 @@ impl Compiler {
         import: Option<&ast::Import>,
     ) -> Result<ModuleId> {
         self.check_source_access(entry, span)?;
+
         if self.src.import_trace.keeps_going() {
             self.src.import_trace.edge(span, self.src.canon(entry));
         }
+
         // Jai identifies an instance by the argument list as written. Reordering
         // named arguments creates another instance, even when the effective values match.
         // Keep positional names and explicit/default argument differences in the key too.
         let key = (self.src.canon(entry), params.clone());
+
         if let Some(&id) = self.ns.module_cache.get(&key) {
             if let Some(import) = import {
                 self.validate_or_queue_import_groups(id, import)?;
             }
+
             return self.ns.module_load_result(id);
         }
+
         // Program parameters (`#import "Basic"()(MEMORY_DEBUGGER=true)`) configure the
         // one instance every importer shares.
         if !params.is_empty()
@@ -245,6 +273,7 @@ impl Compiler {
         {
             return self.ns.module_load_result(id);
         }
+
         // A plain `#import "M"` joins an instance already configured elsewhere
         // (`#import "Basic"()(MEMORY_DEBUGGER=true)` in the program applies to all), but not
         // one whose ordinary parameters were set: that is another instance of the module.
@@ -263,8 +292,10 @@ impl Compiler {
         {
             return self.ns.module_load_result(id);
         }
+
         let id = ModuleId(self.ns.modules.len() as u32);
         let scope = self.new_scope(ScopeKind::Module, Some(self.ns.root_scope), id, None);
+
         crate::progress::module_created();
         self.ns.modules.push(Module {
             loading: true,
@@ -286,12 +317,16 @@ impl Compiler {
         });
         self.ns.module_cache.insert(key, id);
         let loaded = self.load_file(entry, id, span);
+
         self.ns.modules[id.0 as usize].loading = false;
+
         if let Err(error) = loaded {
             self.ns.module_failures.insert(id, error.clone());
             return Err(error);
         }
+
         self.apply_program_params(id);
+
         if self
             .scope(scope)
             .pending
@@ -302,6 +337,7 @@ impl Compiler {
             self.ns.module_failures.insert(id, error.clone());
             return Err(error);
         }
+
         Ok(id)
     }
 
@@ -313,15 +349,18 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         let module = &self.ns.modules[id.0 as usize];
+
         if module.arguments_validated {
             return Ok(());
         }
+
         let span = if span == Span::NONE {
             module.argument_span
         } else {
             span
         };
         let mut used = HashSet::default();
+
         for (name, ..) in &module.params {
             let position = if let Some(position) = name.as_str().strip_prefix('$') {
                 position
@@ -341,6 +380,7 @@ impl Compiler {
                     format!("argument `{name}` is not a parameter of this module"),
                 );
             };
+
             if !used.insert(position) {
                 return err(
                     Code::ModuleParameterInvalid,
@@ -352,6 +392,7 @@ impl Compiler {
                 );
             }
         }
+
         self.ns.modules[id.0 as usize].arguments_validated = true;
         Ok(())
     }
@@ -365,6 +406,7 @@ impl Compiler {
         {
             return Some(preload.clone());
         }
+
         find_module_in(
             &*self.src.fs,
             &self.options.import_paths,
@@ -388,6 +430,7 @@ impl Compiler {
     ) -> ModuleId {
         let id = ModuleId(self.ns.modules.len() as u32);
         let scope = self.new_scope(ScopeKind::Module, Some(self.ns.root_scope), id, None);
+
         self.ns.modules.push(Module {
             loading: false,
             argument_span: Span::NONE,
@@ -427,17 +470,24 @@ impl Compiler {
         let name = SourcePath::virtual_source(label);
         let file = self.src.sources.add(name.clone(), source.into());
         let mut origin_scope = Some(target);
+
         while let Some(scope) = origin_scope {
             if let Some(origin) = self.scope(scope).file {
                 let source = self.src.source_origin(origin);
+
                 self.src.origins.insert(file, source);
+
                 break;
             }
+
             origin_scope = self.scope(scope).parent;
         }
+
         let ast = crate::parser::parse_file(file, source).map_err(Box::new)?;
+
         self.diag.dependencies.source_scopes.insert(file, target);
         let file_scope = self.new_scope(ScopeKind::File, Some(target), module, Some(file));
+
         self.src.files.push(FileInfo {
             id: file,
             path: name,

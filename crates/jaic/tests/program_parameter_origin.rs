@@ -4,11 +4,15 @@ use std::{path::Path, rc::Rc};
 
 fn compiler(files: &[(&str, &str)]) -> Compiler {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/Settings/module.jai", b"#module_parameters (local:=3)(enabled:=true); public_enabled::enabled; public_local::local;".as_slice());
+
     for &(path, source) in files {
         fs.insert(path, source.as_bytes());
     }
+
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec!["/lib".into()];
     Compiler::new(options, Rc::new(fs))
@@ -54,12 +58,14 @@ fn nested_loads_and_anonymous_string_imports_keep_module_ownership() {
         let error = compiler
             .compile_program(Path::new("/app/main.jai"))
             .unwrap_err();
+
         assert!(
             error.message.contains("main program"),
             "{}",
             error.render(&compiler.src.sources)
         );
     }
+
     let mut compiler = compiler(&[(
         "/app/main.jai",
         "#import,string \"#import \\\"Settings\\\"()(enabled=false);\";",
@@ -67,6 +73,7 @@ fn nested_loads_and_anonymous_string_imports_keep_module_ownership() {
     let error = compiler
         .compile_program(Path::new("/app/main.jai"))
         .unwrap_err();
+
     assert!(
         error.message.contains("main program"),
         "{}",
@@ -95,6 +102,7 @@ fn imported_files_and_modules_may_only_supply_module_parameters() {
         let error = compiler
             .compile_program(Path::new("/app/main.jai"))
             .expect_err("non-main PROGRAM settings must fail before binding");
+
         assert!(
             error.message.contains("main program"),
             "{}",
@@ -121,6 +129,7 @@ fn generated_main_inputs_and_each_workspace_root_have_their_own_origin() {
         let source = format!(
             "#import \"Settings\"()(enabled={enabled}); #assert public_enabled=={enabled};"
         );
+
         compiler
             .compile_sources(&[ProgramSource::String(source)])
             .unwrap_or_else(|error| panic!("{}", error.render(&compiler.src.sources)));
@@ -130,6 +139,7 @@ fn generated_main_inputs_and_each_workspace_root_have_their_own_origin() {
 #[test]
 fn generated_module_inputs_do_not_acquire_main_program_privileges() {
     let mut compiler = compiler(&[]);
+
     compiler
         .prepare_sources(&[ProgramSource::String(String::new())])
         .unwrap();
@@ -141,6 +151,7 @@ fn generated_module_inputs_do_not_acquire_main_program_privileges() {
         ))
         .and_then(|()| compiler.settle())
         .expect_err("generated non-main inputs remain non-main");
+
     assert!(
         error.message.contains("main program"),
         "{}",
@@ -155,6 +166,7 @@ fn duplicate_and_mixed_list_bindings_are_still_rejected() {
         "#import \"Settings\"(local=4)(local=5);",
     ] {
         let mut compiler = compiler(&[("/app/main.jai", source)]);
+
         assert!(
             compiler
                 .compile_program(Path::new("/app/main.jai"))
@@ -173,6 +185,7 @@ fn first_list_cannot_bind_a_declared_program_slot() {
         let error = compiler
             .compile_program(Path::new("/app/main.jai"))
             .expect_err("first-list names cannot target PROGRAM slots");
+
         assert!(
             error.message.contains("module parameter"),
             "{}",
@@ -184,6 +197,7 @@ fn first_list_cannot_bind_a_declared_program_slot() {
 #[test]
 fn first_list_arguments_never_record_speculative_program_settings() {
     let mut compiler = compiler(&[("/app/main.jai", "#import \"Settings\"(enabled=false);")]);
+
     compiler
         .prepare_sources(&[ProgramSource::File("/app/main.jai".into())])
         .unwrap();
@@ -213,6 +227,7 @@ fn program_only_header_rejects_first_list_with_official_count_category() {
         let error = compiler
             .compile_program(Path::new("/app/main.jai"))
             .expect_err("first-list overflow must reject, even for cached module");
+
         assert!(
             error
                 .message

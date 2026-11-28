@@ -27,6 +27,7 @@ pub(super) fn case(name: &str, kind: Kind) -> Case {
 fn filters_select_tests_and_subtests() {
     let table = case("A::table", Kind::Test);
     let none: [String; 0] = [];
+
     assert_eq!(select(&table, &none, false).as_deref(), Some("table"));
     assert_eq!(
         select(&table, &["tab".into()], false).as_deref(),
@@ -39,6 +40,7 @@ fn filters_select_tests_and_subtests() {
     );
     assert_eq!(select(&table, &["other".into()], false), None);
     let golden = case("A::compile_fail/bad", Kind::CompileFail);
+
     assert!(select(&golden, &["compile_fail/bad".into()], false).is_some());
 }
 
@@ -66,6 +68,7 @@ fn paths_among_the_flags_are_resolved_from_the_current_directory() {
             .unwrap()
     };
     let resolved = resolve_paths(&args, Path::new("/w"));
+
     assert_eq!(resolved.path, [PathBuf::from("/w/lib")]);
     assert_eq!(resolved.junit, Some(PathBuf::from("/w/out.xml")));
     assert_eq!(
@@ -82,8 +85,10 @@ fn paths_among_the_flags_are_resolved_from_the_current_directory() {
             "wasm"
         ]
     );
+
     for boundary in ["-", "--", "+Plugin"] {
         let mut bounded = args.clone();
+
         bounded.jaic_args = [boundary, "-import_dir", "keep-relative"]
             .map(String::from)
             .into();
@@ -108,16 +113,21 @@ fn time_parts_split_the_recorded_time_evenly_and_cover_every_test_once() {
     .collect();
     let names = ["quick_a", "slow", "mid_a", "quick_b", "mid_b", "unrecorded"];
     let parts = time_parts(&names, &times, 2);
+
     // Each test lands in one part, whatever order the names are listed in.
     assert_eq!(parts.len(), names.len());
     assert!(parts.iter().all(|part| *part < 2));
     let mut reversed = names;
+
     reversed.reverse();
     let again = time_parts(&reversed, &times, 2);
+
     for (name, part) in names.iter().zip(&parts) {
         let other = reversed.iter().position(|n| n == name).unwrap();
+
         assert_eq!(*part, again[other], "{name}");
     }
+
     // The slow test fills one part alone; the rest share the other (10 against 10 plus the median).
     let load = |part: usize| {
         names
@@ -127,6 +137,7 @@ fn time_parts_split_the_recorded_time_evenly_and_cover_every_test_once() {
             .map(|(name, _)| times.get(*name).copied().unwrap_or(4.0))
             .sum::<f64>()
     };
+
     assert!(
         (load(0) - load(1)).abs() <= 4.0,
         "{} against {}",
@@ -141,10 +152,12 @@ fn time_parts_split_the_recorded_time_evenly_and_cover_every_test_once() {
 #[test]
 fn partitions_cover_every_test_once() {
     let names = ["a", "b", "c", "d", "e"];
+
     for how in ["hash", "count"] {
         let parts: Vec<_> = (1..=3)
             .map(|k| partition(&format!("{how}:{k}/3")).unwrap())
             .collect();
+
         for (i, name) in names.iter().enumerate() {
             assert_eq!(
                 parts.iter().filter(|p| p(i, name)).count(),
@@ -153,6 +166,7 @@ fn partitions_cover_every_test_once() {
             );
         }
     }
+
     assert!(partition("hash:0/3").is_err());
     assert!(partition("count:4/3").is_err());
     assert!(partition("mod:1/2").is_err());
@@ -164,14 +178,17 @@ fn a_times_file_goes_only_with_a_time_split() {
     let error = parse(Some("time:1/2"), None)
         .err()
         .expect("time needs the file");
+
     assert!(error.contains("--partition-times"), "{error}");
     let error = parse(Some("hash:1/2"), Some(times))
         .err()
         .expect("hash takes no file");
+
     assert!(error.contains("only with `time:K/N`"), "{error}");
     let error = parse(None, Some(times))
         .err()
         .expect("no split takes no file");
+
     assert!(error.contains("only with `time:K/N`"), "{error}");
     assert!(parse(Some("hash:1/2"), None).is_ok());
 }
@@ -179,6 +196,7 @@ fn a_times_file_goes_only_with_a_time_split() {
 #[test]
 fn a_board_skips_the_cases_that_run_a_host_program() {
     let skip = |kind| case("A::x", kind).board_skip(&[], false);
+
     assert!(skip(Kind::Golden).is_some());
     assert!(skip(Kind::Test).is_none());
     assert!(skip(Kind::Bench).is_none());

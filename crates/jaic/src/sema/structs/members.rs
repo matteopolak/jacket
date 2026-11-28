@@ -18,6 +18,7 @@ impl Compiler {
     ) -> Result<Vec<(Sym, TypeId, u64)>> {
         let s = |n: &str| Sym::intern(n);
         let layout = *self.ty.types.builtins();
+
         Ok(match self.ty.types.kind(ty).clone() {
             TypeKind::String => vec![
                 (s("count"), TypeId::S64, layout.view.count),
@@ -28,6 +29,7 @@ impl Compiler {
                 kind: ArrayKind::View,
             } => {
                 let p = self.ty.types.pointer(elem);
+
                 vec![
                     (s("count"), TypeId::S64, layout.view.count),
                     (s("data"), p, layout.view.data),
@@ -39,6 +41,7 @@ impl Compiler {
             } => {
                 let p = self.ty.types.pointer(elem);
                 let alloc = self.preload_type(PreludeType::Allocator, span)?;
+
                 vec![
                     (s("count"), TypeId::S64, layout.resizable.count),
                     (s("data"), p, layout.resizable.data),
@@ -49,6 +52,7 @@ impl Compiler {
             TypeKind::Any => {
                 let ti = self.preload_type(PreludeType::TypeInfo, span)?;
                 let p = self.ty.types.pointer(ti);
+
                 vec![
                     (s("type"), p, layout.any.type_),
                     (
@@ -83,6 +87,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Arc<ProcTypeParams>>> {
         let ty = self.ty.types.pointee(ty).unwrap_or(ty);
+
         Ok(self
             .find_member_in(ty, name, span, &mut Vec::new())?
             .and_then(|(_, _, origin)| origin)
@@ -101,12 +106,14 @@ impl Compiler {
             return Ok(None);
         };
         let mut offset = 0;
+
         for step in &path {
             match step {
                 PathStep::Offset(o) => offset += o,
                 PathStep::Deref => return Ok(None),
             }
         }
+
         Ok(Some((offset, fty)))
     }
 
@@ -123,6 +130,7 @@ impl Compiler {
                 ),
             }
         };
+
         Ok(crate::interp::LocationLayout {
             path: at("fully_pathed_filename")?,
             line: at("line_number")?,
@@ -142,18 +150,22 @@ impl Compiler {
         let ty = self.ty.types.repr_struct(ty);
         let Some(s) = self.ty.types.as_struct(ty) else {
             let members = self.builtin_members(ty, span)?;
+
             return Ok(members
                 .into_iter()
                 .find(|(n, _, _)| *n == name)
                 .map(|(_, t, o)| (vec![PathStep::Offset(o)], t, None)));
         };
+
         if searched.contains(&s) {
             return Ok(None);
         }
+
         searched.push(s);
         self.layout_struct(s, span)?;
         // Without cloning the field list: this runs for every member access.
         let fields = &self.ty.types.struct_info(s).fields;
+
         if let Some((index, f)) = fields
             .iter()
             .enumerate()
@@ -165,13 +177,17 @@ impl Compiler {
                 Some((s, index)),
             )));
         }
+
         let no_filters = UsingFilters::default();
         let filters = self.ty.using_filters.get(&s).unwrap_or(&no_filters);
         let candidates = using_candidates(fields, filters, name);
+
         if let Some(found) = self.find_promoted_member(candidates, span, searched)? {
             return Ok(Some(found));
         }
+
         let aliases = self.ty.member_aliases.get(&s).cloned().unwrap_or_default();
+
         for alias in aliases {
             let Some(target) = alias.target_name(name) else {
                 continue;
@@ -179,6 +195,7 @@ impl Compiler {
             let mut full = Vec::new();
             let mut at = ty;
             let mut origin = None;
+
             for &step in alias.path.iter().chain([&target]) {
                 // A pointer field on the path is followed.
                 if let Some(p) = self.ty.types.pointee(at)
@@ -187,6 +204,7 @@ impl Compiler {
                     full.push(PathStep::Deref);
                     at = p;
                 }
+
                 let Some((mut path, t, field)) =
                     self.find_member_in(at, step, span, &mut Vec::new())?
                 else {
@@ -196,12 +214,15 @@ impl Compiler {
                         format!("`{step}` is not a member of {}", self.ty.types.name(at)),
                     );
                 };
+
                 full.append(&mut path);
                 at = t;
                 origin = field;
             }
+
             return Ok(Some((full, at, origin)));
         }
+
         Ok(None)
     }
 
@@ -218,17 +239,22 @@ impl Compiler {
                 Some(p) if self.ty.types.as_struct(p).is_some() => (p, true),
                 _ => (field_ty, false),
             };
+
             if let Some((mut path, ty, origin)) =
                 self.find_member_in(inner, name, span, searched)?
             {
                 let mut full = vec![PathStep::Offset(offset)];
+
                 if deref {
                     full.push(PathStep::Deref);
                 }
+
                 full.append(&mut path);
+
                 return Ok(Some((full, ty, origin)));
             }
         }
+
         Ok(None)
     }
 
@@ -248,19 +274,25 @@ impl Compiler {
         let Some(s) = self.ty.types.as_struct(ty) else {
             return Ok(None);
         };
+
         if searched.contains(&s) {
             return Ok(None);
         }
+
         searched.push(s);
+
         if let Some(src) = self.ty.struct_asts.get(&s) {
             let scope = src.scope;
+
             self.expand_pending(scope)?;
+
             if let Some(ids) = self.scope(scope).names.get(&name)
                 && !ids.is_empty()
             {
                 return Ok(Some(ids.clone()));
             }
         }
+
         // Constants of `using` fields are reachable too (`context.default_allocator`). A struct
         // being laid out has no fields yet: a name looked up from its own field types finds
         // only its declared constants.
@@ -279,29 +311,35 @@ impl Compiler {
                 None => return Ok(None),
             }
         };
+
         for field_ty in usings {
             let inner = self.ty.types.pointee(field_ty).unwrap_or(field_ty);
+
             if let Some(ids) = self.struct_constant_in(inner, name, searched)? {
                 return Ok(Some(ids));
             }
         }
+
         // `using name :: Base(T).{};` stores nothing, but its type's constants are the struct's.
         for base in self.using_constant_bases(s, false) {
             if let Some(ids) = self.struct_constant_in(base, name, searched)? {
                 return Ok(Some(ids));
             }
         }
+
         Ok(None)
     }
 
     pub fn type_has_member(&mut self, ty: TypeId, name: Sym) -> Result<bool> {
         let target = self.ty.types.pointee(ty).unwrap_or(ty);
+
         if let Some(&scope) = self.ty.enum_member_scopes.get(&target) {
             return Ok(self.scope(scope).names.get(&name).is_some_and(|ids| {
                 ids.iter()
                     .any(|&id| matches!(self.entity(id).kind, EntityKind::EnumMember { .. }))
             }));
         }
+
         if let TypeKind::Enum(e) = self.ty.types.kind(target) {
             return Ok(self
                 .ty
@@ -316,9 +354,11 @@ impl Compiler {
                     .get(&target)
                     .is_some_and(|names| names.iter().any(|(n, _)| *n == name)));
         }
+
         if self.struct_constant(target, name)?.is_some() {
             return Ok(true);
         }
+
         // Whether a member exists needs the struct's declarations, not its storage: laying it out
         // could need the struct asking, when a field type of that one is looked up through a
         // `using g;` of a global of this struct (no_api's `using gpu_context;`).
@@ -331,6 +371,7 @@ impl Compiler {
                     .declared_member_type(target, name, Span::NONE, &mut Vec::new())?
                     .is_some());
             }
+
             // Its members are being collected: only what is declared so far.
             let src = &self.ty.struct_asts[&s];
             let tag = src.lit.tag.as_ref().map(|t| t.name.name);
@@ -339,8 +380,10 @@ impl Compiler {
                 .field_declarations
                 .get(&src.scope)
                 .is_some_and(|fields| fields.contains_key(&name));
+
             return Ok(tag == Some(name) || declared);
         }
+
         Ok(self.find_member(target, name, Span::NONE)?.is_some())
     }
 
@@ -356,6 +399,7 @@ impl Compiler {
                 PathStep::Deref => f.b.load(Ty::Ptr, addr),
             };
         }
+
         addr
     }
 }

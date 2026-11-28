@@ -34,6 +34,7 @@ impl Compiler {
         };
         let bt = probe.ty();
         let st = self.ty.types.pointee(bt).unwrap_or(bt);
+
         if self
             .ty
             .types
@@ -42,16 +43,21 @@ impl Compiler {
         {
             return Ok(false);
         }
+
         let (mut setters, lenient) = self.operator_candidates_for(scope, "[]=", st)?;
+
         // Only an operator taking this struct applies. Otherwise `p[i] = v` through a raw
         // pointer writes memory, and a struct with only `operator *[]` assigns through it.
         setters.retain(|&p| self.first_param_accepts(p, st));
+
         if setters.is_empty() {
             return Ok(false);
         }
+
         if let Some(used) = lenient {
             self.warn_lenient_operator(scope, span, "[]=", used, None);
         }
+
         let base_op = self.check_expr(f, scope, base, None)?;
         let ptr_ty = self.ty.types.pointer(st);
         let ptr = if self.ty.types.is_pointer(bt) {
@@ -70,6 +76,7 @@ impl Compiler {
             index_op
         } else {
             let (ty, val) = self.rvalue(f, index_op, index.span)?;
+
             Operand::Value {
                 ty,
                 val,
@@ -90,9 +97,11 @@ impl Compiler {
             ast::AssignOp::Assign => self.check_expr(f, scope, rhs, None)?,
             ast::AssignOp::Op(bin) => {
                 let (getters, lenient) = self.operator_candidates_for(scope, "[]", st)?;
+
                 if let Some(used) = lenient {
                     self.warn_lenient_operator(scope, span, "[]", used, None);
                 }
+
                 let by_ptr = vec![arg(ptr_op.clone()), arg(index_op.clone())];
                 let old = if let Ok(v) = self.try_call(f, scope, &getters, by_ptr, span) {
                     v
@@ -102,6 +111,7 @@ impl Compiler {
                         addr: ptr,
                     };
                     let by_value = vec![arg(place), arg(index_op.clone())];
+
                     self.call_procs(f, scope, &getters, by_value, None, span)?
                 };
                 let (old_ty, old_val) = self.rvalue(f, old, span)?;
@@ -109,6 +119,7 @@ impl Compiler {
                 let slot = self.spill(f, old_ty, old_val, span)?;
                 let tmp = Sym::intern("\u{0}old");
                 let depth = self.scope(inner).proc_depth;
+
                 self.add_entity(
                     inner,
                     tmp,
@@ -149,6 +160,7 @@ impl Compiler {
             arg(value)
         };
         let args = vec![arg(ptr_op), arg(index_op), value_arg];
+
         self.call_procs(f, scope, &setters, args, None, span)?;
         Ok(true)
     }
@@ -162,11 +174,13 @@ impl Compiler {
             return false;
         };
         let pointer = self.ty.types.pointer(ty);
+
         if procs::has_poly(&param_ty)
             || self.mentions_poly_struct(scope, &param_ty).unwrap_or(false)
         {
             [ty, pointer].into_iter().any(|t| {
                 let mut bindings = Vec::new();
+
                 self.match_pattern(&param_ty, t, &mut bindings, scope)
                     .is_ok()
             })
@@ -192,6 +206,7 @@ impl Compiler {
         span: Span,
     ) -> bool {
         let mut scratch = self.scratch_ctx(scope);
+
         scratch.backtick_scope = f
             .backtick_scope
             .or_else(|| f.macros.last().map(|frame| frame.caller_scope));
@@ -225,6 +240,7 @@ impl Compiler {
             }),
             arg(value),
         ];
+
         self.any_accepts(candidates, &by_ptr, span) || self.any_accepts(candidates, &by_value, span)
     }
 
@@ -241,19 +257,24 @@ impl Compiler {
         let Ok(probe) = self.check_expr_no_emit(scope, target) else {
             return Ok(false);
         };
+
         if !self.ty.overloadable(probe.ty()) {
             return Ok(false);
         }
+
         let text = format!("{}=", calls::binop_text(bin));
         let (candidates, lenient) = self.operator_candidates_for(scope, &text, probe.ty())?;
+
         if candidates.is_empty()
             || !self.operator_assign_applies(f, scope, &candidates, target, rhs, span)
         {
             return Ok(false);
         }
+
         if let Some(used) = lenient {
             self.warn_lenient_operator(scope, span, &text, used, None);
         }
+
         let place = self.check_expr(f, scope, target, None)?;
         let Operand::Place {
             ty,
@@ -276,14 +297,17 @@ impl Compiler {
             val: addr,
         };
         let by_ptr = vec![arg(ptr), arg(value.clone())];
+
         if self.try_call(f, scope, &candidates, by_ptr, span).is_err() {
             let place = Operand::Place {
                 ty,
                 addr,
             };
             let by_value = vec![arg(place), arg(value)];
+
             self.call_procs(f, scope, &candidates, by_value, None, span)?;
         }
+
         Ok(true)
     }
 
@@ -297,15 +321,19 @@ impl Compiler {
         target: &ast::Expr,
     ) -> Result<()> {
         let mut container = target;
+
         while let E::Index(base, _) | E::Member(base, _) = &container.kind {
             let mut scratch = self.scratch_ctx(scope);
+
             scratch.backtick_scope = f
                 .backtick_scope
                 .or_else(|| f.macros.last().map(|frame| frame.caller_scope));
             let operand = self.check_expr(&mut scratch, scope, base, None)?;
+
             if self.ty.types.is_pointer(operand.ty()) {
                 return Ok(());
             }
+
             // An element of a view, a resizable array or a string lives behind its data
             // pointer, so writing it does not change the value being indexed.
             if matches!(container.kind, E::Index(..))
@@ -320,6 +348,7 @@ impl Compiler {
             {
                 return Ok(());
             }
+
             if let Operand::Const {
                 value, ..
             } = operand
@@ -333,13 +362,16 @@ impl Compiler {
                         self.src.sources.snippet(base.extent()).trim()
                     ),
                 );
+
                 return Err(Box::new(match base.kind {
                     E::Ident(name) => self.constant_declaration_hints(d, scope, name),
                     _ => d,
                 }));
             }
+
             container = base;
         }
+
         if let E::Ident(name) = &container.kind
             && !f.immutable.is_empty()
         {
@@ -353,6 +385,7 @@ impl Compiler {
                 Found::Using(entry, _) if self.member_through_pointer(&entry, *name)? => Vec::new(),
                 Found::Using(entry, _) => entry.place_entity().into_iter().collect(),
             };
+
             if let [entity] = found[..]
                 && let EntityKind::Local {
                     addr, ..
@@ -369,6 +402,7 @@ impl Compiler {
                 });
             }
         }
+
         Ok(())
     }
 
@@ -376,15 +410,19 @@ impl Compiler {
     /// finds the same address.
     fn is_plain_variable_target(&mut self, scope: ScopeId, target: &ast::Expr) -> bool {
         let mut root = target;
+
         while let E::Member(base, _) = &root.kind {
             root = base;
         }
+
         if !matches!(root.kind, E::Ident(_)) {
             return false;
         }
+
         if std::ptr::eq(root, target) {
             return true;
         }
+
         match self.check_expr_no_emit(scope, root) {
             Ok(op) => !self.ty.types.is_pointer(op.ty()),
             Err(_) => false,
@@ -405,16 +443,20 @@ impl Compiler {
         let inner = self.new_hidden_scope(scope);
         let depth = self.scope(inner).proc_depth;
         let mut values = Vec::new();
+
         for (i, value) in rhs.iter().enumerate() {
             let operand = self.check_expr(f, scope, value, None)?;
+
             if matches!(operand, Operand::Const { .. }) {
                 values.push(value.clone());
                 continue;
             }
+
             let ty = operand.ty();
             let (_, v) = self.rvalue(f, operand, value.span)?;
             let addr = self.spill(f, ty, v, value.span)?;
             let tmp = Sym::intern(&format!("\u{0}rhs{i}"));
+
             self.add_entity(
                 inner,
                 tmp,
@@ -432,6 +474,7 @@ impl Compiler {
                 parens: None,
             });
         }
+
         for (target, value) in lhs.iter().zip(&values) {
             self.check_assign(
                 f,
@@ -442,6 +485,7 @@ impl Compiler {
                 span,
             )?;
         }
+
         Ok(())
     }
 
@@ -457,18 +501,22 @@ impl Compiler {
         for target in lhs {
             self.reject_constant_target(f, scope, target)?;
         }
+
         if lhs.len() == 1
             && rhs.len() == 1
             && self.try_index_assign(f, scope, op, &lhs[0], &rhs[0], span)?
         {
             return Ok(());
         }
+
         if let ast::AssignOp::Op(bin) = op {
             return self.check_compound_assign(f, scope, op, bin, (lhs, rhs), span);
         }
+
         if lhs.len() == 1 && rhs.len() == 1 {
             return self.check_single_assign(f, scope, &lhs[0], &rhs[0], span);
         }
+
         self.check_multi_assign(f, scope, lhs, rhs, span)
     }
 
@@ -487,11 +535,14 @@ impl Compiler {
             for target in lhs {
                 self.check_assign(f, scope, op, std::slice::from_ref(target), rhs, span)?;
             }
+
             return Ok(());
         }
+
         if lhs.len() > 1 && lhs.len() == rhs.len() {
             return self.check_assign_pairs(f, scope, op, lhs, rhs, span);
         }
+
         if lhs.len() != 1 || rhs.len() != 1 {
             return err(
                 Code::CompoundAssignment,
@@ -499,9 +550,11 @@ impl Compiler {
                 "compound assignment takes one target and one value",
             );
         }
+
         if self.try_operator_assign(f, scope, bin, &lhs[0], &rhs[0], span)? {
             return Ok(());
         }
+
         // Evaluate the target once, then `*tmp = *tmp op rhs`.
         let place = self.check_target(f, scope, &lhs[0])?.without_callable();
         let Operand::Place {
@@ -511,6 +564,7 @@ impl Compiler {
         else {
             return Err(self.not_assignable(scope, &lhs[0], &place));
         };
+
         if self.is_plain_variable_target(scope, &lhs[0]) {
             // A variable (or a field of one) has the same address every time it is named,
             // so `x += y` is `x = x + y` without a hidden pointer to it.
@@ -522,9 +576,12 @@ impl Compiler {
             let result = self.check_expr(f, scope, &value, Some(ty))?;
             let result = self.convert(f, result, ty, Site::opaque(span))?;
             let (_, v) = self.rvalue(f, result, span)?;
+
             self.store_value(f, ty, addr, v, span)?;
+
             return Ok(());
         }
+
         self.compound_assign_through_pointer(f, scope, bin, (&lhs[0], &rhs[0]), (ty, addr), span)
     }
 
@@ -544,6 +601,7 @@ impl Compiler {
         let slot = self.spill(f, ptr_ty, addr, span)?;
         let tmp = Sym::intern("\u{0}lhs");
         let depth = self.scope(inner).proc_depth;
+
         self.add_entity(
             inner,
             tmp,
@@ -578,6 +636,7 @@ impl Compiler {
         let result = self.check_expr(f, inner, &value, Some(ty))?;
         let result = self.convert(f, result, ty, Site::opaque(span))?;
         let (_, v) = self.rvalue(f, result, span)?;
+
         self.store_value(f, ty, addr, v, span)?;
         Ok(())
     }
@@ -596,11 +655,14 @@ impl Compiler {
             && name.as_str() == "_"
         {
             let operand = self.check_expr(f, scope, value, None)?;
+
             if !matches!(operand, Operand::Const { .. } | Operand::Void) {
                 self.rvalue(f, operand, value.span)?;
             }
+
             return Ok(());
         }
+
         let place = self.check_target(f, scope, target)?.without_callable();
         let Operand::Place {
             ty,
@@ -615,17 +677,20 @@ impl Compiler {
         let fresh =
             matches!(value.kind, E::Call { .. }) && matches!(operand, Operand::Value { .. });
         let (_, v) = self.rvalue(f, operand, span)?;
+
         // Copy through a temporary when the source may overlap the target.
         if self.is_memory_type(ty) && !fresh {
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
             let tmp = f.b.alloca(size.max(1), align);
+
             f.b.copy(tmp, v, size);
             f.b.copy(addr, tmp, size);
             f.lifetime_store(addr, v, ty, span);
         } else {
             self.store_value(f, ty, addr, v, span)?;
         }
+
         Ok(())
     }
 
@@ -646,6 +711,7 @@ impl Compiler {
                 format!("{} names but {} values", lhs.len(), rhs.len()),
             );
         }
+
         // Multiple assignment: evaluate every value first.
         let values = if rhs.len() == 1 {
             match self.multi_assign_one_source(f, scope, lhs, &rhs[0])? {
@@ -655,15 +721,18 @@ impl Compiler {
         } else {
             self.multi_assign_paired_values(f, scope, lhs, rhs)?
         };
+
         if values.len() < lhs.len() {
             return Err(self.count_mismatch(span, (lhs.len(), "targets"), values.len(), &[]));
         }
+
         for (l, (vty, v, at)) in lhs.iter().zip(values) {
             if let E::Ident(name) = &l.kind
                 && name.as_str() == "_"
             {
                 continue;
             }
+
             let place = self.check_target(f, scope, l)?.without_callable();
             let Operand::Place {
                 ty,
@@ -682,8 +751,10 @@ impl Compiler {
                 at,
             )?;
             let (_, v) = self.rvalue(f, op, l.span)?;
+
             self.store_value(f, ty, addr, v, l.span)?;
         }
+
         Ok(())
     }
 
@@ -698,10 +769,12 @@ impl Compiler {
     ) -> Result<Option<Vec<AssignedValue>>> {
         let rhs = std::slice::from_ref(source);
         let mut values: Vec<AssignedValue> = Vec::new();
+
         match self.check_expr(f, scope, &rhs[0], None)? {
             Operand::Multi(v) => {
                 for operand in v {
                     let (ty, val) = self.rvalue(f, operand, rhs[0].span)?;
+
                     values.push((ty, val, Site::one_of(&rhs[0])));
                 }
             }
@@ -726,10 +799,13 @@ impl Compiler {
                         };
                         let op = self.convert(f, other.clone(), ty, &rhs[0])?;
                         let (_, v) = self.rvalue(f, op, l.span)?;
+
                         self.store_value(f, ty, addr, v, l.span)?;
                     }
+
                     return Ok(None);
                 }
+
                 return err(
                     Code::ExpectedValues,
                     rhs[0].span,
@@ -741,6 +817,7 @@ impl Compiler {
                 );
             }
         }
+
         Ok(Some(values))
     }
 
@@ -753,6 +830,7 @@ impl Compiler {
         rhs: &[ast::Expr],
     ) -> Result<Vec<AssignedValue>> {
         let mut values: Vec<AssignedValue> = Vec::new();
+
         for (r, l) in rhs.iter().zip(lhs) {
             // The value is checked against its own target's type, so untyped constants,
             // `xx` and inferred members follow it (`v.x, v.y = 42, 108;`, `= xx a, xx b;`).
@@ -782,8 +860,10 @@ impl Compiler {
                 Some(t) => f.b.load(t, tmp),
                 None => tmp,
             };
+
             values.push((ty, v, Site::from(r)));
         }
+
         Ok(values)
     }
 }

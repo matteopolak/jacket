@@ -37,6 +37,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -63,6 +64,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let (Some(first), Some(last)) = (inner.first(), inner.last()) else {
                 return true;
             };
+
             if builder.name.is_some()
                 || text.name.is_some()
                 || builder.spread
@@ -73,6 +75,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 return true;
             }
+
             let name = cx.src(format.span).trim();
             let leaks = effects::calls(cx, format, Effect::OwnedReturn);
             let (_, end) = cx.whole(&last.value);
@@ -85,6 +88,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 "print_to_builder({}, {values})",
                 cx.whole_src(&builder.value).trim()
             );
+
             out.push(suggesting(
                 e.span,
                 format!("`{name}` formats into a new string just to append it to a builder"),

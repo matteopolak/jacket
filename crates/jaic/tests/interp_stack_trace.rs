@@ -6,9 +6,11 @@ use std::{path::PathBuf, rc::Rc};
 fn check(source: &str) {
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
+
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&c.src.sources));
     }

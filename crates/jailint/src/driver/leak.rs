@@ -34,6 +34,7 @@ pub(super) fn leak_pass(
     let Some(rule) = crate::RULES.iter().find(|r| r.name == "platform_leak") else {
         return;
     };
+
     if config.portability.portable.is_empty()
         || !report
             .iter()
@@ -41,25 +42,32 @@ pub(super) fn leak_pass(
     {
         return;
     }
+
     let probe = Probe::new(config);
     let mut jobs: Vec<(usize, TargetOs)> = Vec::new();
+
     for (i, root) in roots.iter().enumerate() {
         let entry = root.path();
+
         if configs.at(entry).level_at(rule, entry) == Level::Allow {
             continue;
         }
+
         for &os in config.portability.targets() {
             if probe.portable(entry, os) {
                 jobs.push((i, os));
             }
         }
     }
+
     let next = std::sync::atomic::AtomicUsize::new(0);
     let collected: Mutex<Vec<LeakRun>> = Mutex::new(Vec::new());
     let workers = options.workers().min(jobs.len().max(1));
+
     jaic::pool::get().scope(|s| {
         for _ in 0..workers {
             let (jobs, next, collected) = (&jobs, &next, &collected);
+
             s.spawn(move |_| {
                 loop {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
@@ -67,6 +75,7 @@ pub(super) fn leak_pass(
                         break;
                     };
                     let root = &roots[index];
+
                     if options.verbose {
                         eprintln!(
                             "jailint: checking {} for {}",
@@ -74,6 +83,7 @@ pub(super) fn leak_pass(
                             jaic::target::os_name(os)
                         );
                     }
+
                     let Compiled {
                         mut compiler,
                         workspaces,
@@ -89,20 +99,25 @@ pub(super) fn leak_pass(
                         canon,
                         &RunCaches::default(),
                     );
+
                     if error.is_none() {
                         let _ = jaic::build::finish_all(
                             &workspaces,
                             &mut compiler.ct.interp.block_budget,
                         );
                     }
+
                     let mut compilers = std::mem::take(&mut *done.borrow_mut());
+
                     compilers.push((compiler, false));
                     let mut edges = Vec::new();
                     let mut failures = Vec::new();
+
                     for (compiler, _) in &compilers {
                         edges.extend(compiler.import_edges());
                         failures.extend(failures_of(compiler, root.path()));
                     }
+
                     drop(compilers);
                     collected
                         .lock()
@@ -113,6 +128,7 @@ pub(super) fn leak_pass(
         }
     });
     let mut runs = collected.into_inner().unwrap_or_default();
+
     runs.sort_by(|a, b| (a.0, jaic::target::os_name(a.1)).cmp(&(b.0, jaic::target::os_name(b.1))));
     let mut read: BTreeMap<PathBuf, Option<Arc<str>>> = BTreeMap::new();
     let mut text_of = |path: &Path, texts: &BTreeMap<String, Arc<str>>| -> Option<Arc<str>> {
@@ -126,6 +142,7 @@ pub(super) fn leak_pass(
             .clone()
     };
     let mut seen = HashSet::default();
+
     for (_, os, edges, failures) in runs {
         let asserts: Vec<_> = failures
             .iter()
@@ -138,6 +155,7 @@ pub(super) fn leak_pass(
                 about_os: true,
             })
             .collect();
+
         for leak in analyze(&probe, os, &edges, &asserts) {
             let (path, start, assert) = match &leak {
                 Leak::Import {
@@ -150,26 +168,32 @@ pub(super) fn leak_pass(
                     assert,
                 } => (&assert.path, assert.start, assert),
             };
+
             if !report.contains(path)
                 || !seen.insert((path.clone(), start, os as u8))
                 || configs.at(path).level_at(rule, path) == Level::Allow
             {
                 continue;
             }
+
             let (Some(text), Some(assert_text)) =
                 (text_of(path, texts), text_of(&assert.path, texts))
             else {
                 continue;
             };
+
             if allowed_by_comment(rule, &text, start) {
                 continue;
             }
+
             let lint = leak_lint(&leak, os, &probe, configs, rule, &assert_text);
+
             texts
                 .entry(path.to_string_lossy().into_owned())
                 .or_insert(text);
             lints.push(lint);
         }
+
         failed_asserts.extend(failures);
     }
 }
@@ -178,13 +202,16 @@ pub(super) fn leak_pass(
 fn allowed_by_comment(rule: &crate::RuleInfo, text: &str, offset: usize) -> bool {
     let file = jaic::source::FileId(0);
     let (tokens, comments, errors) = jaic::lexer::lex_with_trivia(file, text);
+
     if !errors.is_empty() {
         return false;
     }
+
     let (ast, tokens) = jaic::parser::parse_tokens(file, text, tokens);
     let Ok(ast) = ast else {
         return false;
     };
+
     crate::suppress::Suppressions::new(text, &tokens, &comments, &ast).allows_rule(rule, offset)
 }
 
@@ -220,6 +247,7 @@ fn leak_lint(
         "the `#assert` at {}:{line}:{column} fails on {os_name}: {reason}",
         jaic::paths::slashed(shown)
     )];
+
     match leak {
         Leak::Import {
             from,

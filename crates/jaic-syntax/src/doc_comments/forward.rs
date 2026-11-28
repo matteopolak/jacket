@@ -87,6 +87,7 @@ impl<'a> Files<'a> {
             ImportSource::Module(name) => {
                 let local = base.join("modules").join(&**name);
                 let roots = self.import_dirs.iter().map(PathBuf::as_path);
+
                 std::iter::once(local)
                     .chain(roots.chain([self.stdlib]).map(|root| root.join(&**name)))
                     .flat_map(|at| [at.with_extension("jai"), crate::paths::module_entry(&at)])
@@ -94,6 +95,7 @@ impl<'a> Files<'a> {
             }
             ImportSource::Dir(_) | ImportSource::String(_) => return None,
         };
+
         candidates
             .into_iter()
             .find(|p| p.is_file())
@@ -105,6 +107,7 @@ impl<'a> Files<'a> {
         if let Some(top) = self.tops.get(file) {
             return top.clone();
         }
+
         let top = self.read(file).map(|text| {
             let parsed = crate::parser::parse_file_ide(FileId(0), &text);
             let base = file.parent().unwrap_or(Path::new("."));
@@ -114,6 +117,7 @@ impl<'a> Files<'a> {
                 unnamed: Vec::new(),
             };
             let tops = ide_facts::top_level(&parsed.file);
+
             // Bindings in a #module_parameters body are listed among the top level.
             for item in tops {
                 match item.kind {
@@ -128,11 +132,13 @@ impl<'a> Files<'a> {
                     }
                     TopLevelKind::Import(import) => {
                         let found = self.imported(base, &import.source);
+
                         match (&import.name, found) {
                             (Some(n), Some(found)) => {
                                 if let Some(filter) = &import.using {
                                     top.unnamed.push((found.clone(), filter.clone()));
                                 }
+
                                 top.names
                                     .entry(n.name.as_str().to_owned())
                                     .or_insert(Name::Module(found));
@@ -143,6 +149,7 @@ impl<'a> Files<'a> {
                     }
                     TopLevelKind::Load(path, _) => {
                         let loaded = super::canonical(&base.join(path));
+
                         self.loaders
                             .entry(loaded.clone())
                             .or_default()
@@ -152,8 +159,10 @@ impl<'a> Files<'a> {
                     TopLevelKind::Assert(_) | TopLevelKind::ModuleParameters(_) => {}
                 }
             }
+
             Arc::new(top)
         });
+
         self.tops.insert(file.to_path_buf(), top.clone());
         top
     }
@@ -173,13 +182,17 @@ impl<'a> Files<'a> {
         if !seen.insert((file.to_path_buf(), name.to_owned())) {
             return None;
         }
+
         let top = self.top(file)?;
+
         if let Some(found) = top.names.get(name) {
             return Some(found.clone());
         }
+
         if depth == 0 {
             return None;
         }
+
         if let Some(found) = top
             .loads
             .iter()
@@ -187,6 +200,7 @@ impl<'a> Files<'a> {
         {
             return Some(found);
         }
+
         top.unnamed.iter().find_map(|(module, filter)| {
             let original = match filter {
                 UsingFilter::None => name,
@@ -224,9 +238,11 @@ impl Files<'_> {
         if !seen.insert(file.to_path_buf()) {
             return None;
         }
+
         self.resolve(&file.to_path_buf(), 0, path).or_else(|| {
             // A loaded file shares the loading module's scope, including sibling declarations.
             let owners = self.loaders.get(file).cloned().unwrap_or_default();
+
             owners
                 .iter()
                 .find_map(|owner| self.scope_site(owner, path, seen))
@@ -255,12 +271,15 @@ impl Resolver<PathBuf> for Files<'_> {
     fn resolve(&mut self, file: &PathBuf, _at: usize, path: &[String]) -> Option<(PathBuf, usize)> {
         let (last, modules) = path.split_last()?;
         let mut here = file.clone();
+
         for module in modules {
             let Name::Module(next) = self.top_level(&here, module, LOAD_DEPTH)? else {
                 return None;
             };
+
             here = next;
         }
+
         match self.top_level(&here, last, LOAD_DEPTH)? {
             Name::Decl(owner, at) => Some((owner, at)),
             Name::Module(_) => None,

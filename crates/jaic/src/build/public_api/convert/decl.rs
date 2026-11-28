@@ -33,10 +33,12 @@ impl Convert<'_, '_> {
         };
         let as_ = self.has(at, ty, "flags", "IS_MARKED_AS_AS")?;
         let using = self.flag(at, SyntaxKey::Using)?;
+
         if using {
             rare.using_filter =
                 Some(self.private_using(at)?).filter(|filter| !matches!(filter, UsingFilter::None));
         }
+
         let name = self.text(at, ty, "name")?;
         let backtick = !name.is_empty() && self.has(at, ty, "flags", "HAS_SCOPE_MODIFIER")?;
         let names = if name.is_empty() {
@@ -44,19 +46,24 @@ impl Convert<'_, '_> {
         } else {
             vec![self.name(&name)]
         };
+
         self.word(":");
         let declared_type = self.opt_expr(at, ty, "type_inst")?;
         let mut expression = self.ptr(at, ty, "expression")?;
         let alias = self.extra(at, SyntaxKey::AliasExpression)?;
+
         if alias != 0 && expression == self.extra(at, SyntaxKey::InitialExpression)? {
             expression = alias;
         }
+
         let mut notes = Vec::new();
         let mut value = None;
         let mut procedure = false;
+
         if expression != 0 {
             self.word("=");
             let (kind, _) = self.node_type(expression)?;
+
             procedure = kind == "PROCEDURE_HEADER";
             let values = if kind == "COMMA_SEPARATED_ARGUMENTS" {
                 self.comma_exprs(expression)?
@@ -64,11 +71,13 @@ impl Convert<'_, '_> {
                 vec![self.expr(expression)?]
             };
             let mut values = values.into_iter();
+
             value = values.next();
             rare.extra_values = values.collect();
         } else if self.has(at, ty, "flags", "IS_UNINITIALIZED")? {
             value = Some(mk(ExprKind::Uninit, self.word("---")));
         }
+
         // Notes after a procedure's body are the declaration's.
         if let Some(Expr {
             kind: ExprKind::Proc(lit),
@@ -77,7 +86,9 @@ impl Convert<'_, '_> {
         {
             let lit = Arc::get_mut(lit).expect("a converted procedure is not shared");
             let header = Arc::get_mut(&mut lit.header).expect("a converted header is not shared");
+
             notes = std::mem::take(&mut header.notes);
+
             if let Some(operator) = name.strip_prefix("operator")
                 && !operator.is_empty()
                 && !operator.starts_with(|c: char| c.is_alphanumeric() || c == '_')
@@ -85,8 +96,10 @@ impl Convert<'_, '_> {
                 header.operator = Some(operator.into());
             }
         }
+
         rare.align = self.opt_expr(at, ty, "alignment_expression")?;
         rare.flags = self.flag_names(at, SyntaxKey::Flags)?;
+
         if self.flag(at, SyntaxKey::Foreign)? {
             let library = match self.extra(at, SyntaxKey::ForeignLibrary)? {
                 0 => None,
@@ -97,14 +110,17 @@ impl Convert<'_, '_> {
             } else {
                 ForeignName::Default
             };
+
             rare.foreign = Some(Foreign {
                 library,
                 name,
             });
         }
+
         if !procedure {
             notes = self.notes(at, ty)?;
         }
+
         let kind =
             if !names.is_empty() && value.is_some() && self.has(at, ty, "flags", "IS_CONSTANT")? {
                 DeclKind::Const
@@ -124,6 +140,7 @@ impl Convert<'_, '_> {
             span: self.since(start),
             rare: None,
         };
+
         decl.set_rare(rare);
         Ok(decl)
     }
@@ -132,19 +149,24 @@ impl Convert<'_, '_> {
     pub(super) fn compound(&mut self, at: u64, ty: TypeId) -> R<Decl> {
         let start = self.mark();
         let list = self.ptr(at, ty, "comma_separated_assignment")?;
+
         if list == 0 {
             return Err(Trap::new("a compound declaration needs its names"));
         }
+
         let lists = self.ty("Code_Comma_Separated_Arguments")?;
         let argument = self.ty("Code_Comma_Separated_Argument")?;
         let declaration = self.ty("Code_Declaration")?;
         let (mut names, mut existing, mut targets, mut backticks) =
             (Vec::new(), Vec::new(), Vec::new(), Vec::new());
         let mut constant = false;
+
         for arg in self.list(list, lists, "arguments")? {
             let node = self.ptr(arg, argument, "node")?;
+
             if self.enum_is(arg, argument, "modifier", "DECLARE")? {
                 let name = self.text(node, declaration, "name")?;
+
                 backticks.push(self.has(node, declaration, "flags", "HAS_SCOPE_MODIFIER")?);
                 constant |= self.has(node, declaration, "flags", "IS_CONSTANT")?;
                 names.push(self.name(&name));
@@ -153,17 +175,20 @@ impl Convert<'_, '_> {
             } else if self.enum_is(arg, argument, "modifier", "ASSIGN")? {
                 let place = self.expr(node)?;
                 let mut root = &place;
+
                 while let ExprKind::Member(base, _)
                 | ExprKind::Index(base, _)
                 | ExprKind::Unary(_, base) = &root.kind
                 {
                     root = base;
                 }
+
                 let ExprKind::Ident(name) = root.kind else {
                     return Err(Trap::new(
                         "a compound declaration assigns only to a variable or its member, index or dereference",
                     ));
                 };
+
                 names.push(ast::Ident {
                     name,
                     span: place.span,
@@ -174,8 +199,10 @@ impl Convert<'_, '_> {
             } else {
                 return Err(Trap::new("unknown compound declaration modifier"));
             }
+
             self.word(",");
         }
+
         let properties = self.ptr(at, ty, "declaration_properties")?;
         let mut decl = if properties == 0 {
             Decl {
@@ -197,6 +224,7 @@ impl Convert<'_, '_> {
         let any_existing = existing.iter().any(|&assigned| assigned);
         let any_target = targets.iter().any(Option::is_some);
         let later_backtick = backticks.iter().skip(1).any(|&backtick| backtick);
+
         decl.names = names;
         decl.kind = if constant && decl.value.is_some() {
             DeclKind::Const
@@ -205,6 +233,7 @@ impl Convert<'_, '_> {
         };
         decl.backtick = !later_backtick && backticks.first().copied().unwrap_or(false);
         let rare = decl.rare_mut();
+
         rare.existing = if any_existing {
             existing
         } else {
@@ -239,6 +268,7 @@ impl Convert<'_, '_> {
         } else {
             let inst_ty = self.ty("Code_Type_Instantiation")?;
             let variadic = self.num(inst, inst_ty, "inst_flags")? & 1 != 0;
+
             (variadic, Some(self.expr(inst)?))
         };
         let default = match self.opt_expr(at, ty, "expression")? {
@@ -256,6 +286,7 @@ impl Convert<'_, '_> {
             ),
             None => (false, None),
         };
+
         self.word(",");
         Ok(Param {
             name,
@@ -278,22 +309,29 @@ impl Convert<'_, '_> {
         let using_ty = self.ty("Code_Using")?;
         let ident = self.ty("Code_Ident")?;
         let mut usings = Vec::new();
+
         for using in self.list(at, ty, "parameter_usings")? {
             let expression = self.ptr(using, using_ty, "expression")?;
+
             if expression == 0 || self.node_type(expression)?.0 != "IDENT" {
                 return Err(Trap::new("parameter using requires an identifier"));
             }
+
             usings.push((self.text(expression, ident, "name")?, using));
         }
+
         let mut params = Vec::new();
+
         for arg in self.list(at, ty, "arguments")? {
             let name = self.text(arg, declaration, "name")?;
             let using = match usings.iter().find(|(used, _)| *used == name) {
                 Some(&(_, using)) => Some(self.using_filter(using, using_ty)?),
                 None => None,
             };
+
             params.push(self.param(arg, declaration, using)?);
         }
+
         Ok(params)
     }
 
@@ -302,14 +340,17 @@ impl Convert<'_, '_> {
         if at == 0 {
             return Ok(Vec::new());
         }
+
         self.node(at, |c, name, ty| {
             if name != "PROCEDURE_HEADER" {
                 return Err(Trap::new(format!(
                     "a parameter list must be a PROCEDURE_HEADER, got {name}"
                 )));
             }
+
             c.word("(");
             let params = c.params(at, ty)?;
+
             c.word(")");
             Ok(params)
         })
@@ -317,8 +358,10 @@ impl Convert<'_, '_> {
 
     pub(super) fn procedure(&mut self, at: u64, ty: TypeId) -> R<Expr> {
         let start = self.mark();
+
         self.word("(");
         let params = self.params(at, ty)?;
+
         self.word(")");
         let lambda = self.extra(at, SyntaxKey::LambdaBody)?;
         let mut header = ProcHeader {
@@ -333,11 +376,14 @@ impl Convert<'_, '_> {
             operator: None,
             baked: false,
         };
+
         if lambda != 0 {
             self.word("=>");
             let body = self.expr(lambda)?;
             let span = self.since(start);
+
             header.span = span;
+
             return Ok(mk(
                 ExprKind::Lambda {
                     header: Arc::new(header),
@@ -346,11 +392,14 @@ impl Convert<'_, '_> {
                 span,
             ));
         }
+
         let declaration = self.ty("Code_Declaration")?;
         let returns = self.list(at, ty, "returns")?;
+
         if !returns.is_empty() {
             self.word("->");
         }
+
         for ret in returns {
             let ret_start = self.mark();
             let name = self.text(ret, declaration, "name")?;
@@ -358,6 +407,7 @@ impl Convert<'_, '_> {
             let declared_type = self.opt_expr(ret, declaration, "type_inst")?;
             let default = self.opt_expr(ret, declaration, "expression")?;
             let must = self.flag(ret, SyntaxKey::ReturnMust)?;
+
             header.returns.push(Return {
                 name,
                 ty: declared_type,
@@ -366,7 +416,9 @@ impl Convert<'_, '_> {
                 span: self.since(ret_start),
             });
         }
+
         let flags = &mut header.flags;
+
         for (name, bit) in [
             ("C_CALL", ProcBits::C_CALL),
             ("SYNTACTICALLY_MARKED_AS_NO_CONTEXT", ProcBits::NO_CONTEXT),
@@ -380,6 +432,7 @@ impl Convert<'_, '_> {
                 flags.set(bit);
             }
         }
+
         if self.has(
             at,
             ty,
@@ -395,7 +448,9 @@ impl Convert<'_, '_> {
         )? {
             flags.inline = CallHintFlag::NoInline;
         }
+
         let intrinsic = self.has(at, ty, "procedure_flags", "INTRINSIC")?;
+
         if intrinsic
             || self.has(
                 at,
@@ -410,16 +465,21 @@ impl Convert<'_, '_> {
                 ProcBits::COMPILER
             });
             let builtin = self.attribute(at, SyntaxKey::BuiltinName)?;
+
             flags.builtin_name = (!builtin.is_empty()).then(|| builtin.into());
         }
+
         if self.has(at, ty, "procedure_flags", "DEPRECATED")? {
             let message = self.raw(at, ty, "deprecation_string")?;
+
             flags.deprecated = Some(
                 (!message.is_empty() || self.flag(at, SyntaxKey::DeprecationNamed)?)
                     .then(|| message.into()),
             );
         }
+
         let elsewhere = self.has(at, ty, "procedure_flags", "ELSEWHERE")?;
+
         if elsewhere || self.flag(at, SyntaxKey::Foreign)? {
             let library = self.opt_name(at, ty, "library_identifier")?;
             let symbol = self.text(at, ty, "foreign_function_name")?;
@@ -428,6 +488,7 @@ impl Convert<'_, '_> {
             } else {
                 ForeignName::Default
             };
+
             if elsewhere {
                 header.flags.elsewhere = Some(library);
                 header.foreign = library.map(|library| Foreign {
@@ -441,6 +502,7 @@ impl Convert<'_, '_> {
                 });
             }
         }
+
         for flag in self.flag_names(at, SyntaxKey::Flags)? {
             match REPORTED
                 .iter()
@@ -450,6 +512,7 @@ impl Convert<'_, '_> {
                 None => header.flags.other.push(flag),
             }
         }
+
         if self.flag(at, SyntaxKey::ProgramExport)? {
             header.flags.program_export = Some(if self.flag(at, SyntaxKey::ExportNamed)? {
                 Some(
@@ -461,6 +524,7 @@ impl Convert<'_, '_> {
                 None
             });
         }
+
         header.modify = self.modify(at, ty)?;
         header.span = self.since(start);
         let body = self.ptr(at, ty, "body_or_null")?;
@@ -468,11 +532,14 @@ impl Convert<'_, '_> {
             None
         } else {
             let block = self.ptr(body, self.ty("Code_Procedure_Body")?, "block")?;
+
             if block == 0 {
                 return Err(Trap::new("a procedure body needs a block"));
             }
+
             Some(self.block(block)?)
         };
+
         header.notes = self.notes(at, ty)?;
         let external = header.foreign.is_some()
             || header.flags.compiler()
@@ -487,6 +554,7 @@ impl Convert<'_, '_> {
         } else {
             ExprKind::ProcType(header)
         };
+
         Ok(mk(kind, self.since(start)))
     }
 
@@ -496,12 +564,14 @@ impl Convert<'_, '_> {
         let Some(&last) = directives.last() else {
             return Ok(None);
         };
+
         self.node(last, |c, name, ty| {
             if name != "DIRECTIVE_MODIFY" {
                 return Err(Trap::new(format!(
                     "modify_directives holds only DIRECTIVE_MODIFY nodes, got {name}"
                 )));
             }
+
             c.word("#modify");
             let block = c.ptr(last, ty, "block")?;
             c.block(block).map(Some)
@@ -519,13 +589,16 @@ impl Convert<'_, '_> {
         };
         let tag = if self.has(at, ty, "textual_flags", "UNION_IS_TAGGED")? {
             let tag = self.extra(at, SyntaxKey::UnionTag)?;
+
             Some(self.node(tag, |c, name, ty| {
                 if name != "DECLARATION" {
                     return Err(Trap::new(format!(
                         "a union tag must be a DECLARATION, got {name}"
                     )));
                 }
+
                 let tag_name = c.text(tag, ty, "name")?;
+
                 Ok(UnionTag {
                     name: c.name(&tag_name),
                     ty: c.opt_expr(tag, ty, "type_inst")?.map(Box::new),
@@ -537,20 +610,26 @@ impl Convert<'_, '_> {
         };
         let mut params = Vec::new();
         let arguments = self.ptr(at, ty, "arguments_block")?;
+
         if arguments != 0 {
             self.word("(");
             let declaration = self.ty("Code_Declaration")?;
+
             for param in self.list(arguments, self.ty("Code_Block")?, "statements")? {
                 let using = if self.flag(param, SyntaxKey::Using)? {
                     Some(self.private_using(param)?)
                 } else {
                     None
                 };
+
                 params.push(self.param(param, declaration, using)?);
             }
+
             self.word(")");
         }
+
         let mut flags = StructFlags::default();
+
         for (name, bit) in [
             ("NO_PADDING", StructBits::NO_PADDING),
             ("TYPE_INFO_NONE", StructBits::TYPE_INFO_NONE),
@@ -567,10 +646,13 @@ impl Convert<'_, '_> {
                 flags.set(bit);
             }
         }
+
         let alignment = self.num(at, ty, "alignment")?;
+
         flags.align = if alignment > 0 {
             self.word("#align");
             let span = self.word(&alignment.to_string());
+
             Some(mk(
                 ExprKind::Int(Int128::new(alignment.into()), ast::Spelling::Decimal),
                 span,
@@ -586,6 +668,7 @@ impl Convert<'_, '_> {
             self.block(body)?.stmts
         };
         let notes = self.notes(at, ty)?;
+
         Ok(StructLit {
             id: AstId::fresh(),
             kind,
@@ -602,6 +685,7 @@ impl Convert<'_, '_> {
     pub(super) fn enumeration(&mut self, at: u64, ty: TypeId) -> R<EnumLit> {
         let start = self.mark();
         let flags_enum = self.num(at, ty, "is_flags")? != 0;
+
         self.word(if flags_enum {
             "enum_flags"
         } else {
@@ -613,6 +697,7 @@ impl Convert<'_, '_> {
         let child = self.ptr(at, ty, "block")?;
         let items = self.enum_items(child)?;
         let notes = self.notes(at, ty)?;
+
         Ok(EnumLit {
             id: AstId::fresh(),
             flags_enum,
@@ -629,8 +714,10 @@ impl Convert<'_, '_> {
         if block == 0 {
             return Ok(Vec::new());
         }
+
         self.word("{");
         let mut items = Vec::new();
+
         for member in self.list(block, self.ty("Code_Block")?, "statements")? {
             items.push(self.node(member, |c, name, ty| {
                 Ok(match name {
@@ -638,6 +725,7 @@ impl Convert<'_, '_> {
                         let member_name = c.text(member, ty, "name")?;
                         let name = c.name(&member_name);
                         let value = c.opt_expr(member, ty, "expression")?;
+
                         EnumItem::Member(EnumMember {
                             name,
                             value,
@@ -651,6 +739,7 @@ impl Convert<'_, '_> {
                         let then_items = c.enum_items(child)?;
                         let child = c.ptr(member, ty, "else_block")?;
                         let else_items = c.enum_items(child)?;
+
                         EnumItem::If {
                             cond,
                             then_items,
@@ -663,6 +752,7 @@ impl Convert<'_, '_> {
                     }
                     "USING" => {
                         let filter = c.using_filter(member, ty)?;
+
                         EnumItem::Using(Box::new(UsingStmt {
                             value: c.child(member, ty, "expression")?,
                             filter,
@@ -677,6 +767,7 @@ impl Convert<'_, '_> {
             })?);
             self.word(";");
         }
+
         self.word("}");
         Ok(items)
     }

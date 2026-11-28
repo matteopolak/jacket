@@ -9,8 +9,10 @@ use super::{Blocks, Files};
 pub(super) fn debug_file(program: &Path) -> PathBuf {
     let name = program.file_name().unwrap_or_default();
     let mut dsym = program.as_os_str().to_owned();
+
     dsym.push(".dSYM/Contents/Resources/DWARF");
     let dsym = PathBuf::from(dsym).join(name);
+
     if dsym.is_file() {
         dsym
     } else {
@@ -57,6 +59,7 @@ pub(super) fn line_table(dwarfdump: &Path, debug_file: &Path) -> Result<Vec<Row>
                 "jacket test --coverage",
             )
         })?;
+
     if !output.status.success() {
         return Err(format!(
             "`llvm-dwarfdump` failed on {}: {}",
@@ -64,6 +67,7 @@ pub(super) fn line_table(dwarfdump: &Path, debug_file: &Path) -> Result<Vec<Row>
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
+
     Ok(parse_line_table(&String::from_utf8_lossy(&output.stdout)))
 }
 
@@ -71,6 +75,7 @@ pub(super) fn line_table(dwarfdump: &Path, debug_file: &Path) -> Result<Vec<Row>
 fn quoted(text: &str) -> Option<&str> {
     let start = text.find('"')? + 1;
     let end = text.rfind('"')?;
+
     (end >= start).then(|| &text[start..end])
 }
 
@@ -87,8 +92,10 @@ pub(super) fn parse_line_table(text: &str) -> Vec<Row> {
     let mut directories: BTreeMap<u32, String> = BTreeMap::new();
     let mut files: BTreeMap<u32, (String, u32)> = BTreeMap::new();
     let mut pending = None;
+
     for line in text.lines() {
         let line = line.trim_start();
+
         if line.starts_with("debug_line[") {
             directories.clear();
             files.clear();
@@ -136,6 +143,7 @@ pub(super) fn parse_line_table(text: &str) -> Vec<Row> {
                 }
                 _ => name,
             };
+
             rows.push(Row {
                 address,
                 line: number,
@@ -144,6 +152,7 @@ pub(super) fn parse_line_table(text: &str) -> Vec<Row> {
             });
         }
     }
+
     rows.sort_by_key(|r| (r.address, !r.ends_sequence));
     rows
 }
@@ -171,6 +180,7 @@ pub(super) fn block_lines(
     // Which file each path of the line table is, found once.
     let by_path: Vec<Option<usize>> = {
         let mut names: BTreeMap<&str, Option<usize>> = BTreeMap::new();
+
         rows.iter()
             .map(|row| {
                 *names.entry(row.path.as_str()).or_insert_with(|| {
@@ -187,15 +197,18 @@ pub(super) fn block_lines(
     let mut lines: BTreeMap<(usize, u32), u64> = BTreeMap::new();
     let mut entries: BTreeMap<(usize, u32), u64> = BTreeMap::new();
     let starts: Vec<u64> = blocks.keys().copied().collect();
+
     for (i, (&address, block)) in blocks.iter().enumerate() {
         let end = starts.get(i + 1).copied().unwrap_or(address + 1);
         let first = rows
             .partition_point(|r| r.address <= address)
             .saturating_sub(1);
+
         if block.entry {
             for (key, count) in std::mem::take(&mut function) {
                 *lines.entry(key).or_default() += count;
             }
+
             if let Some(row) = rows.get(first)
                 && row.line != 0
                 && !row.ends_sequence
@@ -204,24 +217,31 @@ pub(super) fn block_lines(
                 *entries.entry((file, row.line)).or_default() += block.count;
             }
         }
+
         for (n, row) in rows.iter().enumerate().skip(first) {
             if n != first && row.address >= end {
                 break;
             }
+
             if row.line == 0 || row.ends_sequence {
                 continue;
             }
+
             if let Some(file) = by_path[n] {
                 let seen = function.entry((file, row.line)).or_default();
+
                 *seen = (*seen).max(block.count);
             }
         }
     }
+
     for (key, count) in function {
         *lines.entry(key).or_default() += count;
     }
+
     let collect = |counted: BTreeMap<(usize, u32), u64>| {
         let mut files = Files::new();
+
         for ((file, line), count) in counted {
             *files
                 .entry(paths[file].clone())
@@ -229,8 +249,10 @@ pub(super) fn block_lines(
                 .entry(line)
                 .or_default() += count;
         }
+
         files
     };
+
     Counted {
         lines: collect(lines),
         entries: collect(entries),
@@ -283,6 +305,7 @@ Address            Line   Column File   ISA Discriminator OpIndex Flags
             .iter()
             .map(|r| (r.address, r.line, r.path.as_str(), r.ends_sequence))
             .collect();
+
         assert_eq!(
             summary,
             [
@@ -307,6 +330,7 @@ Address            Line   Column File   ISA Discriminator OpIndex Flags
         let a = &counted.lines[Path::new("/src/a.jai")];
         let b = &counted.lines[Path::new("/other/b.jai")];
         let c = &counted.lines[Path::new("/abs/c.jai")];
+
         assert_eq!((a[&3], b[&7], c[&9]), (4, 0, 0));
         // The one function was entered four times, at the line of its first row.
         assert_eq!(counted.entries[Path::new("/src/a.jai")][&3], 4);
@@ -335,8 +359,10 @@ Address            Line   Column File   ISA Discriminator OpIndex Flags
             }])
             .collect();
         let mut rows = rows;
+
         rows.sort_by_key(|r| (r.address, !r.ends_sequence));
         let counted = block_lines(&rows, &blocks, everything);
+
         assert_eq!(counted.lines[Path::new("/other/b.jai")][&7], 5);
         assert_eq!(counted.lines[Path::new("/abs/c.jai")][&9], 3);
     }
@@ -347,6 +373,7 @@ Address            Line   Column File   ISA Discriminator OpIndex Flags
         // One block from 0x1000 to the end holds the lines of every row after the first.
         let blocks: Blocks = [(0x1000, block(2, true)), (0x1040, block(0, false))].into();
         let counted = block_lines(&rows, &blocks, everything);
+
         assert_eq!(counted.lines[Path::new("/other/b.jai")][&7], 2);
         assert_eq!(counted.lines[Path::new("/abs/c.jai")][&9], 2);
     }
@@ -358,6 +385,7 @@ Address            Line   Column File   ISA Discriminator OpIndex Flags
         let counted = block_lines(&rows, &blocks, |path| {
             path.starts_with("/src").then(|| PathBuf::from(path))
         });
+
         assert_eq!(counted.lines.len(), 1);
     }
 }

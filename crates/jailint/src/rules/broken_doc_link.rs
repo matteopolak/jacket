@@ -40,21 +40,26 @@ pub(crate) struct Broken {
 /// Find the broken links in the doc comments of `file` (resolving needs the compiler mutably).
 pub(crate) fn prepare(compiler: &mut Compiler, file: FileId, text: &str) -> Vec<Broken> {
     let mut out = Vec::new();
+
     // Most files have no comment with a link in it.
     if !text.contains("//") && !text.contains("/*") || !text.contains('[') {
         return out;
     }
+
     for site in docs::sites(text) {
         if !site.on_declaration || !site.meant {
             continue;
         }
+
         let Some(scope) = compiler.ide_scope_at(file, site.scope_at as u32) else {
             continue;
         };
         let names: Vec<Sym> = site.names.iter().map(|n| Sym::intern(n)).collect();
+
         if !compiler.ide_resolve_path(scope, &names).is_empty() {
             continue;
         }
+
         let Some((last, first)) = site.names.split_last() else {
             continue;
         };
@@ -62,6 +67,7 @@ pub(crate) fn prepare(compiler: &mut Compiler, file: FileId, text: &str) -> Vec<
         // all is prose; `[Type.nothing]` (a name that exists) is a link gone wrong.
         let whole = &text[site.whole.0..site.whole.1];
         let plain_path = !whole.contains('`') && !whole.ends_with(')');
+
         if plain_path
             && !first.is_empty()
             && first[0]
@@ -72,6 +78,7 @@ pub(crate) fn prepare(compiler: &mut Compiler, file: FileId, text: &str) -> Vec<
         {
             continue;
         }
+
         let wanted: Vec<String> = if first.is_empty() {
             compiler
                 .ide_visible(scope, file, site.scope_at as u32)
@@ -89,15 +96,18 @@ pub(crate) fn prepare(compiler: &mut Compiler, file: FileId, text: &str) -> Vec<
         };
         let suggestion = jaic::suggest::closest_unique(last, wanted.iter().map(String::as_str))
             .map(str::to_owned);
+
         // `[sic]`, `[yet]`: a plain lowercase word with no near neighbour is prose.
         if site.plain && (suggestion.is_none() || last.chars().count() < 4) {
             continue;
         }
+
         let shown = if whole.contains('`') {
             format!("[{}]", &text[site.path.0..site.path.1])
         } else {
             whole.to_owned()
         };
+
         out.push(Broken {
             start: site.whole.0,
             end: site.whole.1,
@@ -106,6 +116,7 @@ pub(crate) fn prepare(compiler: &mut Compiler, file: FileId, text: &str) -> Vec<
             suggestion,
         });
     }
+
     out
 }
 
@@ -139,6 +150,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 None,
             ),
         };
+
         out.push(Finding {
             secondary: Vec::new(),
             start: b.start,

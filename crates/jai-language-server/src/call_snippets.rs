@@ -113,6 +113,7 @@ pub(crate) fn site(text: &str, lexed: &Lexed, start: usize, end: usize) -> Site 
                 .iter()
                 .any(|&p| punct(prev, p))
             || ident(prev, &["else"]));
+
     Site {
         parens: !(called || declared || named || address_of || initialiser || type_position),
         statement,
@@ -123,6 +124,7 @@ pub(crate) fn site(text: &str, lexed: &Lexed, start: usize, end: usize) -> Site 
 /// The innermost open brace follows `==`: the body of `if x == {`.
 fn enclosing_case_block(tokens: &[Token]) -> bool {
     let mut depth = 0i32;
+
     for (i, t) in tokens.iter().enumerate().rev() {
         match t.tok {
             Tok::Punct(P::RBrace) => depth += 1,
@@ -134,6 +136,7 @@ fn enclosing_case_block(tokens: &[Token]) -> bool {
             _ => {}
         }
     }
+
     false
 }
 
@@ -142,6 +145,7 @@ fn call_text(name: &str, call: &IdeCall, mode: CallSnippets) -> (String, bool) {
     if call.parameterless {
         return (format!("{name}()$0"), false);
     }
+
     if mode == CallSnippets::FillArguments
         && let Some(required) = call.required.as_ref().filter(|r| !r.is_empty())
     {
@@ -152,6 +156,7 @@ fn call_text(name: &str, call: &IdeCall, mode: CallSnippets) -> (String, bool) {
             .collect();
         return (format!("{name}({})$0", placeholders.join(", ")), true);
     }
+
     (format!("{name}($0)"), true)
 }
 
@@ -181,26 +186,33 @@ pub(crate) fn apply(
                 && item.call.is_none()
                 && (keyword_text(&item.label).is_some() || item.label == "case"))
     };
+
     if !items.iter().any(wants) {
         return;
     }
+
     let site = site(text, lexed, start, end);
+
     for item in items.iter_mut().filter(|i| wants(i)) {
         if let Some(call) = &item.call {
             if site.parens {
                 let (snippet, inside) = call_text(&item.label, call, mode);
+
                 item.insert_text = Some(snippet);
                 item.snippet = true;
                 item.trigger_signature_help = inside;
             }
+
             continue;
         }
+
         let snippet = match item.label.as_str() {
             "case" if site.statement && site.in_case_block => Some("case ${1:value};\n$0"),
             "case" => None,
             other if site.statement => keyword_text(other),
             _ => None,
         };
+
         if let Some(snippet) = snippet {
             item.insert_text = Some(snippet.into());
             item.snippet = true;
@@ -261,12 +273,15 @@ const POSTFIXES: &[Postfix] = &[
 /// Escape text for a snippet body.
 fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
+
     for c in text.chars() {
         if matches!(c, '$' | '}' | '\\') {
             out.push('\\');
         }
+
         out.push(c);
     }
+
     out
 }
 
@@ -292,10 +307,13 @@ pub(crate) fn postfix(
         .iter()
         .filter(|p| p.label.starts_with(&lower))
         .collect();
+
     if wanted.is_empty() {
         return Vec::new();
     }
+
     let statement = starts_statement(text, lexed, start);
+
     wanted
         .into_iter()
         .filter(|p| statement || !p.statement)
@@ -315,6 +333,7 @@ fn starts_statement(text: &str, lexed: &Lexed, start: usize) -> bool {
     let tokens = &lexed.tokens;
     let before = tokens.partition_point(|t| (t.span.end as usize) <= start);
     let line_start = text[..start].rfind('\n').map_or(0, |i| i + 1);
+
     text[line_start..start].trim().is_empty()
         || before
             .checked_sub(1)
@@ -338,6 +357,7 @@ impl Analysis {
         };
         let names: Vec<jaic::intern::Sym> =
             chain.iter().map(|n| jaic::intern::Sym::intern(n)).collect();
+
         matches!(
             self.compiler.ide_receiver(scope, &names),
             Some(jaic::ide::IdeReceiver::Value(_))
@@ -370,14 +390,17 @@ impl Session {
                 .map(|s| &text[s.start as usize..s.end as usize])
                 .collect();
             let at = m.chain[0].start as usize;
+
             self.with_compiled_before(uri, text, at, |a, path| {
                 Some(a.receiver_is_value(path, at, &names))
             })
             .unwrap_or(false)
         };
+
         if !is_value {
             return Vec::new();
         }
+
         let word_end = (m.word.end as usize).max(byte);
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
@@ -388,6 +411,7 @@ impl Session {
         else {
             return Vec::new();
         };
+
         crate::call_snippets::postfix(
             text,
             lexed,

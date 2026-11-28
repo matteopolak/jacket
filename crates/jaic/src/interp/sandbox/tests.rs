@@ -32,6 +32,7 @@ fn host() -> SandboxHost {
         cwd: "/tmp".to_string(),
         ..Default::default()
     };
+
     host.fs.dirs.insert("/tmp".to_string());
     host
 }
@@ -56,6 +57,7 @@ fn sysconf_queries_follow_the_programs_posix_target() {
     use crate::target::TargetOs;
 
     let mut h = host();
+
     for (os, page, configured, online) in [
         (TargetOs::MacOS, 29, 57, 58),
         (TargetOs::Linux, 30, 83, 84),
@@ -77,6 +79,7 @@ fn sysconf_queries_follow_the_programs_posix_target() {
 #[test]
 fn process_creation_and_shared_memory_are_refused() {
     let mut h = host();
+
     for symbol in [
         "fork",
         "vfork",
@@ -92,6 +95,7 @@ fn process_creation_and_shared_memory_are_refused() {
         assert_eq!(call(&mut h, symbol, &[0, 0, 0]), u64::MAX, "{symbol}");
         assert_eq!(errno(&h), EPERM as u32, "{symbol}");
     }
+
     // posix_spawn returns the error number itself.
     assert_eq!(call(&mut h, "posix_spawn", &[0, 0, 0, 0, 0, 0]), EPERM);
     assert_eq!(call(&mut h, "posix_spawnp", &[0, 0, 0, 0, 0, 0]), EPERM);
@@ -101,6 +105,7 @@ fn process_creation_and_shared_memory_are_refused() {
 fn darwin_error_and_realpath_names_are_served() {
     let mut h = host();
     let cell = call(&mut h, "__error", &[]);
+
     assert_ne!(cell, 0);
     assert_eq!(cell, call(&mut h, "__errno_location", &[]));
 }
@@ -115,6 +120,7 @@ fn c_numeric_strtof_rounds_the_decimal_directly_to_binary32() {
         "strtof",
         &[text.as_ptr() as u64, (&raw mut end) as u64],
     );
+
     assert_eq!(bits, 0x3f80_0001);
     assert_eq!(end, text.as_ptr() as u64 + text.len() as u64 - 2);
 }
@@ -122,11 +128,13 @@ fn c_numeric_strtof_rounds_the_decimal_directly_to_binary32() {
 #[test]
 fn c_numeric_hexadecimal_and_nan_payloads_preserve_endptr() {
     let mut h = host();
+
     for (text, expected, consumed) in [
         (b"0x1.8p+2suffix\0".as_slice(), 6.0f64.to_bits(), 8),
         (b"nan(payload)tail\0".as_slice(), f64::NAN.to_bits(), 12),
     ] {
         let mut end = 0u64;
+
         assert_eq!(
             call(
                 &mut h,
@@ -142,14 +150,17 @@ fn c_numeric_hexadecimal_and_nan_payloads_preserve_endptr() {
 #[test]
 fn c_numeric_range_errors_set_errno_and_success_does_not_clear_it() {
     let mut h = host();
+
     call(&mut h, "__errno_location", &[]);
     let text = b"1e9999\0";
+
     assert_eq!(
         call(&mut h, "strtod", &[text.as_ptr() as u64, 0]),
         f64::INFINITY.to_bits()
     );
     assert_eq!(errno(&h), 34);
     let text = b"7\0";
+
     assert_eq!(
         call(&mut h, "strtod", &[text.as_ptr() as u64, 0]),
         7.0f64.to_bits()
@@ -160,13 +171,17 @@ fn c_numeric_range_errors_set_errno_and_success_does_not_clear_it() {
 #[test]
 fn c_numeric_locale_queries_and_unsupported_locales_stay_in_the_sandbox() {
     let mut h = host();
+
     assert_ne!(call(&mut h, "setlocale", &[6, 0]), 0);
     let c = b"C\0";
+
     assert_ne!(call(&mut h, "setlocale", &[6, c.as_ptr() as u64]), 0);
     let other = b"de_DE.UTF-8\0";
+
     assert_eq!(call(&mut h, "setlocale", &[6, other.as_ptr() as u64]), 0);
     let text = b"1,5\0";
     let mut end = 0u64;
+
     assert_eq!(
         call(
             &mut h,
@@ -194,9 +209,11 @@ fn write_to(h: &mut SandboxHost, fd: u64, text: &[u8]) -> u64 {
 fn read_from(h: &mut SandboxHost, fd: u64, size: usize) -> Vec<u8> {
     let mut buf = vec![0u8; size];
     let n = call(h, "read", &[fd, buf.as_mut_ptr() as u64, size as u64]);
+
     if n == u64::MAX {
         return Vec::new();
     }
+
     buf.truncate(n as usize);
     buf
 }
@@ -208,9 +225,11 @@ fn read_from(h: &mut SandboxHost, fd: u64, size: usize) -> Vec<u8> {
 )]
 fn stat_of(h: &mut SandboxHost, symbol: &str, subject: u64) -> Result<(u32, u64, u64), u32> {
     let mut st = [0u8; 144];
+
     if call(h, symbol, &[subject, st.as_mut_ptr() as u64]) == u64::MAX {
         return Err(errno(h));
     }
+
     let word = |at: usize| u64::from_le_bytes(st[at..at + 8].try_into().unwrap());
     Ok((word(24) as u32, word(48), word(16)))
 }
@@ -225,6 +244,7 @@ fn linux_stat_syscalls_reach_the_virtual_file_system() {
     let mut h = host();
     let missing = cstring("nope");
     let mut st = [0u8; 144];
+
     assert_eq!(
         call(
             &mut h,
@@ -234,6 +254,7 @@ fn linux_stat_syscalls_reach_the_virtual_file_system() {
         u64::MAX
     );
     let root = cstring("/tmp");
+
     assert_eq!(
         call(
             &mut h,
@@ -255,6 +276,7 @@ fn linux_stat_syscalls_reach_the_virtual_file_system() {
 #[test]
 fn file_descriptors_write_read_seek_and_report_errors() {
     let mut h = host();
+
     assert_eq!(write_to(&mut h, 1, b"out"), 3);
     assert_eq!(write_to(&mut h, 2, b"err"), 3);
     assert_eq!(h.stdout, b"out");
@@ -263,6 +285,7 @@ fn file_descriptors_write_read_seek_and_report_errors() {
     assert_eq!(errno(&h), EBADF as u32);
 
     let fd = open(&mut h, "a.txt", O_CREAT | O_RDWR);
+
     assert_eq!(fd, 3);
     assert_eq!(write_to(&mut h, fd, b"hello world"), 11);
     assert_eq!(call(&mut h, "lseek", &[fd, 6, 0]), 6);
@@ -286,12 +309,14 @@ fn file_descriptors_write_read_seek_and_report_errors() {
 #[test]
 fn open_flags_decide_creation_truncation_and_access() {
     let mut h = host();
+
     assert_eq!(open(&mut h, "missing", 0), u64::MAX);
     assert_eq!(errno(&h), ENOENT as u32);
     assert_eq!(open(&mut h, "nodir/file", O_CREAT | O_WRONLY), u64::MAX);
     assert_eq!(errno(&h), ENOENT as u32);
 
     let fd = open(&mut h, "f", O_CREAT | O_WRONLY);
+
     write_to(&mut h, fd, b"abcdef");
     call(&mut h, "close", &[fd]);
     assert_eq!(open(&mut h, "f", O_CREAT | O_EXCL | O_WRONLY), u64::MAX);
@@ -302,9 +327,11 @@ fn open_flags_decide_creation_truncation_and_access() {
     assert_ne!(open(&mut h, "/tmp", 0), u64::MAX);
 
     let append = open(&mut h, "f", O_WRONLY | O_APPEND);
+
     write_to(&mut h, append, b"!");
     call(&mut h, "close", &[append]);
     let read = open(&mut h, "f", 0);
+
     assert_eq!(read_from(&mut h, read, 32), b"abcdef!");
     // A read-only descriptor refuses writes.
     assert_eq!(write_to(&mut h, read, b"x"), u64::MAX);
@@ -315,6 +342,7 @@ fn open_flags_decide_creation_truncation_and_access() {
     open(&mut h, "f", O_TRUNC);
     assert_eq!(size_of_path(&mut h, "f"), 7);
     let truncated = open(&mut h, "f", O_TRUNC | O_WRONLY);
+
     assert_eq!(size_of_path(&mut h, "f"), 0);
     // A write-only descriptor refuses reads.
     assert_eq!(read_from(&mut h, truncated, 4), b"");
@@ -325,14 +353,17 @@ fn open_flags_decide_creation_truncation_and_access() {
 #[test]
 fn open_flags_and_errors_follow_the_darwin_target() {
     let mut h = host();
+
     h.set_file_target(crate::target::TargetOs::MacOS);
     // Darwin's O_CREAT | O_WRONLY; 0x200 is O_TRUNC on Linux.
     let fd = open(&mut h, "made", 0x200 | 1);
+
     assert_ne!(fd, u64::MAX, "errno {}", errno(&h));
     write_to(&mut h, fd, b"abc");
     call(&mut h, "close", &[fd]);
     // O_WRONLY | O_APPEND (0x8).
     let fd = open(&mut h, "made", 1 | 0x8);
+
     write_to(&mut h, fd, b"d");
     call(&mut h, "close", &[fd]);
     assert_eq!(h.fs.file_size("/tmp/made"), 4);
@@ -341,6 +372,7 @@ fn open_flags_and_errors_follow_the_darwin_target() {
     assert_eq!(errno(&h), EEXIST as u32);
     // O_TRUNC is 0x400.
     let fd = open(&mut h, "made", 0x400 | 1);
+
     call(&mut h, "close", &[fd]);
     assert_eq!(h.fs.file_size("/tmp/made"), 0);
     // Darwin's ENOTEMPTY is 66.
@@ -357,13 +389,16 @@ fn open_flags_and_errors_follow_the_darwin_target() {
 fn stat_access_and_chmod_describe_files_and_directories() {
     let mut h = host();
     let fd = open(&mut h, "s.txt", O_CREAT | O_RDWR);
+
     write_to(&mut h, fd, b"12345");
     let file = cstring("s.txt");
     let (mode, size, links) = stat_of(&mut h, "stat", file.as_ptr() as u64).unwrap();
+
     assert_eq!((mode, size, links), (S_IFREG | 0o644, 5, 1));
     assert_eq!(stat_of(&mut h, "lstat", file.as_ptr() as u64).unwrap().1, 5);
     assert_eq!(stat_of(&mut h, "fstat", fd).unwrap().1, 5);
     let (mode, size, _) = stat_of(&mut h, "stat", cstring("/tmp").as_ptr() as u64).unwrap();
+
     assert_eq!((mode, size), (S_IFDIR | 0o755, 4096));
     assert_eq!(
         stat_of(&mut h, "stat", cstring("nope").as_ptr() as u64),
@@ -374,14 +409,17 @@ fn stat_access_and_chmod_describe_files_and_directories() {
     for symbol in ["access", "chmod"] {
         assert_eq!(call(&mut h, symbol, &[file.as_ptr() as u64, 0o600]), 0);
         let dir = cstring("/tmp");
+
         assert_eq!(call(&mut h, symbol, &[dir.as_ptr() as u64, 0]), 0);
         let missing = cstring("nope");
+
         assert_eq!(
             call(&mut h, symbol, &[missing.as_ptr() as u64, 0]),
             u64::MAX
         );
         assert_eq!(errno(&h), ENOENT as u32, "{symbol}");
     }
+
     assert_eq!(call(&mut h, "fchmod", &[fd, 0o600]), 0);
     assert_eq!(call(&mut h, "fchmod", &[fd + 40, 0o600]), u64::MAX);
     assert_eq!(errno(&h), EBADF as u32);
@@ -391,6 +429,7 @@ fn stat_access_and_chmod_describe_files_and_directories() {
 fn unlink_remove_and_rename_move_files_and_keep_their_identity() {
     let mut h = host();
     let fd = open(&mut h, "old", O_CREAT | O_WRONLY);
+
     write_to(&mut h, fd, b"data");
     call(&mut h, "close", &[fd]);
     let (old, new) = (cstring("old"), cstring("new"));
@@ -398,17 +437,20 @@ fn unlink_remove_and_rename_move_files_and_keep_their_identity() {
     let stamp = h.fs.mtimes["/tmp/old"];
 
     let pair = [old.as_ptr() as u64, new.as_ptr() as u64];
+
     assert_eq!(call(&mut h, "rename", &pair), 0);
     assert_eq!(open(&mut h, "old", 0), u64::MAX);
     assert_eq!(errno(&h), ENOENT as u32);
     assert_eq!(h.fs.inode("/tmp/new"), before);
     assert_eq!(h.fs.mtimes["/tmp/new"], stamp);
     let moved = open(&mut h, "new", 0);
+
     assert_eq!(read_from(&mut h, moved, 8), b"data");
     // Renaming what is gone, or a directory, fails.
     assert_eq!(call(&mut h, "rename", &pair), u64::MAX);
     assert_eq!(errno(&h), ENOENT as u32);
     let tmp = cstring("/tmp");
+
     assert_eq!(
         call(
             &mut h,
@@ -426,12 +468,15 @@ fn unlink_remove_and_rename_move_files_and_keep_their_identity() {
     // `remove` also takes empty directories; `unlink` leaves directories alone.
     h.fs.dirs.insert("/tmp/empty".to_string());
     let empty = cstring("/tmp/empty");
+
     assert_eq!(call(&mut h, "remove", &[empty.as_ptr() as u64]), 0);
     assert!(!h.fs.is_dir("/tmp/empty"));
     h.fs.dirs.insert("/tmp/again".to_string());
     let again = cstring("/tmp/again");
+
     assert_eq!(call(&mut h, "unlink", &[again.as_ptr() as u64]), u64::MAX);
     let nothing = cstring("nothing");
+
     assert_eq!(call(&mut h, "remove", &[nothing.as_ptr() as u64]), u64::MAX);
     assert_eq!(errno(&h), ENOENT as u32);
 }
@@ -440,9 +485,11 @@ fn unlink_remove_and_rename_move_files_and_keep_their_identity() {
 fn hard_links_share_contents_and_count_in_stat() {
     let mut h = host();
     let fd = open(&mut h, "one", O_CREAT | O_RDWR);
+
     write_to(&mut h, fd, b"shared");
     let (one, two, gone) = (cstring("one"), cstring("two"), cstring("gone"));
     let link = [one.as_ptr() as u64, two.as_ptr() as u64];
+
     assert_eq!(call(&mut h, "link", &link), 0);
     assert_eq!(stat_of(&mut h, "stat", two.as_ptr() as u64).unwrap().2, 2);
     assert_eq!(h.fs.inode("/tmp/one"), h.fs.inode("/tmp/two"));
@@ -450,10 +497,12 @@ fn hard_links_share_contents_and_count_in_stat() {
     write_to(&mut h, fd, b"+more");
     call(&mut h, "close", &[fd]);
     let via = open(&mut h, "two", 0);
+
     assert_eq!(read_from(&mut h, via, 32), b"shared+more");
     assert_eq!(call(&mut h, "link", &link), u64::MAX);
     assert_eq!(errno(&h), EEXIST as u32);
     let from_gone = [gone.as_ptr() as u64, two.as_ptr() as u64];
+
     assert_eq!(call(&mut h, "link", &from_gone), u64::MAX);
     assert_eq!(errno(&h), ENOENT as u32);
     // Dropping one name leaves the other with the contents and a single link.
@@ -469,6 +518,7 @@ fn working_directory_follows_chdir_and_resolves_relative_paths() {
     let mut h = host();
     let mut buf = [0u8; 16];
     let at = buf.as_mut_ptr() as u64;
+
     assert_eq!(call(&mut h, "getcwd", &[at, 16]), at);
     assert_eq!(&buf[..5], b"/tmp\0");
     // The buffer must hold the path and its terminator.
@@ -476,6 +526,7 @@ fn working_directory_follows_chdir_and_resolves_relative_paths() {
     assert_eq!(errno(&h), 34);
 
     let sub = cstring("sub");
+
     assert_eq!(call(&mut h, "mkdir", &[sub.as_ptr() as u64, 0o755]), 0);
     assert_eq!(call(&mut h, "chdir", &[sub.as_ptr() as u64]), 0);
     call(&mut h, "getcwd", &[at, 16]);
@@ -484,9 +535,11 @@ fn working_directory_follows_chdir_and_resolves_relative_paths() {
     assert!(h.fs.exists_file("/tmp/sub/inside"));
     // A file is no directory.
     let inside = cstring("inside");
+
     assert_eq!(call(&mut h, "chdir", &[inside.as_ptr() as u64]), u64::MAX);
     assert_eq!(errno(&h), ENOENT as u32);
     let up = cstring("..");
+
     assert_eq!(call(&mut h, "chdir", &[up.as_ptr() as u64]), 0);
     assert_eq!(h.cwd, "/tmp");
 
@@ -498,21 +551,28 @@ fn working_directory_follows_chdir_and_resolves_relative_paths() {
 #[test]
 fn realpath_fills_the_given_buffer_or_allocates_one() {
     let mut h = host();
+
     open(&mut h, "real.txt", O_CREAT | O_WRONLY);
     let name = cstring("./real.txt");
     let mut out = [0u8; 32];
+
     for symbol in ["realpath", "realpath$DARWIN_EXTSN"] {
         let args = [name.as_ptr() as u64, out.as_mut_ptr() as u64];
+
         assert_eq!(call(&mut h, symbol, &args), out.as_ptr() as u64, "{symbol}");
         assert_eq!(&out[..14], b"/tmp/real.txt\0", "{symbol}");
     }
+
     let fresh = call(&mut h, "realpath", &[name.as_ptr() as u64, 0]);
+
     assert_ne!(fresh, 0);
     assert_eq!(read_bytes(fresh, 14), b"/tmp/real.txt\0");
     let dir = cstring("/tmp");
+
     assert_ne!(call(&mut h, "realpath", &[dir.as_ptr() as u64, 0]), 0);
     let nothing = cstring("nothing");
     let missing = call(&mut h, "realpath", &[nothing.as_ptr() as u64, 0]);
+
     assert_eq!((missing, errno(&h)), (0, ENOENT as u32));
 }
 
@@ -520,6 +580,7 @@ fn realpath_fills_the_given_buffer_or_allocates_one() {
 fn mkdir_and_rmdir_enforce_the_directory_rules() {
     let mut h = host();
     let (a, ab, file) = (cstring("a"), cstring("a/b"), cstring("file"));
+
     assert_eq!(
         call(&mut h, "mkdir", &[ab.as_ptr() as u64, 0o755]),
         u64::MAX
@@ -538,6 +599,7 @@ fn mkdir_and_rmdir_enforce_the_directory_rules() {
     assert_eq!(call(&mut h, "rmdir", &[file.as_ptr() as u64]), u64::MAX);
     assert_eq!(errno(&h), ENOTDIR as u32);
     let absent = cstring("zzz");
+
     assert_eq!(call(&mut h, "rmdir", &[absent.as_ptr() as u64]), u64::MAX);
     assert_eq!(errno(&h), ENOENT as u32);
     assert_eq!(call(&mut h, "rmdir", &[ab.as_ptr() as u64]), 0);
@@ -551,21 +613,28 @@ fn mkdir_and_rmdir_enforce_the_directory_rules() {
 fn directory_streams_list_dot_entries_then_the_contents() {
     let mut h = host();
     let (d, inner) = (cstring("d"), cstring("d/inner"));
+
     call(&mut h, "mkdir", &[d.as_ptr() as u64, 0o755]);
     call(&mut h, "mkdir", &[inner.as_ptr() as u64, 0o755]);
     open(&mut h, "d/file.txt", O_CREAT | O_WRONLY);
 
     let stream = call(&mut h, "opendir", &[d.as_ptr() as u64]);
+
     assert_ne!(stream, 0);
     let mut seen = Vec::new();
+
     for symbol in ["readdir", "readdir64"].into_iter().cycle() {
         let entry = call(&mut h, symbol, &[stream]);
+
         if entry == 0 {
             break;
         }
+
         seen.push((cstr(entry + 19), read_u8(entry + 18)));
     }
+
     let expected = [(".", 4), ("..", 4), ("file.txt", 8), ("inner", 4)];
+
     assert_eq!(seen, expected.map(|(name, kind)| (name.to_string(), kind)));
     // The stream stays at its end until it is closed.
     assert_eq!(call(&mut h, "readdir", &[stream]), 0);
@@ -576,9 +645,11 @@ fn directory_streams_list_dot_entries_then_the_contents() {
 
     let file = cstring("d/file.txt");
     let opened = call(&mut h, "opendir", &[file.as_ptr() as u64]);
+
     assert_eq!((opened, errno(&h)), (0, ENOTDIR as u32));
     let nowhere = cstring("nowhere");
     let opened = call(&mut h, "opendir", &[nowhere.as_ptr() as u64]);
+
     assert_eq!((opened, errno(&h)), (0, ENOENT as u32));
 }
 
@@ -589,14 +660,17 @@ fn stdin_stream(h: &mut SandboxHost) -> u64 {
 #[test]
 fn stdin_reads_lines_and_characters_until_the_end() {
     let mut h = host();
+
     h.set_stdin(b"first\nsecond\nthird line\nxyz");
     let stream = stdin_stream(&mut h);
+
     // `__stdinp` is the same stream, and other variables are not served.
     assert_eq!(read_u64(h.foreign_data("__stdinp").unwrap()), stream);
     assert_eq!(h.foreign_data("stdout"), None);
 
     let mut line = [0u8; 32];
     let at = line.as_mut_ptr() as u64;
+
     assert_eq!(call(&mut h, "fgets", &[at, 32, stream]), at);
     assert_eq!(&line[..7], b"first\n\0");
     // A short buffer takes part of a line.
@@ -606,6 +680,7 @@ fn stdin_reads_lines_and_characters_until_the_end() {
 
     let (mut text, mut capacity) = (0u64, 0u64);
     let slots = [&raw mut text as u64, &raw mut capacity as u64];
+
     assert_eq!(call(&mut h, "getline", &[slots[0], slots[1], stream]), 4);
     assert_eq!(read_bytes(text, 5), b"ond\n\0");
     assert!(capacity >= 120);
@@ -616,6 +691,7 @@ fn stdin_reads_lines_and_characters_until_the_end() {
         "getdelim",
         &[slots[0], slots[1], b' ' as u64, stream],
     );
+
     assert_eq!((n, text), (6, first_buffer));
     assert_eq!(read_bytes(text, 7), b"third \0");
 
@@ -631,6 +707,7 @@ fn stdin_reads_lines_and_characters_until_the_end() {
 
     let mut rest = [0u8; 8];
     let into = rest.as_mut_ptr() as u64;
+
     assert_eq!(call(&mut h, "fread", &[into, 1, 8, stream]), 3);
     assert_eq!(&rest[..3], b"xyz");
     assert_eq!(call(&mut h, "feof", &[stream]), 1);
@@ -647,12 +724,14 @@ fn stdin_reads_lines_and_characters_until_the_end() {
 #[test]
 fn stdin_getline_grows_a_small_buffer_and_read_takes_descriptor_zero() {
     let mut h = host();
+
     h.set_stdin(&[b'a'; 200]);
     h.feed_stdin(b"\nrest");
     let stream = stdin_stream(&mut h);
     let small = h.alloc(4);
     let (mut text, mut capacity) = (small, 4u64);
     let slots = [&raw mut text as u64, &raw mut capacity as u64];
+
     assert_eq!(call(&mut h, "getline", &[slots[0], slots[1], stream]), 201);
     assert_ne!(text, small);
     assert!(capacity >= 202);
@@ -661,6 +740,7 @@ fn stdin_getline_grows_a_small_buffer_and_read_takes_descriptor_zero() {
 
     let mut buf = [0u8; 16];
     let at = buf.as_mut_ptr() as u64;
+
     assert_eq!(call(&mut h, "read", &[0, at, 3]), 3);
     assert_eq!(&buf[..3], b"res");
     assert_eq!(call(&mut h, "read", &[0, at, 16]), 1);
@@ -674,6 +754,7 @@ fn stdin_wants_data_only_while_a_read_would_find_too_little() {
     let mut h = host();
     let stream = stdin_stream(&mut h);
     let line = [0, 32, stream];
+
     assert!(h.stdin_wants_data("read", &[0, 0, 8]));
     assert!(!h.stdin_wants_data("read", &[0, 0, 0]));
     assert!(!h.stdin_wants_data("read", &[5, 0, 8]));
@@ -704,9 +785,11 @@ fn stdin_wants_data_only_while_a_read_would_find_too_little() {
 
     // Once the input is over, nothing waits.
     let mut ended = host();
+
     ended.end_stdin();
     assert!(!ended.stdin_wants_data("getchar", &[]));
     let mut closed = host();
+
     closed.close_stdin();
     assert!(!closed.stdin_wants_data("getchar", &[]));
 }
@@ -715,6 +798,7 @@ fn stdin_wants_data_only_while_a_read_would_find_too_little() {
 fn stdin_end_marker_is_consumed_by_the_read_that_finds_nothing() {
     let mut h = host();
     let stream = stdin_stream(&mut h);
+
     h.feed_stdin(b"x");
     h.end_stdin();
     assert_eq!(call(&mut h, "getc", &[stream]), b'x' as u64);
@@ -734,9 +818,11 @@ fn stdin_end_marker_is_consumed_by_the_read_that_finds_nothing() {
 )]
 fn darwin_file_records_match_stat_and_dirent_layouts() {
     let mut h = host();
+
     h.set_file_target(crate::target::TargetOs::MacOS);
     let root = cstring("/tmp");
     let mut st = [0xa5_u8; 160];
+
     assert_eq!(
         call(
             &mut h,
@@ -753,8 +839,10 @@ fn darwin_file_records_match_stat_and_dirent_layouts() {
     assert_eq!(u64::from_le_bytes(st[96..104].try_into().unwrap()), 4096);
     assert!(st[144..].iter().all(|&byte| byte == 0xa5));
     let stream = call(&mut h, "opendir", &[root.as_ptr() as u64]);
+
     assert_ne!(stream, 0);
     let entry = call(&mut h, "readdir", &[stream]);
+
     assert_eq!(read_u8(entry + 20), 4);
     assert_eq!(cstr(entry + 21), ".");
     assert_eq!(read_u8(entry + 18), 1);
@@ -775,6 +863,7 @@ fn darwin_file_records_match_stat_and_dirent_layouts() {
 )]
 fn i686_linux_stat_record_has_the_32_bit_layout() {
     let mut h = host();
+
     h.set_file_target(crate::target::TargetOs::Linux);
     h.set_cpu(crate::target::TargetCpu::X86);
     let root = cstring("/tmp");
@@ -792,8 +881,10 @@ fn i686_linux_stat_record_has_the_32_bit_layout() {
                 &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
             )
         });
+
     assert_eq!(result, 0);
     let word = |at: usize| u32::from_le_bytes(st[at..at + 4].try_into().unwrap());
+
     assert_eq!(word(16) & 0xf000, S_IFDIR);
     assert_eq!(word(20), 1);
     assert_eq!(word(48), 4096);
@@ -811,6 +902,7 @@ fn i686_linux_stat_record_has_the_32_bit_layout() {
 )]
 fn s390x_linux_stat_record_is_big_endian() {
     let mut h = host();
+
     h.set_file_target(crate::target::TargetOs::Linux);
     h.set_cpu(crate::target::TargetCpu::S390x);
     let root = cstring("/tmp");
@@ -828,9 +920,11 @@ fn s390x_linux_stat_record_is_big_endian() {
                 &[root.as_ptr() as u64, st.as_mut_ptr() as u64],
             )
         });
+
     assert_eq!(result, 0);
     let word = |at: usize| u32::from_be_bytes(st[at..at + 4].try_into().unwrap());
     let long = |at: usize| u64::from_be_bytes(st[at..at + 8].try_into().unwrap());
+
     assert_eq!(long(16), 1); // st_nlink
     assert_eq!(word(24) & 0xf000, S_IFDIR);
     assert_eq!(long(56), BASE_MTIME); // st_atim
@@ -847,14 +941,17 @@ fn windows_virtual_memory_reserves_commits_protects_and_frees() {
     use super::guest::write_u32;
     let mut h = host();
     let mut info = [0u8; 48];
+
     call(&mut h, "GetSystemInfo", &[info.as_mut_ptr() as u64]);
     let page = u64::from(u32::from_le_bytes(info[4..8].try_into().unwrap()));
+
     assert_eq!(page, crate::interp::host_pages::page_size() as u64);
     assert_eq!(u32::from_le_bytes(info[32..36].try_into().unwrap()), 1);
 
     let (reserve, commit, release) = (0x2000, 0x1000, 0x8000);
     let (no_access, read_only, read_write) = (1, 2, 4);
     let base = call(&mut h, "VirtualAlloc", &[0, 16 * page, reserve, no_access]);
+
     assert_ne!(base, 0);
     let mut old = 0u32;
     let old_at = &raw mut old as u64;
@@ -867,6 +964,7 @@ fn windows_virtual_memory_reserves_commits_protects_and_frees() {
     assert_eq!(call(&mut h, "GetLastError", &[]), 487);
 
     let second = base + page;
+
     assert_eq!(
         call(&mut h, "VirtualAlloc", &[second, 8, commit, read_write]),
         second
@@ -907,6 +1005,7 @@ fn windows_reservations_share_one_total_cap() {
     let half = crate::interp::windows_memory::MAX_RESERVED_BYTES / 2;
     let first = call(&mut h, "VirtualAlloc", &[0, half, 0x2000, 1]);
     let second = call(&mut h, "VirtualAlloc", &[0, half, 0x2000, 1]);
+
     assert_ne!(first, 0);
     assert_ne!(second, 0);
     assert_eq!(call(&mut h, "VirtualAlloc", &[0, 1, 0x2000, 1]), 0);
@@ -921,37 +1020,47 @@ fn a_host_folder_is_listed_by_its_full_name_and_from_inside_it() {
     // (`/D:/a/b`) must resolve to the same folder.
     // Not test_support::TempDir: a test in jaic's own src/ must not link test_support (see its docs).
     let dir = std::env::temp_dir().join(format!("jaic-sandbox-host-folder-{}", std::process::id()));
+
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("a.jai"), "x").unwrap();
     let cwd = std::fs::canonicalize(&dir)
         .unwrap()
         .to_string_lossy()
         .into_owned();
+
     super::guest::use_host_memory();
     let mut h = SandboxHost::with_files(Rc::new(crate::sema::NativeFs), &cwd);
     let names = |h: &mut SandboxHost, path: &str| {
         let path = cstring(path);
         let stream = call(h, "opendir", &[path.as_ptr() as u64]);
+
         assert_ne!(stream, 0, "{}", String::from_utf8_lossy(&path));
         let mut seen = Vec::new();
+
         loop {
             let entry = call(h, "readdir", &[stream]);
+
             if entry == 0 {
                 break;
             }
+
             seen.push(cstr(entry + 19));
         }
+
         call(h, "closedir", &[stream]);
         seen
     };
     let full = crate::paths::to_slash(&cwd);
+
     for path in [full.clone(), format!("{full}/."), ".".to_string()] {
         assert!(
             names(&mut h, &path).contains(&"a.jai".to_string()),
             "{path}"
         );
     }
+
     let file = cstring(&format!("{full}/a.jai"));
+
     assert_eq!(call(&mut h, "access", &[file.as_ptr() as u64, 0]), 0);
     std::fs::remove_dir_all(&dir).unwrap();
 }
@@ -976,10 +1085,12 @@ fn windows_drive_and_share_paths_have_sandbox_names() {
         assert_eq!(from_windows(windows).as_deref(), Some(sandbox), "{windows}");
         assert_eq!(to_windows(sandbox).as_deref(), Some(back), "{sandbox}");
     }
+
     assert_eq!(
         from_windows("//server/share/x").as_deref(),
         Some("/UNC/server/share/x")
     );
+
     // Device paths get a name of their own that no file has.
     for (device, name) in [
         (r"\\.\pipe\x", "/DEVICE/pipe/x"),
@@ -988,6 +1099,7 @@ fn windows_drive_and_share_paths_have_sandbox_names() {
         assert_eq!(from_windows(device).as_deref(), Some(name), "{device}");
         assert_eq!(to_windows(name), None, "{name}");
     }
+
     assert_eq!(from_windows("relative\\name"), None);
     assert_eq!(to_windows("/tmp/x"), None);
 }
@@ -998,6 +1110,7 @@ fn windows_drive_and_share_paths_have_sandbox_names() {
 #[test]
 fn a_share_working_directory_resolves_relative_paths() {
     let cwd = absolute("/", r"\\server\share\project");
+
     assert_eq!(cwd, "/UNC/server/share/project");
     assert_eq!(
         absolute(&cwd, "src/main.jai"),

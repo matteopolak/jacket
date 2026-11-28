@@ -20,6 +20,7 @@ impl Compiler {
         b: Val,
     ) -> Val {
         let res;
+
         match op {
             Alu::Add => {
                 res = bin(f, BinOp::Add, sz, a, b);
@@ -30,9 +31,11 @@ impl Compiler {
                 let cin = Self::flag(f, cx.flags.cf);
                 let cin = resize(f, cin, Ty::I8, sz, false);
                 let t = bin(f, BinOp::Add, sz, a, b);
+
                 res = bin(f, BinOp::Add, sz, t, cin);
                 let c1 = cmp(f, CmpOp::ULt, sz, t, a);
                 let c2 = cmp(f, CmpOp::ULt, sz, res, t);
+
                 cx.flags.cf = Some(flag_or(f, c1, c2));
                 cx.flags.of = Some(sign_flag_of(f, sz, a, b, res, false));
             }
@@ -45,28 +48,34 @@ impl Compiler {
                 let cin = Self::flag(f, cx.flags.cf);
                 let cin = resize(f, cin, Ty::I8, sz, false);
                 let t = bin(f, BinOp::Sub, sz, a, b);
+
                 res = bin(f, BinOp::Sub, sz, t, cin);
                 let c1 = cmp(f, CmpOp::ULt, sz, a, b);
                 let c2 = cmp(f, CmpOp::ULt, sz, t, cin);
+
                 cx.flags.cf = Some(flag_or(f, c1, c2));
                 cx.flags.of = Some(sign_flag_of(f, sz, a, b, res, true));
             }
             Alu::And | Alu::Test => {
                 res = bin(f, BinOp::And, sz, a, b);
                 Self::set_logic_flags(f, cx, sz, res);
+
                 return res;
             }
             Alu::Or => {
                 res = bin(f, BinOp::Or, sz, a, b);
                 Self::set_logic_flags(f, cx, sz, res);
+
                 return res;
             }
             Alu::Xor => {
                 res = bin(f, BinOp::Xor, sz, a, b);
                 Self::set_logic_flags(f, cx, sz, res);
+
                 return res;
             }
         }
+
         Self::set_zs(f, cx, sz, res);
         res
     }
@@ -84,11 +93,13 @@ impl Compiler {
         let overflow = if signed {
             let s = konst(f, sz, bits(sz) - 1);
             let ext = bin(f, BinOp::AShr, sz, lo, s);
+
             cmp(f, CmpOp::Ne, sz, hi, ext)
         } else {
             let z = konst(f, sz, 0);
             cmp(f, CmpOp::Ne, sz, hi, z)
         };
+
         cx.flags.cf = Some(overflow);
         cx.flags.of = Some(overflow);
     }
@@ -123,6 +134,7 @@ impl Compiler {
                         31
                     },
                 );
+
                 bin(f, BinOp::And, sz, c, mask)
             }
         };
@@ -137,6 +149,7 @@ impl Compiler {
                 let cf = bin(f, BinOp::And, sz, t, one);
                 let cf = resize(f, cf, sz, Ty::I8, false);
                 let msb = is_neg(f, sz, res);
+
                 (res, cf, flag_xor(f, msb, cf))
             }
             ShiftKind::Shr | ShiftKind::Sar => {
@@ -155,6 +168,7 @@ impl Compiler {
                 } else {
                     konst(f, Ty::I8, 0)
                 };
+
                 (res, cf, of)
             }
             ShiftKind::Rol | ShiftKind::Ror => {
@@ -165,27 +179,34 @@ impl Compiler {
                 };
                 let res = bin(f, op, sz, x, c);
                 let msb = is_neg(f, sz, res);
+
                 if kind == ShiftKind::Rol {
                     let cf = bin(f, BinOp::And, sz, res, one);
                     let cf = resize(f, cf, sz, Ty::I8, false);
+
                     (res, cf, flag_xor(f, msb, cf))
                 } else {
                     let s = konst(f, sz, n - 2);
                     let t = bin(f, BinOp::LShr, sz, res, s);
                     let second = bin(f, BinOp::And, sz, t, one);
                     let second = resize(f, second, sz, Ty::I8, false);
+
                     (res, msb, flag_xor(f, msb, second))
                 }
             }
         };
+
         self.rmw_end(f, rmw, res, span)?;
         // A zero count leaves the flags alone.
         let mut new = cx.flags;
+
         new.cf = Some(cf);
         new.of = Some(of);
+
         if matches!(kind, ShiftKind::Shl | ShiftKind::Shr | ShiftKind::Sar) {
             Self::set_zs_into(f, &mut new, sz, res);
         }
+
         let nonzero = {
             let z = is_zero(f, sz, c);
             flag_not(f, z)
@@ -198,6 +219,7 @@ impl Compiler {
             }
             (None, o) => o,
         };
+
         cx.flags = Flags {
             cf: keep(f, new.cf, cx.flags.cf),
             zf: keep(f, new.zf, cx.flags.zf),
@@ -235,6 +257,7 @@ impl Compiler {
                 let element = bin(f, BinOp::AShr, Ty::I64, wide, shift);
                 let bytes = konst(f, Ty::I64, sz.numeric_size());
                 let off = bin(f, BinOp::Mul, Ty::I64, element, bytes);
+
                 Opd::Mem(bin(f, BinOp::Add, Ty::I64, addr, off))
             }
             _ => dst,
@@ -244,7 +267,9 @@ impl Compiler {
         let one = konst(f, sz, 1);
         let shifted = bin(f, BinOp::LShr, sz, old, pos);
         let bit = bin(f, BinOp::And, sz, shifted, one);
+
         cx.flags.cf = Some(resize(f, bit, sz, Ty::I8, false));
+
         if writes {
             let m = bin(f, BinOp::Shl, sz, one, pos);
             let new = match kind {
@@ -255,8 +280,10 @@ impl Compiler {
                 }
                 _ => bin(f, BinOp::Xor, sz, old, m),
             };
+
             self.rmw_end(f, rmw, new, span)?;
         }
+
         Ok(())
     }
 }

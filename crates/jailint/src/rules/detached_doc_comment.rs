@@ -38,6 +38,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for stmt in cx.stmts {
         let S::Decl(decl) = &stmt.kind else {
             continue;
@@ -45,11 +46,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let ([name], Some(value)) = (decl.names.as_slice(), &decl.value) else {
             continue;
         };
+
         if decl.kind != DeclKind::Const
             || !matches!(value.kind, E::Proc(_) | E::Struct(_) | E::Enum(_))
         {
             continue;
         }
+
         let at = stmt.span.start as usize;
         let first = cx.tokens.partition_point(|t| (t.span.start as usize) < at);
         // Before any code the comments are the file's header.
@@ -69,16 +72,21 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             continue;
         };
         let end = last.span.end as usize;
+
         if cx.text[end..at].matches('\n').count() < 2 || !cx.text[end..at].trim().is_empty() {
             continue;
         }
+
         let run = run_ending_at(cx.text, &between);
+
         if !reads_as_docs(cx.text, run) {
             continue;
         }
+
         // The blank lines: from the end of the comment's line to the start of the declaration's.
         let gap_from = end + cx.text[end..at].find('\n').map_or(0, |n| n + 1);
         let gap_to = jaic::source::line_start(cx.text, at);
+
         out.push(Finding {
             secondary: Vec::new(),
             start: last.span.start as usize,
@@ -105,6 +113,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// The comment starts its line.
 fn own_line(text: &str, c: &Comment) -> bool {
     let start = c.span.start as usize;
+
     text[jaic::source::line_start(text, start)..start]
         .trim()
         .is_empty()
@@ -113,13 +122,17 @@ fn own_line(text: &str, c: &Comment) -> bool {
 /// The comments at the end of `comments` that follow one another on adjacent lines.
 fn run_ending_at<'a>(text: &str, comments: &'a [&'a Comment]) -> &'a [&'a Comment] {
     let mut from = comments.len() - 1;
+
     while from > 0 {
         let gap = &text[comments[from - 1].span.end as usize..comments[from].span.start as usize];
+
         if gap.matches('\n').count() != 1 {
             break;
         }
+
         from -= 1;
     }
+
     &comments[from..]
 }
 
@@ -131,6 +144,7 @@ fn reads_as_docs(text: &str, run: &[&Comment]) -> bool {
     {
         return false;
     }
+
     let lines: Vec<&str> = run.iter().map(|c| c.body(text).trim()).collect();
     let (Some(first), Some(last)) = (lines.first(), lines.last()) else {
         return false;
@@ -148,5 +162,6 @@ fn reads_as_docs(text: &str, run: &[&Comment]) -> bool {
         .iter()
         .any(|m| lines.iter().any(|l| l.starts_with(m)));
     let directive = lines.iter().any(|l| l.starts_with("jailint:"));
+
     capital && words >= 3 && sentence && !marker && !directive
 }

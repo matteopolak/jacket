@@ -61,11 +61,14 @@ fn kernel_image() -> Option<usize> {
                 c"_dyld_get_dlopen_image_header".as_ptr(),
             )
         };
+
         if query.is_null() {
             return None;
         }
+
         // SAFETY: the loader's query has exactly this SDK signature.
         let image_header: ImageHeader = unsafe { std::mem::transmute(query) };
+
         const RTLD_NOLOAD: i32 = 0x10;
         // SAFETY: inspect an already loaded canonical kernel-library handle; no new code or
         // constructor runs. Its loader-owned Mach header is the identity, not the path string.
@@ -75,16 +78,20 @@ fn kernel_image() -> Option<usize> {
                 super::super::sys::RTLD_NOW | RTLD_NOLOAD,
             )
         };
+
         if handle.is_null() {
             return None;
         }
+
         // SAFETY: the live handle is the one returned by dyld above.
         let image = unsafe { image_header(handle) };
+
         if image.is_null() {
             // SAFETY: release only this failed inspection's live handle reference.
             unsafe { dlclose(handle) };
             return None;
         }
+
         // Keep the handle reference alive, matching native::Library's process-long ownership.
         Some(image as usize)
     })
@@ -105,16 +112,20 @@ fn libc_map() -> Option<usize> {
                 super::super::sys::RTLD_NOW | RTLD_NOLOAD,
             )
         };
+
         if handle.is_null() {
             return None;
         }
+
         let mut map = std::ptr::null_mut();
+
         // SAFETY: the live loader handle and writable pointer match RTLD_DI_LINKMAP's ABI.
         if unsafe { dlinfo(handle, RTLD_DI_LINKMAP, &raw mut map) } != 0 || map.is_null() {
             // SAFETY: release only our unsuccessful inspection's reference.
             unsafe { dlclose(handle) };
             return None;
         }
+
         // Keep the reference alive, like native::Library: the loader-owned map must not disappear.
         Some(map as usize)
     })
@@ -123,13 +134,16 @@ fn libc_map() -> Option<usize> {
 pub(super) fn trusted(address: u64) -> bool {
     // Loader introspection must not replace a guest's errno/last-error value.
     let _error = crate::interp::last_error::keep();
+
     #[cfg(target_os = "macos")]
     {
         let mut info = empty_info();
+
         // SAFETY: dladdr only queries the address; info is a complete writable SDK structure.
         if unsafe { dladdr(address as *const _, &raw mut info) } == 0 || info.filename.is_null() {
             return false;
         }
+
         kernel_image().is_some_and(|canonical| info.base as usize == canonical)
     }
     #[cfg(all(target_os = "linux", target_env = "gnu"))]
@@ -137,6 +151,7 @@ pub(super) fn trusted(address: u64) -> bool {
         let Some(canonical) = libc_map() else {
             return false;
         };
+
         const RTLD_DL_LINKMAP: i32 = 2;
         let mut info = empty_info();
         let mut actual = std::ptr::null_mut();
@@ -149,6 +164,7 @@ pub(super) fn trusted(address: u64) -> bool {
                 RTLD_DL_LINKMAP,
             )
         };
+
         found != 0 && actual as usize == canonical
     }
     #[cfg(not(any(target_os = "macos", all(target_os = "linux", target_env = "gnu"))))]

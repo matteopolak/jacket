@@ -12,6 +12,7 @@ pub(super) fn exposed(
     places: &mut Places,
 ) -> HashSet<usize> {
     let mut safe_addresses = HashSet::default();
+
     for e in body.blocks.iter().flat_map(|b| &b.events) {
         if let Event::Call {
             callee,
@@ -33,6 +34,7 @@ pub(super) fn exposed(
             }
         }
     }
+
     for event in body.blocks.iter().flat_map(|b| &b.events) {
         if let Event::IndirectCall {
             callee,
@@ -42,6 +44,7 @@ pub(super) fn exposed(
         } = event
         {
             let targets = summaries.targets.get(body.procedure, *callee);
+
             for arg in args {
                 if (!targets.unknown || cx.lifetime_mode == jacket_config::LifetimeMode::Strict)
                     && let LifetimeOperand::Value(v) = arg.operand
@@ -50,6 +53,7 @@ pub(super) fn exposed(
                 }
             }
         }
+
         if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
             && let Event::Call {
                 args, ..
@@ -62,6 +66,7 @@ pub(super) fn exposed(
             }
         }
     }
+
     let scoped_stores: Vec<_> = body
         .blocks
         .iter()
@@ -76,6 +81,7 @@ pub(super) fn exposed(
             else {
                 return None;
             };
+
             body.globals
                 .iter()
                 .any(|(v, global)| {
@@ -84,6 +90,7 @@ pub(super) fn exposed(
                 .then_some((value, span))
         })
         .collect();
+
     for event in body.blocks.iter().flat_map(|b| &b.events) {
         if let Event::Address {
             place,
@@ -100,9 +107,11 @@ pub(super) fn exposed(
             safe_addresses.insert((place, span));
         }
     }
+
     let mut read_only_addresses = HashSet::default();
     let mut uncertain_addresses = HashSet::default();
     let mut resolver = Resolver::for_prepared(cx.compiler, body, prepared, summaries);
+
     for event in body.blocks.iter().flat_map(|b| &b.events) {
         let (Event::Call {
             args,
@@ -116,6 +125,7 @@ pub(super) fn exposed(
             continue;
         };
         let targets = resolver.call_targets(event);
+
         for arg in args {
             let LifetimeOperand::Value(v) = arg.operand else {
                 continue;
@@ -129,10 +139,13 @@ pub(super) fn exposed(
                         && !foreign_handle_slot(cx.compiler, *p, arg.formal)
                 });
             let mut origins = Vec::new();
+
             origins.extend(resolver.object(arg));
             origins.extend(resolver.stored_address(v, &mut HashSet::default()));
+
             for p in origins {
                 let p = places.import(&resolver.places, p);
+
                 if preserved {
                     read_only_addresses.insert(p);
                 } else {
@@ -141,6 +154,7 @@ pub(super) fn exposed(
             }
         }
     }
+
     body.blocks
         .iter()
         .flat_map(|b| &b.events)
@@ -167,13 +181,16 @@ fn foreign_handle_slot(
     formal: usize,
 ) -> bool {
     let p = &compiler.pr.procs[proc.0 as usize];
+
     if p.lit.body.is_some() || !matches!(p.target, Some(jaic::sema::procs::ProcTarget::Foreign(_)))
     {
         return false;
     }
+
     let released = crate::rules::lifetime_movement::released_formal(compiler, proc)
         .or_else(|| crate::rules::lifetime_movement::maybe_released_formal(compiler, proc));
     let types = &compiler.ty.types;
+
     Some(formal) != released
         && p.sig
             .as_ref()
@@ -196,8 +213,10 @@ pub(super) fn storage_scope(
         let Some((_, caller)) = body.macro_owners.iter().find(|(root, _)| *root == scope) else {
             break;
         };
+
         scope = *caller;
     }
+
     scope
 }
 

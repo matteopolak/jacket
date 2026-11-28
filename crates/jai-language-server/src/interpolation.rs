@@ -49,9 +49,11 @@ impl Site {
         let map = jaic::lexer::string_value_map(text.get(string.start..string.end)?, value.len())?;
         let source = |v: usize| string.start + map[v] as usize;
         let mut holes = Vec::new();
+
         for hole in interpolate::holes(&value, mode) {
             let range = hole.expr.clone();
             let mut tokens = Vec::new();
+
             if let Ok(inner) = std::str::from_utf8(&value[range.clone()])
                 && let Ok(lexed) = jaic::lexer::lex(FileId(0), inner)
             {
@@ -63,14 +65,17 @@ impl Site {
                         t
                     })
                     .collect::<Vec<_>>();
+
                 tokens = editor_tokens(&moved);
             }
+
             holes.push(Hole {
                 whole: Span::new(source(hole.whole.start), source(hole.whole.end)),
                 expr: Span::new(source(range.start), source(range.end)),
                 tokens,
             });
         }
+
         Some(Site {
             string,
             mode,
@@ -87,6 +92,7 @@ impl Site {
             .map
             .partition_point(|&m| m as usize <= rel)
             .checked_sub(1)?;
+
         (self.map[at] as usize == rel).then_some(at)
     }
 
@@ -100,15 +106,18 @@ impl Site {
         let value = &self.value;
         // The word before the cursor: names and the dots between them.
         let mut j = v;
+
         while j > 0 && (ident_char(value[j - 1]) || value[j - 1] == b'.') {
             j -= 1;
         }
+
         let start = if j > 0 && value[j - 1] == b'%' {
             Some((j - 1, false))
         } else {
             // Inside `%(...)`: the nearest unclosed `(` right after a `%`.
             let mut depth = 0usize;
             let mut open = None;
+
             for q in (0..j).rev() {
                 match value[q] {
                     b')' => depth += 1,
@@ -120,30 +129,36 @@ impl Site {
                     _ => {}
                 }
             }
+
             open.filter(|&q| q > 0 && value[q - 1] == b'%')
                 .map(|q| (q - 1, true))
         };
         let (p, paren) = start?;
         // The `%` must start a hole: not inside quoted SQL, not the second half of `%%`.
         let mut probe = value[..p].to_vec();
+
         probe.extend_from_slice(if paren {
             b"%(a)"
         } else {
             b"%a"
         });
+
         if !interpolate::holes(&probe, self.mode)
             .iter()
             .any(|h| h.whole.start == p)
         {
             return None;
         }
+
         let word = std::str::from_utf8(&value[j..v]).ok()?;
         let mut names: Vec<&str> = word.split('.').collect();
         let prefix = names.pop().unwrap_or("").to_owned();
         let valid = |n: &&str| n.bytes().next().is_some_and(|c| !c.is_ascii_digit());
+
         if !names.iter().all(valid) {
             return None;
         }
+
         Some(HoleCursor {
             at: self.source(j),
             chain: names.into_iter().map(str::to_owned).collect(),
@@ -158,6 +173,7 @@ impl Session {
     fn in_string_token(&self, uri: &DocumentUri, byte: usize) -> bool {
         self.analysis_for(uri).is_some_and(|a| {
             let at = a.tokens.partition_point(|t| t.span.end <= byte);
+
             a.tokens.get(at).is_some_and(|t| {
                 t.kind == TokenKind::String && t.span.start < byte && byte < t.span.end
             })
@@ -169,6 +185,7 @@ impl Session {
         if self.environment.is_none() {
             return Vec::new();
         }
+
         let (Some(analysis), Ok(doc)) = (self.analysis_for(uri), self.document(uri)) else {
             return Vec::new();
         };
@@ -185,6 +202,7 @@ impl Session {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+
         facts
             .iter()
             .filter_map(|&(string, mode)| {
@@ -192,9 +210,11 @@ impl Session {
                     .tokens
                     .partition_point(|t| t.span.start < string.start);
                 let token = analysis.tokens.get(at)?;
+
                 if token.span != string || token.kind != TokenKind::String {
                     return None;
                 }
+
                 let Tok::Str(value) = &analysis.syntax_tokens.get(at)?.tok else {
                     return None;
                 };
@@ -208,6 +228,7 @@ impl Session {
         if !self.in_string_token(uri, byte) {
             return None;
         }
+
         let sites = self.interpolation_sites(uri);
         let site = sites
             .iter()
@@ -224,6 +245,7 @@ impl Session {
         let at = analysis
             .tokens
             .partition_point(|t| t.span.start < site.string.start);
+
         Some((at, *token))
     }
 
@@ -232,6 +254,7 @@ impl Session {
         if !self.in_string_token(uri, byte) {
             return None;
         }
+
         self.interpolation_sites(uri)
             .iter()
             .find(|s| s.string.start < byte && byte < s.string.end)?
@@ -244,6 +267,7 @@ impl Session {
             return false;
         };
         let byte = doc.index.byte(&doc.text, position);
+
         self.hole_word(uri, byte).is_some()
     }
 }

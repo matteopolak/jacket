@@ -6,12 +6,15 @@ use crate::reflection_bootstrap as bootstrap;
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/lib/prelude/module.jai".into());
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
     let mut c = Compiler::new(options, Rc::new(fs));
     let result = c.compile_sources(&[ProgramSource::String(source.into())]);
+
     (c, result)
 }
 
@@ -26,6 +29,7 @@ fn implicit_default_pointees_bind_the_same_constraint_as_explicit_instances() {
             #assert check(); main :: () {{}}
         "
         ));
+
         if let Err(e) = result {
             panic!("{}", e.render(&c.src.sources));
         }
@@ -45,6 +49,7 @@ fn default_pointer_types_preserve_canonical_type_and_alias_identity() {
         #assert check(); main :: () {}
     ",
     );
+
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }
@@ -58,6 +63,7 @@ fn invalid_type_arguments_are_rejected_even_when_the_parameter_is_unused() {
     ] {
         let (c, result) = compile(&format!("{declaration} main :: () {{}}"));
         let e = result.expect_err("generic type binding must reject an integer");
+
         assert!(
             e.message.contains("expected a type"),
             "{}",
@@ -81,6 +87,7 @@ fn pointer_constraints_retain_nominal_and_pointer_diagnostics() {
         "
         ));
         let e = result.expect_err("constraint mismatch must still reject");
+
         assert!(e.message.contains(expected), "{}", e.render(&c.src.sources));
     }
 }
@@ -95,6 +102,7 @@ fn explicit_specializations_do_not_accept_different_type_arguments() {
     ",
     );
     let e = result.expect_err("explicit specialization must not become a wildcard constraint");
+
     assert!(e.message.contains("Parcel"), "{}", e.render(&c.src.sources));
 }
 
@@ -104,6 +112,7 @@ fn defaults_dependent_arguments_and_nondefault_instances_execute_through_constra
         "{} #assert check()==0;",
         include_str!("../../../tests/compiler/semantics/default-generic-pointers.jai")
     ));
+
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }
@@ -123,6 +132,7 @@ fn reflection_keeps_default_instance_identity_and_separate_generic_source() {
         main :: () {}
     ",
     );
+
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }

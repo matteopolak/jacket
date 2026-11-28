@@ -34,6 +34,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if p.is_macro {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(s) = n.stmt() else {
                 return true;
@@ -41,9 +42,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let S::While(w) = &s.kind else {
                 return true;
             };
+
             if w.bind_label || !matches!(w.cond.kind, E::Bool(true)) {
                 return true;
             }
+
             let S::Block(body) = &w.body.kind else {
                 return true;
             };
@@ -58,13 +61,16 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
+
             if !only_break(then_branch) {
                 return true;
             }
+
             let keep = negated(cx, cond);
             let (start, end) = cx.tidy_removal(first.span);
             let commented =
                 cx.has_comment_between(body.span.start as usize, first.span.end as usize);
+
             out.push(Finding {
                 secondary: Vec::new(),
                 start: w.cond.span.start as usize,
@@ -99,11 +105,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn negated(cx: &Cx, cond: &Expr) -> String {
     if let E::Unary(UnOp::Not, inner) = &cond.kind {
         let text = cx.whole_src(inner).trim();
+
         if inner.parenthesized() {
             return text[1..text.len() - 1].trim().to_string();
         }
+
         return text.to_string();
     }
+
     condition(cx, cond, true, false)
 }
 
@@ -113,6 +122,7 @@ fn only_break(s: &Stmt) -> bool {
         S::Break(None) => true,
         S::Block(b) => {
             let mut stmts = b.stmts.iter().filter(|s| !matches!(s.kind, S::Empty));
+
             matches!(
                 stmts.next(),
                 Some(Stmt {

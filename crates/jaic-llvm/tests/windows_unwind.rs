@@ -15,15 +15,19 @@ const SOURCE: &str = include_str!("../../../tests/compiler/semantics/windows-unw
 fn emit(triple: &str, cpu: TargetCpu, level: OptLevel, dir: &Path) -> PathBuf {
     std::fs::create_dir_all(dir).unwrap();
     let mut options = Options::host();
+
     options.os = TargetOs::Windows;
     options.cpu = cpu;
     options.runtime_support = false;
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     let object = dir.join("frames.obj");
+
     emit_object(
         &compiler.out.program,
         &jaic_llvm::Options {
@@ -48,6 +52,7 @@ fn hex_address(text: &str) -> u64 {
     let end = digits
         .find(|c: char| !c.is_ascii_hexdigit())
         .unwrap_or(digits.len());
+
     u64::from_str_radix(&digits[..end], 16).unwrap()
 }
 
@@ -57,6 +62,7 @@ fn check_linked_entries(text: &str) {
             .find(|l| l.trim_start().starts_with("ImageBase:"))
             .unwrap(),
     );
+
     for name in [
         "unwind_leaf",
         "unwind_middle",
@@ -75,6 +81,7 @@ fn check_linked_entries(text: &str) {
                 .unwrap(),
         );
         let address = image_base + rva;
+
         assert!(
             text.split("RuntimeFunction {").skip(1).any(|part| {
                 part.lines()
@@ -94,6 +101,7 @@ fn windows_nonleaf_frames_have_unwind_entries_at_o0_and_o2() {
     if !toolchain::require_all(&["llvm-readobj", "llvm-objdump", "lld-link"]) {
         return;
     }
+
     for (triple, cpu, machine) in [
         ("x86_64-pc-windows-msvc", TargetCpu::X64, "X64"),
         ("x86_64-w64-windows-gnu", TargetCpu::X64, "X64"),
@@ -107,16 +115,21 @@ fn windows_nonleaf_frames_have_unwind_entries_at_o0_and_o2() {
                     .arg("--unwind")
                     .arg(&object),
             );
+
             std::fs::write(dir.join("object-unwind.txt"), &unwind).unwrap();
+
             for name in ["unwind_leaf", "unwind_middle", "unwind_entry"] {
                 assert!(
                     unwind.contains(name),
                     "{triple} {level:?}: missing {name}: {unwind}"
                 );
             }
+
             let disassembly = checked(toolchain::command("llvm-objdump").arg("-d").arg(&object));
+
             std::fs::write(dir.join("disassembly.txt"), disassembly).unwrap();
             let pe = dir.join("frames.exe");
+
             checked(
                 toolchain::command("lld-link")
                     .arg("/entry:unwind_entry")
@@ -130,14 +143,17 @@ fn windows_nonleaf_frames_have_unwind_entries_at_o0_and_o2() {
                     .args(["--unwind", "--coff-exports", "--file-headers"])
                     .arg(&pe),
             );
+
             std::fs::write(dir.join("pe-unwind.txt"), &linked).unwrap();
             check_linked_entries(&linked);
             let ir = std::fs::read_to_string(dir.join("optimized.ll")).unwrap();
+
             assert!(
                 ir.contains("uwtable") && ir.contains("!\"uwtable\", i32 2"),
                 "{ir}"
             );
             assert!(ir.contains("\"frame-pointer\"=\"none\""), "{ir}");
+
             if level == OptLevel::O2 {
                 assert!(
                     ir.contains("nounwind"),
@@ -154,6 +170,7 @@ fn sdk_backtrace_driver_links_and_executes_on_native_windows() {
     if !cfg!(windows) && toolchain::mingw_gcc().is_none() {
         return;
     }
+
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let native_arm = cfg!(all(windows, target_arch = "aarch64"));
     let (triple, cpu) = if native_arm {
@@ -163,10 +180,12 @@ fn sdk_backtrace_driver_links_and_executes_on_native_windows() {
     } else {
         ("x86_64-w64-windows-gnu", TargetCpu::X64)
     };
+
     for level in [OptLevel::O0, OptLevel::O2] {
         let dir = TempDir::new(&format!("windows-unwind-sdk-{triple}-{level:?}"));
         let object = emit(triple, cpu, level, &dir);
         let exe = dir.join("backtrace.exe");
+
         checked(
             Command::new(if cfg!(windows) {
                 "clang"
@@ -184,6 +203,7 @@ fn sdk_backtrace_driver_links_and_executes_on_native_windows() {
             .arg("-o")
             .arg(&exe),
         );
+
         if cfg!(windows) {
             assert_eq!(
                 checked(&mut Command::new(exe)).trim(),

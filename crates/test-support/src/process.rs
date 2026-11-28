@@ -36,8 +36,10 @@ pub fn output_within(command: &mut Command, limit: Duration) -> Option<Output> {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap_or_else(|error| panic!("cannot run {command:?}: {error}"));
+
     fn drain(mut pipe: impl Read + Send + 'static) -> mpsc::Receiver<Vec<u8>> {
         let (send, receive) = mpsc::channel();
+
         std::thread::spawn(move || {
             let mut bytes = Vec::new();
             let _ = pipe.read_to_end(&mut bytes);
@@ -45,6 +47,7 @@ pub fn output_within(command: &mut Command, limit: Duration) -> Option<Output> {
         });
         receive
     }
+
     let stdout = drain(child.stdout.take().expect("piped"));
     let stderr = drain(child.stderr.take().expect("piped"));
     let deadline = Instant::now() + limit;
@@ -52,11 +55,14 @@ pub fn output_within(command: &mut Command, limit: Duration) -> Option<Output> {
         if let Some(status) = child.try_wait().expect("waiting for the child") {
             break status;
         }
+
         if Instant::now() >= deadline {
             let _ = child.kill();
             let _ = child.wait();
+
             return None;
         }
+
         std::thread::sleep(Duration::from_millis(20));
     };
     // A process the child started can hold the pipes open after the child is gone, so the readers
@@ -64,6 +70,7 @@ pub fn output_within(command: &mut Command, limit: Duration) -> Option<Output> {
     let grace = Duration::from_secs(5);
     let stdout = stdout.recv_timeout(grace).ok()?;
     let stderr = stderr.recv_timeout(grace).ok()?;
+
     Some(Output {
         status,
         stdout,
@@ -74,6 +81,7 @@ pub fn output_within(command: &mut Command, limit: Duration) -> Option<Output> {
 /// Runs `command`, fails the test with its output unless it succeeds, and returns it.
 pub fn succeeded(command: &mut Command) -> Output {
     let output = output(command);
+
     assert!(
         output.status.success(),
         "{command:?}: {}",
@@ -95,6 +103,7 @@ pub fn checked(command: &mut Command) -> String {
 /// Runs `command` and requires it to succeed without printing anything.
 pub fn success_silent(command: &mut Command) {
     let output = succeeded(command);
+
     assert!(
         output.stdout.is_empty(),
         "{command:?} printed {}",
@@ -105,6 +114,7 @@ pub fn success_silent(command: &mut Command) {
 /// Requires `output` to be a success whose standard output is exactly `expected`.
 pub fn success_with_stdout(output: impl Borrow<Output>, expected: &str) {
     let output = output.borrow();
+
     assert!(output.status.success(), "{}", describe(output));
     assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
 }
@@ -115,6 +125,7 @@ mod tests {
 
     fn shell(script: &str) -> Command {
         let mut command = Command::new("sh");
+
         command.args(["-c", script]);
         command
     }
@@ -122,14 +133,17 @@ mod tests {
     #[test]
     fn a_command_that_outlives_its_limit_is_killed() {
         let started = Instant::now();
+
         assert!(output_within(&mut shell("sleep 30"), Duration::from_millis(200)).is_none());
         assert!(started.elapsed() < Duration::from_secs(10));
         // A grandchild that keeps the pipes open after the kill does not hold the call up.
         let started = Instant::now();
         let held = shell("sleep 30 & wait");
+
         assert!(output_within(&mut { held }, Duration::from_millis(200)).is_none());
         assert!(started.elapsed() < Duration::from_secs(10));
         let done = output_within(&mut shell("printf hi"), Duration::from_secs(30)).unwrap();
+
         assert_eq!(done.stdout, b"hi");
     }
 

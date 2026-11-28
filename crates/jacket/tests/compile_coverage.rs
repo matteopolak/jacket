@@ -7,11 +7,13 @@ fn unit_test_coverage_includes_compile_time_generators() {
     if test_support::toolchain::require("llvm-dwarfdump").is_none() {
         return;
     }
+
     let root = scratch("compile-coverage");
     let Some(exe) = archive(&root) else {
         return;
     };
     let project = root.join("project");
+
     std::fs::create_dir_all(project.join("tests")).unwrap();
     std::fs::write(
         project.join("module.jai"),
@@ -28,6 +30,7 @@ fn unit_test_coverage_includes_compile_time_generators() {
         &project,
         &["test", "--coverage", "--coverage-out", "coverage.lcov"],
     );
+
     assert!(
         out.status.success(),
         "{}{}",
@@ -41,6 +44,7 @@ fn unit_test_coverage_includes_compile_time_generators() {
         .split("end_of_record")
         .find(|record| record.contains("/module.jai\n"))
         .unwrap();
+
     assert!(
         own.lines()
             .any(|line| line.starts_with("DA:1,") && line != "DA:1,0"),

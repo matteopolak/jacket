@@ -30,6 +30,7 @@ impl Compiler {
         {
             return Ok(t);
         }
+
         err(
             Code::CompileTimeValueUnreadable,
             span,
@@ -43,8 +44,10 @@ impl Compiler {
             bytes: self.ct.program_bytes(addr, size as usize, span)?,
             relocs: Vec::new(),
         };
+
         self.ct.frozen.clear();
         let result = self.freeze(&mut agg, 0, addr, ty, span);
+
         self.ct.frozen.clear();
         result?;
         Ok(Value::Bytes(Arc::new(agg)))
@@ -53,6 +56,7 @@ impl Compiler {
     /// The `s64` a frozen value holds at `offset`, which `agg` copied from `addr` a moment ago.
     fn frozen_u64(&self, agg: &Aggregate, offset: u64, addr: u64, span: Span) -> Result<u64> {
         let at = offset as usize;
+
         match agg.bytes.get(at..at + 8) {
             Some(bytes) => Ok(self.options.layout.read_u64(bytes)),
             None => self.ct.program_u64(addr, span),
@@ -63,6 +67,7 @@ impl Compiler {
     fn frozen_ptr(&self, agg: &Aggregate, offset: u64, addr: u64, span: Span) -> Result<u64> {
         let at = offset as usize;
         let size = self.options.layout.pointer_size as usize;
+
         match agg.bytes.get(at..at + size) {
             Some(bytes) => Ok(self.options.layout.read_ptr(bytes)),
             None => self.ct.program_ptr(addr, span),
@@ -79,6 +84,7 @@ impl Compiler {
     /// Zero the pointer in a frozen value at `offset`.
     fn clear_frozen_ptr(&self, agg: &mut Aggregate, offset: u64) {
         let at = offset as usize;
+
         agg.bytes[at..at + self.options.layout.pointer_size as usize].fill(0);
     }
 
@@ -93,14 +99,17 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         let layout = *self.ty.types.builtins();
+
         match self.ty.types.kind(ty).clone() {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
                 let info = self.ty.types.struct_info(s).clone();
+
                 if info.is_union {
                     let size = self.size_of(ty, span)?;
                     return self.freeze_union_words(agg, offset, size);
                 }
+
                 for field in info.fields.iter() {
                     self.freeze(
                         agg,
@@ -116,6 +125,7 @@ impl Compiler {
                 kind: ArrayKind::Fixed(n),
             } => {
                 let size = self.size_of(elem, span)?;
+
                 for i in 0..n {
                     self.freeze(agg, offset + i * size, addr + i * size, elem, span)?;
                 }
@@ -137,6 +147,7 @@ impl Compiler {
                     span,
                 )?;
                 let esize = self.size_of(elem, span)?;
+
                 // Only the elements in use: the unused capacity of a resizable array is memory the
                 // program never wrote, so copying it would put whatever the interpreter's heap held
                 // before into the output, differently from one run to the next.
@@ -151,10 +162,12 @@ impl Compiler {
                     },
                     span,
                 )?;
+
                 if kind == ArrayKind::Resizable {
                     // The frozen copy is not owned by any allocator.
                     let allocated = (offset + layout.resizable.allocated) as usize;
                     let end = (offset + layout.resizable.size) as usize;
+
                     agg.bytes[allocated..end].fill(0);
                     self.options
                         .layout
@@ -174,6 +187,7 @@ impl Compiler {
                     addr + layout.view.data,
                     span,
                 )?;
+
                 self.freeze_pointer(
                     agg,
                     offset + layout.view.data,
@@ -193,6 +207,7 @@ impl Compiler {
                 } else {
                     self.size_of(to, span)?
                 };
+
                 self.freeze_pointer(
                     agg,
                     offset,
@@ -207,9 +222,11 @@ impl Compiler {
             }
             TypeKind::Type => {
                 let p = self.frozen_ptr(agg, offset, addr, span)?;
+
                 if p != 0 {
                     let t = self.type_at(p, span)?;
                     let g = self.type_info_global(t, span)?;
+
                     agg.relocs.push(ir::Reloc {
                         offset,
                         target: ir::RelocTarget::Global(g),
@@ -220,7 +237,9 @@ impl Compiler {
             }
             TypeKind::Proc(_) => {
                 let p = self.frozen_ptr(agg, offset, addr, span)?;
+
                 self.clear_frozen_ptr(agg, offset);
+
                 if let Some(func) = self.ct.interp.func_of(p) {
                     agg.relocs.push(ir::Reloc {
                         offset,
@@ -251,16 +270,20 @@ impl Compiler {
                     addr + layout.any.value_pointer,
                     span,
                 )?;
+
                 agg.bytes[offset as usize..(offset + layout.any.size) as usize].fill(0);
+
                 if t != 0 {
                     let vt = self.type_at(t, span)?;
                     let g = self.type_info_global(vt, span)?;
+
                     agg.relocs.push(ir::Reloc {
                         offset,
                         target: ir::RelocTarget::Global(g),
                         addend: 0,
                     });
                     let size = self.size_of(vt, span)?;
+
                     self.freeze_pointer(
                         agg,
                         offset + layout.any.value_pointer,
@@ -276,6 +299,7 @@ impl Compiler {
             }
             _ => {}
         }
+
         Ok(())
     }
 
@@ -285,14 +309,17 @@ impl Compiler {
     /// See `holds_host_address` for what counts as an address.
     fn freeze_union_words(&mut self, agg: &mut Aggregate, offset: u64, size: u64) -> Result<()> {
         let word = self.options.layout.ptr_bytes();
+
         for at in (offset..offset + size / word * word).step_by(word as usize) {
             let Some(bytes) = agg.bytes.get(at as usize..(at + word) as usize) else {
                 break;
             };
             let p = self.options.layout.read_ptr(bytes);
+
             if p == 0 || self.ct.interp.is_integer_address(p) {
                 continue;
             }
+
             if let Some((g, off)) = self.ct.interp.global_at(p)
                 && self.ct.temporary_buffer != Some(g)
             {
@@ -306,6 +333,7 @@ impl Compiler {
                 self.clear_frozen_ptr(agg, at);
             }
         }
+
         Ok(())
     }
 
@@ -323,10 +351,13 @@ impl Compiler {
             bytes,
             count,
         } = run;
+
         self.clear_frozen_ptr(agg, offset);
+
         if p == 0 {
             return Ok(());
         }
+
         if let Some((g, off)) = self.ct.interp.global_at(p)
             && self.ct.temporary_buffer != Some(g)
         {
@@ -337,12 +368,14 @@ impl Compiler {
             });
             return Ok(());
         }
+
         if self.ct.interp.is_integer_address(p) {
             // Integers cast to pointers (handle-like constants such as `cast(*void) 32512` or
             // `HKEY_CLASSES_ROOT`) have no memory to freeze.
             self.put_frozen_ptr(agg, offset, p);
             return Ok(());
         }
+
         if bytes == 0 {
             // Opaque pointers have no pointee extent, so there is no data to capture. Globals
             // above still relocate. Memory only the interpreter holds has no address in the
@@ -351,14 +384,17 @@ impl Compiler {
             if self.ct.interp.read(p, 1).is_none() {
                 self.put_frozen_ptr(agg, offset, p);
             }
+
             return Ok(());
         }
+
         // Nothing to copy where nothing can be read: an integer cast to a pointer that the
         // range above does not catch (`cast(*T) 80000000`). It stays a number, like those.
         let Some(contents) = self.ct.interp.read(p, bytes as usize) else {
             self.put_frozen_ptr(agg, offset, p);
             return Ok(());
         };
+
         if let Some(&g) = self.ct.frozen.get(&(p, bytes)) {
             agg.relocs.push(ir::Reloc {
                 offset,
@@ -367,6 +403,7 @@ impl Compiler {
             });
             return Ok(());
         }
+
         let align = if elem == TypeId::VOID {
             self.options.layout.pointer_align as u64
         } else {
@@ -383,20 +420,26 @@ impl Compiler {
             export: None,
             section: None,
         });
+
         self.ct.frozen.insert((p, bytes), g);
         let mut inner = Aggregate {
             bytes: contents,
             relocs: Vec::new(),
         };
+
         if elem != TypeId::U8 && elem != TypeId::VOID {
             let esize = self.size_of(elem, span)?;
+
             for i in 0..count {
                 self.freeze(&mut inner, i * esize, p + i * esize, elem, span)?;
             }
         }
+
         let mut init = inner.bytes;
+
         init.push(0); // NUL after frozen strings
         let global = &mut self.out.program.globals[g.0 as usize];
+
         global.init = init;
         global.relocs = inner.relocs;
         agg.relocs.push(ir::Reloc {

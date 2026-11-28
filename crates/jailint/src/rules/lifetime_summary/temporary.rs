@@ -19,6 +19,7 @@ impl Resolver<'_> {
             .value(source, all)
             .is_some_and(|p| p.root == Root::Temporary);
         let mut paths = Vec::new();
+
         if definite {
             paths.push((target, true));
         } else if matches!(self.compiler.ty.types.kind(ty), super::TypeKind::String) {
@@ -31,9 +32,11 @@ impl Resolver<'_> {
                     let definite = self
                         .field_origin(source, ty, &projections, all, 0)
                         .is_some_and(|p| p.root == Root::Temporary);
+
                     if !definite && !self.field_may_temporary(source, ty, &projections, all, 0) {
                         continue;
                     }
+
                     let steps: Vec<_> = projections
                         .iter()
                         .map(|p| match p {
@@ -41,24 +44,29 @@ impl Resolver<'_> {
                             _ => unreachable!(),
                         })
                         .collect();
+
                     if let Some(path) = target.clone().append(&steps) {
                         // A returned field can be nullable or conditionally initialized.
                         // Preserve the risk without turning a field class into a must write.
                         paths.push((path, false));
                     }
                 }
+
                 let source = self.places.place(source, ty);
                 let prefix = self.places.paths[source].1.len();
+
                 for field in self.places.descendants(source) {
                     let Some(&ty) = self.places.types.get(&field) else {
                         return Vec::new();
                     };
+
                     if self.compiler.ir_ty(ty).is_some()
                         && !self.compiler.ty.types.is_pointer(ty)
                         && !matches!(self.compiler.ty.types.kind(ty), super::TypeKind::Proc(_))
                     {
                         continue;
                     }
+
                     if !self
                         .writes
                         .get(&field)
@@ -68,6 +76,7 @@ impl Resolver<'_> {
                     {
                         continue;
                     }
+
                     let steps: Option<Vec<_>> = self.places.paths[field].1[prefix..]
                         .iter()
                         .map(|p| match p {
@@ -81,16 +90,19 @@ impl Resolver<'_> {
                         // Never defer only part of an unsupported aggregate copy.
                         return Vec::new();
                     };
+
                     // A field can have conditional definitions before the aggregate copy.
                     if !paths.iter().any(|(old, _)| old == &path) {
                         paths.push((path, false));
                     }
                 }
             }
+
             if paths.is_empty() && self.may_temporary(source, all, &mut HashMap::default(), 0) {
                 paths.push((target, false));
             }
         }
+
         paths
             .into_iter()
             .map(|(target, definite)| {
@@ -118,11 +130,13 @@ impl Resolver<'_> {
         if self.may_temporary(source, all, &mut HashMap::default(), 0) {
             return true;
         }
+
         let header = self.places.place(source, ty);
         let data = self.places.projected(
             header,
             super::Projection::Field(jaic::intern::Sym::intern("data")),
         );
+
         std::iter::once(header).chain(data).any(|p| {
             self.writes
                 .get(&p)
@@ -151,7 +165,9 @@ impl Resolver<'_> {
                 {
                     return None;
                 }
+
                 let p = self.places.place(*place, *ty);
+
                 Some((
                     self.location(p, all, &mut HashSet::default(), 0)?,
                     *value,
@@ -168,6 +184,7 @@ impl Resolver<'_> {
             } if self.compiler.proc_has_note(*callee, "AddsToArray") => {
                 let array = args.iter().find(|a| a.formal == 0)?;
                 let source = args.iter().find(|a| a.formal == 1)?;
+
                 Some((
                     self.argument_trace(array, all, &mut HashSet::default(), 0)?
                         .append(&[Step::Storage])?,
@@ -202,10 +219,13 @@ impl Resolver<'_> {
             return Vec::new();
         };
         let targets = self.call_targets(event);
+
         if guaranteed && targets.unknown {
             return Vec::new();
         }
+
         let mut selected: Option<HashSet<Effect>> = None;
+
         for callee in targets.ordered() {
             let Some(summary) = all.get(&callee) else {
                 return Vec::new();
@@ -220,6 +240,7 @@ impl Resolver<'_> {
                 .filter(|e| e.kind == Kind::StoreTemporary && e.guard.is_none())
                 .cloned()
                 .collect();
+
             if let Some(prior) = &mut selected {
                 if guaranteed {
                     prior.retain(|e| effects.contains(e));
@@ -230,6 +251,7 @@ impl Resolver<'_> {
                 selected = Some(effects);
             }
         }
+
         let selected = selected.unwrap_or_default();
         let mut globals = Vec::new();
         let mut effects: Vec<_> = selected
@@ -243,6 +265,7 @@ impl Resolver<'_> {
                 _ => None,
             })
             .collect();
+
         effects.sort_unstable();
         let mut out: Vec<_> = effects
             .into_iter()
@@ -256,12 +279,14 @@ impl Resolver<'_> {
                     .filter(|ty| *ty == jaic::types::TypeId::VOID)
                     .and_then(|_| self.stored_address(value(arg)?, &mut HashSet::default()))
                     .or_else(|| self.object(arg))?;
+
                 self.materialize(&Path {
                     root: Root::Local(p),
                     steps,
                 })
             })
             .collect();
+
         globals.sort_by_key(|(id, _, _)| id.0);
         out.extend(
             globals
@@ -286,9 +311,11 @@ impl Resolver<'_> {
         if depth > 24 {
             return false;
         }
+
         if let Some(&answer) = memo.get(&(v, depth)) {
             return answer;
         }
+
         let temporary = self
             .value(v, all)
             .is_some_and(|p| p.root == Root::Temporary)
@@ -323,6 +350,7 @@ impl Resolver<'_> {
                     }
                     super::Def::Load(p, _) | super::Def::Borrow(p) => {
                         let (root, projections) = &self.places.paths[*p];
+
                         self.writes
                             .get(p)
                             .into_iter()
@@ -339,6 +367,7 @@ impl Resolver<'_> {
                     }
                     _ => false,
                 });
+
         memo.insert((v, depth), temporary);
         temporary
     }

@@ -9,19 +9,24 @@ use std::ffi::{OsStr, OsString};
 
 pub(super) fn driver_for_command(program: &str, args: &[OsString]) -> Driver {
     let mut driver = driver_for_program(program);
+
     if driver != Driver::MsvcLink && is_clang(program) {
         let mut args = args.iter();
+
         while let Some(arg) = args.next() {
             if takes_driver_operand(arg) {
                 args.next();
                 continue;
             }
+
             let Some(arg) = arg.to_str() else {
                 continue;
             };
+
             if driver == Driver::ClangCl && arg.eq_ignore_ascii_case("/link") {
                 break;
             }
+
             match arg {
                 "--driver-mode=cl" => driver = Driver::ClangCl,
                 "--driver-mode=gcc" | "--driver-mode=g++" => driver = Driver::C,
@@ -29,6 +34,7 @@ pub(super) fn driver_for_command(program: &str, args: &[OsString]) -> Driver {
             }
         }
     }
+
     driver
 }
 
@@ -36,6 +42,7 @@ pub(super) fn driver_for_program(program: &str) -> Driver {
     let name = program.rsplit(['/', '\\']).next().unwrap_or(program);
     let name = name.to_ascii_lowercase();
     let name = name.strip_suffix(".exe").unwrap_or(&name);
+
     match name {
         "link" | "lld-link" => Driver::MsvcLink,
         "clang-cl" => Driver::ClangCl,
@@ -104,6 +111,7 @@ pub(super) fn translate(
     };
     let mut out = Vec::new();
     let mut args = args.iter();
+
     while let Some(arg) = args.next() {
         let Some(text) = arg.to_str() else {
             out.push(arg.clone());
@@ -117,11 +125,13 @@ pub(super) fn translate(
                     .and_then(|v| v.strip_prefix("stack-size="))
             })
             .flatten();
+
         if let Some(size) = stack {
             args.next();
             let bytes = size.parse::<u64>().map_err(|_| {
                 format!("`-z stack-size={size}` is not a stack size\nhelp: give it in bytes, such as `-z stack-size=8388608`")
             })?;
+
             out.push(if msvc {
                 format!("/STACK:{bytes}").into()
             } else if apple {
@@ -131,8 +141,10 @@ pub(super) fn translate(
             } else {
                 wl(&format!("-z,stack-size={bytes}"))
             });
+
             continue;
         }
+
         match text {
             "--gc-sections" if msvc => out.push("/OPT:REF".into()),
             "--no-gc-sections" if msvc => out.push("/OPT:NOREF".into()),
@@ -147,6 +159,7 @@ pub(super) fn translate(
             },
         }
     }
+
     Ok(out)
 }
 
@@ -174,14 +187,18 @@ pub(super) fn render(
             linker: args.to_vec(),
         });
     }
+
     if driver == Driver::ClangCl && linker != Linker::Msvc {
         return Err("clang-cl linking requires an MSVC target; use a GNU-style compiler driver for MinGW targets".into());
     }
+
     let mut output = ExtraArgs::default();
     let mut explicit_link = false;
     let mut args = args.iter();
+
     while let Some(arg) = args.next() {
         let text = arg.to_str();
+
         if driver == Driver::ClangCl {
             if text.is_some_and(|t| t.eq_ignore_ascii_case("/link")) {
                 explicit_link = true;
@@ -195,12 +212,15 @@ pub(super) fn render(
                 output.linker.extend(os_text::split(&value, b','));
             } else {
                 output.driver.push(arg.clone());
+
                 if takes_driver_operand(arg) {
                     output.driver.push(operand(arg, &mut args)?);
                 }
             }
+
             continue;
         }
+
         // Explicit driver forwarding is already tokenized. In particular, the
         // operand of -Xlinker is not another implicit build-option argument.
         if takes_driver_operand(arg) {
@@ -215,12 +235,14 @@ pub(super) fn render(
             } else {
                 arg.clone()
             };
+
             output.driver.push("-Xlinker".into());
             output.driver.push(value);
         } else {
             output.driver.push(arg.clone());
         }
     }
+
     Ok(output)
 }
 
@@ -232,6 +254,7 @@ fn msvc_option(arg: &str) -> Option<(String, Option<&str>)> {
         .split_once(':')
         .map_or((arg, None), |(k, v)| (k, Some(v)));
     let name = name.to_ascii_uppercase();
+
     matches!(
         name.as_str(),
         "SUBSYSTEM"
@@ -319,6 +342,7 @@ fn mingw_option(original: &str, name: &str, value: Option<&str>) -> Result<Strin
     } else {
         value.to_owned()
     };
+
     Ok(format!("--{option}={value}"))
 }
 
@@ -342,13 +366,16 @@ mod tests {
             bytes(b"out\xfe"),
         ];
         let translated = translate(&input, Linker::Unix, Driver::C, false).unwrap();
+
         assert_eq!(translated[0].as_bytes(), b"/lib/\xff.a");
         assert_eq!(translated[1], "-Wl,--gc-sections");
         let rendered = render(&translated, Linker::Unix, Driver::C).unwrap();
+
         assert_eq!(rendered.driver, translated);
         // clang-cl hands `-Wl,` pieces to the linker, split at the commas, bytes kept.
         let input = vec![bytes(b"-Wl,/LIBPATH:\xff,/DEBUG")];
         let rendered = render(&input, Linker::Msvc, Driver::ClangCl).unwrap();
+
         assert_eq!(rendered.linker[0].as_bytes(), b"/LIBPATH:\xff");
         assert_eq!(rendered.linker[1], "/DEBUG");
         assert_eq!(
@@ -361,6 +388,7 @@ mod tests {
     fn link_settings_are_written_for_the_linker_in_use() {
         let settings = args(&["--gc-sections", "--entry=start", "-z", "stack-size=65536"]);
         let wl = |list: &[&str]| args(list);
+
         assert_eq!(
             translate(&settings, Linker::Unix, Driver::C, false).unwrap(),
             wl(&[
@@ -400,6 +428,7 @@ mod tests {
             true,
         )
         .unwrap_err();
+
         assert!(
             error.starts_with("`-z stack-size=8M` is not a stack size"),
             "{error}"
@@ -415,6 +444,7 @@ mod tests {
             "/SUBSYSTEM:windows",
             "--no-gc-sections",
         ]);
+
         assert_eq!(
             translate(&input, Linker::Unix, Driver::C, false).unwrap(),
             args(&[
@@ -442,6 +472,7 @@ mod tests {
             "first object.obj",
             "second.obj",
         ]);
+
         assert_eq!(
             render(&input, Linker::Msvc, Driver::C).unwrap().driver,
             args(&[
@@ -472,6 +503,7 @@ mod tests {
             "-Xlinker",
             "--trace",
         ]);
+
         assert_eq!(
             render(&input, Linker::MinGw, Driver::C).unwrap().driver,
             args(&[
@@ -505,6 +537,7 @@ mod tests {
             "/DEBUG",
             "/PDB:C:\\symbols with spaces\\app.pdb",
         ]);
+
         assert_eq!(
             render(&input, Linker::Msvc, Driver::ClangCl).unwrap(),
             ExtraArgs {
@@ -526,6 +559,7 @@ mod tests {
             "/ENTRY:mainCRTStartup",
             "object with spaces.obj",
         ]);
+
         assert_eq!(
             render(&input, Linker::Msvc, Driver::MsvcLink)
                 .unwrap()
@@ -541,6 +575,7 @@ mod tests {
     #[test]
     fn unsupported_mingw_dialect_options_are_diagnosed() {
         let error = render(&args(&["/PDB:file.pdb"]), Linker::MinGw, Driver::C).unwrap_err();
+
         assert!(error.contains("/PDB:file.pdb") && error.contains("MinGW"));
     }
 
@@ -553,6 +588,7 @@ mod tests {
         ] {
             assert_eq!(driver_for_program(program), Driver::ClangCl);
         }
+
         assert_eq!(driver_for_program("lld-link.exe"), Driver::MsvcLink);
         assert_eq!(driver_for_program("aarch64-w64-mingw32-clang"), Driver::C);
         assert!(is_clang("C:\\LLVM tools\\clang.exe"));
@@ -574,6 +610,7 @@ mod tests {
             "-Xlinker",
             "/ENTRY:explicit",
         ]);
+
         assert_eq!(
             render(&input, Linker::MinGw, Driver::C).unwrap().driver,
             input

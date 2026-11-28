@@ -31,6 +31,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, ancestors| {
             let Some(e) = n.expr() else {
                 return true;
@@ -43,6 +44,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 ancestors.last().copied().and_then(Node::expr).map(|p| &p.kind),
                 Some(E::Binary(outer, ..)) if outer == op
             );
+
             if !inner {
                 // Swapping the operator keeps the grouping only when no other `&&`/`||` is
                 // wrapped around this one.
@@ -54,8 +56,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         .map(|p| &p.kind),
                     Some(E::Binary(BinOp::And | BinOp::Or, ..))
                 );
+
                 run(cx, e, *op, alone, out);
             }
+
             true
         });
     }
@@ -71,6 +75,7 @@ struct Test<'a> {
 impl Test<'_> {
     fn passes(&self, x: i128) -> bool {
         let c = self.literal;
+
         match self.op {
             BinOp::Eq => x == c,
             BinOp::Ne => x != c,
@@ -85,36 +90,45 @@ impl Test<'_> {
 
 fn run(cx: &Cx, e: &Expr, op: BinOp, alone: bool, out: &mut Vec<Finding>) {
     let mut operands = Vec::new();
+
     flatten(e, op, &mut operands);
     let tests: Vec<Test> = operands.iter().filter_map(|o| test(cx, o)).collect();
     let mut done = vec![false; tests.len()];
+
     for i in 0..tests.len() {
         if done[i] {
             continue;
         }
+
         let group: Vec<&Test> = (i..tests.len())
             .filter(|&j| cx.same_tokens(tests[i].value, tests[j].value))
             .inspect(|&j| done[j] = true)
             .map(|j| &tests[j])
             .collect();
+
         if group.len() < 2 {
             continue;
         }
+
         // Each test changes its answer only next to its literal, so these points see every
         // combination of answers there is.
         let mut points = vec![i128::MIN, i128::MAX];
+
         for t in &group {
             points.extend([t.literal - 1, t.literal, t.literal + 1]);
         }
+
         let and = op == BinOp::And;
         let impossible = if and {
             !points.iter().any(|&x| group.iter().all(|t| t.passes(x)))
         } else {
             points.iter().all(|&x| group.iter().any(|t| t.passes(x)))
         };
+
         if !impossible {
             continue;
         }
+
         let shown = cx.whole_src(e).trim();
         let (always, help) = if and {
             (
@@ -144,11 +158,13 @@ fn run(cx: &Cx, e: &Expr, op: BinOp, alone: bool, out: &mut Vec<Finding>) {
                 } else {
                     points.iter().any(|&x| group.iter().all(|t| t.passes(x)))
                 };
+
                 (sensible && between.trim() == from && !cx.has_comment_between(start, end))
                     .then(|| (start, end, between.replacen(from, to, 1)))
             }
             _ => None,
         };
+
         out.push(match flipped {
             Some((start, end, text)) => suggesting(
                 e.span,
@@ -170,6 +186,7 @@ fn run(cx: &Cx, e: &Expr, op: BinOp, alone: bool, out: &mut Vec<Finding>) {
             ),
             None => finding(e.span, message, Some(help.into())),
         });
+
         return;
     }
 }
@@ -190,22 +207,27 @@ fn test<'a>(cx: &Cx, e: &'a Expr) -> Option<Test<'a>> {
     let E::Binary(op, a, b) = &e.kind else {
         return None;
     };
+
     if !matches!(
         op,
         BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge
     ) {
         return None;
     }
+
     let (value, op, literal) = match (int_literal(a), int_literal(b)) {
         (None, Some(c)) => (&**a, *op, c),
         (Some(c), None) => (&**b, flip(*op), c),
         _ => return None,
     };
+
     // Room for the points around the literal.
     if !pure(value) || literal == i128::MIN || literal == i128::MAX {
         return None;
     }
+
     let ty = cx.ty(value)?;
+
     matches!(cx.compiler.ty.types.kind(ty), TypeKind::Int { .. }).then_some(Test {
         value,
         op,

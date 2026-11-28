@@ -26,38 +26,48 @@ const DEFAULT_RUN_BUDGET: u64 = 10 * jaic::ide::lint_compile::CheckLimits::DEFAU
 
 pub(super) fn run(cli: Cli) -> ExitCode {
     jaic::knobs::set(tuning::knobs(&cli));
+
     if cli.timings {
         timings::enable();
     }
+
     start_progress(&cli);
     let code = timings::time("total", || compile_and_run(cli));
+
     // A failed compile ends without a `Finished` line; a finished one already printed it.
     jaic::progress::abandon();
     timings::report();
+
     // Interpreters flush their `-profile` counts when dropped, which has happened by now.
     if let Some(report) = jaic::interp::profile::report(40) {
         eprint!("{report}");
     }
+
     if let Some(report) = jaic::interp::profile::run_report(RUN_COST_ROWS) {
         eprint!("{report}");
     }
+
     jaic::interp::line_cover::write();
     code
 }
 
 fn compile_and_run(mut cli: Cli) -> ExitCode {
     let stdlib = jaic::default_stdlib_dir();
+
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         print_error(&message);
         return ExitCode::from(1);
     }
+
     jaic::interp::set_library_dirs(native_lib_dirs(&stdlib));
+
     if let Err(error) = check_input(&cli.file) {
         // An input that cannot be read is a failure of the command (1), not a mistake in
         // its arguments (2); see docs/compiler/diagnostics.md.
         print_cli_error(error);
         return ExitCode::from(1);
     }
+
     let (path, main_dir) = match enter_main_directory(&mut cli) {
         Ok(located) => located,
         Err(code) => return code,
@@ -67,10 +77,13 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         Err(code) => return code,
     };
     let fs: Rc<dyn FileSystem> = Rc::new(NativeFs);
+
     if cli.no_check_bindings {
         let library = options.stdlib_root().unwrap_or(&stdlib).to_path_buf();
+
         disable_check_bindings(&mut cli, &options, &library);
     }
+
     // `OS == .WASM` code is written for the interpreter's sandbox host (virtual clock and files,
     // cooperative threads), so compile-time code of a wasm target runs there whatever the
     // command. `jaic -interp -os wasm` runs the program there too, the way the browser does, with
@@ -80,12 +93,14 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         fs.clone(),
         &cwd.to_string_lossy(),
     )));
+
     // A target whose pointers are narrower than the compiler's cannot call the compiler's own C
     // functions either: its pointers are offsets into the interpreter's address window, so its
     // compile-time code runs on the sandbox host too.
     shared_sandbox.borrow_mut().set_cpu(options.cpu);
     let narrow = options.layout.is_foreign_memory();
     let sandbox = (options.os == TargetOs::Wasm || narrow).then(|| shared_sandbox.clone());
+
     if cli.mode == Mode::Interp
         && sandbox.is_some()
         && let Some(listen) = jacket_config::env::TCP_LISTEN.non_empty()
@@ -96,11 +111,13 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
             .map(|address| address.trim().to_string())
             .filter(|address| !address.is_empty())
             .collect();
+
         if let Err(message) = shared_sandbox.borrow_mut().preopen_listeners(&addresses) {
             print_error(&message);
             return ExitCode::from(1);
         }
     }
+
     let workspaces = create_workspaces(&cli, &options, &fs, &shared_sandbox);
     // With `+Plugin` the top-level program is the plugins' metaprogram: it runs on the host, and
     // the target is the program's, which the workspace it creates starts from.
@@ -116,66 +133,84 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
     let mut compiler = LeakOnExit::new(Compiler::new(top_level, fs), |c| {
         c.ct.interp.stop_for_exit();
     });
+
     if let Some(host) = top_level_sandbox {
         compiler
             .ct
             .interp
             .set_host(Box::new(SharedHost(host.clone())));
     }
+
     if cli.deps || cli.deps_file.is_some() {
         Workspaces::record_source_files(&workspaces);
     }
+
     compiler.attach_workspaces(workspaces.clone());
     // `-os wasm` / `-target wasm64-unknown-wasi`: a WASI command, with its runtime added.
     let wasi = cli.mode == Mode::Build
         && jaic::build::wants_wasi_runtime(cli.build_target().ok().flatten());
+
     if cli.verbose {
         announce(&cli, &path);
     }
+
     if !compile_front_end(&mut compiler, &cli, &path, wasi, &shared_sandbox) {
         return ExitCode::from(1);
     }
+
     let finished = timings::time("workspaces", || {
         jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget)
     });
+
     if cli.mode == Mode::Build {
         flush_sandbox(&shared_sandbox);
     }
+
     if let Err(message) = finished {
         print_error(&message);
         return ExitCode::from(1);
     }
+
     if workspaces.borrow().any_failed() {
         return ExitCode::from(1);
     }
+
     if cli.verbose {
         let created = workspaces.borrow().created_workspaces();
+
         if created > 0 {
             eprintln!("jaic: the metaprogram built {created} workspace(s)");
         }
     }
+
     let settings = workspaces.borrow().top_level_settings();
+
     if let Err(diagnostic) = compiler.finalize_runtime_configuration() {
         eprintln!("{}", compiler.render(&diagnostic));
         return ExitCode::from(1);
     }
+
     if let Some(file) = &cli.deps_file
         && let Err(error) = write_deps_file(file, &compiler, &workspaces.borrow())
     {
         print_error(&format!("cannot write `{}`: {error}", file.display()));
         return ExitCode::from(1);
     }
+
     match cli.mode {
         Mode::Check => {
             jaic::progress::finish("check");
+
             if cli.deps {
                 print_deps(&compiler, &workspaces.borrow());
             }
+
             ExitCode::SUCCESS
         }
         Mode::Interp => {
             jaic::progress::finish("interp");
             jaic::progress::announce("Running", &shown(&path));
+
             if cli.plugins.is_empty() {
                 interpret(&mut compiler, &cli, &path, &main_dir, sandbox.as_ref())
             } else if let Some(program) = Workspaces::take_program_to_run(&workspaces) {
@@ -193,9 +228,11 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
                     .unwrap_or(settings.optimization),
                 BitcodeOptimization::Unset | BitcodeOptimization::O0
             );
+
             jaic::progress::set_optimized(optimized);
             let created = workspaces.borrow().created_workspaces();
             let code = write_program(&mut compiler, &cli, &path, settings, created);
+
             if code == ExitCode::SUCCESS {
                 jaic::progress::finish(if optimized {
                     "optimized"
@@ -203,6 +240,7 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
                     "debug [unoptimized]"
                 });
             }
+
             code
         }
     }
@@ -214,9 +252,11 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
 fn start_progress(cli: &Cli) {
     jaic::progress::set_verbose(cli.verbose);
     let mode = jaic::progress::mode(cli.quiet, cli.no_color || cli.msvc_format);
+
     if mode == jaic::progress::Mode::Off {
         return;
     }
+
     let path = Path::new(&cli.file);
     let name = jacket_config::env::PROJECT
         .get()
@@ -239,6 +279,7 @@ fn start_progress(cli: &Cli) {
     } else {
         cli.file.clone()
     };
+
     jaic::progress::start(mode, verb, &name, &shown);
 }
 
@@ -249,6 +290,7 @@ fn start_progress(cli: &Cli) {
 fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
     let path = jaic::canonicalize(&cli.file).unwrap_or_else(|_| PathBuf::from(&cli.file));
     let absolute = |p: &PathBuf| std::path::absolute(p).unwrap_or_else(|_| p.clone());
+
     cli.imports = cli.imports.iter().map(absolute).collect();
     cli.package_imports = cli
         .package_imports
@@ -258,6 +300,7 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
     cli.output_path = cli.output_path.as_ref().map(absolute);
     cli.sysroot = cli.sysroot.as_ref().map(absolute);
     cli.compiler_rt = cli.compiler_rt.as_ref().map(absolute);
+
     // `-exe` with a directory is taken from where jaic was started, like the paths above, and
     // splits into the output path and the executable's name; a bare name goes into the
     // directory jaic was started in (or into `-output_path`).
@@ -265,25 +308,31 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
         && cli.output_path.is_none()
     {
         let full = absolute(&PathBuf::from(&exe));
+
         if let (Some(dir), Some(name)) = (full.parent(), full.file_name()) {
             cli.output_path = Some(dir.to_path_buf());
             cli.exe = Some(name.to_string_lossy().into_owned());
         }
     }
+
     cli.emit_ir = cli.emit_ir.as_ref().map(absolute);
     let main_dir = path.parent().map(PathBuf::from).unwrap_or_default();
     let started_in = std::env::current_dir().unwrap_or_default();
+
     jaic::set_display_base(started_in);
+
     if !main_dir.as_os_str().is_empty() && std::env::set_current_dir(&main_dir).is_err() {
         eprintln!("error: cannot change directory to {}", main_dir.display());
         return Err(ExitCode::from(1));
     }
+
     Ok((path, main_dir))
 }
 
 /// The compiler options the command line asks for: checks, target and where imports are found.
 pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<Options, ExitCode> {
     let mut options = host_options(cli, stdlib, main);
+
     match cli.build_target() {
         Ok(Some(target)) => target.apply(&mut options),
         // `-os`/`-cpu` for checking only.
@@ -293,18 +342,22 @@ pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<
             return Err(ExitCode::from(2));
         }
     }
+
     Ok(options)
 }
 
 /// [`compiler_options`] for the machine jaic runs on, whatever the target.
 fn host_options(cli: &Cli, stdlib: &Path, main: &Path) -> Options {
     let mut inputs = jaic::project::ProgramInputs::for_file(&NativeFs, main, stdlib);
+
     inputs.extra.clone_from(&cli.imports);
     inputs.packages = jaic::sema::PackageImports::grouped(&cli.package_imports);
     let mut options = Options::for_program(&NativeFs, main, &inputs);
+
     if cli.no_dce {
         options.dead_code = DeadCode::None;
     }
+
     // A `#run` that never ends must not hang a build: 0 asks for no limit.
     options.eval_step_limit = match cli.tuning.run_budget {
         Some(0) => None,
@@ -314,12 +367,15 @@ fn host_options(cli: &Cli, stdlib: &Path, main: &Path) -> Options {
     options.eval_step_flag = Some("-run_budget");
     // Only native output has a use for variable and type descriptions.
     options.debug_info = cli.mode == Mode::Build && !cli.no_debug_info;
+
     if cli.backtrace_on_crash && options.os != TargetOs::Wasm {
         options.backtrace_on_crash = true;
     }
+
     if cli.no_backtrace_on_crash {
         options.backtrace_on_crash = false;
     }
+
     if cli.flavor == Some(Flavor::Optimized) {
         // What `set_optimization(*o, .OPTIMIZED)` does besides the LLVM levels, and no stack trace.
         options.stack_trace = false;
@@ -328,6 +384,7 @@ fn host_options(cli: &Cli, stdlib: &Path, main: &Path) -> Options {
         options.arithmetic_overflow_check = 0;
         options.cast_bounds_check = 0;
     }
+
     options
 }
 
@@ -375,15 +432,19 @@ fn create_workspaces(
         observer: None,
     });
     let requested = requested_settings(cli, options);
+
     if !cli.plugins.is_empty() {
         Workspaces::start_first_created_from(&workspaces, requested.clone());
     }
+
     Workspaces::start_from(&workspaces, requested);
+
     if cli.mode == Mode::Interp && !cli.plugins.is_empty() {
         // The program the plugins compile is interpreted, not written: it is the first
         // workspace the plugin metaprogram creates.
         Workspaces::run_instead_of_writing(&workspaces, Workspaces::FIRST_CREATED_WORKSPACE);
     }
+
     workspaces
 }
 
@@ -393,9 +454,11 @@ fn create_workspaces(
 /// debug information, crash handler and dead code switches.
 fn requested_settings(cli: &Cli, options: &Options) -> BuildSettings {
     let mut settings = BuildSettings::default();
+
     if let Some(level) = cli.opt_level.or(cli.flavor.map(Flavor::level)) {
         settings.optimization = level;
     }
+
     if cli.flavor == Some(Flavor::Optimized) {
         settings.array_bounds_check = Some(false);
         settings.null_pointer_check = Some(false);
@@ -403,18 +466,23 @@ fn requested_settings(cli: &Cli, options: &Options) -> BuildSettings {
         settings.cast_bounds_check = Some(0);
         settings.stack_trace = Some(false);
     }
+
     if cli.no_debug_info {
         settings.emit_debug_info = Some(false);
     }
+
     if cli.backtrace_on_crash {
         settings.backtrace_on_crash = Some(true);
     }
+
     if cli.no_backtrace_on_crash {
         settings.backtrace_on_crash = Some(false);
     }
+
     if options.dead_code == DeadCode::None {
         settings.dead_code_elimination = Some(DeadCode::None);
     }
+
     settings
 }
 
@@ -422,6 +490,7 @@ fn requested_settings(cli: &Cli, options: &Options) -> BuildSettings {
 /// path, to the standard library's `Check` module (not on any module that merely has the name).
 pub(super) fn disable_check_bindings(cli: &mut Cli, options: &jaic::sema::Options, stdlib: &Path) {
     let check = jaic::canonicalize(jaic::paths::module_entry(&stdlib.join("Check"))).ok();
+
     for plugin in &mut cli.plugins {
         let entry = jaic::sema::find_module_in(
             &NativeFs,
@@ -431,6 +500,7 @@ pub(super) fn disable_check_bindings(cli: &mut Cli, options: &jaic::sema::Option
             Path::new(""),
         )
         .and_then(|entry| jaic::canonicalize(&entry).ok());
+
         if entry.is_some() && entry == check {
             plugin.default_parameter("CHECK_BINDINGS", "false");
         }
@@ -451,6 +521,7 @@ fn read_files(compiler: &Compiler, workspaces: &Workspaces) -> Vec<String> {
             path.display().to_string()
         })
         .collect();
+
     files.sort();
     files.dedup();
     files
@@ -460,10 +531,12 @@ fn read_files(compiler: &Compiler, workspaces: &Workspaces) -> Vec<String> {
 /// have printed text that does not end in one).
 fn print_deps(compiler: &Compiler, workspaces: &Workspaces) {
     let mut out = String::from("\n");
+
     for file in read_files(compiler, workspaces) {
         out.push_str(&file);
         out.push('\n');
     }
+
     print!("{out}");
 }
 
@@ -475,13 +548,17 @@ fn write_deps_file(
     workspaces: &Workspaces,
 ) -> std::io::Result<()> {
     let mut out = String::new();
+
     for file in read_files(compiler, workspaces) {
         out.push_str(&file);
         out.push('\n');
     }
+
     let mut temporary = path.as_os_str().to_owned();
+
     temporary.push(format!(".{}.tmp", std::process::id()));
     let temporary = PathBuf::from(temporary);
+
     std::fs::write(&temporary, out)?;
     std::fs::rename(&temporary, path).inspect_err(|_| {
         let _ = std::fs::remove_file(&temporary);
@@ -495,9 +572,12 @@ fn announce(cli: &Cli, path: &Path) {
         Mode::Check => "checking",
         Mode::Interp => "interpreting",
     };
+
     eprintln!("jaic: {what} {}", shown(path));
+
     if !cli.plugins.is_empty() {
         let names: Vec<&str> = cli.plugins.iter().map(|p| p.module.as_str()).collect();
+
         eprintln!("jaic: plugins: {}", names.join(", "));
     }
 }
@@ -513,23 +593,29 @@ fn compile_front_end(
 ) -> bool {
     let compiled = if cli.plugins.is_empty() {
         let mut sources = vec![ProgramSource::File(path.to_path_buf())];
+
         sources.extend(cli.added.iter().map(|a| ProgramSource::String(a.source())));
+
         if wasi {
             sources.push(ProgramSource::String(
                 jaic::build::WASI_RUNTIME_IMPORT.into(),
             ));
         }
+
         timings::time("front end", || compiler.compile_sources(&sources))
     } else {
         let source = cli.plugin_metaprogram(path, wasi);
+
         timings::time("front end", || {
             compiler.compile_sources(&[ProgramSource::String(source)])
         })
     };
+
     if cli.mode == Mode::Build {
         // What compile-time code of a wasm target printed (it runs in the sandbox).
         flush_sandbox(shared_sandbox);
     }
+
     // The warnings as `-A`, `-W` and `-D` leave them.
     let warnings: Vec<_> = compiler
         .diag
@@ -540,6 +626,7 @@ fn compile_front_end(
     let denied = warnings
         .iter()
         .any(|w| w.severity == jaic::diagnostics::Severity::Error);
+
     if !cli.quiet || denied {
         for warning in &warnings {
             if !cli.quiet || warning.severity == jaic::diagnostics::Severity::Error {
@@ -547,13 +634,17 @@ fn compile_front_end(
             }
         }
     }
+
     let failure = compiled.as_ref().err().map(|d| d.code);
     let shown = warnings.iter().map(|w| w.code).filter(|_| !cli.quiet);
+
     if let Err(d) = compiled {
         eprintln!("{}", compiler.render(&d));
         explain_hint(failure.into_iter().chain(shown));
+
         return false;
     }
+
     explain_hint(shown);
     !denied
 }
@@ -563,9 +654,11 @@ fn compile_front_end(
 /// the diagnostics themselves.
 fn explain_hint(codes: impl IntoIterator<Item = jaic::diagnostics::Code>) {
     use std::io::IsTerminal;
+
     if !std::io::stderr().is_terminal() {
         return;
     }
+
     if let Some(code) = codes.into_iter().find(|c| c.explanation().is_some()) {
         eprintln!("help: run `jacket explain {code}` for more about `{code}`");
     }
@@ -588,18 +681,22 @@ fn interpret(
         } else {
             stem.into_owned()
         };
+
         compiler.ct.interp.run_executable = Some(main_dir.join(name).display().to_string());
     }
+
     // `-run_budget` bounds compile-time runs. Left in place, the program would get what the last
     // of them left over, so how long it may run would depend on the compile-time code before it.
     compiler.ct.interp.end_compile_time_budget();
     let outcome = timings::time("run", || compiler.run_program_with_args(&cli.program_args));
+
     if let Some(host) = sandbox {
         use std::io::Write;
         let host = host.borrow();
         let _ = std::io::stdout().write_all(&host.stdout);
         let _ = std::io::stderr().write_all(&host.stderr);
     }
+
     match outcome {
         Ok(code) => ExitCode::from(code as u8),
         Err(d) => {
@@ -621,6 +718,7 @@ fn missing_main(
     if settings.output_type != OutputType::Executable || !compiler.misses_main() {
         return None;
     }
+
     let file = shown(path);
     let help = if created > 0 {
         format!(
@@ -632,6 +730,7 @@ fn missing_main(
             "add `main :: () {{ ... }}` as the program's starting point, or use `jaic {file} -check` to only check the code"
         )
     };
+
     print_error(&format!(
         "`{file}` has no `main` procedure, so there is no program to write\nhelp: {help}"
     ));
@@ -651,9 +750,11 @@ fn write_program(
     if !settings.do_output || settings.output_type == OutputType::NoOutput {
         return ExitCode::SUCCESS;
     }
+
     if let Some(code) = missing_main(compiler, path, &settings, created) {
         return code;
     }
+
     match build(compiler, cli, path, settings) {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {

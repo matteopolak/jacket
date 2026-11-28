@@ -30,9 +30,11 @@ pub fn bundle(dir: &Path) -> Result<Vec<(String, Vec<u8>)>, String> {
         })
     };
     let mut files = Vec::new();
+
     for name in REQUIRED {
         files.push((name.to_owned(), read(name)?));
     }
+
     let index = std::str::from_utf8(&files[3].1)
         .ok()
         .and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
@@ -50,22 +52,28 @@ pub fn bundle(dir: &Path) -> Result<Vec<(String, Vec<u8>)>, String> {
             .filter_map(|v| v.as_str().map(str::to_owned))
             .collect()
     };
+
     for entry in index["examples"].as_array().into_iter().flatten() {
         let name = entry["name"].as_str().unwrap_or_default();
+
         for file in listed(entry, "files")
             .into_iter()
             .chain(listed(entry, "assets"))
         {
             let path = format!("{name}/{file}");
+
             if !safe(&path) {
                 return Err(format!(
                     "--runtime: examples.json lists an unsafe path `{path}`"
                 ));
             }
+
             let bytes = read(&path)?;
+
             files.push((path, bytes));
         }
     }
+
     Ok(files)
 }
 
@@ -94,6 +102,7 @@ pub fn runtime_json() -> String {
 pub fn page(site: &Site, nav: &[NavCategory]) -> PageView {
     let href = site.page_href(PATH);
     let mut nav = nav.to_vec();
+
     for link in nav
         .iter_mut()
         .flat_map(|c| c.groups.iter_mut())
@@ -101,6 +110,7 @@ pub fn page(site: &Site, nav: &[NavCategory]) -> PageView {
     {
         link.current = link.href == href;
     }
+
     PageView {
         head: PageHead::default(),
         not_found: false,
@@ -128,14 +138,18 @@ mod tests {
 
     fn staged(extra: &[(&str, &str)]) -> TempDir {
         let dir = TempDir::new("doc-playground");
+
         for name in REQUIRED {
             fs::write(dir.path().join(name), "{\"examples\":[]}").unwrap();
         }
+
         for (name, text) in extra {
             let path = dir.path().join(name);
+
             fs::create_dir_all(path.parent().unwrap()).unwrap();
             fs::write(path, text).unwrap();
         }
+
         dir
     }
 
@@ -154,6 +168,7 @@ mod tests {
             .into_iter()
             .map(|f| f.0)
             .collect();
+
         assert_eq!(
             names,
             [
@@ -170,8 +185,10 @@ mod tests {
     #[test]
     fn a_missing_file_says_how_to_build_the_bundle() {
         let dir = staged(&[]);
+
         fs::remove_file(dir.path().join("engine.mjs")).unwrap();
         let error = bundle(dir.path()).unwrap_err();
+
         assert!(error.contains("engine.mjs"), "{error}");
         assert!(error.contains("build_scripting_wasm.py"), "{error}");
     }
@@ -182,6 +199,7 @@ mod tests {
             "examples.json",
             r#"{"examples":[{"name":"x","files":["../secret"],"assets":[]}]}"#,
         )]);
+
         assert!(bundle(dir.path()).unwrap_err().contains("unsafe"));
     }
 }

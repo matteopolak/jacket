@@ -13,15 +13,19 @@ use crate::reflection_bootstrap as bootstrap;
 
 fn compiler(source: &str) -> Compiler {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
     fs.insert("/app/main.jai", source.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/lib/prelude/module.jai".into());
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     compiler
 }
 
@@ -33,6 +37,7 @@ fn type_default_image_has_the_same_relocation_as_explicit_void() {
         .unwrap()
         .expect("Type requires a descriptor, not zero bytes");
     let mut explicit = Aggregate::zeroed(8, Span::NONE).unwrap();
+
     compiler
         .write_value(
             &mut explicit,
@@ -46,6 +51,7 @@ fn type_default_image_has_the_same_relocation_as_explicit_void() {
     assert_eq!(image.relocs, explicit.relocs);
     assert_eq!(image.relocs.len(), 1);
     let pointer = compiler.ty.types.pointer(TypeId::VOID);
+
     assert!(
         compiler
             .default_initializer(pointer, Span::NONE)
@@ -56,6 +62,7 @@ fn type_default_image_has_the_same_relocation_as_explicit_void() {
 
 fn evaluates_true(body: &str) {
     let source = format!("#program_export \"probe\" probe :: () -> bool #c_call {{ {body} }}");
+
     evaluates_program(&source);
 }
 
@@ -71,6 +78,7 @@ fn evaluates_program(source: &str) {
                 .is_some_and(|f| f.linkage == jaic::ir::Linkage::Export("probe".into()))
         })
         .unwrap();
+
     assert_eq!(
         compiler
             .ct

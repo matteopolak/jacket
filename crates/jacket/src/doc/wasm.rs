@@ -12,6 +12,7 @@ fn without_target(flags: &[std::ffi::OsString]) -> Result<Vec<std::ffi::OsString
         .map(|flag| flag.to_string_lossy().into_owned())
         .collect();
     let found = jaic_cli_args::arguments::target_flags(&text)?;
+
     Ok(found.host.into_iter().map(Into::into).collect())
 }
 
@@ -24,6 +25,7 @@ fn wasm_check_command(
     file: &Path,
 ) -> Result<Command, String> {
     let mut command = Command::new(jaic);
+
     command
         .env(jacket_config::env::STDLIB.name, stdlib)
         .args(["-check", "-no_dce", "-os", "wasm"])
@@ -50,12 +52,15 @@ pub(super) fn builds_for_wasm(
         .filter(|i| i.platforms.is_empty() || i.platforms.iter().any(|p| p == "WASM"))
         .count();
     let somewhere = there > 0 && there * 2 >= module.items.len();
+
     if asserted_elsewhere || !somewhere {
         return Ok(false);
     }
+
     let dir = std::env::temp_dir().join(format!("jacket-doc-wasm-{}", std::process::id()));
     let file = dir.join(format!("{n}.jai"));
     let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.import_name());
+
     std::fs::create_dir_all(&dir)
         .and_then(|()| std::fs::write(&file, program))
         .map_err(|error| {
@@ -69,6 +74,7 @@ pub(super) fn builds_for_wasm(
     let mut command = wasm_check_command(jaic, stdlib, imports, &file)?;
     let checked = command.output();
     let _ = std::fs::remove_file(&file);
+
     // A check that fails is the answer (not for wasm); one that cannot run is an error.
     match checked {
         Ok(output) => Ok(output.status.success()),
@@ -99,6 +105,7 @@ mod tests {
         .into_iter()
         .map(Into::into)
         .collect();
+
         assert_eq!(
             without_target(&flags).unwrap(),
             ["-import_dir", "/lib", "-no_color"]
@@ -112,6 +119,7 @@ mod tests {
         )
         .unwrap();
         let args: Vec<_> = command.get_args().collect();
+
         assert_eq!(
             args,
             [
@@ -127,6 +135,7 @@ mod tests {
         );
         // A flag the compiler would refuse is reported, not passed on.
         let bad: Vec<std::ffi::OsString> = vec!["-os".into()];
+
         assert!(without_target(&bad).is_err());
         assert!(
             wasm_check_command(Path::new("jaic"), Path::new("/s"), &bad, Path::new("m.jai"))
@@ -143,6 +152,7 @@ mod tests {
         };
         let error = builds_for_wasm(Path::new("/nowhere/jaic"), Path::new("/s"), &[], &module, 0)
             .unwrap_err();
+
         assert!(
             error.starts_with("could not start `/nowhere/jaic` to check Sample for wasm"),
             "{error}"
@@ -152,6 +162,7 @@ mod tests {
             platforms: vec!["LINUX".into()],
             ..module
         };
+
         assert!(
             !builds_for_wasm(
                 Path::new("/nowhere/jaic"),

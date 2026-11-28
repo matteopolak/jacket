@@ -14,6 +14,7 @@ pub fn run(args: &MigrateArgs, cwd: &Path) -> ExitCode {
         list();
         return ExitCode::SUCCESS;
     }
+
     match migrate(args, cwd) {
         Ok(code) => code,
         Err(message) => {
@@ -25,12 +26,14 @@ pub fn run(args: &MigrateArgs, cwd: &Path) -> ExitCode {
 
 fn list() {
     let width = MIGRATIONS.iter().map(|m| m.name.len()).max().unwrap_or(0);
+
     for m in MIGRATIONS {
         let note = if m.ambiguous {
             " (only with --only)"
         } else {
             ""
         };
+
         println!("{:width$}  {}{note}", m.name, m.summary);
     }
 }
@@ -42,10 +45,12 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
     } else {
         args.paths.clone()
     };
+
     for path in &paths {
         std::fs::metadata(path)
             .map_err(|e| format!("cannot read `{}`: {}", path.display(), jaic::io_reason(&e)))?;
     }
+
     let first = jaic::canonicalize(&paths[0]).map_err(|e| {
         format!(
             "cannot resolve `{}`: {}",
@@ -64,14 +69,18 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
         root: cwd.to_path_buf(),
         ..jailint::Config::default()
     });
+
     // `--apply` needs git to undo its edits: say so before the slower checks and the plan.
     if args.apply {
         git_toplevel(&start)?;
     }
+
     let stdlib = jaic::default_stdlib_dir();
+
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         return Err(message);
     }
+
     let options = jailint::driver::Options {
         compiler_options: jaic::sema::Options::host(),
         source: None,
@@ -89,17 +98,21 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
         only: (!args.only.is_empty()).then(|| args.only.clone()),
     };
     let plan = migrate::plan(options, &selection)?;
+
     show(&plan, cwd)?;
     let status = if plan.rejected.is_empty() {
         ExitCode::SUCCESS
     } else {
         ExitCode::from(1)
     };
+
     if plan.files.is_empty() {
         println!("nothing to migrate");
         return Ok(status);
     }
+
     let rewrites: usize = plan.files.iter().map(|f| f.applied.len()).sum();
+
     if !args.apply {
         println!(
             "{rewrites} rewrite(s) in {} file(s); nothing written (run with --apply to write them)",
@@ -107,11 +120,15 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
         );
         return Ok(status);
     }
+
     let targets: Vec<&Path> = plan.files.iter().map(|f| f.path.as_path()).collect();
+
     guard(&targets, args)?;
+
     for file in &plan.files {
         write(&file.path, &file.before, &file.after)?;
     }
+
     println!(
         "migrated {} file(s) ({rewrites} rewrite(s))",
         plan.files.len()
@@ -124,17 +141,21 @@ fn show(plan: &Plan, cwd: &Path) -> Result<(), String> {
     for file in &plan.files {
         let shown = crate::shown::path(&file.path, cwd);
         let diff = similar::TextDiff::from_lines(&*file.before, &file.after);
+
         print!(
             "{}",
             diff.unified_diff()
                 .context_radius(3)
                 .header(&format!("a/{shown}"), &format!("b/{shown}"))
         );
+
         for applied in &file.applied {
             let (line, column) = line_column(&file.before, applied.start);
+
             println!("  {shown}:{line}:{column}: {}", applied.migration);
         }
     }
+
     for m in &plan.manual {
         eprintln!(
             "note: {}: {}: {}",
@@ -143,17 +164,20 @@ fn show(plan: &Plan, cwd: &Path) -> Result<(), String> {
             m.message
         );
     }
+
     for path in &plan.skipped {
         eprintln!(
             "note: `{}` is not UTF-8 text; it was left as it is",
             crate::shown::path(path, cwd)
         );
     }
+
     for r in &plan.rejected {
         eprintln!(
             "error: `{}` was not applied: its rewrites would make code that compiled fail",
             r.migration
         );
+
         for e in &r.errors {
             eprintln!(
                 "  {}:{}:{}: error[{}]: {}",
@@ -165,17 +189,20 @@ fn show(plan: &Plan, cwd: &Path) -> Result<(), String> {
             );
         }
     }
+
     if !plan.rejected.is_empty() {
         eprintln!(
             "help: the other migrations are unaffected; please report the code the rejected one came from"
         );
     }
+
     if !plan.remaining.is_empty() {
         eprintln!(
             "note: {} error(s) no migration covers remain; `jacket check` shows them",
             plan.remaining.len()
         );
     }
+
     Ok(())
 }
 
@@ -188,6 +215,7 @@ fn location(path: &Path, offset: usize, plan: &Plan, cwd: &Path) -> Result<Strin
             .map_err(|e| format!("cannot read `{}`: {}", path.display(), jaic::io_reason(&e)))?,
     };
     let (line, column) = line_column(&text, offset);
+
     Ok(format!("{}:{line}:{column}", crate::shown::path(path, cwd)))
 }
 
@@ -195,6 +223,7 @@ fn line_column(text: &str, offset: usize) -> (usize, usize) {
     let before = text.get(..offset).unwrap_or(text);
     let line = before.matches('\n').count() + 1;
     let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
+
     (line, column)
 }
 
@@ -207,19 +236,25 @@ fn guard(targets: &[&Path], args: &MigrateArgs) -> Result<(), String> {
         if args.allow_no_vcs {
             return Ok(());
         }
+
         return Err(format!(
             "`{}` is not in a git repository, so these edits could not be undone\nhelp: commit the code to git first, or pass --allow-no-vcs",
             dir.display()
         ));
     };
+
     if args.allow_dirty {
         return Ok(());
     }
+
     let dirty = dirty_files(&top, targets)?;
+
     if dirty.is_empty() {
         return Ok(());
     }
+
     let list: Vec<String> = dirty.iter().map(|p| format!("  {}", p.display())).collect();
+
     Err(format!(
         "these files have changes git has not committed, which the migration would mix with its own:\n{}\nhelp: commit or stash them first, or pass --allow-dirty",
         list.join("\n")
@@ -229,6 +264,7 @@ fn guard(targets: &[&Path], args: &MigrateArgs) -> Result<(), String> {
 /// The top of the git work tree holding `dir`, or `None` when it is in none.
 fn git_toplevel(dir: &Path) -> Result<Option<PathBuf>, String> {
     use crate::git::{Failure, Repo};
+
     match Repo::at(dir).top() {
         Ok(top) => Ok(Some(jaic::canonicalize(&top).unwrap_or(top))),
         Err(Failure::Failed {
@@ -264,12 +300,14 @@ fn dirty_files(top: &Path, targets: &[&Path]) -> Result<Vec<PathBuf>, String> {
 fn write(path: &Path, before: &str, after: &str) -> Result<(), String> {
     let now = std::fs::read_to_string(path)
         .map_err(|e| format!("cannot read `{}`: {}", path.display(), jaic::io_reason(&e)))?;
+
     if now != before {
         return Err(format!(
             "`{}` changed while migrating; nothing more was written\nhelp: run `jacket migrate` again",
             path.display()
         ));
     }
+
     let name = path
         .file_name()
         .ok_or_else(|| format!("cannot write `{}`: it names no file", path.display()))?
@@ -281,6 +319,7 @@ fn write(path: &Path, before: &str, after: &str) -> Result<(), String> {
         format!("cannot write `{}`: {}", path.display(), jaic::io_reason(&e))
     };
     let permissions = std::fs::metadata(path).map_err(failed)?.permissions();
+
     std::fs::write(&temp, after).map_err(failed)?;
     std::fs::set_permissions(&temp, permissions).map_err(failed)?;
     std::fs::rename(&temp, path).map_err(failed)
@@ -295,13 +334,16 @@ mod tests {
         let plan = Plan::default();
         let missing = Path::new("/nowhere/jacket-migrate/a.jai");
         let error = location(missing, 0, &plan, Path::new("/")).unwrap_err();
+
         assert!(
             error.starts_with("cannot read `/nowhere/jacket-migrate/a.jai`: "),
             "{error}"
         );
         let dir = std::env::temp_dir().join(format!("jacket-migrate-{}", std::process::id()));
+
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("a.jai");
+
         std::fs::write(&file, "a\nbc").unwrap();
         assert_eq!(
             location(&file, 3, &plan, &dir).unwrap(),

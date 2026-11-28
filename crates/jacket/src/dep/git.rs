@@ -90,6 +90,7 @@ pub struct RealGit;
 impl Git for RealGit {
     fn preflight(&self, dir: &Path) -> Result<()> {
         Repo::anywhere().version()?;
+
         match Repo::at(dir).top() {
             Ok(_) => Ok(()),
             Err(Failure::Failed {
@@ -108,9 +109,11 @@ impl Git for RealGit {
                     dir.display(),
                     lines.last().copied().unwrap_or("no output")
                 ));
+
                 for line in lines.iter().rev().skip(1).rev() {
                     error = error.note((*line).to_string());
                 }
+
                 Err(error)
             }
             Err(other) => Err(git::failed(&other, &["rev-parse"]).into()),
@@ -137,6 +140,7 @@ impl Git for RealGit {
         } else {
             String::new()
         };
+
         Ok(parse_gitlinks(&staged, &config, &prefix))
     }
 
@@ -145,6 +149,7 @@ impl Git for RealGit {
         let folder = path.under(dir);
         let clone = repo.git_path(&format!("modules/{path}"))?;
         let (had_folder, had_clone) = (folder.exists(), clone.exists());
+
         if let Err(error) = repo.submodule_add(url, path) {
             // A clone that stopped half way is not left to block the next try.
             let mut error = DepError::from(error);
@@ -158,6 +163,7 @@ impl Git for RealGit {
                     false
                 }
             };
+
             if registered {
                 if let Err(failed) = self.remove(dir, path) {
                     error = error.note(format!("could not undo the add: {}", failed.message));
@@ -172,13 +178,16 @@ impl Git for RealGit {
                     }
                 }
             }
+
             return Err(error);
         }
+
         let finish = || -> Result<()> {
             self.move_to(dir, path, commit)?;
             repo.submodule_update(std::slice::from_ref(path), Reach::Named)?;
             Ok(())
         };
+
         finish().map_err(|error| match self.remove(dir, path) {
             Ok(()) => error,
             Err(failed) => error
@@ -193,12 +202,15 @@ impl Git for RealGit {
         let folder = path.under(dir);
         let sub = Repo::at(&folder);
         let rev = Revision::from(commit);
+
         if self.local_commit(dir, path, &rev)?.is_none() {
             self.fetch(dir, path)?;
         }
+
         if self.local_commit(dir, path, &rev)?.is_none() {
             sub.fetch_commit(commit)?;
         }
+
         sub.checkout_detached(commit)?;
         Ok(Repo::at(dir).stage(path)?)
     }
@@ -211,46 +223,60 @@ impl Git for RealGit {
         if !self.initialised(dir, path)? {
             return Ok(());
         }
+
         let sub = path.under(dir);
         let repo = Repo::at(&sub);
         let all: Vec<SubPath> = self.submodules(&sub)?.into_iter().map(|s| s.path).collect();
+
         // A copy the project now shares is not kept.
         for inner in all.iter().filter(|p| skip.contains(p)) {
             if self.initialised(&sub, inner)? {
                 repo.deinit(inner)?;
             }
         }
+
         let wanted: Vec<SubPath> = all.into_iter().filter(|p| !skip.contains(p)).collect();
+
         if wanted.is_empty() {
             return Ok(());
         }
+
         Ok(repo.submodule_update(&wanted, Reach::Nested)?)
     }
 
     fn remove(&self, dir: &Path, path: &SubPath) -> Result<()> {
         let repo = Repo::at(dir);
         let was_initialised = self.initialised(dir, path)?;
+
         repo.deinit(path)?;
+
         if let Err(error) = repo.rm(path, Removal::Submodule) {
             let mut error = DepError::from(error);
+
             // Leave the checkout as it was found.
             if was_initialised
                 && let Err(failed) = repo.submodule_update(std::slice::from_ref(path), Reach::Named)
             {
                 error = error.note(format!("could not restore {path}: {failed}"));
             }
+
             return Err(error);
         }
+
         // `git rm` leaves the clone in the superproject's `modules` folder.
         let top = repo.toplevel()?;
         // The last submodule leaves an empty `.gitmodules`; it goes too, as it came with the first.
         let file = top.join(".gitmodules");
+
         if std::fs::metadata(&file).is_ok_and(|m| m.len() == 0) {
             let name = SubPath::parse(".gitmodules").map_err(DepError::new)?;
+
             Repo::at(&top).rm(&name, Removal::File)?;
         }
+
         let modules = Repo::at(&top).git_path("modules")?;
         let clone = Repo::at(&top).git_path(&format!("modules/{path}"))?;
+
         if clone.starts_with(&modules) && clone != modules {
             match std::fs::remove_dir_all(&clone) {
                 Ok(()) => {}
@@ -263,6 +289,7 @@ impl Git for RealGit {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -270,11 +297,13 @@ impl Git for RealGit {
         if !self.initialised(dir, path)? {
             return Ok(None);
         }
+
         Ok(Repo::at(&path.under(dir)).commit_of(rev))
     }
 
     fn tags_at(&self, dir: &Path, path: &SubPath, commit: &CommitId) -> Result<Vec<RefName>> {
         let text = Repo::at(&path.under(dir)).tags_at(commit)?;
+
         text.lines()
             .map(|line| RefName::parse(line).map_err(DepError::new))
             .collect()
@@ -301,11 +330,13 @@ impl Git for RealGit {
 
     fn remove_tree(&self, dir: &Path, path: &SubPath) -> Result<()> {
         let repo = Repo::at(dir);
+
         if repo.changed(path)? {
             return Err(DepError::new(format!(
                 "{path} has uncommitted changes; commit or discard them first"
             )));
         }
+
         Ok(repo.rm(path, Removal::Tree)?)
     }
 }
@@ -317,6 +348,7 @@ impl Git for RealGit {
 /// is an error.
 pub fn parse_ls_remote(text: &str) -> std::result::Result<Vec<RemoteTag>, String> {
     let mut tags: Vec<RemoteTag> = Vec::new();
+
     for line in text.lines() {
         let Some((commit, name)) = line.split_once(char::is_whitespace) else {
             continue;
@@ -330,6 +362,7 @@ pub fn parse_ls_remote(text: &str) -> std::result::Result<Vec<RemoteTag>, String
         };
         let name = RefName::parse(name)?;
         let commit = CommitId::parse(commit)?;
+
         match tags.iter_mut().find(|t| t.name == name) {
             Some(existing) if peeled => existing.commit = commit,
             Some(_) => {}
@@ -339,6 +372,7 @@ pub fn parse_ls_remote(text: &str) -> std::result::Result<Vec<RemoteTag>, String
             }),
         }
     }
+
     Ok(tags)
 }
 
@@ -353,28 +387,34 @@ pub fn parse_head(text: &str) -> Option<CommitId> {
 pub fn parse_gitlinks(staged: &str, config: &str, prefix: &str) -> Vec<Submodule> {
     let mut urls = BTreeMap::new();
     let mut paths = BTreeMap::new();
+
     for (key, value) in config_entries(config) {
         let Some(rest) = key.strip_prefix("submodule.") else {
             continue;
         };
+
         if let Some(name) = rest.strip_suffix(".path") {
             paths.insert(name.to_string(), value.to_string());
         } else if let Some(name) = rest.strip_suffix(".url") {
             urls.insert(name.to_string(), value.to_string());
         }
     }
+
     let by_path: BTreeMap<String, String> = paths
         .into_iter()
         .filter_map(|(name, path)| urls.get(&name).map(|url| (path, url.clone())))
         .collect();
     let mut out = Vec::new();
+
     for (mode, id, stage, path) in staged_entries(staged) {
         if mode != "160000" || stage != "0" {
             continue;
         }
+
         let (Ok(commit), Ok(sub)) = (CommitId::parse(id), SubPath::parse(path)) else {
             continue;
         };
+
         out.push(Submodule {
             url: by_path
                 .get(&format!("{prefix}{path}"))
@@ -383,6 +423,7 @@ pub fn parse_gitlinks(staged: &str, config: &str, prefix: &str) -> Vec<Submodule
             commit,
         });
     }
+
     out
 }
 
@@ -403,6 +444,7 @@ mod tests {
             id(3),
             id(4)
         );
+
         assert_eq!(
             parse_ls_remote(&text).unwrap(),
             [
@@ -421,11 +463,13 @@ mod tests {
     #[test]
     fn a_tag_git_would_not_write_is_an_error_and_other_refs_are_skipped() {
         let a = id(1);
+
         assert!(parse_ls_remote(&format!("{a}\trefs/tags/a..b\n")).is_err());
         assert!(parse_ls_remote("short\trefs/tags/v1\n").is_err());
         let tags = parse_ls_remote(&format!(
             "warning: noise\n{a}\trefs/heads/x\n{a}\trefs/tags/ok\n"
         ));
+
         assert_eq!(tags.unwrap().len(), 1);
     }
 
@@ -439,13 +483,16 @@ mod tests {
     #[test]
     fn the_head_is_the_first_id_in_either_hash_size() {
         let sha1 = id(7);
+
         assert_eq!(parse_head(&format!("{sha1}\tHEAD\n")), Some(sha1));
         let sha256 = CommitId::parse(&"ab".repeat(32)).unwrap();
+
         assert_eq!(
             parse_head(&format!("{sha256}\tHEAD\n")),
             Some(sha256.clone())
         );
         let text = format!("{sha256}\trefs/tags/v1\n");
+
         assert_eq!(parse_ls_remote(&text).unwrap()[0].commit, sha256);
     }
 
@@ -458,6 +505,7 @@ mod tests {
         );
         let config = "submodule.modules/jaison.path\nmodules/jaison\0submodule.modules/jaison.url\nhttps://github.com/x/jaison\0";
         let url = Source::parse("https://github.com/x/jaison").unwrap();
+
         assert_eq!(
             parse_gitlinks(&staged, config, ""),
             [Submodule {
@@ -467,6 +515,7 @@ mod tests {
             }]
         );
         let nested = parse_gitlinks(&staged, &config.replace("modules/", "app/modules/"), "app/");
+
         assert_eq!(nested[0].url.as_ref(), Some(&url));
     }
 
@@ -475,6 +524,7 @@ mod tests {
         let staged = format!("160000 {} 0\tmodules/\u{e9}t\u{e9}\0", id(1));
         let config = "submodule.modules/\u{e9}t\u{e9}.path\nmodules/\u{e9}t\u{e9}\0submodule.modules/\u{e9}t\u{e9}.url\nhttps://h/x\0";
         let found = parse_gitlinks(&staged, config, "");
+
         assert_eq!(found[0].path.as_str(), "modules/\u{e9}t\u{e9}");
         assert!(found[0].url.is_some());
     }
@@ -486,6 +536,7 @@ mod tests {
             a = id(1)
         );
         let found = parse_gitlinks(&staged, "", "");
+
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].path.as_str(), "modules/b");
     }
@@ -494,6 +545,7 @@ mod tests {
     fn sha256_gitlinks_are_read() {
         let long = "cd".repeat(32);
         let staged = format!("160000 {long} 0\tmodules/a\0");
+
         assert_eq!(parse_gitlinks(&staged, "", "")[0].commit.as_str(), long);
     }
 }

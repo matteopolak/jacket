@@ -12,25 +12,32 @@ pub(super) fn path(model: &Model, start: usize, end: usize, token: Token) -> Opt
     let mut terminal = vec![false];
     let mut queue = VecDeque::from([0]);
     let mut target = None;
+
     while let Some(id) = queue.pop_front() {
         let block = nodes[id];
+
         if block == end {
             target.get_or_insert(id);
             terminal[id] = true;
+
             continue;
         }
+
         if matches!(model.blocks[block].op, CfgOp::Task(Task::End(t)) if t == token) {
             continue;
         }
+
         for &next in &model.blocks[block].next {
             if matches!(model.blocks[block].op, CfgOp::Decision(_, yes, _, Some(t), _) if t == token && next == yes)
             {
                 continue;
             }
+
             let to = if let Some(&id) = ids.get(&next) {
                 id
             } else {
                 let to = nodes.len();
+
                 ids.insert(next, to);
                 nodes.push(next);
                 edges.push(Vec::new());
@@ -39,15 +46,19 @@ pub(super) fn path(model: &Model, start: usize, end: usize, token: Token) -> Opt
                 queue.push_back(to);
                 to
             };
+
             edges[id].push(to);
         }
     }
+
     let mut current = target?;
     let mut path = vec![nodes[current]];
+
     while let Some(p) = previous[current] {
         path.push(nodes[p]);
         current = p;
     }
+
     path.reverse();
     let mut seen_decisions = HashSet::default();
     let decisions = path
@@ -60,6 +71,7 @@ pub(super) fn path(model: &Model, start: usize, end: usize, token: Token) -> Opt
         })
         .filter(|decision| seen_decisions.insert(*decision))
         .collect();
+
     Some((
         decisions,
         super::super::witness::alternatives(&edges, &terminal),

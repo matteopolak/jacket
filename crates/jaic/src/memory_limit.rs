@@ -100,6 +100,7 @@ pub fn arm_from_env() -> Result<(), String> {
             jacket_config::env::MEMORY_LIMIT.name
         )
     })?;
+
     arm(bytes);
     Ok(())
 }
@@ -114,6 +115,7 @@ pub fn parse_size(text: &str) -> Option<usize> {
         _ => (text, 0),
     };
     let n: usize = digits.trim().parse().ok()?;
+
     n.checked_mul(1usize << shift)
 }
 
@@ -134,10 +136,13 @@ pub fn live() -> usize {
 #[inline]
 fn charge(size: usize) {
     let limit = LIMIT.load(Relaxed);
+
     if limit == 0 {
         return;
     }
+
     let now = LIVE.fetch_add(size as isize, Relaxed) + size as isize;
+
     if now > limit as isize && !TRIPPED.swap(true, Relaxed) {
         exceeded(limit);
     }
@@ -156,19 +161,23 @@ fn refund(size: usize) {
 #[cold]
 fn exceeded(limit: usize) -> ! {
     use std::fmt::Write;
+
     struct Buf {
         bytes: [u8; 128],
         len: usize,
     }
+
     impl Write for Buf {
         fn write_str(&mut self, s: &str) -> std::fmt::Result {
             let room = self.bytes.len() - self.len;
             let n = s.len().min(room);
+
             self.bytes[self.len..self.len + n].copy_from_slice(&s.as_bytes()[..n]);
             self.len += n;
             Ok(())
         }
     }
+
     let mut buf = Buf {
         bytes: [0; 128],
         len: 0,
@@ -185,6 +194,7 @@ fn exceeded(limit: usize) -> ! {
             "error[memory-limit]: memory limit of {limit} bytes exceeded"
         )
     };
+
     sys::write_stderr(&buf.bytes[..buf.len]);
     sys::exit_now(EXIT_CODE as i32)
 }
@@ -228,6 +238,7 @@ unsafe impl<A: GlobalAlloc> GlobalAlloc for CountingAllocator<A> {
         } else {
             refund(layout.size() - new_size);
         }
+
         // SAFETY: the caller upholds `GlobalAlloc::realloc`'s contract for `ptr`, `layout` and
         // `new_size`.
         unsafe { self.0.realloc(ptr, layout, new_size) }
@@ -242,6 +253,7 @@ pub fn foreign_override(symbol: &str) -> Option<u64> {
     if LIMIT.load(Relaxed) == 0 {
         return None;
     }
+
     sys::foreign_override(symbol)
 }
 
@@ -283,6 +295,7 @@ mod sys {
         if ptr.is_null() {
             return 0;
         }
+
         // SAFETY: `ptr` is non-null and was returned by libc's allocator (the counted wrappers
         // and the program's own `malloc` family calls are the only sources).
         #[cfg(target_vendor = "apple")]
@@ -322,6 +335,7 @@ mod sys {
 
     extern "C" fn counted_realloc(ptr: *mut c_void, size: usize) -> *mut c_void {
         let old = block_size(ptr);
+
         charge(size);
 
         // SAFETY: the caller of this `realloc` replacement passes null or a live libc block.
@@ -333,6 +347,7 @@ mod sys {
             settle(size, p);
             refund(old);
         }
+
         p
     }
 
@@ -377,7 +392,9 @@ mod sys {
             refund(requested);
             return;
         }
+
         let actual = block_size(p);
+
         if actual > requested {
             charge(actual - requested);
         } else {

@@ -31,6 +31,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -39,11 +40,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             };
             let types = &cx.compiler.ty.types;
+
             if !cx.ty(l).is_some_and(|t| types.is_integer(t))
                 || !cx.ty(r).is_some_and(|t| types.is_integer(t))
             {
                 return true;
             }
+
             // The side that carries the `1`, the plain operands, and the strict operator.
             let (strict, plain_left, plain_right) = if *op == BinOp::Ge {
                 if let Some(y) = plus_one(r, BinOp::Add) {
@@ -68,6 +71,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 cx.whole_src(plain_right).trim(),
             );
             let replacement = format!("{left} {} {right}", op_text(strict));
+
             out.push(suggesting(
                 Span::new(cx.file, start, end),
                 format!("`{written}` is a strict comparison written with `1`"),

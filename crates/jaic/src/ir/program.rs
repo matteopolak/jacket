@@ -158,6 +158,7 @@ impl Program {
     /// `reserve_func` for a function whose signature is already known.
     pub fn reserve_func_with_sig(&mut self, name: String, sig: Sig) -> FuncId {
         let id = self.reserve_func(name);
+
         self.reserved_sigs[id.0 as usize] = Some(sig);
         id
     }
@@ -165,6 +166,7 @@ impl Program {
     /// Function `id`'s signature: its lowered body's, or the one it was reserved with.
     pub fn func_sig(&self, id: FuncId) -> Option<&Sig> {
         let i = id.0 as usize;
+
         match self.funcs.get(i) {
             Some(Some(f)) => Some(&f.sig),
             _ => self.reserved_sigs.get(i)?.as_ref(),

@@ -75,6 +75,7 @@ impl AddressMap {
     /// `host` is in its address space, else `host` itself (memory outside the program).
     pub(crate) fn reported(self, host: u64) -> u64 {
         let offset = host.wrapping_sub(self.base);
+
         if offset <= self.mask {
             offset
         } else {
@@ -95,6 +96,7 @@ impl AddressMap {
         if self.mask == u64::MAX {
             return true;
         }
+
         let room = self.mask - self.data_limit;
         -(self.first as i64) <= offset && offset <= room as i64
     }
@@ -122,6 +124,7 @@ mod tests {
     #[test]
     fn host_addresses_map_to_themselves() {
         let map = AddressMap::HOST;
+
         assert_eq!(map.host(0x1234), 0x1234);
         assert_eq!(map.program(0x1234), 0x1234);
         assert_eq!(map.offset(u64::MAX - 15, 32), 16);
@@ -132,6 +135,7 @@ mod tests {
     #[test]
     fn a_narrow_address_wraps_at_its_width_and_is_reported_as_the_program_sees_it() {
         let map = narrow();
+
         assert_eq!(map.offset(0xFFFF_FFF0, 0x20), 0x10);
         assert_eq!(map.offset(0x10, (-32i64) as u64), 0xFFFF_FFF0);
         assert_eq!(map.host(0x8000_0000), 0x7000_8000_0000);

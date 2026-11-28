@@ -33,6 +33,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro || p.header.params.iter().any(|q| q.using) {
             continue;
         }
+
         if p.body
             .stmts
             .iter()
@@ -40,11 +41,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         {
             continue;
         }
+
         statement_lists(&p.body.stmts, &mut |list: &[Stmt]| {
             for (k, s) in list.iter().enumerate() {
                 let Some((var, name)) = uninitialized(cx, s) else {
                     continue;
                 };
+
                 if let Some(read) = first_read(cx, var, &list[k + 1..]) {
                     let message = format!("`{name}` is read here before anything is written to it");
                     let help = format!(
@@ -56,6 +59,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         S::Decl(d) => d.ty.as_ref().zip(d.value.as_ref()),
                         _ => None,
                     };
+
                     out.push(match init {
                         Some((ty, value)) => suggesting(
                             read.span,
@@ -81,17 +85,21 @@ fn uninitialized<'a>(cx: &'a Cx, s: &Stmt) -> Option<(EntityId, &'a str)> {
     let S::Decl(d) = &s.kind else {
         return None;
     };
+
     if d.kind != DeclKind::Var || d.names.len() != 1 || d.using || !d.notes.is_empty() {
         return None;
     }
+
     if !matches!(d.value.as_ref()?.kind, E::Uninit) {
         return None;
     }
+
     let name = &d.names[0];
     let ents = cx.locals(name.span);
     let [var] = &*ents else {
         return None;
     };
+
     Some((*var, name.name.as_str()))
 }
 
@@ -101,18 +109,23 @@ fn first_read<'a>(cx: &Cx, var: EntityId, rest: &'a [Stmt]) -> Option<&'a Expr> 
         if opaque(cx, s) {
             return None;
         }
+
         let mut decided: Option<Option<&Expr>> = None;
         let mut stack = Vec::new();
+
         walk_node(Node::Stmt(s), &mut stack, &mut |n, chain| {
             if decided.is_some() {
                 return false;
             }
+
             let Node::Expr(e) = n else {
                 return true;
             };
+
             if !matches!(e.kind, E::Ident(_)) || local_of(cx, e) != Some(var) {
                 return true;
             }
+
             decided = Some(match place_use(e, chain) {
                 PlaceUse::Address => None,
                 PlaceUse::Write if operator_assigned(e, chain) => Some(e),
@@ -122,10 +135,12 @@ fn first_read<'a>(cx: &Cx, var: EntityId, rest: &'a [Stmt]) -> Option<&'a Expr> 
             });
             false
         });
+
         if let Some(found) = decided {
             return found;
         }
     }
+
     None
 }
 
@@ -146,6 +161,7 @@ fn not_a_read(cx: &Cx, e: &Expr, chain: &[Node<'_>]) -> bool {
     {
         return true;
     }
+
     chain.iter().any(|n| {
         matches!(n, Node::Expr(Expr { kind: E::Call { callee, .. }, .. })
         if matches!(callee.kind, E::Ident(_))
@@ -160,6 +176,7 @@ fn fixed_array(cx: &Cx, e: &Expr) -> bool {
         return false;
     };
     let types = &cx.compiler.ty.types;
+
     matches!(
         types.kind(types.repr_struct(ty)),
         TypeKind::Array {

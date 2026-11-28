@@ -91,6 +91,7 @@ impl Target {
     pub fn effective_triple(&self) -> Option<&str> {
         self.triple.as_deref().or_else(|| {
             let board = self.board.as_deref()?;
+
             built_in()
                 .find(|(name, _, _)| *name == board)
                 .map(|(_, triple, _)| triple)
@@ -102,25 +103,32 @@ impl Target {
     /// `-target` would also make the metaprogram that runs the plugin a program for the board.
     fn flags(&self) -> (Vec<OsString>, Option<OsString>) {
         let mut flags = Vec::new();
+
         if let (Some(triple), None) = (&self.triple, &self.board) {
             flags.extend(["-target".into(), triple.into()]);
         }
+
         // `ld.lld`'s spellings: jaic translates them for the linker it finds.
         let mut link: Vec<String> = Vec::new();
+
         match self.gc_sections {
             Some(true) => link.push("--gc-sections".into()),
             Some(false) => link.push("--no-gc-sections".into()),
             None => {}
         }
+
         if let Some(entry) = &self.entry {
             link.push(format!("--entry={entry}"));
         }
+
         if let Some(size) = self.stack_size {
             link.extend(["-z".into(), format!("stack-size={size}")]);
         }
+
         for arg in link {
             flags.extend(["-link_arg".into(), arg.into()]);
         }
+
         let plugin = self
             .board
             .as_ref()
@@ -134,6 +142,7 @@ impl Target {
         if let Some(runner) = self.runner.take() {
             self.runner = Some(crate::toolchain::fill_sysroot(&runner, &self)?);
         }
+
         Ok(self)
     }
 
@@ -154,9 +163,11 @@ impl Target {
                 .into()
             })
             .collect();
+
         if !runner.contains("{exe}") {
             words.push(exe.as_ref().into());
         }
+
         (!words.is_empty()).then_some(words)
     }
 }
@@ -168,6 +179,7 @@ pub fn all(config: Option<&Config>) -> Vec<Target> {
         .flat_map(|config| &config.target)
         .map(|(name, table)| Target::from_table(name, table))
         .collect();
+
     for (name, triple, runner) in built_in() {
         if !targets.iter().any(|target| target.name == name) {
             targets.push(Target {
@@ -180,6 +192,7 @@ pub fn all(config: Option<&Config>) -> Vec<Target> {
             });
         }
     }
+
     targets
 }
 
@@ -200,21 +213,26 @@ pub fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, S
     let mut out: Vec<OsString> = Vec::new();
     let mut found: Option<(usize, String)> = None;
     let mut index = 0;
+
     while index < region_end {
         let Some(arg) = args[index].to_str() else {
             out.push(args[index].clone());
             index += 1;
+
             continue;
         };
         let (name, inline) = match arg.split_once('=') {
             Some((name, value)) => (name, Some(value.to_string())),
             None => (arg, None),
         };
+
         if name != "-target" && name != "--target" {
             out.push(args[index].clone());
             index += 1;
+
             continue;
         }
+
         let value = if let Some(value) = inline {
             value
         } else {
@@ -225,9 +243,11 @@ pub fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, S
                 .ok_or_else(|| format!("`{name}` needs a target name or an LLVM target triple"))?
                 .to_string()
         };
+
         index += 1;
         found = Some((out.len(), value));
     }
+
     let Some((at, value)) = found else {
         return Ok(Expansion {
             args: args.to_vec(),
@@ -246,16 +266,20 @@ pub fn expand(args: &[OsString], config: Option<&Config>) -> Result<Expansion, S
                 triple: Some(value.clone()),
                 ..Target::default()
             });
+
             out.splice(at..at, ["-target".into(), value.into()]);
             out.extend(args[region_end..].iter().cloned());
+
             return Ok(Expansion {
                 args: out,
                 target,
             });
         }
+
         return Err(unknown(&value, &targets));
     };
     let (flags, plugin) = target.flags();
+
     out.splice(at..at, flags);
     out.extend(plugin);
     out.extend(args[region_end..].iter().cloned());
@@ -275,14 +299,18 @@ pub fn for_tests(
 ) -> Result<(Vec<String>, Option<String>), String> {
     let expansion = expand(&os_args(["--target", name]), config)?;
     let mut flags: Vec<String> = Vec::new();
+
     for arg in &expansion.args {
         let arg = arg.to_string_lossy().into_owned();
         let board = arg.starts_with('+');
+
         flags.push(arg);
+
         if board {
             flags.push("tests".to_string());
         }
     }
+
     let runner = expansion.target.and_then(|target| target.runner);
     Ok((flags, runner))
 }
@@ -295,9 +323,11 @@ fn os_args<const N: usize>(words: [&str; N]) -> Vec<OsString> {
 /// can build for. Anything else is an error listing the known targets.
 pub fn named(name: &str, config: Option<&Config>) -> Result<Target, String> {
     let targets = all(config);
+
     if let Some(target) = targets.iter().find(|t| t.name == name) {
         return Ok(target.clone());
     }
+
     match jaic::target::Target::parse(name) {
         Ok(_) => Ok(Target {
             name: name.to_string(),
@@ -322,6 +352,7 @@ fn unknown(name: &str, targets: &[Target]) -> String {
         }
     };
     let known: Vec<&str> = targets.iter().map(|t| t.name.as_str()).collect();
+
     format!(
         "unknown target `{name}`\nhelp: {help}\nnote: the known targets are {}",
         known.join(", ")
@@ -350,6 +381,7 @@ mod tests {
             Some(&config(PROJECT)),
         )
         .unwrap();
+
         assert_eq!(
             got.args,
             os(&["m.jai", "-target", "thumbv6m-none-eabi", "-O2"])
@@ -364,6 +396,7 @@ mod tests {
             Some(&config(PROJECT)),
         )
         .unwrap();
+
         assert_eq!(
             got.args,
             os(&[
@@ -378,6 +411,7 @@ mod tests {
     #[test]
     fn a_built_in_board_is_a_target_without_a_table() {
         let got = expand(&os(&["m.jai", "--target", "Qemu_Virt_Aarch64"]), None).unwrap();
+
         assert_eq!(
             got.args,
             os(&["m.jai", "+Extensions/Embedded/Boards/Qemu_Virt_Aarch64"])
@@ -388,20 +422,24 @@ mod tests {
     #[test]
     fn a_board_sets_its_own_triple_so_none_is_passed() {
         let got = expand(&os(&["m.jai", "--target", "Mps2_An386"]), None).unwrap();
+
         assert_eq!(
             got.args,
             os(&["m.jai", "+Extensions/Embedded/Boards/Mps2_An386"])
         );
         let table = "[target.m4]\nboard = \"Mps2_An386\"\ntriple = \"thumbv7em-none-eabihf\"\n";
         let got = expand(&os(&["--target", "m4"]), Some(&config(table))).unwrap();
+
         assert_eq!(got.args, os(&["+Extensions/Embedded/Boards/Mps2_An386"]));
     }
 
     #[test]
     fn a_triple_and_no_target_pass_through() {
         let args = os(&["m.jai", "-target", "x86_64-pc-windows-gnu"]);
+
         assert_eq!(expand(&args, None).unwrap().args, args);
         let args = os(&["m.jai", "-O2"]);
+
         assert!(expand(&args, None).unwrap().target.is_none());
     }
 
@@ -409,9 +447,11 @@ mod tests {
     fn a_triple_for_another_machine_is_a_target_with_no_runner() {
         let wasm = expand(&os(&["--target", "wasm32-wasi"]), None).unwrap();
         let target = wasm.target.unwrap();
+
         assert_eq!(target.triple.as_deref(), Some("wasm32-wasi"));
         assert_eq!(target.runner, None);
         let host = jaic::target::Target::host().to_string();
+
         assert!(
             expand(&os(&["--target", &host]), None)
                 .unwrap()
@@ -423,27 +463,33 @@ mod tests {
     #[test]
     fn an_unknown_name_suggests_the_nearest_target() {
         let error = expand(&os(&["--target", "pic"]), Some(&config(PROJECT))).unwrap_err();
+
         assert!(error.contains("unknown target `pic`"), "{error}");
         assert!(error.contains("did you mean `pico`?"), "{error}");
         let error = expand(&os(&["--target", "zzzzzz"]), None).unwrap_err();
+
         assert!(error.contains("`jacket toolchain`"), "{error}");
     }
 
     #[test]
     fn a_name_is_a_known_target_or_a_triple_jaic_builds_for() {
         let project = config(PROJECT);
+
         assert_eq!(
             named("pico", Some(&project)).unwrap().triple.as_deref(),
             Some("thumbv6m-none-eabi")
         );
         let triple = named("aarch64-unknown-linux-gnu", None).unwrap();
+
         assert_eq!(triple.triple.as_deref(), Some("aarch64-unknown-linux-gnu"));
         let error = named("pic", Some(&project)).unwrap_err();
+
         assert!(error.contains("did you mean `pico`?"), "{error}");
         assert!(error.contains("\nnote: the known targets are "), "{error}");
         assert!(error.contains("pico, "), "{error}");
         assert!(error.contains("Mps2_An386"), "{error}");
         let error = named("sparc-sun-solaris", None).unwrap_err();
+
         assert!(error.contains("unsupported target architecture"), "{error}");
     }
 
@@ -456,12 +502,15 @@ mod tests {
     #[test]
     fn tests_take_a_target_s_flags_and_runner() {
         let (flags, runner) = for_tests("pico", Some(&config(PROJECT))).unwrap();
+
         assert_eq!(flags, ["-target", "thumbv6m-none-eabi"]);
         assert_eq!(runner.as_deref(), Some("flash {exe}"));
         let (flags, runner) = for_tests("x86_64-pc-windows-gnu", None).unwrap();
+
         assert_eq!(flags, ["-target", "x86_64-pc-windows-gnu"]);
         assert_eq!(runner, None);
         let (flags, runner) = for_tests("Qemu_Virt_Aarch64", None).unwrap();
+
         assert_eq!(
             flags,
             ["+Extensions/Embedded/Boards/Qemu_Virt_Aarch64", "tests"]
@@ -473,6 +522,7 @@ mod tests {
     fn link_settings_become_link_arguments_in_ld_lld_spelling() {
         let table = "[target.fw]\ntriple = \"aarch64-none-elf\"\nstack-size = 65536\nentry = \"start\"\ngc-sections = true\n";
         let got = expand(&os(&["m.jai", "--target", "fw"]), Some(&config(table))).unwrap();
+
         assert_eq!(
             got.args,
             os(&[
@@ -495,11 +545,13 @@ mod tests {
     fn the_runner_gets_the_executable() {
         let targets = all(Some(&config(PROJECT)));
         let pico = targets.iter().find(|t| t.name == "pico").unwrap();
+
         assert_eq!(
             pico.command(Path::new("/o/app")).unwrap(),
             os(&["flash", "/o/app"])
         );
         let dev = targets.iter().find(|t| t.name == "dev").unwrap();
+
         assert_eq!(
             dev.command(Path::new("/o/app")).unwrap(),
             os(&["emu", "/o/app"])
@@ -508,6 +560,7 @@ mod tests {
             runner: None,
             ..pico.clone()
         };
+
         assert!(none.command(Path::new("/o/app")).is_none());
     }
 
@@ -515,6 +568,7 @@ mod tests {
     fn a_board_builds_for_its_own_triple_unless_the_table_names_one() {
         let targets = all(Some(&config(PROJECT)));
         let find = |name: &str| targets.iter().find(|t| t.name == name).unwrap().clone();
+
         assert_eq!(find("pico").effective_triple(), Some("thumbv6m-none-eabi"));
         assert_eq!(find("dev").effective_triple(), Some("aarch64-none-elf"));
         assert_eq!(
@@ -534,8 +588,10 @@ mod tests {
             .filter(|e| e.path().join("module.jai").is_file())
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .collect();
+
         library.sort();
         let mut known: Vec<&str> = built_in().map(|b| b.0).collect();
+
         known.sort_unstable();
         assert_eq!(library, known);
     }
@@ -543,7 +599,9 @@ mod tests {
     #[test]
     fn every_board_names_its_triple_and_runner() {
         let boards: Vec<Board> = built_in().collect();
+
         assert_eq!(boards.len(), BOARD_SOURCES.len());
+
         for (name, triple, runner) in boards {
             assert!(!triple.is_empty() && !triple.contains(' '), "{name}");
             assert!(runner.starts_with("qemu-system-"), "{name}: {runner}");
@@ -553,6 +611,7 @@ mod tests {
     #[test]
     fn a_string_constant_is_read_from_a_module() {
         let source = "// triple :: \"no\";\ntriple :: \"avr-none-elf\";\nmore :: 1;\n";
+
         assert_eq!(string_constant(source, "triple"), Some("avr-none-elf"));
         assert_eq!(string_constant(source, "runner"), None);
     }

@@ -41,9 +41,11 @@ pub fn decl_class(decl: &Decl) -> DeclClass {
     if decl.kind == DeclKind::Var {
         return DeclClass::Variable;
     }
+
     let Some(value) = &decl.value else {
         return DeclClass::Constant;
     };
+
     match &value.kind {
         ExprKind::Proc(_)
         | ExprKind::ProcType(_)
@@ -91,12 +93,16 @@ pub fn alias_path(decl: &Decl) -> Option<Vec<Sym>> {
             }
             _ => return None,
         }
+
         Some(())
     }
+
     if decl.kind != DeclKind::Const {
         return None;
     }
+
     let mut path = Vec::new();
+
     walk(decl.value.as_ref()?, &mut path)?;
     Some(path)
 }
@@ -164,6 +170,7 @@ pub fn top_level(file: &File) -> Vec<TopLevel<'_>> {
                 StmtKind::StaticIf(branches) => {
                     walk(&branches.then_branch, visibility, true, out);
                     walk(&branches.else_branch, visibility, true, out);
+
                     continue;
                 }
                 StmtKind::Decl(decl) => TopLevelKind::Decl(decl),
@@ -176,12 +183,14 @@ pub fn top_level(file: &File) -> Vec<TopLevel<'_>> {
                 StmtKind::ModuleParameters(params) => TopLevelKind::ModuleParameters(params),
                 _ => continue,
             };
+
             out.push(TopLevel {
                 kind,
                 span: stmt.span,
                 visibility,
                 nested,
             });
+
             // A `#module_parameters` body declares names importers can use, so they are the
             // module's own top-level items.
             if let StmtKind::ModuleParameters(params) = &stmt.kind
@@ -191,7 +200,9 @@ pub fn top_level(file: &File) -> Vec<TopLevel<'_>> {
             }
         }
     }
+
     let mut out = Vec::new();
+
     walk(&file.stmts, Visibility::Export, false, &mut out);
     out
 }
@@ -213,7 +224,9 @@ pub fn top_level_inserts(file: &File) -> Vec<(Span, Visibility)> {
             }
         }
     }
+
     let mut out = Vec::new();
+
     walk(&file.stmts, Visibility::Export, &mut out);
     out
 }
@@ -234,11 +247,14 @@ pub fn asserted_targets(assert: &AssertStmt) -> Option<Vec<Sym>> {
             _ if mentions_os(expr) => return None,
             _ => {}
         }
+
         Some(())
     }
+
     fn is_os(expr: &Expr) -> bool {
         matches!(&expr.kind, ExprKind::Ident(name) if name.as_str() == "OS")
     }
+
     fn mentions_os(expr: &Expr) -> bool {
         match &expr.kind {
             ExprKind::Binary(_, left, right) => mentions_os(left) || mentions_os(right),
@@ -246,7 +262,9 @@ pub fn asserted_targets(assert: &AssertStmt) -> Option<Vec<Sym>> {
             _ => is_os(expr),
         }
     }
+
     let mut found = Vec::new();
+
     walk(&assert.cond, &mut found)?;
     (!found.is_empty()).then_some(found)
 }
@@ -277,9 +295,12 @@ impl Procedure<'_> {
 pub fn procedures(file: &File) -> Vec<Procedure<'_>> {
     let mut out = Vec::new();
     let mut pending: Vec<&Stmt> = file.stmts.iter().rev().collect();
+
     while let Some(stmt) = pending.pop() {
         let before = pending.len();
+
         push_children(stmt, &mut pending);
+
         if let StmtKind::Decl(decl) = &stmt.kind
             && let Some(header) = decl_header(decl)
         {
@@ -290,8 +311,10 @@ pub fn procedures(file: &File) -> Vec<Procedure<'_>> {
                 span: stmt.span,
             }));
         }
+
         pending[before..].reverse();
     }
+
     out
 }
 
@@ -344,6 +367,7 @@ pub fn type_parameters(header: &ProcHeader) -> Vec<Ident> {
                 } else {
                     1
                 };
+
                 out.push(Ident {
                     name: *name,
                     span: Span {
@@ -356,6 +380,7 @@ pub fn type_parameters(header: &ProcHeader) -> Vec<Ident> {
                 name, ..
             } => {
                 let start = expr.span.start + 1;
+
                 out.push(Ident {
                     name: *name,
                     span: Span {
@@ -376,6 +401,7 @@ pub fn type_parameters(header: &ProcHeader) -> Vec<Ident> {
             _ => {}
         }
     }
+
     let mut out: Vec<Ident> = header
         .params
         .iter()
@@ -383,9 +409,11 @@ pub fn type_parameters(header: &ProcHeader) -> Vec<Ident> {
         .filter_map(|p| p.name)
         .collect();
     let types = header.params.iter().filter_map(|p| p.ty.as_ref());
+
     for ty in types.chain(header.returns.iter().filter_map(|r| r.ty.as_ref())) {
         walk(ty, &mut out);
     }
+
     out
 }
 
@@ -397,6 +425,7 @@ pub fn decl_name_spans(decl: &Decl) -> Vec<Span> {
             .as_ref()
             .is_some_and(|r| r.existing.get(i).copied().unwrap_or(false))
     };
+
     decl.names
         .iter()
         .enumerate()
@@ -414,11 +443,14 @@ pub fn decl_name_span(decl: &Decl) -> Option<Span> {
 /// the surrounding text stopped parsing: `x` in `x := 1`, both names of `a, b := f()`.
 pub fn inferred_name_spans(tokens: &[Token]) -> Vec<Span> {
     let mut out = Vec::new();
+
     for (colon, t) in tokens.iter().enumerate() {
         if t.tok != Tok::Punct(P::ColonEq) {
             continue;
         }
+
         let mut at = colon;
+
         while let Some(name) = at
             .checked_sub(1)
             .filter(|&i| matches!(tokens[i].tok, Tok::Ident(_)))
@@ -430,6 +462,7 @@ pub fn inferred_name_spans(tokens: &[Token]) -> Vec<Span> {
             };
         }
     }
+
     out
 }
 
@@ -446,6 +479,7 @@ mod tests {
         let at = text.find(marker).unwrap() as u32;
         let (tokens, errors) = crate::lexer::lex_ide(FileId(0), text);
         let errors: Vec<Span> = errors.iter().map(|e| e.span).collect();
+
         call_at(text, &tokens, &errors, at)
     }
 
@@ -458,6 +492,7 @@ mod tests {
             .iter()
             .map(|t| (t.visibility, t.nested))
             .collect();
+
         use Visibility::*;
         assert_eq!(
             items,
@@ -484,6 +519,7 @@ mod tests {
                 _ => None,
             })
             .collect();
+
         use DeclClass::*;
         assert_eq!(
             classes,
@@ -500,6 +536,7 @@ mod tests {
             .iter()
             .map(|s| s.as_str())
             .collect();
+
         assert_eq!(path, ["M", "Name"]);
     }
 
@@ -511,8 +548,10 @@ mod tests {
                 TopLevelKind::Assert(a) => Some(asserted_targets(a)),
                 _ => None,
             })?;
+
             assert.map(|t| t.iter().map(|s| s.as_str().to_string()).collect::<Vec<_>>())
         };
+
         assert_eq!(
             targets("#assert OS == .MACOS || OS == .IOS \"Apple only\";"),
             Some(vec!["MACOS".into(), "IOS".into()])
@@ -527,6 +566,7 @@ mod tests {
         let file = parse(text);
         let procs = procedures(&file.file);
         let names: Vec<&str> = procs.iter().map(|p| p.name.name.as_str()).collect();
+
         assert_eq!(names, ["outer", "inner", "m"]);
         assert!(procs[1].has_note("PrintLike") && !procs[0].has_note("PrintLike"));
         let spelled = |p: &Procedure| {
@@ -535,6 +575,7 @@ mod tests {
                 .map(|i| &text[i.span.start as usize..i.span.end as usize])
                 .collect::<Vec<_>>()
         };
+
         assert_eq!(spelled(&procs[1]), ["n", "T", "R"]);
         assert_eq!(spelled(&procs[2]), ["K", "V"]);
     }
@@ -543,6 +584,7 @@ mod tests {
     fn call_sites() {
         let text = "main :: () { f(1, na = 2, ..xs, \n";
         let call = site(text, "na").unwrap();
+
         assert_eq!(call.active, 1);
         assert!(call.callee_is_name && call.has_equals);
         assert_eq!(
@@ -558,6 +600,7 @@ mod tests {
         assert!(site("g(h(1), x)", "1)").is_none());
         assert!(site("g(a,, b)", " b").is_none());
         let expression = site("g()(x)", "x)").unwrap();
+
         assert!(!expression.callee_is_name);
     }
 
@@ -566,6 +609,7 @@ mod tests {
         let offset = marked.find('|').unwrap();
         let text = marked.replacen('|', "", 1);
         let context = cursor_context(&text, offset as u32);
+
         (text, context)
     }
 
@@ -579,9 +623,11 @@ mod tests {
         let CursorContext::String(s) = context else {
             panic!("{context:?}");
         };
+
         assert!(!s.closed && s.directive == Some(PathDirective::Import));
         assert_eq!(&text[s.start as usize..], "Bas");
         let (_, context) = ctx("#load \"a/b|\";");
+
         assert!(matches!(
             context,
             CursorContext::String(StringAt {
@@ -592,6 +638,7 @@ mod tests {
         ));
         // Options between the directive and the path.
         let (_, context) = ctx("#import,file \"x|");
+
         assert!(matches!(
             context,
             CursorContext::String(StringAt {
@@ -601,6 +648,7 @@ mod tests {
         ));
         // Not a path.
         let (_, context) = ctx("print(\"he|");
+
         assert!(matches!(
             context,
             CursorContext::String(StringAt {
@@ -616,12 +664,15 @@ mod tests {
         let CursorContext::String(s) = context else {
             panic!("{context:?}");
         };
+
         assert_eq!(slice(&text, s.span), "\"a\\\"bc\"");
         // After the closing quote it is code again.
         let (_, context) = ctx("x := \"a\\\"b\"|;");
+
         assert_eq!(context, CursorContext::Code);
         // A quote in a comment opens nothing.
         let (_, context) = ctx("// say \"hi\nf :: |");
+
         assert_eq!(context, CursorContext::Code);
     }
 
@@ -637,16 +688,19 @@ mod tests {
             .into_iter()
             .map(|s| slice(text, s))
             .collect();
+
         assert_eq!(names, ["a", "b"]);
         let tokens = crate::lexer::lex_ide(FileId(0), text).0;
         let inferred: Vec<&str> = inferred_name_spans(&tokens)
             .into_iter()
             .map(|s| slice(text, s))
             .collect();
+
         assert_eq!(inferred.len(), 2);
         assert!(inferred.contains(&"a") && inferred.contains(&"b"));
         assert_eq!(slice(text, decl_name_span(decl).unwrap()), "a");
         let typed = crate::lexer::lex_ide(FileId(0), "x : int = 1; y = 2; z: int;").0;
+
         assert!(inferred_name_spans(&typed).is_empty());
         // The cursor in the second name.
         let (_, context) = ctx("a, b| := f(\",\");");
@@ -657,9 +711,11 @@ mod tests {
         else {
             panic!("{context:?}");
         };
+
         assert_eq!((names.len(), at), (2, 1));
         // The comma inside the string is inside a string.
         let (_, context) = ctx("a, b := f(\",|\");");
+
         assert!(matches!(context, CursorContext::String(_)));
     }
 
@@ -689,15 +745,18 @@ mod tests {
         let CursorContext::Member(m) = context else {
             panic!("{context:?}");
         };
+
         assert_eq!(slice(&text, m.word), "c");
         assert_eq!(slice(&text, m.receiver.unwrap()), "a.b");
         let names: Vec<&str> = m.chain.iter().map(|s| slice(&text, *s)).collect();
+
         assert_eq!(names, ["a", "b"]);
         // Nothing typed yet.
         let (text, context) = ctx("p.|\n");
         let CursorContext::Member(m) = context else {
             panic!("{context:?}");
         };
+
         assert_eq!((m.word.start, m.word.end), (2, 2));
         assert_eq!(slice(&text, m.receiver.unwrap()), "p");
         // A call or an index is a receiver with no names to look up.
@@ -705,30 +764,37 @@ mod tests {
         let CursorContext::Member(m) = context else {
             panic!("{context:?}");
         };
+
         assert_eq!(slice(&text, m.receiver.unwrap()), "f(x)");
         assert!(m.chain.is_empty());
         let (_, context) = ctx("xs[i].|");
+
         assert!(
             matches!(&context, CursorContext::Member(m) if m.chain.is_empty()
             && m.receiver.is_some())
         );
+
         // Inferred members have no receiver.
         for text in ["paint(.|", "c == .|", "case .|", "d: Color = .G|"] {
             let (_, context) = ctx(text);
+
             assert!(
                 matches!(&context, CursorContext::Member(m) if m.receiver.is_none()),
                 "{text}: {context:?}"
             );
         }
+
         // A range is not member access.
         assert_eq!(ctx("for 0..ta|").1, CursorContext::Code);
         let (_, context) = ctx("a..b.c|");
+
         assert!(matches!(&context, CursorContext::Member(m) if m.chain.len() == 1));
         // A comma in a string before the dot changes nothing.
         let (text, context) = ctx("f(\"a.b,\"); q.r|");
         let CursorContext::Member(m) = context else {
             panic!("{context:?}");
         };
+
         assert_eq!(slice(&text, m.receiver.unwrap()), "q");
     }
 }

@@ -23,6 +23,7 @@ pub fn valid_origin(origin: &str) -> bool {
     else {
         return false;
     };
+
     !host.is_empty()
         && !host
             .chars()
@@ -32,9 +33,11 @@ pub fn valid_origin(origin: &str) -> bool {
 /// Collapse plain text and reserve one character for the ellipsis, cutting at a word boundary.
 pub fn description(text: &str) -> String {
     let text = plain(text).split_whitespace().collect::<Vec<_>>().join(" ");
+
     if text.chars().count() <= 155 {
         return text;
     }
+
     let cut: String = text.chars().take(154).collect();
     format!("{}…", cut.rsplit_once(' ').map_or("", |(a, _)| a))
 }
@@ -46,14 +49,17 @@ impl Metadata {
         image: Option<(String, Vec<u8>)>,
     ) -> Vec<(String, Vec<u8>)> {
         let mut files: Vec<_> = image.into_iter().collect();
+
         if !self.origin.is_empty() {
             let root = self.url("", false);
+
             files.extend(sitemaps(urls, &root, 50_000, 50 * 1024 * 1024));
             files.push((
                 "robots.txt".into(),
                 format!("Sitemap: {root}sitemap.xml\n").into_bytes(),
             ));
         }
+
         files
     }
 
@@ -61,6 +67,7 @@ impl Metadata {
         if self.origin.is_empty() {
             return String::new();
         }
+
         // Current releases live at url + base. Archived versions live at
         // url + base + versions/<version>/. An archived build passes that directory
         // as --base-url; strip its suffix when targeting a different canonical version.
@@ -84,6 +91,7 @@ impl Metadata {
         } else {
             &self.base
         };
+
         format!("{}{base}{folder}{path}", self.origin)
     }
 
@@ -92,8 +100,10 @@ impl Metadata {
     pub fn apply_module(&self, module: &mut ModuleView, exported: usize, urls: &mut Vec<String>) {
         self.apply(&mut module.page);
         urls.push(self.url(&module.page.path, false));
+
         for (n, page) in module.items.iter_mut().enumerate() {
             self.apply(page);
+
             if n < exported {
                 urls.push(self.url(&page.path, false));
             } else {
@@ -143,11 +153,13 @@ impl Metadata {
             } => Some(crumbs),
             _ => None,
         };
+
         if let Content::Item {
             crumbs, ..
         } = &page.content
         {
             let module = crumbs.iter().rev().nth(1).map_or("", |c| c.label.as_str());
+
             data.push(
                 json!({"@context":"https://schema.org", "@type":"TechArticle",
                 "headline":page.title, "description":page.description, "url":url,
@@ -155,6 +167,7 @@ impl Metadata {
                 "about":{"@type":"SoftwareSourceCode", "name":module}}),
             );
         }
+
         if let Some(crumbs) = crumbs {
             let entries: Vec<_> = crumbs
                 .iter()
@@ -173,8 +186,10 @@ impl Metadata {
                     json!({"@type":"ListItem", "position":i+1, "name":c.label, "item":href})
                 })
                 .collect();
+
             data.push(json!({"@context":"https://schema.org", "@type":"BreadcrumbList", "itemListElement":entries}));
         }
+
         page.head.json_ld = if data.is_empty() {
             String::new()
         } else {
@@ -195,34 +210,43 @@ pub fn sitemaps(
     let mut shards = Vec::new();
     let mut text = START.to_owned();
     let mut count = 0;
+
     for url in urls {
         let entry = format!("<url><loc>{}</loc></url>", escape(url));
+
         if count > 0 && (count >= count_limit || text.len() + entry.len() + END.len() > byte_limit)
         {
             text.push_str(END);
             shards.push(std::mem::replace(&mut text, START.to_owned()));
             count = 0;
         }
+
         text.push_str(&entry);
         count += 1;
     }
+
     text.push_str(END);
     shards.push(text);
+
     if shards.len() == 1 {
         return vec![("sitemap.xml".into(), shards.remove(0).into_bytes())];
     }
+
     let mut index = String::from(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?><sitemapindex xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">",
     );
     let mut files = Vec::new();
+
     for (i, shard) in shards.into_iter().enumerate() {
         let name = format!("sitemap-{}.xml", i + 1);
+
         index.push_str(&format!(
             "<sitemap><loc>{}{name}</loc></sitemap>",
             escape(root)
         ));
         files.push((name, shard.into_bytes()));
     }
+
     index.push_str("</sitemapindex>");
     files.push(("sitemap.xml".into(), index.into_bytes()));
     files

@@ -5,6 +5,7 @@ use test_support::lsp::{open_file, position, project, uri_of};
 
 fn hover_at(s: &Session, uri: &DocumentUri, text: &str, marker: &str) -> String {
     let byte = text.find(marker).unwrap();
+
     s.hover(uri, position(text, byte))
         .unwrap()
         .expect("hover")
@@ -45,6 +46,7 @@ fn assert_real_hover(name: &str, meta: &str) {
     let dir = project(name, &[("first.jai", meta), ("main.jai", MAIN)]);
     let (s, uri, text) = open_file(&dir, "main.jai");
     let hover = hover_at(&s, &uri, &text, "answer :=");
+
     assert!(hover.contains("answer: s64"), "{hover}");
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
 }
@@ -62,6 +64,7 @@ fn file_built_without_a_message_loop_gets_a_checked_hover() {
 #[test]
 fn built_file_without_main_reports_no_missing_entry() {
     let lib = "#import \"Basic\";\nhelper :: () -> int {\n    value := extra_value * 2;\n    return value;\n}\n";
+
     for (name, template) in [("nomain-loop", WITH_LOOP), ("nomain-plain", WITHOUT_LOOP)] {
         let dir = project(
             name,
@@ -69,8 +72,10 @@ fn built_file_without_main_reports_no_missing_entry() {
         );
         let (s, uri, text) = open_file(&dir, "main.jai");
         let errors = check_errors(&s, &uri);
+
         assert!(errors.is_empty(), "{name}: {errors:?}");
         let hover = hover_at(&s, &uri, &text, "value :=");
+
         assert!(hover.contains("value: s64"), "{name}: {hover}");
     }
 }
@@ -82,6 +87,7 @@ fn control_without_the_metaprogram_reports_the_missing_name() {
     let dir = project("control", &[("main.jai", MAIN)]);
     let (s, uri, _) = open_file(&dir, "main.jai");
     let errors = check_errors(&s, &uri);
+
     assert!(
         errors.iter().any(|e| e.contains("extra_value")),
         "{errors:?}"
@@ -105,6 +111,7 @@ fn file_of_a_project_module_is_checked_through_the_program_importing_it() {
         ],
     );
     let (s, uri, text) = open_file(&folder, "modules/Grid/cells.jai");
+
     assert!(hover_at(&s, &uri, &text, "cells ::").contains('6'));
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
 }
@@ -124,17 +131,23 @@ fn stray_files_do_not_push_out_the_projects_compile() {
     );
     let (mut s, main, main_text) = open_file(&folder, "main.jai");
     let mut strays = Vec::new();
+
     for name in ["scratch/one.jai", "scratch/two.jai"] {
         let path = folder.join(name);
         let text = std::fs::read_to_string(&path).unwrap();
+
         s.open(uri_of(&path), 1, text.clone()).unwrap();
         strays.push((uri_of(&path), text));
     }
+
     hover_at(&s, &main, &main_text, "total :=");
+
     for (uri, text) in &strays {
         hover_at(&s, uri, text, &text[..3]);
     }
+
     let (compiled, _) = s.compile_counts();
+
     hover_at(&s, &main, &main_text, "total :=");
     assert_eq!(
         s.compile_counts().0,
@@ -155,6 +168,7 @@ fn polymorphs_nothing_calls_keep_their_compile_time_constants_after_the_release(
         )],
     );
     let (s, uri, text) = open_file(&folder, "main.jai");
+
     assert!(hover_at(&s, &uri, &text, "VALUE ::").contains('5'));
     // `later` is never called: its sketch ran `helper` before the compile released it.
     assert!(hover_at(&s, &uri, &text, "scaled :=").contains("scaled"));
@@ -172,6 +186,7 @@ fn constants_built_in_freed_compile_time_memory_still_hover() {
         )],
     );
     let (s, uri, text) = open_file(&folder, "main.jai");
+
     // The string `make` allocated is freed with the compile; the constant keeps its own copy.
     assert!(hover_at(&s, &uri, &text, "NAME ::").contains("hello"));
     assert!(hover_at(&s, &uri, &text, "NAME);").contains("hello"));

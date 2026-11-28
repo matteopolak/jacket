@@ -9,8 +9,10 @@ fn windows_target_run_reads_and_walks_real_host_files() {
     if cfg!(windows) {
         return;
     }
+
     let temp = test_support::TempDir::new("windows-cross-files");
     let input = temp.join("input-é-😀.txt");
+
     std::fs::write(&input, "host bytes: café 😀").unwrap();
     std::fs::create_dir(temp.join("nested")).unwrap();
     std::fs::write(temp.join("nested/child.txt"), "child").unwrap();
@@ -18,6 +20,7 @@ fn windows_target_run_reads_and_walks_real_host_files() {
     std::os::unix::fs::symlink(&*temp, temp.join("nested/cycle")).unwrap();
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.os = TargetOs::Windows;
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
@@ -33,6 +36,7 @@ fn windows_target_run_reads_and_walks_real_host_files() {
         observer: None,
     });
     let mut compiler = Compiler::new(options, fs);
+
     compiler.attach_workspaces(workspaces);
     let source = format!(
         r#"
@@ -86,6 +90,7 @@ fn windows_target_run_reads_and_walks_real_host_files() {
             5
         }
     );
+
     compiler
         .compile_sources(&[ProgramSource::String(source)])
         .unwrap_or_else(|error| panic!("{}", error.render(&compiler.src.sources)));

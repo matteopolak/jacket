@@ -14,8 +14,10 @@ fn native_root_foreign_calls_route_without_symbol_name_hints() {
     if !toolchain::require_all(&["clang"]) {
         return;
     }
+
     let dir = TempDir::new("native-main-route");
     let provider = dir.join("provider.c");
+
     std::fs::write(
         &provider,
         "#include <pthread.h>\nint root_thread_probe(void) { return pthread_main_np(); }\n",
@@ -29,12 +31,14 @@ fn native_root_foreign_calls_route_without_symbol_name_hints() {
         .arg(&library)
         .output()
         .unwrap();
+
     assert!(
         built.status.success(),
         "{}",
         String::from_utf8_lossy(&built.stderr)
     );
     let source = dir.join("main.jai");
+
     std::fs::write(&source, "lib :: #library \"main-route-probe\";\nprobe :: () -> s32 #foreign lib \"root_thread_probe\";\nmain :: () -> s32 { return cast(s32) ifx probe() == 1 then 0 else 1; }\n").unwrap();
     let output = Command::new(JAIC)
         .arg(&source)
@@ -42,6 +46,7 @@ fn native_root_foreign_calls_route_without_symbol_name_hints() {
         .env("JAIC_NATIVE_LIBS", &dir)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{:?}: {}{}",
@@ -57,6 +62,7 @@ fn native_root_foreign_calls_route_without_symbol_name_hints() {
 fn run_passes_program_arguments() {
     let dir = TempDir::new("cli-run-args");
     let source = dir.join("args.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -74,6 +80,7 @@ fn run_passes_program_arguments() {
             .args(extra)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -81,6 +88,7 @@ fn run_passes_program_arguments() {
         );
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     assert_eq!(run(&[]), "0\n");
     assert_eq!(run(&["--", "a", "b c"]), "[a][b c]3\n");
     assert_eq!(run(&["-", "meta", "--", "x"]), "[x]2\n");
@@ -101,6 +109,7 @@ fn run_passes_program_arguments() {
 fn long_double_extension_on_wide_targets() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../stdlib/Extensions/Long_Double/tests/libm-calls.jai");
+
     for target in [
         "x86_64-linux-gnu",
         "x86_64-apple-darwin",
@@ -113,6 +122,7 @@ fn long_double_extension_on_wide_targets() {
             .args(["-target", target])
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{target}: {}",
@@ -126,6 +136,7 @@ fn long_double_extension_on_wide_targets() {
     }
 
     let dir = TempDir::new("cli-long-double");
+
     for (name, text, message) in [
         (
             "no_import",
@@ -144,19 +155,24 @@ fn long_double_extension_on_wide_targets() {
         ),
     ] {
         let source = dir.join(format!("{name}.jai"));
+
         std::fs::write(&source, text).unwrap();
         let output = Command::new(JAIC)
             .arg("-check")
             .arg(&source)
             .output()
             .unwrap();
+
         assert!(!output.status.success(), "{name}");
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert!(stderr.contains(message), "{name}: {stderr}");
     }
+
     // A wide long double through C varargs is passed like a fixed one (tests/compiler/native/c-long-double
     // runs it); here only that it compiles for each wide target.
     let source = dir.join("varargs.jai");
+
     std::fs::write(
         &source,
         "#import \"Extensions/Long_Double\";\n\
@@ -165,6 +181,7 @@ fn long_double_extension_on_wide_targets() {
          main :: () { x: Long_Double = 2.5; printf(\"%Lf\\n\", x, x); }\n",
     )
     .unwrap();
+
     for target in [
         "x86_64-linux-gnu",
         "aarch64-linux-gnu",
@@ -176,12 +193,14 @@ fn long_double_extension_on_wide_targets() {
             .args(["-target", target])
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{target}: {}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
+
     // On a wide target, narrowing to float64 needs a cast and `%` / bit operations are not
     // defined.
     for (name, body, message) in [
@@ -202,6 +221,7 @@ fn long_double_extension_on_wide_targets() {
         ),
     ] {
         let source = dir.join(format!("wide_{name}.jai"));
+
         std::fs::write(
             &source,
             format!("#import \"Extensions/Long_Double\";\nmain :: () {{ {body} }}\n"),
@@ -213,8 +233,10 @@ fn long_double_extension_on_wide_targets() {
             .args(["-target", "x86_64-linux-gnu"])
             .output()
             .unwrap();
+
         assert!(!output.status.success(), "{name}");
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert!(stderr.contains(message), "{name}: {stderr}");
     }
 }
@@ -235,6 +257,7 @@ fn plug_hooks_a_plugin_into_check() {
             .unwrap()
     };
     let output = check(&["+Echo_Plugin", "-shout"]);
+
     assert!(
         output.status.success(),
         "{}",
@@ -257,6 +280,7 @@ fn plug_hooks_a_plugin_into_check() {
 fn timings_report_phases() {
     let dir = TempDir::new("cli-timings");
     let source = dir.join("timed.jai");
+
     std::fs::write(&source, "main :: () {}\nanswer :: #run 6 * 7;\n").unwrap();
     let stderr = |extra: &[&str]| {
         let output = Command::new(JAIC)
@@ -265,31 +289,37 @@ fn timings_report_phases() {
             .args(extra)
             .output()
             .unwrap();
+
         assert!(output.status.success());
         String::from_utf8_lossy(&output.stderr).into_owned()
     };
     let report = stderr(&["-timings"]);
+
     for phase in ["front end", "workspaces", "total"] {
         let line = report
             .lines()
             .find(|l| l.starts_with(&format!("jaic-timing: {phase} ")))
             .unwrap_or_else(|| panic!("no {phase} line in {report}"));
         let fields: Vec<&str> = line.rsplitn(3, ' ').collect();
+
         assert!(
             fields[1].parse::<f64>().is_ok() && fields[0] == "1",
             "{line}"
         );
     }
+
     // Compile-time execution is its own phase: the `#run` above is at least one call.
     let line = report
         .lines()
         .find(|l| l.starts_with("jaic-timing: interp "))
         .unwrap_or_else(|| panic!("no interp line in {report}"));
     let fields: Vec<&str> = line.rsplitn(3, ' ').collect();
+
     assert!(
         fields[1].parse::<f64>().is_ok() && fields[0].parse::<u64>().is_ok_and(|n| n >= 1),
         "{line}"
     );
+
     // The same phases report what Rust code allocated: blocks, then bytes.
     for phase in ["front end", "total"] {
         let line = report
@@ -297,12 +327,14 @@ fn timings_report_phases() {
             .find(|l| l.starts_with(&format!("jaic-alloc: {phase} ")))
             .unwrap_or_else(|| panic!("no {phase} allocation line in {report}"));
         let fields: Vec<&str> = line.rsplitn(3, ' ').collect();
+
         assert!(
             fields[0].parse::<u64>().is_ok_and(|bytes| bytes > 0)
                 && fields[1].parse::<u64>().is_ok_and(|blocks| blocks > 0),
             "{line}"
         );
     }
+
     assert!(!stderr(&[]).contains("jaic-timing"));
     assert!(!stderr(&[]).contains("jaic-alloc"));
 }
@@ -319,12 +351,14 @@ fn memory_limit_stops_unbounded_allocation() {
                 \x20   return total;\n\
                 }\n";
     let runtime = dir.join("runtime.jai");
+
     std::fs::write(
         &runtime,
         format!("#import \"Basic\";\n{grow}main :: () {{ print(\"%\\n\", grow()); }}\n"),
     )
     .unwrap();
     let compile_time = dir.join("compile_time.jai");
+
     std::fs::write(
         &compile_time,
         format!(
@@ -333,6 +367,7 @@ fn memory_limit_stops_unbounded_allocation() {
     )
     .unwrap();
     let small = dir.join("small.jai");
+
     std::fs::write(
         &small,
         "#import \"Basic\";\n\
@@ -348,6 +383,7 @@ fn memory_limit_stops_unbounded_allocation() {
             .output()
             .unwrap()
     };
+
     for (source, extra) in [
         (&runtime, &[][..]),
         (&compile_time, &[][..]),
@@ -355,6 +391,7 @@ fn memory_limit_stops_unbounded_allocation() {
     ] {
         let output = run(source, extra);
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert_eq!(
             output.status.code(),
             Some(120),
@@ -366,7 +403,9 @@ fn memory_limit_stops_unbounded_allocation() {
             "{stderr}"
         );
     }
+
     let output = run(&small, &[]);
+
     assert!(
         output.status.success(),
         "{}",
@@ -407,15 +446,18 @@ get_plugin :: () -> *Metaprogram_Plugin {
 #[test]
 fn plug_hook_order_parameters_and_failures() {
     let dir = TempDir::new("cli-plug-order");
+
     std::fs::create_dir_all(dir.join("modules/Order_Plugin")).unwrap();
     std::fs::write(dir.join("modules/Order_Plugin/module.jai"), ORDER_PLUGIN).unwrap();
     let good = dir.join("good.jai");
+
     std::fs::write(
         &good,
         "#import \"Basic\";\nmain :: () { print(\"ran\\n\"); }\n",
     )
     .unwrap();
     let bad = dir.join("bad.jai");
+
     std::fs::write(&bad, "main :: () { x: int = \"no\"; }\n").unwrap();
     let check = |source: &Path, extra: &[&str]| {
         Command::new(JAIC)
@@ -433,6 +475,7 @@ fn plug_hook_order_parameters_and_failures() {
         );
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     assert_eq!(
         stdout(&check(&good, &["+Order_Plugin"])),
         "default init []\ndefault before_intercept\ndefault add_source\n\
@@ -455,17 +498,20 @@ fn plug_hook_order_parameters_and_failures() {
     );
     // Options before the first plugin are jaic's; the same options after it are the plugin's.
     let before = stdout(&check(&good, &["-I", "elsewhere", "+Order_Plugin", "-x"]));
+
     assert!(before.starts_with("default init [\"-x\"]\n"), "{before}");
     let after = stdout(&check(
         &good,
         &["+Order_Plugin", "-x", "-I", "elsewhere", "y"],
     ));
+
     assert!(
         after.starts_with("default init [\"-x\", \"-I\", \"elsewhere\", \"y\"]\n"),
         "{after}"
     );
     // A program that fails to compile under a plugin still fails the command.
     let failed = check(&bad, &["+Order_Plugin"]);
+
     assert_eq!(failed.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&failed.stderr).contains("type mismatch"));
 }
@@ -477,6 +523,7 @@ fn plug_hook_order_parameters_and_failures() {
 fn compile_time_print_precedes_program_output() {
     let dir = TempDir::new("cli-compile-time-print");
     let source = dir.join("order.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -489,6 +536,7 @@ fn compile_time_print_precedes_program_output() {
         .arg(&source)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -509,7 +557,9 @@ fn compile_time_print_precedes_program_output() {
 fn check_writes_no_workspace_output() {
     let dir = TempDir::new("cli-workspace-no-output");
     let source = dir.join("meta.jai");
+
     std::fs::write(&source, WORKSPACE_ASKING_FOR_OUTPUT).unwrap();
+
     for args in [&["-check"][..], &["-interp", "-no_workspace_output"][..]] {
         let output = Command::new(JAIC)
             .arg(args[0])
@@ -519,16 +569,20 @@ fn check_writes_no_workspace_output() {
             .output()
             .unwrap();
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert!(output.status.success(), "{args:?}: {stderr}");
         let written: Vec<_> = std::fs::read_dir(&dir)
             .unwrap()
             .map(|e| e.unwrap().file_name())
             .filter(|name| name.to_string_lossy().starts_with("target-prog"))
             .collect();
+
         assert!(written.is_empty(), "{args:?} wrote {written:?}");
         // `-check` says so, naming the command that would write it; the flag asked for silence.
         let warned = stderr.contains("target-prog") && stderr.contains("writes it");
+
         assert_eq!(warned, args[0] == "-check", "{args:?}: {stderr}");
+
         if args[0] == "-check" {
             assert!(
                 stderr.contains(&format!(
@@ -563,6 +617,7 @@ const WORKSPACE_ASKING_FOR_OUTPUT: &str = r##"#import "Basic";
 #[test]
 fn unwritten_workspace_output_names_the_path_and_the_command() {
     let dir = TempDir::new("cli-workspace-direct-run");
+
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::create_dir_all(dir.join("libs/Greeting")).unwrap();
     std::fs::write(
@@ -602,6 +657,7 @@ fn unwritten_workspace_output_names_the_path_and_the_command() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "{stderr}");
     assert!(
         stderr.contains(
@@ -618,6 +674,7 @@ fn unwritten_workspace_output_names_the_path_and_the_command() {
 #[test]
 fn dead_code_elimination_flag() {
     let dir = TempDir::new("cli-no-dce");
+
     std::fs::create_dir_all(dir.join("modules/Stale")).unwrap();
     std::fs::write(
         dir.join("modules/Stale/module.jai"),
@@ -625,8 +682,10 @@ fn dead_code_elimination_flag() {
     )
     .unwrap();
     let clean = dir.join("clean.jai");
+
     std::fs::write(&clean, "#import \"Stale\";\nmain :: () { used(); }\n").unwrap();
     let dirty = dir.join("dirty.jai");
+
     std::fs::write(
         &dirty,
         "#import \"Stale\";\nunused :: () { missing_in_program(); }\nmain :: () { used(); }\n",
@@ -640,19 +699,23 @@ fn dead_code_elimination_flag() {
             .current_dir(&dir)
             .output()
             .unwrap();
+
         (
             output.status.success(),
             String::from_utf8_lossy(&output.stderr).into_owned(),
         )
     };
     let (ok, stderr) = check(&clean, &[]);
+
     assert!(ok, "{stderr}");
     let (ok, stderr) = check(&clean, &["-no_dce"]);
+
     assert!(
         !ok && stderr.contains("missing_in_stale_module"),
         "{stderr}"
     );
     let (ok, stderr) = check(&dirty, &[]);
+
     assert!(!ok && stderr.contains("missing_in_program"), "{stderr}");
 }
 
@@ -663,6 +726,7 @@ fn dead_code_elimination_flag() {
 fn unreferenced_struct_constant_names_a_member() {
     let dir = TempDir::new("cli-struct-constant");
     let source = dir.join("padded.jai");
+
     std::fs::write(
         &source,
         "Group :: struct {\n    Padded :: struct {\n        using info: Info;\n        \
@@ -672,6 +736,7 @@ fn unreferenced_struct_constant_names_a_member() {
          main :: () {}\n",
     )
     .unwrap();
+
     for extra in [&[][..], &["-no_dce"][..]] {
         let output = Command::new(JAIC)
             .arg("-check")
@@ -679,6 +744,7 @@ fn unreferenced_struct_constant_names_a_member() {
             .args(extra)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{extra:?}: {}",
@@ -694,6 +760,7 @@ fn unreferenced_struct_constant_names_a_member() {
 fn intercept_flags_and_continuable_reports_are_preserved() {
     let dir = TempDir::new("cli-build-options-reported");
     let source = dir.join("meta.jai");
+
     std::fs::write(
         &source,
         r#"#import "Basic";
@@ -750,6 +817,7 @@ fn intercept_flags_and_continuable_reports_are_preserved() {
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert_eq!(output.status.code(), Some(1), "{stderr}");
     assert_eq!(stdout, "0 1 0 1 2\nstill running\n", "{stderr}");
     // Locations name the file as jaic resolved it.
@@ -765,6 +833,7 @@ fn intercept_flags_and_continuable_reports_are_preserved() {
         })
         .collect();
     let expected = ["error: continuing"];
+
     assert_eq!(lines, expected, "{stderr}");
 }
 
@@ -810,8 +879,10 @@ fn unsupported_compiler_requests_are_errors() {
             "workspace is not waiting for custom linking",
         ),
     ];
+
     for (name, body, message) in cases {
         let source = dir.join(format!("{name}.jai"));
+
         std::fs::write(
             &source,
             format!(
@@ -826,6 +897,7 @@ fn unsupported_compiler_requests_are_errors() {
             .output()
             .unwrap();
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert!(
             !output.status.success() && stderr.contains(message),
             "{name}: {stderr}"
@@ -838,6 +910,7 @@ fn unsupported_compiler_requests_are_errors() {
 #[test]
 fn default_metaprogram_options() {
     let dir = TempDir::new("cli-default-metaprogram");
+
     std::fs::write(
         dir.join("meta.jai"),
         "D :: #import \"Default_Metaprogram\";\n#run,stallable D.build();\n",
@@ -865,6 +938,7 @@ fn default_metaprogram_options() {
         "-exe",
         "hello_x",
     ]);
+
     assert!(
         ok.status.success(),
         "{}",
@@ -876,12 +950,14 @@ fn default_metaprogram_options() {
         "hello_x"
     });
     let child = Command::new(executable).output().unwrap();
+
     assert!(
         child.status.success(),
         "{}",
         String::from_utf8_lossy(&child.stderr)
     );
     assert_eq!(String::from_utf8_lossy(&child.stdout), "hi\n");
+
     for (options, message) in [
         (&["-bogus"][..], "Unknown option '-bogus'"),
         (&["-os", "plan9"][..], "Unknown option '-os'"),
@@ -894,16 +970,19 @@ fn default_metaprogram_options() {
             String::from_utf8_lossy(&output.stdout),
             String::from_utf8_lossy(&output.stderr)
         );
+
         assert!(
             !output.status.success() && stderr.contains(message),
             "{options:?}: {stderr}"
         );
     }
+
     let missing = Command::new(JAIC)
         .args(["-check", "meta.jai", "-", "-no_check", "-exe"])
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(!missing.status.success());
     assert!(
         format!(
@@ -918,6 +997,7 @@ fn default_metaprogram_options() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(version.status.success());
     assert!(String::from_utf8_lossy(&version.stdout).contains("Jacket"));
 }
@@ -928,6 +1008,7 @@ fn default_metaprogram_options() {
 fn add_and_run_strings_join_the_program() {
     let dir = TempDir::new("cli-add-run");
     let source = dir.join("added.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\nmain :: () { print(\"%\\n\", added); }\n",
@@ -949,6 +1030,7 @@ fn add_and_run_strings_join_the_program() {
         "-run",
         "print(\"twice\\n\");",
     ]);
+
     assert!(
         output.status.success(),
         "{}",
@@ -967,10 +1049,12 @@ fn add_and_run_strings_join_the_program() {
         "-run",
         "print(\"ran\\n\");",
     ]);
+
     assert!(checked.status.success());
     assert_eq!(String::from_utf8_lossy(&checked.stdout), "ran\n");
     // The option needs its code.
     let missing = jaic(&["-add"]);
+
     assert_eq!(missing.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&missing.stderr).contains("`-add` needs the code to add"));
 }
@@ -981,6 +1065,7 @@ fn add_and_run_strings_join_the_program() {
 fn options_around_the_file_and_chatter_levels() {
     let dir = TempDir::new("cli-chatter");
     let source = dir.join("warns.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\nmain :: () { print(\"% %\\n\", 1); }\n",
@@ -998,6 +1083,7 @@ fn options_around_the_file_and_chatter_levels() {
     let file = source.to_str().unwrap();
     let before = jaic(&["-check", file]);
     let after = jaic(&[file, "-check"]);
+
     assert!(before.status.success() && after.status.success());
     assert_eq!(before.stderr, after.stderr);
     assert!(
@@ -1006,6 +1092,7 @@ fn options_around_the_file_and_chatter_levels() {
         String::from_utf8_lossy(&before.stderr)
     );
     let quiet = jaic(&[file, "-check", "-quiet"]);
+
     assert!(quiet.status.success());
     assert!(
         quiet.stderr.is_empty(),
@@ -1013,8 +1100,10 @@ fn options_around_the_file_and_chatter_levels() {
         String::from_utf8_lossy(&quiet.stderr)
     );
     let verbose = jaic(&[file, "-check", "-verbose"]);
+
     assert!(String::from_utf8_lossy(&verbose.stderr).contains("jaic: checking "));
     let interp = jaic(&[file, "-interp", "-quiet", "-", "meta", "--", "one"]);
+
     assert!(interp.status.success());
 }
 
@@ -1024,10 +1113,13 @@ fn options_around_the_file_and_chatter_levels() {
 fn missing_native_library_in_a_source_checkout_names_just_build() {
     let run = |name: &str, checkout: bool| {
         let dir = TempDir::new(name);
+
         std::fs::create_dir_all(dir.join("stdlib")).unwrap();
+
         if checkout {
             std::fs::write(dir.join("Justfile"), "").unwrap();
         }
+
         std::fs::write(
             dir.join("stdlib/helper.jai"),
             "gp_missing_library :: #library \"jacket_missing_native_library\";\n\
@@ -1035,6 +1127,7 @@ fn missing_native_library_in_a_source_checkout_names_just_build() {
         )
         .unwrap();
         let source = dir.join("main.jai");
+
         std::fs::write(
             &source,
             "#load \"stdlib/helper.jai\";\n#run gp_environment(\"PATH\");\n",
@@ -1045,17 +1138,20 @@ fn missing_native_library_in_a_source_checkout_names_just_build() {
             .arg(&source)
             .output()
             .unwrap();
+
         assert!(!output.status.success());
         String::from_utf8_lossy(&output.stderr).into_owned()
     };
     let hint = "builds the libraries the standard library binds with `just build`";
     let inside = run("cli-missing-native-checkout", true);
+
     assert!(
         inside.contains("foreign procedure `gp_environment` is not available here"),
         "{inside}"
     );
     assert!(inside.contains(hint), "{inside}");
     let outside = run("cli-missing-native-release", false);
+
     assert!(
         outside.contains("was not found or does not define it"),
         "{outside}"

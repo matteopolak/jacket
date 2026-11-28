@@ -69,20 +69,26 @@ const KEPT_BYTES: usize = 4 << 20;
 fn trivia(text: &str) -> Rc<Trivia> {
     LAST.with(|kept| {
         let mut kept = kept.borrow_mut();
+
         if let Some(at) = kept.iter().position(|found| found.text == text) {
             // Most recently used first.
             let found = kept.remove(at);
+
             kept.insert(0, Rc::clone(&found));
+
             return found;
         }
+
         let lexed = Lexed::new(FileId(0), text);
         let found = Rc::new(Trivia {
             text: text.to_owned(),
             tokens: lexed.tokens,
             comments: lexed.comments,
         });
+
         kept.insert(0, Rc::clone(&found));
         let mut bytes = 0;
+
         kept.retain(|t| {
             bytes += t.text.len();
             bytes <= KEPT_BYTES
@@ -103,6 +109,7 @@ impl Trivia {
     /// Whether only whitespace comes before `c` on its line.
     fn owns_line(&self, c: &Comment) -> bool {
         let start = Self::start(c);
+
         self.text[line_start(&self.text, start)..start]
             .trim()
             .is_empty()
@@ -125,25 +132,33 @@ impl Trivia {
     fn docs_run(&self, line: usize) -> Vec<&Comment> {
         let mut out: Vec<&Comment> = Vec::new();
         let mut next = line;
+
         for c in self.comments_before(line).iter().rev() {
             if !self.directly_above(c, next) {
                 break;
             }
+
             if c.kind == CommentKind::Block {
                 if out.is_empty() && c.terminated {
                     out.push(c);
                 }
+
                 break;
             }
+
             if decoration(c.body(&self.text)) {
                 break;
             }
+
             out.push(c);
+
             if out.len() >= MAX_LINES {
                 break;
             }
+
             next = Self::start(c);
         }
+
         out.reverse();
         out
     }
@@ -153,16 +168,21 @@ impl Trivia {
     fn sites_run(&self, line: usize) -> Vec<&Comment> {
         let mut out: Vec<&Comment> = Vec::new();
         let mut next = line;
+
         for c in self.comments_before(line).iter().rev() {
             if !self.directly_above(c, next) {
                 break;
             }
+
             out.push(c);
+
             if c.kind == CommentKind::Block {
                 break;
             }
+
             next = Self::start(c);
         }
+
         out.reverse();
         out
     }
@@ -171,13 +191,16 @@ impl Trivia {
     fn line_run(&self, line: usize) -> Vec<&Comment> {
         let mut out: Vec<&Comment> = Vec::new();
         let mut next = line;
+
         for c in self.comments_before(line).iter().rev() {
             if c.kind != CommentKind::Line || !self.directly_above(c, next) {
                 break;
             }
+
             out.push(c);
             next = Self::start(c);
         }
+
         out.reverse();
         out
     }
@@ -188,12 +211,14 @@ impl Trivia {
             .find('\n')
             .map_or(self.text.len(), |n| from + n);
         let at = self.comments.partition_point(|c| Self::start(c) < from);
+
         self.comments.get(at).filter(|c| Self::start(c) < end)
     }
 
     /// The lines of `c`'s text.
     fn bodies(&self, c: &Comment) -> Vec<Body<'_>> {
         let (start, end) = (Self::start(c), Self::end(c));
+
         if c.kind == CommentKind::Line {
             let bytes = self.text.as_bytes();
             let mut at = start + 2;
@@ -202,19 +227,24 @@ impl Trivia {
                     .iter()
                     .take_while(|&&b| b == b'/' || b == b'!')
                     .count();
+
             if at < end && matches!(bytes[at], b'/' | b'!') {
                 at += 1;
             }
+
             if at < end && bytes[at] == b' ' {
                 at += 1;
             }
+
             let text = self.text[at..end].trim_end();
+
             return vec![Body {
                 src: at,
                 marker_end,
                 text,
             }];
         }
+
         self.block_bodies(start, end, c.terminated)
     }
 
@@ -230,10 +260,12 @@ impl Trivia {
         let text = self.text.as_str();
         let mut lines: Vec<(usize, usize)> = Vec::new();
         let mut from = inner_start;
+
         for (i, _) in text[inner_start..inner_end].match_indices('\n') {
             lines.push((from, inner_start + i));
             from = inner_start + i + 1;
         }
+
         lines.push((from, inner_end));
         let margin = lines.iter().skip(1).all(|&(a, b)| {
             let t = text[a..b].trim_start();
@@ -252,6 +284,7 @@ impl Trivia {
                 .unwrap_or(0)
         };
         let mut out = Vec::with_capacity(lines.len());
+
         for (i, &(a, b)) in lines.iter().enumerate() {
             let b = a + text[a..b].trim_end().len();
             let skip_space = |a: usize| a + (text[a..b].len() - text[a..b].trim_start().len());
@@ -259,24 +292,29 @@ impl Trivia {
                 skip_space(a)
             } else if margin {
                 let mut a = skip_space(a);
+
                 if text[a..b].starts_with('*') {
                     a += 1;
                 }
+
                 if text[a..b].starts_with(' ') {
                     a += 1;
                 }
+
                 a
             } else if a + indent <= b && text.is_char_boundary(a + indent) {
                 a + indent
             } else {
                 skip_space(a)
             };
+
             out.push(Body {
                 src: a,
                 marker_end: a,
                 text: &text[a..b],
             });
         }
+
         out
     }
 
@@ -291,6 +329,7 @@ impl Trivia {
         let Some(before) = paren.checked_sub(1) else {
             return false;
         };
+
         match &self.tokens[before].tok {
             Tok::Punct(P::ColonColon) => true,
             Tok::Directive(s) => s.as_str() == "type",
@@ -319,6 +358,7 @@ impl Docs {
         if !valid(&self.0.text, at) {
             return None;
         }
+
         above_in(&self.0, at)
     }
 }
@@ -328,6 +368,7 @@ pub fn above(text: &str, at: usize) -> Option<String> {
     if !valid(text, at) {
         return None;
     }
+
     above_in(&trivia(text), at)
 }
 
@@ -337,6 +378,7 @@ pub fn trailing(text: &str, at: usize) -> Option<String> {
     if !valid(text, at) {
         return None;
     }
+
     trailing_in(&trivia(text), at)
 }
 
@@ -346,13 +388,17 @@ fn trailing_in(t: &Trivia, at: usize) -> Option<String> {
         .filter(|c| c.kind == CommentKind::Line)?;
     let body = t.bodies(comment).pop()?.text;
     let code = t.text[at..Trivia::start(comment)].trim_end();
+
     if code.contains('{') {
         return None;
     }
+
     let ends = code.ends_with(';') || code.ends_with(',');
+
     if (!ends && code.contains("::")) || body.trim().is_empty() {
         return None;
     }
+
     Some(body.to_owned())
 }
 
@@ -362,11 +408,14 @@ pub fn declaration(text: &str, at: usize) -> Option<String> {
     if !valid(text, at) {
         return None;
     }
+
     let t = trivia(text);
+
     if let Some(open) = enclosing_header_in(&t, at) {
         let name = word_at(text, at)?;
         return parameter(&t, open, name);
     }
+
     above_in(&t, at).or_else(|| trailing_in(&t, at))
 }
 
@@ -376,6 +425,7 @@ fn word_at(text: &str, at: usize) -> Option<&str> {
     let end = rest
         .find(|c: char| !(c.is_alphanumeric() || c == '_'))
         .unwrap_or(rest.len());
+
     (end > 0).then(|| &rest[..end])
 }
 
@@ -386,27 +436,35 @@ pub fn enclosing_header(text: &str, at: usize) -> Option<usize> {
     if !valid(text, at) {
         return None;
     }
+
     enclosing_header_in(&trivia(text), at)
 }
 
 fn enclosing_header_in(t: &Trivia, at: usize) -> Option<usize> {
     // Only the lines just before `at` are read.
     let mut bound = line_start(&t.text, at);
+
     for _ in 0..HEADER_LINES {
         if bound == 0 {
             break;
         }
+
         bound = line_start(&t.text, bound - 1);
     }
+
     let mut depth = 0i32;
+
     for i in (0..t.token_from(at)).rev() {
         let token = &t.tokens[i];
+
         if (token.span.start as usize) < bound {
             return None;
         }
+
         let Tok::Punct(p) = &token.tok else {
             continue;
         };
+
         match p {
             P::RParen | P::RBracket => depth += 1,
             P::LBracket | P::DotBracket => depth -= 1,
@@ -416,6 +474,7 @@ fn enclosing_header_in(t: &Trivia, at: usize) -> Option<usize> {
             _ => {}
         }
     }
+
     None
 }
 
@@ -423,12 +482,14 @@ fn enclosing_header_in(t: &Trivia, at: usize) -> Option<usize> {
 /// itself, else its item in the docs above the header.
 fn parameter(t: &Trivia, open: usize, name: &str) -> Option<String> {
     let name = name.trim_start_matches('$');
+
     header_parameters(t, open)
         .into_iter()
         .find(|(n, _)| n == name)
         .map(|(_, doc)| doc)
         .or_else(|| {
             let doc = above_in(t, open)?;
+
             list_parameters(&doc)
                 .into_iter()
                 .find(|(n, _)| n == name)
@@ -443,8 +504,10 @@ pub fn parameters(text: &str, open: usize) -> Vec<(String, String)> {
     if !valid(text, open) {
         return Vec::new();
     }
+
     let t = trivia(text);
     let mut found = header_parameters(&t, open);
+
     if let Some(doc) = above_in(&t, open) {
         for (name, doc) in list_parameters(&doc) {
             if !found.iter().any(|(n, _)| *n == name) {
@@ -452,6 +515,7 @@ pub fn parameters(text: &str, open: usize) -> Vec<(String, String)> {
             }
         }
     }
+
     found
 }
 
@@ -461,6 +525,7 @@ pub fn header_open(text: &str, at: usize) -> Option<usize> {
     if !valid(text, at) {
         return None;
     }
+
     let end = text.get(at..)?.find('\n').map_or(text.len(), |n| at + n);
     text[at..end].find('(').map(|n| at + n)
 }
@@ -472,33 +537,42 @@ fn header_parameters(t: &Trivia, open: usize) -> Vec<(String, String)> {
         .tokens
         .get(first)
         .is_some_and(|k| k.span.start as usize == open && k.tok == Tok::Punct(P::LParen));
+
     if !starts_here {
         return Vec::new();
     }
+
     let open_line = line_start(&t.text, open);
     let mut limit = open_line;
+
     for _ in 0..HEADER_LINES {
         let Some(n) = t.text[limit..].find('\n') else {
             limit = t.text.len();
             break;
         };
+
         limit += n + 1;
     }
+
     // The tokens of each top-level parameter, up to the closing parenthesis.
     let mut segments: Vec<(usize, usize)> = Vec::new();
     let (mut depth, mut seg_start) = (0i32, first + 1);
+
     for (i, token) in t.tokens.iter().enumerate().skip(first) {
         if token.span.start as usize >= limit {
             segments.push((seg_start, i));
             break;
         }
+
         let Tok::Punct(p) = &token.tok else {
             continue;
         };
+
         match p {
             P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket => depth += 1,
             P::RParen | P::RBracket | P::RBrace => {
                 depth -= 1;
+
                 if depth == 0 {
                     segments.push((seg_start, i));
                     break;
@@ -511,16 +585,21 @@ fn header_parameters(t: &Trivia, open: usize) -> Vec<(String, String)> {
             _ => {}
         }
     }
+
     // (name, the start of its line)
     let mut named: Vec<(String, usize)> = Vec::new();
+
     for (a, b) in segments {
         let mut j = a;
+
         while j < b && matches!(t.tokens[j].tok, Tok::Punct(P::Dollar | P::DollarDollar)) {
             j += 1;
         }
+
         if j >= b {
             continue;
         }
+
         let Tok::Ident(name) = &t.tokens[j].tok else {
             continue;
         };
@@ -529,13 +608,17 @@ fn header_parameters(t: &Trivia, open: usize) -> Vec<(String, String)> {
                 t.tokens[j + 1].tok,
                 Tok::Punct(P::Colon | P::ColonEq | P::ColonColon)
             );
+
         if declares {
             let line = line_start(&t.text, t.tokens[j].span.start as usize);
+
             named.push((name.as_str().to_owned(), line));
         }
     }
+
     let mut out: Vec<(String, String)> = Vec::new();
     let mut at = 0;
+
     while at < named.len() {
         let line = named[at].1;
         let count = named[at..].iter().take_while(|n| n.1 == line).count();
@@ -559,20 +642,26 @@ fn header_parameters(t: &Trivia, open: usize) -> Vec<(String, String)> {
             .and_then(|c| t.bodies(c).pop())
             .map(|b| b.text)
             .filter(|b| !b.trim().is_empty());
+
         for (k, (name, _)) in named[at..at + count].iter().enumerate() {
             let mut parts: Vec<&str> = Vec::new();
+
             if k == 0 {
                 parts.extend(&leading);
             }
+
             if k == count - 1 {
                 parts.extend(after);
             }
+
             if !parts.is_empty() {
                 out.push((name.clone(), parts.join("\n")));
             }
         }
+
         at += count;
     }
+
     out
 }
 
@@ -582,16 +671,21 @@ pub fn list_parameters(doc: &str) -> Vec<(String, String)> {
     let mut out: Vec<(String, String)> = Vec::new();
     let mut fenced = false;
     let mut open = false;
+
     for line in doc.lines() {
         let trimmed = line.trim_start();
+
         if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
             fenced = !fenced;
             open = false;
+
             continue;
         }
+
         if fenced {
             continue;
         }
+
         if let Some((name, rest)) = list_item(trimmed) {
             out.push((name, rest));
             open = true;
@@ -604,6 +698,7 @@ pub fn list_parameters(doc: &str) -> Vec<(String, String)> {
             open = false;
         }
     }
+
     out
 }
 
@@ -622,12 +717,15 @@ fn list_item(line: &str) -> Option<(String, String)> {
         let end = rest
             .find(|c: char| !(c.is_alphanumeric() || c == '_'))
             .unwrap_or(rest.len());
+
         (&rest[..end], &rest[end..])
     };
     let name = name.trim_start_matches('$');
+
     if name.is_empty() || !name.chars().all(|c| c.is_alphanumeric() || c == '_') {
         return None;
     }
+
     let rest = rest
         .strip_prefix(':')
         .or_else(|| rest.trim_start().strip_prefix('—'))
@@ -666,29 +764,37 @@ fn link_path(text: &str) -> Option<(Vec<String>, usize, usize, bool)> {
     let mut start = text.len() - text.trim_start().len();
     let mut t = text.trim();
     let mut code = false;
+
     if let Some(inner) = t.strip_prefix('`').and_then(|t| t.strip_suffix('`')) {
         start += 1 + (inner.len() - inner.trim_start().len());
         t = inner.trim();
         code = true;
     }
+
     if let Some(inner) = t.strip_suffix("()") {
         t = inner;
         code = true;
     }
+
     if t.is_empty() {
         return None;
     }
+
     let mut names = Vec::new();
+
     for segment in t.split('.') {
         let mut chars = segment.chars();
         let first = chars.next()?;
+
         if !(first.is_alphabetic() || first == '_')
             || !chars.all(|c| c.is_alphanumeric() || c == '_')
         {
             return None;
         }
+
         names.push(segment.to_owned());
     }
+
     Some((names, start, start + t.len(), code))
 }
 
@@ -704,12 +810,14 @@ pub fn links(doc: &str) -> Vec<Link> {
     let mut out = Vec::new();
     // The open link: its range, kind and where its last inner event ends.
     let mut open: Option<(std::ops::Range<usize>, LinkType, usize)> = None;
+
     for (event, range) in parser.into_offset_iter() {
         match event {
             Event::Start(Tag::Link {
                 link_type, ..
             }) => {
                 let inner = range.start + 1;
+
                 open = Some((range, link_type, inner));
             }
             Event::End(TagEnd::Link) => {
@@ -724,12 +832,15 @@ pub fn links(doc: &str) -> Vec<Link> {
             }
         }
     }
+
     // A definition line directly under a paragraph line is not one to CommonMark, but it is
     // written (and meant) as one.
     let defined: Vec<&str> = doc.lines().filter_map(reference_definition).collect();
+
     for link in &mut out {
         link.defined |= defined.contains(&doc[link.label.0..link.label.1].trim());
     }
+
     out
 }
 
@@ -738,6 +849,7 @@ fn reference_definition(line: &str) -> Option<&str> {
     let rest = line.trim_start().strip_prefix('[')?;
     let end = rest.find("]:")?;
     let after = rest[end + 2..].trim_start();
+
     (!after.is_empty() && !rest[..end].contains('[')).then(|| rest[..end].trim())
 }
 
@@ -755,20 +867,26 @@ fn link_from(
         _ => return None,
     };
     let prev = doc[..whole.start].chars().next_back();
+
     if prev.is_some_and(|c| c.is_alphanumeric() || matches!(c, '_' | ')' | ']' | '!')) {
         return None;
     }
+
     let label_start = whole.start + 1;
     let label_end =
         inner_end.max(label_start) + doc[inner_end.max(label_start)..whole.end].find(']')?;
     let label = (label_start, label_end);
+
     if targeted {
         // `[text](name)`: only a name is a link; a URL is left alone.
         let target = label_end + 2;
+
         if doc.as_bytes().get(label_end + 1) != Some(&b'(') || target > whole.end - 1 {
             return None;
         }
+
         let (names, from, to, code) = link_path(&doc[target..whole.end - 1])?;
+
         return Some(Link {
             whole: (whole.start, whole.end),
             label,
@@ -779,7 +897,9 @@ fn link_from(
             defined,
         });
     }
+
     let (names, from, to, code) = link_path(&doc[label.0..label.1])?;
+
     Some(Link {
         whole: (whole.start, whole.end),
         label,
@@ -812,6 +932,7 @@ impl DocText {
             text: String::new(),
             lines: Vec::new(),
         };
+
         for body in run.iter().flat_map(|c| t.bodies(c)) {
             doc.lines.push(DocLine {
                 doc: doc.text.len(),
@@ -822,6 +943,7 @@ impl DocText {
             doc.text.push_str(body.text);
             doc.text.push('\n');
         }
+
         doc
     }
 
@@ -856,33 +978,40 @@ pub fn fenced_code(text: &str) -> Vec<(usize, usize)> {
             run.clear();
         }
     };
+
     for c in &t.comments {
         let continues = run
             .last()
             .is_some_and(|last| t.directly_above(last, Trivia::start(c)));
+
         if !continues {
             flush(&mut run);
         }
+
         if c.kind == CommentKind::Line && t.owns_line(c) {
             run.push(c);
         } else {
             flush(&mut run);
         }
     }
+
     flush(&mut run);
     out
 }
 
 fn fenced_in(t: &Trivia, run: &[&Comment], out: &mut Vec<(usize, usize)>) {
     let doc = DocText::new(t, run);
+
     for (event, range) in Parser::new(&doc.text).into_offset_iter() {
         let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) = event else {
             continue;
         };
         let info = info.trim();
+
         if !(info.is_empty() || info == "jai") {
             continue;
         }
+
         let (first, last) = (
             doc.line_of(range.start),
             doc.line_of(range.end.saturating_sub(1)),
@@ -897,8 +1026,10 @@ fn fenced_in(t: &Trivia, run: &[&Comment], out: &mut Vec<(usize, usize)>) {
         } else {
             last + 1
         };
+
         for line in &doc.lines[(first + 1).min(end)..end] {
             let body = &doc.text[line.doc..line.doc + line.len];
+
             if !body.trim().is_empty() {
                 out.push((line.marker_end, line.src + line.len));
             }
@@ -922,40 +1053,51 @@ pub fn linked(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>) -> Strin
 fn rewrite(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>, fences: bool) -> String {
     // (start, end, replacement) in source order.
     let mut edits: Vec<(usize, usize, String)> = Vec::new();
+
     for (event, range) in Parser::new(doc).into_offset_iter() {
         let Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) = event else {
             continue;
         };
+
         if !fences {
             continue;
         }
+
         if !info.trim().is_empty() {
             continue;
         }
+
         let line_end = doc[range.start..]
             .find('\n')
             .map_or(doc.len(), |n| range.start + n);
         let line = &doc[range.start..line_end];
+
         if let Some(at) = line.find('`') {
             let run = line[at..].chars().take_while(|&c| c == '`').count();
             let end = range.start + at + run;
+
             edits.push((end, end, "jai".to_owned()));
         }
     }
+
     for link in links(doc) {
         if let Some(url) = resolve(&link.names) {
             let label = &doc[link.label.0..link.label.1];
+
             edits.push((link.whole.0, link.whole.1, format!("[{label}]({url})")));
         }
     }
+
     edits.sort_by_key(|e| e.0);
     let mut out = String::with_capacity(doc.len());
     let mut at = 0;
+
     for (start, end, text) in edits {
         out.push_str(&doc[at..start]);
         out.push_str(&text);
         at = end;
     }
+
     out.push_str(&doc[at..]);
     out.truncate(out.trim_end_matches(['\n', '\r']).len());
     out
@@ -964,14 +1106,17 @@ fn rewrite(doc: &str, resolve: &dyn Fn(&[String]) -> Option<String>, fences: boo
 /// Every link name path in `doc` (outside code), without repeats.
 pub fn link_names(doc: &str) -> Vec<Vec<String>> {
     let mut out: Vec<Vec<String>> = Vec::new();
+
     if !doc.contains('[') {
         return out;
     }
+
     for link in links(doc) {
         if !out.contains(&link.names) {
             out.push(link.names);
         }
     }
+
     out
 }
 
@@ -1002,25 +1147,31 @@ pub struct Site {
 pub fn sites(text: &str) -> Vec<Site> {
     let t = trivia(text);
     let mut out = Vec::new();
+
     for (i, token) in t.tokens.iter().enumerate() {
         let start = token.span.start as usize;
         let line = line_start(text, start);
+
         // Comments belong to the first token of the line below them.
         if i > 0 && t.tokens[i - 1].span.end as usize > line {
             continue;
         }
+
         let line_end = text[start..].find('\n').map_or(text.len(), |n| start + n);
         let declares = declaration_line(text[start..line_end].trim());
         let run = t.sites_run(line);
+
         if !run.is_empty() {
             collect_sites(&t, &run, start, declares, &mut out);
         }
+
         if let Some(c) = t.comment_after(start)
             && c.kind == CommentKind::Line
         {
             collect_sites(&t, &[c], start, declares, &mut out);
         }
     }
+
     out
 }
 
@@ -1029,10 +1180,12 @@ pub fn site_at(text: &str, byte: usize) -> Option<Site> {
     if !valid(text, byte) {
         return None;
     }
+
     // Only a comment can hold a link: skip the scan for other lines.
     let start = line_start(text, byte);
     let end = text[byte..].find('\n').map_or(text.len(), |n| byte + n);
     let line = &text[start..end];
+
     if !line.contains("//")
         && !line.contains("*/")
         && !line.contains("/*")
@@ -1040,6 +1193,7 @@ pub fn site_at(text: &str, byte: usize) -> Option<Site> {
     {
         return None;
     }
+
     sites(text)
         .into_iter()
         .find(|s| s.label.0 <= byte && byte <= s.label.1)
@@ -1053,9 +1207,11 @@ fn collect_sites(
     out: &mut Vec<Site>,
 ) {
     let doc = DocText::new(t, run);
+
     if !doc.text.contains('[') {
         return;
     }
+
     for link in links(&doc.text) {
         let text = &doc.text;
         let before = &text[text[..link.whole.0].rfind('\n').map_or(0, |n| n + 1)..link.whole.0];
@@ -1071,6 +1227,7 @@ fn collect_sites(
             && link.names.len() == 1
             && word.chars().all(|c| c.is_lowercase() || c.is_ascii_digit());
         let at = |(a, b): (usize, usize)| (doc.source(a), doc.source_end(b));
+
         out.push(Site {
             label: at(link.label),
             names: link.names.clone(),
@@ -1096,18 +1253,23 @@ pub fn meant_as_link(link: &Link, before: &str, after: &str) -> bool {
     if after.starts_with(':') {
         return false;
     }
+
     if link.targeted || link.code || link.names.len() > 1 {
         return true;
     }
+
     // Inside a quoted or path-like text (`'...[description]'`, `a/[name]`).
     let glued = before.ends_with([
         '.', '\'', '"', '/', '\\', '=', '<', '$', '@', '#', '%', '&', '*', '-',
     ]) || after.starts_with(['\'', '"', '/', '\\', '=', '>']);
+
     if glued {
         return false;
     }
+
     let word = link.names[0].as_str();
     let tag = word.chars().all(|c| c.is_uppercase() || c.is_ascii_digit());
+
     word.chars().count() > 1 && !tag
 }
 
@@ -1118,6 +1280,7 @@ pub fn declaration_line(line: &str) -> bool {
     let line = line.strip_prefix("#as ").unwrap_or(line);
     let mut rest = line.strip_prefix('$').unwrap_or(line);
     let mut names = 0;
+
     loop {
         let end = rest
             .find(|c: char| !(c.is_alphanumeric() || c == '_'))
@@ -1126,25 +1289,32 @@ pub fn declaration_line(line: &str) -> bool {
             .chars()
             .next()
             .is_some_and(|c| c.is_alphabetic() || c == '_');
+
         if end == 0 || !starts {
             return false;
         }
+
         names += 1;
         rest = rest[end..].trim_start();
+
         if rest.starts_with(':') {
             return true;
         }
+
         let Some(after) = rest.strip_prefix([',', ';']) else {
             return false;
         };
         let after = after.trim_start();
+
         if after.is_empty() || after.starts_with("//") {
             // An enum member (`RED,`), not a statement.
             return names == 1 || rest.starts_with(',');
         }
+
         if rest.starts_with(';') {
             return false;
         }
+
         rest = after;
     }
 }
@@ -1155,11 +1325,13 @@ pub fn signature_line(text: &str, at: usize) -> String {
     if !valid(text, at) {
         return String::new();
     }
+
     let start = line_start(text, at);
     let end = text[at..].find('\n').map_or(text.len(), |n| at + n);
     let line = text[start..end].trim();
     let line = line.split(" //").next().unwrap_or(line);
     let line = line.trim_end_matches('{').trim_end();
+
     if line.len() > 160 {
         let cut = line.floor_char_boundary(160);
         format!("{} ...", &line[..cut])

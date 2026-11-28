@@ -27,11 +27,13 @@ impl Compiler {
                 )
             })
             .collect();
+
         ids.sort_by_key(|&id| {
             let span = self.entity(id).span;
             (span.file, span.start)
         });
         let mut out = Vec::new();
+
         for id in ids {
             let (name, span) = (self.entity(id).name, self.entity(id).span);
             let notes: Vec<crate::ast::Note> = match &self.entity(id).kind {
@@ -69,10 +71,12 @@ impl Compiler {
                 Ok(_) => continue,
                 Err(e) => Err(e),
             };
+
             if let Ok((ty, value)) = resolved {
                 out.push((span, name, ty, value, notes));
             }
         }
+
         out
     }
 
@@ -91,22 +95,29 @@ impl Compiler {
             bytes: vec![0; msize as usize],
             relocs: Vec::new(),
         };
+
         if let Some(img) = self.default_initializer(member_ty, span)? {
             structs::write_agg(&mut m, 0, &img);
         }
+
         if let Some(v) = &value
             && self.size_of(ty, span).is_err()
         {
             ty = self.type_of_value(v); // Untyped literals.
         }
+
         let mut offset: i128 = -1;
+
         if let Some(value) = value
             && let (Ok(size), Ok(align)) = (self.size_of(ty, span), self.align_of(ty, span))
         {
             let at = storage.bytes.len().next_multiple_of(align.max(1) as usize);
+
             storage.bytes.resize(at + size as usize, 0);
+
             if let Value::Type(t) = value {
                 let g = self.type_info_global(t, span)?;
+
                 storage.relocs.push(ir::Reloc {
                     offset: at as u64,
                     target: ir::RelocTarget::Global(g),
@@ -122,6 +133,7 @@ impl Compiler {
                 storage.bytes.truncate(at);
             }
         }
+
         self.set_field(
             &mut m,
             member_ty,

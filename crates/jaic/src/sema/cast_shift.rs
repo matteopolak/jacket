@@ -14,6 +14,7 @@ fn starts_with_shift(e: &ast::Expr) -> bool {
     if e.parenthesized() {
         return false;
     }
+
     match &e.kind {
         E::Binary(BinOp::Shl, ..) => true,
         E::Binary(BinOp::BitAnd | BinOp::BitOr | BinOp::BitXor | BinOp::Shr, left, _) => {
@@ -36,17 +37,21 @@ impl Compiler {
         if !starts_with_shift(value) {
             return;
         }
+
         let types = &self.ty.types;
         let (Some((narrow, _)), Some((wide, _))) =
             (types.int_info(operand), types.int_info(target))
         else {
             return;
         };
+
         if narrow >= wide {
             return;
         }
+
         let from = types.name(operand);
         let to = types.name(target);
+
         self.warn(
             Diagnostic::new(
                 Code::CastShiftPrecedence,

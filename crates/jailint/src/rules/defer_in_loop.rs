@@ -40,6 +40,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(loop_stmt) = n.stmt() else {
                 return true;
@@ -58,6 +59,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 S::Block(b) => &b.stmts,
                 _ => std::slice::from_ref(body),
             };
+
             for (k, s) in list.iter().enumerate() {
                 let S::Defer {
                     body: deferred,
@@ -66,6 +68,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 else {
                     continue;
                 };
+
                 if let Some(f) = examine(cx, loop_stmt, body, &list[..k], deferred) {
                     out.push(Finding {
                         start: s.span.start as usize,
@@ -74,6 +77,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     });
                 }
             }
+
             true
         });
     }
@@ -89,16 +93,19 @@ fn examine(
     if !releases(cx, deferred) {
         return None;
     }
+
     // The variables the deferred code uses, and where they were declared.
     let mut names = Vec::new();
     let mut unknown = false;
     let mut stack = Vec::new();
+
     walk_node(Node::Stmt(deferred), &mut stack, &mut |n, _| {
         if let Some(e) = n.expr()
             && let E::Ident(name) = e.kind
         {
             for &ent in &*cx.entities(e.span) {
                 let entity = cx.compiler.entity(ent);
+
                 if matches!(entity.kind, EntityKind::Local { .. }) {
                     if entity.span.file != cx.file {
                         unknown = true;
@@ -111,11 +118,14 @@ fn examine(
                 }
             }
         }
+
         true
     });
+
     if unknown || names.is_empty() {
         return None;
     }
+
     let (start, end) = match (before.first(), before.last()) {
         (Some(a), Some(b)) => (a.span.start, b.span.end),
         _ => (0, 0),
@@ -123,15 +133,18 @@ fn examine(
     // A variable the loop's header reads is the loop's own state: deferring its step makes
     // `continue` take the step too.
     let no_span = jaic::source::Span::NONE;
+
     if names
         .iter()
         .any(|&n| cx.mentions(n, loop_stmt.span.start, body.span.start, no_span))
     {
         return None;
     }
+
     if start < end && names.iter().any(|&n| cx.mentions(n, start, end, no_span)) {
         return None;
     }
+
     Some(Finding {
         message: "this `defer` runs at the end of every iteration, not when the procedure returns"
             .into(),

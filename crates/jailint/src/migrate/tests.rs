@@ -15,6 +15,7 @@ fn edit(start: usize, end: usize, text: &str) -> (Edit, &'static str) {
 fn overlapping_edits_wait_for_the_next_pass() {
     let chosen = non_overlapping(vec![edit(4, 8, "x"), edit(0, 5, "y"), edit(9, 9, "z")]);
     let starts: Vec<usize> = chosen.iter().map(|(e, _)| e.start).collect();
+
     assert_eq!(starts, [0, 9]);
 }
 
@@ -22,6 +23,7 @@ fn overlapping_edits_wait_for_the_next_pass() {
 fn offsets_map_back_through_earlier_edits() {
     // "Context" (7 bytes) became "#Context" (8) at 10; a later edit at 30 was at 29.
     let shifts = [(10, 1)];
+
     assert_eq!(original_offset(&shifts, 30), 29);
     assert_eq!(original_offset(&shifts, 5), 5);
 }
@@ -44,6 +46,7 @@ fn errors_are_matched_by_file_code_and_message() {
         e(1, "unknown identifier `z`"),
     ];
     let (introduced, remaining) = compare(&before, &after);
+
     assert_eq!(introduced, [e(1, "unknown identifier `z`")]);
     assert_eq!(remaining, [e(4, "unknown identifier `x`")]);
 }
@@ -51,6 +54,7 @@ fn errors_are_matched_by_file_code_and_message() {
 #[test]
 fn ambiguous_migrations_run_only_when_named() {
     let all = Selection::default().migrations().unwrap();
+
     assert!(all.iter().all(|m| !m.ambiguous));
     let err = Selection {
         only: Some(vec!["context-type-directiv".into()]),
@@ -58,6 +62,7 @@ fn ambiguous_migrations_run_only_when_named() {
     .migrations()
     .err()
     .unwrap();
+
     assert!(
         err.contains("did you mean `context-type-directive`"),
         "{err}"
@@ -67,6 +72,7 @@ fn ambiguous_migrations_run_only_when_named() {
 #[test]
 fn migration_names_are_unique_kebab_case() {
     let mut names: Vec<&str> = MIGRATIONS.iter().map(|m| m.name).collect();
+
     for name in &names {
         assert!(
             name.bytes()
@@ -74,6 +80,7 @@ fn migration_names_are_unique_kebab_case() {
             "{name}"
         );
     }
+
     names.sort_unstable();
     names.dedup();
     assert_eq!(names.len(), MIGRATIONS.len());
@@ -136,8 +143,10 @@ fn options_for(path: &Path) -> Options {
 #[test]
 fn a_migration_that_adds_an_error_is_left_out_and_the_rest_still_apply() {
     let dir = test_support::TempDir::new("migrate-partial");
+
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("main.jai");
+
     std::fs::write(
         &file,
         "before :: () {}\nmain :: () {\n    x := 42;\n    before();\n}\n",
@@ -145,12 +154,14 @@ fn a_migration_that_adds_an_error_is_left_out_and_the_rest_still_apply() {
     .unwrap();
     let file = std::fs::canonicalize(&file).unwrap();
     let plan = plan_with(options_for(&file), &[&BREAKS_CODE, &RENAMES_BEFORE]).unwrap();
+
     assert_eq!(plan.rejected.len(), 1, "{plan:?}");
     assert_eq!(plan.rejected[0].migration, "breaks-code");
     assert_eq!(plan.rejected[0].errors[0].line, 3);
     let [migrated] = plan.files.as_slice() else {
         panic!("{plan:?}");
     };
+
     assert_eq!(
         migrated.after,
         "after :: () {}\nmain :: () {\n    x := 42;\n    after();\n}\n"
@@ -160,6 +171,7 @@ fn a_migration_that_adds_an_error_is_left_out_and_the_rest_still_apply() {
 #[test]
 fn a_file_that_is_not_utf8_is_skipped_and_the_others_are_migrated() {
     let dir = test_support::TempDir::new("migrate-not-utf8");
+
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(
         dir.join("main.jai"),
@@ -169,6 +181,7 @@ fn a_file_that_is_not_utf8_is_skipped_and_the_others_are_migrated() {
     std::fs::write(dir.join("other.jai"), b"x :: \"\xff\";\n").unwrap();
     let main = std::fs::canonicalize(dir.join("main.jai")).unwrap();
     let plan = plan_with(options_for(&main), &[&RENAMES_BEFORE]).unwrap();
+
     assert_eq!(plan.skipped.len(), 1, "{plan:?}");
     assert!(plan.skipped[0].ends_with("other.jai"));
     assert_eq!(plan.files.len(), 1, "{plan:?}");
@@ -179,6 +192,7 @@ fn a_file_is_lexed_again_only_when_its_text_changes() {
     let mut cache = TokenCache::default();
     let path = Path::new("a.jai");
     let first = cache.tokens(path, "x := 1;").len();
+
     assert_eq!(cache.tokens(path, "x := 1;").len(), first);
     assert_eq!(cache.lexed, 1, "an unchanged file keeps its tokens");
     // Another file has tokens of its own.

@@ -23,10 +23,13 @@ main :: () {
 
 fn project(name: &str, config: Option<&str>) -> TempDir {
     let dir = TempDir::new(name);
+
     std::fs::write(dir.join("main.jai"), SOURCE).unwrap();
+
     if let Some(config) = config {
         std::fs::write(dir.join("jacket.toml"), config).unwrap();
     }
+
     dir
 }
 
@@ -38,6 +41,7 @@ fn lint(dir: &Path, flags: &[&str]) -> String {
         .env("NO_COLOR", "1")
         .output()
         .unwrap();
+
     format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),
@@ -49,6 +53,7 @@ fn lint(dir: &Path, flags: &[&str]) -> String {
 fn a_runaway_run_does_not_hide_the_code_after_it() {
     // The budget must run out first; on a slow machine 200M blocks outlast the default time limit.
     let text = lint(&project("budget", None), &["--check-time-limit", "0"]);
+
     assert!(
         text.contains("execution budget exhausted (100000000 steps)"),
         "{text}"
@@ -61,6 +66,7 @@ fn a_runaway_run_does_not_hide_the_code_after_it() {
 #[test]
 fn the_budget_comes_from_the_flag() {
     let text = lint(&project("blocks", None), &["--compile-time-budget", "5000"]);
+
     assert!(text.contains("(5000 steps)"), "{text}");
     assert!(
         text.contains("raise the compile-time evaluation budget"),
@@ -75,6 +81,7 @@ fn a_project_cannot_raise_the_limits() {
         &project("raised", Some("[check]\nmax_blocks = 0\nmax_seconds = 0\n")),
         &["--check-time-limit", "0.3"],
     );
+
     assert!(
         text.contains("unknown setting `check` in jacket.toml"),
         "{text}"
@@ -87,8 +94,10 @@ fn a_flag_with_a_bad_value_is_refused() {
         .args(["--compile-time-budget", "many", "main.jai"])
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     let text = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         text.contains("`--compile-time-budget` takes a whole number"),
         "{text}"
@@ -101,6 +110,7 @@ fn the_wall_clock_limit_gives_one_notice() {
         &project("seconds", None),
         &["--compile-time-budget", "0", "--check-time-limit", "0.3"],
     );
+
     assert_eq!(
         text.matches("checking stopped after 0.3 s; results are partial")
             .count(),
@@ -115,6 +125,7 @@ fn the_wall_clock_limit_gives_one_notice() {
 #[test]
 fn the_wall_clock_limit_is_each_programs_own() {
     let dir = project("seconds-per-program", None);
+
     std::fs::write(dir.join("other.jai"), SOURCE).unwrap();
     let started = std::time::Instant::now();
     let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
@@ -137,6 +148,7 @@ fn the_wall_clock_limit_is_each_programs_own() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+
     assert_eq!(
         text.matches("checking stopped after 0.3 s").count(),
         2,

@@ -38,7 +38,9 @@ impl Interp {
         if let Some(shared) = &self.shared {
             return shared.clone();
         }
+
         let shared = Shared::new(std::ptr::from_mut::<Interp>(self) as usize);
+
         self.shared = Some(shared.clone());
         // Another thread may want the baton from now on.
         self.multi = true;
@@ -49,9 +51,11 @@ impl Interp {
         let shared = self.shared();
         let mut s = shared.lock();
         let out = f(&mut s);
+
         if std::mem::take(&mut s.woke) {
             shared.cv.notify_all();
         }
+
         out
     }
 
@@ -129,6 +133,7 @@ impl Interp {
             ThreadFn::SchedYield | ThreadFn::YieldNp if started => self.yield_now().map(|()| 0),
             _ => return self.win32_foreign(program, symbol, args),
         };
+
         Some(result.map(|v| vec![v]))
     }
 
@@ -138,10 +143,12 @@ impl Interp {
             return self
                 .trap("pthread naming is unsupported for a cross-target interpreter program");
         }
+
         let Some(set_arity) = pthread::set_arity() else {
             return self.trap("pthread naming is unsupported on this interpreter host");
         };
         let setting = fun == ThreadFn::SetName;
+
         if args.len()
             != if setting {
                 set_arity
@@ -151,6 +158,7 @@ impl Interp {
         {
             return self.trap("pthread naming signature does not match this interpreter host");
         }
+
         let shared = self.shared();
         // Retain the scheduler lock through the short native operation: teardown and
         // adopted-slot recycling cannot invalidate the OS identity while it is used.
@@ -179,31 +187,39 @@ impl Interp {
             return self
                 .trap("pthread naming has no retained native identity for this scheduler thread");
         };
+
         if setting {
             let pointer = args[set_arity - 1];
             // Copy only a bounded C string through checked interpreter memory. An
             // overlong name is terminated just beyond the OS limit so the actual
             // naming API returns its own length error without an unbounded read.
             let mut name = Vec::new();
+
             for offset in 0..pthread::name_capacity() {
                 let address = pointer
                     .checked_add(offset as u64)
                     .ok_or_else(|| Trap::new("pthread name pointer overflow").at(self.loc))?;
                 let byte = self.fetch(address, 1)?[0];
+
                 name.push(byte);
+
                 if byte == 0 {
                     break;
                 }
             }
+
             if name.last() != Some(&0) {
                 name.push(0);
             }
+
             Ok(pthread::set_name(handle, &name))
         } else {
             let (status, name) = pthread::get_name(handle, args[2]);
+
             if status == 0 {
                 self.put(args[1], &name)?;
             }
+
             Ok(status)
         }
     }
@@ -236,6 +252,7 @@ impl Interp {
         let Some(func) = self.func_of(start) else {
             return self.trap("pthread_create needs an interpreted thread procedure");
         };
+
         self.require_callable(program, func)?;
         // The scheduler runs this thunk, not C: it gives no thread of C's a way back in.
         self.unseen_thunks.retain(|&t| t != start);
@@ -247,6 +264,7 @@ impl Interp {
                 ..ExecState::default()
             };
             let mut thread = GThread::new(false, Some(state));
+
             thread.suspend_count = u32::from(suspended);
             s.add(thread)
         };
@@ -262,6 +280,7 @@ impl Interp {
             Ok(worker) => worker,
             Err(error) => {
                 let mut s = shared.lock();
+
                 s.threads[id].start.take();
                 s.finish(id);
                 // Nobody was ever given a handle to it.
@@ -270,15 +289,18 @@ impl Interp {
                 #[cfg(windows)]
                 {
                     win32::creation_error(&error);
+
                     if error.raw_os_error().is_none() {
                         return self.trap(error.to_string());
                     }
                 }
                 #[cfg(not(windows))]
                 let _ = error;
+
                 return Ok(None);
             }
         };
+
         #[cfg(windows)]
         {
             let public = match worker.try_clone() {
@@ -288,12 +310,15 @@ impl Interp {
                     shared.cv.notify_all();
                     win32::join_worker(worker);
                     win32::creation_error(&error);
+
                     if error.raw_os_error().is_none() {
                         return self.trap(error.to_string());
                     }
+
                     return Ok(None);
                 }
             };
+
             shared.lock().threads[id].native_handle = Some(public);
         }
         shared.lock().threads[id].worker = Some(worker);
@@ -310,13 +335,17 @@ impl Interp {
         if !self.thread_entry_abi(program, start, Ty::Ptr) {
             return self.trap("POSIX thread entry ABI requires one pointer argument and one pointer result with C convention");
         }
+
         let Some(id) = self.spawn_thread(program, start, argument)? else {
             return Ok(11); // EAGAIN
         };
+
         if out != 0 {
             let handle = self.with_sched(|s| s.handle_of(id));
+
             self.put_ptr(out, handle)?;
         }
+
         Ok(0)
     }
 
@@ -328,31 +357,39 @@ impl Interp {
         let Some(id) = id else {
             return Ok(EINVAL);
         };
+
         if id == me {
             return Ok(EINVAL);
         }
+
         let (result, worker) = loop {
             let step = self.with_sched(|s| {
                 // Detached (or joined by another thread) while waiting: the handle is dead.
                 if s.resolve(handle) != Some(id) || s.slots.is_released(id) {
                     return Err(());
                 }
+
                 if !s.threads[id].finished {
                     return Ok(None);
                 }
+
                 let result = s.threads[id].result;
                 Ok(Some((result, s.release_handle(id))))
             });
+
             match step {
                 Err(()) => return Ok(EINVAL),
                 Ok(Some(done)) => break done,
                 Ok(None) => self.block(Block::Join(id))?,
             }
         };
+
         join_ended_worker(worker);
+
         if result_out != 0 {
             self.put_ptr(result_out, result)?;
         }
+
         Ok(0)
     }
 
@@ -360,10 +397,12 @@ impl Interp {
     fn thread_detach(&mut self, handle: u64) -> u64 {
         let released = self.with_sched(|s| {
             let id = s.resolve_joinable(handle)?;
+
             // A thread already blocked in `pthread_join` on it fails now (`EINVAL`).
             s.wake(Block::Join(id));
             Some(s.release_handle(id))
         });
+
         match released {
             Some(worker) => {
                 join_ended_worker(worker);
@@ -382,6 +421,7 @@ impl Interp {
             if self.with_sched(|s| s.mutexes.try_lock(addr, s.current.unwrap_or(0), count)) {
                 return Ok(());
             }
+
             self.block(Block::Mutex(addr))?;
         }
     }
@@ -392,6 +432,7 @@ impl Interp {
             if s.mutexes.unlock(addr, s.current.unwrap_or(0))? {
                 s.wake(Block::Mutex(addr));
             }
+
             Ok(())
         })
     }
@@ -406,18 +447,23 @@ impl Interp {
         let (me, held) = self.with_sched(|s| {
             let me = s.current.unwrap_or(0);
             let held = s.mutexes.release_all(mutex, me);
+
             if held > 0 {
                 s.wake(Block::Mutex(mutex));
             }
+
             s.cond_waiters.enqueue(cond, me);
             s.threads[me].timed_out = false;
             (me, held)
         });
+
         self.block(Block::Cond(cond, deadline))?;
         let timed_out = self.with_sched(|s| std::mem::take(&mut s.threads[me].timed_out));
+
         if held > 0 {
             self.lock_mutex(mutex, held)?;
         }
+
         Ok(if timed_out {
             ETIMEDOUT
         } else {
@@ -433,6 +479,7 @@ impl Interp {
                 woke,
                 ..
             } = s;
+
             cond_waiters.dequeue(cond, all, |id| {
                 if matches!(threads[id].block, Block::Cond(c, _) if c == cond) {
                     threads[id].block = Block::None;
@@ -451,14 +498,18 @@ impl Interp {
     pub(in crate::interp) fn yield_now(&mut self) -> Res<()> {
         let shared = self.shared();
         let mut s = shared.lock();
+
         s.expire_waits();
         let Some(me) = s.current else {
             return Ok(());
         };
+
         if !s.live_slots().any(|t| t != me && s.runnable(t)) {
             return Ok(());
         }
+
         let state = self.take_exec_state();
+
         s.interp = std::ptr::from_mut::<Interp>(self) as usize;
         s.current = None;
         s.last = me;
@@ -473,9 +524,11 @@ impl Interp {
     /// offer the baton to the other threads so that busy-waiting on an atomic makes progress.
     pub(in crate::interp) fn preempt(&mut self) -> Res<()> {
         self.ticks += 1;
+
         if self.ticks.is_multiple_of(PREEMPT_TICKS) {
             self.yield_now()?;
         }
+
         Ok(())
     }
 
@@ -486,18 +539,23 @@ impl Interp {
         let deadlocked = {
             let mut s = shared.lock();
             let me = s.current.unwrap_or(0);
+
             s.threads[me].block = reason;
             s.interp = std::ptr::from_mut::<Interp>(self) as usize;
             s.release(Some(me));
             shared.cv.notify_all();
             let mut s = shared.acquire(s, me);
+
             s.threads[me].block = Block::None;
             std::mem::take(&mut s.threads[me].deadlocked)
         };
+
         self.put_exec_state(state);
+
         if deadlocked {
             return self.trap("deadlock: every thread is blocked");
         }
+
         Ok(())
     }
 
@@ -506,6 +564,7 @@ impl Interp {
         drop(self.take_exec_state());
         let shared = self.shared();
         let mut s = shared.lock();
+
         s.threads[me].result = result;
         s.finish(me);
         s.wake(Block::Join(me));

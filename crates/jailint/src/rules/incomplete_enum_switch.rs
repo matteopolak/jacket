@@ -33,10 +33,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         jaic::ast::walk::walk(&p.body.stmts, &mut |n, _| {
             let Some(s) = n.stmt() else {
                 return true;
@@ -44,9 +46,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let S::Switch(sw) = &s.kind else {
                 return true;
             };
+
             if sw.complete || sw.cases.iter().any(|c| c.values.is_empty()) {
                 return true;
             }
+
             let Some(ty) = cx.ty(&sw.value) else {
                 return true;
             };
@@ -54,11 +58,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             };
             let info = types.enum_info(*id);
+
             if info.is_flags || info.loose_of.is_some() || types.is_loose_enum(ty) {
                 return true;
             }
+
             // The names the cases list; anything else means the coverage cannot be read.
             let mut listed = HashSet::default();
+
             for v in sw.cases.iter().flat_map(|c| &c.values) {
                 match &v.kind {
                     E::InferredMember(m) | E::Member(_, m) => {
@@ -67,6 +74,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     _ => return true,
                 }
             }
+
             let covered: HashSet<i128> = info
                 .members
                 .iter()
@@ -80,11 +88,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 .filter(|(_, value)| !covered.contains(value) && seen.insert(*value))
                 .map(|(name, _)| format!(".{}", name.as_str()))
                 .collect();
+
             if missing.is_empty() {
                 return true;
             }
+
             let header =
                 jaic::source::Span::new(cx.file, s.span.start as usize, sw.header.end as usize);
+
             out.push(super::finding(
                 header,
                 format!(

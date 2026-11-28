@@ -10,9 +10,11 @@ fn names(header: &jaic::sema::ProcTypeParams) -> Vec<Option<jaic::intern::Sym>> 
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+
     options.import_paths = vec![root.clone()];
     options.preload = Some(root.join("prelude/module.jai"));
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+
     compiler
         .compile_sources(&[ProgramSource::String(source.into())])
         .map_err(|error| error.render(&compiler.src.sources))
@@ -80,6 +82,7 @@ fn duplicate_named_arguments_reject_instead_of_overwriting() {
     ",
     )
     .expect_err("duplicate named arguments must reject");
+
     assert!(error.contains("parameter `first` given twice"), "{error}");
 }
 
@@ -93,6 +96,7 @@ fn unknown_names_without_defaults_reject() {
     ",
     )
     .expect_err("a structural peer must not supply a name");
+
     assert!(
         error.contains("no parameter named `private_name`"),
         "{error}"
@@ -201,6 +205,7 @@ fn callback_context_fields_have_independent_defaults() {
 fn filtered_module_alias_defaults_evaluate_in_the_declaring_private_scope() {
     use jaic::sema::VirtualFs;
     let mut fs = VirtualFs::default();
+
     fs.insert(
         "/lib/Backing/module.jai",
         br"
@@ -231,9 +236,11 @@ fn filtered_module_alias_defaults_evaluate_in_the_declaring_private_scope() {
         .as_slice(),
     );
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec!["/lib".into()];
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     compiler
         .compile_program(std::path::Path::new("/app/main.jai"))
         .map_err(|e| e.render(&compiler.src.sources))
@@ -247,9 +254,12 @@ fn ide_metadata_api_selects_fields_instead_of_equal_types_or_offsets() {
         sema::{VirtualFs, scope::Resolved, value::Value},
         source::Span,
     };
+
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     compiler
         .compile_sources(&[ProgramSource::String(
             r"
@@ -280,6 +290,7 @@ fn ide_metadata_api_selects_fields_instead_of_equal_types_or_offsets() {
         .callable_member_parameters(pointer, Sym::intern("second"), Span::NONE)
         .unwrap()
         .unwrap();
+
     assert_eq!(names(&first), vec![Some(Sym::intern("public_flag"))]);
     assert_eq!(names(&second), vec![Some(Sym::intern("hidden_flag"))]);
     let public = compiler.lookup(scope, Sym::intern("Public")).unwrap()[0];
@@ -287,6 +298,7 @@ fn ide_metadata_api_selects_fields_instead_of_equal_types_or_offsets() {
         .callable_entity_parameters(public)
         .unwrap()
         .unwrap();
+
     assert_eq!(names(&header), names(&first));
 }
 
@@ -322,6 +334,7 @@ fn selected_procedure_alias_headers_do_not_refresh_after_new_overloads() {
     "#,
     )
     .expect_err("the previously selected alias must not acquire the inserted overload");
+
     assert!(
         error.contains("argument of type `bool` does not match parameter type `s64`"),
         "{error}"
@@ -371,6 +384,7 @@ fn names_from_another_callback_declaration_are_not_accepted() {
     ",
     )
     .expect_err("another same-shaped declaration cannot supply a named parameter");
+
     assert!(
         error.contains("no parameter named `private_option`"),
         "{error}"

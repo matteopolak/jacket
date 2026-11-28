@@ -84,6 +84,7 @@ fn unaffected(
 ) -> bool {
     let reads = analysis.reads.borrow();
     let same = |old: &Arc<[u8]>, new: &Arc<[u8]>| Arc::ptr_eq(old, new) || old == new;
+
     analysis.files.iter().all(|(path, old)| {
         !reads.concerns(path)
             || match files.get(path) {
@@ -119,6 +120,7 @@ pub(super) fn hash(
 ) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = jaic::fxhash::FxHasher::default();
+
     format!("{os:?}").hash(&mut h);
     root.hash(&mut h);
     dirs.hash(&mut h);
@@ -131,11 +133,14 @@ pub(super) fn hash(
 fn quick_key(root: &Path, dirs: &[PathBuf], files: &Buffers, os: Option<TargetOs>) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = jaic::fxhash::FxHasher::default();
+
     os.map(|os| os as u8).hash(&mut h);
     h.write(root.as_os_str().as_encoded_bytes());
+
     for dir in dirs {
         h.write(dir.as_os_str().as_encoded_bytes());
     }
+
     (Rc::as_ptr(files) as usize).hash(&mut h);
     h.finish()
 }
@@ -171,6 +176,7 @@ impl Cache {
         if self.untrusted != trusted {
             return;
         }
+
         *self = Self {
             untrusted: !trusted,
             defer_library_bodies: self.defer_library_bodies,
@@ -240,6 +246,7 @@ impl Cache {
         let large_alive = |entries: &[Analysis]| entries.iter().filter(|a| !small(a)).count();
         let oldest_large_alternate =
             |entries: &[Analysis]| entries.iter().position(|a| a.os.is_some() && !small(a));
+
         if os.is_some() {
             // The oldest compile for another target goes; the newest stays, so hovers that go
             // back and forth between a Windows and a Linux branch do not recompile each time
@@ -256,24 +263,30 @@ impl Cache {
                 let Some(victim) = victim else {
                     return;
                 };
+
                 self.entries.remove(victim);
             }
         }
+
         // Another target's large compile makes way for the program's own.
         while large_alive(&self.entries) >= CACHED {
             let Some(victim) = oldest_large_alternate(&self.entries) else {
                 break;
             };
+
             self.entries.remove(victim);
         }
+
         loop {
             let (light, heavy): (Vec<usize>, Vec<usize>) = (0..self.entries.len())
                 .filter(|&i| self.entries[i].os.is_none())
                 .partition(|&i| small(&self.entries[i]));
             let over_light = light.len() > SMALL_KEPT;
+
             if heavy.len() + light.len().saturating_sub(SMALL_KEPT) < CACHED {
                 break;
             }
+
             let own = |a: &Analysis| a.usable && a.os.is_none();
             let keep = self
                 .entries
@@ -300,6 +313,7 @@ impl Cache {
                         .find(|&i| Some(i) != keep && self.entries[i].os.is_none())
                 })
                 .unwrap_or(0);
+
             self.entries.remove(victim);
         }
     }
@@ -336,6 +350,7 @@ impl Cache {
                 })
         })?;
         let analysis = &mut self.entries[at];
+
         analysis.focus(&path);
         Some(analysis)
     }
@@ -372,21 +387,26 @@ impl Cache {
                 let replaces = inputs.files.values().all(|bytes| {
                     std::str::from_utf8(bytes).is_ok_and(|text| parse_error(text).is_none())
                 });
+
                 if replaces && !jaic::interrupt::armed() {
                     self.entries
                         .retain(|a| !(a.root == root && a.dirs == dirs && a.os == os));
                 }
+
                 self.make_room(os, root);
                 let analysis = self.build(env, root, dirs, files, inputs, os)?;
+
                 if replaces {
                     self.entries
                         .retain(|a| !(a.root == root && a.dirs == dirs && a.os == os));
                 }
+
                 self.entries.push(analysis);
                 self.entries.len() - 1
             }
         };
         let entry = self.entries.remove(at);
+
         self.entries.push(entry);
         self.entries.last_mut()
     }
@@ -424,6 +444,7 @@ impl Cache {
         files: Buffers,
     ) -> Option<Analysis> {
         let inputs = self.inputs(env, root, dirs, &files, None);
+
         if let Some(active) = self.entries.iter().rposition(|a| a.os.is_none()) {
             let root = self.entries[active].root.clone();
             let checked = self
@@ -431,12 +452,15 @@ impl Cache {
                 .iter()
                 .rposition(|a| a.usable && a.os.is_none() && a.root == root);
             let mut at = 0;
+
             self.entries.retain(|a| {
                 let keep = a.os.is_some() || at == active || Some(at) == checked;
+
                 at += 1;
                 keep
             });
         }
+
         self.build(env, root, dirs, files, inputs, None)
     }
 
@@ -458,6 +482,7 @@ impl Cache {
                 (canonical, t.clone())
             })
             .collect();
+
         Inputs {
             quick: quick_key(root, dirs, given, os),
             key: hash(root, dirs, &files, os),
@@ -479,6 +504,7 @@ impl Cache {
         // The same buffers as last time (the session hands out its inputs again until a
         // document changes): no need to hash megabytes of text to know it is the same program.
         let quick = quick_key(root, dirs, given, os);
+
         if let Some(at) = self
             .entries
             .iter()
@@ -486,6 +512,7 @@ impl Cache {
         {
             return Ok(at);
         }
+
         let inputs = self.inputs(env, root, dirs, given, os);
         // The very same texts, or texts that differ only in files the compile never read: a
         // buffer it did not load (another program's file) is not one of its inputs.
@@ -504,14 +531,18 @@ impl Cache {
         let Some(at) = at else {
             return Err(inputs);
         };
+
         if remember {
             let entry = &mut self.entries[at];
+
             entry.quick = Some((inputs.quick, given.clone()));
+
             if entry.key != inputs.key {
                 entry.key = inputs.key;
                 entry.files = inputs.files;
             }
         }
+
         Ok(at)
     }
 
@@ -562,19 +593,23 @@ impl Cache {
                 limits: self.limits,
             },
         )?;
+
         // Stopped for a newer request: the compile is partial, and nothing of it is kept.
         if jaic::interrupt::fired() {
             return None;
         }
+
         // Another target's compile says nothing new about what the metaprogram did.
         if let Some(mut facts) = facts.filter(|_| os.is_none()) {
             facts.checked = self.compiles;
             let key = jaic::paths::file_identity(&*env.fs, root);
+
             if self.recorded.get(&key) != Some(&facts) {
                 self.recorded.insert(key, facts);
                 self.recorded_version += 1;
             }
         }
+
         self.limit_hits
             .extend(super::queries::limit_hits(&compiler, &errors));
         let cost = std::iter::once(&compiler)
@@ -588,6 +623,7 @@ impl Cache {
                 .ed
                 .facts()
                 .is_some_and(|ide| !ide.scopes.is_empty());
+
         Some(Analysis {
             compiler,
             entry: Some(root.to_path_buf()),

@@ -5,9 +5,11 @@ mod bindings {
 
     fn compile(source: &str) -> Result<(), String> {
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.import_paths = vec!["/lib".into()];
         let mut fs = VirtualFs::default();
+
         fs.insert(
             "/lib/Hidden/module.jai",
             r"
@@ -18,6 +20,7 @@ mod bindings {
             .as_bytes(),
         );
         let mut c = Compiler::new(options, Rc::new(fs));
+
         c.compile_sources(&[ProgramSource::String(source.into())])
             .map_err(|e| e.render(&c.src.sources))
     }
@@ -170,6 +173,7 @@ mod bindings {
         "#,
         )
         .expect_err("qualified pattern evaluation cannot expose private declarations");
+
         assert!(error.contains("Private"), "{error}");
     }
 
@@ -196,9 +200,11 @@ mod conversion {
     fn compile(source: &str) -> Result<(), String> {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let mut options = Options::host();
+
         options.import_paths = vec![root.clone()];
         options.preload = Some(root.join("prelude/module.jai"));
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+
         compiler
             .compile_sources(&[ProgramSource::String(source.into())])
             .map_err(|error| error.render(&compiler.src.sources))
@@ -223,6 +229,7 @@ mod conversion {
         ",
         )
         .expect_err("an unused typed callback still requires its declared signature");
+
         assert!(
             error.contains("no overload matches procedure type"),
             "{error}"
@@ -235,6 +242,7 @@ mod conversion {
             "Holder :: struct(value:u8) {data:s64;} Bad :: Holder(256); #assert size_of(Bad)==8;",
         )
         .expect_err("typed scalar generic arguments cannot bypass narrowing validation");
+
         assert!(error.contains("u8"), "{error}");
     }
 
@@ -249,6 +257,7 @@ mod conversion {
         "#,
         )
         .expect_err("generic specialization must match both arguments and results");
+
         assert!(
             error.contains("no overload matches procedure type"),
             "{error}"

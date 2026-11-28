@@ -21,6 +21,7 @@ impl Session {
         context: &crate::lints::ActionContext,
     ) -> Result<Vec<CodeAction>, Error> {
         let mut actions = self.all_code_actions(uri, range, context)?;
+
         actions.retain(|a| match a.kind {
             Some(kind) => context.wants(kind),
             None => context.only.is_none(),
@@ -39,10 +40,13 @@ impl Session {
         let end = doc.index.byte(&doc.text, range.end);
         let text = &doc.text;
         let mut fixes = self.suggestion_actions(uri, start, end, context);
+
         fixes.extend(self.lint_actions(uri, start, end, context));
         let switch_fixes = self.complete_switch_actions(uri, start, end, context);
         let fixed_switch = !switch_fixes.is_empty();
+
         fixes.extend(switch_fixes);
+
         if context
             .only
             .as_ref()
@@ -60,6 +64,7 @@ impl Session {
                 },
             ));
         }
+
         let Some(e) = self
             .expansions(uri)
             .into_iter()
@@ -76,12 +81,14 @@ impl Session {
             return Ok(fixes);
         };
         let mut actions = Vec::new();
+
         if e.kind != IdeExpansionKind::If {
             let what = match e.kind {
                 IdeExpansionKind::Macro => format!("Show expansion of {}", e.detail),
                 IdeExpansionKind::Run => "Show #run result".into(),
                 _ => "Show #insert expansion".into(),
             };
+
             actions.push(CodeAction {
                 title: what.clone(),
                 kind: None,
@@ -95,6 +102,7 @@ impl Session {
                 ..CodeAction::default()
             });
         }
+
         let single = e.texts.len() == 1;
         let edit = match e.kind {
             IdeExpansionKind::Insert if single => {
@@ -107,6 +115,7 @@ impl Session {
                 .map(|lit| ("Replace #run with its value", span, lit)),
             _ => None,
         };
+
         if let Some((title, span, new_text)) = edit
             && let Some(range) = self.range_of(uri, span)
         {
@@ -124,6 +133,7 @@ impl Session {
                 ..CodeAction::default()
             });
         }
+
         actions.extend(fixes);
         Ok(actions)
     }
@@ -156,6 +166,7 @@ impl Session {
             if at < first || at > last || at > text.len() || !text.is_char_boundary(at) {
                 return;
             }
+
             if let Ok(position) = doc.index.position(text, at) {
                 hints.push((
                     at,
@@ -171,23 +182,28 @@ impl Session {
             }
         };
         let inferred = inferred_name_ends(&doc.ide_text());
+
         for (span, ty) in types {
             let Some((_, end)) = shift.to_new_range(span.start as usize, span.end as usize) else {
                 continue;
             };
+
             // `?` stands in for a type nothing could name: say nothing, not that.
             if ty.as_str() == "?" || end > text.len() || !inferred.contains(&(end as u32)) {
                 continue;
             }
+
             // `t := Thing.{...}` and `p := cast(*u8) q` already say the type.
             let value = text[end..]
                 .trim_start()
                 .trim_start_matches([',', ':', '='])
                 .trim_start();
             let value = value.split(['\n', ';']).next().unwrap_or("");
+
             if value.starts_with(ty.as_str()) || value.contains(&format!("cast({ty})")) {
                 continue;
             }
+
             hint(
                 end,
                 format!(": {}", clip(&ty, HINT_CHARS)),
@@ -197,11 +213,13 @@ impl Session {
                 None,
             );
         }
+
         // `for xs {` declares `it` and `it_index`: name them before the iterated expression.
         for (at, label) in loop_names {
             let Some(at) = shift.to_new(at as usize) else {
                 continue;
             };
+
             hint(
                 at,
                 clip(&label, HINT_CHARS),
@@ -211,15 +229,18 @@ impl Session {
                 None,
             );
         }
+
         for call in &calls {
             let signature = &call.signatures[call.active];
             let ambiguous = ambiguous_params(&signature.params);
+
             for arg in &call.args {
                 let Some((s, e)) =
                     shift.to_new_range(arg.span.start as usize, arg.span.end as usize)
                 else {
                     continue;
                 };
+
                 if arg.named
                     || arg.variadic
                     || arg.spread
@@ -228,14 +249,18 @@ impl Session {
                 {
                     continue;
                 }
+
                 let source = &text[s..e];
+
                 if !literal(source)
                     || source == arg.param_name
                     || !ambiguous.get(arg.param).copied().unwrap_or(false)
                 {
                     continue;
                 }
+
                 let tooltip = signature.params.get(arg.param).cloned();
+
                 hint(
                     s,
                     format!("{}:", arg.param_name),
@@ -246,25 +271,31 @@ impl Session {
                 );
             }
         }
+
         for e in &expansions {
             if e.kind != IdeExpansionKind::Run || e.texts.len() != 1 || e.texts[0].is_empty() {
                 continue;
             }
+
             let old = span_of(e);
             let Some((start, end)) = shift.to_new_range(old.start, old.end) else {
                 continue;
             };
             let span = crate::analysis::Span::new(start, end);
+
             if span.end > text.len() {
                 continue;
             }
+
             // `#run 3` needs no hint.
             let operand = text[span.start..span.end]
                 .trim_start_matches(jaic::lexicon::spelled::RUN)
                 .trim();
+
             if operand == e.texts[0] {
                 continue;
             }
+
             hint(
                 span.end,
                 format!("= {}", clip(&e.texts[0], HINT_CHARS)),
@@ -274,6 +305,7 @@ impl Session {
                 Some(format!("computed at compile time ({})", e.detail)),
             );
         }
+
         hints.sort_by_key(|(at, _)| *at);
         Ok(hints.into_iter().map(|(_, h)| h).collect())
     }

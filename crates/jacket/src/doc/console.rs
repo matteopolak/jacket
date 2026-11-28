@@ -70,16 +70,20 @@ pub fn blocks(md: &str) -> Result<Vec<Block>, String> {
     let mut out = Vec::new();
     // The open fence as a block with no runs yet, and its text so far.
     let mut open: Option<(Block, Option<Range<usize>>)> = None;
+
     for (event, range) in Parser::new_ext(md, options).into_offset_iter() {
         match event {
             Event::Start(Tag::CodeBlock(CodeBlockKind::Fenced(info))) => {
                 let mut words = info.split([' ', ',']).filter(|w| !w.is_empty());
+
                 if words.next() != Some("console") {
                     continue;
                 }
+
                 let line = md[..range.start].matches('\n').count() + 1;
                 let mut cwd = None;
                 let mut cache = false;
+
                 for word in words {
                     match word.split_once('=') {
                         Some(("cwd", dir)) => cwd = Some(dir.to_owned()),
@@ -91,6 +95,7 @@ pub fn blocks(md: &str) -> Result<Vec<Block>, String> {
                         }
                     }
                 }
+
                 let block = Block {
                     line,
                     cwd,
@@ -98,11 +103,13 @@ pub fn blocks(md: &str) -> Result<Vec<Block>, String> {
                     body: 0..0,
                     runs: Vec::new(),
                 };
+
                 open = Some((block, None));
             }
             Event::Text(_) => {
                 if let Some((_, body)) = &mut open {
                     let start = body.as_ref().map_or(range.start, |b| b.start);
+
                     *body = Some(start..range.end);
                 }
             }
@@ -110,6 +117,7 @@ pub fn blocks(md: &str) -> Result<Vec<Block>, String> {
                 let Some((mut block, body)) = open.take() else {
                     continue;
                 };
+
                 block.body = body.unwrap_or(range.start..range.start);
                 block.runs = runs(&md[block.body.clone()])
                     .map_err(|e| format!("line {}: {e}", block.line))?;
@@ -118,6 +126,7 @@ pub fn blocks(md: &str) -> Result<Vec<Block>, String> {
             _ => {}
         }
     }
+
     Ok(out)
 }
 
@@ -125,6 +134,7 @@ pub fn blocks(md: &str) -> Result<Vec<Block>, String> {
 fn runs(text: &str) -> Result<Vec<Run>, String> {
     let mut runs: Vec<Run> = Vec::new();
     let mut lines: Vec<Vec<&str>> = Vec::new();
+
     for line in text.lines() {
         if let Some(command) = line.strip_prefix("$ ") {
             runs.push(Run {
@@ -140,36 +150,44 @@ fn runs(text: &str) -> Result<Vec<Run>, String> {
             );
         }
     }
+
     if runs.is_empty() {
         return Err("a console block needs a command: a line that starts with `$ `".into());
     }
+
     for (run, lines) in runs.iter_mut().zip(lines) {
         run.output = trim_end_lines(&lines.join("\n"));
     }
+
     Ok(runs)
 }
 
 /// `text` without the blank lines at its end.
 fn trim_end_lines(text: &str) -> String {
     let mut lines: Vec<&str> = text.lines().collect();
+
     while lines.last().is_some_and(|l| l.trim().is_empty()) {
         lines.pop();
     }
+
     lines.join("\n")
 }
 
 /// The text of a block that holds `runs`, as it goes between the fences.
 fn body(runs: &[Run]) -> String {
     let mut out = String::new();
+
     for run in runs {
         out.push_str("$ ");
         out.push_str(&run.command);
         out.push('\n');
+
         if !run.output.is_empty() {
             out.push_str(&run.output);
             out.push('\n');
         }
     }
+
     out
 }
 
@@ -177,21 +195,27 @@ fn body(runs: &[Run]) -> String {
 pub fn strip(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
     let mut chars = text.chars();
+
     while let Some(c) = chars.next() {
         if c == '\x1b' {
             let mut rest = chars.clone();
+
             if rest.next() == Some('[') {
                 for c in rest.by_ref() {
                     if c.is_ascii_alphabetic() {
                         break;
                     }
                 }
+
                 chars = rest;
+
                 continue;
             }
         }
+
         out.push(c);
     }
+
     out
 }
 
@@ -202,9 +226,11 @@ pub fn normal(text: &str) -> String {
     static TIME: std::sync::LazyLock<regex_lite::Regex> = std::sync::LazyLock::new(|| {
         regex_lite::Regex::new(r"\[ *[0-9]+(\.[0-9]+)?m?s\]").expect("valid pattern")
     });
+
     static SLOW: std::sync::LazyLock<regex_lite::Regex> = std::sync::LazyLock::new(|| {
         regex_lite::Regex::new(r"^ +[0-9]+\.[0-9]+s ").expect("valid pattern")
     });
+
     let text = text.replace("\r\n", "\n");
     let mut in_slowest = false;
     let lines: Vec<String> = text
@@ -219,6 +245,7 @@ pub fn normal(text: &str) -> String {
         })
         .map(|l| TIME.replace_all(l.trim_end(), "[time]").into_owned())
         .collect();
+
     trim_end_lines(&lines.join("\n"))
 }
 
@@ -229,10 +256,12 @@ pub fn words(command: &str) -> Result<Vec<String>, String> {
     let mut word = String::new();
     let mut started = false;
     let mut chars = command.chars();
+
     while let Some(c) = chars.next() {
         match c {
             '\'' | '"' => {
                 started = true;
+
                 loop {
                     match chars.next() {
                         Some(q) if q == c => break,
@@ -258,9 +287,11 @@ pub fn words(command: &str) -> Result<Vec<String>, String> {
             }
         }
     }
+
     if started {
         out.push(word);
     }
+
     Ok(out)
 }
 
@@ -269,19 +300,25 @@ fn files(dir: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>, String> {
     fn walk(dir: &Path, out: &mut BTreeMap<PathBuf, Vec<u8>>) -> Result<(), String> {
         let entries =
             std::fs::read_dir(dir).map_err(|e| format!("cannot read {}: {e}", dir.display()))?;
+
         for entry in entries.flatten() {
             let path = entry.path();
+
             if path.is_dir() {
                 walk(&path, out)?;
             } else {
                 let bytes = std::fs::read(&path)
                     .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+
                 out.insert(path, bytes);
             }
         }
+
         Ok(())
     }
+
     let mut out = BTreeMap::new();
+
     walk(dir, &mut out)?;
     Ok(out)
 }
@@ -290,6 +327,7 @@ fn files(dir: &Path) -> Result<BTreeMap<PathBuf, Vec<u8>>, String> {
 fn folders(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
         let path = entry.path();
+
         if path.is_dir() {
             out.push(path.clone());
             folders(&path, out);
@@ -310,13 +348,16 @@ fn run_command(command: &str, cwd: &Path, tools: &Tools<'_>) -> Result<String, S
         "jaic" => tools.jaic,
         "cat" => {
             let mut out = String::new();
+
             for file in args {
                 let path = cwd.join(file);
+
                 out.push_str(
                     &std::fs::read_to_string(&path)
                         .map_err(|e| format!("`{command}`: cannot read {}: {e}", path.display()))?,
                 );
             }
+
             return Ok(out);
         }
         other => {
@@ -329,6 +370,7 @@ fn run_command(command: &str, cwd: &Path, tools: &Tools<'_>) -> Result<String, S
         std::io::pipe().map_err(|e| format!("`{command}`: cannot make a pipe: {e}"))?;
     let mut child = {
         let mut cmd = std::process::Command::new(program);
+
         cmd.args(args)
             .current_dir(cwd)
             .stdin(std::process::Stdio::null())
@@ -342,6 +384,7 @@ fn run_command(command: &str, cwd: &Path, tools: &Tools<'_>) -> Result<String, S
             .env(jacket_config::env::FORCE_COLOR.name, "1")
             // The status lines a terminal shows, without the line redrawn in place.
             .env(jacket_config::env::PROGRESS.name, "plain");
+
         // What a reader's terminal would not have, or would set differently.
         for var in [
             &jacket_config::env::CI,
@@ -351,6 +394,7 @@ fn run_command(command: &str, cwd: &Path, tools: &Tools<'_>) -> Result<String, S
         ] {
             cmd.env_remove(var.name);
         }
+
         cmd.spawn()
             .map_err(|e| format!("cannot run `{command}`: {e}"))?
         // `cmd` and its copies of the pipe's write end are dropped here, so the read below ends
@@ -358,6 +402,7 @@ fn run_command(command: &str, cwd: &Path, tools: &Tools<'_>) -> Result<String, S
     };
     let mut out = Vec::new();
     let read = reader.read_to_end(&mut out);
+
     child
         .wait()
         .map_err(|e| format!("`{command}` did not finish: {e}"))?;
@@ -372,11 +417,14 @@ fn run_block(block: &Block, dir: &Path, tools: &Tools<'_>) -> Result<Vec<Run>, S
     if !dir.is_dir() {
         return Err(format!("the folder {} does not exist", dir.display()));
     }
+
     let before = files(dir)?;
     let mut had = Vec::new();
+
     folders(dir, &mut had);
     let mut out = Vec::new();
     let mut failure = None;
+
     for run in &block.runs {
         match run_command(&run.command, dir, tools) {
             Ok(output) => out.push(Run {
@@ -389,29 +437,37 @@ fn run_block(block: &Block, dir: &Path, tools: &Tools<'_>) -> Result<Vec<Run>, S
             }
         }
     }
+
     let after = files(dir)?;
     let mut now = Vec::new();
+
     folders(dir, &mut now);
+
     for path in after.keys().filter(|p| !before.contains_key(*p)) {
         let _ = std::fs::remove_file(path);
     }
+
     for path in now.iter().rev().filter(|p| !had.contains(p)) {
         let _ = std::fs::remove_dir(path);
     }
+
     if let Some(e) = failure {
         return Err(e);
     }
+
     let changed: Vec<String> = before
         .iter()
         .filter(|(path, bytes)| after.get(*path) != Some(*bytes))
         .map(|(path, _)| path.display().to_string())
         .collect();
+
     if !changed.is_empty() {
         return Err(format!(
             "the commands changed {}; a console block must leave its folder as it found it",
             changed.join(", ")
         ));
     }
+
     Ok(out)
 }
 
@@ -467,32 +523,39 @@ pub fn check(
     let capture_file = capture_path(path);
     let stored = read_capture(&capture_file)?;
     let capture_shown = format!("{}", capture_file.display());
+
     if blocks.is_empty() {
         if stored.is_none() {
             return Ok(Vec::new());
         }
+
         if accept {
             std::fs::remove_file(&capture_file)
                 .map_err(|e| format!("cannot remove {capture_shown}: {e}"))?;
             return Ok(Vec::new());
         }
+
         return Ok(vec![format!(
             "{capture_shown}: {shown} has no console blocks any more; `jacket doc --accept` removes it"
         )]);
     }
+
     let stored = stored.unwrap_or_default();
     let here = path.parent().unwrap_or(Path::new("."));
     let mut problems = Vec::new();
     let mut fresh = Capture::default();
     let mut rewrites: Vec<(Range<usize>, String)> = Vec::new();
+
     for (n, block) in blocks.iter().enumerate() {
         let old = stored.blocks.get(n).filter(|shot| matches(block, shot));
+
         if block.cache
             && let Some(old) = old
         {
             fresh.blocks.push(old.clone());
             continue;
         }
+
         let dir = here.join(block.cwd.as_deref().unwrap_or("."));
         let got =
             run_block(block, &dir, tools).map_err(|e| format!("{shown}:{}: {e}", block.line))?;
@@ -501,10 +564,12 @@ pub fn check(
             .iter()
             .zip(&got)
             .all(|(want, got)| normal(&want.output) == normal(&strip(&got.output)));
+
         if same && let Some(old) = old {
             fresh.blocks.push(old.clone());
             continue;
         }
+
         if accept {
             let text: Vec<Run> = got
                 .iter()
@@ -513,10 +578,13 @@ pub fn check(
                     output: strip(&r.output),
                 })
                 .collect();
+
             rewrites.push((block.body.clone(), body(&text)));
             fresh.blocks.push(got);
+
             continue;
         }
+
         if same {
             problems.push(format!(
                 "{shown}:{}: the colours in {capture_shown} are missing or out of date; `jacket doc --accept` writes them",
@@ -524,8 +592,10 @@ pub fn check(
             ));
             continue;
         }
+
         for (want, got) in block.runs.iter().zip(&got) {
             let (want, got) = (normal(&want.output), normal(&strip(&got.output)));
+
             if want != got {
                 problems.push(format!(
                     "{shown}:{}: `{}` printed something else:\n{}`jacket doc --accept` writes what it printed into the guide",
@@ -537,26 +607,33 @@ pub fn check(
             }
         }
     }
+
     if stored.blocks.len() > blocks.len() && !accept && problems.is_empty() {
         problems.push(format!(
             "{capture_shown}: it has more blocks than {shown}; `jacket doc --accept` writes it again"
         ));
     }
+
     if accept {
         if !rewrites.is_empty() {
             let mut md = md;
+
             for (range, text) in rewrites.into_iter().rev() {
                 md.replace_range(range, &text);
             }
+
             std::fs::write(path, md)
                 .map_err(|e| format!("cannot write {}: {e}", path.display()))?;
         }
+
         if fresh != stored {
             let json = serde_json::to_string_pretty(&fresh).map_err(|e| e.to_string())?;
+
             std::fs::write(&capture_file, format!("{json}\n"))
                 .map_err(|e| format!("cannot write {capture_shown}: {e}"))?;
         }
     }
+
     Ok(problems)
 }
 
@@ -566,6 +643,7 @@ pub fn rendered(path: &Path, md: &str) -> HashMap<String, String> {
     let (Ok(blocks), Ok(Some(capture))) = (blocks(md), read_capture(&capture_path(path))) else {
         return HashMap::default();
     };
+
     blocks
         .iter()
         .zip(&capture.blocks)
@@ -578,17 +656,21 @@ pub fn rendered(path: &Path, md: &str) -> HashMap<String, String> {
 /// was printed in.
 fn html(runs: &[Run]) -> String {
     let mut out = String::new();
+
     for (n, run) in runs.iter().enumerate() {
         if n > 0 {
             out.push('\n');
         }
+
         out.push_str("<span class=\"prompt\">$ </span>");
         out.push_str(&escape(&run.command));
+
         if !run.output.is_empty() {
             out.push('\n');
             out.push_str(&ansi_html(&run.output));
         }
     }
+
     out
 }
 
@@ -603,31 +685,40 @@ pub fn ansi_html(text: &str) -> String {
         underline: bool,
         color: Option<u8>,
     }
+
     const NAMES: [&str; 8] = [
         "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
     ];
+
     let classes = |pen: Pen| {
         let mut c = Vec::new();
+
         if pen.bold {
             c.push("ansi-bold".to_owned());
         }
+
         if pen.dim {
             c.push("ansi-dim".to_owned());
         }
+
         if pen.italic {
             c.push("ansi-italic".to_owned());
         }
+
         if pen.underline {
             c.push("ansi-underline".to_owned());
         }
+
         if let Some(n) = pen.color {
             let bright = if n >= 8 {
                 "bright-"
             } else {
                 ""
             };
+
             c.push(format!("ansi-{bright}{}", NAMES[usize::from(n % 8)]));
         }
+
         c.join(" ")
     };
     let mut out = String::new();
@@ -638,6 +729,7 @@ pub fn ansi_html(text: &str) -> String {
         if run.is_empty() {
             return;
         }
+
         if pen == Pen::default() {
             out.push_str(&escape(run));
         } else {
@@ -647,26 +739,33 @@ pub fn ansi_html(text: &str) -> String {
                 escape(run)
             ));
         }
+
         run.clear();
     };
+
     while let Some(c) = chars.next() {
         if c != '\x1b' || chars.peek() != Some(&'[') {
             run.push(c);
             continue;
         }
+
         chars.next();
         let mut params = String::new();
         let mut last = None;
+
         for c in chars.by_ref() {
             if c.is_ascii_alphabetic() {
                 last = Some(c);
                 break;
             }
+
             params.push(c);
         }
+
         if last != Some('m') {
             continue;
         }
+
         flush(&mut out, &mut run, pen);
         let mut next = pen;
         let codes: Vec<u8> = if params.is_empty() {
@@ -674,6 +773,7 @@ pub fn ansi_html(text: &str) -> String {
         } else {
             params.split(';').filter_map(|p| p.parse().ok()).collect()
         };
+
         for code in codes {
             match code {
                 0 => next = Pen::default(),
@@ -690,8 +790,10 @@ pub fn ansi_html(text: &str) -> String {
                 _ => {}
             }
         }
+
         pen = next;
     }
+
     flush(&mut out, &mut run, pen);
     out
 }

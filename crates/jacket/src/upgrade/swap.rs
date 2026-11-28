@@ -39,6 +39,7 @@ impl Mode {
 /// `<dir><suffix>` next to `dir`.
 pub fn sibling(dir: &Path, suffix: &str) -> PathBuf {
     let mut name = dir.file_name().unwrap_or_default().to_os_string();
+
     name.push(suffix);
     dir.with_file_name(name)
 }
@@ -85,15 +86,19 @@ pub fn swap(install: &Path, fresh: &Path, mode: Mode) -> Result<(), String> {
 
 fn swap_folder(install: &Path, fresh: &Path) -> Result<(), String> {
     let old = sibling(install, OLD_SUFFIX);
+
     if old.exists() {
         std::fs::remove_dir_all(&old)
             .map_err(|e| format!("could not remove the leftover {}: {e}", old.display()))?;
     }
+
     rename(install, &old)?;
+
     if let Err(error) = rename(fresh, install) {
         let _ = std::fs::rename(&old, install);
         return Err(error);
     }
+
     // Deleting the old tree is cleanup, not part of the swap: the new one is already in place.
     let _ = std::fs::remove_dir_all(&old);
     Ok(())
@@ -106,10 +111,12 @@ fn swap_entries(install: &Path, fresh: &Path) -> Result<(), String> {
         .filter(|name| name != OLD_SUFFIX)
         .collect::<Vec<_>>();
     let new_entries = names(fresh)?;
+
     if aside.exists() {
         std::fs::remove_dir_all(&aside)
             .map_err(|e| format!("could not remove the leftover {}: {e}", aside.display()))?;
     }
+
     std::fs::create_dir_all(&aside)
         .map_err(|e| format!("could not create {}: {e}", aside.display()))?;
     let mut done: Vec<(PathBuf, PathBuf)> = Vec::new();
@@ -117,14 +124,18 @@ fn swap_entries(install: &Path, fresh: &Path) -> Result<(), String> {
         .iter()
         .map(|n| (install.join(n), aside.join(n)))
         .chain(new_entries.iter().map(|n| (fresh.join(n), install.join(n))));
+
     for (from, to) in moves {
         if let Err(error) = rename(&from, &to) {
             roll_back(&done);
             let _ = std::fs::remove_dir_all(&aside);
+
             return Err(error);
         }
+
         done.push((from, to));
     }
+
     let _ = std::fs::remove_dir_all(&aside);
     Ok(())
 }
@@ -146,17 +157,21 @@ mod tests {
             let dir =
                 std::env::temp_dir().join(format!("jacket-swap-{tag}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&dir);
+
             std::fs::create_dir_all(&dir).unwrap();
             Scratch(dir)
         }
 
         fn tree(&self, name: &str, files: &[(&str, &str)]) -> PathBuf {
             let root = self.0.join(name);
+
             for (path, text) in files {
                 let file = root.join(path);
+
                 std::fs::create_dir_all(file.parent().unwrap()).unwrap();
                 std::fs::write(file, text).unwrap();
             }
+
             root
         }
     }
@@ -189,6 +204,7 @@ mod tests {
                     ("native-libs/l", "new"),
                 ],
             );
+
             swap(&install, &fresh, mode).unwrap();
             assert_eq!(read(&install, "jacket").as_deref(), Some("new"), "{mode:?}");
             assert_eq!(read(&install, "stdlib/a.jai").as_deref(), Some("new"));
@@ -209,6 +225,7 @@ mod tests {
             let s = Scratch::new(&format!("fail-{mode:?}"));
             let install = s.tree("0.21.0", &[("jacket", "old"), ("stdlib/a.jai", "old")]);
             let missing = s.0.join("no-such-fresh-tree");
+
             assert!(swap(&install, &missing, mode).is_err(), "{mode:?}");
             assert_eq!(read(&install, "jacket").as_deref(), Some("old"), "{mode:?}");
             assert_eq!(read(&install, "stdlib/a.jai").as_deref(), Some("old"));
@@ -222,13 +239,17 @@ mod tests {
         let s = Scratch::new("rollback");
         let install = s.tree("0.21.0", &[("a", "old-a"), ("b", "old-b")]);
         let aside = s.0.join("aside");
+
         std::fs::create_dir(&aside).unwrap();
         let mut done = Vec::new();
+
         for name in ["a", "b"] {
             let (from, to) = (install.join(name), aside.join(name));
+
             std::fs::rename(&from, &to).unwrap();
             done.push((from, to));
         }
+
         roll_back(&done);
         assert_eq!(read(&install, "a").as_deref(), Some("old-a"));
         assert_eq!(read(&install, "b").as_deref(), Some("old-b"));
@@ -239,6 +260,7 @@ mod tests {
         for mode in BOTH {
             let s = Scratch::new(&format!("stale-{mode:?}"));
             let install = s.tree("0.21.0", &[("jacket", "old")]);
+
             s.tree(&format!("0.21.0{NEW_SUFFIX}"), &[("x", "stale")]);
             s.tree(&format!("0.21.0{OLD_SUFFIX}"), &[("x", "stale")]);
             s.tree(&format!("0.21.0/{OLD_SUFFIX}"), &[("x", "stale")]);
@@ -252,6 +274,7 @@ mod tests {
             s.tree(&format!("0.21.0{OLD_SUFFIX}"), &[("x", "stale")]);
             s.tree(&format!("0.21.0/{OLD_SUFFIX}"), &[("x", "stale")]);
             let fresh = s.tree("fresh", &[("jacket", "new")]);
+
             swap(&install, &fresh, mode).unwrap();
             assert_eq!(read(&install, "jacket").as_deref(), Some("new"), "{mode:?}");
         }

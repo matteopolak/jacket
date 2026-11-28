@@ -9,11 +9,14 @@ use std::{path::Path, rc::Rc};
 
 fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> {
     let mut fs = VirtualFs::default();
+
     for (name, source) in modules {
         fs.insert(format!("/modules/{name}/module.jai"), source.as_bytes());
     }
+
     fs.insert("/main.jai", main.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec![Path::new("/modules").to_path_buf()];
     options.preload_stdlib = Some(Path::new("/modules").to_path_buf());
@@ -25,12 +28,14 @@ fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> 
 /// program imports.
 fn rejected(code: Code, main: &str, in_module: &str) -> Diagnostic {
     let d = compile(main, &[]).expect_err("must be rejected");
+
     assert_eq!(d.code, code, "{d:?}");
     let in_a_module = compile(
         "#import \"User\"; main :: () { go(); }",
         &[("User", in_module)],
     )
     .expect_err("must be rejected in a module too");
+
     assert_eq!(in_a_module.code, code, "{in_a_module:?}");
     *d
 }
@@ -45,6 +50,7 @@ fn an_ifx_of_constants_does_not_narrow_to_a_signed_type_without_a_cast() {
         "f :: (b: bool) -> s32 { return ifx b then 1 else 2; }
         go :: () { f(true); }",
     );
+
     assert_eq!(d.code.name(), "implicit-narrowing");
     assert_eq!(
         d.message,
@@ -80,6 +86,7 @@ fn an_overloaded_procedure_used_as_a_value_is_ambiguous() {
         over :: (a: s64) {}
         go :: () { v := over; }",
     );
+
     assert_eq!(d.code.name(), "ambiguous-procedure-value");
     assert_eq!(d.message, "ambiguous overloaded procedure used as a value");
 }
@@ -93,6 +100,7 @@ fn two_overloads_that_fit_the_target_type_are_ambiguous() {
         &[],
     )
     .expect_err("must be rejected");
+
     assert_eq!(d.code, Code::AmbiguousProcedureValue, "{d:?}");
     assert_eq!(d.message, "2 overloads fit procedure type (s64)");
 }
@@ -118,6 +126,7 @@ fn a_declaration_named_like_a_builtin_type_is_an_error() {
         "Code :: enum s16 { A; }
         go :: () { }",
     );
+
     assert_eq!(d.code.name(), "shadows-builtin-type");
     assert_eq!(
         d.message,
@@ -137,8 +146,10 @@ fn every_builtin_type_name_is_rejected_and_other_names_are_not() {
             &[],
         )
         .expect_err(name);
+
         assert_eq!(d.code, Code::ShadowsBuiltinType, "{name}: {d:?}");
     }
+
     compile(
         "Type_Like :: struct { x: s64; }
         E :: enum { int; float; }

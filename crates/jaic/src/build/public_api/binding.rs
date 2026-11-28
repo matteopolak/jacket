@@ -31,6 +31,7 @@ pub(crate) fn bind(
         .iter()
         .map(|parameter| parameter.ty)
         .collect();
+
     validate(compiler, operation, &parameters, &signature.returns, span)?;
     let returns: Vec<_> = signature
         .returns
@@ -38,8 +39,10 @@ pub(crate) fn bind(
         .map(|&ty| (ty, compiler.is_memory_type(ty)))
         .collect();
     let mut owners = Vec::new();
+
     for &ty in parameters.iter().chain(&signature.returns) {
         let mut ty = ty;
+
         while let TypeKind::Pointer(inner)
         | TypeKind::Array {
             elem: inner, ..
@@ -47,6 +50,7 @@ pub(crate) fn bind(
         {
             ty = *inner;
         }
+
         if let Some(record) = compiler
             .ty
             .types
@@ -54,11 +58,13 @@ pub(crate) fn bind(
         {
             let scope = compiler.ty.struct_asts[&record].scope;
             let module = compiler.scope(scope).module;
+
             if !owners.contains(&module) {
                 owners.push(module);
             }
         }
     }
+
     let options = match operation {
         Operation::GetOptions => Some(signature.returns[0]),
         Operation::SetOptionsDuringCompile => {
@@ -84,11 +90,14 @@ pub(crate) fn bind(
         .copied()
         .filter(|ty| !schema.types.contains_key(ty))
         .collect();
+
     if !missing.is_empty() {
         let extended = Rc::make_mut(&mut schema);
+
         for ty in missing {
             collect(compiler, extended, ty, modules.is_some(), span)?;
         }
+
         let entry = compiler
             .ct
             .interp
@@ -97,8 +106,10 @@ pub(crate) fn bind(
             .iter_mut()
             .find(|entry| entry.modules == modules)
             .unwrap();
+
         entry.schema = schema.clone();
     }
+
     require(
         &schema,
         operation,
@@ -110,6 +121,7 @@ pub(crate) fn bind(
     let options = options
         .map(|ty| defaults(compiler, ty, span).map(|global| (ty, global)))
         .transpose()?;
+
     Ok(Binding {
         operation,
         parameters,
@@ -127,6 +139,7 @@ fn shared(compiler: &mut Compiler, modules: Option<&[ModuleId]>, span: Span) -> 
             .iter()
             .map(|module| {
                 let scope = compiler.ns.modules[module.0 as usize].scope;
+
                 compiler
                     .scope(scope)
                     .names
@@ -137,13 +150,16 @@ fn shared(compiler: &mut Compiler, modules: Option<&[ModuleId]>, span: Span) -> 
             .sum()
     });
     let schemas = &compiler.ct.interp.public_api_state.schemas;
+
     if let Some(entry) = schemas
         .iter()
         .find(|entry| entry.modules.as_deref() == modules && entry.entities == entities)
     {
         return Ok(entry.schema.clone());
     }
+
     let mut schema = Schema::default();
+
     if let Some(modules) = modules {
         // Primitive descriptors preserve identity across workspace record graphs even
         // when no public record happens to contain a field of that primitive type.
@@ -165,8 +181,10 @@ fn shared(compiler: &mut Compiler, modules: Option<&[ModuleId]>, span: Span) -> 
             TypeId::ANY,
             TypeId::CODE,
         ];
+
         for &module in modules {
             let scope = compiler.ns.modules[module.0 as usize].scope;
+
             // Declaration order: it fixes the type table's.
             for (entity, name) in compiler.scope(scope).declared() {
                 let Ok(Resolved::Const {
@@ -176,18 +194,22 @@ fn shared(compiler: &mut Compiler, modules: Option<&[ModuleId]>, span: Span) -> 
                 else {
                     continue;
                 };
+
                 match schema.names.insert(name.to_string(), ty) {
                     Some(other) if other != ty => return ambiguous(span, name.as_str()),
                     _ => roots.push(ty),
                 }
             }
         }
+
         for ty in roots {
             collect(compiler, &mut schema, ty, true, span)?;
         }
     }
+
     let schema = Rc::new(schema);
     let schemas = &mut compiler.ct.interp.public_api_state.schemas;
+
     schemas.retain(|entry| entry.modules.as_deref() != modules);
     schemas.push(Shared {
         modules: modules.map(<[_]>::to_vec),
@@ -200,6 +222,7 @@ fn shared(compiler: &mut Compiler, modules: Option<&[ModuleId]>, span: Span) -> 
 /// The type `name` declares in the modules that own the declaration's records.
 fn owned(compiler: &mut Compiler, owners: &[ModuleId], name: &str, span: Span) -> Result<TypeId> {
     let mut found = None;
+
     for &module in owners {
         for entity in compiler.module_declarations(module, Sym::intern(name))? {
             if let Resolved::Const {
@@ -210,10 +233,12 @@ fn owned(compiler: &mut Compiler, owners: &[ModuleId], name: &str, span: Span) -
                 if found.is_some_and(|other| other != ty) {
                     return ambiguous(span, name);
                 }
+
                 found = Some(ty);
             }
         }
     }
+
     found.map_or_else(
         || {
             err(
@@ -242,6 +267,7 @@ fn defaults(compiler: &mut Compiler, ty: TypeId, span: Span) -> Result<ir::Globa
         || (Vec::new(), Vec::new()),
         |image| (image.bytes.clone(), image.relocs.clone()),
     );
+
     Ok(compiler.out.program.add_global(ir::Global {
         name: "compiler.options.defaults".into(),
         size,
@@ -264,14 +290,17 @@ fn collect(
     if schema.types.contains_key(&ty) {
         return Ok(());
     }
+
     let repr = compiler.ty.types.repr_struct(ty);
     let kind = compiler.ty.types.kind(repr).clone();
+
     if matches!(
         kind,
         TypeKind::CompileTimeOnly | TypeKind::PolyParam | TypeKind::PolyStruct { .. }
     ) {
         return Ok(());
     }
+
     let (size, align) = if kind == TypeKind::Void {
         (0, 1)
     } else {
@@ -281,6 +310,7 @@ fn collect(
         TypeKind::Struct(record) => compiler.ty.types.struct_info(*record).name.to_string(),
         _ => compiler.ty.types.full_name(ty),
     };
+
     schema.types.insert(
         ty,
         Layout {
@@ -291,6 +321,7 @@ fn collect(
             descriptor: None,
         },
     );
+
     if let TypeKind::Enum(id) = kind {
         schema.enums.insert(
             ty,
@@ -304,6 +335,7 @@ fn collect(
                 .collect(),
         );
     }
+
     let shape = match kind {
         TypeKind::String => Kind::String,
         TypeKind::Pointer(inner) => {
@@ -327,6 +359,7 @@ fn collect(
         TypeKind::Struct(record) => {
             let fields = compiler.ty.types.struct_info(record).fields.clone();
             let mut members = Vec::new();
+
             for field in fields.iter() {
                 collect(compiler, schema, field.ty, descriptors, span)?;
                 members.push(Field {
@@ -336,14 +369,18 @@ fn collect(
                     promoted: field.using,
                 });
             }
+
             Kind::Record(members)
         }
         _ => Kind::Scalar,
     };
+
     schema.types.get_mut(&ty).unwrap().kind = shape;
+
     if descriptors {
         schema.types.get_mut(&ty).unwrap().descriptor = Some(compiler.type_info_global(ty, span)?);
     }
+
     Ok(())
 }
 
@@ -396,6 +433,7 @@ fn slots(operation: Operation, parameters: usize) -> (&'static [Slot], &'static 
         Address, Boolean, Bytes, Code, DuringCompile, Number, Options, Record, Records, Text,
         Texts, To, Type,
     };
+
     match operation {
         CreateWorkspace => (&[Text], &[Number]),
         DestroyWorkspace | EndIntercept | CustomLinkComplete => (&[Number], &[]),
@@ -497,6 +535,7 @@ fn validate(
         _ => false,
     };
     let (inputs, outputs) = slots(operation, params.len());
+
     if params.len() != inputs.len()
         || returns.len() != outputs.len()
         || params
@@ -514,6 +553,7 @@ fn validate(
             ),
         );
     }
+
     Ok(())
 }
 
@@ -550,6 +590,7 @@ fn require(
             }
             _ => Ok(()),
         });
+
     checked.or_else(|trap| {
         err(
             Code::ApiIncompatibleRecordsCompiler,

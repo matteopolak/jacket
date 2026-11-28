@@ -30,6 +30,7 @@ fn environment(stdlib: PathBuf, runtime_support: bool) -> Environment {
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {
             let mut options = jaic::sema::Options::host();
+
             options.import_paths = jaic::project::import_paths(
                 main.parent().unwrap_or(std::path::Path::new("/")),
                 &[],
@@ -48,6 +49,7 @@ fn position(text: &str, lines: &jaic::source::LineIndex, byte: usize) -> Positio
     let (line, character) = lines
         .utf16_position(text, byte)
         .expect("a token starts on a character boundary");
+
     Position {
         line,
         character,
@@ -57,9 +59,11 @@ fn position(text: &str, lines: &jaic::source::LineIndex, byte: usize) -> Positio
 fn role(tokens: &[jaic::lexer::Token], i: usize) -> Role {
     let next = tokens.get(i + 1).map(|t| &t.tok);
     let prev = i.checked_sub(1).map(|j| &tokens[j].tok);
+
     if matches!(prev, Some(Tok::Punct(P::Dot))) {
         return Role::Member;
     }
+
     match next {
         Some(Tok::Punct(P::ColonColon | P::Colon | P::ColonEq)) => Role::Declaration,
         Some(Tok::Punct(P::Eq))

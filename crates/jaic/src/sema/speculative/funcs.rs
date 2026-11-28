@@ -54,6 +54,7 @@ pub(super) fn begin(funcs: usize, foreigns: usize) {
 pub(super) fn take() -> Reserved {
     let (funcs_base, funcs) = LOCAL_FUNCS.with(|f| std::mem::take(&mut *f.borrow_mut()));
     let (foreigns_base, foreigns) = LOCAL_FOREIGNS.with(|f| std::mem::take(&mut *f.borrow_mut()));
+
     Reserved {
         funcs_base,
         funcs,
@@ -68,10 +69,12 @@ pub(in crate::sema) fn refuse_provisional(target: ProcTarget, program: &ir::Prog
     if !active() {
         return;
     }
+
     let provisional = match target {
         ProcTarget::Func(func) => func.0 as usize >= program.funcs.len(),
         ProcTarget::Foreign(foreign) => foreign.0 as usize >= program.foreigns.len(),
     };
+
     if provisional {
         abandon(W::OutProgram as usize);
     }
@@ -113,9 +116,11 @@ impl Compiler {
         if !active() || !self.target_is_resumable(id) {
             return None;
         }
+
         let (k, func) = LOCAL_FUNCS.with(|f| {
             let mut f = f.borrow_mut();
             let k = f.1.len();
+
             f.1.push(LocalFunc {
                 name,
                 sig: sig.clone(),
@@ -126,11 +131,13 @@ impl Compiler {
         let target = ProcTarget::Func(func);
         let p = &mut self.pr.procs.quiet()[id.0 as usize];
         let before = p.body_state;
+
         p.body_state = BodyState::Queued;
         p.target = Some(target);
         UNDO.with(|u| {
             u.borrow_mut().push(Box::new(move |c| {
                 let p = &mut c.pr.procs.quiet()[id.0 as usize];
+
                 p.body_state = before;
                 p.target = None;
             }));
@@ -139,6 +146,7 @@ impl Compiler {
             let Some(func) = shift.reserved(k) else {
                 return;
             };
+
             c.pr.procs[id.0 as usize].body_state = BodyState::Queued;
             crate::sema::body_probe::enqueued(id.0);
             c.pr.body_queue.push(id);
@@ -158,9 +166,11 @@ impl Compiler {
         if !active() || self.pr.runtime_interpreter_assertion == Some(id) {
             return None;
         }
+
         let (k, handle) = LOCAL_FOREIGNS.with(|f| {
             let mut f = f.borrow_mut();
             let k = f.1.len();
+
             f.1.push(LocalForeign {
                 foreign,
                 proc: id,
@@ -168,6 +178,7 @@ impl Compiler {
             (k, ir::ForeignId((f.0 + k) as u32))
         });
         let target = ProcTarget::Foreign(handle);
+
         self.pr.procs.quiet()[id.0 as usize].target = Some(target);
         UNDO.with(|u| {
             u.borrow_mut().push(Box::new(move |c| {

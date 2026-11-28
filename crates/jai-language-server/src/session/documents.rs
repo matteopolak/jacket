@@ -32,9 +32,11 @@ impl Session {
         if self.document_uri(&uri).is_some() {
             return Err(Error::AlreadyOpen);
         }
+
         if self.documents.len() + self.lint_configs.len() >= self.limits.documents {
             return Err(Error::Limit("open document count exceeded"));
         }
+
         self.admit(&uri, text.len(), 0)?;
         let unchanged = !crate::lints::is_config(&uri)
             && self.environment.as_ref().is_some_and(|env| {
@@ -42,15 +44,18 @@ impl Session {
                     .read(Path::new(uri.path()))
                     .is_some_and(|bytes| String::from_utf8_lossy(&bytes) == text)
             });
+
         if unchanged {
             self.touch();
         } else {
             self.buffer_changed(Path::new(uri.path()), true);
         }
+
         let map = if crate::lints::is_config(&uri) {
             let saved = self
                 .config_on_disk(Path::new(uri.path()))
                 .unwrap_or_else(|| text.clone());
+
             self.saved_configs.insert(uri.clone(), saved);
             // Lints computed with the old settings are stale.
             self.forget_lints();
@@ -58,6 +63,7 @@ impl Session {
         } else {
             &mut self.documents
         };
+
         map.insert(
             uri,
             Document {
@@ -85,20 +91,25 @@ impl Session {
             Some(config) => config,
             None => self.document(uri)?,
         };
+
         if version <= document.version {
             return Err(Error::StaleVersion);
         }
+
         if changes.len() > self.limits.edits {
             return Err(Error::Limit("incremental edit count exceeded"));
         }
+
         let old_bytes = document.text.len() + uri.as_str().len();
         let mut text = document.text.clone();
         let mut index = document.index.clone();
+
         for change in changes {
             let (start, end) = if let Some(range) = change.range {
                 if range.start > range.end {
                     return Err(Error::InvalidEdit("edit range is reversed"));
                 }
+
                 let start = index.byte(&text, range.start);
                 // `rangeLength` is deprecated and clients count it differently: the range decides.
                 (start, index.byte(&text, range.end))
@@ -110,22 +121,27 @@ impl Session {
                 .checked_sub(end - start)
                 .and_then(|n| n.checked_add(change.text.len()))
                 .ok_or(Error::Limit("edit size overflow"))?;
+
             self.admit(uri, bytes, old_bytes)?;
             text.replace_range(start..end, &change.text);
             index.update(&text, start);
         }
+
         let lexical_damage =
             crate::lexical_recovery::update(&document.text, &text, &document.lexical_damage);
         let config = self.lint_configs.contains_key(uri);
+
         if !config {
             self.buffer_changed(Path::new(uri.path()), false);
         }
+
         let map = if config {
             &mut self.lint_configs
         } else {
             &mut self.documents
         };
         let current = map.get_mut(uri).expect("checked document");
+
         *current = Document {
             version,
             index,
@@ -134,21 +150,25 @@ impl Session {
             sites: OnceCell::new(),
             lexical_damage,
         };
+
         if !config {
             self.rebuild();
         }
+
         Ok(())
     }
 
     /// Commit an open settings buffer; ordinary source saves need no additional analysis.
     pub fn save(&mut self, uri: &DocumentUri) -> Result<(), Error> {
         let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
+
         if let Some(config) = self.lint_configs.get(&key) {
             self.saved_configs.insert(key.clone(), config.text.clone());
             self.file_changed(Path::new(key.path()), false);
             self.forget_lints();
             self.rebuild();
         }
+
         Ok(())
     }
 
@@ -186,8 +206,10 @@ impl Session {
             } else {
                 self.saved_configs.remove(&uri);
             }
+
             self.forget_lints();
         }
+
         self.file_changed(path, created_or_deleted);
     }
 
@@ -201,17 +223,21 @@ impl Session {
                     .is_some_and(|bytes| String::from_utf8_lossy(&bytes) == doc.text)
             })
         });
+
         if unchanged {
             self.touch();
         } else {
             self.buffer_changed(Path::new(uri.path()), true);
         }
+
         if self.lint_configs.remove(uri).is_some() {
             self.saved_configs.remove(uri);
             self.forget_lints();
             self.rebuild();
+
             return Ok(());
         }
+
         self.documents.remove(uri).ok_or(Error::MissingDocument)?;
         self.call_graphs.borrow_mut().remove(uri);
         self.published_lints.borrow_mut().remove(uri);
@@ -252,6 +278,7 @@ impl Session {
                 self.manifest_diagnostics(uri),
             )
         });
+
         self.documents
             .iter()
             .filter_map(|(uri, doc)| {
@@ -260,6 +287,7 @@ impl Session {
                     .expect("opened document has analysis")
                     .diagnostics
                     .clone();
+
                 self.add_semantic_diagnostics(uri, &mut diagnostics, stage)
                     .ok()?;
                 Some((uri.as_str().into(), doc.version, diagnostics))
@@ -293,6 +321,7 @@ impl Session {
         };
         let found = match self.run_semantic(uri, &doc.text, |analysis, path| {
             let findings = analysis.check_findings(path);
+
             self.remember_call_graphs(uri, analysis);
             analysis.focus(path);
             Some(findings)
@@ -305,10 +334,12 @@ impl Session {
             .analysis_for(uri)
             .expect("opened document has analysis")
             .diagnostics;
+
         Ok(found
             .into_iter()
             .filter_map(|f| {
                 let range = self.range_of(uri, Span::new(f.start, f.end))?;
+
                 if syntax.iter().any(|d| {
                     matches!(d.code, DiagnosticCode::Lexer | DiagnosticCode::Parser)
                         && d.range.start == range.start
@@ -316,6 +347,7 @@ impl Session {
                 }) {
                     return None;
                 }
+
                 Some(self.check_finding_at(f, range))
             })
             .collect())
@@ -331,6 +363,7 @@ impl Session {
             .iter()
             .filter_map(|r| {
                 let at = self.location_in(&r.path, &r.text, r.start, r.end)?;
+
                 Some(RelatedInformation {
                     uri: at.uri,
                     range: at.range,
@@ -338,6 +371,7 @@ impl Session {
                 })
             })
             .collect();
+
         Finding {
             diagnostic: Diagnostic {
                 range,
@@ -366,6 +400,7 @@ impl Session {
                 Some(analysis.unreachable(path))
             })
             .unwrap_or_default();
+
         found
             .into_iter()
             .filter_map(|(start, end)| {
@@ -387,17 +422,21 @@ impl Session {
         if self.config_document(uri).is_some() {
             return Ok(self.manifest_diagnostics(uri));
         }
+
         if let Some(cached) = self.cached_workspace_diagnostics(uri) {
             return Ok(cached);
         }
+
         // A pull is a request for the check itself: it is the one request that compiles.
         let _background = self.background();
+
         self.document(uri)?;
         let mut diagnostics = self
             .analysis_for(uri)
             .expect("opened document has analysis")
             .diagnostics
             .clone();
+
         self.add_semantic_diagnostics(uri, &mut diagnostics, Stage::Full)?;
         Ok(diagnostics)
     }
@@ -418,21 +457,26 @@ impl Session {
         if self.config_broken(Path::new(uri.path())) {
             return Ok(());
         }
+
         let mut found: Vec<Diagnostic> = self
             .try_check_findings(uri)?
             .into_iter()
             .map(|f| f.diagnostic)
             .collect();
+
         found.extend(self.unreachable_diagnostics(uri));
+
         if stage == Stage::Full {
             found.extend(self.published_lint_diagnostics(uri));
             let others = self.sibling_program_diagnostics(uri)?;
+
             super::workspace_diagnostics::merge(&mut found, &others);
         } else {
             // Until the lints of this text are found, those of the last text stand in where
             // no edit touched them, so they are not cleared and drawn again on every edit.
             found.extend(self.carried_lints(uri));
         }
+
         // After the checks: they run the build metaprograms whose facts say what is reached.
         if self.is_unreached(uri) {
             all.push(super::workspace_diagnostics::not_in_program(
@@ -441,6 +485,7 @@ impl Session {
         } else {
             all.extend(found);
         }
+
         Ok(())
     }
 
@@ -448,6 +493,7 @@ impl Session {
         if bytes > self.limits.document_bytes {
             return Err(Error::Limit("document byte budget exceeded"));
         }
+
         let current = self
             .documents
             .iter()
@@ -460,9 +506,11 @@ impl Session {
             .checked_sub(old)
             .and_then(|n| n.checked_add(uri.as_str().len() + bytes))
             .ok_or(Error::Limit("workspace byte overflow"))?;
+
         if total > self.limits.workspace_bytes {
             return Err(Error::Limit("workspace byte budget exceeded"));
         }
+
         Ok(())
     }
 
@@ -477,6 +525,7 @@ impl Session {
         uri: &DocumentUri,
     ) -> Result<(&DocumentUri, &Document), Error> {
         let key = self.document_uri(uri).ok_or(Error::MissingDocument)?;
+
         self.documents
             .get_key_value(&key)
             .ok_or(Error::MissingDocument)
@@ -486,6 +535,7 @@ impl Session {
         if self.documents.contains_key(uri) || self.lint_configs.contains_key(uri) {
             return Some(uri.clone());
         }
+
         self.open_file_uri(Path::new(uri.path()))
     }
 
@@ -503,6 +553,7 @@ impl Session {
         {
             return Some(uri);
         }
+
         let env = self.environment.as_ref()?;
         let want = crate::auto_import::canonical_key(env, path);
         let mut identities = self.open_file_identities.borrow_mut();
@@ -518,6 +569,7 @@ impl Session {
                 })
                 .collect()
         });
+
         known
             .iter()
             .find(|(path, _)| *path == want)
@@ -534,6 +586,7 @@ impl Session {
     pub(crate) fn declarations(&self, uri: &DocumentUri) -> Option<(&Analysis, &str)> {
         let (key, doc) = self.document_entry(uri).ok()?;
         let current = self.analyses.get(key)?;
+
         match self.parsed.get(key) {
             Some(parsed) if !current.complete => Some((&parsed.analysis, &parsed.text)),
             _ => Some((current, &doc.text)),

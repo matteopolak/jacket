@@ -16,6 +16,7 @@ pub fn native_environment(stdlib: PathBuf) -> Environment {
         options: Box::new(move |main| {
             let mut options = jaic::sema::Options::host();
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
+
             options.import_paths = jaic::project::import_paths(&dir, &[], &[], &stdlib);
             options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options
@@ -35,6 +36,7 @@ fn sibling_files(path: &Path, text: &str) -> Vec<PathBuf> {
         .filter_map(|e| e.file_name().into_string().ok())
         .collect();
     let mut out = Vec::new();
+
     for directive in ["#load \"", "#import \""] {
         for (at, _) in text.match_indices(directive) {
             let rest = &text[at + directive.len()..];
@@ -44,6 +46,7 @@ fn sibling_files(path: &Path, text: &str) -> Vec<PathBuf> {
                 .filter(|n| n.contains('/') || names.contains(n))
                 .map(|n| dir.join(n))
                 .find(|p| p.is_file() && p.extension().is_some_and(|e| e == "jai") && p != path);
+
             if let Some(found) = found
                 && !out.contains(&found)
             {
@@ -51,6 +54,7 @@ fn sibling_files(path: &Path, text: &str) -> Vec<PathBuf> {
             }
         }
     }
+
     out
 }
 
@@ -60,12 +64,16 @@ pub fn read_file_input(path: &Path) -> Option<FileInput> {
     let text = std::fs::read_to_string(&path).ok()?;
     let uri = |p: &Path| DocumentUri::from_path(p).ok();
     let mut docs = vec![(uri(&path)?, text.clone())];
+
     for sibling in sibling_files(&path, &text).into_iter().take(2) {
         let content = std::fs::read_to_string(&sibling).ok()?;
+
         docs.push((uri(&sibling)?, content));
     }
+
     let config = uri(&path.parent()?.join("jacket.toml"))?;
     let entry = serde_json::to_string(path.file_name()?.to_str()?).ok()?;
+
     Some(FileInput {
         setup: vec![(config, format!("[project]\nentry = [{entry}]\n"))],
         docs,

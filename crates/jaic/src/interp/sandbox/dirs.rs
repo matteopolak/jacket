@@ -15,6 +15,7 @@ impl SandboxHost {
                 } else {
                     self.cwd.clone()
                 };
+
                 if (cwd.len() as u64) + 1 > arg(1) {
                     self.set_errno(34); // ERANGE
                     0
@@ -26,6 +27,7 @@ impl SandboxHost {
             }
             LibcFn::Chdir => {
                 let path = self.path(arg(0));
+
                 if self.fs.is_dir(&path) {
                     self.cwd = path;
                     0
@@ -35,6 +37,7 @@ impl SandboxHost {
             }
             LibcFn::Realpath | LibcFn::RealpathDarwin => {
                 let path = self.path(arg(0));
+
                 if !self.fs.is_dir(&path) && !self.fs.exists_file(&path) {
                     self.set_errno(ENOENT);
                     0
@@ -44,6 +47,7 @@ impl SandboxHost {
                     } else {
                         self.alloc(path.len() + 1)
                     };
+
                     write_bytes(out, path.as_bytes());
                     write_u8(out + path.len() as u64, 0);
                     out
@@ -51,6 +55,7 @@ impl SandboxHost {
             }
             LibcFn::Mkdir => {
                 let path = self.path(arg(0));
+
                 if self.fs.is_dir(&path) || self.fs.exists_file(&path) {
                     self.set_errno(EEXIST)
                 } else if !self.parent_exists(&path) {
@@ -67,12 +72,15 @@ impl SandboxHost {
             }
             LibcFn::Opendir => {
                 let path = self.path(arg(0));
+
                 if self.fs.is_dir(&path) {
                     let mut entries = vec![(".".to_string(), true), ("..".to_string(), true)];
+
                     entries.extend(self.fs.list(&path));
                     let handle = self.alloc(16);
                     let abi = self.abi();
                     let entry = self.alloc(records::dirent_size(abi));
+
                     self.dirs.insert(
                         handle,
                         DirStream {
@@ -95,6 +103,7 @@ impl SandboxHost {
             LibcFn::Readdir | LibcFn::Readdir64 => match self.dirs.get_mut(&arg(0)) {
                 Some(stream) if stream.next < stream.entries.len() => {
                     let (name, dir) = stream.entries[stream.next].clone();
+
                     stream.next += 1;
                     let entry = stream.entry;
                     let kind = if dir {
@@ -108,6 +117,7 @@ impl SandboxHost {
                         kind,
                         name: name.as_bytes(),
                     };
+
                     records::fill_dirent(stream.abi, entry, &record);
                     entry
                 }
@@ -140,9 +150,11 @@ impl SandboxHost {
                 ENOENT
             });
         }
+
         if !self.fs.list(path).is_empty() {
             return Err(ENOTEMPTY);
         }
+
         self.fs.dirs.remove(path);
         self.fs.removed.insert(path.to_string());
         Ok(())

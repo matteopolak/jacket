@@ -50,24 +50,30 @@ fn alternatives(path: &Path) -> Vec<PathBuf> {
 fn expect_text(path: &Path, got: &str, what: &str, accept: bool, checked: &mut Checked) {
     let others = alternatives(path);
     let matches = |file: &Path| std::fs::read(file).is_ok_and(|b| normalized(&b) == got);
+
     if accept {
         if !others.is_empty() && (matches(path) || others.iter().any(|f| matches(f))) {
             return;
         }
+
         if std::fs::write(path, got).is_ok() {
             checked.accepted.push(path.to_path_buf());
         }
+
         return;
     }
+
     let want = std::fs::read(path)
         .map(|b| normalized(&b))
         .unwrap_or_default();
+
     if want != got && !others.iter().any(|f| matches(f)) {
         let more = if others.is_empty() {
             String::new()
         } else {
             format!(" and {} alternative output(s)", others.len())
         };
+
         checked.problems.push(format!(
             "{what} differs from {}{more}:\n{}",
             file_name(path),
@@ -134,15 +140,20 @@ fn built(
     } else {
         Vec::new()
     };
+
     if toolchain.interp {
         let mut args = vec![source.to_string_lossy().into_owned(), "-interp".into()];
+
         args.extend(quiet.iter().map(ToString::to_string));
+
         if toolchain.coverage {
             args.push("-coverage".into());
         }
+
         args.extend(toolchain.flags.iter().cloned());
         args.extend(root_flags.iter().cloned());
         args.extend(toolchain.deps_args(Program::File(source), root_flags, false)?);
+
         return Ok(Built {
             invocation: Invocation {
                 program: toolchain.jaic.clone(),
@@ -159,10 +170,12 @@ fn built(
             compile_time_only: false,
         });
     }
+
     let stem = file_name(&source.with_extension(""));
     let exe = work.join(format!("golden-{stem}"));
     let report = work.join(format!("golden-{stem}.txt"));
     let mut command = toolchain.jaic_command();
+
     command
         .arg(source)
         .args(&quiet)
@@ -173,18 +186,23 @@ fn built(
         .arg(&exe)
         .env(jacket_config::env::REPORT_EXE.name, &report)
         .current_dir(work);
+
     if toolchain.coverage {
         command.arg("-coverage");
     }
+
     // A program that builds and runs others at compile time reports what they ran too.
     if let Some(dir) = &toolchain.coverage_dir {
         command.env(jacket_config::env::COVERAGE_DIR.name, dir);
     }
+
     let output = command
         .output()
         .map_err(|error| format!("could not start `{}`: {error}", toolchain.jaic.display()))?;
+
     if !output.status.success() {
         let text = compile_output(&output);
+
         // A program without `main` that does its work at compile time: it only has to
         // type-check, and what the compiler printed is its output.
         if text.contains("has no `main` procedure") || text.contains("no exported 'main'") {
@@ -200,6 +218,7 @@ fn built(
                 .map_err(|error| {
                     format!("could not start `{}`: {error}", toolchain.jaic.display())
                 })?;
+
             if checked.status.success() {
                 return Ok(Built {
                     invocation: Invocation {
@@ -213,24 +232,30 @@ fn built(
                     compile_time_only: true,
                 });
             }
+
             return Err(format!(
                 "it does not type-check:\n{}",
                 compile_output(&checked)
             ));
         }
+
         return Err(format!("it does not compile:\n{text}"));
     }
+
     let exe = std::fs::read_to_string(&report)
         .ok()
         .and_then(|t| t.lines().last().map(PathBuf::from))
         .filter(|p| p.is_file())
         .unwrap_or(exe);
     let compile_time_only = !exe.is_file();
+
     if !compile_time_only && toolchain.runner.is_empty() {
         stage_dlls(&exe)?;
     }
+
     let (program, args) = program_and_args(&exe, &toolchain.runner, &[]);
     let env = coverage_env(toolchain);
+
     Ok(Built {
         invocation: Invocation {
             program,
@@ -259,6 +284,7 @@ pub(super) fn run_plain(
         slow: None,
         stream: false,
     };
+
     exec::run(invocation, &limits, live)
 }
 
@@ -283,6 +309,7 @@ fn check_only(source: &Path, root_flags: &[String], toolchain: &Toolchain, cwd: 
         )
         .current_dir(cwd)
         .output();
+
     match output {
         Ok(output) if output.status.success() => {}
         Ok(output) => checked.problems.push(format!(
@@ -294,6 +321,7 @@ fn check_only(source: &Path, root_flags: &[String], toolchain: &Toolchain, cwd: 
             toolchain.jaic.display()
         )),
     }
+
     checked.passed = checked.problems.is_empty();
     checked
 }
@@ -308,8 +336,10 @@ fn expand_args(
     env: &dyn Fn(&str) -> Option<String>,
 ) -> Result<Vec<String>, String> {
     let mut expanded = Vec::new();
+
     for arg in args {
         let mut text = arg.replace("$TEMP", temp).replace("$DIR", dir);
+
         while let Some(start) = text.find("${") {
             let Some(length) = text[start..].find('}') else {
                 return Err(format!(
@@ -322,10 +352,13 @@ fn expand_args(
                     "the argument `{arg}` needs the environment variable {name}, which is not set"
                 ));
             };
+
             text.replace_range(start..=start + length, &value);
         }
+
         expanded.push(text);
     }
+
     Ok(expanded)
 }
 
@@ -346,6 +379,7 @@ pub fn golden(
     if options.check_only || toolchain.check_only {
         return check_only(source, root_flags, toolchain, cwd);
     }
+
     let mut checked = Checked::default();
     let Built {
         mut invocation,
@@ -371,6 +405,7 @@ pub fn golden(
         String::from_utf8_lossy(&build_stderr),
         String::from_utf8_lossy(&build_stdout)
     );
+
     if !options.args.is_empty() {
         let temp = work.join("temp");
         let _ = std::fs::create_dir_all(&temp);
@@ -389,11 +424,14 @@ pub fn golden(
                 return checked;
             }
         };
+
         if toolchain.interp {
             invocation.args.push("--".into());
         }
+
         invocation.args.extend(args);
     }
+
     let outcome = if compile_time_only {
         exec::Outcome {
             ending: Ending::Exited(0),
@@ -405,13 +443,17 @@ pub fn golden(
     } else {
         run_plain(&invocation, timeout, live)
     };
+
     checked.stdout = outcome.preamble_stdout;
     checked.stderr = outcome.preamble;
+
     if outcome.ending == Ending::TimedOut {
         checked.timed_out = true;
         checked.problems.push("it timed out".into());
+
         return checked;
     }
+
     checked.crashed = outcome.ending.crashed();
     let code = match outcome.ending {
         Ending::Exited(code) => Some(code),
@@ -422,6 +464,7 @@ pub fn golden(
         .ok()
         .and_then(|t| t.trim().parse().ok())
         .unwrap_or(0);
+
     if accept && exit_file.is_file() {
         if let Some(code) = code
             && std::fs::write(&exit_file, format!("{code}\n")).is_ok()
@@ -434,7 +477,9 @@ pub fn golden(
             ending_text(&outcome.ending)
         ));
     }
+
     let stdout_file = source.with_extension("stdout");
+
     if stdout_file.is_file() || accept {
         expect_text(
             &stdout_file,
@@ -444,15 +489,19 @@ pub fn golden(
             &mut checked,
         );
     }
+
     if let Some(warning) = &options.warns {
         let seen = format!("{build_output}{}", normalized(&checked.stderr));
+
         if !seen.contains(warning.as_str()) {
             checked.problems.push(format!(
                 "no warning contains `{warning}`; the compiler said:\n{seen}"
             ));
         }
     }
+
     let stderr_file = source.with_extension("stderr");
+
     if stderr_file.is_file() {
         expect_text(
             &stderr_file,
@@ -462,6 +511,7 @@ pub fn golden(
             &mut checked,
         );
     }
+
     checked.passed = checked.problems.is_empty();
     checked
 }
@@ -487,14 +537,17 @@ pub fn normalize_paths(
         .into_iter()
         .map(|(path, name)| (path, name.to_string()))
         .chain(imports);
+
     for (path, name) in named {
         let name = name.as_str();
         // The compiler prints resolved paths, so `a/../stdlib` must match its canonical form too.
         let real = path.canonicalize().ok();
+
         for path in [Some(path), real.as_deref()].into_iter().flatten() {
             let plain = path.to_string_lossy().into_owned();
             let plain = plain.strip_prefix(r"\\?\").unwrap_or(&plain).to_string();
             let forward = jacket_config::to_slash(&plain);
+
             for form in [plain, forward] {
                 if !form.is_empty() {
                     text = replace_path(&text, &form, name);
@@ -502,6 +555,7 @@ pub fn normalize_paths(
             }
         }
     }
+
     // Paths after `$DIR`, `$STDLIB` and `$ROOT` keep their own separators on Windows; make them alike.
     text.lines()
         .map(|line| {
@@ -511,6 +565,7 @@ pub fn normalize_paths(
             {
                 return jacket_config::to_slash(line);
             }
+
             // A relative location such as `..\..\layout.jai:67:13:` gets `/` in its path only.
             match location_end(line) {
                 Some(end) if line[..end].contains('\\') => {
@@ -535,18 +590,21 @@ fn replace_path(text: &str, path: &str, name: &str) -> String {
     let name_char = |c: char| c.is_alphanumeric() || matches!(c, '_' | '-' | '.');
     let mut out = String::with_capacity(text.len());
     let mut last = 0;
+
     for (at, _) in text.match_indices(path) {
         let whole = !text[..at].chars().next_back().is_some_and(name_char)
             && !text[at + path.len()..]
                 .chars()
                 .next()
                 .is_some_and(name_char);
+
         if whole && at >= last {
             out.push_str(&text[last..at]);
             out.push_str(name);
             last = at + path.len();
         }
     }
+
     out.push_str(&text[last..]);
     out
 }
@@ -603,12 +661,14 @@ pub fn compile_fail(
             return checked;
         }
     };
+
     if output.status.success() {
         checked
             .problems
             .push("it compiled; a compile-fail test must not".into());
         return checked;
     }
+
     // The import folders the build named (`-import_dir`), each written `$IMPORTn`.
     let flags: Vec<String> = toolchain.flags.iter().chain(root_flags).cloned().collect();
     let imports = jaic_cli_args::arguments::import_dirs(&flags);
@@ -620,6 +680,7 @@ pub fn compile_fail(
         &imports,
     );
     let expected = source.with_extension("stderr");
+
     if let Some(part) = &options.diagnostic_contains {
         if !got.contains(part.as_str()) {
             checked
@@ -642,6 +703,7 @@ pub fn compile_fail(
             file_name(&expected)
         ));
     }
+
     checked.passed = checked.problems.is_empty();
     checked
 }
@@ -653,6 +715,7 @@ mod tests {
     #[test]
     fn paths_become_placeholders() {
         let text = "/r/tests/compile_fail/bad.jai:3:1: error: x\n/s/Basic/module.jai:9: note\n";
+
         assert_eq!(
             normalize_paths(
                 text,
@@ -700,6 +763,7 @@ mod tests {
     fn project_files_outside_the_test_folder_are_relative_to_root() {
         let dir = Path::new("/r/tests/compile_fail");
         let text = "/r/src/lib.jai:4:2: error: x\n/r/tests/other/a.jai:1:1: note\n/r/tests/compile_fail/bad.jai:3:1: e\n/s/Basic/module.jai:9: note\n/elsewhere/f.jai:1:1: e\n";
+
         assert_eq!(
             normalize_paths(text, dir, Path::new("/s"), Path::new("/r"), &[]),
             "$ROOT/src/lib.jai:4:2: error: x\n$ROOT/tests/other/a.jai:1:1: note\n$DIR/bad.jai:3:1: e\n$STDLIB/Basic/module.jai:9: note\n/elsewhere/f.jai:1:1: e\n"
@@ -723,6 +787,7 @@ mod tests {
         let imports = [PathBuf::from("/libs/a"), PathBuf::from("/libs/b")];
         let text =
             "/libs/b/x.jai:1:1: error: x\n/libs/a/y/z.jai:2:2: note\n/libs/ab/q.jai:3:3: e\n";
+
         assert_eq!(
             normalize_paths(text, dir, Path::new("/s"), Path::new("/r"), &imports),
             "$IMPORT2/x.jai:1:1: error: x\n$IMPORT1/y/z.jai:2:2: note\n/libs/ab/q.jai:3:3: e\n"
@@ -735,6 +800,7 @@ mod tests {
         let base = std::env::temp_dir().join(format!("jacket-norm-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let real = base.join("real/stdlib");
+
         std::fs::create_dir_all(real.join("Basic")).unwrap();
         std::fs::create_dir_all(base.join("real/case")).unwrap();
         std::os::unix::fs::symlink(base.join("real"), base.join("link")).unwrap();
@@ -746,10 +812,13 @@ mod tests {
         // printing the symlink's spelling for a library named through it.
         let linked = base.join("link/stdlib");
         let dotted = base.join("real/case/../stdlib");
+
         for stdlib in [&canonical, &linked, &dotted] {
             assert_eq!(normalize_paths(&printed, &dir, stdlib, &base, &[]), want);
         }
+
         let through_link = format!("{}/Basic/module.jai:9: note\n", linked.display());
+
         assert_eq!(
             normalize_paths(&through_link, &dir, &linked, &base, &[]),
             want
@@ -765,11 +834,13 @@ mod tests {
             "$DIR/x.bmp".into(),
             "${FONT}".into(),
         ];
+
         assert_eq!(
             expand_args(&args, "/t", "/d", &env).unwrap(),
             ["/t/data", "/d/x.bmp", "/fonts/a.ttf"]
         );
         let missing = expand_args(&["${NOPE}".to_string()], "/t", "/d", &env).unwrap_err();
+
         assert!(missing.contains("NOPE"), "{missing}");
         assert!(expand_args(&["${NOPE".to_string()], "/t", "/d", &env).is_err());
     }
@@ -777,21 +848,27 @@ mod tests {
     #[test]
     fn any_alternative_output_passes() {
         let dir = std::env::temp_dir().join(format!("jacket-alt-{}", std::process::id()));
+
         std::fs::create_dir_all(&dir).unwrap();
         let expected = dir.join("t.stdout");
+
         std::fs::write(&expected, "opened\n").unwrap();
         std::fs::write(dir.join("t.stdout.2"), "unavailable\n").unwrap();
+
         for (got, passes) in [
             ("opened\n", true),
             ("unavailable\n", true),
             ("other\n", false),
         ] {
             let mut checked = Checked::default();
+
             expect_text(&expected, got, "standard output", false, &mut checked);
             assert_eq!(checked.problems.is_empty(), passes, "{got}");
         }
+
         // Accepting keeps the outputs that exist and adds nothing for them.
         let mut checked = Checked::default();
+
         expect_text(
             &expected,
             "unavailable\n",

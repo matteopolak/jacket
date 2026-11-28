@@ -26,10 +26,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(s) = n.stmt() else {
                 return true;
@@ -42,10 +44,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
+
             for (counter, other) in [(a, b), (b, a)] {
                 let E::Ident(name) = counter.kind else {
                     continue;
                 };
+
                 if !cx.ty(counter).is_some_and(|t| types.is_float(t))
                     || cx.constant(counter)
                     || mentions(other, name)
@@ -53,6 +57,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 {
                     continue;
                 }
+
                 out.push(super::finding(
                     counter.span,
                     format!(
@@ -64,8 +69,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             .into(),
                     ),
                 ));
+
                 break;
             }
+
             true
         });
     }
@@ -75,12 +82,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn mentions(e: &Expr, name: Sym) -> bool {
     let mut found = false;
     let mut stack = Vec::new();
+
     walk_node(Node::Expr(e), &mut stack, &mut |n, _| {
         if let Some(x) = n.expr()
             && matches!(x.kind, E::Ident(i) if i == name)
         {
             found = true;
         }
+
         !found
     });
     found
@@ -90,6 +99,7 @@ fn mentions(e: &Expr, name: Sym) -> bool {
 fn steps(body: &jaic::ast::Stmt, name: Sym) -> bool {
     let mut found = false;
     let mut stack = Vec::new();
+
     walk_node(Node::Stmt(body), &mut stack, &mut |n, _| {
         if let Some(s) = n.stmt()
             && let S::Assign {
@@ -110,6 +120,7 @@ fn steps(body: &jaic::ast::Stmt, name: Sym) -> bool {
                 AssignOp::Op(_) => false,
             };
         }
+
         !found
     });
     found

@@ -31,8 +31,10 @@ impl Compiler {
     pub fn export_typechecked_with(&mut self, r: &mut Records, contents: Contents) -> Option<i64> {
         let full = contents != Contents::Nothing;
         let mut decls = Vec::new();
+
         while self.meta.export.next_entity < self.ns.entities.len() {
             let id = EntityId(self.meta.export.next_entity as u32);
+
             self.meta.export.next_entity += 1;
             let entity = self.entity(id);
             let EntityKind::Decl {
@@ -45,31 +47,39 @@ impl Compiler {
             let (decl, index, home, file_private) =
                 (decl.clone(), *index, entity.home, entity.file_private);
             let scope = self.scope(entity.scope);
+
             if !matches!(scope.kind, ScopeKind::Module | ScopeKind::File)
                 || index >= decl.names.len()
             {
                 continue;
             }
+
             let module = scope.module;
             // Do not force the entire library to resolve for an interception.
             // Already resolved library declarations, including called procedures,
             // have the same canonical records as declarations in user modules.
             let resolved = matches!(entity.state, crate::sema::scope::EntityState::Done(_));
+
             if self.is_system_module(module) && !resolved {
                 continue;
             }
+
             decls.push((id, decl, index, home, file_private));
         }
+
         let mut out = Typechecked::default();
         // Bodies lowered since their header was reported.
         let mut exported = self.export_ready_bodies(r, &mut out, contents);
+
         if decls.is_empty() && exported == 0 {
             return None;
         }
+
         for (id, decl, index, home, file_private) in decls {
             let Ok(resolved) = self.resolve_entity(id) else {
                 continue;
             };
+
             // Jai only reports what typechecked: a procedure whose signature fails is an
             // error there, not a message.
             if let Resolved::Proc(p) = resolved
@@ -78,12 +88,15 @@ impl Compiler {
             {
                 continue;
             }
+
             if !full {
                 if let Resolved::Proc(p) = resolved {
                     self.track_body(p, home);
                 }
+
                 continue;
             }
+
             self.meta.export.omit_bodies = contents == Contents::WithoutBodies;
             let (rec, sub) = {
                 let mut ex = Exporter {
@@ -99,25 +112,31 @@ impl Compiler {
                     out: &mut out,
                 };
                 let rec = ex.global_decl(&decl, index, &resolved, file_private);
+
                 (rec, ex.sub)
             };
+
             self.meta.export.omit_bodies = false;
             out.declarations.push((rec, sub));
         }
+
         // Newly reported calls can schedule ordinary callees or polymorph instances.
         // Drain ready bodies transitively even when the first pass exported none.
         loop {
             exported = self.export_ready_bodies(r, &mut out, contents);
+
             if exported == 0 {
                 break;
             }
         }
+
         let mut message = Record::new(RecordTag::MessageTypechecked);
         let group = |r: &mut Records, items: &[(i64, Vec<i64>)]| -> Vec<Item> {
             items
                 .iter()
                 .map(|(expr, sub)| {
                     let mut t = Record::new(RecordTag::Typechecked);
+
                     t.ptr("expression", *expr)
                         .refs("subexpressions", sub.iter().copied());
                     Item::Ref(r.add(t))
@@ -132,6 +151,7 @@ impl Compiler {
             .chain(&out.structs)
             .cloned()
             .collect();
+
         message
             .int("kind", message_kind::TYPECHECKED)
             .int("workspace", self.meta.workspace)
@@ -154,6 +174,7 @@ impl Compiler {
     ) -> i64 {
         let seconds = |d: std::time::Duration| d.as_secs_f64().to_bits() as i64;
         let mut time = Record::new(RecordTag::TimeReport);
+
         time.int("run_directives", seconds(self.meta.perf.run_time))
             // jaic has no bytecode pass that inlines calls: the native backend inlines later.
             .int("bytecode_inlining", 0.0f64.to_bits() as i64)
@@ -161,53 +182,68 @@ impl Compiler {
         let time = r.add(time);
 
         let mut run_report = Record::new(RecordTag::RunDirectiveReport);
+
         if runs {
             let stats = self.meta.perf.runs.clone();
             let mut records = Vec::new();
+
             for run in &stats {
                 let callee = run
                     .callee
                     .and_then(|f| self.procs_of_func(f).next())
                     .map_or(0, |p| self.header_record(r, p));
                 let mut record = Record::new(RecordTag::Record);
+
                 record
                     .ptr("callee", callee)
                     .int("num_stalls", run.stalls as i64)
                     .int("elapsed_time", seconds(run.elapsed));
                 records.push(r.add(record));
             }
+
             run_report.int("reported", 1).refs("records", records);
         }
+
         let run_report = r.add(run_report);
 
         let mut poly_report = Record::new(RecordTag::PolymorphReport);
+
         poly_report
             .int("num_solves_invoked", self.meta.perf.solves_invoked() as i64)
             .int("num_solves_used", self.meta.perf.solves_used as i64);
+
         if polymorphs {
             let order = self.meta.perf.poly_order.clone();
             let mut records = Vec::new();
+
             for source in order {
                 let stat = self.meta.perf.polys[&source].clone();
                 let mut distinct = Vec::new();
+
                 for (instance, span) in &stat.instances {
                     let polymorphed = self.header_record(r, *instance);
                     let mut location = Record::new(RecordTag::SourceCodeLocation);
+
                     if let Some(file) = self.src.sources.try_get(span.file) {
                         let (line, column) = file.line_col(span.start);
+
                         location
                             .str("fully_pathed_filename", file.path.to_string().as_bytes())
                             .int("line_number", line as i64)
                             .int("character_number", column as i64);
                     }
+
                     let location = r.add(location);
                     let mut one = Record::new(RecordTag::DistinctPolymorph);
+
                     one.ptr("polymorphed", polymorphed)
                         .ptr("location", location);
                     distinct.push(r.add(one));
                 }
+
                 let header = self.header_record(r, source);
                 let mut record = Record::new(RecordTag::Record);
+
                 record
                     .ptr("source", header)
                     .int("num_call_sites", stat.call_sites as i64)
@@ -217,12 +253,15 @@ impl Compiler {
                     .refs("distinct_polymorphs", distinct);
                 records.push(r.add(record));
             }
+
             poly_report.int("reported", 1).refs("records", records);
         }
+
         let poly_report = r.add(poly_report);
 
         let (calls, instructions) = self.out.instruction_counts();
         let mut bytecode = Record::new(RecordTag::BytecodeReport);
+
         bytecode
             .int("num_calls_inlined", 0)
             .int("num_calls_total", calls as i64)
@@ -231,6 +270,7 @@ impl Compiler {
         let bytecode = r.add(bytecode);
 
         let mut message = Record::new(RecordTag::MessagePerformanceReport);
+
         message
             .int("kind", message_kind::PERFORMANCE_REPORT)
             .int("workspace", self.meta.workspace)
@@ -257,6 +297,7 @@ impl Compiler {
             own: false,
             out: &mut out,
         };
+
         exporter.resolved_header(p)
     }
 
@@ -278,6 +319,7 @@ impl Compiler {
             .copied()
             .filter(|&id| {
                 let p = self.proc(id);
+
                 p.body_state == procs::BodyState::Done
                     && p.lit.body.is_some()
                     && !p.is_poly
@@ -285,15 +327,19 @@ impl Compiler {
                     && !self.meta.export.scheduled_bodies.contains(&id)
             })
             .collect();
+
         // Procedure order, as a scan of every procedure would give.
         completed.sort_unstable();
         completed.dedup();
+
         for p in completed {
             let scope = self.proc(p).bindings.unwrap_or(self.proc(p).scope);
+
             if !full {
                 self.meta.export.schedule_body(p, 0, scope);
                 continue;
             }
+
             let header = {
                 let mut exporter = Exporter {
                     c: Some(self),
@@ -309,29 +355,39 @@ impl Compiler {
                 };
                 exporter.resolved_header(p)
             };
+
             self.meta.export.schedule_body(p, header, scope);
         }
+
         let pending = std::mem::take(&mut self.meta.export.pending_bodies);
         let (ready, waiting): (Vec<_>, Vec<_>) = pending
             .into_iter()
             .partition(|(p, _, _)| self.proc(*p).body_state == procs::BodyState::Done);
+
         self.meta.export.pending_bodies = waiting;
         let mut ready = ready;
+
         if contents == Contents::Everything {
             // Bodies left out of an earlier message that something can read now.
             let owed = std::mem::take(&mut self.meta.export.bodiless);
+
             ready.extend(owed.into_iter().map(|(p, scope)| (p, 0, scope)));
         }
+
         let count = ready.len();
+
         if !full {
             return count;
         }
+
         let omit = contents == Contents::WithoutBodies;
+
         for (p, _header_id, scope) in ready {
             let lit = self.proc(p).lit.clone();
             let span = self.proc(p).span;
             let sig = self.signature(p, span).ok();
             let notes = self.pr.proc_decl_notes.get(&p).cloned().unwrap_or_default();
+
             self.meta.export.omit_bodies = omit;
             let mut ex = Exporter {
                 c: Some(self),
@@ -345,9 +401,11 @@ impl Compiler {
                 own: false,
                 out,
             };
+
             ex.proc(&lit, &notes, Some((p, sig)), span);
             self.meta.export.omit_bodies = false;
         }
+
         count
     }
 
@@ -355,10 +413,13 @@ impl Compiler {
     /// header record: nothing is exported). Procedures a lowered body cannot be are left.
     fn track_body(&mut self, p: ProcId, home: ScopeId) {
         let proc = self.proc(p);
+
         if proc.is_poly || proc.is_macro || proc.lit.body.is_none() {
             return;
         }
+
         let scope = proc.bindings.unwrap_or(home);
+
         self.meta.export.schedule_body(p, 0, scope);
     }
 
@@ -367,6 +428,7 @@ impl Compiler {
     /// out meanwhile, as resolving declarations may run compile-time code.
     pub fn export_code_typed(&mut self, code: usize) {
         self.adopt_made_codes();
+
         // `code_of(f)`: f's locals have types once its body is lowered.
         if let Some(&p) = self.pr.code_procs.get(&code)
             && !self.proc(p).is_poly
@@ -376,6 +438,7 @@ impl Compiler {
         {
             let _ = self.lower_with_callees(p);
         }
+
         let Some(shared) = self.ct.interp.workspaces.clone() else {
             return;
         };
@@ -389,6 +452,7 @@ impl Compiler {
         let outer = self.ct.interp.run_effects.take();
         let mut records = Records::lend(&mut shared.borrow_mut().records);
         let exported = export_code_in(Some(self), scope, &mut records, &body, Some(code));
+
         Records::give_back(&mut shared.borrow_mut().records, records);
         self.ct.interp.run_effects = outer;
         self.ct

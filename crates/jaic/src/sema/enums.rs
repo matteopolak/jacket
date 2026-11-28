@@ -52,20 +52,26 @@ impl Compiler {
             loose_of: None,
             span: lit.span,
         });
+
         self.ty.nominal_origins.insert(ty, (lit.span, scope));
+
         if let Some(base) = &lit.base {
             self.ty.enum_base_spans.insert(ty, base.span);
         }
+
         let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
             unreachable!()
         };
         let members_scope = self.new_hidden_scope(scope);
+
         if name.as_str() != "enum" {
             self.add_const(members_scope, name, lit.span, Value::Type(ty), TypeId::TYPE);
         }
+
         self.ty.enum_member_scopes.insert(ty, members_scope);
         let result = (|| {
             let mut declarations = Vec::new();
+
             self.collect_enum_items(
                 &lit.items,
                 members_scope,
@@ -76,6 +82,7 @@ impl Compiler {
             )?;
             let mut members = Vec::with_capacity(declarations.len());
             let mut entities = Vec::with_capacity(declarations.len());
+
             for id in declarations {
                 let Resolved::Const {
                     value: Value::Int(value),
@@ -85,13 +92,16 @@ impl Compiler {
                     unreachable!()
                 };
                 let name = self.entity(id).name;
+
                 members.push((name, value));
                 entities.push((name, id));
             }
+
             self.ty.types.enums[enum_id.0 as usize].members = members;
             self.ty.enum_member_entities.insert(enum_id, entities);
             Ok(ty)
         })();
+
         self.ty.enum_member_scopes.remove(&ty);
         result
     }
@@ -105,6 +115,7 @@ impl Compiler {
         else {
             return None;
         };
+
         match &self.entity(*original).state {
             EntityState::Done(Resolved::Const {
                 value: Value::Int(value),
@@ -129,13 +140,16 @@ impl Compiler {
         let mut preceding = *previous;
         let mut known_order = true;
         let mut direct = Vec::new();
+
         for item in items {
             let ast::EnumItem::Member(member) = item else {
                 if may_declare_members(std::slice::from_ref(item)) {
                     known_order = false;
                 }
+
                 continue;
             };
+
             if self
                 .scope(scope)
                 .names
@@ -147,6 +161,7 @@ impl Compiler {
             {
                 return Err(self.duplicate_enum_member(scope, member.name.name, member.name.span));
             }
+
             let initializer = match &member.value {
                 Some(value) => Initializer::Explicit(value.clone()),
                 None if known_order => Initializer::Implicit {
@@ -165,19 +180,24 @@ impl Compiler {
                 },
                 true,
             );
+
             direct.push(id);
             preceding = Some(id);
             known_order = true;
             let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
                 unreachable!()
             };
+
             self.ide_note_enum_member(enum_id, member.name.name, member.name.span);
         }
+
         let mut direct = direct.into_iter();
+
         for item in items {
             match item {
                 ast::EnumItem::Member(member) => {
                     let id = direct.next().unwrap();
+
                     if member.value.is_none() {
                         self.entity_mut(id).kind = EntityKind::EnumMember {
                             ty,
@@ -187,6 +207,7 @@ impl Compiler {
                             },
                         };
                     }
+
                     out.push(id);
                     *previous = Some(id);
                 }
@@ -196,6 +217,7 @@ impl Compiler {
                     else_items,
                 } => {
                     let selected = self.eval_static_condition(scope, cond)?;
+
                     self.collect_enum_items(
                         if selected {
                             then_items
@@ -214,10 +236,12 @@ impl Compiler {
                 }
                 ast::EnumItem::Insert(value) => {
                     let inserted = self.eval_insert_enum_items(scope, value)?;
+
                     self.collect_enum_items(&inserted, scope, ty, flags, previous, out)?;
                 }
             }
         }
+
         Ok(())
     }
 
@@ -237,6 +261,7 @@ impl Compiler {
                 "`using,map` is not supported in an enum body",
             );
         }
+
         let filter = self.resolve_name_filter(scope, filter)?;
         let source = self.eval_type(scope, value)?;
         let TypeKind::Enum(source_id) = *self.ty.types.kind(source) else {
@@ -261,16 +286,19 @@ impl Compiler {
         let TypeKind::Enum(enum_id) = *self.ty.types.kind(ty) else {
             unreachable!()
         };
+
         for (source_name, original) in members {
             let Some(name) = super::using::filter_target(&filter, source_name) else {
                 continue;
             };
+
             if self.scope(scope).names.get(&name).is_some_and(|ids| {
                 ids.iter()
                     .any(|&id| matches!(self.entity(id).kind, EntityKind::EnumMember { .. }))
             }) {
                 return Err(self.duplicate_enum_member(scope, name, value.span));
             }
+
             // The name stands where the member was declared: every answer for it (hover,
             // definition, references, rename) is the answer for the member itself.
             let declared = self.entity(original).span;
@@ -284,6 +312,7 @@ impl Compiler {
                 },
                 true,
             );
+
             // `E.name` names `Other`'s member: go to definition and rename reach it.
             self.ide_note_enum_member(enum_id, name, declared);
             // Reachable as `E.name`, but not a member of `E`: it is not listed or counted.
@@ -293,6 +322,7 @@ impl Compiler {
                 .or_default()
                 .push((name, alias));
         }
+
         Ok(())
     }
 
@@ -335,6 +365,7 @@ impl Compiler {
                     else {
                         unreachable!()
                     };
+
                     if *flags {
                         if value == 0 {
                             1
@@ -367,11 +398,13 @@ impl Compiler {
                 );
             }
         };
+
         if let Some((bits, signed)) = self.ty.types.int_info(ty)
             && !super::convert::int_constant_fits(value, bits, signed, true)
         {
             return Err(self.enum_value_out_of_range(ty, value, (u32::from(bits), signed), at));
         }
+
         Ok(Resolved::Const {
             value: Value::Int(value),
             ty,
@@ -399,6 +432,7 @@ impl Compiler {
             String::from_utf8_lossy(&text)
         );
         let parsed = self.parse_inserted(value.span, text.into())?;
+
         match parsed.stmts.first().map(|stmt| &stmt.kind) {
             Some(ast::StmtKind::Decl(decl)) => match decl.value.as_ref().map(|value| &value.kind) {
                 Some(E::Enum(lit)) => Ok(lit.items.clone()),

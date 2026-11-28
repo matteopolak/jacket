@@ -143,6 +143,7 @@ impl FeatureSet {
     /// `f` and everything it implies.
     fn enable(&mut self, f: Feature) {
         let mut f = Some(f);
+
         while let Some(x) = f {
             self.0 |= 1 << x as u8;
             f = x.implies();
@@ -152,6 +153,7 @@ impl FeatureSet {
     /// `f` and everything that implies it.
     fn disable(&mut self, f: Feature) {
         self.0 &= !(1 << f as u8);
+
         for g in Feature::ALL {
             if self.has(g) && g.implies() == Some(f) {
                 self.disable(g);
@@ -173,9 +175,11 @@ impl Target {
     pub fn resolve(arch: Arch, cpu: &str, features: &str) -> Target {
         let family = Family::of(arch);
         let mut set = FeatureSet::default();
+
         for &f in cpu_features(family, cpu) {
             set.enable(f);
         }
+
         for item in features.split(',') {
             let item = item.trim();
             let (on, name) = match (item.strip_prefix('+'), item.strip_prefix('-')) {
@@ -183,12 +187,14 @@ impl Target {
                 (_, Some(n)) => (false, n),
                 _ => continue,
             };
+
             match Feature::from_name(name) {
                 Some(f) if f.family() == family && on => set.enable(f),
                 Some(f) if f.family() == family => set.disable(f),
                 _ => {}
             }
         }
+
         Target {
             family,
             features: set,
@@ -229,9 +235,11 @@ fn known_extra(family: Family, name: &str) -> bool {
         "avx512vnni",
         "avx512vpopcntdq",
     ];
+
     const AARCH64: &[&str] = &[
         "neon", "sve", "sve2", "crc", "aes", "sha2", "dotprod", "i8mm", "bf16", "lse", "fp16",
     ];
+
     const WASM: &[&str] = &["simd128", "relaxed-simd"];
     match family {
         Family::X86 => X86,
@@ -250,21 +258,26 @@ pub fn function_features(arch: Arch, base: &str, extra: &str) -> Option<String> 
     let family = Family::of(arch);
     let mut all = base.to_string();
     let mut any = false;
+
     for item in extra.split(',').map(str::trim) {
         let (sign, name) = match item.as_bytes().first() {
             Some(b'+' | b'-') => (&item[..1], &item[1..]),
             _ => ("+", item),
         };
+
         if !known_extra(family, name) {
             continue;
         }
+
         if !all.is_empty() {
             all.push(',');
         }
+
         all.push_str(sign);
         all.push_str(name);
         any = true;
     }
+
     any.then_some(all)
 }
 
@@ -276,10 +289,12 @@ fn cpu_features(family: Family, cpu: &str) -> &'static [Feature] {
         Avx, Avx2, Avx512bw, Avx512f, Avx512vbmi, Neon, Simd128, Sse2, Sse41, Sse42, Ssse3, Sve,
         Sve2,
     };
+
     match family {
         Family::X86 => {
             let cpu = cpu.to_ascii_lowercase();
             let is = |names: &[&str]| names.contains(&cpu.as_str());
+
             if is(&[
                 "icelake-client",
                 "icelake-server",
@@ -387,6 +402,7 @@ mod tests {
     #[test]
     fn function_features_extend_the_machines_and_skip_other_architectures() {
         let all = |arch, base, extra| function_features(arch, base, extra);
+
         assert_eq!(
             all(Arch::X86_64, "", "avx2, bmi2").as_deref(),
             Some("+avx2,+bmi2")
@@ -419,6 +435,7 @@ mod tests {
     #[test]
     fn x86_named_cpus_imply_their_features() {
         let skylake = x86("skylake", "");
+
         assert!(skylake.has(Feature::Avx2) && skylake.has(Feature::Ssse3));
         assert!(!skylake.has(Feature::Avx512f));
         assert!(x86("znver3", "").has(Feature::Avx2));
@@ -432,6 +449,7 @@ mod tests {
     #[test]
     fn feature_string_adds_with_implications() {
         let t = x86("x86-64", "+avx2");
+
         assert!(t.has(Feature::Avx2) && t.has(Feature::Ssse3) && t.has(Feature::Sse42));
         assert!(!t.has(Feature::Avx512f));
         assert!(x86("x86-64", "+sse4.1").has(Feature::Ssse3));
@@ -442,9 +460,11 @@ mod tests {
     #[test]
     fn feature_string_removes_dependents() {
         let t = x86("skylake", "-avx2");
+
         assert!(!t.has(Feature::Avx2) && t.has(Feature::Avx));
         // Removing a base feature removes everything built on it.
         let t = x86("icelake-client", "-ssse3");
+
         assert!(!t.has(Feature::Ssse3) && !t.has(Feature::Avx2) && !t.has(Feature::Avx512vbmi));
         assert!(t.has(Feature::Sse2));
         // Later items win, as in LLVM.
@@ -456,6 +476,7 @@ mod tests {
     fn host_style_feature_list_overrides_the_name() {
         // `native`: the host's CPU name plus its explicit list, which may be narrower.
         let t = x86("skylake", "+sse2,+ssse3,+sse4.1,+sse4.2,+avx,-avx2");
+
         assert!(t.has(Feature::Avx) && !t.has(Feature::Avx2));
     }
 
@@ -463,12 +484,14 @@ mod tests {
     fn features_of_other_families_are_ignored() {
         assert!(!x86("x86-64", "+neon,+simd128,+sve").has(Feature::Neon));
         let wasm = Target::resolve(Arch::Wasm, "generic", "+avx2");
+
         assert!(!wasm.has(Feature::Avx2));
     }
 
     #[test]
     fn aarch64() {
         let a = |cpu, f| Target::resolve(Arch::Aarch64, cpu, f);
+
         assert!(a("generic", "").has(Feature::Neon));
         assert!(a("apple-m1", "").has(Feature::Neon) && !a("apple-m1", "").has(Feature::Sve));
         assert!(a("generic", "+sve2").has(Feature::Sve));
@@ -485,6 +508,7 @@ mod tests {
     #[test]
     fn wasm() {
         let w = |cpu, f| Target::resolve(Arch::Wasm, cpu, f);
+
         assert!(!w("generic", "+bulk-memory").has(Feature::Simd128));
         assert!(w("generic", "+simd128").has(Feature::Simd128));
         assert!(w("generic", "+relaxed-simd").has(Feature::Simd128));

@@ -60,6 +60,7 @@ pub(super) fn sorted_answer<T: std::fmt::Debug>(a: &Answer<Vec<T>>) -> Answer<Ve
 
 pub(super) fn sorted_debug<T: std::fmt::Debug>(items: &[T]) -> Vec<String> {
     let mut keys: Vec<_> = items.iter().map(|i| format!("{i:?}")).collect();
+
     keys.sort();
     keys
 }
@@ -79,6 +80,7 @@ pub(super) fn sample_identifiers(text: &str, cap: usize) -> Vec<usize> {
         .filter(|&i| !skipped.iter().any(|&(a, b)| a <= i && i < b) && !is_run(i))
         .collect();
     let stride = all.len().div_ceil(cap.max(1)).max(1);
+
     all.into_iter().step_by(stride).collect()
 }
 
@@ -87,15 +89,20 @@ pub(super) fn sample_identifiers(text: &str, cap: usize) -> Vec<usize> {
 pub(super) fn in_poly_struct(text: &str, byte: usize) -> bool {
     let bytes = text.as_bytes();
     let mut from = 0;
+
     while let Some(found) = text[from..].find("struct(") {
         let start = from + found;
+
         from = start + 1;
+
         if start > byte {
             return false;
         }
+
         let mut depth = 0i32;
         let mut seen_body = false;
         let mut end = bytes.len();
+
         for (i, &b) in bytes.iter().enumerate().skip(start + "struct".len()) {
             match b {
                 b'(' | b'[' => depth += 1,
@@ -106,6 +113,7 @@ pub(super) fn in_poly_struct(text: &str, byte: usize) -> bool {
                 }
                 b'}' => {
                     depth -= 1;
+
                     if seen_body && depth <= 0 {
                         end = i + 1;
                         break;
@@ -114,10 +122,12 @@ pub(super) fn in_poly_struct(text: &str, byte: usize) -> bool {
                 _ => {}
             }
         }
+
         if byte < end {
             return true;
         }
     }
+
     false
 }
 
@@ -135,6 +145,7 @@ pub(super) fn probe_at(
     let hover = clock.run(Query::Hover(uri.clone(), position), || {
         answer(session.hover(uri, position))
     });
+
     Probe {
         byte,
         position,
@@ -161,6 +172,7 @@ impl Snapshot {
             .into_iter()
             .map(|byte| probe_at(clock, session, uri, text, byte))
             .collect();
+
         Self {
             diagnostics,
             tokens,
@@ -177,12 +189,14 @@ pub(super) fn snapshot_difference(a: &Snapshot, b: &Snapshot) -> Option<String> 
             a.diagnostics, b.diagnostics
         ));
     }
+
     if sorted_answer(&a.tokens) != sorted_answer(&b.tokens) {
         let (x, y) = (sorted_answer(&a.tokens), sorted_answer(&b.tokens));
         let detail = match (x, y) {
             (Ok(x), Ok(y)) => {
                 let before = x.iter().filter(|t| !y.contains(t)).take(3);
                 let after = y.iter().filter(|t| !x.contains(t)).take(3);
+
                 format!(
                     "\n  only in the first: {:?}\n  only in the second: {:?}",
                     before.collect::<Vec<_>>(),
@@ -191,11 +205,14 @@ pub(super) fn snapshot_difference(a: &Snapshot, b: &Snapshot) -> Option<String> 
             }
             _ => String::new(),
         };
+
         return Some(format!("semantic tokens differ ({detail})"));
     }
+
     if a.probes.len() != b.probes.len() {
         return Some("different number of probes".into());
     }
+
     for (x, y) in a.probes.iter().zip(&b.probes) {
         if x.position != y.position {
             return Some(format!(
@@ -203,12 +220,14 @@ pub(super) fn snapshot_difference(a: &Snapshot, b: &Snapshot) -> Option<String> 
                 x.position, y.position
             ));
         }
+
         if x.definition != y.definition {
             return Some(format!(
                 "definition at {:?} differs:\n  was {:?}\n  now {:?}",
                 x.position, x.definition, y.definition
             ));
         }
+
         if x.hover != y.hover {
             return Some(format!(
                 "hover at {:?} differs:\n  was {:?}\n  now {:?}",
@@ -216,6 +235,7 @@ pub(super) fn snapshot_difference(a: &Snapshot, b: &Snapshot) -> Option<String> 
             ));
         }
     }
+
     None
 }
 
@@ -234,6 +254,7 @@ pub(super) fn omits_literal(incremental: &Snapshot) -> bool {
     let Ok(now) = &incremental.diagnostics else {
         return false;
     };
+
     now.iter()
         .any(|d| d.message.starts_with("Incomplete lexical edit"))
 }
@@ -268,24 +289,32 @@ pub(super) fn sanity(text: &str, diagnostics: &[Diagnostic]) -> Option<String> {
         };
         // A character offset must fall between UTF-16 code points of the line.
         let mut units = 0;
+
         for ch in line.chars() {
             if units == p.character {
                 return true;
             }
+
             units += ch.len_utf16() as u32;
         }
+
         units >= p.character
     };
     let mut seen = Vec::new();
+
     for d in diagnostics {
         if !valid(d.range.start) || !valid(d.range.end) || d.range.start > d.range.end {
             return Some(format!("diagnostic range outside the document: {d:?}"));
         }
+
         let key = format!("{d:?}");
+
         if seen.contains(&key) {
             return Some(format!("duplicate diagnostic: {d:?}"));
         }
+
         seen.push(key);
     }
+
     None
 }

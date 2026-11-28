@@ -34,6 +34,7 @@ thread_local! {
 pub fn direct<T>(f: impl FnOnce() -> T) -> T {
     let before = DIRECT.with(|d| d.replace(true));
     let result = f();
+
     DIRECT.with(|d| d.set(before));
     result
 }
@@ -44,6 +45,7 @@ pub fn serve<T: Send + 'static>(
     body: impl FnOnce() -> T + Send + 'static,
 ) -> Option<T> {
     let (tx, rx): (Sender<Option<Job>>, Receiver<Option<Job>>) = channel();
+
     // Ends the loop below once `body` returns or unwinds: `ROUTE` keeps its sender alive
     // for good, so the channel never disconnects on its own.
     struct Finished(Sender<Option<Job>>);
@@ -63,12 +65,15 @@ pub fn serve<T: Send + 'static>(
                 jobs: Mutex::new(tx),
                 worker: std::thread::current().id(),
             });
+
             body()
         });
     let handle = worker.ok()?;
+
     while let Ok(Some(job)) = rx.recv() {
         job();
     }
+
     handle.join().ok()
 }
 
@@ -82,9 +87,11 @@ fn needs_main_thread(addr: u64) -> bool {
     thread_local! {
         static CACHE: std::cell::RefCell<HashMap<u64, bool>> = std::cell::RefCell::new(HashMap::default());
     }
+
     if let Some(known) = CACHE.with(|c| c.borrow().get(&addr).copied()) {
         return known;
     }
+
     #[repr(C)]
     struct DlInfo {
         fname: *const std::ffi::c_char,
@@ -92,9 +99,11 @@ fn needs_main_thread(addr: u64) -> bool {
         sname: *const std::ffi::c_char,
         saddr: *mut std::ffi::c_void,
     }
+
     unsafe extern "C" {
         fn dladdr(addr: *const std::ffi::c_void, info: *mut DlInfo) -> i32;
     }
+
     let mut info = DlInfo {
         fname: std::ptr::null(),
         fbase: std::ptr::null_mut(),
@@ -119,10 +128,12 @@ fn needs_main_thread(addr: u64) -> bool {
     } else {
         // SAFETY: dladdr returns a NUL-terminated path owned by the loader.
         let path = unsafe { std::ffi::CStr::from_ptr(info.fname) }.to_string_lossy();
+
         !(path.starts_with("/usr/lib/system/")
             || path.starts_with("/usr/lib/libSystem")
             || path.starts_with("/usr/lib/libc++"))
     };
+
     CACHE.with(|c| c.borrow_mut().insert(addr, main));
     main
 }
@@ -163,16 +174,21 @@ fn forward_inner(
     if !initializing_library && plan.main_thread.get() == Some(&false) {
         return None;
     }
+
     let route = ROUTE.get()?;
+
     if DISABLED.load(std::sync::atomic::Ordering::SeqCst) || DIRECT.with(std::cell::Cell::get) {
         return None;
     }
+
     if std::thread::current().id() != route.worker {
         return None;
     }
+
     if !initializing_library && !*plan.main_thread.get_or_init(|| needs_main_thread(addr)) {
         return None;
     }
+
     let (done_tx, done_rx) = channel();
     // Callbacks made during the job belong to the waiting worker's call.
     let caller = callbacks::caller();
@@ -193,6 +209,7 @@ fn forward_inner(
         let result = callbacks::calling_out(caller, || call_with(addr, args, sig, plan));
         let _ = done_tx.send(Carry(result));
     });
+
     route.jobs.lock().ok()?.send(Some(job)).ok()?;
     done_rx.recv().ok().map(|c| c.0)
 }

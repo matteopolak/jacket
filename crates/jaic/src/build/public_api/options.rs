@@ -119,6 +119,7 @@ const RENAMED: &[(Text, &str)] = &[
 pub(super) fn fields(operation: Operation) -> Vec<(&'static str, Need)> {
     let renamed = RENAMED.iter().map(|&(_, name)| (name, Need::Text));
     let copied = COPIED.iter().map(|&name| (name, Need::Scalar));
+
     match operation {
         Operation::GetOptions => vec![("compile_time_command_line", Need::Texts)],
         Operation::SetOptions => NUMBERS
@@ -159,6 +160,7 @@ pub(super) fn during_compile() -> Vec<(&'static str, Need)> {
 
 pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
     let ws = cx.workspace(usize::from(cx.binding.operation != Operation::GetOptions))?;
+
     match cx.binding.operation {
         Operation::GetOptions => {
             get(cx, interp, ws, cx.result(0)?.0)?;
@@ -175,9 +177,11 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
             let ty = get(cx, interp, ws, options)?;
             let dc = cx.binding.parameters[0];
             let input = cx.arg(0);
+
             if cx.number(interp, dc, input, "interactive_bytecode_debugger")? != 0 {
                 return Err(Trap::new("interactive bytecode debugging is unavailable"));
             }
+
             for &name in COPIED {
                 cx.set_number(
                     interp,
@@ -187,8 +191,10 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
                     cx.number(interp, dc, input, name)?,
                 )?;
             }
+
             for &(key, name) in RENAMED {
                 let value = cx.text(interp, dc, input, name)?;
+
                 if !value.is_empty() {
                     super::abi::put_string(
                         interp,
@@ -196,13 +202,18 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
                         value.as_bytes(),
                     )?;
                 }
+
                 let value = cx.text(interp, ty, options, name)?;
+
                 cx.registry().set_text(ws, key, &value).map_err(Trap::new)?;
             }
+
             let added = read_strings(interp, cx.field(dc, input, "append_linker_arguments")?.0)?;
+
             if !added.is_empty() {
                 let destination = cx.field(ty, options, "additional_linker_arguments")?.0;
                 let mut all = read_strings(interp, destination)?;
+
                 for value in &added {
                     append(
                         cx,
@@ -212,9 +223,11 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
                         value.clone(),
                     )?;
                 }
+
                 all.extend(added);
                 put_strings(interp, destination, &all)?;
             }
+
             for (flag, name) in [
                 (Flag::DoOutput, "do_output"),
                 (
@@ -223,12 +236,15 @@ pub(super) fn call(cx: &Call, interp: &mut Interp) -> Result<Rets, Trap> {
                 ),
             ] {
                 let value = cx.number(interp, dc, input, name)? & 1 != 0;
+
                 cx.registry().set_flag(ws, flag, value).map_err(Trap::new)?;
             }
+
             snapshot(cx, interp, ws, options, ty, true)?;
         }
         _ => unreachable!(),
     }
+
     Ok(Rets::default())
 }
 
@@ -243,8 +259,10 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
     let (ty, defaults) = options_record(cx)?;
     let address = interp.global_addr(cx.program, defaults)?;
     let initial = bytes(interp, address, cx.schema().get(ty)?.size as usize)?;
+
     write(interp, at, &initial)?;
     let saved = snapshot(cx, interp, ws, at, ty, false)?;
+
     if !saved {
         // The record's defaults name the machine the code runs on, which is the host in a host
         // twin; the program's options describe the target.
@@ -253,6 +271,7 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
             let settings = registry.workspace_settings(ws).map_err(Trap::new)?;
             let (os, cpu) = (settings.os, settings.cpu);
             let options = &registry.env.options;
+
             (os.unwrap_or(options.os), cpu.unwrap_or(options.cpu))
         };
         let os = match os {
@@ -272,6 +291,7 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
             | crate::target::TargetCpu::Avr
             | crate::target::TargetCpu::Wasm => crate::builtin_keys::CpuTag::Custom as u64,
         };
+
         cx.set_number(interp, ty, at, "os_target", os)?;
         cx.set_number(interp, ty, at, "cpu_target", cpu)?;
         // What the command line asked for (`-o`, `-O2`, `-no_debug_info`...).
@@ -323,20 +343,24 @@ fn get(cx: &Call, interp: &mut Interp, ws: i64, at: u64) -> Result<TypeId, Trap>
                     .then_some(asked.optimization as u64),
             ),
         ];
+
         for (name, value) in checks {
             if let Some(value) = value {
                 cx.set_number(interp, ty, at, name, value)?;
             }
         }
     }
+
     if !saved && ws == cx.shared.borrow().current_id() {
         let arguments = cx.shared.borrow().env.command_line.clone();
+
         put_strings(
             interp,
             cx.field(ty, at, "compile_time_command_line")?.0,
             &arguments,
         )?;
     }
+
     Ok(ty)
 }
 
@@ -344,19 +368,24 @@ fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
     if cx.number(interp, ty, at, "interactive_bytecode_debugger")? != 0 {
         return Err(Trap::new("interactive bytecode debugging is unavailable"));
     }
+
     let command = cx.field(ty, at, "llvm_options.command_line")?.0;
+
     if view(interp, command)?.0 != 0 {
         return Err(Trap::new(
             "raw LLVM command-line options are unavailable; use explicit build settings",
         ));
     }
+
     if cx.number(interp, ty, at, "llvm_options.disable_mem2reg")? != 0 {
         return Err(Trap::new(
             "llvm_options.disable_mem2reg is not implemented by the current backend",
         ));
     }
+
     for &(option, name) in NUMBERS {
         let mut value = cx.number(interp, ty, at, name)?;
+
         if matches!(option, Number::OsTarget | Number::CpuTarget) {
             let field = cx.field(ty, at, name)?.1;
             let member = cx
@@ -365,6 +394,7 @@ fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
                 .get(&field)
                 .and_then(|members| members.iter().find(|(_, v)| *v as u64 == value))
                 .map(|(n, _)| n.as_str());
+
             value = match (option, member) {
                 (Number::OsTarget, Some("WINDOWS")) => crate::builtin_keys::OsTag::Windows as u64,
                 (Number::OsTarget, Some("LINUX")) => crate::builtin_keys::OsTag::Linux as u64,
@@ -382,22 +412,28 @@ fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
                 }
             };
         }
+
         cx.registry()
             .set_number(ws, option, value)
             .map_err(Trap::new)?;
     }
+
     for &(option, name) in FLAGS {
         let value = cx.number(interp, ty, at, name)? & 1 != 0;
+
         cx.registry()
             .set_flag(ws, option, value)
             .map_err(Trap::new)?;
     }
+
     for &(option, name) in TEXTS {
         let value = cx.text(interp, ty, at, name)?;
+
         cx.registry()
             .set_text(ws, option, &value)
             .map_err(Trap::new)?;
     }
+
     let major = cx.number(interp, ty, at, "minimum_os_version.major")?;
     let minor = cx.number(interp, ty, at, "minimum_os_version.minor")?;
     let version = if major == 0 && minor == 0 {
@@ -405,9 +441,11 @@ fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
     } else {
         format!("{major}.{minor}")
     };
+
     cx.registry()
         .set_text(ws, Text::MinimumOsVersion, &version)
         .map_err(Trap::new)?;
+
     for (list, name) in [
         (List::ImportPath, "import_path"),
         (
@@ -416,15 +454,18 @@ fn set(cx: &Call, interp: &mut Interp, ws: i64, at: u64, ty: TypeId) -> Result<(
         ),
     ] {
         cx.registry().clear_list(ws, list).map_err(Trap::new)?;
+
         for value in read_strings(interp, cx.field(ty, at, name)?.0)? {
             let value = if list == List::ImportPath {
                 cx.location_path(interp, 2, value)?
             } else {
                 value
             };
+
             append(cx, interp, ws, list, value)?;
         }
     }
+
     snapshot(cx, interp, ws, at, ty, true)?;
     Ok(())
 }
@@ -435,6 +476,7 @@ fn append(cx: &Call, interp: &Interp, ws: i64, list: List, value: String) -> Res
     } else {
         value
     };
+
     cx.registry()
         .append_list(ws, list, &value)
         .map_err(Trap::new)
@@ -442,9 +484,11 @@ fn append(cx: &Call, interp: &Interp, ws: i64, list: List, value: String) -> Res
 
 pub(super) fn read_strings(interp: &Interp, at: u64) -> Result<Vec<String>, Trap> {
     let (count, data) = view(interp, at)?;
+
     if count > crate::sema::value::MAX_IMAGE / 16 {
         return Err(Trap::new("invalid string array count"));
     }
+
     (0..count).map(|i| string(interp, data + i * 16)).collect()
 }
 
@@ -495,19 +539,27 @@ fn snapshot(
             } => return Err(Trap::new("unsupported build option view schema")),
             _ => {}
         }
+
         Ok(())
     }
+
     let (mut strings, mut arrays) = (Vec::new(), Vec::new());
+
     offsets(cx, ty, 0, &mut strings, &mut arrays)?;
     let size = cx.schema().get(ty)?.size as usize;
+
     if save {
         let snapshot = Snapshot::capture(interp, at, size, &strings, &arrays)?;
+
         cx.registry().save_options(ws, snapshot)?;
+
         return Ok(true);
     }
+
     let Some(snapshot) = cx.registry().options_snapshot(ws)? else {
         return Ok(false);
     };
+
     snapshot.restore(interp, at, size)?;
     Ok(true)
 }

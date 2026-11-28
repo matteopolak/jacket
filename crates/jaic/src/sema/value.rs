@@ -61,6 +61,7 @@ impl Aggregate {
                 ),
             );
         }
+
         Ok(Aggregate {
             bytes: vec![0; size as usize],
             relocs: Vec::new(),
@@ -71,6 +72,7 @@ impl Aggregate {
 impl PartialEq for Value {
     fn eq(&self, other: &Self) -> bool {
         use Value::{Bool, Bytes, Code, Float, Int, Null, Proc, String, Type, Void};
+
         match (self, other) {
             (Int(a), Int(b)) => a == b,
             (Float(a, ar), Float(b, br)) => a.to_bits() == b.to_bits() && ar == br,
@@ -92,6 +94,7 @@ impl Eq for Value {
 impl std::hash::Hash for Value {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
+
         match self {
             Value::Int(v) => v.hash(state),
             Value::Float(v, required) => {
@@ -142,9 +145,11 @@ impl Value {
             Value::String(s) if short && s.len() > SHORT_STRING_LIMIT => {
                 let text = String::from_utf8_lossy(s);
                 let mut end = SHORT_STRING_KEEP;
+
                 while !text.is_char_boundary(end) {
                     end -= 1;
                 }
+
                 format!("\"{}…\"", text[..end].escape_debug())
             }
             Value::String(s) if short => {
@@ -216,13 +221,17 @@ mod tests {
                 }))
             })
             .collect();
+
         for (i, a) in values.iter().enumerate() {
             assert_eq!(a, &a.clone());
+
             for b in &values[i + 1..] {
                 assert_ne!(a, b);
             }
         }
+
         let keys: HashSet<_> = values.iter().chain(values.iter()).cloned().collect();
+
         assert_eq!(keys.len(), values.len());
     }
 }

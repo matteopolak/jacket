@@ -33,6 +33,7 @@ thread_local! {
 pub fn calling_out<T>(caller: (usize, usize), f: impl FnOnce() -> T) -> T {
     let outer = CALLER.with(|c| c.replace(caller));
     let out = f();
+
     CALLER.with(|c| c.set(outer));
     out
 }
@@ -67,9 +68,11 @@ fn enter<T>(
             out = Some(f(reenter));
         }
     });
+
     if let Err(m) = entered {
         fatal(&m)
     }
+
     match out {
         Some(Ok(value)) => value,
         Some(Err(trap)) => fatal(&gate.describe(program, &trap)),
@@ -86,9 +89,11 @@ pub fn release(gate: &Arc<dyn Gate>) {
     let mut table = TABLE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+
     for family in table.iter_mut() {
         free_slots(family, |s| same_gate(&s.gate, gate));
     }
+
     drop(table);
     #[cfg(all(windows, target_arch = "x86_64"))]
     win64::release(gate);
@@ -105,12 +110,15 @@ fn slot_for<S>(
         .iter()
         .position(|s| s.as_ref().is_some_and(&serves))
         .or_else(|| slots.iter().position(Option::is_none));
+
     if reused.is_some() {
         return reused;
     }
+
     if slots.len() == limit {
         return None;
     }
+
     slots.push(None);
     Some(slots.len() - 1)
 }
@@ -165,9 +173,11 @@ pub fn callback_addr(
 ) -> Result<u64, String> {
     let arch = Arch::host().ok_or("native callbacks are not available on this CPU")?;
     let host = crate::layout::DataLayout::host();
+
     if sig.c_varargs {
         return Err("a variadic procedure cannot be called from C in the interpreter".into());
     }
+
     // The thunks below receive System V / AAPCS64 registers; Microsoft x64 has its own.
     if arch == Arch::Win64 {
         #[cfg(all(windows, target_arch = "x86_64"))]
@@ -175,6 +185,7 @@ pub fn callback_addr(
         #[cfg(not(all(windows, target_arch = "x86_64")))]
         return Err("Microsoft x64 callbacks need a Windows x64 host".into());
     }
+
     let cabi = sig.c_abi.as_deref();
     // The thunks receive 64-bit float registers and cannot return in `st(0)`.
     let wide = |l: &crate::ir::AggLayout| {
@@ -182,12 +193,14 @@ pub fn callback_addr(
             .iter()
             .any(|&(_, t)| matches!(t, crate::ir::Ty::F80 | crate::ir::Ty::F128))
     };
+
     if cabi.is_some_and(|c| c.ret.iter().chain(c.params.iter().flatten()).any(wide)) {
         return Err(
             "a procedure passing a long double wider than float64 cannot be called from C in the interpreter (it works in a native build)"
                 .into(),
         );
     }
+
     let forced_sret = cabi.is_some_and(|c| c.ret_indirect);
     let (shape, sret) = match cabi.and_then(|c| c.ret.as_ref()) {
         None if sig.returns.first().is_some_and(|t| t.is_float()) => (FLOAT, false),
@@ -220,6 +233,7 @@ pub fn callback_addr(
     .ok_or_else(|| {
         format!("more than {SLOTS} interpreted procedures of one shape were passed to C")
     })?;
+
     // A later interpreter running the same program takes the thunk over.
     slots[k] = Some(Slot {
         program,
@@ -233,6 +247,7 @@ pub fn callback_addr(
 
 fn shape_of(pieces: &[Piece]) -> Result<usize, String> {
     let int = |p: &Piece| p.ty == PieceTy::I64;
+
     Ok(match pieces {
         [] => INT,
         [a] if int(a) => INT,
@@ -348,6 +363,7 @@ extern "C" fn thunk<R: Ret, const K: usize>(
 ) -> R {
     let ints = [i0, i1, i2, i3, i4, i5, i6, i7];
     let floats = [f0, f1, f2, f3, f4, f5, f6, f7].map(f64::to_bits);
+
     R::from_words(&dispatch(R::SHAPE, K, ints, floats, args, x8))
 }
 
@@ -361,6 +377,7 @@ extern "C" fn thunk<R: Ret, const K: usize>(
 ) -> R {
     let ints = [i0, i1, i2, i3, i4, i5, 0, 0];
     let floats = [f0, f1, f2, f3, f4, f5, f6, f7].map(f64::to_bits);
+
     R::from_words(&dispatch(R::SHAPE, K, ints, floats, args, x8))
 }
 
@@ -472,6 +489,7 @@ fn dispatch(
             drop(table);
             fatal("C called a procedure of an interpreter that has finished")
         };
+
         (
             slot.gate.clone(),
             slot.program,
@@ -480,6 +498,7 @@ fn dispatch(
             slot.sret,
         )
     };
+
     enter(&*gate, program, |reenter| {
         invoke(reenter, func, &sig, sret, x8, ints, floats, args)
     })
@@ -507,6 +526,7 @@ impl Incoming {
 
     fn stack(&mut self) -> u64 {
         let v = self.slot(self.ns);
+
         self.ns += 1;
         self.tail = 0;
         v
@@ -516,11 +536,15 @@ impl Incoming {
     fn packed(&mut self, size: usize) -> u64 {
         let at = self.tail.next_multiple_of(size);
         let mask = (1u64 << (size * 8)) - 1;
+
         if self.tail == 0 || at + size > 8 {
             let v = self.stack();
+
             self.tail = size;
+
             return v & mask;
         }
+
         self.tail = at + size;
         let slot = self.slot(self.ns - 1);
         (slot >> (at * 8)) & mask
@@ -530,6 +554,7 @@ impl Incoming {
         if self.ni == self.ints.len() {
             return self.stack();
         }
+
         self.ni += 1;
         self.ints[self.ni - 1]
     }
@@ -538,6 +563,7 @@ impl Incoming {
         if self.nf == 8 {
             return self.stack();
         }
+
         self.nf += 1;
         self.floats[self.nf - 1]
     }
@@ -552,6 +578,7 @@ impl Incoming {
         if X86_64 {
             return;
         }
+
         if pieces.iter().any(|p| p.ty == PieceTy::I64) {
             self.ni = self.ints.len();
         } else {
@@ -600,9 +627,11 @@ fn invoke(
     let out_reg =
         (sret && x8.is_none()).then(|| usize::from(cabi.is_some_and(|c| c.ret_after_this)));
     let mut arguments = ints[..int_regs].to_vec();
+
     if let Some(at) = out_reg {
         arguments.remove(at);
     }
+
     let mut incoming = Incoming {
         ints: arguments,
         floats,
@@ -616,6 +645,7 @@ fn invoke(
     let mut buffers: Vec<Vec<u64>> = Vec::new();
     let mut args = Vec::with_capacity(sig.params.len());
     let count = sig.params.len() - ret_layout.is_some() as usize;
+
     for (i, param) in sig.params[..count].iter().enumerate() {
         let Some(layout) = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref) else {
             let full = if param.is_float() {
@@ -623,19 +653,23 @@ fn invoke(
             } else {
                 incoming.ni == incoming.ints.len()
             };
+
             if full && super::PACKED_STACK && param.size(&host) < 8 {
                 args.push(incoming.packed(param.size(&host) as usize));
                 continue;
             }
+
             args.push(if param.is_float() {
                 incoming.float()
             } else {
                 incoming.int()
             });
+
             continue;
         };
         let mut buffer = vec![0u64; layout.size.div_ceil(8).max(1) as usize];
         let base = buffer.as_mut_ptr() as u64;
+
         match abi::classify_arg(arch, layout, &host) {
             Passing::Registers(pieces) if incoming.fits(&pieces) => {
                 for p in &pieces {
@@ -644,6 +678,7 @@ fn invoke(
                     } else {
                         incoming.float()
                     };
+
                     // SAFETY: the buffer holds `layout.size` bytes.
                     unsafe { write_bytes(base + p.offset, v, piece_size(p, layout.size)) };
                 }
@@ -655,6 +690,7 @@ fn invoke(
             }
             Passing::Registers(pieces) => {
                 incoming.exhaust(&pieces);
+
                 for w in &mut buffer {
                     *w = incoming.stack();
                 }
@@ -665,26 +701,34 @@ fn invoke(
                 }
             }
         }
+
         args.push(base);
         buffers.push(buffer);
     }
+
     let Some(layout) = ret_layout else {
         return reenter(func, &args);
     };
     let mut result = vec![0u64; layout.size.div_ceil(8).max(1) as usize];
     let base = result.as_mut_ptr() as u64;
+
     args.push(base);
     reenter(func, &args)?;
     drop(buffers);
+
     if sret {
         let out = x8.unwrap_or(ints[out_reg.unwrap_or(0)]);
+
         // SAFETY: the caller's result buffer holds `layout.size` bytes.
         unsafe {
             std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize);
         };
+
         return Ok(vec![out]);
     }
+
     let pieces = abi::classify_ret(arch, layout, &host).unwrap_or_default();
+
     // SAFETY: `result` holds `layout.size` bytes.
     Ok(pieces
         .iter()

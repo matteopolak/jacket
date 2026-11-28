@@ -22,9 +22,11 @@ fn valid_changes_wait_for_save_and_unsaved_edits_are_discarded() {
         ],
     );
     let mut s = test_support::lsp::session();
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let config = test_support::lsp::uri_of(&dir.join("jacket.toml"));
     let main = test_support::lsp::uri_of(&dir.join("main.jai"));
+
     s.open(
         config.clone(),
         1,
@@ -90,6 +92,7 @@ fn save_and_watcher_notifications_publish_the_problem_without_a_popup() {
         &mut s,
         json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{"rootUri":test_support::lsp::uri_of(&dir).as_str()}}),
     );
+
     assert_eq!(
         init[0]["result"]["capabilities"]["textDocumentSync"]["save"],
         true
@@ -100,6 +103,7 @@ fn save_and_watcher_notifications_publish_the_problem_without_a_popup() {
     let main = test_support::lsp::uri_of(&dir.join("main.jai"))
         .as_str()
         .to_string();
+
     for (uri, language, text) in [
         (&main, "jai", "main :: () {}"),
         (&config, "toml", "[project]\n"),
@@ -109,10 +113,12 @@ fn save_and_watcher_notifications_publish_the_problem_without_a_popup() {
             json!({"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":uri,"languageId":language,"version":1,"text":text}}}),
         );
     }
+
     let out = send(
         &mut s,
         json!({"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":config,"version":2},"contentChanges":[{"text":"import-path ="}]}}),
     );
+
     assert_eq!(warnings(&out), 0);
     std::fs::write(dir.join("jacket.toml"), "import-path =").unwrap();
     let save = json!({"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":config}}});
@@ -130,6 +136,7 @@ fn save_and_watcher_notifications_publish_the_problem_without_a_popup() {
             .count()
     };
     let saved = send(&mut s, save.clone());
+
     assert_eq!((warnings(&saved), problems(&saved)), (0, 1));
     assert_eq!(warnings(&send(&mut s, watch.clone())), 0);
     assert_eq!(warnings(&send(&mut s, save)), 0);

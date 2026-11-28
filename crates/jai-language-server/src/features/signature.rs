@@ -27,9 +27,11 @@ impl Session {
         let doc = self.document(uri)?;
         let text = &doc.text;
         let byte = doc.index.byte(text, position);
+
         if let Some(help) = self.asm_signature_help(text, byte) {
             return Ok(Some(help));
         }
+
         let Some((open, chain, active_arg, named)) = open_call(text, byte) else {
             return Ok(None);
         };
@@ -40,6 +42,7 @@ impl Session {
         let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();
         let lookup = |a: &mut semantic::Analysis, path: &Path, start: usize, open: usize| {
             let file = a.file(path)?;
+
             if let Some(call) = a
                 .compiler
                 .ide_calls(file)
@@ -48,6 +51,7 @@ impl Session {
             {
                 return Some((call.signatures, call.active));
             }
+
             // The callee is looked up in the scope.
             let scope = a.compiler.ide_scope_at(file, start as u32)?;
             let procs = a.compiler.ide_callee(scope, &names);
@@ -63,6 +67,7 @@ impl Session {
                     .map(|p| a.compiler.ide_signature(p))
                     .collect()
             };
+
             (!found.is_empty()).then_some((found, 0))
         };
         // Typing in the call has edited the text since the compile, which still describes it.
@@ -77,6 +82,7 @@ impl Session {
         let Some((mut signatures, active)) = found else {
             return Ok(None);
         };
+
         // Under the name called: an alias or a `#bake_arguments` copy names the original.
         if let Some(called) = chain.last() {
             for sig in &mut signatures {
@@ -85,17 +91,20 @@ impl Session {
                 }
             }
         }
+
         let parameter = |sig: &jaic::ide::meta::IdeSignature| -> usize {
             if let Some(name) = &named
                 && let Some(i) = sig.param_names.iter().position(|n| n == name)
             {
                 return i;
             }
+
             let last = sig.params.len().saturating_sub(1);
             active_arg.min(last)
         };
         let active_parameter = signatures.get(active).map_or(0, parameter);
         let documented = self.signature_docs(uri, &signatures, kind);
+
         Ok(Some(SignatureHelp {
             signatures: signatures
                 .into_iter()

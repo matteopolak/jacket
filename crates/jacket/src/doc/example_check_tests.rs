@@ -8,8 +8,10 @@ fn runtime() -> TempDir {
         .arg("--version")
         .output()
         .expect("these tests run the Node runner: install Node");
+
     assert!(version.status.success(), "`node --version` failed");
     let dir = TempDir::new("doc-example-runtime");
+
     std::fs::write(dir.join("jai_wasm.wasm"), b"fixture").unwrap();
     std::fs::write(
         dir.join("engine.mjs"),
@@ -58,6 +60,7 @@ fn an_example_in_the_browser_is_stopped_at_its_own_timeout() {
     ];
     let failures = run_in(&runtime, &programs);
     let labels: Vec<_> = failures.iter().map(|f| f.label.as_str()).collect();
+
     assert_eq!(labels, ["spins", "after"]);
     assert_eq!(failures[0].message, "Stopped after 1s.");
     assert_eq!(failures[1].message, "it failed");
@@ -66,5 +69,6 @@ fn an_example_in_the_browser_is_stopped_at_its_own_timeout() {
 #[test]
 fn an_example_without_a_timeout_gets_the_default() {
     let runtime = runtime();
+
     assert!(run_in(&runtime, &[program("slow", "spin", None)]).is_empty());
 }

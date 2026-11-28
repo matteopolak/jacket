@@ -39,6 +39,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
+
         jaic::ast::walk::walk(&p.body.stmts, &mut |n, _| {
             if let Some(s) = n.stmt()
                 && let S::For(f) = &s.kind
@@ -46,6 +47,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 out.push(found);
             }
+
             true
         });
     }
@@ -56,15 +58,19 @@ fn counted_array(f: &For) -> Option<(&Expr, &Expr, &Expr)> {
     let ForOver::Range(lo, hi) = &f.over else {
         return None;
     };
+
     if !matches!(lo.kind, E::Int(n, ..) if n.get() == 0) {
         return None;
     }
+
     let E::Binary(BinOp::Sub, count, one) = &hi.kind else {
         return None;
     };
+
     if !matches!(one.kind, E::Int(n, ..) if n.get() == 1) {
         return None;
     }
+
     let E::Member(arr, member) = &count.kind else {
         return None;
     };
@@ -104,17 +110,20 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     {
         return None;
     }
+
     let (arr, lo, hi) = counted_array(f)?;
     // Arrays and strings (which iterate their bytes as `u8`, like `str[i]` reads them); a
     // struct with `for_expansion` iterates differently, and a pointer to an array is not
     // iterable at all.
     let arr_ty = cx.ty(arr)?;
+
     if !matches!(
         cx.compiler.ty.types.kind(arr_ty),
         TypeKind::Array { .. } | TypeKind::String
     ) {
         return None;
     }
+
     // A constant array (`xs :: int.[1, 2]`) iterates like any other, but has no elements to
     // point at: `for *xs` is not an option for one.
     let constant = cx.constant(arr);
@@ -125,9 +134,11 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         .copied()
         .filter(|&e| cx.compiler.entity(e).name == var)
         .collect();
+
     if loop_vars.is_empty() {
         return None;
     }
+
     let (root_name, root_span) = root_ident(arr)?;
     let root_entities = cx.entities(root_span).to_vec();
     let mut uses = Uses {
@@ -146,10 +157,12 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     // Spans of nested loops this rule would itself rewrite to bind `it` (`for j: 0..ys.count-1`).
     let mut will_bind_it: Vec<jaic::source::Span> = Vec::new();
     let mut stack = Vec::new();
+
     walk_node(Node::Stmt(&f.body), &mut stack, &mut |n, chain| {
         if bail {
             return false;
         }
+
         match n {
             Node::Stmt(s) => {
                 match &s.kind {
@@ -158,15 +171,18 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                         if inner.it.is_none_or(|i| i.name == it) {
                             rebinds_it.push(s.span);
                         }
+
                         if counted_array(inner).is_some() {
                             will_bind_it.push(s.span);
                         }
+
                         if inner.index.is_none_or(|i| i.name == it_index) {
                             rebinds_index.push(s.span);
                         }
                     }
                     _ => {}
                 }
+
                 true
             }
             Node::Expr(e) => {
@@ -178,6 +194,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                         .any(|s| s.start <= e.span.start && e.span.end <= s.end)
                 };
                 let ents = cx.entities(e.span);
+
                 if let Some(Node::Expr(Expr {
                     kind: E::Index(base, idx),
                     ..
@@ -191,23 +208,28 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                     bail = true;
                     return false;
                 }
+
                 if *name == var {
                     if ents.is_empty() {
                         // Not checked (an `#if` left it out): cannot tell what it names.
                         bail = true;
                         return false;
                     }
+
                     if !ents.iter().any(|x| loop_vars.contains(x)) {
                         // Another variable of the same name.
                         if *name == it && !inside(&rebinds_it) {
                             uses.captures_it = true;
                         }
+
                         return true;
                     }
+
                     if place_use(e, chain) != PlaceUse::Read {
                         bail = true;
                         return false;
                     }
+
                     if let Some((span, how, written)) = element_access(cx, e, chain, arr) {
                         // `for c: 0..grid[r].count - 1`: walking a grid by row and
                         // column reads best with both indices.
@@ -216,14 +238,18 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                                 if matches!(&g.over, ForOver::Range(lo, hi)
                                     if lo.span.start <= e.span.start && e.span.end <= hi.span.end))
                         });
+
                         if in_inner_range {
                             bail = true;
                             return false;
                         }
+
                         uses.by_pointer |= written;
+
                         if inside(&rebinds_it) || inside(&will_bind_it) {
                             uses.captures_it = true;
                         }
+
                         uses.elements.push((span, how));
                     } else {
                         // Indexing another array with it (`xs[i] + ys[i]`), or index
@@ -232,27 +258,35 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                             matches!(a, Node::Expr(Expr { kind: E::Index(_, idx), .. })
                                 if idx.span.start <= e.span.start && e.span.end <= idx.span.end)
                         });
+
                         if in_index {
                             bail = true;
                             return false;
                         }
+
                         if inside(&rebinds_index) {
                             uses.captures_it_index = true;
                         }
+
                         uses.others.push(e.span);
                     }
+
                     return true;
                 }
+
                 if *name == it && !inside(&rebinds_it) {
                     uses.captures_it = true;
                 }
+
                 if *name == it_index && !inside(&rebinds_index) {
                     uses.captures_it_index = true;
                 }
+
                 if *name == root_name {
                     let same = ents.is_empty()
                         || root_entities.is_empty()
                         || ents.iter().any(|x| root_entities.contains(x));
+
                     if same && !part_of_element(cx, e, chain, arr, var) {
                         match array_use(e, chain, arr) {
                             ArrayUse::Read => {}
@@ -261,13 +295,16 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                         }
                     }
                 }
+
                 true
             }
         }
     });
+
     if bail || uses.elements.is_empty() || (constant && uses.by_pointer) {
         return None;
     }
+
     let arr_src = cx.src(arr.span).trim();
     // The bound may be parenthesized: the header edit takes the parentheses along.
     let (_, hi_end) = cx.whole(hi);
@@ -301,12 +338,14 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
             format!("loop over the elements: `for {header}`, with `it` and `it_index`"),
         )
     };
+
     if uses.captures_it {
         // `it` would name the nested loop's element: a named iterator keeps them apart.
         help = format!(
             "a nested loop binds `it`; name the iterator instead: `for elem: {header}` and `elem`"
         );
     }
+
     let fixable = !uses.captures_it && (only || !uses.captures_it_index);
     let fix = fixable.then(|| {
         let mut edits = vec![Edit {
@@ -314,17 +353,20 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
             end: hi_end,
             text: header.clone(),
         }];
+
         for (span, how) in &uses.elements {
             let text = match (how, uses.by_pointer) {
                 (Replace::Element, true) => "it.*",
                 _ => "it",
             };
+
             edits.push(Edit {
                 start: span.start as usize,
                 end: span.end as usize,
                 text: text.into(),
             });
         }
+
         for span in &uses.others {
             edits.push(Edit {
                 start: span.start as usize,
@@ -332,12 +374,14 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
                 text: "it_index".into(),
             });
         }
+
         Fix {
             title: help.clone(),
             edits,
             machine_applicable: true,
         }
     });
+
     Some(Finding {
         secondary: Vec::new(),
         start: stmt.span.start as usize,
@@ -361,12 +405,15 @@ fn element_access(
     let E::Index(base, idx) = &index.kind else {
         return None;
     };
+
     if idx.span != e.span || !cx.same_tokens(base, arr) {
         return None;
     }
+
     let up = &chain[..chain.len() - 1];
     // Passing the element by value cannot change it; only writes and addresses do.
     let written = place_use(index, up) != PlaceUse::Read;
+
     Some(match up.last() {
         Some(Node::Expr(Expr {
             kind: E::Unary(jaic::ast::UnOp::Star, _),
@@ -403,6 +450,7 @@ fn array_use(e: &Expr, chain: &[Node<'_>], arr: &Expr) -> ArrayUse {
     // Climb to the largest access path that is still a prefix of `arr` (or `arr` itself).
     let mut cur = e;
     let mut i = chain.len();
+
     while i > 0 && cur.span.end < arr.span.end {
         match chain[i - 1] {
             Node::Expr(
@@ -417,7 +465,9 @@ fn array_use(e: &Expr, chain: &[Node<'_>], arr: &Expr) -> ArrayUse {
             _ => break,
         }
     }
+
     let up = &chain[..i];
+
     if cur.span.end - cur.span.start != arr.span.end - arr.span.start {
         // A prefix of the path (`a` of `a.items`): a write to it may replace the array.
         return match place_use(cur, up) {
@@ -426,11 +476,13 @@ fn array_use(e: &Expr, chain: &[Node<'_>], arr: &Expr) -> ArrayUse {
             _ => ArrayUse::Changes,
         };
     }
+
     // `arr` itself: what is done with it?
     if let Some(Node::Expr(p)) = up.last() {
         match &p.kind {
             E::Member(base, m) if base.span == cur.span => {
                 let up2 = &up[..up.len() - 1];
+
                 return match (m.name.as_str(), place_use(p, up2)) {
                     (_, PlaceUse::Read) => ArrayUse::Read,
                     _ => ArrayUse::Changes,
@@ -438,6 +490,7 @@ fn array_use(e: &Expr, chain: &[Node<'_>], arr: &Expr) -> ArrayUse {
             }
             E::Index(base, _) if base.span == cur.span => {
                 let up2 = &up[..up.len() - 1];
+
                 return match place_use(p, up2) {
                     PlaceUse::Read if is_call_argument(p, up2) => ArrayUse::MayWriteElements,
                     PlaceUse::Read => ArrayUse::Read,
@@ -447,6 +500,7 @@ fn array_use(e: &Expr, chain: &[Node<'_>], arr: &Expr) -> ArrayUse {
             _ => {}
         }
     }
+
     match place_use(cur, up) {
         PlaceUse::Read if is_call_argument(cur, up) => ArrayUse::MayWriteElements,
         PlaceUse::Read => ArrayUse::Read,

@@ -24,6 +24,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let Some(e) = n.expr() else {
             return;
         };
+
         if let E::Cast {
             ty: Some(ty),
             value,

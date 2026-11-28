@@ -26,6 +26,7 @@ fn tree(extra: &[(&'static str, &str)]) -> Vec<(&'static str, String)> {
         ),
         ("internal/fragment.jai", FRAGMENT.to_string()),
     ];
+
     files.extend(extra.iter().map(|(p, t)| (*p, t.to_string())));
     files
 }
@@ -39,6 +40,7 @@ fn make(name: &str, files: &[(&str, String)]) -> TempDir {
 fn fragment_sees_its_loaders_struct_constant_and_imports() {
     let folder = make("names", &tree(&[]));
     let (s, uri, text) = open_file(&folder, "internal/fragment.jai");
+
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     let byte = text.find("LIMIT").unwrap();
     let hover = s
@@ -53,6 +55,7 @@ fn fragment_sees_its_loaders_struct_constant_and_imports() {
         .expect("hover")
         .contents
         .value;
+
     assert!(hover.contains('7'), "{hover}");
 }
 
@@ -63,8 +66,10 @@ fn fragment_loaded_by_several_modules_gets_the_same_owner_each_time() {
         "several",
         &tree(&[("Zeta/module.jai", "#load \"../internal/fragment.jai\";\n")]),
     );
+
     for _ in 0..2 {
         let (s, uri, _) = open_file(&folder, "internal/fragment.jai");
+
         assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     }
 }
@@ -73,6 +78,7 @@ fn fragment_loaded_by_several_modules_gets_the_same_owner_each_time() {
 fn module_root_keeps_being_its_own_program() {
     let folder = make("root", &tree(&[]));
     let (s, uri, _) = open_file(&folder, "Shapes/module.jai");
+
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
 }
 
@@ -80,16 +86,19 @@ fn module_root_keeps_being_its_own_program() {
 fn editing_a_loaders_loads_moves_the_fragments_owner() {
     let folder = make("edited-loads", &tree(&[]));
     let (mut s, fragment, _) = open_file(&folder, "internal/fragment.jai");
+
     assert_eq!(check_errors(&s, &fragment), Vec::<String>::new());
     let module_path = folder.join("Shapes/module.jai");
     let module = DocumentUri::from_path(&module_path).unwrap();
     let text = std::fs::read_to_string(&module_path).unwrap();
+
     s.open(module.clone(), 1, text.clone()).unwrap();
     let full = |text: &str| jai_language_server::TextChange {
         range: None,
         range_length: None,
         text: text.to_string(),
     };
+
     // Edits that leave the `#load`s alone keep the owner.
     s.change(&module, 2, &[full(&format!("// edited\n{text}"))])
         .unwrap();

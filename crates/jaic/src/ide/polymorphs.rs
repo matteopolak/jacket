@@ -26,12 +26,14 @@ impl Compiler {
     pub(crate) fn ide_freeze_polymorphs(&mut self) {
         if self.ed.facts().is_some() {
             let rows = self.ide_polymorph_summaries();
+
             self.ed.facts_mut().unwrap().polymorph_summaries = Some(rows);
         }
     }
 
     fn ide_polymorph_detail(&self, id: ProcId) -> String {
         let mut origins = BTreeSet::new();
+
         if let Some(scope) = self.proc(id).bindings {
             for ids in self.scope(scope).names.values() {
                 for &entity in ids {
@@ -45,6 +47,7 @@ impl Compiler {
                 }
             }
         }
+
         for (name, value, _) in self
             .ns
             .modules
@@ -54,7 +57,9 @@ impl Compiler {
         {
             origins.insert(format!("{name} = {}", value.render(&self.ty.types, true)));
         }
+
         let bindings = self.ide_bindings_text(id);
+
         if origins.is_empty() {
             bindings
         } else {
@@ -80,8 +85,10 @@ impl Compiler {
             }
             _ => None,
         };
+
         if let Some(span) = span.filter(|s| *s != Span::NONE) {
             let source = self.src.sources.get(span.file);
+
             out.insert(format!("{}:{}", source.path, source.line_col(span.start).0));
         }
     }
@@ -91,6 +98,7 @@ impl Compiler {
         if self.ed.sketching() || self.proc(id).bindings.is_none() {
             return;
         }
+
         if let Some(facts) = self.ed.facts_mut() {
             facts.selected_polymorphs.insert(id);
         }
@@ -113,12 +121,14 @@ impl Compiler {
         if let Some(rows) = self.ed.facts().and_then(|f| f.polymorph_summaries.as_ref()) {
             return rows.clone();
         }
+
         let mut keys = Keys {
             c: self,
             active: BTreeSet::new(),
             types: BTreeMap::new(),
             binding_scopes: self.pr.procs.iter().filter_map(|p| p.bindings).collect(),
         };
+
         self.pr
             .procs
             .iter()
@@ -138,6 +148,7 @@ impl Compiler {
                         detail: self.ide_polymorph_detail(id),
                     })
                     .collect();
+
                 instances
                     .sort_by(|a, b| (&a.bindings, &a.identity).cmp(&(&b.bindings, &b.identity)));
                 IdePolymorph {
@@ -155,13 +166,16 @@ impl Compiler {
 /// for a type nested n pointers deep (`*****T`) would be 2^n bytes long.
 fn join<S: AsRef<str>>(parts: impl IntoIterator<Item = S>) -> String {
     let mut out = String::from("(");
+
     for part in parts {
         let part = part.as_ref();
+
         out.push_str(&part.len().to_string());
         out.push(':');
         out.push_str(part);
         out.push(';');
     }
+
     out.push(')');
     out
 }
@@ -183,8 +197,10 @@ impl Keys<'_> {
         if span == Span::NONE {
             return "builtin".into();
         }
+
         let source = self.c.src.sources.get(span.file);
         let path = source.path.as_file().map(|p| self.c.src.fs.canonical(p));
+
         // Generated sources have no globally meaningful path. Their source text prevents
         // equally numbered added strings in different workspaces being conflated.
         join([
@@ -197,9 +213,11 @@ impl Keys<'_> {
 
     fn scope(&mut self, scope: ScopeId) -> String {
         let tag = format!("scope:{}", scope.0);
+
         if !self.active.insert(tag.clone()) {
             return "recursive-scope".into();
         }
+
         let module = self.c.ns.modules.get(self.c.scope(scope).module.0 as usize);
         let parameters: Vec<_> = module
             .into_iter()
@@ -211,16 +229,20 @@ impl Keys<'_> {
             .map(|p| self.c.src.fs.canonical(p));
         let mut enclosing = Vec::new();
         let mut at = Some(scope);
+
         while let Some(sid) = at {
             if self.binding_scopes.contains(&sid) {
                 enclosing.push(self.bindings(sid));
             }
+
             at = self.c.scope(sid).parent;
         }
+
         self.active.remove(&tag);
         let generated_origin = module
             .filter(|_| path.is_none())
             .map(|m| self.location(m.argument_span));
+
         join([
             format!("{path:?}"),
             join_opt(generated_origin.as_deref()),
@@ -249,6 +271,7 @@ impl Keys<'_> {
                 })
             })
             .collect();
+
         values.sort_by_key(|(n, ..)| *n);
         join(
             values
@@ -261,9 +284,11 @@ impl Keys<'_> {
     fn procedure(&mut self, id: ProcId) -> String {
         let p = self.c.proc(id);
         let tag = format!("proc:{}", id.0);
+
         if !self.active.insert(tag.clone()) {
             return "recursive-procedure".into();
         }
+
         let bindings = p.bindings.map(|s| self.bindings(s));
         let key = join([
             self.location(p.span),
@@ -273,6 +298,7 @@ impl Keys<'_> {
             format!("{:?}", self.c.options.os),
             format!("{:?}", self.c.options.cpu),
         ]);
+
         self.active.remove(&tag);
         key
     }
@@ -281,10 +307,13 @@ impl Keys<'_> {
         if let Some(key) = self.types.get(&ty) {
             return key.clone();
         }
+
         let tag = format!("type:{}", ty.0);
+
         if !self.active.insert(tag.clone()) {
             return "recursive-type".into();
         }
+
         let key = match self.c.ty.types.kind(ty) {
             TypeKind::Pointer(t) => format!("ptr:{}", self.ty(*t)),
             TypeKind::Array {
@@ -313,6 +342,7 @@ impl Keys<'_> {
                 let info = self.c.ty.types.struct_info(*s);
                 let source = self.c.ty.struct_asts.get(s);
                 let args = source.map(|s| self.bindings(s.scope));
+
                 format!(
                     "struct:{}",
                     join([
@@ -329,6 +359,7 @@ impl Keys<'_> {
                     .nominal_origins
                     .get(&ty)
                     .map(|(span, scope)| join([self.location(*span), self.scope(*scope)]));
+
                 // Compiler-defined distincts have stable names rather than source locations.
                 format!(
                     "nominal:{}",
@@ -342,6 +373,7 @@ impl Keys<'_> {
                 id, ..
             } => {
                 let p = &self.c.ty.poly_structs[id.0 as usize];
+
                 format!(
                     "family:{}",
                     join([self.location(p.lit.span), self.scope(p.scope)])
@@ -349,6 +381,7 @@ impl Keys<'_> {
             }
             primitive => format!("{primitive:?}"),
         };
+
         self.active.remove(&tag);
         self.types.insert(ty, key.clone());
         key
@@ -394,11 +427,13 @@ impl Keys<'_> {
 
     fn relocation(&mut self, target: crate::ir::RelocTarget) -> String {
         use crate::ir::{RelocTarget, Storage};
+
         match target {
             RelocTarget::Func(f) => {
                 let proc = self.c.pr.procs.iter().position(|p| {
                     matches!(p.target, Some(crate::sema::procs::ProcTarget::Func(id)) if id == f)
                 });
+
                 match proc {
                     Some(i) => self.procedure(ProcId(i as u32)),
                     None => format!(
@@ -409,6 +444,7 @@ impl Keys<'_> {
             }
             RelocTarget::Foreign(f) => {
                 let foreign = &self.c.out.program.foreigns[f.0 as usize];
+
                 format!(
                     "foreign:{}",
                     join([
@@ -426,6 +462,7 @@ impl Keys<'_> {
                 if let Some((&ty, _)) = self.c.ty.infos.iter().find(|(_, id)| **id == g) {
                     return format!("info:{}", self.ty(ty));
                 }
+
                 if let Some(entity) = self.c.ns.entities.iter().find(|e| {
                     matches!(e.state, EntityState::Done(Resolved::Global { storage: Storage::Data(id), .. }) if id == g)
                 }) {
@@ -434,10 +471,13 @@ impl Keys<'_> {
                         join([self.location(entity.span), self.scope(entity.scope)])
                     );
                 }
+
                 let tag = format!("global:{}", g.0);
+
                 if !self.active.insert(tag.clone()) {
                     return "recursive-global".into();
                 }
+
                 let global = &self.c.out.program.globals[g.0 as usize];
                 let relocs = global
                     .relocs
@@ -458,6 +498,7 @@ impl Keys<'_> {
                         join(relocs),
                     ])
                 );
+
                 self.active.remove(&tag);
                 key
             }

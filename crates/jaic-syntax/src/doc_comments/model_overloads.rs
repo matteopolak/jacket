@@ -7,6 +7,7 @@ use super::{Overload, os_mask, os_names};
 /// without.
 pub(super) fn merge_alternatives(overloads: &mut Vec<Overload>) {
     let mut merged: Vec<Overload> = Vec::new();
+
     for o in std::mem::take(overloads) {
         let same = |h: &Overload| {
             h.signature
@@ -20,7 +21,9 @@ pub(super) fn merge_alternatives(overloads: &mut Vec<Overload>) {
         };
         let have = &mut merged[at];
         let mask = os_mask(&have.platforms) | os_mask(&o.platforms);
+
         have.platforms = os_names(mask);
+
         if have.docs.is_empty() {
             have.docs = o.docs;
             have.docs_line = o.docs_line;
@@ -28,5 +31,6 @@ pub(super) fn merge_alternatives(overloads: &mut Vec<Overload>) {
             have.returns = o.returns;
         }
     }
+
     *overloads = merged;
 }

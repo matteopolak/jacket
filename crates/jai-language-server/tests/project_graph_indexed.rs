@@ -23,6 +23,7 @@ fn send(json: &mut JsonSession, message: &Value) -> Vec<Value> {
 
 fn start(folder: &Path) -> JsonSession {
     let mut json = JsonSession::with_environment(Limits::default(), environment());
+
     send(
         &mut json,
         &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
@@ -41,8 +42,10 @@ fn settle(json: &mut JsonSession) {
         if !json.has_background_work() {
             return;
         }
+
         json.background_work().unwrap();
     }
+
     panic!("indexing did not finish");
 }
 
@@ -54,6 +57,7 @@ fn closed_errors(json: &mut JsonSession, file: &Path) -> Option<Vec<String>> {
             "params": {"previousResultIds": []}}),
     );
     let uri = uri_of(file);
+
     reply[0]["result"]["items"]
         .as_array()?
         .iter()
@@ -85,10 +89,13 @@ fn a_load_added_on_disk_reaches_closed_file_diagnostics() {
     );
     let a = dir.join("a.jai");
     let mut json = start(&dir);
+
     settle(&mut json);
     let before = closed_errors(&mut json, &a).expect("a.jai is part of the program");
+
     assert!(!before.is_empty(), "helper is unknown: {before:?}");
     let main = dir.join("main.jai");
+
     std::fs::write(&main, BOTH).unwrap();
     watched(&mut json, &main, 2);
     settle(&mut json);
@@ -100,9 +107,11 @@ fn a_file_created_then_deleted_reaches_closed_file_diagnostics() {
     let dir = project("indexed-create", &[("main.jai", BOTH), ("a.jai", A)]);
     let a = dir.join("a.jai");
     let mut json = start(&dir);
+
     settle(&mut json);
     assert_ne!(closed_errors(&mut json, &a), Some(Vec::new()));
     let b = dir.join("b.jai");
+
     std::fs::write(&b, B).unwrap();
     watched(&mut json, &b, 1);
     settle(&mut json);
@@ -127,9 +136,11 @@ fn a_changed_toml_entry_reaches_closed_file_diagnostics() {
     );
     let a = dir.join("a.jai");
     let mut json = start(&dir);
+
     settle(&mut json);
     assert_ne!(closed_errors(&mut json, &a), Some(Vec::new()));
     let toml = dir.join("jacket.toml");
+
     std::fs::write(&toml, "[project]\nentry = [\"second.jai\"]\n").unwrap();
     watched(&mut json, &toml, 2);
     settle(&mut json);
@@ -159,8 +170,10 @@ fn a_file_loaded_by_two_entries_reports_errors_from_either_program() {
     );
     let x = dir.join("x.jai");
     let mut json = start(&dir);
+
     settle(&mut json);
     let errors = closed_errors(&mut json, &x).expect("x.jai is part of both programs");
+
     assert!(!errors.is_empty(), "two.jai has no helper: {errors:?}");
 }
 
@@ -190,14 +203,17 @@ fn opening_an_indexed_file_keeps_its_unreadable_load_warning() {
     );
     let path = dir.join("main.jai");
     let mut json = start(&dir);
+
     settle(&mut json);
     let gone = dir.join("gone.jai");
+
     std::fs::remove_file(&gone).unwrap();
     watched(&mut json, &gone, 3);
     settle(&mut json);
     let opened = open_and_pull(&mut json, &path, main);
     let mut cold = start(&dir);
     let fresh = open_and_pull(&mut cold, &path, main);
+
     settle(&mut cold);
     assert_eq!(opened["items"], fresh["items"]);
 }
@@ -247,6 +263,7 @@ fn an_open_file_loaded_by_two_entries_reports_errors_from_either_program() {
     let x = dir.join("x.jai");
     let mut json = start(&dir);
     let opened = open_and_pull(&mut json, &x, A);
+
     assert_eq!(error_messages(&opened).len(), 1, "{opened:?}");
     settle(&mut json);
     send(
@@ -256,6 +273,7 @@ fn an_open_file_loaded_by_two_entries_reports_errors_from_either_program() {
             "contentChanges": [{"text": format!("{A}\n")}]}}),
     );
     let edited = pull(&mut json, &x);
+
     assert_eq!(error_messages(&edited).len(), 1, "{edited:?}");
 }
 
@@ -267,6 +285,7 @@ fn closed_codes(json: &mut JsonSession, file: &Path) -> Option<Vec<(u64, String)
             "params": {"previousResultIds": []}}),
     );
     let uri = uri_of(file);
+
     reply[0]["result"]["items"]
         .as_array()?
         .iter()
@@ -319,10 +338,13 @@ fn a_closed_file_no_entry_reaches_is_noted_without_false_errors() {
         ],
     );
     let mut json = start(&dir);
+
     settle(&mut json);
     let codes = closed_codes(&mut json, &dir.join("loose.jai")).expect("loose.jai is reported");
+
     assert_eq!(codes, vec![(3, "not-in-program".to_string())]);
     let reached = closed_codes(&mut json, &dir.join("a.jai")).expect("a.jai is reported");
+
     assert!(!is_noted(&reached), "{reached:?}");
 }
 
@@ -338,8 +360,10 @@ fn a_closed_file_no_entry_reaches_still_reports_its_syntax_errors() {
         ],
     );
     let mut json = start(&dir);
+
     settle(&mut json);
     let codes = closed_codes(&mut json, &dir.join("loose.jai")).unwrap();
+
     assert!(is_noted(&codes), "{codes:?}");
     assert!(
         codes.iter().any(|(severity, _)| *severity == 1),
@@ -354,14 +378,18 @@ fn a_load_added_to_an_entry_takes_the_note_away() {
         &[("main.jai", MAIN), ("a.jai", A), ("b.jai", B)],
     );
     let mut json = start(&dir);
+
     settle(&mut json);
     let before = closed_codes(&mut json, &dir.join("b.jai")).unwrap();
+
     assert!(is_noted(&before), "{before:?}");
     let main = dir.join("main.jai");
+
     std::fs::write(&main, BOTH).unwrap();
     watched(&mut json, &main, 2);
     settle(&mut json);
     let after = closed_codes(&mut json, &dir.join("b.jai")).unwrap();
+
     assert!(!is_noted(&after), "{after:?}");
 }
 
@@ -377,16 +405,21 @@ fn an_open_file_no_entry_reaches_is_noted() {
         ],
     );
     let mut json = start(&dir);
+
     settle(&mut json);
     let loose = open_codes(&mut json, &dir.join("loose.jai"), B);
+
     assert_eq!(loose, vec![(3, "not-in-program".to_string())]);
     // Names it takes from elsewhere are not reported as unknown, as when it is closed.
     let uses = "uses_elsewhere :: () { x := helper(); print(\"%\\n\", x); }\n";
     let loose = open_codes(&mut json, &dir.join("scratch.jai"), uses);
+
     assert_eq!(loose, vec![(3, "not-in-program".to_string())]);
     let unloaded = open_codes(&mut json, &dir.join("b.jai"), B);
+
     assert!(is_noted(&unloaded), "b.jai is not loaded by main.jai");
     let reached = open_codes(&mut json, &dir.join("a.jai"), A);
+
     assert!(!is_noted(&reached), "{reached:?}");
 }
 
@@ -407,16 +440,21 @@ fn imported_files_are_part_of_the_program() {
         ],
     );
     let mut json = start(&dir);
+
     settle(&mut json);
+
     for reached in [
         "modules/Util/module.jai",
         "modules/Util/part.jai",
         "extra.jai",
     ] {
         let codes = closed_codes(&mut json, &dir.join(reached)).unwrap_or_default();
+
         assert!(!is_noted(&codes), "{reached}: {codes:?}");
     }
+
     let codes = closed_codes(&mut json, &dir.join("loose.jai")).unwrap();
+
     assert!(is_noted(&codes), "{codes:?}");
 }
 
@@ -425,8 +463,10 @@ fn imported_files_are_part_of_the_program() {
 fn a_workspace_without_entries_notes_nothing() {
     let dir = project("unreached-none", &[("a.jai", A), ("b.jai", B)]);
     let mut json = start(&dir);
+
     settle(&mut json);
     let opened = open_codes(&mut json, &dir.join("b.jai"), B);
+
     assert!(!is_noted(&opened), "{opened:?}");
 }
 
@@ -449,6 +489,7 @@ fn library_with_test(name: &str, jacket_toml: &str) -> (test_support::TempDir, S
         "#import \"Extensions/Testing\";\n#import \"{module}\";\n\n\
          @test\nslugify_keeps_words :: () {{\n    expect_equal(slugify(\"a\"), \"a\");\n}}\n"
     );
+
     (dir, test)
 }
 
@@ -457,15 +498,20 @@ fn library_with_test(name: &str, jacket_toml: &str) -> (test_support::TempDir, S
 #[test]
 fn a_test_file_is_an_entry_whether_open_or_closed() {
     let (dir, test) = library_with_test("test-entry", "[project]\nentry = [\"module.jai\"]\n");
+
     std::fs::write(dir.join("tests/slugify.jai"), &test).unwrap();
     let mut json = start(&dir);
+
     settle(&mut json);
     let closed = closed_codes(&mut json, &dir.join("tests/slugify.jai")).unwrap_or_default();
+
     assert!(!is_noted(&closed), "{closed:?}");
     let open = open_codes(&mut json, &dir.join("tests/slugify.jai"), &test);
+
     assert_eq!(open, Vec::<(u64, String)>::new());
     // Only the files a test program names are part of one: a helper nothing loads is not.
     let helper = closed_codes(&mut json, &dir.join("tests/support/helper.jai")).unwrap_or_default();
+
     assert!(is_noted(&helper), "{helper:?}");
 }
 
@@ -476,15 +522,19 @@ fn test_files_follow_the_configured_test_paths() {
         "test-entry-paths",
         "[project]\nentry = [\"module.jai\"]\n\n[test]\npaths = [\"sub\"]\n",
     );
+
     std::fs::create_dir_all(dir.join("sub/tests")).unwrap();
     std::fs::write(dir.join("sub/module.jai"), "inner :: () {}\n").unwrap();
     std::fs::write(dir.join("sub/tests/a.jai"), &test).unwrap();
     std::fs::write(dir.join("tests/b.jai"), &test).unwrap();
     let mut json = start(&dir);
+
     settle(&mut json);
     let listed = open_codes(&mut json, &dir.join("sub/tests/a.jai"), &test);
+
     assert!(!is_noted(&listed), "{listed:?}");
     // `tests/` of the project folder is not a configured root, so its files stay in no program.
     let unlisted = open_codes(&mut json, &dir.join("tests/b.jai"), &test);
+
     assert!(is_noted(&unlisted), "{unlisted:?}");
 }

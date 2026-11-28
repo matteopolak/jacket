@@ -89,11 +89,13 @@ struct Abandoned;
 pub fn init() {
     let on = crate::knobs::get().speculative_bodies
         || jacket_config::env::SPECULATIVE_BODIES.get().is_some();
+
     if on && !BUILT {
         eprintln!(
             "note: speculative bodies need a jaic built with `--features speculative-bodies`; checking serially"
         );
     }
+
     ON.with(|o| o.set(on && BUILT));
 }
 
@@ -118,6 +120,7 @@ pub fn append_hit(table: usize) {
 #[cold]
 fn blocked_unless_own(table: usize, at: Option<usize>) {
     let bases = BASES.with(Cell::get);
+
     // Scratch the checker leaves behind and the body restores (`last_call_must`), and an editor
     // that records nothing.
     if MEMOS.contains(&table)
@@ -128,11 +131,13 @@ fn blocked_unless_own(table: usize, at: Option<usize>) {
     {
         return;
     }
+
     let own = match at {
         Some(at) if table == W::NsScopes as usize => at >= bases[0],
         Some(at) if table == W::NsEntities as usize => at >= bases[1],
         _ => false,
     };
+
     if !own {
         abandon(table);
     }
@@ -198,6 +203,7 @@ pub(super) fn local_globals_len() -> usize {
     if !BUILT || !ACTIVE.with(Cell::get) {
         return 0;
     }
+
     LOCAL_GLOBALS.with(|g| g.borrow().1.len())
 }
 
@@ -207,6 +213,7 @@ pub(super) fn defer(op: impl FnOnce(&mut Compiler, &Shift) + 'static) -> bool {
     if !BUILT || !ACTIVE.with(Cell::get) {
         return false;
     }
+
     OPS.with(|o| o.borrow_mut().push(Box::new(op)));
     true
 }
@@ -227,6 +234,7 @@ fn local_global(global: LocalGlobal) -> ir::GlobalId {
     LOCAL_GLOBALS.with(|g| {
         let mut g = g.borrow_mut();
         let id = ir::GlobalId((g.0 + g.1.len()) as u32);
+
         g.1.push(global);
         id
     })
@@ -237,8 +245,10 @@ pub(super) fn local_string(bytes: &std::sync::Arc<[u8]>) -> Option<ir::GlobalId>
     if !BUILT || !ACTIVE.with(Cell::get) {
         return None;
     }
+
     let known = LOCAL_GLOBALS.with(|g| {
         let g = g.borrow();
+
         g.1.iter()
             .position(|l| matches!(l, LocalGlobal::String(s) if s == bytes))
             .map(|k| ir::GlobalId((g.0 + k) as u32))
@@ -255,6 +265,7 @@ pub(super) fn local_const(
     if !BUILT || !ACTIVE.with(Cell::get) {
         return None;
     }
+
     Some(local_global(LocalGlobal::Const {
         size,
         align,
@@ -285,6 +296,7 @@ pub(super) fn log_expression(
     if !BUILT || !ACTIVE.with(Cell::get) {
         return false;
     }
+
     EXPRESSIONS.with(|e| e.borrow_mut().push((owner, span, ty, refine)));
     true
 }
@@ -405,19 +417,24 @@ impl Compiler {
         if !active() {
             return false;
         }
+
         let values = values.to_vec();
         let dependencies = &mut self.out.runtime_storage_dependencies;
         let before = dependencies.entities.get(&id).cloned();
         let known = dependencies.entities.entry(id).or_default();
+
         merge(known, &values);
         let merged = known.clone();
+
         // What a body notes goes to the enclosing capture, as it does serially.
         if let Some(capture) = dependencies.captures.last_mut() {
             merge(capture, &merged);
         }
+
         journal(
             move |c| {
                 let entities = &mut c.out.runtime_storage_dependencies.entities;
+
                 match before {
                     Some(before) => entities.insert(id, before),
                     None => entities.remove(&id),
@@ -430,6 +447,7 @@ impl Compiler {
                     .entities
                     .entry(shift.entity(id))
                     .or_default();
+
                 merge(known, &values);
             },
         );
@@ -441,18 +459,23 @@ impl Compiler {
         if !active() {
             return false;
         }
+
         let values = values.to_vec();
         let dependencies = &mut self.out.runtime_storage_dependencies;
         let before = dependencies.layouts.get(&id).cloned();
         let known = dependencies.layouts.entry(id).or_default();
+
         merge(known, &values);
         let merged = known.clone();
+
         if let Some(capture) = dependencies.captures.last_mut() {
             merge(capture, &merged);
         }
+
         journal(
             move |c| {
                 let layouts = &mut c.out.runtime_storage_dependencies.layouts;
+
                 match before {
                     Some(before) => layouts.insert(id, before),
                     None => layouts.remove(&id),
@@ -465,6 +488,7 @@ impl Compiler {
                     .layouts
                     .entry(id)
                     .or_default();
+
                 merge(known, &values);
             },
         );
@@ -481,6 +505,7 @@ impl Compiler {
                 self.proc(id).target,
                 Some(super::procs::ProcTarget::Func(_))
             );
+
         if unsupported {
             STATS.with(|s| {
                 s.borrow_mut()
@@ -491,6 +516,7 @@ impl Compiler {
             });
             return Outcome::Abandoned(None);
         }
+
         let bases = [self.ns.scopes.len(), self.ns.entities.len()];
         let fingerprint = cfg!(debug_assertions).then(|| self.spec_fingerprint());
         // What a body takes out of the shared state and puts back when it ends.
@@ -505,6 +531,7 @@ impl Compiler {
         let sizes = (self.ty.defer_infos, self.ty.strict_sizes);
         let lookup_without_expansion = self.epochs.lookup_without_expansion;
         let resolving_depth = self.epochs.resolving_depth;
+
         IDLE_EDITOR.with(|i| i.set(true));
         self.pr.procs[id.0 as usize].body_state = BodyState::Lowering;
         self.pr.lowering_depth += 1;
@@ -526,6 +553,7 @@ impl Compiler {
             self.lower_body_inner_for_speculation(id)
         }));
         let finished_active = ACTIVE.with(|a| a.replace(false));
+
         self.pr.lowering_depth -= 1;
         self.pr.procs[id.0 as usize].body_state = BodyState::Queued;
         self.out.runtime_storage_dependencies.captures = captures;
@@ -539,19 +567,25 @@ impl Compiler {
         self.epochs.lookup_without_expansion = lookup_without_expansion;
         self.epochs.resolving_depth = resolving_depth;
         IDLE_EDITOR.with(|i| i.set(false));
+
         if matches!(result, Ok(Ok(()))) && finished_active {
             self.leave_proc_memos();
         }
+
         let undo = UNDO.with(|u| std::mem::take(&mut *u.borrow_mut()));
+
         for undo in undo.into_iter().rev() {
             undo(self);
         }
+
         if let Some(before) = fingerprint {
             let after = self.spec_fingerprint();
+
             for (i, (a, b)) in before.iter().zip(&after).enumerate() {
                 assert_eq!(a, b, "a speculative body changed {}", FINGERPRINT[i]);
             }
         }
+
         let scopes = self.ns.scopes.split_off_tail(bases[0]);
         let entities = self.ns.entities.split_off_tail(bases[1]);
         let deposit = DEPOSIT.with(|d| d.borrow_mut().take());
@@ -592,6 +626,7 @@ impl Compiler {
             Ok(Err(_)) => Reason::Failed,
             Err(payload) if payload.is::<Abandoned>() => {
                 let table = BLOCKER.with(Cell::get);
+
                 if first_use.is_some() {
                     Reason::Resolving(table)
                 } else {
@@ -600,9 +635,11 @@ impl Compiler {
             }
             Err(payload) => std::panic::resume_unwind(payload),
         };
+
         STATS.with(|s| {
             let mut s = s.borrow_mut();
             let entry = s.aborted.entry(reason).or_default();
+
             entry.0 += 1;
             entry.1 += took;
             s.view_wasted += took;
@@ -638,6 +675,7 @@ impl Compiler {
         // The globals the body asked for are made first: what it built refers to them by the ids
         // it was given.
         let mut made: Vec<ir::GlobalId> = Vec::new();
+
         for global in globals {
             let global = match global {
                 LocalGlobal::String(bytes) => self.out.string_global(&bytes),
@@ -658,8 +696,10 @@ impl Compiler {
                     )
                 }
             };
+
             made.push(global);
         }
+
         let funcs::Reserved {
             funcs_base,
             funcs,
@@ -671,6 +711,7 @@ impl Compiler {
             self.reserve_local_foreigns(foreigns).into_iter().unzip();
         let reserved_now =
             funcs.iter().filter(|f| f.1).count() + foreign_fresh.iter().filter(|f| **f).count();
+
         STATS.with(|s| s.borrow_mut().reserved_at_commit += reserved_now as u64);
         let shift = Shift {
             func_base: funcs_base,
@@ -684,21 +725,26 @@ impl Compiler {
             entity: self.ns.entities.len() as u32 - entities_base as u32,
         };
         let (moved_scopes, moved_entities) = (scopes.len() as u64, entities.len() as u64);
+
         for scope in &mut scopes {
             scope.parent = scope.parent.map(|p| shift.scope(p));
             scope.inserted_into = scope.inserted_into.map(|p| shift.scope(p));
+
             for ids in scope.names.values_mut() {
                 for e in ids {
                     *e = shift.entity(*e);
                 }
             }
+
             for using in &mut scope.usings {
                 remap_using(using, &shift);
             }
         }
+
         for entity in &mut entities {
             entity.scope = shift.scope(entity.scope);
             entity.home = shift.scope(entity.home);
+
             if let EntityKind::Const {
                 value: super::Value::Bytes(agg),
                 ..
@@ -706,10 +752,12 @@ impl Compiler {
                 && agg.relocs.iter().any(|r| refers_past(r, globals_base))
             {
                 let mut moved = (**agg).clone();
+
                 remap_relocs(&mut moved.relocs, globals_base, &made);
                 *agg = std::sync::Arc::new(moved);
             }
         }
+
         self.ns.scopes.extend_tail(scopes);
         self.ns.entities.extend_tail(entities);
         let Deposit {
@@ -718,7 +766,9 @@ impl Compiler {
             storage_constants,
             span,
         } = deposit;
+
         funcs::remap_func_ids(&mut func, &shift);
+
         if !made.is_empty() {
             for block in &mut func.blocks {
                 for inst in &mut block.insts {
@@ -732,23 +782,28 @@ impl Compiler {
                 }
             }
         }
+
         self.diag.dependencies.begin_body(id);
         self.meta.export.expression_types.remove(&id);
+
         for (owner, span, ty, refine) in expressions {
             let owner = match owner {
                 ExpressionOwner::Scope(scope) => ExpressionOwner::Scope(shift.scope(scope)),
                 other @ (ExpressionOwner::Procedure(_) | ExpressionOwner::Code(_)) => other,
             };
             let types = self.meta.export.expression_types_mut(owner);
+
             if refine {
                 types.refine(span, ty);
             } else {
                 types.record(span, ty);
             }
         }
+
         for op in ops {
             op(self, &shift);
         }
+
         self.diag.dependencies.end_body(id, false);
         self.out
             .runtime_storage_dependencies
@@ -761,6 +816,7 @@ impl Compiler {
         self.pr.done_log.push(id);
         STATS.with(|s| {
             let mut s = s.borrow_mut();
+
             s.committed += 1;
             s.view_time += took;
             s.commit_time += started.elapsed();
@@ -785,17 +841,22 @@ impl Compiler {
             })
             .take(BATCH)
             .collect();
+
         if batch.is_empty() {
             return;
         }
+
         STATS.with(|s| {
             let mut s = s.borrow_mut();
+
             s.batches += 1;
             s.batched += batch.len() as u64;
         });
         let stamp = self.spec_stamp();
+
         for id in batch {
             let outcome = self.speculate_body(id);
+
             pending.insert(id, (outcome, stamp));
         }
     }
@@ -816,21 +877,25 @@ impl Compiler {
                 if matches!(self.entity(e).state, EntityState::Unresolved) {
                     let _ = self.resolve_entity(e);
                 }
+
                 matches!(self.entity(e).state, EntityState::Done(_))
             }
             FirstUse::Target(p) => {
                 if self.proc(p).target.is_none() {
                     let _ = self.proc_func(p, self.proc(p).span);
                 }
+
                 self.proc(p).target.is_some()
             }
             FirstUse::Signature(p) => {
                 if self.proc(p).sig.is_none() {
                     let _ = self.signature(p, self.proc(p).span);
                 }
+
                 self.proc(p).sig.is_some()
             }
         };
+
         self.pr.lowering_depth -= 1;
         done
     }
@@ -846,15 +911,19 @@ impl Compiler {
         let mut last_is_final = true;
         let committed = loop {
             history.push((stopped.reason, stopped.took));
+
             if history.len() > MAX_AHEAD || !self.run_first_use(stopped.what) {
                 break false;
             }
+
             STATS.with(|s| s.borrow_mut().resolved_ahead += 1);
+
             match self.speculate_body(id) {
                 Outcome::Ready(delta) => {
                     last_is_final = false;
                     self.commit_body(*delta);
                     STATS.with(|s| s.borrow_mut().recovered += 1);
+
                     break true;
                 }
                 Outcome::Abandoned(Some(next)) if next.what != stopped.what => stopped = next,
@@ -872,13 +941,16 @@ impl Compiler {
         // Each body counts once: by how it ended, not by the tries on the way.
         let keep = usize::from(last_is_final);
         let drop = history.len() - keep;
+
         STATS.with(|s| {
             let mut s = s.borrow_mut();
+
             for (reason, took) in history.drain(..drop) {
                 if let Some(entry) = s.aborted.get_mut(&reason) {
                     entry.0 -= 1;
                     entry.1 = entry.1.saturating_sub(took);
                 }
+
                 s.view_wasted = s.view_wasted.saturating_sub(took);
             }
         });
@@ -890,6 +962,7 @@ impl Compiler {
     /// happened since; otherwise it runs serially.
     pub(super) fn drain_speculatively(&mut self, pass: &mut super::procs::DrainPass) {
         let mut pending = HashMap::default();
+
         while let Some(id) = body_probe::next_body(&mut self.pr.body_queue) {
             if self.proc(id).body_state != BodyState::Queued {
                 // An earlier body lowered it on demand.
@@ -897,18 +970,22 @@ impl Compiler {
                     STATS.with(|s| {
                         let mut s = s.borrow_mut();
                         let entry = s.aborted.entry(Reason::LoweredMeanwhile).or_default();
+
                         entry.0 += 1;
                         entry.1 += delta.took;
                         s.view_wasted += delta.took;
                     });
                 }
+
                 continue;
             }
+
             if !pending.contains_key(&id) {
                 self.pr.body_queue.push(id);
                 self.speculate_top(&mut pending);
                 self.pr.body_queue.pop();
             }
+
             match pending.remove(&id) {
                 Some((Outcome::Ready(delta), stamp)) => {
                     let reason = (self.spec_stamp() != stamp || self.thunk_scope_taken(&delta))
@@ -917,9 +994,11 @@ impl Compiler {
                         self.commit_body(*delta);
                         continue;
                     };
+
                     STATS.with(|s| {
                         let mut s = s.borrow_mut();
                         let entry = s.aborted.entry(reason).or_default();
+
                         entry.0 += 1;
                         entry.1 += delta.took;
                         s.view_wasted += delta.took;
@@ -932,10 +1011,13 @@ impl Compiler {
                 }
                 _ => {}
             }
+
             let started = Instant::now();
+
             self.drain_one(id, pass);
             STATS.with(|s| {
                 let mut s = s.borrow_mut();
+
                 s.serial_bodies += 1;
                 s.serial_time += started.elapsed();
             });
@@ -981,10 +1063,13 @@ pub(super) fn keep_signature_movable(sig: &super::procs::Signature) {
     if !active() {
         return;
     }
+
     let base = BASES.with(Cell::get)[0] as u32;
+
     fn callable(p: &super::ProcTypeParams, base: u32) -> bool {
         p.scope.0 >= base || p.returns.iter().flatten().any(|r| callable(r, base))
     }
+
     let own = sig.scope.0 >= base
         || sig
             .params
@@ -996,6 +1081,7 @@ pub(super) fn keep_signature_movable(sig: &super::procs::Signature) {
             .iter()
             .flatten()
             .any(|c| callable(c, base));
+
     if own {
         abandon(W::PrProcs as usize);
     }
@@ -1007,12 +1093,15 @@ fn immovable(scopes: &[Scope], entities: &[Entity], bases: [usize; 2]) -> Option
         if !scope.imports.is_empty() {
             return Some("scope with imports");
         }
+
         if !scope.pending.is_empty() {
             return Some("scope with pending items");
         }
+
         if !scope.fallbacks.is_empty() {
             return Some("scope with fallbacks");
         }
+
         // Names, parents and using entries are shifted; they must name the body's own elements
         // or older ones, never ones that were cut back.
         if scope
@@ -1022,6 +1111,7 @@ fn immovable(scopes: &[Scope], entities: &[Entity], bases: [usize; 2]) -> Option
             return Some("scope parent beyond the body");
         }
     }
+
     for entity in entities {
         if !matches!(
             entity.kind,
@@ -1030,6 +1120,7 @@ fn immovable(scopes: &[Scope], entities: &[Entity], bases: [usize; 2]) -> Option
             return Some("entity of another kind");
         }
     }
+
     None
 }
 

@@ -19,6 +19,7 @@ fn c_variadic_before_fixed_parameter_is_a_diagnostic_not_a_lowering_panic() {
         let error = c
             .compile_sources(&[ProgramSource::String(source)])
             .expect_err("invalid C variadic header must diagnose");
+
         assert!(
             error.message.contains("variadic") && error.message.contains("last"),
             "{}",
@@ -35,6 +36,7 @@ fn c_procedure_types_reject_nonfinal_variadics() {
             "Bad :: #type (items: ..int, tail:int) #c_call; value:Bad; main :: () {}".into(),
         )])
         .expect_err("invalid C procedure type must diagnose");
+
     assert!(
         error.message.contains("variadic") && error.message.contains("last"),
         "{}",
@@ -45,6 +47,7 @@ fn c_procedure_types_reject_nonfinal_variadics() {
 #[test]
 fn module_type_arguments_do_not_bypass_c_variadic_header_validation() {
     let mut fs = VirtualFs::default();
+
     fs.insert(
         "/call-tests/modules/Calls/module.jai",
         "#module_parameters(Item:Type); broken :: (items: ..Item, tail:int) #c_call {}".as_bytes(),
@@ -54,12 +57,14 @@ fn module_type_arguments_do_not_bypass_c_variadic_header_validation() {
         "M :: #import \"Calls\"(Item=int); main :: () {M.broken(1,tail=2);}".as_bytes(),
     );
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec!["/call-tests/modules".into()];
     let mut c = Compiler::new(options, Rc::new(fs));
     let error = c
         .compile_program(std::path::Path::new("/call-tests/main.jai"))
         .expect_err("invalid imported C signature must diagnose");
+
     assert!(
         error.message.contains("variadic") && error.message.contains("last"),
         "{}",
@@ -75,14 +80,17 @@ fn valid_c_varargs_and_baked_type_packs_are_distinct_from_jai_runtime_packs() {
     main :: () { foreign_call(1,2,3); value:=identity(int,value=4); }
     ";
     let mut fs = VirtualFs::default();
+
     fs.insert(
         "/call-tests/prelude/module.jai",
         bootstrap::BOOTSTRAP.as_bytes(),
     );
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/call-tests/prelude/module.jai".into());
     let mut c = Compiler::new(options, Rc::new(fs));
+
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", error.render(&c.src.sources));
     }
@@ -103,6 +111,7 @@ fn ordinary_variadic_with_named_tail_and_valid_overloads_still_typechecks() {
     main :: () {}
     ";
     let mut c = compiler();
+
     if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", error.render(&c.src.sources));
     }
@@ -118,6 +127,7 @@ fn a_multi_value_call_result_is_not_spread_over_several_parameters() {
     let error = c
         .compile_sources(&[ProgramSource::String(source.into())])
         .expect_err("`add(two())` passes one argument");
+
     assert!(
         error.message.contains("argument"),
         "{}",

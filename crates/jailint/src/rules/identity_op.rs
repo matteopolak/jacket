@@ -29,6 +29,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, chain| {
             let Some(e) = n.expr() else {
                 return true;
@@ -40,6 +41,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             };
             let types = &cx.compiler.ty.types;
+
             if !cx.ty(kept).is_some_and(|t| types.is_integer(t))
                 || cx.constant(kept)
                 || cx.ty(e) != cx.ty(kept)
@@ -47,12 +49,16 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 return true;
             }
+
             let mut kept_text = cx.whole_src(kept).trim().to_string();
+
             // `(a + b + 0) * c`: the parentheses replaced still group the kept operand.
             if e.parenthesized() && !kept.parenthesized() && !is_atom(kept) {
                 kept_text = format!("({kept_text})");
             }
+
             let written = cx.whole_src(e).trim();
+
             out.push(replacing(
                 e.span,
                 format!(
@@ -72,6 +78,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// The operand `op` leaves unchanged, when the other is its identity literal.
 fn identity<'e>(op: BinOp, a: &'e Expr, b: &'e Expr) -> Option<&'e Expr> {
     let (la, lb) = (int_literal(a), int_literal(b));
+
     match op {
         BinOp::Add | BinOp::BitOr | BinOp::BitXor if lb == Some(0) => Some(a),
         // `0 + x` reads as a base plus an offset, often next to `K + x`; it is left alone.

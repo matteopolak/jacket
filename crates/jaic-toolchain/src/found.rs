@@ -86,17 +86,21 @@ impl Found {
     pub fn describe(&self, lookup: &Lookup) -> String {
         let mut text = self.detail.clone().unwrap_or_else(|| {
             let mut text = tilde(&self.program);
+
             if let Some(version) = self.version(lookup) {
                 text.push(' ');
                 text.push_str(&version);
             }
+
             text
         });
         // What a cached tool says about itself already says where it came from.
         let cached_detail = self.detail.is_some() && self.origin == Origin::Cache;
+
         if let Some(label) = self.origin.label().filter(|_| !cached_detail) {
             text.push_str(&format!(" ({label})"));
         }
+
         text
     }
 
@@ -112,6 +116,7 @@ impl Found {
 /// `path` with the home folder written `~`, for the screen only.
 pub fn tilde(path: &std::path::Path) -> String {
     let shown = path.display().to_string();
+
     match jacket_config::env::HOME.os().map(PathBuf::from) {
         Some(home) if !home.as_os_str().is_empty() && path.starts_with(&home) => {
             format!("~{}", &shown[home.display().to_string().len()..])
@@ -139,9 +144,11 @@ impl Missing {
 impl std::fmt::Display for Missing {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.what)?;
+
         for note in &self.notes {
             write!(f, "\nnote: {note}")?;
         }
+
         Ok(())
     }
 }

@@ -77,12 +77,14 @@ impl<'a> Facts<'a> {
             descendant_writes: HashMap::default(),
             numeric_cache: RefCell::default(),
         };
+
         for (block, b) in body.blocks.iter().enumerate() {
             for (event, e) in b.events.iter().enumerate() {
                 let site = Site {
                     block,
                     event,
                 };
+
                 match *e {
                     Event::Parameter {
                         incoming,
@@ -96,6 +98,7 @@ impl<'a> Facts<'a> {
                         ..
                     } => {
                         let p = this.places.place(place, ty);
+
                         if value != place || compiler.ir_ty(ty).is_some() {
                             this.def(value, Def::Load(p, site));
                         }
@@ -108,7 +111,9 @@ impl<'a> Facts<'a> {
                         ..
                     } => {
                         let p = this.places.place(place, ty);
+
                         this.stores.entry(p).or_default().push((value, site));
+
                         if let Some(n) = constant {
                             this.def(value, Def::Integer(n as i64 as i128));
                         }
@@ -117,6 +122,7 @@ impl<'a> Facts<'a> {
                         index, ..
                     } => {
                         let p = this.places.place(index, TypeId::S64);
+
                         this.exposed.insert(p);
                         this.def(index, Def::LoopIndex);
                     }
@@ -142,9 +148,11 @@ impl<'a> Facts<'a> {
                         if let Some(n) = left_constant {
                             this.def(left, Def::Integer(n as i64 as i128));
                         }
+
                         if let Some(n) = right_constant {
                             this.def(right, Def::Integer(n as i64 as i128));
                         }
+
                         this.def(value, Def::Binary(op, left, right));
                     }
                     Event::Index {
@@ -156,6 +164,7 @@ impl<'a> Facts<'a> {
                         subscript,
                     } => {
                         let p = this.places.place(base, base_ty);
+
                         this.def(result, Def::Index(p, subscript, index, result_ty, site));
                     }
                     Event::Field {
@@ -168,6 +177,7 @@ impl<'a> Facts<'a> {
                         ..
                     } => {
                         let p = this.places.place(result, result_ty);
+
                         if descriptor && name.as_str() == "count" {
                             if let Some(parent) = this.places.descriptor_fields.get(&p) {
                                 this.counts.insert(p, *parent);
@@ -176,10 +186,12 @@ impl<'a> Facts<'a> {
                             if let Some(&(parent, _)) = this.places.data.get(&p) {
                                 let ty =
                                     compiler.ty.types.pointee(result_ty).unwrap_or(TypeId::VOID);
+
                                 this.data.insert(p, (parent, ty));
                             }
                         } else {
                             let _ = base_ty;
+
                             this.def(result, Def::Field(base));
                         }
                     }
@@ -189,12 +201,14 @@ impl<'a> Facts<'a> {
                         ..
                     } => {
                         let p = this.places.place(place, ty);
+
                         this.exposed.insert(p);
                     }
                     _ => {}
                 }
             }
         }
+
         for (&p, writes) in &this.stores {
             for ancestor in this.places.ancestors(p) {
                 this.descendant_writes
@@ -203,11 +217,13 @@ impl<'a> Facts<'a> {
                     .extend(writes.iter().map(|(_, site)| *site));
             }
         }
+
         for (p, ((value, _), path)) in this.places.paths.iter().enumerate() {
             if path.is_empty() {
                 this.roots.entry(*value).or_insert(p);
             }
         }
+
         this
     }
 
@@ -223,12 +239,14 @@ impl<'a> Facts<'a> {
         let [(value, site)] = self.stores.get(&p)?.as_slice() else {
             return None;
         };
+
         if !Self::before(*site, at)
             || self.exposed.contains(&p)
             || self.places.ancestors(p).any(|a| self.exposed.contains(&a))
         {
             return None;
         }
+
         if self.descendant_writes.get(&p).is_some_and(|writes| {
             writes
                 .iter()
@@ -236,6 +254,7 @@ impl<'a> Facts<'a> {
         }) {
             return None;
         }
+
         for ancestor in self.places.ancestors(p) {
             if self.stores.get(&ancestor).is_some_and(|writes| {
                 writes
@@ -245,6 +264,7 @@ impl<'a> Facts<'a> {
                 return None;
             }
         }
+
         Some(*value)
     }
 
@@ -252,9 +272,11 @@ impl<'a> Facts<'a> {
         if let Some(&cached) = self.numeric_cache.borrow().get(&(value, at)) {
             return cached;
         }
+
         if seen.len() >= 24 || !seen.insert(value) {
             return Number::Unknown;
         }
+
         let result = match self.defs.get(&value).map(Vec::as_slice) {
             Some(defs) if defs.iter().all(|d| matches!(d, Def::Integer(_))) => match defs.first() {
                 Some(Def::Integer(n)) => Number::Constant(*n),
@@ -274,6 +296,7 @@ impl<'a> Facts<'a> {
             Some([Def::Binary(op, a, b)]) => {
                 let a = self.number(*a, at, &mut seen.clone());
                 let b = self.number(*b, at, &mut seen.clone());
+
                 match (op, a, b) {
                     (jaic::ir::BinOp::Add, Number::Constant(a), Number::Constant(b)) => {
                         a.checked_add(b).map_or(Number::Unknown, Number::Constant)
@@ -292,6 +315,7 @@ impl<'a> Facts<'a> {
             }
             None => {
                 let p = self.roots.get(&value).copied();
+
                 if let Some(p) = p
                     && let Some(source) = self.single_store(p, at)
                 {
@@ -306,6 +330,7 @@ impl<'a> Facts<'a> {
             }
             _ => Number::Unknown,
         };
+
         seen.remove(&value);
         self.numeric_cache.borrow_mut().insert((value, at), result);
         result
@@ -348,6 +373,7 @@ impl<'a> Facts<'a> {
         if seen.len() >= 24 || !seen.insert(value) {
             return None;
         }
+
         let result = match self.defs.get(&value)?.as_slice() {
             [Def::Index(region, index, constant, element, site)] => Some(Position {
                 region: *region,
@@ -361,6 +387,7 @@ impl<'a> Facts<'a> {
             [Def::Field(base) | Def::Copy(base)] => self.position_inner(*base, seen),
             [Def::Offset(base, offset, stride)] => {
                 let mut p = self.position_inner(*base, seen)?;
+
                 p.selector = match (p.selector, offset, p.element == *stride) {
                     (Selector::Constant(n), Some(delta), true) => n
                         .checked_add(*delta)
@@ -384,6 +411,7 @@ impl<'a> Facts<'a> {
             }
             _ => None,
         };
+
         seen.remove(&value);
         result
     }

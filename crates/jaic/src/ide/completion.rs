@@ -20,6 +20,7 @@ impl Compiler {
         let depth = self.scope(scope).proc_depth;
         let mut modules = Vec::new();
         let mut current = Some(scope);
+
         while let Some(sid) = current {
             let _ = self.expand_pending(sid);
             let mut names: Vec<(Sym, EntityId)> = self
@@ -28,9 +29,12 @@ impl Compiler {
                 .iter()
                 .filter_map(|(n, ids)| Some((*n, self.ide_pick(ids.iter().copied())?)))
                 .collect();
+
             names.sort_by_key(|(n, _)| n.as_str());
+
             for (name, id) in names {
                 let e = self.entity(id);
+
                 if let EntityKind::Local {
                     depth: d, ..
                 } = e.kind
@@ -40,20 +44,25 @@ impl Compiler {
                         continue;
                     }
                 }
+
                 if seen.contains(&name) {
                     continue;
                 }
+
                 if let Some(n) = self.ide_entity_name(id) {
                     seen.insert(name);
                     out.push(n);
                 }
             }
+
             let imports = self.scope(sid).imports.len();
+
             for i in 0..imports {
                 if let Ok(Some(m)) = self.import_module(sid, i) {
                     modules.push((m, Some(self.scope(sid).imports[i].filter.clone())));
                 }
             }
+
             for entry in self.scope(sid).usings.clone() {
                 match entry {
                     scope::UsingEntry::Module(m, filter) => {
@@ -84,6 +93,7 @@ impl Compiler {
                     }
                 }
             }
+
             if self.scope(sid).kind == ScopeKind::Module {
                 modules.extend(
                     [self.ns.preload, self.ns.runtime_support]
@@ -92,19 +102,24 @@ impl Compiler {
                         .map(|m| (m, None)),
                 );
             }
+
             current = self.scope(sid).parent;
         }
+
         while let Some((m, filter)) = modules.pop() {
             let mut names = self.ide_module_exports(m, &mut HashSet::default());
+
             if let Some(filter) = filter {
                 Self::ide_filter_names(&mut names, &filter);
             }
+
             for n in names {
                 if seen.insert(Sym::intern(&n.name)) {
                     out.push(n);
                 }
             }
         }
+
         out
     }
 
@@ -128,6 +143,7 @@ impl Compiler {
         if !visiting.insert(m) {
             return Vec::new();
         }
+
         let scope = self.ns.modules[m.0 as usize].scope;
         let _ = self.expand_pending(scope);
         let mut ids: Vec<EntityId> = self
@@ -142,13 +158,17 @@ impl Compiler {
                 )
             })
             .collect();
+
         ids.sort_by_key(|&e| self.entity(e).name.as_str());
         let mut names = Vec::new();
+
         for id in ids {
             let entity = self.entity(id);
+
             if entity.file_private {
                 continue;
             }
+
             // Export aliases and explicit type signatures with their resolved kind, so
             // opening a consumer cannot change a procedure type from a constant to a type.
             // The ordinary declaration resolver preserves visibility and lazy procedure bodies.
@@ -170,43 +190,55 @@ impl Compiler {
             {
                 let _ = self.resolve_entity(id);
             }
+
             if let Some(name) = self.ide_entity_name(id) {
                 names.push(name);
             }
         }
+
         let imports = if qualified {
             &self.ns.modules[m.0 as usize].member_using_imports
         } else {
             &self.ns.modules[m.0 as usize].exported_using_imports
         }
         .clone();
+
         for index in imports {
             if let Ok(Some(inner)) = self.import_module(scope, index) {
                 let mut inherited = self.ide_module_exports(inner, visiting);
+
                 Self::ide_filter_names(&mut inherited, &self.scope(scope).imports[index].filter);
                 names.extend(inherited);
             }
         }
+
         for used in self.ns.modules[m.0 as usize].using_modules.clone() {
             if !qualified && !used.exported {
                 continue;
             }
+
             let mut inherited = self.ide_module_exports(used.module, visiting);
+
             if let Some(filter) = &used.filter {
                 Self::ide_filter_names(&mut inherited, filter);
             }
+
             names.extend(inherited);
         }
+
         let usings = if qualified {
             self.scope(scope).usings.clone()
         } else {
             self.ns.modules[m.0 as usize].exported_usings.clone()
         };
+
         for entry in usings {
             names.extend(self.ide_using_members_inner(&entry, visiting));
         }
+
         visiting.remove(&m);
         let mut seen = HashSet::default();
+
         names.retain(|n| seen.insert(n.name.clone()));
         names
     }
@@ -218,6 +250,7 @@ impl Compiler {
                     .iter()
                     .filter_map(|(new, old)| {
                         let mut n = names.iter().find(|n| n.name == old.name.as_str())?.clone();
+
                         n.name = new.name.to_string();
                         Some(n)
                     })
@@ -256,9 +289,11 @@ impl Compiler {
         if !self.ed.is_live() {
             return;
         }
+
         let (ast::UsingFilter::Only(names) | ast::UsingFilter::Except(names)) = filter else {
             return;
         };
+
         for &name in names {
             if self.ide_wants(name.span.file) {
                 self.ide_note_filter_target(entry, name, &mut HashSet::default());
@@ -281,9 +316,11 @@ impl Compiler {
                 let Some(target) = target else {
                     return;
                 };
+
                 if !visiting.insert((*module, target)) {
                     return;
                 }
+
                 match self.module_member_lookup(*module, target) {
                     Ok(Found::Entities(ids)) if !ids.is_empty() => {
                         if let Some(ide) = self.ed.facts_mut() {
@@ -348,13 +385,16 @@ impl Compiler {
             scope::UsingEntry::Type(ty) => self.ide_members(IdeReceiver::Type(*ty)),
             scope::UsingEntry::Module(m, filter) => {
                 let mut names = self.ide_module_exports(*m, visiting);
+
                 if let Some(filter) = filter {
                     Self::ide_filter_names(&mut names, filter);
                 }
+
                 names
             }
             scope::UsingEntry::Filtered(base, filter) => {
                 let mut names = self.ide_using_members_inner(base, visiting);
+
                 Self::ide_filter_names(&mut names, filter);
                 names
             }
@@ -376,11 +416,13 @@ impl Compiler {
     ) -> Option<IdeReceiver> {
         let (first, rest) = names.split_first()?;
         let mut from = scope;
+
         if let Some((file, offset)) = at {
             while self.scope(from).names.get(first).is_some_and(|ids| {
                 !ids.is_empty()
                     && ids.iter().all(|&e| {
                         let e = self.entity(e);
+
                         matches!(e.kind, EntityKind::Local { .. })
                             && e.span.file == file
                             && e.span.start > offset
@@ -390,6 +432,7 @@ impl Compiler {
                 from = parent;
             }
         }
+
         // In a struct's body a field is named by itself: `ship.model = "x";`.
         let body = matches!(
             self.scope(from).kind,
@@ -407,6 +450,7 @@ impl Compiler {
                 }
             },
         };
+
         for name in rest {
             recv = match recv {
                 IdeReceiver::Value(t) => {
@@ -427,6 +471,7 @@ impl Compiler {
                         .struct_scope_entities(self.ide_deref(t), *name)
                         .first()
                         .and_then(|&id| self.ide_entity_receiver(id));
+
                     match nested {
                         Some(r) => r,
                         // `Type.field.CONSTANT`: the field named through its struct.
@@ -444,6 +489,7 @@ impl Compiler {
                 },
             };
         }
+
         Some(recv)
     }
 
@@ -455,12 +501,15 @@ impl Compiler {
         name: Sym,
     ) -> Option<TypeId> {
         let mut current = Some(scope);
+
         while let Some(sid) = current {
             if let ScopeKind::Struct(t) = self.scope(sid).kind {
                 return self.ide_declared_field_type(t, name);
             }
+
             current = self.scope(sid).parent;
         }
+
         // A struct body is not a scope the editor records: the innermost struct whose text
         // holds the position.
         let (file, offset) = at?;
@@ -475,6 +524,7 @@ impl Compiler {
             })
             .filter(|(_, span)| span.file == file && span.start <= offset && offset <= span.end)
             .min_by_key(|(_, span)| span.end - span.start)?;
+
         self.ide_declared_field_type(inside.0, name)
     }
 
@@ -482,6 +532,7 @@ impl Compiler {
     /// `using` members.
     fn ide_declared_field_type(&mut self, t: TypeId, name: Sym) -> Option<TypeId> {
         let t = self.ide_deref(t);
+
         matches!(self.ty.types.kind(t), TypeKind::Struct(_)).then_some(())?;
         self.ide_member_type(t, name)
     }
@@ -525,6 +576,7 @@ impl Compiler {
                 _ => return t,
             };
         }
+
         t
     }
 
@@ -537,32 +589,40 @@ impl Compiler {
 
     fn ide_member_type(&mut self, t: TypeId, name: Sym) -> Option<TypeId> {
         let t = self.ide_deref(t);
+
         match self.ty.types.kind(t) {
             TypeKind::Struct(s) => {
                 let s = *s;
+
                 for f in self.ty.types.struct_info(s).fields.clone().iter() {
                     if f.name == Some(name) {
                         return Some(f.ty);
                     }
+
                     if f.using
                         && let Some(inner) = self.ide_member_type(f.ty, name)
                     {
                         return Some(inner);
                     }
                 }
+
                 let aliases = self.ty.member_aliases.get(&s).cloned().unwrap_or_default();
+
                 for alias in aliases {
                     let Some(old) = alias.target_name(name) else {
                         continue;
                     };
                     let mut target = t;
+
                     for step in &alias.path {
                         target = self.ide_member_type(target, *step)?;
                     }
+
                     if let Some(found) = self.ide_member_type(target, old) {
                         return Some(found);
                     }
                 }
+
                 None
             }
             TypeKind::String
@@ -589,23 +649,29 @@ impl Compiler {
     /// The members a `using,only(..) path;` statement of the struct `t` exposes.
     fn ide_alias_members(&mut self, t: TypeId, alias: &MemberAlias) -> Vec<IdeName> {
         let mut target = t;
+
         for step in &alias.path {
             let Some(next) = self.ide_declared_field_type(target, *step) else {
                 return Vec::new();
             };
+
             target = next;
         }
+
         let inner = self.ide_members(IdeReceiver::Value(target));
+
         if let ast::UsingFilter::Map(pairs) = &alias.filter {
             return pairs
                 .iter()
                 .filter_map(|(new, old)| {
                     let mut name = inner.iter().find(|n| n.name == old.name.as_str())?.clone();
+
                     name.name = new.name.to_string();
                     Some(name)
                 })
                 .collect();
         }
+
         inner
             .into_iter()
             .filter(|n| alias.target_name(Sym::intern(&n.name)).is_some())
@@ -615,31 +681,38 @@ impl Compiler {
     fn ide_using_constants(&mut self, s: StructId, seen: &mut Vec<StructId>) -> Vec<IdeName> {
         let mut out = Vec::new();
         let fields = self.ty.types.struct_info(s).fields.clone();
+
         for f in fields.iter().filter(|f| f.using) {
             let ty = self.ide_deref(f.ty);
             let TypeKind::Struct(inner) = *self.ty.types.kind(ty) else {
                 continue;
             };
+
             if seen.contains(&inner) {
                 continue;
             }
+
             seen.push(inner);
             out.extend(self.ide_struct_constants(ty));
             out.extend(self.ide_using_constants(inner, seen));
         }
+
         // `using name :: Base(T).{};` stores nothing, but its type's constants are the struct's.
         for base in self.using_constant_bases(s, false) {
             let ty = self.ide_deref(base);
             let TypeKind::Struct(inner) = *self.ty.types.kind(ty) else {
                 continue;
             };
+
             if seen.contains(&inner) {
                 continue;
             }
+
             seen.push(inner);
             out.extend(self.ide_struct_constants(ty));
             out.extend(self.ide_using_constants(inner, seen));
         }
+
         out
     }
 
@@ -650,6 +723,7 @@ impl Compiler {
             .filter(|&s| self.scope(s).kind == ScopeKind::Struct(t))
             .collect();
         let mut out = Vec::new();
+
         for s in scopes {
             let ids: Vec<EntityId> = self
                 .scope(s)
@@ -657,6 +731,7 @@ impl Compiler {
                 .values()
                 .filter_map(|v| v.first().copied())
                 .collect();
+
             for id in ids {
                 let constant = match &self.entity(id).kind {
                     EntityKind::Decl {
@@ -667,17 +742,20 @@ impl Compiler {
                     } => true,
                     _ => false,
                 };
+
                 if constant && let Some(n) = self.ide_entity_name(id) {
                     out.push(n);
                 }
             }
         }
+
         out
     }
 
     /// Members reachable with `.` on a value or type.
     pub fn ide_members(&mut self, recv: IdeReceiver) -> Vec<IdeName> {
         let mut out = Vec::new();
+
         match recv {
             IdeReceiver::Module(m) => {
                 return self.ide_module_names(m, &mut HashSet::default(), true);
@@ -689,10 +767,12 @@ impl Compiler {
                         TypeKind::Enum(strict) => *strict,
                         _ => *e,
                     });
+
                     if info.loose_of.is_none() {
                         // `Enum.loose` is the same enum with implicit conversions.
                         out.push(field("loose", "Type"));
                     }
+
                     // `using Other;` in an enum body: names reachable through this enum too.
                     let borrowed: Vec<(crate::intern::Sym, i128)> = self
                         .ty
@@ -703,6 +783,7 @@ impl Compiler {
                         .filter_map(|&(n, id)| Some((n, self.borrowed_enum_value(id)?)))
                         .collect();
                     let info = self.ty.types.enum_info(*e);
+
                     for (n, v) in info.members.iter().chain(borrowed.iter()) {
                         out.push(IdeName {
                             docs: None,
@@ -719,27 +800,36 @@ impl Compiler {
                         });
                     }
                 }
+
                 out.extend(self.ide_struct_constants(t));
+
                 // Constants of `using` members are reached through the type too, and a field
                 // named through its struct is its type (`Type.field.CONSTANT`).
                 if let TypeKind::Struct(s) = *self.ty.types.kind(t) {
                     let mut seen = vec![s];
+
                     out.extend(self.ide_using_constants(s, &mut seen));
                     let fields = self.ide_members(IdeReceiver::Value(t));
+
                     out.extend(fields.into_iter().filter(|n| n.kind == IdeKind::Field));
                 }
             }
             IdeReceiver::Value(t) => {
                 let t = self.ide_deref(t);
+
                 match self.ty.types.kind(t).clone() {
                     TypeKind::Struct(s) => {
                         // Constants and parameters of the struct are members of its values too.
                         out.extend(self.ide_struct_constants(t));
+
                         for base in self.using_constant_bases(s, false) {
                             let base = self.ide_deref(base);
+
                             out.extend(self.ide_struct_constants(base));
                         }
+
                         let fields = self.ty.types.struct_info(s).fields.clone();
+
                         for f in fields.iter() {
                             if let Some(n) = f.name {
                                 out.push(IdeName {
@@ -752,12 +842,15 @@ impl Compiler {
                                     ty: Some(f.ty),
                                 });
                             }
+
                             if f.using {
                                 out.extend(self.ide_members(IdeReceiver::Value(f.ty)));
                             }
                         }
+
                         // `using,only(a, b) field.inner;` names members of a nested field.
                         let aliases = self.ty.member_aliases.get(&s).cloned().unwrap_or_default();
+
                         for alias in aliases {
                             out.extend(self.ide_alias_members(t, &alias));
                         }
@@ -772,8 +865,10 @@ impl Compiler {
                         kind,
                     } => {
                         let elem = self.ty.types.name(elem);
+
                         out.push(field("count", "s64"));
                         out.push(field("data", &format!("*{elem}")));
+
                         if kind == ArrayKind::Resizable {
                             out.push(field("allocated", "s64"));
                             out.push(field("allocator", "Allocator"));
@@ -786,13 +881,16 @@ impl Compiler {
                     TypeKind::Enum(_) => {
                         // `loose` belongs to the enum type, not to its values.
                         let mut members = self.ide_members(IdeReceiver::Type(t));
+
                         members.retain(|n| n.kind != IdeKind::Field);
+
                         return members;
                     }
                     _ => {}
                 }
             }
         }
+
         out
     }
 }
@@ -824,16 +922,19 @@ pub(super) fn one_line(text: &str) -> String {
     let mut depth = 0usize;
     let mut space = false;
     let mut chars = text.trim().chars().peekable();
+
     while let Some(c) = chars.next() {
         match c {
             '/' if chars.peek() == Some(&'/') => {
                 while chars.next_if(|&c| c != '\n').is_some() {}
                 space = true;
+
                 continue;
             }
             '/' if chars.peek() == Some(&'*') => {
                 chars.next();
                 let mut open = 1;
+
                 while open > 0
                     && let Some(c) = chars.next()
                 {
@@ -843,7 +944,9 @@ pub(super) fn one_line(text: &str) -> String {
                         open -= 1;
                     }
                 }
+
                 space = true;
+
                 continue;
             }
             c if c.is_whitespace() => {
@@ -855,23 +958,30 @@ pub(super) fn one_line(text: &str) -> String {
             ';' if depth == 0 => break,
             _ => {}
         }
+
         let closer = matches!(c, ')' | ']' | '}');
+
         if closer && out.ends_with(',') {
             out.pop();
         }
+
         // `(` and `[` hug what they enclose.
         let hugged = out.ends_with(['(', '[']) || matches!(c, ')' | ']');
+
         if space && !out.is_empty() && !hugged {
             out.push(' ');
         }
+
         space = false;
         out.push(c);
+
         match c {
             '(' | '[' | '{' => depth += 1,
             ')' | ']' | '}' => depth = depth.saturating_sub(1),
             '"' => {
                 while let Some(c) = chars.next() {
                     out.push(c);
+
                     match c {
                         '\\' => out.extend(chars.next()),
                         '"' => break,
@@ -882,10 +992,13 @@ pub(super) fn one_line(text: &str) -> String {
             _ => {}
         }
     }
+
     if out.len() > LIMIT {
         let end = out.floor_char_boundary(LIMIT);
+
         out.truncate(end);
         out.push('…');
     }
+
     out
 }

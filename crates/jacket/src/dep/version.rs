@@ -25,6 +25,7 @@ pub fn versions(scheme: Scheme, prefix: Option<&str>, tags: &[RemoteTag]) -> Vec
             })
         })
         .collect();
+
     found.sort_by(|a, b| b.version.cmp(&a.version));
     found
 }
@@ -46,6 +47,7 @@ mod tests {
             .into_iter()
             .map(|t| t.tag)
             .collect();
+
         assert_eq!(names, ["v1.10.0", "1.10.0-rc.1", "v1.9.1", "v1.2.0"]);
     }
 }

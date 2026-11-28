@@ -72,6 +72,7 @@ pub fn import_paths(
     stdlib: &Path,
 ) -> Vec<PathBuf> {
     let mut seen = BTreeSet::new();
+
     std::iter::once(main_dir.join("modules"))
         .chain(configured.iter().cloned())
         .chain(extra.iter().cloned())
@@ -93,6 +94,7 @@ pub fn add_import_dirs(paths: &mut Vec<PathBuf>, dirs: &[PathBuf]) {
         .filter(|d| seen.insert(normalize(d)))
         .cloned()
         .collect();
+
     paths.splice(at..at, fresh);
 }
 
@@ -100,6 +102,7 @@ pub fn add_import_dirs(paths: &mut Vec<PathBuf>, dirs: &[PathBuf]) {
 /// no folder (a caller without a standard library passes one to [`import_paths`]).
 pub fn existing_dirs(fs: &dyn ProjectFs, dirs: &[PathBuf]) -> Vec<PathBuf> {
     let mut seen = BTreeSet::new();
+
     dirs.iter()
         .filter(|dir| !dir.as_os_str().is_empty())
         .map(|dir| fs.key(dir))
@@ -170,14 +173,17 @@ impl Root {
 /// import folder comes first among the extras, so that it finds its siblings.
 pub fn program_for(root: Root, inputs: &ProgramInputs) -> Program {
     let mut extra = Vec::new();
+
     if let Root::Module {
         dir, ..
     } = &root
     {
         extra.push(dir.clone());
     }
+
     extra.extend(inputs.extra.iter().cloned());
     let import_dirs = import_paths(&root.main_dir(), &inputs.configured, &extra, &inputs.stdlib);
+
     Program {
         root,
         import_dirs,
@@ -217,6 +223,7 @@ pub fn module_import(
         root.with_extension("")
     };
     let module = key(&module);
+
     for dir in import_dirs {
         if let Ok(rest) = module.strip_prefix(key(dir))
             && !rest.as_os_str().is_empty()
@@ -230,8 +237,10 @@ pub fn module_import(
             return Some((format!("#import \"{name}\";"), dir.clone()));
         }
     }
+
     declares_parameters.then(|| {
         let path = root.to_str()?;
+
         Some((
             format!("#import,file \"{path}\";"),
             root.parent()?.to_path_buf(),
@@ -268,6 +277,7 @@ pub struct DirectiveLink {
 /// while the text does not parse). `#import,string` is no link and is skipped.
 pub fn scan_directives(tokens: &[Token]) -> Vec<DirectiveLink> {
     let mut out = Vec::new();
+
     for (i, token) in tokens.iter().enumerate() {
         let Tok::Directive(name) = &token.tok else {
             continue;
@@ -280,6 +290,7 @@ pub fn scan_directives(tokens: &[Token]) -> Vec<DirectiveLink> {
         // `#import,file "x"`: comma-separated flags before the string.
         let mut at = i + 1;
         let mut flag = None;
+
         while let (Some(Tok::Punct(P::Comma)), Some(Tok::Ident(f))) = (
             tokens.get(at).map(|t| &t.tok),
             tokens.get(at + 1).map(|t| &t.tok),
@@ -287,6 +298,7 @@ pub fn scan_directives(tokens: &[Token]) -> Vec<DirectiveLink> {
             flag.get_or_insert(f.as_str().to_string());
             at += 2;
         }
+
         let Some(Token {
             tok: Tok::Str(bytes),
             span,
@@ -306,6 +318,7 @@ pub fn scan_directives(tokens: &[Token]) -> Vec<DirectiveLink> {
                 _ => ImportSource::Module(path.into()),
             })
         };
+
         out.push(DirectiveLink {
             directive: token.span.start as usize..span.end as usize,
             string: span.start as usize..span.end as usize,
@@ -313,6 +326,7 @@ pub fn scan_directives(tokens: &[Token]) -> Vec<DirectiveLink> {
             target: None,
         });
     }
+
     out
 }
 
@@ -323,6 +337,7 @@ pub fn directive_links(file: &Path, text: &str) -> Vec<DirectiveLink> {
         return Vec::new();
     };
     let mut links = scan_directives(&tokens);
+
     resolve_targets(&mut links, file.parent().unwrap_or(Path::new(".")));
     links
 }
@@ -362,6 +377,7 @@ pub trait ProjectFs {
         let Some(text) = self.read(file) else {
             return Vec::new();
         };
+
         directive_links(file, &text)
             .into_iter()
             .filter(|l| matches!(l.source, LinkSource::Load(_)))
@@ -391,12 +407,15 @@ pub trait ProjectFs {
     fn project_files(&self, folder: &Path) -> Vec<PathBuf> {
         let mut files = Vec::new();
         let mut pending = vec![(folder.to_path_buf(), 0usize)];
+
         while let Some((dir, depth)) = pending.pop() {
             for (name, is_dir) in self.list_dir(&dir) {
                 if files.len() >= MAX_TREE_FILES {
                     return files;
                 }
+
                 let path = dir.join(&name);
+
                 if is_dir {
                     if depth < MAX_TREE_DEPTH
                         && !name.starts_with('.')
@@ -409,6 +428,7 @@ pub trait ProjectFs {
                 }
             }
         }
+
         files
     }
 }
@@ -449,6 +469,7 @@ impl ProjectFs for DiskFs {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return Vec::new();
         };
+
         entries
             .flatten()
             .map(|e| {
@@ -466,20 +487,24 @@ impl ProjectFs for DiskFs {
 pub fn reachable_loads(fs: &dyn ProjectFs, root: &Path, limit: usize) -> BTreeSet<PathBuf> {
     let mut seen = BTreeSet::new();
     let mut pending = vec![fs.key(root)];
+
     while let Some(file) = pending.pop() {
         for target in fs.edges(&file) {
             let target = fs.key(&target);
+
             if seen.len() < limit && seen.insert(target.clone()) {
                 pending.push(target);
             }
         }
     }
+
     seen
 }
 
 /// `root` and every file its `#load`s reach (a program's files).
 pub fn load_closure(fs: &dyn ProjectFs, root: &Path, limit: usize) -> BTreeSet<PathBuf> {
     let mut seen = reachable_loads(fs, root, limit.saturating_sub(1));
+
     seen.insert(fs.key(root));
     seen
 }
@@ -635,6 +660,7 @@ pub fn resolve_root(
     {
         return module;
     }
+
     match enclosing_program(fs, file, &options.search, options.tie_break, cache) {
         Some(program) => Root::Program(program),
         None => Root::Program(file.to_path_buf()),
@@ -651,15 +677,18 @@ pub fn sets_program_parameters(text: &str) -> bool {
         |at: usize, p: P| matches!(tokens.get(at).map(|t| &t.tok), Some(Tok::Punct(q)) if *q == p);
     let group_end = |open: usize| {
         let mut depth = 0usize;
+
         (open..tokens.len()).find(|&at| {
             if is(at, P::LParen) {
                 depth += 1;
             } else if is(at, P::RParen) {
                 depth -= 1;
             }
+
             depth == 0
         })
     };
+
     scan_directives(&tokens).iter().any(|link| {
         let Some(string) = tokens
             .iter()
@@ -667,6 +696,7 @@ pub fn sets_program_parameters(text: &str) -> bool {
         else {
             return false;
         };
+
         is(string + 1, P::LParen)
             && group_end(string + 1)
                 .is_some_and(|end| is(end + 1, P::LParen) && !is(end + 2, P::RParen))
@@ -677,7 +707,9 @@ pub fn sets_program_parameters(text: &str) -> bool {
 /// import directory.
 pub fn module_of(fs: &dyn ProjectFs, file: &Path, import_dirs: &[PathBuf]) -> Option<Root> {
     let mut dirs: Vec<_> = import_dirs.iter().map(|dir| fs.key(dir)).collect();
+
     dirs.sort_by_key(|dir| std::cmp::Reverse(dir.components().count()));
+
     for dir in dirs {
         if let Ok(relative) = file.strip_prefix(&dir) {
             // Below an import folder, a `modules` folder is the folder of a program beside it,
@@ -688,6 +720,7 @@ pub fn module_of(fs: &dyn ProjectFs, file: &Path, import_dirs: &[PathBuf]) -> Op
             } else {
                 relative.with_extension("")
             };
+
             return Some(Root::Module {
                 entry: file.to_path_buf(),
                 name: crate::paths::module_key(&name),
@@ -695,7 +728,9 @@ pub fn module_of(fs: &dyn ProjectFs, file: &Path, import_dirs: &[PathBuf]) -> Op
             });
         }
     }
+
     let dir = file.parent()?;
+
     if crate::paths::is_module_entry(file) {
         return Some(Root::Module {
             entry: file.to_path_buf(),
@@ -703,8 +738,10 @@ pub fn module_of(fs: &dyn ProjectFs, file: &Path, import_dirs: &[PathBuf]) -> Op
             dir: dir.parent()?.to_path_buf(),
         });
     }
+
     let in_import_dir = import_dirs.iter().any(|d| fs.key(d) == dir)
         || dir.file_name().is_some_and(|n| n == "modules");
+
     in_import_dir.then(|| Root::Module {
         entry: file.to_path_buf(),
         name: file
@@ -726,16 +763,20 @@ pub fn enclosing_module(
 ) -> Option<Root> {
     for dir in file.parent()?.ancestors() {
         let entry = crate::paths::module_entry(dir);
+
         if !fs.is_file(&entry) {
             continue;
         }
+
         let entry = fs.key(&entry);
+
         return if cache.reached(fs, &entry).contains(file) {
             module_of(fs, &entry, import_dirs)
         } else {
             None
         };
     }
+
     None
 }
 
@@ -778,6 +819,7 @@ fn tree_loaders(
         return Vec::new();
     };
     let mut candidates = fs.project_files(folder);
+
     candidates.sort();
     candidates.retain(|c| c != file && cache.reached(fs, c).contains(file));
     candidates
@@ -794,6 +836,7 @@ fn nearby_loaders(
     let Some(parent) = file.parent() else {
         return loaders;
     };
+
     for dir in parent.ancestors().take(levels) {
         let mut candidates: Vec<PathBuf> = fs
             .list_dir(dir)
@@ -803,13 +846,16 @@ fn nearby_loaders(
             .map(|p| fs.key(&p))
             .filter(|p| p != file)
             .collect();
+
         candidates.sort();
+
         for c in candidates {
             if cache.reached(fs, &c).contains(file) {
                 loaders.push(c);
             }
         }
     }
+
     loaders
 }
 
@@ -844,6 +890,7 @@ fn gather_loaders(fs: &dyn ProjectFs, file: &Path, search: &LoaderSearch) -> Loa
     let Some(folder) = folder else {
         return LoaderGraph::default();
     };
+
     fs.loader_graph(&folder)
         .unwrap_or_else(|| Rc::new(build_loader_graph(fs, &fs.project_files(&folder))))
 }
@@ -854,11 +901,13 @@ pub fn build_loader_graph(
     files: &[PathBuf],
 ) -> BTreeMap<PathBuf, Vec<PathBuf>> {
     let mut loaders: BTreeMap<PathBuf, Vec<PathBuf>> = BTreeMap::new();
+
     for f in files {
         for target in fs.loads(f) {
             loaders.entry(fs.key(&target)).or_default().push(f.clone());
         }
     }
+
     loaders
 }
 
@@ -874,6 +923,7 @@ fn preference(candidate: &Path) -> (bool, usize, PathBuf) {
 fn climb(loaders: &BTreeMap<PathBuf, Vec<PathBuf>>, file: &Path) -> PathBuf {
     let mut root = file.to_path_buf();
     let mut visited = BTreeSet::from([root.clone()]);
+
     while let Some(found) = loaders.get(&root).and_then(|candidates| {
         candidates
             .iter()
@@ -884,6 +934,7 @@ fn climb(loaders: &BTreeMap<PathBuf, Vec<PathBuf>>, file: &Path) -> PathBuf {
         visited.insert(found.clone());
         root = found;
     }
+
     root
 }
 
@@ -913,17 +964,21 @@ mod tests {
         let base = std::env::temp_dir().join(format!("jaic-project-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&base);
         let dir = base.join("outer").join("root");
+
         for (path, text) in files {
             let path = dir.join(path);
+
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, text).unwrap();
         }
+
         DiskFs.key(&dir)
     }
 
     #[test]
     fn base_and_entries() {
         let folders = [PathBuf::from("/w"), PathBuf::from("/w/inner")];
+
         assert_eq!(
             project_base(None, &folders, Path::new("/w/inner/a.jai")),
             Some(PathBuf::from("/w/inner"))
@@ -939,6 +994,7 @@ mod tests {
     fn directives_with_flags_and_targets() {
         let text = "#import \"Basic\"; B :: #import,file \"b.jai\"; #load \"x/../y.jai\"; #import,string \"x :: 1;\"; #import,dir \"d\";";
         let found = directive_links(Path::new("/p/a.jai"), text);
+
         assert_eq!(found.len(), 4);
         assert!(
             matches!(&found[0].source, LinkSource::Import(ImportSource::Module(n)) if &**n == "Basic")
@@ -973,10 +1029,12 @@ mod tests {
             .iter()
             .map(|p| crate::paths::slashed(p.strip_prefix(&dir).unwrap()))
             .collect();
+
         assert_eq!(names, ["a.jai", "main.jai", "sub/b.jai"]);
         // A cycle loads the root back; without one, the root is not among what it reaches.
         assert!(reachable_loads(&DiskFs, &main, 100).contains(&main));
         let a = dir.join("a.jai");
+
         assert!(!reachable_loads(&DiskFs, &dir.join("other.jai"), 100).contains(&a));
         // The limit counts the root.
         assert_eq!(load_closure(&DiskFs, &main, 2).len(), 2);
@@ -1010,6 +1068,7 @@ mod tests {
         let options = RootOptions::linter(vec![dir.join("mods")]);
         let mut cache = LoadCache::default();
         let mut root = |path: &str| resolve_root(&DiskFs, &dir.join(path), &options, &mut cache);
+
         assert_eq!(
             root("prog/deep/b.jai"),
             Root::Program(dir.join("prog/main.jai"))
@@ -1047,6 +1106,7 @@ mod tests {
         );
         let linter = RootOptions::linter(Vec::new());
         let server = RootOptions::language_server(Some(dir.clone()));
+
         for file in [
             "deep/b.jai",
             "a.jai",
@@ -1057,6 +1117,7 @@ mod tests {
             let file = dir.join(file);
             let by_linter = resolve_root(&DiskFs, &file, &linter, &mut LoadCache::default());
             let by_server = resolve_root(&DiskFs, &file, &server, &mut LoadCache::default());
+
             assert_eq!(by_linter.path(), by_server.path(), "{}", file.display());
         }
     }
@@ -1080,13 +1141,16 @@ mod tests {
         };
         let linter = RootOptions::linter(Vec::new());
         let server = RootOptions::language_server(Some(dir.clone()));
+
         assert_eq!(resolve(&linter), Root::Program(dir.join("sub/zeta.jai")));
         assert_eq!(resolve(&server), Root::Program(dir.join("top.jai")));
         // The tie-break is an option of its own, whichever search finds the loaders.
         let mut mixed = server.clone();
+
         mixed.tie_break = TieBreak::Outermost;
         assert_eq!(resolve(&mixed), Root::Program(dir.join("sub/zeta.jai")));
         let mut mixed = linter.clone();
+
         mixed.tie_break = TieBreak::ModuleFirstShallowest;
         assert_eq!(resolve(&mixed), Root::Program(dir.join("top.jai")));
     }
@@ -1108,6 +1172,7 @@ mod import_path_tests {
             &paths(&["/x", "/y"]),
             Path::new("/std"),
         );
+
         assert_eq!(
             found,
             paths(&["/p/app/modules", "/p/vendor", "/x", "/y", "/std"])
@@ -1122,6 +1187,7 @@ mod import_path_tests {
             &paths(&["/p/x/../vendor", "/p/vendor", "/std"]),
             Path::new("/std"),
         );
+
         assert_eq!(
             found,
             paths(&["/p/modules", "/nowhere", "/p/x/../vendor", "/std"])
@@ -1131,6 +1197,7 @@ mod import_path_tests {
     #[test]
     fn parents_are_not_searched() {
         let found = import_paths(Path::new("/p/a/b"), &[], &[], Path::new("/std"));
+
         assert_eq!(found, paths(&["/p/a/b/modules", "/std"]));
     }
 
@@ -1138,6 +1205,7 @@ mod import_path_tests {
     fn added_folders_land_where_extra_would() {
         let base = import_paths(Path::new("/p"), &[], &paths(&["/e"]), Path::new("/std"));
         let mut added = base.clone();
+
         add_import_dirs(&mut added, &paths(&["/p/modules", "/v", "/e", "/w"]));
         assert_eq!(
             added,
@@ -1156,6 +1224,7 @@ mod import_path_tests {
         let dirs = paths(&["/m", "/std"]);
         let import =
             |root: &str, parameters| module_import(Path::new(root), &dirs, parameters, &key);
+
         assert_eq!(
             import("/std/Extensions/SIMD/module.jai", false),
             Some(("#import \"Extensions/SIMD\";".into(), PathBuf::from("/std")))
@@ -1187,11 +1256,13 @@ mod import_path_tests {
             name: "Tools".into(),
             dir: "/lib".into(),
         };
+
         assert_eq!(
             program_for(module, &inputs).import_dirs,
             paths(&["/lib/modules", "/p/vendor", "/lib", "/e", "/std"])
         );
         let program = program_for(Root::Program("/p/main.jai".into()), &inputs);
+
         assert_eq!(
             program.import_dirs,
             paths(&["/p/modules", "/p/vendor", "/e", "/std"])

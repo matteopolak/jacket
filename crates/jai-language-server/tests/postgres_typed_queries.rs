@@ -14,6 +14,7 @@ use std::time::{Duration, Instant};
 fn built_jaic() -> Option<PathBuf> {
     let name = format!("jaic{}", std::env::consts::EXE_SUFFIX);
     let exe = std::env::current_exe().ok()?;
+
     exe.ancestors()
         .skip(1)
         .map(|dir| dir.join(&name))
@@ -50,26 +51,32 @@ fn a_bad_column_is_reported_once_the_describe_answer_arrives() {
     };
     let dir = test_support::lsp::project("pg-typed-editor", &[("main.jai", PROGRAM)]);
     let mut environment = test_support::lsp::environment();
+
     environment.services = Some(Rc::new(EditorServices::new(Services::new(ServiceConfig {
         jaic: Some(jaic),
         ..ServiceConfig::default()
     }))));
     let mut s = Session::with_environment(Limits::default(), environment);
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let (uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
+
     // The first check does not wait for the database: no errors yet.
     assert_eq!(messages(&s, &uri), Vec::<String>::new());
     // Connecting and describing are separate answers: each arrival checks the file again, which
     // may ask the next question.
     let deadline = Instant::now() + Duration::from_secs(120);
     let mut found = Vec::new();
+
     while !found.iter().any(|m: &String| m.contains("42703")) {
         assert!(Instant::now() < deadline, "no 42703 error: {found:?}");
         std::thread::sleep(Duration::from_millis(50));
+
         if s.take_service_arrivals() {
             found = messages(&s, &uri);
         }
     }
+
     // Only the unknown column is underlined, not the rest of the statement.
     let error = s
         .diagnostics(&uri)
@@ -77,6 +84,7 @@ fn a_bad_column_is_reported_once_the_describe_answer_arrives() {
         .into_iter()
         .find(|d| d.message.contains("42703"))
         .unwrap();
+
     assert_eq!(
         (error.range.start, error.range.end),
         (
@@ -103,11 +111,13 @@ fn a_typed_row_hovers_as_its_columns() {
     };
     let dir = test_support::lsp::project("pg-typed-hover", &[("main.jai", ROW_PROGRAM)]);
     let mut environment = test_support::lsp::environment();
+
     environment.services = Some(Rc::new(EditorServices::new(Services::new(ServiceConfig {
         jaic: Some(jaic),
         ..ServiceConfig::default()
     }))));
     let mut s = Session::with_environment(Limits::default(), environment);
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let (uri, text) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
     let at = test_support::lsp::at(&text, "row.email");
@@ -119,13 +129,16 @@ fn a_typed_row_hovers_as_its_columns() {
     };
     let deadline = Instant::now() + Duration::from_secs(120);
     let mut shown = hover(&s);
+
     while !shown.contains("email: string;") {
         assert!(Instant::now() < deadline, "no row fields: {shown}");
         std::thread::sleep(Duration::from_millis(50));
+
         if s.take_service_arrivals() {
             shown = hover(&s);
         }
     }
+
     assert!(shown.contains("row: Row {"), "{shown}");
     assert!(shown.contains("/// users.id"), "{shown}");
     assert!(!shown.contains("Row(\""), "{shown}");

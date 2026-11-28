@@ -32,6 +32,7 @@ impl Need {
     /// A request read once; fails when the entry is not one a package may write.
     pub fn new(by: String, entry: Dependency) -> std::result::Result<Self, String> {
         let asked = Asked::of(&entry)?;
+
         Ok(Self {
             by,
             entry,
@@ -66,6 +67,7 @@ fn admits(reading: &Reading, need: &Need, tag: Option<&str>, commit: Option<&Com
 /// How every requirer reads tags: they must agree on the repository and the scheme.
 fn common(name: &str, needs: &[Need]) -> Result<Dependency> {
     let first = &needs[0];
+
     for other in &needs[1..] {
         if !source_of(&first.entry)?.same_repo(&source_of(&other.entry)?) {
             return Err(DepError::new(format!(
@@ -77,6 +79,7 @@ fn common(name: &str, needs: &[Need]) -> Result<Dependency> {
                 first.by, first.entry.git, other.by, other.entry.git
             )));
         }
+
         if first.entry.scheme != other.entry.scheme
             || first.entry.tag_prefix != other.entry.tag_prefix
         {
@@ -87,6 +90,7 @@ fn common(name: &str, needs: &[Need]) -> Result<Dependency> {
             .note("`scheme` and `tag-prefix` must agree"));
         }
     }
+
     Ok(Dependency {
         git: first.entry.git.clone(),
         scheme: first.entry.scheme.clone(),
@@ -98,9 +102,11 @@ fn common(name: &str, needs: &[Need]) -> Result<Dependency> {
 fn conflict(name: &str, url: &RepoUrl, needs: &[Need], tags: &[Tagged]) -> DepError {
     let mut lines: Vec<String> = needs.iter().map(Need::says).collect();
     let all: Vec<&str> = tags.iter().take(8).map(|t| t.tag.as_str()).collect();
+
     if !all.is_empty() {
         lines.push(format!("{url} has {}", all.join(", ")));
     }
+
     DepError::new(format!(
         "{name}: no version of {url} satisfies every package that needs it"
     ))
@@ -110,6 +116,7 @@ fn conflict(name: &str, url: &RepoUrl, needs: &[Need], tags: &[Tagged]) -> DepEr
 /// The versions of the remote `tags` every need admits, newest first.
 pub fn candidates(reading: &Reading, needs: &[Need], tags: &[RemoteTag]) -> Vec<Tagged> {
     let ranged = needs.iter().any(|n| matches!(n.asked, Asked::Range(_)));
+
     reading
         .versions(tags)
         .into_iter()
@@ -117,6 +124,7 @@ pub fn candidates(reading: &Reading, needs: &[Need], tags: &[RemoteTag]) -> Vec<
             let named = needs
                 .iter()
                 .any(|n| matches!(&n.asked, Asked::Tag(tag) if tag.as_str() == t.tag));
+
             (!t.version.is_prerelease() || ranged || named)
                 && needs
                     .iter()
@@ -130,15 +138,19 @@ pub fn candidates(reading: &Reading, needs: &[Need], tags: &[RemoteTag]) -> Vec<
 fn gather(ctx: &Ctx, project: &Project) -> Result<(BTreeMap<String, Vec<Need>>, bool)> {
     let mut needs: BTreeMap<String, Vec<Need>> = BTreeMap::new();
     let mut unread = false;
+
     for (by, entry) in &project.config.dependencies {
         let path = path_of(by, entry)?;
+
         if !ctx.git.initialised(&project.dir, &path)? {
             unread = true;
             continue;
         }
+
         let Some(manifest) = package::read(&path.under(&project.dir)) else {
             continue;
         };
+
         for (name, entry) in manifest.dependencies {
             if name != import_name(by)
                 && let Ok(need) = Need::new(by.clone(), entry)
@@ -147,6 +159,7 @@ fn gather(ctx: &Ctx, project: &Project) -> Result<(BTreeMap<String, Vec<Need>>, 
             }
         }
     }
+
     Ok((needs, unread))
 }
 
@@ -177,8 +190,10 @@ fn place(name: &str, group: &str, primary: bool) -> Result<(String, SubPath)> {
         let path = SubPath::parse(&format!("modules/{name}")).map_err(DepError::new)?;
         return Ok((name.to_string(), path));
     }
+
     let key = format!("{name}@{group}");
     let path = SubPath::parse(&format!("modules/.versions/{key}/{name}")).map_err(DepError::new)?;
+
     Ok((key, path))
 }
 
@@ -225,6 +240,7 @@ pub fn partition(
     let everything = || reading.versions(tags);
     let mut groups = Vec::new();
     let mut left: Vec<usize> = (0..needs.len()).collect();
+
     if let Some(own) = own {
         let (join, rest): (Vec<usize>, Vec<usize>) = left.iter().partition(|i| {
             admits(
@@ -234,6 +250,7 @@ pub fn partition(
                 own.commit.as_ref(),
             )
         });
+
         groups.push(Group {
             key: own.key.clone(),
             needs: join,
@@ -251,6 +268,7 @@ pub fn partition(
             .collect();
         let longest = revs.iter().max_by_key(|r| r.as_str().len()).expect("some");
         let others = needs.iter().any(|n| !matches!(n.asked, Asked::Rev(_)));
+
         if others
             || !revs
                 .iter()
@@ -258,6 +276,7 @@ pub fn partition(
         {
             return Err(conflict(name, url, needs, &everything()));
         }
+
         return Ok(vec![Group {
             key: "rev".into(),
             needs: left,
@@ -265,33 +284,42 @@ pub fn partition(
             fixed: false,
         }]);
     }
+
     let taken = own.map(|o| o.key.as_str());
     // What each requirer left admits, by group.
     let mut keys: BTreeMap<usize, Vec<String>> = BTreeMap::new();
+
     for &i in &left {
         let admitted = candidates(reading, std::slice::from_ref(&needs[i]), tags);
         let mut found: Vec<String> = Vec::new();
+
         for t in &admitted {
             let key = t.version.compat_key();
+
             if Some(key.as_str()) != taken && !found.contains(&key) {
                 found.push(key);
             }
         }
+
         if found.is_empty() {
             return Err(match (own, admitted.is_empty()) {
                 (Some(own), false) => pinned(name, own, &needs[i]),
                 _ => conflict(name, url, std::slice::from_ref(&needs[i]), &everything()),
             });
         }
+
         keys.insert(i, found);
     }
+
     while !left.is_empty() {
         let mut tally: BTreeMap<&String, usize> = BTreeMap::new();
+
         for i in &left {
             for key in &keys[i] {
                 *tally.entry(key).or_default() += 1;
             }
         }
+
         // Most requirers first, then the group already in use, then the one listed first
         // (every list is newest first, so that is the newest).
         let order: Vec<&String> = keys.values().flatten().collect();
@@ -313,9 +341,11 @@ pub fn partition(
             .into_iter()
             .filter(|t| t.version.compat_key() == best)
             .collect();
+
         if versions.is_empty() {
             return Err(conflict(name, url, &members, &everything()));
         }
+
         groups.push(Group {
             key: best,
             needs: join,
@@ -324,6 +354,7 @@ pub fn partition(
         });
         left = rest;
     }
+
     Ok(groups)
 }
 
@@ -333,6 +364,7 @@ pub(super) fn run(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<(
     if !enabled(project) {
         return Ok(());
     }
+
     // Whatever the rounds changed is put back when one fails.
     let before = Snapshot::take(ctx, project)?;
     settle(ctx, project, fresh).map_err(|error| before.restore(ctx, project, error))
@@ -351,6 +383,7 @@ fn settle(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<()> {
             return report_vendored(ctx, project);
         }
     }
+
     Err(DepError::new(
         "the shared dependencies did not settle after 64 rounds",
     ))
@@ -371,6 +404,7 @@ fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
     // Every remote is asked and every version chosen before the first copy changes.
     let mut installs: Vec<(String, Dependency, Install)> = Vec::new();
     let mut stale: Vec<String> = Vec::new();
+
     for (name, asked) in &needs {
         let known = commits(ctx, project)?;
         let common = common(name, asked)?;
@@ -387,6 +421,7 @@ fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
                 let tag = commit
                     .as_ref()
                     .and_then(|c| tag_of(ctx, project, entry, &path, c));
+
                 Some(Own {
                     key: key_of(&reading, tag.as_deref()),
                     tag,
@@ -400,9 +435,11 @@ fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
             .filter(|(_, e)| e.shared)
             .map(|(k, e)| ((*k).clone(), (*e).clone()))
             .collect();
+
         if !fresh && own.is_none() && settled(ctx, project, &reading, asked, &shared, &known)? {
             continue;
         }
+
         let tags = ctx.git.remote_tags(&url)?;
         let prefer = shared
             .iter()
@@ -432,17 +469,22 @@ fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
                 .expect("a name with requirers has a group"),
         };
         let mut wanted: Vec<String> = Vec::new();
+
         for (at, group) in groups.iter().enumerate() {
             let (key, path) = place(name, &group.key, at == primary)?;
+
             wanted.push(key.clone());
+
             if group.fixed {
                 continue;
             }
+
             let existing = shared
                 .iter()
                 .find(|(k, _)| *k == key)
                 .map(|(_, e)| e.clone());
             let members: Vec<Need> = group.needs.iter().map(|i| asked[*i].clone()).collect();
+
             if !fresh
                 && let Some(entry) = &existing
                 && entry
@@ -453,7 +495,9 @@ fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
             {
                 continue;
             }
+
             let pin = choose(ctx, project, name, &common, &members, group)?;
+
             if let Some(entry) = &existing
                 && known.get(&path_of(&key, entry)?).map(CommitId::as_str)
                     == Some(pin.commit.as_str())
@@ -461,6 +505,7 @@ fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
             {
                 continue;
             }
+
             installs.push((
                 name.clone(),
                 common.clone(),
@@ -473,6 +518,7 @@ fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
                 },
             ));
         }
+
         stale.extend(
             shared
                 .into_iter()
@@ -480,10 +526,13 @@ fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
                 .filter(|k| !wanted.contains(k)),
         );
     }
+
     let mut changed = !installs.is_empty();
+
     for (name, common, install) in installs {
         put(ctx, project, &name, &common, install)?;
     }
+
     // A copy no package asks for any more goes with the last one that did; with a package not
     // checked out, who asks is not known, so none goes.
     if !unread {
@@ -496,26 +545,32 @@ fn round(ctx: &mut Ctx, project: &mut Project, fresh: bool) -> Result<bool> {
                 .map(|(key, _)| key.clone()),
         );
     }
+
     stale.sort();
     stale.dedup();
+
     for key in stale {
         let Some(entry) = project.config.dependencies.get(&key).cloned() else {
             continue;
         };
         let path = path_of(&key, &entry)?;
+
         ctx.git.remove(&project.dir, &path)?;
         prune_empty_parents(project, &path);
         let (text, _) = manifest::remove_dependency(&project.text, &key);
+
         project.save(text)?;
         say(ctx, format!("removed shared {key} (no package needs it)"));
         changed = true;
     }
+
     Ok(changed)
 }
 
 /// Removes the folders `modules/.versions/<copy>` left empty by taking a copy out.
 fn prune_empty_parents(project: &Project, path: &SubPath) {
     let mut dir = path.under(&project.dir);
+
     while dir.pop() && dir != project.dir.join("modules") {
         if std::fs::remove_dir(&dir).is_err() {
             break;
@@ -534,19 +589,24 @@ fn settled(
     known: &BTreeMap<SubPath, CommitId>,
 ) -> Result<bool> {
     let mut seen: Vec<(String, Option<String>, Option<CommitId>)> = Vec::new();
+
     for (key, entry) in shared {
         let path = path_of(key, entry)?;
         let Some(commit) = known.get(&path) else {
             return Ok(false);
         };
+
         if !ctx.git.initialised(&project.dir, &path)?
             || !source_of(entry)?.same_repo(&source_of(&needs[0].entry)?)
         {
             return Ok(false);
         }
+
         let tag = tag_of(ctx, project, entry, &path, commit);
+
         seen.push((key.clone(), tag, Some(commit.clone())));
     }
+
     let serves = |n: &Need| {
         seen.iter()
             .any(|(_, tag, commit)| admits(reading, n, tag.as_deref(), commit.as_ref()))
@@ -556,6 +616,7 @@ fn settled(
             .iter()
             .any(|n| admits(reading, n, tag.as_deref(), commit.as_ref()))
     };
+
     Ok(needs.iter().all(serves) && seen.iter().all(|(_, tag, commit)| used(tag, commit)))
 }
 
@@ -570,6 +631,7 @@ fn tag_of(
     if let Some(tag) = &entry.tag {
         return Some(tag.clone());
     }
+
     resolved_tag(ctx.git, project, entry, path, commit)
 }
 
@@ -579,6 +641,7 @@ fn pinned(name: &str, own: &Own, need: &Need) -> DepError {
         .tag
         .clone()
         .unwrap_or_else(|| format!("rev {}", own.commit.as_ref().map_or("", CommitId::short)));
+
     DepError::new(format!(
         "{name} is pinned at {at} in jacket.toml, which not every package accepts"
     ))
@@ -600,6 +663,7 @@ fn choose(
 ) -> Result<Pin> {
     let url = url_of(project, common)?;
     let gate = Gate::new(project, name, common, &url)?;
+
     if group.key == "rev" {
         let rev = members
             .iter()
@@ -609,12 +673,14 @@ fn choose(
             })
             .max_by_key(|r| r.as_str().len())
             .expect("a rev group has a rev");
+
         if gate.active() {
             return Err(DepError::new(format!(
                 "{name} rev {rev}'s age can't be checked: a commit has no release"
             ))
             .note("a shared dependency pinned by commit needs `min-release-age = \"0\"` in its requirers' policy"));
         }
+
         return Ok(Pin {
             commit: Target::Rev(rev.clone()),
             tag: None,
@@ -622,6 +688,7 @@ fn choose(
             version: None,
         });
     }
+
     accept_newest(ctx, &gate, &group.versions, common, |t: &Tagged| Pin {
         commit: t.commit.clone().into(),
         tag: Some(t.tag.clone()),
@@ -655,6 +722,7 @@ fn put(
         }
         None => false,
     };
+
     if in_place {
         ctx.git.move_to(&project.dir, &path, &pin.commit)?;
     } else if let Some(old) = &existing {
@@ -672,9 +740,11 @@ fn put(
             "`jacket dep add <spec> --name {name}` replaces it with a pinned copy"
         )));
     }
+
     if !in_place {
         ctx.git.add(&project.dir, &url, &path, &pin.commit)?;
     }
+
     let entry = Dependency {
         tag: pin.tag.clone(),
         rev: pin.rev.clone(),
@@ -683,11 +753,13 @@ fn put(
         ..common.clone()
     };
     let text = manifest::set_dependency(&project.text, &key, &entry).map_err(DepError::new)?;
+
     project.save(text)?;
     let shown = pin
         .tag
         .clone()
         .unwrap_or_else(|| format!("rev {}", short(&pin.commit)));
+
     say(
         ctx,
         format!(
@@ -704,9 +776,11 @@ pub(super) fn covered(project: &Project, path: &SubPath) -> Result<Vec<SubPath>>
     if !enabled(project) {
         return Ok(Vec::new());
     }
+
     let Some(manifest) = package::read(&path.under(&project.dir)) else {
         return Ok(Vec::new());
     };
+
     manifest
         .dependencies
         .iter()
@@ -721,8 +795,10 @@ pub(super) fn checkout_nested(ctx: &mut Ctx, project: &Project) -> Result<()> {
     for (name, entry) in &project.config.dependencies {
         let path = path_of(name, entry)?;
         let skip = covered(project, &path)?;
+
         ctx.git.nested(&project.dir, &path, &skip)?;
     }
+
     Ok(())
 }
 
@@ -734,6 +810,7 @@ fn report_vendored(ctx: &mut Ctx, project: &Project) -> Result<()> {
             continue;
         };
         let nested = ctx.git.submodules(&path.under(&project.dir))?;
+
         for (name, wanted) in &manifest.dependencies {
             let inner = path_of(name, wanted)?;
             let vendored = path
@@ -742,6 +819,7 @@ fn report_vendored(ctx: &mut Ctx, project: &Project) -> Result<()> {
                 .join("module.jai")
                 .is_file()
                 && !nested.iter().any(|s| s.path == inner);
+
             if vendored && !copies_of(project, name).is_empty() {
                 let _ = writeln!(
                     ctx.err,
@@ -750,27 +828,36 @@ fn report_vendored(ctx: &mut Ctx, project: &Project) -> Result<()> {
             }
         }
     }
+
     Ok(())
 }
 
 /// What `dep check` adds under dedupe: every requirement is covered by a copy that satisfies it.
 pub(super) fn problems(ctx: &Ctx, project: &Project) -> Result<Vec<String>> {
     let mut out = Vec::new();
+
     if !enabled(project) {
         return Ok(out);
     }
+
     let known = commits(ctx, project)?;
+
     for (name, asked) in gather(ctx, project)?.0 {
         let copies = copies_of(project, &name);
+
         if copies.is_empty() {
             let by: Vec<&str> = asked.iter().map(|n| n.by.as_str()).collect();
+
             out.push(format!(
                 "{name} is needed by {} but is not a dependency: run `jacket dep update`",
                 by.join(", ")
             ));
+
             continue;
         }
+
         let mut held = Vec::new();
+
         for (key, entry) in &copies {
             let reading = Reading::of(entry).map_err(|e| DepError::new(format!("{name}: {e}")))?;
             let path = path_of(key, entry)?;
@@ -778,8 +865,10 @@ pub(super) fn problems(ctx: &Ctx, project: &Project) -> Result<Vec<String>> {
             let tag = commit
                 .as_ref()
                 .and_then(|c| tag_of(ctx, project, entry, &path, c));
+
             held.push((reading, tag, commit));
         }
+
         for need in &asked {
             if !held.iter().any(|(reading, tag, commit)| {
                 admits(reading, need, tag.as_deref(), commit.as_ref())
@@ -792,6 +881,7 @@ pub(super) fn problems(ctx: &Ctx, project: &Project) -> Result<Vec<String>> {
                         })
                     })
                     .collect();
+
                 out.push(format!(
                     "{name} is at {}, but {}",
                     have.join(", "),
@@ -800,6 +890,7 @@ pub(super) fn problems(ctx: &Ctx, project: &Project) -> Result<Vec<String>> {
             }
         }
     }
+
     Ok(out)
 }
 
@@ -840,13 +931,16 @@ mod tests {
         let reading = Reading::default();
         let all = tags(&["v1.0.0", "v1.2.0", "v1.4.0", "v2.0.0", "v2.1.0-rc.1"]);
         let diamond = [need("a", Some("^1.2"), None), need("b", Some("<1.4"), None)];
+
         assert_eq!(names(candidates(&reading, &diamond, &all)), ["v1.2.0"]);
         let open = [need("a", Some(">=1.0"), None)];
+
         assert_eq!(
             names(candidates(&reading, &open, &all)),
             ["v2.0.0", "v1.4.0", "v1.2.0", "v1.0.0"]
         );
         let clash = [need("a", Some("^1"), None), need("b", Some("^2"), None)];
+
         assert!(candidates(&reading, &clash, &all).is_empty());
     }
 
@@ -855,8 +949,10 @@ mod tests {
         let reading = Reading::default();
         let all = tags(&["v1.0.0", "v1.2.0", "v2.0.0"]);
         let fits = [need("a", None, Some("v1.2.0")), need("b", Some("^1"), None)];
+
         assert_eq!(names(candidates(&reading, &fits, &all)), ["v1.2.0"]);
         let misses = [need("a", None, Some("v2.0.0")), need("b", Some("^1"), None)];
+
         assert!(candidates(&reading, &misses, &all).is_empty());
     }
 
@@ -865,23 +961,29 @@ mod tests {
         let reading = Reading::default();
         let all = tags(&["v1.0.0", "v2.0.0-rc.1"]);
         let any = [need("a", None, None)];
+
         assert_eq!(names(candidates(&reading, &any, &all)), ["v1.0.0"]);
         let named = [need("a", None, Some("v2.0.0-rc.1"))];
+
         assert_eq!(names(candidates(&reading, &named, &all)), ["v2.0.0-rc.1"]);
     }
 
     #[test]
     fn requirers_must_agree_on_the_repository_and_how_tags_read() {
         let mut other = need("b", None, None);
+
         other.entry.git = "y/q".into();
         let error = common("q", &[need("a", None, None), other]).unwrap_err();
+
         assert!(
             error.message.contains("different repositories"),
             "{error:?}"
         );
         let mut calendar = need("b", None, None);
+
         calendar.entry.scheme = Some("calendar".into());
         let error = common("q", &[need("a", None, None), calendar]).unwrap_err();
+
         assert!(
             error.message.contains("read its tags differently"),
             "{error:?}"
@@ -912,6 +1014,7 @@ mod tests {
             need("b", Some("^2"), None),
             need("c", Some("^1.1"), None),
         ];
+
         assert_eq!(
             split(&needs, &all, None).unwrap(),
             [("1".to_string(), vec![0, 2]), ("2".to_string(), vec![1])]
@@ -926,6 +1029,7 @@ mod tests {
             need("b", Some(">=1.0"), None),
             need("c", Some("^1.2"), None),
         ];
+
         assert_eq!(
             split(&needs, &all, None).unwrap(),
             [("1".to_string(), vec![0, 1, 2])]
@@ -941,6 +1045,7 @@ mod tests {
             .into_iter()
             .map(|(k, _)| k)
             .collect();
+
         assert_eq!(keys.len(), 2);
         assert!(keys.contains(&"0.1".to_string()) && keys.contains(&"0.2".to_string()));
     }
@@ -953,6 +1058,7 @@ mod tests {
             need("b", Some(">=1.2"), None),
         ];
         let error = split(&needs, &all, None).unwrap_err();
+
         assert!(error.message.contains("no version"), "{error:?}");
     }
 
@@ -965,12 +1071,14 @@ mod tests {
             commit: Some(CommitId::numbered(1)),
         };
         let needs = [need("a", Some("^1.0"), None), need("b", Some("^2"), None)];
+
         assert_eq!(
             split(&needs, &all, Some(&own)).unwrap(),
             [("1".to_string(), vec![0]), ("2".to_string(), vec![1])]
         );
         let needs = [need("a", Some("^1.3"), None)];
         let error = split(&needs, &all, Some(&own)).unwrap_err();
+
         assert!(error.message.contains("pinned at v1.2.0"), "{error:?}");
     }
 }

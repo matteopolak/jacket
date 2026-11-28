@@ -66,6 +66,7 @@ mod timings {
     /// What the build status line calls `phase`.
     fn progress_phase(phase: &str) -> Option<jaic::progress::Phase> {
         use jaic::progress::Phase;
+
         match phase {
             "front end" | "workspaces" => Some(Phase::Checking),
             "prepare output" | "codegen" => Some(Phase::Generating),
@@ -78,13 +79,16 @@ mod timings {
     /// Run `f`, adding its wall time to `phase`, and show `phase` on the build status line.
     pub fn time<T>(phase: &'static str, f: impl FnOnce() -> T) -> T {
         let _shown = progress_phase(phase).map(jaic::progress::enter);
+
         if !ENABLED.load(Ordering::Relaxed) {
             return f();
         }
+
         let (start, before) = (Instant::now(), tally());
         let result = f();
         let (elapsed, allocated) = (start.elapsed(), tally().since(before));
         let mut phases = PHASES.lock().unwrap();
+
         match phases.iter_mut().find(|p| p.name == phase) {
             Some(p) => {
                 p.time += elapsed;
@@ -99,6 +103,7 @@ mod timings {
                 allocated,
             }),
         }
+
         result
     }
 
@@ -110,7 +115,9 @@ mod timings {
         if !ENABLED.load(Ordering::Relaxed) {
             return;
         }
+
         let phases = PHASES.lock().unwrap();
+
         for p in phases.iter() {
             eprintln!(
                 "jaic-timing: {} {:.6} {}",
@@ -119,8 +126,11 @@ mod timings {
                 p.calls
             );
         }
+
         let (interp, calls) = jaic::interp::compile_time_spent();
+
         eprintln!("jaic-timing: interp {:.6} {calls}", interp.as_secs_f64());
+
         for p in phases.iter() {
             eprintln!(
                 "jaic-alloc: {} {} {}",
@@ -156,7 +166,9 @@ fn main() -> ExitCode {
     let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
     // Colour and layout first, so even command-line mistakes use them.
     let color = color_choice(&args);
+
     jaic::render::set_style(jaic::render::detect(color));
+
     if let Err(message) = jaic::memory_limit::arm_from_env() {
         eprint!(
             "{}",
@@ -164,6 +176,7 @@ fn main() -> ExitCode {
         );
         return ExitCode::from(2);
     }
+
     let cli = match parse(&args) {
         Ok(Request::Compile(cli)) => *cli,
         Ok(Request::Help) => {
@@ -180,11 +193,14 @@ fn main() -> ExitCode {
         }
         Ok(Request::Stdlib) => {
             let stdlib = jaic::paths::default_stdlib_dir();
+
             if let Some(message) = jaic::missing_stdlib(&stdlib) {
                 parse::print_error(&message);
                 return ExitCode::from(1);
             }
+
             println!("{}", stdlib.display());
+
             return ExitCode::SUCCESS;
         }
         Ok(Request::DocComments(dir, import_dirs)) => {
@@ -193,7 +209,9 @@ fn main() -> ExitCode {
                 &jaic::paths::default_stdlib_dir(),
                 &import_dirs,
             );
+
             print!("{}", jaic::doc_comments::records(&docs));
+
             return ExitCode::SUCCESS;
         }
         Ok(Request::DocGaps(dir, import_dirs)) => {
@@ -202,7 +220,9 @@ fn main() -> ExitCode {
                 &jaic::paths::default_stdlib_dir(),
                 &import_dirs,
             );
+
             print!("{}", jaic::doc_comments::gap_records(&gaps));
+
             return ExitCode::SUCCESS;
         }
         Ok(Request::DocModel(dir, import_dirs)) => {
@@ -224,17 +244,21 @@ fn main() -> ExitCode {
                 os.unwrap_or(host_os),
                 cpu.unwrap_or(host_cpu),
             );
+
             print!("{}", jaic::procedures::records(&found));
+
             return ExitCode::SUCCESS;
         }
         Err(error) => return report_cli_error(error),
     };
+
     if cli.msvc_format {
         jaic::render::set_style(jaic::render::Style {
             layout: jaic::render::Layout::Msvc,
             color: false,
         });
     }
+
     jaic_toolchain::overrides::set_flags(
         cli.linker.as_deref(),
         cli.sysroot.as_deref(),
@@ -253,6 +277,7 @@ fn main() -> ExitCode {
         let worker = std::thread::Builder::new()
             .stack_size(1 << 30)
             .spawn(move || run(cli));
+
         match worker.map(std::thread::JoinHandle::join) {
             Ok(Ok(code)) => code,
             _ => ExitCode::from(101),
@@ -264,6 +289,7 @@ fn main() -> ExitCode {
 /// Rust's bare panic message. The exit status stays 101.
 fn install_panic_hook() {
     let default = std::panic::take_hook();
+
     std::panic::set_hook(Box::new(move |info| {
         let message = info
             .payload()
@@ -284,7 +310,9 @@ fn install_panic_hook() {
             "please report it at {}/issues with the program that triggers it; set RUST_BACKTRACE=1 for a backtrace",
             env!("CARGO_PKG_REPOSITORY")
         ));
+
         eprint!("{}", report.render());
+
         if jacket_config::env::RUST_BACKTRACE.os().is_some() {
             default(info);
         }
@@ -312,9 +340,11 @@ mod tests {
 
     fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {
         let mut argv = vec![OsString::from("main.jai")];
+
         argv.extend(args.iter().map(OsString::from));
         // Unfinished: `finish` checks the target against the real host, not this one.
         let cli = Cli::parse(&argv).unwrap_or_else(|_| panic!("invalid command line {argv:?}"));
+
         cli.build_target_from(host_os, host_cpu)
             .expect("a target")
             .map(|target| target.to_string())
@@ -355,6 +385,7 @@ mod tests {
         let Ok(Request::Compile(c)) = parse(&argv) else {
             panic!("rejected {argv:?}");
         };
+
         assert_eq!(c.link_args[0].as_bytes(), b"-L/lib/\xff");
         assert_eq!(c.link_args[1].as_bytes(), b"/x/\xfe.a");
         assert_eq!(c.sysroot.unwrap().as_os_str().as_bytes(), b"/root/\xfd");
@@ -362,6 +393,7 @@ mod tests {
         let Err(error) = parse(&[bytes(b"\xff.jai")]) else {
             panic!("a file name that is not UTF-8 was accepted");
         };
+
         assert!(
             error.message.contains("not valid UTF-8"),
             "{}",
@@ -374,6 +406,7 @@ mod tests {
         assert!(cli(&["a.jai"]).mode == Mode::Build);
         assert!(cli(&["a.jai", "-check"]).mode == Mode::Check);
         let interp = cli(&["-interp", "a.jai", "-no_dce"]);
+
         assert!(interp.mode == Mode::Interp);
         assert_eq!(interp.file, "a.jai");
         assert!(parse(&args(&["a.jai", "-check", "-interp"])).is_err());
@@ -383,9 +416,11 @@ mod tests {
     #[test]
     fn dashes_split_metaprogram_and_program_arguments() {
         let c = cli(&["a.jai", "-interp", "-", "m1", "m2", "--", "p1"]);
+
         assert_eq!(c.command_line, ["m1", "m2"]);
         assert_eq!(c.program_args, ["a.jai", "p1"]);
         let c = cli(&["a.jai", "-", "-release", "-x"]);
+
         assert_eq!(c.command_line, ["-release", "-x"]);
         assert!(
             error(&["a.jai", "--", "p"])
@@ -407,6 +442,7 @@ mod tests {
             "-",
             "meta",
         ]);
+
         assert_eq!(c.imports, [PathBuf::from("d")]);
         assert_eq!(c.plugins.len(), 2);
         assert_eq!(c.plugins[0].module, "One");
@@ -428,6 +464,7 @@ mod tests {
     #[test]
     fn unicode_file_names_are_not_attached_level_flags() {
         let parsed = cli(&["名.jai", "-check"]);
+
         assert_eq!(parsed.file, "名.jai");
         assert!(parsed.mode == Mode::Check);
     }
@@ -447,6 +484,7 @@ mod tests {
             let words = ["main.jai", option];
             let parsed =
                 jaic_cli_args::arguments::target_flags(&words.map(String::from)).unwrap_err();
+
             assert_eq!(parsed, error(&words).message, "{option}");
         }
     }
@@ -457,6 +495,7 @@ mod tests {
         let options =
             crate::run::compiler_options(&c, Path::new("/std"), Path::new("/p/app/a.jai"))
                 .unwrap_or_else(|_| panic!("options"));
+
         assert_eq!(
             options.import_paths,
             ["/p/app/modules", "/p/vendor", "/p/more", "/std"].map(PathBuf::from)
@@ -467,16 +506,20 @@ mod tests {
     fn no_check_bindings_reaches_only_the_standard_librarys_check() {
         let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let own = std::env::temp_dir().join(format!("jaic-check-{}", std::process::id()));
+
         std::fs::create_dir_all(own.join("modules/Check")).unwrap();
         std::fs::write(own.join("modules/Check/module.jai"), "").unwrap();
         let mut options = jaic::sema::Options::host();
+
         options.import_paths = vec![stdlib.clone()];
         let mut c = cli(&["a.jai", "+Check"]);
+
         disable_check_bindings(&mut c, &options, &stdlib);
         assert_eq!(c.plugins[0].import_parameters(), "(CHECK_BINDINGS=false)");
         // A module of that name found first elsewhere is somebody else's, not the library's.
         options.import_paths = vec![own.join("modules"), stdlib.clone()];
         let mut c = cli(&["a.jai", "+Check"]);
+
         disable_check_bindings(&mut c, &options, &stdlib);
         assert_eq!(c.plugins[0].import_parameters(), "");
         std::fs::remove_dir_all(own).unwrap();
@@ -485,12 +528,15 @@ mod tests {
     #[test]
     fn default_plugin_parameters_do_not_override_explicit_ones() {
         let mut bare = Plugin::parse("Check");
+
         bare.default_parameter("CHECK_BINDINGS", "false");
         assert_eq!(bare.import_parameters(), "(CHECK_BINDINGS=false)");
         let mut other = Plugin::parse("Check(A=1)");
+
         other.default_parameter("CHECK_BINDINGS", "false");
         assert_eq!(other.import_parameters(), "(A=1,CHECK_BINDINGS=false)");
         let mut set = Plugin::parse("Check(CHECK_BINDINGS=true)");
+
         set.default_parameter("CHECK_BINDINGS", "false");
         assert_eq!(set.import_parameters(), "(CHECK_BINDINGS=true)");
     }
@@ -506,6 +552,7 @@ mod tests {
                 .contains("flavor")
         );
         let c = cli(&["a.jai", "-exe", "build/app.exe", "-output_path", "out"]);
+
         assert_eq!(c.exe.as_deref(), Some("build/app.exe"));
         assert_eq!(c.output_path, Some(PathBuf::from("out")));
     }
@@ -514,6 +561,7 @@ mod tests {
     fn add_and_run_become_source_text() {
         let c = cli(&["a.jai", "-add", "x :: 1;", "-run", "f()", "-run", "g();"]);
         let text: Vec<String> = c.added.iter().map(Added::source).collect();
+
         assert_eq!(text[0], "x :: 1;");
         assert_eq!(text[1], "#run {\nf();\n};\n");
         assert_eq!(text[2], "#run {\ng();\n};\n");
@@ -522,6 +570,7 @@ mod tests {
     #[test]
     fn windows_cross_builds_default_to_x64_mingw() {
         let mac = (TargetOs::MacOS, TargetCpu::Arm64);
+
         assert_eq!(
             triple(&["-os", "windows"], mac.0, mac.1).as_deref(),
             Some("x86_64-pc-windows-gnu")
@@ -539,6 +588,7 @@ mod tests {
     fn a_target_that_does_not_parse_is_a_command_line_mistake() {
         let reason = Target::parse("nonsense-cpu-os").unwrap_err();
         let mistake = error(&["main.jai", "-target", "nonsense-cpu-os"]);
+
         assert!(reason.starts_with(&mistake.message), "{}", mistake.message);
         assert_eq!(
             cli(&["main.jai", "-target", "aarch64-unknown-linux-gnu"]).build_for,
@@ -557,11 +607,13 @@ mod tests {
             llvm_target: Some("x86_64-unknown-linux-musl".parse().unwrap()),
             ..BuildSettings::default()
         };
+
         assert_eq!(
             backend.workspace_target(&settings).unwrap(),
             Some("x86_64-unknown-linux-musl".parse().unwrap())
         );
         let explicit = native_backend(&cli(&["main.jai", "-target", "aarch64-unknown-linux-gnu"]));
+
         assert_eq!(
             explicit.workspace_target(&settings).unwrap(),
             Some("aarch64-unknown-linux-gnu".parse().unwrap())
@@ -571,6 +623,7 @@ mod tests {
         let os = jaic::target::os_name(host.os);
         let cpu = jaic::target::cpu_name(host.cpu);
         let explicit_host = native_backend(&cli(&["main.jai", "-os", os, "-cpu", cpu]));
+
         assert_eq!(
             explicit_host.workspace_target(&settings).unwrap(),
             explicit_host.target
@@ -594,12 +647,14 @@ mod tests {
     #[test]
     fn windows_hosts_build_for_themselves_or_the_other_cpu_with_msvc() {
         let arm = (TargetOs::Windows, TargetCpu::Arm64);
+
         assert_eq!(triple(&["-os", "windows"], arm.0, arm.1), None);
         assert_eq!(
             triple(&["-cpu", "x64"], arm.0, arm.1).as_deref(),
             Some("x86_64-pc-windows-msvc")
         );
         let x64 = (TargetOs::Windows, TargetCpu::X64);
+
         assert_eq!(
             triple(&["-cpu", "arm64"], x64.0, x64.1).as_deref(),
             Some("aarch64-pc-windows-msvc")

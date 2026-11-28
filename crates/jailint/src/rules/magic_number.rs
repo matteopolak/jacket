@@ -54,12 +54,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() || (!cx.magic_numbers.in_tests && in_tests(cx)) {
         return;
     }
+
     for p in &cx.procs {
         let text_bytes = text_bytes(cx, &p.body.stmts);
+
         walk(&p.body.stmts, &mut |n, ancestors| {
             if skipped(n, ancestors.last().copied()) {
                 return false;
             }
+
             let Some(e) = n.expr() else {
                 return true;
             };
@@ -69,9 +72,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some(place) = ancestors.last().and_then(|parent| place(*parent, e)) else {
                 return false;
             };
+
             if allowed(cx, value) {
                 return false;
             }
+
             // Compared with a byte: almost always a character code, and `#char` says which.
             if let Some(c) = byte_character(cx, ancestors, &text_bytes, e, value) {
                 out.push(replacing(
@@ -84,6 +89,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 ));
                 return false;
             }
+
             {
                 let help = match char_literal(value) {
                     Some(c) if equality(ancestors.last().copied()) => {
@@ -91,6 +97,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     }
                     _ => "name it with a constant (`NAME :: value;`), or add it to `[lint] magic_number_allow`".into(),
                 };
+
                 out.push(finding(
                     e.span,
                     format!("magic number `{}` in {place}", cx.src(e.span)),
@@ -114,8 +121,10 @@ fn skipped(n: Node, parent: Option<Node>) -> bool {
             ) {
                 return true;
             }
+
             // The type of a declaration or a cast.
             let is = |t: Option<&Expr>| t.is_some_and(|t| std::ptr::eq(t, e));
+
             match parent {
                 Some(Node::Stmt(s)) => matches!(&s.kind, S::Decl(d) if is(d.ty.as_ref())),
                 Some(Node::Expr(p)) => {
@@ -185,6 +194,7 @@ fn number(e: &Expr) -> Option<f64> {
 /// The number needs no name.
 fn allowed(cx: &Cx, value: f64) -> bool {
     let settings = &cx.magic_numbers;
+
     if ALWAYS
         .iter()
         .chain(&settings.allow)
@@ -192,12 +202,15 @@ fn allowed(cx: &Cx, value: f64) -> bool {
     {
         return true;
     }
+
     let magnitude = value.abs();
+
     if magnitude.fract() == 0.0 {
         return magnitude < settings.min
             || power_of_two(magnitude)
             || power_of_two(magnitude + 1.0);
     }
+
     // `0.5`, `0.25`, `1.5`, `0.125`: halves, quarters and eighths.
     (magnitude * 8.0).fract() == 0.0
 }
@@ -232,14 +245,17 @@ fn byte_character(
     // (`byte > 88`) it is more likely a binary field.
     let range_end =
         c.is_ascii_digit() || matches!(c, 'a' | 'z' | 'A' | 'Z' | 'f' | 'F' | ' ' | '~');
+
     match op {
         BinOp::Eq | BinOp::Ne => {}
         BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge if range_end => {}
         _ => return None,
     }
+
     if !from_text(cx, ancestors, text_bytes, other) {
         return None;
     }
+
     Some(literal)
 }
 
@@ -248,12 +264,14 @@ fn byte_character(
 /// fields, where a character would mislead.
 fn from_text(cx: &Cx, ancestors: &[Node], text_bytes: &[EntityId], e: &Expr) -> bool {
     let e = uncast(e);
+
     match &e.kind {
         E::Index(..) => string_index(cx, e),
         E::Ident(name) => {
             if cx.entities(e.span).iter().any(|v| text_bytes.contains(v)) {
                 return true;
             }
+
             ancestors.iter().rev().any(|n| {
                 matches!(n, Node::Stmt(s) if matches!(&s.kind, S::For(f)
                     if !f.by_pointer
@@ -270,6 +288,7 @@ fn string_index(cx: &Cx, e: &Expr) -> bool {
     let E::Index(base, _) = &e.kind else {
         return false;
     };
+
     match &base.kind {
         E::Member(inner, m) if m.name.as_str() == "data" => is_string(cx, inner),
         _ => is_string(cx, base),
@@ -281,12 +300,14 @@ fn is_string(cx: &Cx, e: &Expr) -> bool {
         return false;
     };
     let types = &cx.compiler.ty.types;
+
     matches!(types.kind(types.repr_struct(ty)), TypeKind::String)
 }
 
 /// Locals declared `c := text[i];` (under casts) in the procedure.
 fn text_bytes(cx: &Cx, stmts: &[Stmt]) -> Vec<EntityId> {
     let mut out = Vec::new();
+
     walk(stmts, &mut |n, _| {
         if let Some(S::Decl(d)) = n.stmt().map(|s| &s.kind)
             && d.kind == DeclKind::Var
@@ -297,6 +318,7 @@ fn text_bytes(cx: &Cx, stmts: &[Stmt]) -> Vec<EntityId> {
         {
             out.extend_from_slice(&cx.locals(name.span));
         }
+
         true
     });
     out
@@ -317,6 +339,7 @@ fn char_literal(value: f64) -> Option<String> {
     if value.fract() != 0.0 || !(0.0..127.0).contains(&value) {
         return None;
     }
+
     let c = value as u8 as char;
     let text = match c {
         '\t' => "\\t".to_string(),
@@ -326,12 +349,14 @@ fn char_literal(value: f64) -> Option<String> {
         ' '..='~' => c.to_string(),
         _ => return None,
     };
+
     Some(format!("{} \"{text}\"", jaic::lexicon::spelled::CHAR))
 }
 
 /// The file sits in a `tests` or `test` folder.
 fn in_tests(cx: &Cx) -> bool {
     let path = cx.compiler.src.sources.get(cx.file).path.to_string();
+
     path.split(['/', '\\'])
         .rev()
         .skip(1)

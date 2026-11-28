@@ -26,6 +26,7 @@ impl Compiler {
             Value::Float(x, _) => wide_float::from_f64(fmt, *x),
             _ => return None,
         };
+
         Some(Value::Bytes(Arc::new(Aggregate {
             bytes: bytes.to_vec(),
             relocs: Vec::new(),
@@ -38,6 +39,7 @@ impl Compiler {
             return None;
         };
         let bytes: wide_float::Bytes = agg.bytes.as_slice().try_into().ok()?;
+
         Some(wide_float::to_f64(fmt, &bytes))
     }
 
@@ -57,9 +59,11 @@ impl Compiler {
     ) -> Result<Option<Operand>> {
         let from = op.ty();
         let (from_wide, to_wide) = (self.ty.types.wide_float(from), self.ty.types.wide_float(to));
+
         if from_wide.is_none() && to_wide.is_none() {
             return Ok(None);
         }
+
         if let Operand::Const {
             value, ..
         } = &op
@@ -78,6 +82,7 @@ impl Compiler {
                 }
                 _ => None,
             };
+
             if let Some(value) = folded {
                 return Ok(Some(Operand::Const {
                     ty: to,
@@ -87,9 +92,11 @@ impl Compiler {
                 }));
             }
         }
+
         match (from_wide, to_wide) {
             (Some(a), Some(b)) if a == b => {
                 let (_, addr) = self.rvalue(f, op, span)?;
+
                 Ok(Some(Operand::Value {
                     ty: to,
                     val: addr,
@@ -101,6 +108,7 @@ impl Compiler {
                 let (_, v) = self.rvalue(f, op, span)?;
                 let dst = Self::wide_slot(f);
                 let (wop, v) = self.ty.wide_source(f, from, v);
+
                 f.b.intrinsic(Intrinsic::Wide(wop, fmt), vec![dst, v], &[]);
                 Ok(Some(Operand::Value {
                     ty: to,
@@ -110,6 +118,7 @@ impl Compiler {
             (Some(fmt), None) if self.ty.wide_peer(to) => {
                 let (_, addr) = self.rvalue(f, op, span)?;
                 let val = self.ty.wide_to_scalar(f, fmt, addr, to);
+
                 Ok(Some(Operand::Value {
                     ty: to,
                     val,
@@ -130,6 +139,7 @@ impl Compiler {
         to: TypeId,
     ) -> Option<u32> {
         let (from_wide, to_wide) = (self.ty.types.wide_float(from), self.ty.types.wide_float(to));
+
         match (from_wide, to_wide) {
             (Some(a), Some(b)) if a == b && self.ty.types.repr(from) == self.ty.types.repr(to) => {
                 Some(convert::EXACT)
@@ -169,17 +179,20 @@ impl Compiler {
             BinOp::Ge => Some(CmpOp::FGe),
             _ => None,
         };
+
         if let Some(cmp) = cmp {
             let r = f.b.intrinsic(
                 Intrinsic::Wide(WideOp::Cmp(cmp), fmt),
                 vec![x, y],
                 &[Ty::I8],
             );
+
             return Ok(Operand::Value {
                 ty: TypeId::BOOL,
                 val: r[0],
             });
         }
+
         let kind = match op {
             BinOp::Add => WideArith::Add,
             BinOp::Sub => WideArith::Sub,
@@ -198,6 +211,7 @@ impl Compiler {
             }
         };
         let dst = Self::wide_slot(f);
+
         f.b.intrinsic(
             Intrinsic::Wide(WideOp::Arith(kind), fmt),
             vec![dst, x, y],
@@ -217,6 +231,7 @@ impl Compiler {
         x: Val,
     ) -> Operand {
         let dst = Self::wide_slot(f);
+
         f.b.intrinsic(Intrinsic::Wide(WideOp::Neg, fmt), vec![dst, x], &[]);
         Operand::Value {
             ty,
@@ -247,6 +262,7 @@ impl Compiler {
             let Value::Bytes(agg) = v else {
                 return None;
             };
+
             agg.bytes.as_slice().try_into().ok()
         };
         let (a, b) = (bytes(lv)?, bytes(rv)?);
@@ -268,9 +284,11 @@ impl Compiler {
                     BinOp::Ge => matches!(order, Some(Greater | Equal)),
                     _ => return None,
                 };
+
                 return Some(Operand::bool(yes));
             }
         };
+
         Some(Operand::Const {
             ty,
             value: Value::Bytes(Arc::new(Aggregate {
@@ -294,12 +312,15 @@ impl TypeState {
     /// widened to what that conversion takes.
     fn wide_source(&mut self, f: &mut FnCtx, from: TypeId, v: Val) -> (WideOp, Val) {
         let r = self.types.repr(from);
+
         if r == TypeId::F32 {
             return (WideOp::FromF32, v);
         }
+
         if self.types.is_float(r) {
             return (WideOp::FromF64, v);
         }
+
         let (bits, signed) = self
             .types
             .int_info(r)
@@ -315,21 +336,25 @@ impl TypeState {
         } else {
             WideOp::FromU64
         };
+
         (op, wide)
     }
 
     fn wide_to_scalar(&mut self, f: &mut FnCtx, fmt: WideFloat, addr: Val, to: TypeId) -> Val {
         let r = self.types.repr(to);
+
         if r == TypeId::F32 {
             return f
                 .b
                 .intrinsic(Intrinsic::Wide(WideOp::ToF32, fmt), vec![addr], &[Ty::F32])[0];
         }
+
         if self.types.is_float(r) {
             return f
                 .b
                 .intrinsic(Intrinsic::Wide(WideOp::ToF64, fmt), vec![addr], &[Ty::F64])[0];
         }
+
         let (bits, signed) = self
             .types
             .int_info(r)
@@ -342,6 +367,7 @@ impl TypeState {
         let v =
             f.b.intrinsic(Intrinsic::Wide(op, fmt), vec![addr], &[Ty::I64])[0];
         let t = Ty::int(bits as u64 / 8);
+
         if t == Ty::I64 {
             v
         } else {

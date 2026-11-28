@@ -267,6 +267,7 @@ impl PosixAbi {
         if self.darwin {
             return DARWIN_OPEN;
         }
+
         match self.cpu {
             TargetCpu::X86 => linux_open(0x10000, 0x20000, 0x8000),
             TargetCpu::Arm => linux_open(0x4000, 0x8000, 0x20000),
@@ -301,6 +302,7 @@ impl PosixAbi {
             no_tty: has(bits.no_tty),
             sync: has(bits.sync),
         };
+
         (open, rest)
     }
 
@@ -320,6 +322,7 @@ impl PosixAbi {
                 0
             }
         };
+
         mode | flag(open.create, bits.create)
             | flag(open.exclusive, bits.exclusive)
             | flag(open.truncate, bits.truncate)
@@ -337,6 +340,7 @@ impl PosixAbi {
         if !self.darwin {
             return linux;
         }
+
         ERRORS
             .iter()
             .find(|&&(_, number, _)| number == linux)
@@ -349,6 +353,7 @@ impl PosixAbi {
         if !self.darwin {
             return code;
         }
+
         ERRORS
             .iter()
             .find(|&&(_, _, darwin)| darwin == code)
@@ -379,6 +384,7 @@ impl PosixAbi {
         if self.darwin {
             return None;
         }
+
         match (self.cpu, number) {
             (TargetCpu::X64, 4) => Some(StatSyscall::Stat),
             (TargetCpu::X64, 5) => Some(StatSyscall::Fstat),

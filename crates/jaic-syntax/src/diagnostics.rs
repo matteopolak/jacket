@@ -179,6 +179,7 @@ impl Diagnostic {
     ) -> Self {
         let text = text.into();
         let action = format!("Replace with `{text}`");
+
         self.with_suggestion(
             Suggestion::replace(title, span, text, Applicability::MaybeIncorrect)
                 .with_action(action),
@@ -196,6 +197,7 @@ impl Diagnostic {
         let label = |span: Span, message: Option<String>| {
             has_location(sources, span).then(|| {
                 let file = sources.get(span.file);
+
                 Label {
                     path: &file.path,
                     text: &file.text,
@@ -207,20 +209,24 @@ impl Diagnostic {
             })
         };
         let mut report = Report::new(self.code, self.message.clone());
+
         report.severity = self.severity;
         report.primary = label(self.span, self.label.as_deref().map(String::from));
+
         for (span, message) in self.secondary_labels() {
             match label(*span, Some(message.clone())) {
                 Some(label) => report = report.with_secondary_label(label),
                 None => report.notes.push(message.clone()),
             }
         }
+
         for (span, note) in &self.notes {
             match label(*span, Some(note.clone())) {
                 Some(l) => report.secondary.push(l),
                 None => report.notes.push(note.clone()),
             }
         }
+
         for suggestion in self.suggestions().iter().filter(|s| s.listed) {
             let edits: Vec<(usize, usize, String)> = suggestion
                 .replacements()
@@ -240,17 +246,20 @@ impl Diagnostic {
                     edits,
                     lines: Some(sources.get(f).lines()),
                 });
+
             report.help.push(Help {
                 message: suggestion.title.clone(),
                 fix,
             });
         }
+
         for help in &self.help {
             report.help.push(Help {
                 message: help.clone(),
                 fix: None,
             });
         }
+
         report
     }
 }

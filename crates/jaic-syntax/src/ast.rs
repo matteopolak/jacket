@@ -41,14 +41,17 @@ impl AstId {
     pub fn fresh() -> AstId {
         AST_IDS.with(|ids| {
             let (mut next, mut end) = ids.get();
+
             if next == end {
                 next = NEXT_AST_BLOCK.fetch_add(AST_BLOCK, Ordering::Relaxed);
                 end = next + AST_BLOCK;
+
                 // Under `JAIC_ID_SCRAMBLE`, each block starts after a seeded gap.
                 if let Some(seed) = crate::knobs::id_scramble() {
                     next += crate::knobs::scramble_gap(seed, u64::from(next), 64);
                 }
             }
+
             ids.set((next + 1, end));
             AstId(next)
         })
@@ -94,6 +97,7 @@ impl Notes {
 
     pub fn extend(&mut self, notes: impl IntoIterator<Item = Note>) {
         let mut all = self.0.take().map_or_else(Vec::new, |notes| *notes);
+
         all.extend(notes);
         *self = Notes::from(all);
     }

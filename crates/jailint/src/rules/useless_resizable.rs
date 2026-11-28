@@ -39,10 +39,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         statement_lists(&p.body.stmts, &mut |list| {
             for (i, s) in list.iter().enumerate() {
                 if let S::Decl(d) = &s.kind
@@ -75,11 +77,14 @@ fn examine(cx: &Cx, body: &[Stmt], list: &[Stmt], at: usize, d: &Decl) -> Option
     if !is_resizable(d) {
         return None;
     }
+
     let name = d.names[0];
     let declared = cx.locals(name.span);
+
     if declared.is_empty() {
         return None;
     }
+
     let entities: HashSet<_> = declared.iter().copied().collect();
     let is_it = |e: &Expr| {
         matches!(e.kind, E::Ident(_)) && cx.entities(e.span).iter().any(|x| entities.contains(x))
@@ -87,6 +92,7 @@ fn examine(cx: &Cx, body: &[Stmt], list: &[Stmt], at: usize, d: &Decl) -> Option
     // The adds that follow in the same list, and the identifiers inside them.
     let mut adds = 0usize;
     let mut allowed: HashSet<Span> = HashSet::default();
+
     for s in &list[at + 1..] {
         let S::Expr(call) = &s.kind else {
             continue;
@@ -105,6 +111,7 @@ fn examine(cx: &Cx, body: &[Stmt], list: &[Stmt], at: usize, d: &Decl) -> Option
         let E::Unary(UnOp::Star, target) = &first.value.kind else {
             continue;
         };
+
         if !is_it(target)
             || !calls_noted(cx, callee, "AddsToArray")
             || args
@@ -113,26 +120,34 @@ fn examine(cx: &Cx, body: &[Stmt], list: &[Stmt], at: usize, d: &Decl) -> Option
         {
             continue;
         }
+
         adds += 1;
         allowed.insert(target.span);
     }
+
     if adds == 0 {
         return None;
     }
+
     // Every other mention must be a harmless read or a free.
     let mut ok = true;
     let mut freed = false;
+
     walk(body, &mut |n, chain| {
         if !ok {
             return false;
         }
+
         let Node::Expr(e) = n else {
             return true;
         };
+
         if !is_it(e) || e.span == name.span || allowed.contains(&e.span) {
             return true;
         }
+
         let (mut at, mut up) = (e, chain.len());
+
         // `*name` as an argument is its address.
         if let Some(Node::Expr(parent)) = chain.last()
             && let E::Unary(UnOp::Star, inner) = &parent.kind
@@ -141,6 +156,7 @@ fn examine(cx: &Cx, body: &[Stmt], list: &[Stmt], at: usize, d: &Decl) -> Option
             at = parent;
             up -= 1;
         }
+
         let parent = up.checked_sub(1).map(|i| chain[i]);
         let fine = match parent {
             Some(Node::Expr(p)) => match &p.kind {
@@ -172,18 +188,22 @@ fn examine(cx: &Cx, body: &[Stmt], list: &[Stmt], at: usize, d: &Decl) -> Option
             },
             None => false,
         };
+
         ok &= fine;
         true
     });
+
     if !ok {
         return None;
     }
+
     let ty = cx.src(d.ty.as_ref()?.span);
     let elem = ty
         .trim_start_matches('[')
         .trim_start_matches("..")
         .trim_start_matches(']')
         .trim();
+
     Some(super::finding(
         name.span,
         format!(

@@ -38,8 +38,10 @@ fn works(s: &Session, uri: &DocumentUri, text: &str, what: &str) {
         .unwrap_or_else(|| panic!("{what}: no hover"))
         .contents
         .value;
+
     assert!(hover.contains("answer: s64"), "{what}: {hover}");
     let def = s.definition(uri, at_offset(text, "helper(21)", 0)).unwrap();
+
     assert!(format!("{def:?}").contains("main.jai"), "{what}: {def:?}");
 }
 
@@ -59,6 +61,7 @@ fn path_built_with_tprint_and_filepath() {
     );
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
+
     works(&s, &uri, &text, "tprint");
 }
 
@@ -78,6 +81,7 @@ fn path_kept_in_a_variable() {
     );
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
+
     works(&s, &uri, &text, "variable");
 }
 
@@ -102,14 +106,17 @@ fn files_added_in_a_loop() {
     );
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
+
     works(&s, &uri, &text, "loop");
     // The other added file belongs to the same program.
     let (extra, extra_text) = open(&mut s, &dir, "src/extra.jai");
+
     assert_eq!(check_errors(&s, &extra), Vec::<String>::new());
     let hover = s
         .hover(&extra, at_offset(&extra_text, "extra_value", 0))
         .unwrap()
         .expect("hover");
+
     assert!(hover.contents.value.contains("extra_value"), "{hover:?}");
 }
 
@@ -138,6 +145,7 @@ fn import_path_project(name: &str, vendor: &str) -> (TempDir, String) {
             ("src/main.jai", TOOLS_MAIN),
         ],
     );
+
     (dir, build)
 }
 
@@ -149,6 +157,7 @@ fn import_path_added_with_tprint_resolves_imports() {
     );
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
+
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     let hover = s
         .hover(&uri, at_offset(&text, "answer :=", 0))
@@ -156,11 +165,13 @@ fn import_path_added_with_tprint_resolves_imports() {
         .expect("hover")
         .contents
         .value;
+
     assert!(hover.contains("answer: s64"), "{hover}");
     // Goto on the module string finds the file in the computed folder.
     let found = s
         .definition(&uri, at_offset(&text, "\"Tools\"", 2))
         .unwrap();
+
     assert!(
         found.len() == 1 && found[0].uri.ends_with("/vendor/Tools.jai"),
         "{found:?}"
@@ -173,6 +184,7 @@ fn import_path_added_with_tprint_resolves_imports() {
         .into_iter()
         .map(|i| i.label)
         .collect();
+
     assert!(labels.iter().any(|l| l == "Tools"), "{labels:?}");
 }
 
@@ -184,10 +196,12 @@ fn import_path_kept_in_a_variable_resolves_imports() {
     );
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
+
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     let found = s
         .definition(&uri, at_offset(&text, "\"Tools\"", 2))
         .unwrap();
+
     assert!(
         found.len() == 1 && found[0].uri.ends_with("/vendor/Tools.jai"),
         "{found:?}"
@@ -200,6 +214,7 @@ fn a_metaprogram_that_fails_later_keeps_the_last_good_facts() {
         import_path_project("keeps", "    vendor := tprint(\"%vendor\", #filepath);\n");
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
+
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     // The build file now fails before it does anything (a file that does not exist).
     let broken = build.replace(
@@ -207,6 +222,7 @@ fn a_metaprogram_that_fails_later_keeps_the_last_good_facts() {
         "add_build_file(\"src/missing.jai\", w);",
     );
     let build_uri = DocumentUri::from_path(&dir.join("build.jai")).unwrap();
+
     s.open(build_uri, 2, broken).unwrap();
     // The folder the last good run added is still searched for module names.
     let labels: Vec<String> = s
@@ -216,10 +232,12 @@ fn a_metaprogram_that_fails_later_keeps_the_last_good_facts() {
         .into_iter()
         .map(|i| i.label)
         .collect();
+
     assert!(labels.iter().any(|l| l == "Tools"), "{labels:?}");
     let found = s
         .definition(&uri, at_offset(&text, "\"Tools\"", 2))
         .unwrap();
+
     assert!(
         found.len() == 1 && found[0].uri.ends_with("/vendor/Tools.jai"),
         "{found:?}"
@@ -253,6 +271,7 @@ fn the_run_cannot_write_files() {
     );
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
+
     works(&s, &uri, &text, "sandbox");
     assert!(!target.exists(), "the metaprogram wrote {target:?}");
 }
@@ -270,6 +289,7 @@ fn built_project(name: &str) -> TempDir {
         "",
         "    add_build_file(tprint(\"%/src/main.jai\", #filepath), w);\n",
     );
+
     project(
         name,
         &[
@@ -289,6 +309,7 @@ fn a_file_the_build_adds_is_not_noted_by_the_first_pull() {
     let mut s = session(&dir);
     let (uri, text) = open(&mut s, &dir, "src/main.jai");
     let first = codes(&s, &uri);
+
     assert!(!first.contains(&DiagnosticCode::NotInProgram), "{first:?}");
     works(&s, &uri, &text, "after the first pull");
 }
@@ -301,6 +322,7 @@ fn the_note_returns_when_an_edit_to_the_build_graph_is_reverted() {
     let mut s = session(&dir);
     let (main, text) = open(&mut s, &dir, "src/main.jai");
     let (loose, _) = open(&mut s, &dir, "src/loose.jai");
+
     assert!(!codes(&s, &main).contains(&DiagnosticCode::NotInProgram));
     assert!(codes(&s, &loose).contains(&DiagnosticCode::NotInProgram));
     let edit = |s: &mut Session, version, text: &str| {
@@ -309,8 +331,10 @@ fn the_note_returns_when_an_edit_to_the_build_graph_is_reverted() {
             range_length: None,
             text: text.to_string(),
         };
+
         s.change(&main, version, &[change]).unwrap();
     };
+
     edit(&mut s, 2, &format!("{text}\n// edited\n"));
     codes(&s, &loose);
     edit(&mut s, 3, &text);

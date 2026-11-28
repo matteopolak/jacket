@@ -21,6 +21,7 @@ impl Compiler {
                 .min_by_key(|(s, _)| s.end - s.start)
                 .map(|(_, id)| *id)
         });
+
         inner.or_else(|| {
             (0..self.ns.scopes.len())
                 .map(|i| ScopeId(i as u32))
@@ -49,6 +50,7 @@ impl Compiler {
             .filter(|(s, _)| s.end - s.start == smallest)
             .map(|(_, id)| *id)
             .collect();
+
         found.sort_by_key(|id| id.0);
         found.dedup();
         found
@@ -62,6 +64,7 @@ impl Compiler {
     pub(super) fn ide_prefer_own_parameters(&self, here: &mut Vec<&IdeRef>) {
         let baked =
             |r: &IdeRef| matches!(r.what, IdeWhat::Entity(e) if self.entity(e).baked_argument);
+
         if here.iter().any(|r| !baked(r)) {
             here.retain(|r| !baked(r));
         }
@@ -72,11 +75,13 @@ impl Compiler {
     fn ide_hover_ref(&self, file: FileId, offset: u32) -> Option<(IdeRef, bool)> {
         let facts = self.ed.facts()?;
         let mut here = facts.refs_at(file, offset);
+
         // A polymorph whose instances failed is also sketched with stand-in types: what an
         // instance recorded is what the program means.
         if here.iter().any(|r| !facts.sketched(r)) {
             here.retain(|r| !facts.sketched(r));
         }
+
         self.ide_prefer_own_parameters(&mut here);
         let r = here
             .iter()
@@ -88,6 +93,7 @@ impl Compiler {
                     || self.same_local(&o.what, &r.what)
                     || self.same_type(&o.what, &r.what))
         });
+
         Some((r.clone(), same))
     }
 
@@ -103,6 +109,7 @@ impl Compiler {
             .filter(|o| o.span == r.span && !facts.sketched(o) && self.same_local(&o.what, &r.what))
             .map(|o| self.ty.types.name(o.ty))
             .collect();
+
         names.sort();
         names.dedup();
         names
@@ -132,6 +139,7 @@ impl Compiler {
             return false;
         };
         let (x, y) = (self.entity(*x), self.entity(*y));
+
         matches!(x.kind, EntityKind::Local { .. })
             && matches!(y.kind, EntityKind::Local { .. })
             && x.span == y.span
@@ -140,22 +148,26 @@ impl Compiler {
 
     pub fn ide_hover(&mut self, file: FileId, offset: u32) -> Option<IdeHover> {
         self.ide_note_callee_at(file, offset);
+
         if let Some((span, ids)) = self.ide_filter_targets(file, offset) {
             let text = ids
                 .iter()
                 .map(|&id| self.ide_entity_hover(id, None))
                 .collect::<Vec<_>>()
                 .join("\n");
+
             return Some(IdeHover {
                 span,
                 text,
                 layout: None,
             });
         }
+
         let Some((r, same)) = self.ide_hover_ref(file, offset) else {
             if let Some(hover) = self.ide_field_hover(file, offset) {
                 return Some(hover);
             }
+
             return match self.ide_module_name_at(file, offset)? {
                 IdeModuleName::Alias(span, module) => Some(IdeHover {
                     span,
@@ -172,6 +184,7 @@ impl Compiler {
                         .map(|&id| self.ide_entity_hover(id, None))
                         .collect::<Vec<_>>()
                         .join("\n");
+
                     Some(IdeHover {
                         span,
                         text,
@@ -181,6 +194,7 @@ impl Compiler {
             };
         };
         let name = self.src.sources.snippet(r.span).to_string();
+
         // `Poly(args)`: the instance, not the polymorphic struct.
         if let IdeWhat::Entity(e) = r.what
             && matches!(
@@ -196,12 +210,14 @@ impl Compiler {
             } else {
                 None
             };
+
             return Some(IdeHover {
                 span: r.span,
                 text,
                 layout,
             });
         }
+
         let text = match &r.what {
             // A polymorph's parameter has a type per instance: each, in an order that does not
             // depend on which instance was checked first.
@@ -244,6 +260,7 @@ impl Compiler {
         } else {
             None
         };
+
         Some(IdeHover {
             span: r.span,
             text,
@@ -261,6 +278,7 @@ impl Compiler {
                     .collect(),
             );
         }
+
         let Some((r, _)) = self.ide_hover_ref(file, offset) else {
             let Some(site) = self.ed.facts().and_then(|ide| {
                 ide.fields
@@ -272,8 +290,10 @@ impl Compiler {
             };
             let f = &self.ty.types.struct_info(site.declaring).fields[site.field];
             let named = f.name.map(|n| (f.span, n.to_string()));
+
             return self.ide_narrow_decls(named.into_iter().collect());
         };
+
         // An alias with docs of its own shows them rather than those of what it names.
         if let IdeWhat::Entity(e) = &r.what {
             let span = self.entity(*e).span;
@@ -281,10 +301,12 @@ impl Compiler {
                 crate::docs::alias_target(&source.text, span.start as usize).is_some()
                     && crate::docs::declaration(&source.text, span.start as usize).is_some()
             });
+
             if own {
                 return vec![span];
             }
         }
+
         let procs: Vec<ProcId> = match &r.what {
             IdeWhat::Procs(ps) => ps.clone(),
             IdeWhat::Entity(e) => match self.entity(*e).kind {
@@ -306,10 +328,12 @@ impl Compiler {
             },
             _ => Vec::new(),
         };
+
         // Docs are read where the declaration is, generated text included.
         if procs.is_empty() {
             return self.ide_definition_in_sources(file, offset);
         }
+
         let spans = procs
             .iter()
             .map(|&p| (self.proc(p).span, self.proc(p).name.to_string()))
@@ -332,6 +356,7 @@ impl Compiler {
             let file = &self.src.sources.try_get(span.file)?.text;
             let rest = file.get(span.start as usize..)?;
             let text = rest[..rest.find([';', '\n', '}']).unwrap_or(rest.len())].trim_end();
+
             return Some(IdeHover {
                 span,
                 text: text.to_string(),
@@ -340,6 +365,7 @@ impl Compiler {
         };
         let f = &self.ty.types.struct_info(site.declaring).fields[site.field];
         let text = format!("{}: {}", f.name?, self.ty.types.name(f.ty));
+
         Some(IdeHover {
             span,
             text,
@@ -369,6 +395,7 @@ impl Compiler {
         {
             return None;
         }
+
         let size = self.ty.types.size_of(t);
         let padding = match self.ty.types.kind(t) {
             TypeKind::Struct(s) => {
@@ -380,20 +407,25 @@ impl Compiler {
                     .iter()
                     .map(|f| (f.offset, f.offset + self.ty.types.size_of(f.ty)))
                     .collect();
+
                 spans.sort_unstable();
                 let mut covered = 0;
                 let mut reached = 0;
+
                 for (start, end) in spans {
                     let start = start.max(reached);
+
                     if end > start {
                         covered += end - start;
                         reached = end;
                     }
                 }
+
                 size.saturating_sub(covered)
             }
             _ => 0,
         };
+
         Some(IdeLayout {
             offset: None,
             size,
@@ -434,9 +466,11 @@ impl Compiler {
             },
             _ => return None,
         };
+
         if !self.ide_aggregate(ty) {
             return None;
         }
+
         self.ide_type_layout(ty)
     }
 
@@ -457,15 +491,19 @@ impl Compiler {
     /// The field `name` of the value left of the `.` at `span`.
     fn ide_member_layout(&mut self, span: Span, name: Sym) -> Option<IdeLayout> {
         let mut ty = (*self.ed.facts()?.receivers.get(&span)?)?;
+
         while let Some(p) = self.ty.types.pointee(ty) {
             ty = p;
         }
+
         let TypeKind::Struct(s) = *self.ty.types.kind(self.ty.types.repr(ty)) else {
             return None;
         };
+
         if !self.ide_laid_out(ty) {
             return None;
         }
+
         let site = self.ide_find_field(s, name, 0, 0)?;
         Some(self.ide_field_layout(site))
     }
@@ -480,6 +518,7 @@ impl Compiler {
         depth: u32,
     ) -> Option<IdeFieldSite> {
         let fields = &self.ty.types.struct_info(s).fields;
+
         if let Some(at) = fields.iter().position(|f| f.name == Some(name)) {
             return Some(IdeFieldSite {
                 owner: s,
@@ -488,9 +527,11 @@ impl Compiler {
                 offset: base + fields[at].offset,
             });
         }
+
         if depth > 16 {
             return None;
         }
+
         fields.iter().filter(|f| f.using).find_map(|f| {
             let TypeKind::Struct(inner) = *self.ty.types.kind(self.ty.types.repr(f.ty)) else {
                 return None;
@@ -515,6 +556,7 @@ impl Compiler {
                 .unwrap_or(0);
             f.offset.saturating_sub(before)
         };
+
         IdeLayout {
             offset: Some(site.offset),
             size: self.ty.types.size_of(f.ty),

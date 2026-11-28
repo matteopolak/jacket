@@ -21,8 +21,10 @@ fn stderr(output: &Output) -> String {
 #[test]
 fn a_code_prints_its_summary_explanation_and_example() {
     let output = explain(&["cast-shift-precedence"]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stdout(&output);
+
     assert!(
         text.starts_with("cast-shift-precedence (warning, checks)\n"),
         "{text}"
@@ -40,6 +42,7 @@ fn a_code_prints_its_summary_explanation_and_example() {
 #[test]
 fn the_header_of_a_diagnostic_can_be_pasted_whole() {
     let output = explain(&["error[scope-file-name]"]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(stdout(&output).starts_with("scope-file-name (error, checker/scope)\n"));
 }
@@ -47,8 +50,10 @@ fn the_header_of_a_diagnostic_can_be_pasted_whole() {
 #[test]
 fn a_code_without_an_explanation_still_has_its_summary() {
     let output = explain(&["unknown-library"]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stdout(&output);
+
     assert!(
         text.starts_with("unknown-library (error, names)\n"),
         "{text}"
@@ -59,6 +64,7 @@ fn a_code_without_an_explanation_still_has_its_summary() {
 #[test]
 fn a_leniency_says_the_official_compiler_rejects_it() {
     let output = explain(&["declaration-hides-import"]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(stdout(&output).contains("the official Jai compiler rejects this"));
 }
@@ -66,8 +72,10 @@ fn a_leniency_says_the_official_compiler_rejects_it() {
 #[test]
 fn no_code_lists_them_grouped_by_area() {
     let output = explain(&[]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stdout(&output);
+
     assert!(text.contains("\nnames\n  "), "{text}");
     assert!(text.contains("\n  type-mismatch "), "{text}");
     assert!(
@@ -79,12 +87,14 @@ fn no_code_lists_them_grouped_by_area() {
 #[test]
 fn a_mistyped_code_suggests_the_nearest() {
     let output = explain(&["type-mismtach"]);
+
     assert_eq!(output.status.code(), Some(2));
     assert_eq!(
         stderr(&output),
         "jacket: error: no diagnostic code `type-mismtach`\nhelp: did you mean `type-mismatch`?\n"
     );
     let far = explain(&["zzzzzzzzzz"]);
+
     assert_eq!(far.status.code(), Some(2));
     assert!(
         stderr(&far).contains("help: `jacket explain` lists them all"),
@@ -98,6 +108,7 @@ fn a_mistyped_code_suggests_the_nearest() {
 fn every_lint_has_an_explanation_and_example() {
     for rule in jailint::RULES {
         let output = explain(&[rule.name]);
+
         assert!(
             output.status.success(),
             "{}: {}",
@@ -105,15 +116,19 @@ fn every_lint_has_an_explanation_and_example() {
             stderr(&output)
         );
         let text = stdout(&output);
+
         assert!(text.starts_with(rule.name), "{}: {text}", rule.name);
         assert!(text.contains("Example:"), "{}: {text}", rule.name);
         assert!(text.contains("```jai"), "{}: {text}", rule.name);
     }
+
     let output = explain(&["warning[pointer_lifetime]"]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(stdout(&output).contains("--lifetime-mode"));
     let output = explain(&[]);
     let text = stdout(&output);
+
     for rule in jailint::RULES {
         assert!(text.contains(rule.name), "missing {}", rule.name);
     }

@@ -41,6 +41,7 @@ impl FileSystem for CountingFs {
 
 fn compiler(source: &str) -> (Compiler, Rc<CountingFs>, jaic::sema::ScopeId, usize) {
     let fs = Rc::new(CountingFs::default());
+
     fs.insert("/discovery/main.jai", source);
     fs.insert(
         "/discovery/modules/Available/module.jai",
@@ -51,10 +52,12 @@ fn compiler(source: &str) -> (Compiler, Rc<CountingFs>, jaic::sema::ScopeId, usi
         "#module_parameters(ENABLED: bool); published :: ENABLED;",
     );
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.stack_trace = false;
     options.import_paths = vec!["/discovery/modules".into()];
     let mut c = Compiler::new(options, fs.clone());
+
     assert!(c.compile_program(Path::new("/discovery/main.jai")).is_err());
     let (scope, index) =
         c.ns.scopes
@@ -68,6 +71,7 @@ fn compiler(source: &str) -> (Compiler, Rc<CountingFs>, jaic::sema::ScopeId, usi
                 })
             })
             .unwrap();
+
     c.ed.record(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
         "/discovery/",
     )]));
@@ -83,24 +87,29 @@ fn unchanged_missing_import_reuses_discovery_and_keeps_real_errors() {
     let first = c.import_module(scope, index).unwrap_err();
     let first_detail = format!("{first:?}");
     let listings = fs.listings.get();
+
     assert!(
         listings > 0,
         "first discovery must really inspect the filesystem"
     );
+
     for _ in 0..32 {
         let error = c.import_module(scope, index).unwrap_err();
+
         assert_eq!(
             format!("{error:?}"),
             first_detail,
             "preserve spans, notes, fixes and help"
         );
     }
+
     assert_eq!(
         fs.listings.get(),
         listings,
         "unchanged failed import must not repeat filesystem discovery"
     );
     let errors = c.ide_check_all();
+
     assert!(
         errors.iter().any(|e| e.message.contains("Unavailable")),
         "{errors:?}"
@@ -118,6 +127,7 @@ fn unchanged_missing_import_reuses_discovery_and_keeps_real_errors() {
         .iter()
         .position(|n| n == "healthy")
         .unwrap();
+
     assert!(
         c.out.program.funcs[healthy].is_some(),
         "resolved imported declarations remain checked"
@@ -127,16 +137,19 @@ fn unchanged_missing_import_reuses_discovery_and_keeps_real_errors() {
 #[test]
 fn changed_import_directories_retry_real_discovery() {
     let (mut c, fs, scope, index) = compiler(SOURCE);
+
     assert!(c.import_module(scope, index).is_err());
     fs.insert("/alternate/Unavailable/module.jai", "new_binding :: 19;");
     c.options.import_paths.push(PathBuf::from("/alternate"));
     let module = c.import_module(scope, index).unwrap().unwrap();
+
     assert_eq!(c.ns.modules[module.0 as usize].files.len(), 1);
 }
 
 #[test]
 fn actual_compile_time_execution_invalidates_missing_discovery() {
     let (mut c, fs, scope, index) = compiler(SOURCE);
+
     assert!(c.import_module(scope, index).is_err());
     fs.insert(
         "/discovery/modules/Unavailable/module.jai",
@@ -154,6 +167,7 @@ fn actual_compile_time_execution_invalidates_missing_discovery() {
     let value = c
         .eval_const(scope, decl.value.as_ref().unwrap(), None)
         .unwrap();
+
     assert!(matches!(
         value.const_value(),
         Some(jaic::sema::value::Value::Int(7))
@@ -168,6 +182,7 @@ fn actual_compile_time_execution_invalidates_missing_discovery() {
 fn argument_binding_progress_is_resolved_before_missing_discovery_reuse() {
     let (mut c, _, scope, index) =
         compiler("#import \"Configured\"(ENABLED = setting); main :: () {}");
+
     assert!(
         c.import_module(scope, index)
             .unwrap_err()
@@ -184,11 +199,14 @@ fn argument_binding_progress_is_resolved_before_missing_discovery_reuse() {
 #[test]
 fn strict_resolution_does_not_reuse_editor_discovery_memo() {
     let (mut c, fs, scope, index) = compiler(SOURCE);
+
     assert!(c.import_module(scope, index).is_err());
     c.ed.stop();
     let before = fs.listings.get();
+
     assert!(c.import_module(scope, index).is_err());
     let after = fs.listings.get();
+
     assert!(after > before);
     assert!(c.import_module(scope, index).is_err());
     assert!(fs.listings.get() > after);
@@ -199,6 +217,7 @@ fn incremental_and_fresh_sessions_keep_imported_navigation_and_retry_discovery()
     use jai_language_server::{Position, Range, TextChange};
     let fs = Rc::new(CountingFs::default());
     let text = "// 🧭\n#import \"Unavailable\";\n#import \"Available\";\nmain :: () { value := published; }\n";
+
     fs.insert("/discovery/main.jai", text);
     fs.insert(
         "/discovery/modules/Available/module.jai",
@@ -211,12 +230,14 @@ fn incremental_and_fresh_sessions_keep_imported_navigation_and_retry_discovery()
         character: text.lines().nth(3).unwrap().find("published").unwrap() as u32,
     };
     let mut session = make_session();
+
     session.open(uri.clone(), 1, text.into()).unwrap();
     assert!(session.diagnostics(&uri).unwrap().iter().any(|e| e.severity
         == jai_language_server::DiagnosticSeverity::Error
         && e.message.contains("Unavailable")));
     assert!(session.hover(&uri, pos).unwrap().is_some());
     let definitions = session.definition(&uri, pos).unwrap();
+
     assert_eq!(definitions.len(), 1, "{definitions:?}");
     assert!(
         definitions[0].uri.ends_with("/Available/module.jai"),
@@ -237,6 +258,7 @@ fn incremental_and_fresh_sessions_keep_imported_navigation_and_retry_discovery()
         line: 0,
         character: 5,
     }; // UTF-16 boundary after the emoji.
+
     session
         .change(
             &uri,
@@ -258,6 +280,7 @@ fn incremental_and_fresh_sessions_keep_imported_navigation_and_retry_discovery()
     );
     assert_eq!(session.definition(&uri, pos).unwrap(), definitions);
     let mut fresh = make_session();
+
     fresh
         .open(uri.clone(), 1, text.replacen("🧭", "🧭 ", 1))
         .unwrap();

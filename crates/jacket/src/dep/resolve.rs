@@ -85,9 +85,11 @@ pub fn classify(reading: &Reading, tags: &[RemoteTag], at: Option<&At>) -> Resul
         return Ok(Ask::Latest);
     };
     let at = at.as_str();
+
     if tags.iter().any(|t| t.name.as_str() == at) {
         return Ok(Ask::Tag(RefName::parse(at)?));
     }
+
     let full = reading.parse(at).filter(|_| match reading.scheme {
         Scheme::Semver => at
             .trim_start_matches(['v', 'V'])
@@ -96,6 +98,7 @@ pub fn classify(reading: &Reading, tags: &[RemoteTag], at: Option<&At>) -> Resul
             .is_some_and(|c| c.split('.').count() == 3),
         _ => true,
     });
+
     if let Some(wanted) = full
         && let Some(found) = reading
             .versions(tags)
@@ -104,9 +107,11 @@ pub fn classify(reading: &Reading, tags: &[RemoteTag], at: Option<&At>) -> Resul
     {
         return Ok(Ask::Tag(RefName::parse(&found.tag)?));
     }
+
     if let Ok(rev) = Rev::parse(at) {
         return Ok(Ask::Rev(rev));
     }
+
     match reading.requirement(at) {
         Ok(requirement) => Ok(Ask::Range(requirement)),
         // Something written like a range that is not one says why; anything else is taken as a
@@ -188,6 +193,7 @@ mod tests {
             rev: rev.map(Into::into),
             ..Dependency::default()
         };
+
         assert_eq!(
             Asked::of(&entry(Some("^1.2"), None, None)),
             Ok(Asked::Range(requirement("^1.2")))
@@ -210,6 +216,7 @@ mod tests {
     fn at_is_a_tag_a_full_version_a_range_or_a_commit() {
         let r = Reading::default();
         let t = tags(&["v1.2.0", "v1.3.0", "1.0.0", "docs"]);
+
         assert_eq!(classify(&r, &t, None), Ok(Ask::Latest));
         assert_eq!(
             classify(&r, &t, Some(&at("1.0.0"))),
@@ -252,11 +259,13 @@ mod tests {
         let t = tags(&["v1.0.0", "v1.1.0-rc.1", "v1.1.0", "v2.0.0-rc.1"]);
         let names = |range: Option<&str>| -> Vec<String> {
             let range = range.map(|x| r.range(x).unwrap());
+
             matching(&r, &t, range.as_ref())
                 .into_iter()
                 .map(|t| t.tag)
                 .collect()
         };
+
         assert_eq!(names(None), ["v1.1.0", "v1.0.0"]);
         assert_eq!(names(Some("^1")), ["v1.1.0", "v1.0.0"]);
         assert_eq!(names(Some(">=1.1.0-rc.0, <2")), ["v1.1.0", "v1.1.0-rc.1"]);
@@ -266,6 +275,7 @@ mod tests {
     fn a_pick_is_recorded_as_a_caret_range_or_an_exact_tag() {
         let semver = Reading::default();
         let picked = semver.versions(&tags(&["v1.3.2"])).remove(0);
+
         assert_eq!(
             recorded(&semver, &picked),
             Recorded::Version("^1.3.2".into())
@@ -275,6 +285,7 @@ mod tests {
             prefix: None,
         };
         let picked = integer.versions(&tags(&["r42"])).remove(0);
+
         assert_eq!(recorded(&integer, &picked), Recorded::Tag("r42".into()));
     }
 
@@ -283,6 +294,7 @@ mod tests {
         let r = Reading::default();
         let name = |t: &str| RefName::parse(t).unwrap();
         let at = vec![name("latest"), name("v1.0.0"), name("v1.0.1")];
+
         assert_eq!(resolved(&r, &at), Some(&name("v1.0.1")));
         assert_eq!(
             resolved(&r, &[name("zeta"), name("beta")]),

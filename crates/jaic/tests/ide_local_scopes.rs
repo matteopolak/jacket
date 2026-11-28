@@ -20,9 +20,11 @@ fn repo() -> PathBuf {
 fn hidden_locals(entry: &Path) -> Vec<String> {
     let stdlib = repo().join("stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
+
     c.ed.record(IdeFacts::new(vec![IdeRoot::under(entry)]));
     let _ = c
         .begin_sources(&[ProgramSource::File(entry.to_path_buf())])
@@ -38,20 +40,25 @@ fn hidden_locals(entry: &Path) -> Vec<String> {
     // scopes over the same text: any copy's local with the same name and declaration will do.
     let reaches = |from: ScopeId, local: &jaic::sema::scope::Entity| {
         let mut at = Some(from);
+
         while let Some(s) = at {
             let found = c
                 .scope(s)
                 .names
                 .get(&local.name)
                 .is_some_and(|ids| ids.iter().any(|&id| c.entity(id).span == local.span));
+
             if found {
                 return true;
             }
+
             at = c.scope(s).parent;
         }
+
         false
     };
     let mut hidden = Vec::new();
+
     for e in &c.ns.entities {
         // Parameters belong to the procedure's own scope and are declared in its header,
         // outside the body they are visible in.
@@ -63,9 +70,11 @@ fn hidden_locals(entry: &Path) -> Vec<String> {
         {
             continue;
         }
+
         let Some(at) = c.ide_scope_at(entry_file, e.span.end) else {
             continue;
         };
+
         if !reaches(at, e) {
             hidden.push(format!(
                 "{}:{} {}",
@@ -75,6 +84,7 @@ fn hidden_locals(entry: &Path) -> Vec<String> {
             ));
         }
     }
+
     hidden
 }
 
@@ -92,6 +102,7 @@ fn big_stack(body: impl FnOnce() + Send + 'static) {
 fn locals_of_run_and_modify_blocks_are_in_scope_at_their_position() {
     big_stack(|| {
         let entry = repo().join("crates/jaic/tests/fixtures/ide-local-scopes.jai");
+
         assert_eq!(hidden_locals(&entry), Vec::<String>::new());
     });
 }

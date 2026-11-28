@@ -30,16 +30,19 @@ pub struct FreestandingLink<'a> {
 /// The linker script `args` name (`-T script.ld`, `-Tscript.ld`, `--script=script.ld`).
 fn script_file(args: &[OsString]) -> Option<OsString> {
     let mut args = args.iter();
+
     while let Some(arg) = args.next() {
         if matches!(arg.to_str(), Some("-T" | "--script")) {
             return args.next().cloned();
         }
+
         if let Some(file) =
             os_text::strip_prefix(arg, "--script=").or_else(|| os_text::strip_prefix(arg, "-T"))
         {
             return Some(file);
         }
     }
+
     None
 }
 
@@ -67,16 +70,20 @@ fn required_script(link: &FreestandingLink) -> Result<OsString, String> {
 /// The `ld.lld` command for `link`, with the compiler-rt `builtins` archive.
 fn lld_command(lld: &Found, link: &FreestandingLink, builtins: &Path) -> Result<Command, String> {
     let mut cmd = command(lld);
+
     if let Some(emulation) = emulation(link.target.cpu)? {
         cmd.args(["-m", emulation]);
     }
+
     cmd.args(["-static", "-nostdlib", "--gc-sections"])
         .arg("-o")
         .arg(link.output)
         .args(link.objects);
+
     if link.strip_debug {
         cmd.arg("--strip-debug");
     }
+
     for lib in link.libraries {
         if let Some(file) = crate::linker::static_library_file(lib) {
             cmd.arg(file);
@@ -86,6 +93,7 @@ fn lld_command(lld: &Found, link: &FreestandingLink, builtins: &Path) -> Result<
             } else {
                 "a library"
             };
+
             return Err(format!(
                 "`#library \"{}\"` names {kind}, which a freestanding target cannot link: there \
                  is no libc or dynamic linking\n\
@@ -95,6 +103,7 @@ fn lld_command(lld: &Found, link: &FreestandingLink, builtins: &Path) -> Result<
             ));
         }
     }
+
     cmd.arg(builtins);
     cmd.args(link.extra_args);
     Ok(cmd)
@@ -111,11 +120,13 @@ pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
         .map_err(|missing| missing.to_string())?;
     let builtins =
         find_builtins(&lookup, link.target, &overrides).map_err(|missing| missing.to_string())?;
+
     report("Linker", &lld, &lookup, Some(link.target));
     report("Builtins", &builtins, &lookup, Some(link.target));
     jaic::progress::tool("Script", &jaic::display_path(Path::new(&script)), true);
     let mut cmd = lld_command(&lld, link, &builtins.program)?;
     let out = crate::linker::run_captured(&mut cmd).map_err(|e| crate::linker_not_run(&lld, &e))?;
+
     if out.status.success() {
         Ok(())
     } else {
@@ -135,6 +146,7 @@ mod tests {
     #[test]
     fn the_script_is_found_in_each_spelling() {
         let script = |args: &[&str]| script_file(&words(args));
+
         assert_eq!(script(&["-T", "board.ld"]), Some("board.ld".into()));
         assert_eq!(script(&["-Tboard.ld"]), Some("board.ld".into()));
         assert_eq!(script(&["-x", "--script=b.ld"]), Some("b.ld".into()));
@@ -167,6 +179,7 @@ mod tests {
     #[test]
     fn a_link_without_a_script_says_how_to_add_one() {
         let error = required_script(&link(&[], &[])).unwrap_err();
+
         assert!(error.contains("linker script"), "{error}");
         assert!(error.contains("link_for"), "{error}");
     }
@@ -177,6 +190,7 @@ mod tests {
         let extra = words(&["-T", "board.ld"]);
         let builtins = Path::new("rt.a");
         let cmd = lld_command(&lld(), &link(&objects, &extra), builtins).unwrap();
+
         assert_eq!(
             args(&cmd),
             [
@@ -204,6 +218,7 @@ mod tests {
             ..link(&[], &extra)
         };
         let cmd = lld_command(&lld(), &request, Path::new("rt.a")).unwrap();
+
         assert!(!args(&cmd).contains(&"-m".to_string()), "{:?}", args(&cmd));
     }
 
@@ -222,6 +237,7 @@ mod tests {
             ..link(&[], &extra)
         };
         let error = lld_command(&lld(), &request, Path::new("rt.a")).unwrap_err();
+
         assert!(error.contains("`#library \"libc\"`"), "{error}");
         assert!(error.contains("no libc"), "{error}");
     }

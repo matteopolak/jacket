@@ -13,6 +13,7 @@ impl SandboxHost {
     ) -> Option<u64> {
         let mut calls = std::mem::take(&mut self.windows);
         let result = calls.foreign(self, fun, args, sig);
+
         self.windows = calls;
         result
     }
@@ -21,12 +22,15 @@ impl SandboxHost {
 impl WindowsBackend for SandboxHost {
     fn details(&self, path: &str) -> Option<FileDetails> {
         let dir = self.fs.is_dir(path);
+
         if !dir && !self.fs.exists_file(path) {
             return None;
         }
+
         let time = BASE_MTIME * 10_000_000 + 116_444_736_000_000_000;
         let written = self.fs.mtimes.get(path).copied().unwrap_or(BASE_MTIME) * 10_000_000
             + 116_444_736_000_000_000;
+
         Some(FileDetails {
             attributes: if dir {
                 0x10
@@ -65,10 +69,13 @@ impl WindowsBackend for SandboxHost {
         if !self.fs.load(from) {
             return Err(ENOENT);
         }
+
         if !self.parent_exists(to) {
             return Err(ENOENT);
         }
+
         let bytes = self.fs.files[from].clone();
+
         self.fs.removed.remove(to);
         self.fs.files.insert(to.into(), bytes);
         self.fs.changed(to);
@@ -79,8 +86,10 @@ impl WindowsBackend for SandboxHost {
         if self.fs.exists_file(to) || self.fs.is_dir(to) {
             return Err(EEXIST);
         }
+
         self.copy_file(from, to)?;
         let inode = self.fs.inode(from);
+
         self.fs.inodes.insert(from.into(), inode);
         self.fs.inodes.insert(to.into(), inode);
         Ok(())
@@ -115,9 +124,11 @@ impl WindowsBackend for SandboxHost {
         if self.fs.is_dir(path) || self.fs.exists_file(path) {
             return Err(EEXIST);
         }
+
         if !self.parent_exists(path) {
             return Err(ENOENT);
         }
+
         self.fs.removed.remove(path);
         self.fs.dirs.insert(path.into());
         Ok(())
@@ -127,6 +138,7 @@ impl WindowsBackend for SandboxHost {
         if !self.fs.exists_file(path) {
             return Err(ENOENT);
         }
+
         self.fs.files.remove(path);
         self.fs.forget(path);
         self.fs.removed.insert(path.into());

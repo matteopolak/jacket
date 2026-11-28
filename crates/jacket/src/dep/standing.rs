@@ -65,6 +65,7 @@ pub fn standing(
     .filter(|t| current.as_ref().is_none_or(|current| t.version > *current))
     .collect();
     let gate = Gate::from_resolver(resolver, name, entry, &url)?;
+
     for candidate in newer {
         match gate.check(ctx, &candidate.tag, &candidate.commit) {
             Verdict::Allowed => {
@@ -81,6 +82,7 @@ pub fn standing(
             Verdict::Unknown(_) => break,
         }
     }
+
     Ok(out)
 }
 
@@ -97,6 +99,7 @@ pub fn lookup(
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_secs() as i64);
     let forges = forge::Http::from_env();
+
     forge::Forge::preflight(&forges).map_err(describe)?;
     let mut ctx = Ctx {
         git: &git::RealGit,
@@ -107,16 +110,19 @@ pub fn lookup(
         err: &mut std::io::sink(),
     };
     let found = standing(&mut ctx, dir, name, entry, resolver).map_err(describe);
+
     cache.save();
     found
 }
 
 fn describe(error: DepError) -> String {
     let mut text = error.message;
+
     for note in error.notes {
         text.push_str("; ");
         text.push_str(note.lines().next().unwrap_or(""));
     }
+
     text
 }
 
@@ -271,6 +277,7 @@ mod tests {
             release_age_jitter: Some("0".into()),
             ..Resolver::default()
         };
+
         standing(&mut ctx, Path::new("/p"), "jaison", &entry, &resolver).unwrap()
     }
 
@@ -285,6 +292,7 @@ mod tests {
             "^1.2",
             "2w",
         );
+
         assert_eq!(found.pinned.as_deref(), Some("v1.2.0"));
         assert_eq!(found.newer.as_deref(), Some("v1.4.0"));
         assert_eq!(found.waiting, None);
@@ -301,6 +309,7 @@ mod tests {
             "^1.2",
             "2w",
         );
+
         assert_eq!(found.newer.as_deref(), Some("v1.3.0"));
         assert_eq!(found.waiting, Some(("v1.5.0".to_string(), 11 * DAY)));
     }
@@ -312,12 +321,14 @@ mod tests {
             "^1.2",
             "2w",
         );
+
         assert_eq!((found.newer, found.waiting), (None, None));
     }
 
     #[test]
     fn a_release_only_in_the_window_is_waiting_with_nothing_available() {
         let found = stand(vec![("v1.2.0", 90 * DAY), ("v1.3.0", DAY)], "^1.2", "2w");
+
         assert_eq!(found.newer, None);
         assert_eq!(found.waiting, Some(("v1.3.0".to_string(), 13 * DAY)));
     }

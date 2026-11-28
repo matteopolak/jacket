@@ -15,39 +15,50 @@ impl Session {
         // analysis of the same text is kept. One with `#load`s is built again, because the
         // warnings about files that are not open depend on which documents are.
         let mut analyses: BTreeMap<DocumentUri, Rc<Analysis>> = BTreeMap::new();
+
         for (uri, document) in &self.documents {
             let kept = self.analysis_for(uri).filter(|a| {
                 a.loads.is_empty() && a.key == crate::semantic::text_key(&document.text)
             });
+
             if let Some(kept) = kept {
                 analyses.insert(uri.clone(), kept.clone());
                 continue;
             }
+
             let mut analysis = Analysis::build(&document.ide_text(), uri, self.limits);
+
             analysis.key = crate::semantic::text_key(&document.text);
+
             for span in &document.lexical_damage {
                 let end = document.text[span.start..span.end]
                     .find('\n')
                     .map_or(span.end, |n| span.start + n);
+
                 analysis.diagnostic(&document.index, &document.text, Span::new(span.start, end), DiagnosticSeverity::Error, DiagnosticCode::Lexer,
                     "Incomplete lexical edit; this literal or comment is omitted from IDE analysis.");
             }
+
             self.warn_unreadable_loads(&mut analysis, &document.index, &document.text);
             analyses.insert(uri.clone(), Rc::new(analysis));
         }
+
         for (uri, analysis) in &analyses {
             let known = self
                 .parsed
                 .get(uri)
                 .is_some_and(|p| Rc::ptr_eq(&p.analysis, analysis));
+
             if analysis.complete && !known {
                 let parsed = super::Parsed {
                     analysis: analysis.clone(),
                     text: Rc::from(self.documents[uri].text.as_str()),
                 };
+
                 self.parsed.insert(uri.clone(), parsed);
             }
         }
+
         self.parsed
             .retain(|uri, _| self.documents.contains_key(uri));
         self.analyses = analyses;
@@ -91,9 +102,11 @@ impl Session {
                     .map(|(target, _)| self.document_uri(target).unwrap_or_else(|| target.clone()))
             })
             .collect();
+
         if !loaded.contains(uri) {
             return uri.clone();
         }
+
         self.documents
             .keys()
             .find(|d| !loaded.contains(*d) && self.reachable(d).contains(&uri))
@@ -109,6 +122,7 @@ impl Session {
         // The document's own text (as most requests pass it) needs no comparing: any change to
         // a document moves the generation on.
         let own = self.is_own_text(uri, text);
+
         if let Some((generation, last, last_text, inputs)) = &*self.inputs.borrow()
             && *generation == self.generation.get()
             && last == uri
@@ -119,10 +133,13 @@ impl Session {
         {
             return Some(inputs.clone());
         }
+
         let inputs = self.work_out_inputs(uri, text)?;
+
         if self.builds_skipped.replace(false) {
             return Some(inputs);
         }
+
         *self.inputs.borrow_mut() = Some((
             self.generation.get(),
             uri.clone(),
@@ -150,6 +167,7 @@ impl Session {
                     } else {
                         crate::lexical_recovery::update(&d.text, text, &d.lexical_damage)
                     };
+
                     crate::lexical_recovery::mask(text, &damage)
                         .map_or(Cow::Borrowed(text), Cow::Owned)
                 } else {
@@ -162,6 +180,7 @@ impl Session {
         // file (which may load it, or build it from a metaprogram), so the files of the program
         // that are not open are checked too.
         let open_root = self.root(uri);
+
         self.run_unrecorded_builds(uri, &files);
         let root = match self.project_root(uri) {
             Some(entry) if environment.fs.is_file(&entry) || files.contains_key(&entry) => entry,
@@ -175,6 +194,7 @@ impl Session {
             root
         };
         let dirs = self.import_dirs(&root);
+
         Some((Rc::new(files), root, dirs))
     }
 
@@ -196,20 +216,24 @@ impl Session {
         query: impl FnOnce(&mut semantic::Analysis, &Path) -> Option<T>,
     ) -> Result<Option<T>, Unchecked> {
         let environment = self.environment.as_ref().ok_or(Unchecked::NoEnvironment)?;
+
         if !self.may_compile() {
             return self.with_cached_semantic(uri, text, query).ok_or_else(|| {
                 self.want_compile(uri, text);
                 Unchecked::Deferred
             });
         }
+
         let (files, root, dirs) = self.compile_inputs(uri, text).ok_or(Unchecked::Failed)?;
         let mut cache = self.semantic.borrow_mut();
         let analysis = cache
             .analyze(environment, &root, &dirs, files)
             .ok_or(Unchecked::Failed)?;
         let path = Path::new(uri.path());
+
         analysis.focus(path);
         let answer = query(analysis, path);
+
         self.sync_builds(&cache);
         Ok(answer)
     }
@@ -227,6 +251,7 @@ impl Session {
         let mut cache = self.semantic.borrow_mut();
         let analysis = cache.cached(environment, &root, &dirs, &files)?;
         let path = Path::new(uri.path());
+
         analysis.focus(path);
         Some(query(analysis, path))
     }
@@ -261,6 +286,7 @@ impl Session {
     pub(crate) fn want_compile(&self, uri: &DocumentUri, text: &str) {
         self.stale_used.set(true);
         let mut pending = self.compile_pending.borrow_mut();
+
         if pending.is_none() || !self.is_own_text(uri, text) {
             *pending = Some((uri.clone(), text.to_string()));
         }
@@ -279,28 +305,36 @@ impl Session {
         let Some(environment) = self.environment.as_ref() else {
             return;
         };
+
         if !self.trusted() {
             return;
         }
+
         let pending = self.unrecorded_builds(uri);
+
         if pending.is_empty() {
             return;
         }
+
         if !self.may_compile() {
             self.builds_skipped.set(true);
             return;
         }
+
         let buffers: semantic::Buffers = Rc::new(files.clone());
+
         for (entry, hash) in pending {
             self.index.borrow_mut().probed.insert(entry.clone(), hash);
             let dirs = self.import_dirs(&entry);
             let mut cache = self.semantic.borrow_mut();
+
             if cache
                 .analyze(environment, &entry, &dirs, buffers.clone())
                 .is_none()
             {
                 return;
             }
+
             self.sync_builds(&cache);
         }
     }
@@ -311,8 +345,10 @@ impl Session {
         if cache.recorded_version == self.synced_builds.get() {
             return;
         }
+
         self.synced_builds.set(cache.recorded_version);
         let mut index = self.index.borrow_mut();
+
         index.record_builds(cache.recorded.clone());
         *self.inputs.borrow_mut() = None;
     }
@@ -337,6 +373,7 @@ impl Session {
                 Some((query(a, path, at)?, shift.clone()))
             });
         }
+
         let found = self.compiled_at(uri, text, byte, |a, path| query(a, path, byte))?;
         Some((found, semantic::Shift::none()))
     }
@@ -355,14 +392,17 @@ impl Session {
         let (files, root, dirs) = self.compile_inputs(uri, text)?;
         let path = Path::new(uri.path());
         let mut cache = self.semantic.borrow_mut();
+
         if let Some(exact) = cache.cached(environment, &root, &dirs, &files) {
             exact.focus(path);
             return query(exact, path, &semantic::Shift::none());
         }
+
         self.want_compile(uri, text);
         let analysis = cache.latest(&root, &dirs)?;
         let old = analysis.compiled_text(path)?;
         let shift = semantic::Shift::between(old.as_bytes(), text.as_bytes());
+
         analysis.focus(path);
         query(analysis, path, &shift)
     }
@@ -394,21 +434,29 @@ impl Session {
         let path = Path::new(uri.path());
         let mut cache = self.semantic.borrow_mut();
         let analysis = cache.analyze(environment, &root, &dirs, files.clone())?;
+
         analysis.focus(path);
         let first = query(analysis, path);
+
         self.sync_builds(&cache);
+
         if let Some(found) = first {
             return Some(found);
         }
+
         let analysis = cache.analyze(environment, &root, &dirs, files.clone())?;
+
         if !analysis.skipped(path, byte) {
             return None;
         }
+
         let own = (environment.options)(&root).os;
         let mut unreached = self.unreached.borrow_mut();
+
         if unreached.0 != self.generation.get() {
             *unreached = (self.generation.get(), BTreeMap::default());
         }
+
         // Always in the same order, so the answer does not depend on which target answered
         // an earlier question: code several targets check is described as the first sees it.
         let order: Vec<jaic::target::TargetOs> = semantic::OTHER_TARGETS
@@ -421,9 +469,12 @@ impl Session {
                         .is_some_and(|spans| spans.iter().any(|&(a, b)| a <= byte && byte <= b))
             })
             .collect();
+
         for os in order {
             let analysis = cache.analyze_for(environment, &root, &dirs, files.clone(), Some(os))?;
+
             analysis.focus(path);
+
             if let Some(span) = analysis.skipped_span(path, byte) {
                 unreached
                     .1
@@ -434,6 +485,7 @@ impl Session {
                 return query(analysis, path);
             }
         }
+
         None
     }
 
@@ -459,6 +511,7 @@ impl Session {
             path,
             &text.as_bytes()[..at],
         )?;
+
         query(analysis, path)
     }
 }

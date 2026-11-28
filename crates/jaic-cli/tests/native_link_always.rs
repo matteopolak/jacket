@@ -10,6 +10,7 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 fn link_always_loads_real_constructor_without_a_referenced_symbol() {
     let dir = TempDir::new("native-link-always");
     let provider = dir.join("provider.c");
+
     std::fs::write(
         &provider,
         "#include <stdio.h>\n#include <stdlib.h>\n#include <pthread.h>\n\
@@ -26,6 +27,7 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
     } else {
         "so"
     };
+
     checked(
         toolchain::command("cc")
             .args([
@@ -44,18 +46,23 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
             .arg(dir.join(format!("libconstructor_marker.{suffix}"))),
     );
     let mut libraries = vec![dir.to_path_buf()];
+
     if let Some(existing) = jacket_config::env::NATIVE_LIBS.os() {
         libraries.extend(std::env::split_paths(&existing));
     }
+
     let libraries = std::env::join_paths(libraries).unwrap();
+
     for named in [false, true] {
         for compile_time in [false, true] {
             let label = format!("{named}-{compile_time}");
             let source = dir.join(format!("{label}.jai"));
             let marker = dir.join(format!("{label}.marker"));
+
             if marker.exists() {
                 std::fs::remove_file(&marker).unwrap();
             }
+
             let name = if named {
                 "required :: "
             } else {
@@ -66,6 +73,7 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
             } else {
                 ""
             };
+
             std::fs::write(
                 &source,
                 format!(
@@ -81,9 +89,11 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
                     .env("JAIC_TEST_LIBRARY_MARKER", &marker),
             );
             assert_eq!(std::fs::read(&marker).unwrap(), b"x", "{label}");
+
             // The identical ordinary program also loads its constructor when linked.
             if !compile_time {
                 let executable = dir.join(format!("{label}-native"));
+
                 checked(
                     Command::new(JAIC)
                         .arg(&source)
@@ -104,6 +114,7 @@ fn link_always_loads_real_constructor_without_a_referenced_symbol() {
 fn missing_runtime_requirement_fails_without_loading_in_the_sandbox() {
     let dir = TempDir::new("missing-link-always");
     let source = dir.join("main.jai");
+
     std::fs::write(
         &source,
         "required :: #library,link_always \"deliberately_missing_requirement\";\n\
@@ -117,6 +128,7 @@ fn missing_runtime_requirement_fails_without_loading_in_the_sandbox() {
         .arg("-interp")
         .output()
         .unwrap();
+
     assert!(!native.status.success());
     assert!(
         String::from_utf8_lossy(&native.stderr).contains(

@@ -19,8 +19,10 @@ impl Compiler {
         if !self.options.debug_info {
             return;
         }
+
         let (line, _) = self.src.sources.get(span.file).line_col(span.start);
         let name = self.proc(id).name.to_string();
+
         f.b.func.debug = Some(Box::new(ir::FuncDebug {
             name,
             file: span.file.0,
@@ -45,18 +47,23 @@ impl Compiler {
         let mut chain = Vec::new();
         let mut cur = Some(scope);
         let mut parent = 0;
+
         while let Some(s) = cur {
             if let Some(&i) = f.debug_scopes.get(&s) {
                 parent = i;
                 break;
             }
+
             let info = self.scope(s);
+
             if !matches!(info.kind, ScopeKind::Block | ScopeKind::Macro) {
                 break;
             }
+
             chain.push(s);
             cur = info.parent;
         }
+
         for s in chain.into_iter().rev() {
             debug.scopes.push(ir::DebugScope {
                 parent,
@@ -66,6 +73,7 @@ impl Compiler {
             parent = debug.scopes.len() as u32 - 1;
             f.debug_scopes.insert(s, parent);
         }
+
         parent
     }
 
@@ -82,12 +90,14 @@ impl Compiler {
         if f.b.func.debug.is_none() || name.as_str().starts_with('\0') || name.as_str() == "_" {
             return;
         }
+
         let (line, col) = self.src.sources.get(span.file).line_col(span.start);
         let scope = if arg > 0 {
             0
         } else {
             self.debug_scope(f, scope, line, col)
         };
+
         if let Some(debug) = f.b.func.debug.as_mut() {
             debug.vars.push(ir::DebugVar {
                 name: name.to_string(),
@@ -125,7 +135,9 @@ impl Compiler {
         if !self.options.debug_info {
             return;
         }
+
         let (line, _) = self.src.sources.get(span.file).line_col(span.start);
+
         self.out.program.debug_globals.push(ir::DebugGlobal {
             global,
             name: name.to_string(),
@@ -149,24 +161,31 @@ impl Compiler {
                 })
                 .collect();
         }
+
         let mut pending: Vec<u32> = Vec::new();
+
         for func in self.out.program.funcs.iter().flatten() {
             if let Some(debug) = &func.debug {
                 pending.extend(debug.vars.iter().map(|v| v.ty));
             }
         }
+
         pending.extend(self.out.program.debug_globals.iter().map(|g| g.ty));
+
         while let Some(key) = pending.pop() {
             if self.out.program.debug_types.contains_key(&key) {
                 continue;
             }
+
             let ty = self.describe_debug_type(key);
+
             if let DebugTypeKind::Struct {
                 fields, ..
             } = &ty.kind
             {
                 pending.extend(fields.iter().map(|f| f.ty));
             }
+
             match ty.kind {
                 DebugTypeKind::Pointer(t)
                 | DebugTypeKind::Array {
@@ -178,6 +197,7 @@ impl Compiler {
                 | DebugTypeKind::Typedef(t) => pending.push(t),
                 _ => {}
             }
+
             self.out.program.debug_types.insert(key, ty);
         }
     }
@@ -189,12 +209,15 @@ impl Compiler {
             align: size.max(1),
             kind,
         };
+
         if key == ir::DEBUG_CHAR {
             return simple("u8", 1, DebugTypeKind::Char);
         }
+
         if key == ir::DEBUG_CHAR_PTR {
             return simple("", 8, DebugTypeKind::Pointer(ir::DEBUG_CHAR));
         }
+
         let ty = TypeId(key);
         let name = self.ty.types.full_name(ty);
         let kind = match self.ty.types.kind(ty).clone() {
@@ -217,6 +240,7 @@ impl Compiler {
                     field("count", TypeId::S64.0, 0),
                     field("data", ir::DEBUG_CHAR_PTR, 8),
                 ];
+
                 DebugTypeKind::Struct {
                     fields,
                     union: false,
@@ -234,6 +258,7 @@ impl Compiler {
             }
             | TypeKind::Any => {
                 let members = self.builtin_members(ty, Span::NONE).unwrap_or_default();
+
                 DebugTypeKind::Struct {
                     fields: members
                         .into_iter()
@@ -244,12 +269,14 @@ impl Compiler {
             }
             TypeKind::Struct(s) => {
                 let info = self.ty.types.struct_info(s);
+
                 if info.layout == LayoutState::Done {
                     let fields = info
                         .fields
                         .iter()
                         .filter_map(|f| Some(field(f.name?.as_str(), f.ty.0, f.offset)))
                         .collect();
+
                     DebugTypeKind::Struct {
                         fields,
                         union: info.is_union,
@@ -260,6 +287,7 @@ impl Compiler {
             }
             TypeKind::Enum(e) => {
                 let info = self.ty.types.enum_info(e);
+
                 DebugTypeKind::Enum {
                     base: info.base.0,
                     members: info
@@ -280,6 +308,7 @@ impl Compiler {
             } => DebugTypeKind::Void,
         };
         let sized = !matches!(kind, DebugTypeKind::Void);
+
         DebugType {
             name,
             size: if sized {

@@ -44,6 +44,7 @@ fn parenthesized_cast_with_flags_is_not_a_header() {
     else {
         panic!("expected a cast")
     };
+
     assert!(matches!(inner.kind, ExprKind::Binary(BinOp::BitAnd, ..)));
 }
 
@@ -59,29 +60,35 @@ fn asm_instruction_forms() {
     let block = asm_block(
         "x := #asm AVX, AVX2 { mov.q a, 1; lock_btr.d [p + i*8 - 16], n; popcnt?T r, v; mov.64 q:, 7; pause; };",
     );
+
     assert_eq!(block.features.len(), 2);
     let AsmItem::Inst(mov) = &block.items[0] else {
         panic!("expected an instruction");
     };
+
     assert_eq!(mov.mnemonic.name.as_str(), "mov");
     assert!(matches!(&mov.size, Some(AsmSize::Suffix(s)) if s.name.as_str() == "q"));
     let AsmItem::Inst(btr) = &block.items[1] else {
         panic!("expected an instruction");
     };
+
     assert_eq!(btr.mnemonic.name.as_str(), "lock_btr");
     let AsmOperand::Mem(mem) = &btr.operands[0] else {
         panic!("expected a memory operand");
     };
+
     assert_eq!(mem.terms.len(), 3);
     assert!(mem.terms[1].scale.is_some() && !mem.terms[1].negate);
     assert!(mem.terms[2].negate);
     let AsmItem::Inst(popcnt) = &block.items[2] else {
         panic!("expected an instruction");
     };
+
     assert!(matches!(popcnt.size, Some(AsmSize::Dynamic(_))));
     let AsmItem::Inst(wide) = &block.items[3] else {
         panic!("expected an instruction");
     };
+
     assert!(matches!(&wide.size, Some(AsmSize::Suffix(s)) if s.name.as_str() == "64"));
     assert!(matches!(&wide.operands[0], AsmOperand::Decl(d) if d.colon && d.class.is_none()));
     assert_eq!(block.items.len(), 5);
@@ -93,14 +100,17 @@ fn asm_declarations_and_pins() {
     let AsmItem::Decl(t) = &block.items[0] else {
         panic!("expected a declaration");
     };
+
     assert!(t.colon && t.class.is_some() && matches!(t.pin, Some(AsmPin::Name(_))));
     let AsmItem::Decl(u) = &block.items[1] else {
         panic!("expected a pin");
     };
+
     assert!(!u.colon && u.pin.is_some());
     let AsmItem::Inst(mov) = &block.items[2] else {
         panic!("expected an instruction");
     };
+
     assert!(matches!(
         &mov.operands[0],
         AsmOperand::Decl(d) if matches!(d.pin, Some(AsmPin::Index(15)))
@@ -125,6 +135,7 @@ fn deep_nesting_is_an_error_not_a_stack_overflow() {
         format!("x: {}int;", "[1]".repeat(n)),
         format!("A :: {}int;{}", "struct { a: ".repeat(n), "}".repeat(n)),
     ];
+
     // Reaching the limit itself takes more stack than a test thread has in a debug build.
     std::thread::Builder::new()
         .stack_size(256 << 20)
@@ -132,7 +143,9 @@ fn deep_nesting_is_an_error_not_a_stack_overflow() {
             for src in &cases {
                 assert!(error(src).contains("nested too deeply"), "{src:.40}");
             }
+
             let fine = 200;
+
             parse(&format!("x := {}1{};", "(".repeat(fine), ")".repeat(fine)));
         })
         .unwrap()
@@ -146,6 +159,7 @@ fn nested_assert_is_parsed_once() {
     // parsed again, so every nested `#assert(` doubled the work (15 KB took minutes).
     let n = 40;
     let nested = format!("{}x{}", "#assert(".repeat(n), ")".repeat(n));
+
     // Forty levels of debug frames come close to the 2 MiB of a test thread (a macOS CI run
     // died of it), so the nested parses get a thread of their own.
     std::thread::Builder::new()
@@ -170,11 +184,13 @@ fn nested_ifx_statements_are_parsed_once() {
     // assignment `if`, then rewound and parsed again as an expression, so each `{ifx` nested in
     // the condition doubled the work (2.5 KB timed out).
     let n = 40;
+
     // Debug frames are large; a test thread has 2 MiB.
     std::thread::Builder::new()
         .stack_size(64 << 20)
         .spawn(move || {
             assert!(!error(&format!("main :: () {{ {} }}", "{ifx ".repeat(n))).is_empty());
+
             for branch in [
                 "ifx c then { ",
                 "ifx c then x = { ",
@@ -194,6 +210,7 @@ fn nested_ifx_statements_are_parsed_once() {
     let stmts = body(
         "ifx c then a = 1 else a = 2; ifx c then f() else b = 3; ifx c then f() else g(); ifx c f(); ifx c then { f(); } else { g(); }",
     );
+
     assert!(
         matches!(stmts[0].kind, StmtKind::If { .. }),
         "{:?}",
@@ -204,12 +221,15 @@ fn nested_ifx_statements_are_parsed_once() {
         "{:?}",
         stmts[1].kind
     );
+
     for stmt in &stmts[2..] {
         let StmtKind::Expr(e) = &stmt.kind else {
             panic!("expected an expression statement, found {:?}", stmt.kind);
         };
+
         assert!(matches!(e.kind, ExprKind::Ifx { .. }), "{:?}", e.kind);
     }
+
     // `ifx` is a keyword, so it cannot name a declaration.
     assert!(error("main :: () { ifx := 1; }").contains("`ifx` is a keyword"));
 }
@@ -233,6 +253,7 @@ fn dead_platform_branches_are_skipped_for_a_library_target() {
 "#;
     let file = crate::parser::parse_file_for_target(FileId(0), src, target).expect("parses");
     let mut names = Vec::new();
+
     fn collect(stmts: &[Stmt], names: &mut Vec<String>, taken: bool) {
         for s in stmts {
             match &s.kind {
@@ -240,6 +261,7 @@ fn dead_platform_branches_are_skipped_for_a_library_target() {
                     let ExprKind::Bool(value) = branch.cond.kind else {
                         panic!("condition was not decided");
                     };
+
                     collect(&branch.then_branch, names, taken && value);
                     collect(&branch.else_branch, names, taken && !value);
                 }
@@ -250,6 +272,7 @@ fn dead_platform_branches_are_skipped_for_a_library_target() {
             }
         }
     }
+
     collect(&file.stmts, &mut names, true);
     assert_eq!(names, ["kept", "here", "nested_kept"]);
 }

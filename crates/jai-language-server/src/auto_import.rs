@@ -151,6 +151,7 @@ impl Index {
         if self.reported.get(path).is_some_and(|p| p == problem) {
             return;
         }
+
         self.reported
             .insert(path.to_path_buf(), problem.to_string());
         self.pending.push((
@@ -206,6 +207,7 @@ impl Index {
             seen.len() == scan.loads.len()
                 && seen.iter().zip(&scan.loads).all(|(a, b)| *a == b.path)
         });
+
         if !same {
             self.loads_seen.insert(
                 path.to_path_buf(),
@@ -219,19 +221,23 @@ impl Index {
     pub(crate) fn changed(&mut self, path: &Path) {
         self.epoch += 1;
         self.source_graphs_dirty.insert(path.to_path_buf());
+
         if path.extension().is_some_and(|e| e == "jai") {
             self.loads_dirty.insert(path.to_path_buf());
         }
+
         self.files.remove(path);
         self.warming
             .retain(|_, module| !module.files.contains(path));
         self.import_dirs
             .retain(|_, (_, deps)| !deps.iter().any(|d| d == path));
+
         if let Some((dir, cache)) = &mut self.stdlib
             && path.starts_with(dir)
         {
             cache.stale.insert(path.to_path_buf());
         }
+
         for (dir, cache) in &mut self.module_dirs {
             if path.starts_with(dir) {
                 cache.stale.insert(path.to_path_buf());
@@ -250,6 +256,7 @@ impl Index {
         // A module may have appeared or gone in the folders above it; the other files' keys
         // and the loaders found among the files may be different too.
         self.module_dirs.retain(|dir, _| !path.starts_with(dir));
+
         if self
             .stdlib
             .as_ref()
@@ -257,6 +264,7 @@ impl Index {
         {
             self.stdlib = None;
         }
+
         self.graphs.clear();
         self.graph_epoch += 1;
     }
@@ -333,6 +341,7 @@ impl Session {
             )
             .map(|(u, text)| (memo_key(&keys, env, Path::new(u.path())), text))
             .collect();
+
         Sources {
             stoppable: false,
             env,
@@ -350,6 +359,7 @@ fn memo_key(keys: &jaic::paths::CanonCache, env: &Environment, path: &Path) -> P
 pub(crate) fn hash(text: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = jaic::fxhash::FxHasher::default();
+
     text.hash(&mut h);
     h.finish()
 }
@@ -358,17 +368,21 @@ pub(crate) fn hash(text: &str) -> u64 {
 /// Existing ancestors establish alias identity; spelling and case are otherwise preserved.
 pub(crate) fn canonical_key(env: &Environment, path: &Path) -> PathBuf {
     let canonical = env.fs.canonical(path);
+
     if canonical != project::normalize(path) || env.fs.is_file(path) || env.fs.is_dir(path) {
         return jaic::paths::identity_spelling(&canonical);
     }
+
     for parent in path.ancestors().skip(1) {
         if env.fs.is_dir(parent) {
             let suffix = path.strip_prefix(parent).expect("ancestor prefix");
+
             return jaic::paths::identity_spelling(
                 &jaic::paths::file_identity(&*env.fs, parent).join(suffix),
             );
         }
     }
+
     jaic::paths::identity_spelling(&canonical)
 }
 
@@ -411,12 +425,14 @@ impl Sources<'_> {
     /// The compiler options for `root`.
     pub(crate) fn options(&self, root: &Path) -> jaic::sema::Options {
         let options = (self.env.options)(root);
+
         if let Some(recorded) = self.recording.borrow_mut().as_mut() {
             recorded.options.insert(
                 root.to_path_buf(),
                 (options.import_paths.clone(), options.preload.clone()),
             );
         }
+
         options
     }
 
@@ -424,9 +440,12 @@ impl Sources<'_> {
         if self.stopped() {
             return None;
         }
+
         let key = self.key(path);
         let open = self.open.get(&key);
+
         self.note(&key, open.is_some());
+
         match open {
             Some(text) => Some((*text).to_string()),
             None => self
@@ -440,6 +459,7 @@ impl Sources<'_> {
     pub(crate) fn is_file(&self, path: &Path) -> bool {
         let key = self.key(path);
         let open = self.open.contains_key(&key);
+
         self.note(&key, open);
         open || self.env.fs.is_file(path)
     }
@@ -452,6 +472,7 @@ impl Sources<'_> {
     pub(crate) fn is_dir(&self, path: &Path) -> bool {
         let key = self.key(path);
         let open = self.open_under(&key);
+
         self.note(&key, open);
         open || self.env.fs.is_dir(path)
     }
@@ -461,17 +482,22 @@ impl Sources<'_> {
         if self.stopped() {
             return Vec::new();
         }
+
         let key = self.key(dir);
+
         self.note(&key, self.open_under(&key));
         let mut entries: BTreeSet<(String, bool)> = self.env.fs.list_dir(dir).into_iter().collect();
+
         for open in self.open.keys() {
             if let Ok(rest) = open.strip_prefix(&key) {
                 let mut parts = rest.iter();
+
                 if let Some(first) = parts.next() {
                     entries.insert((first.to_string_lossy().into_owned(), parts.next().is_some()));
                 }
             }
         }
+
         entries.into_iter().collect()
     }
 
@@ -485,35 +511,48 @@ impl Sources<'_> {
         if self.stopped() {
             return Rc::default();
         }
+
         let open = self.open.contains_key(path);
+
         if open {
             self.note(path, true);
         }
+
         if let Some(text) = self.open.get(path) {
             let h = hash(text);
+
             if let Some((seen, scan)) = index.open.get(path)
                 && *seen == h
             {
                 return scan.clone();
             }
+
             let scan = Rc::new(exports::scan(text));
+
             index.note_loads(path, &scan);
             index.open.insert(path.to_path_buf(), (h, scan.clone()));
+
             return scan;
         }
+
         if let Some((stamp, scan)) = index.files.get(path) {
             // The scan is as old as its stamp, whatever the file is now.
             self.note_stamp(path, *stamp);
             return scan.clone();
         }
+
         // Stamped before the read, so a change in between shows as a different stamp later.
         let stamp = self.env.fs.stamp(path);
+
         self.note_stamp(path, stamp);
         let text = self.read(path);
+
         if self.stopped() {
             return Rc::default();
         }
+
         let scan = Rc::new(text.map(|text| exports::scan(&text)).unwrap_or_default());
+
         index.note_loads(path, &scan);
         index
             .files

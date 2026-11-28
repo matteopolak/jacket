@@ -29,22 +29,28 @@ pub(super) fn straighten(ops: &mut Vec<Op>, blocks: &mut [CodeBlock]) {
         .iter()
         .map(|b| ops[b.start as usize..b.end as usize].to_vec())
         .collect();
+
     thread_jumps(&mut list);
+
     for _ in 0..2 {
         let source = list.clone();
+
         for (p, block) in list.iter_mut().enumerate() {
             if let Some(longer) = extend(&source, p, block) {
                 *block = longer;
             }
         }
     }
+
     drop_jumps_to_next(&mut list);
     let mut flat = Vec::with_capacity(ops.len());
+
     for (block, body) in blocks.iter_mut().zip(list) {
         block.start = flat.len() as u32;
         flat.extend(body);
         block.end = flat.len() as u32;
     }
+
     *ops = flat;
 }
 
@@ -61,6 +67,7 @@ fn drop_jumps_to_next(list: &mut [Vec<Op>]) {
             continue;
         };
         let target = target as usize;
+
         if target > p && list[p + 1..target].iter().all(std::vec::Vec::is_empty) {
             list[p].remove(last);
         }
@@ -194,6 +201,7 @@ fn thread_jumps(list: &mut [Vec<Op>]) {
         .enumerate()
         .map(|(i, body)| {
             let mut real = body.iter().filter(|op| !is_loc(op));
+
             match (real.next(), real.next()) {
                 (None, _) if i + 1 < n => i + 1,
                 (
@@ -211,10 +219,13 @@ fn thread_jumps(list: &mut [Vec<Op>]) {
             if step[at] == at {
                 break;
             }
+
             at = step[at];
         }
+
         at
     };
+
     for body in list.iter_mut() {
         for op in body.iter_mut() {
             if let Some(target) = target_of(op) {
@@ -231,6 +242,7 @@ fn extend(source: &[Vec<Op>], p: usize, block: &[Op]) -> Option<Vec<Op>> {
     // Jumps taken off the path, less jumps put on it.
     let mut net = 0i32;
     let mut first = true;
+
     for _ in 0..CHAIN {
         let last = cand.iter().rposition(|op| !is_loc(op))?;
         let jumps = matches!(cand[last], Op::Jump { .. });
@@ -242,12 +254,14 @@ fn extend(source: &[Vec<Op>], p: usize, block: &[Op]) -> Option<Vec<Op>> {
             _ if first => p + 1,
             _ => break,
         };
+
         first = false;
         let Some(from) = source.get(target) else {
             break;
         };
         let body: Vec<Op> = from.iter().filter(|op| !is_loc(op)).copied().collect();
         let size = cand.iter().filter(|op| !is_loc(op)).count();
+
         if target == p
             || body.is_empty()
             || body.len() > COPY_LIMIT
@@ -256,21 +270,28 @@ fn extend(source: &[Vec<Op>], p: usize, block: &[Op]) -> Option<Vec<Op>> {
         {
             break;
         }
+
         let tail = body[body.len() - 1];
+
         if leaves(&tail) {
             if jumps {
                 cand.truncate(last);
                 net += 1;
             }
+
             cand.extend(body);
+
             continue;
         }
+
         if target + 1 >= source.len() {
             break;
         }
+
         if jumps && target <= p {
             // A loop's test, reached from below: the common case is to go on into the body.
             let mut exit = tail;
+
             if let Some(exit_to) = target_of(&mut exit).map(|t| *t)
                 && let Some(back) = inverted(&tail, target as u32 + 1)
             {
@@ -281,18 +302,22 @@ fn extend(source: &[Vec<Op>], p: usize, block: &[Op]) -> Option<Vec<Op>> {
                 cand.push(Op::Jump {
                     target: exit_to,
                 });
+
                 break;
             }
         }
+
         if jumps {
             cand.truncate(last);
             net += 1;
         }
+
         cand.extend(body);
         cand.push(Op::Jump {
             target: target as u32 + 1,
         });
         net -= 1;
     }
+
     (net > 0).then_some(cand)
 }

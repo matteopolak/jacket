@@ -9,6 +9,7 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
     #[cfg(not(target_arch = "x86_64"))]
     {
         let _ = (op, arguments);
+
         Err(Trap::new(
             "x86 architectural instruction requires an x86-64 interpreter host",
         ))
@@ -18,6 +19,7 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
         use std::arch::{asm, x86_64::__cpuid_count};
         let maximum = __cpuid_count(0, 0).eax;
         let leaf1 = (maximum >= 1).then(|| __cpuid_count(1, 0));
+
         match op {
             Intrinsic::X86Timestamp {
                 aux,
@@ -28,6 +30,7 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                 } else {
                     leaf1.is_some_and(|leaf| leaf.edx & (1 << 4) != 0)
                 };
+
                 if !available {
                     return Err(Trap::new(if aux {
                         "RDTSCP is unavailable on the executing x86-64 processor (CPUID)"
@@ -35,13 +38,16 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                         "RDTSC is unavailable on the executing x86-64 processor (CPUID)"
                     }));
                 }
+
                 let hi: u32;
                 let lo: u32;
                 let auxiliary: Option<u32>;
+
                 // SAFETY: CPUID establishes instruction support. No process memory is read.
                 unsafe {
                     if aux {
                         let value: u32;
+
                         asm!("rdtscp", out("eax") lo, out("edx") hi, out("ecx") value, options(nostack, preserves_flags));
                         auxiliary = Some(value);
                     } else {
@@ -50,6 +56,7 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                     }
                 }
                 let timestamp = (u64::from(hi) << 32) | u64::from(lo);
+
                 Ok(if let Some(value) = auxiliary {
                     Rets::collect([timestamp, u64::from(value)].into_iter())
                 } else {
@@ -67,10 +74,12 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                 } else {
                     0
                 };
+
                 xgetbv_prerequisites(index, leaf1.map_or(0, |l| l.ecx), features)
                     .map_err(Trap::new)?;
                 let hi: u32;
                 let lo: u32;
+
                 // SAFETY: real CPUID above establishes XSAVE, OSXSAVE, and index-1
                 // support when required. Invalid indices never reach the instruction.
                 unsafe {
@@ -88,6 +97,7 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                 } else {
                     leaf1.is_some_and(|leaf| leaf.ecx & (1 << 30) != 0)
                 };
+
                 if !available {
                     return Err(Trap::new(if seed {
                         "RDSEED is unavailable on the executing x86-64 processor (CPUID)"
@@ -95,8 +105,10 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                         "RDRAND is unavailable on the executing x86-64 processor (CPUID)"
                     }));
                 }
+
                 let carry: u8;
                 let value: u64;
+
                 // SAFETY: real CPUID guards the fixed instruction. Each attempt preserves
                 // the hardware destination and CF, including resource-exhaustion failure.
                 unsafe {
@@ -107,6 +119,7 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                             result as u64
                         }};
                     }
+
                     value = match (seed, width) {
                         (false, Ty::I16) => attempt!("rdrand", "x", u16),
                         (false, Ty::I32) => attempt!("rdrand", "e", u32),
@@ -142,6 +155,7 @@ pub(super) fn execute(op: Intrinsic, arguments: &[u64]) -> Res<Rets> {
                 let [address] = arguments else {
                     return Err(Trap::new("invalid x86 prefetch operands"));
                 };
+
                 // SAFETY: x64 baseline cache hints preserve flags and do not perform a data
                 // load. The operand is the interpreted program's own computed address.
                 unsafe {
@@ -180,6 +194,7 @@ pub(super) fn cycle_counter() -> Res<u64> {
     #[cfg(target_arch = "aarch64")]
     {
         let counter: u64;
+
         // SAFETY: same user-space architectural virtual counter as native LLVM lowering.
         unsafe {
             std::arch::asm!("mrs {counter}, cntvct_el0", counter=out(reg) counter, options(nomem, nostack, preserves_flags));
@@ -202,15 +217,19 @@ fn xgetbv_prerequisites(index: u32, leaf1_ecx: u32, leafd1_eax: u32) -> Result<(
     if index > 1 {
         return Err("XGETBV index must be 0 or 1");
     }
+
     if leaf1_ecx & (1 << 26) == 0 {
         return Err("XGETBV requires XSAVE support on the executing processor (CPUID)");
     }
+
     if leaf1_ecx & (1 << 27) == 0 {
         return Err("XGETBV requires OSXSAVE enabled by the executing operating system (CPUID)");
     }
+
     if index == 1 && leafd1_eax & (1 << 2) == 0 {
         return Err("XGETBV index 1 is unavailable on the executing processor (CPUID)");
     }
+
     Ok(())
 }
 
@@ -223,6 +242,7 @@ mod xgetbv_tests {
         let xsave = 1 << 26;
         let osxsave = 1 << 27;
         let xgetbv1 = 1 << 2;
+
         for index in [0, 1] {
             for features in [0, xgetbv1] {
                 assert!(
@@ -242,6 +262,7 @@ mod xgetbv_tests {
                 );
             }
         }
+
         assert!(xgetbv_prerequisites(0, xsave | osxsave, 0).is_ok());
         assert!(xgetbv_prerequisites(0, xsave | osxsave, xgetbv1).is_ok());
         assert!(
@@ -250,6 +271,7 @@ mod xgetbv_tests {
                 .contains("index 1")
         );
         assert!(xgetbv_prerequisites(1, xsave | osxsave, xgetbv1).is_ok());
+
         for index in [2, 3, u32::MAX] {
             assert!(
                 xgetbv_prerequisites(index, xsave | osxsave, xgetbv1)

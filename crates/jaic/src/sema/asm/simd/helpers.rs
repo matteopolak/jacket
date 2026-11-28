@@ -18,6 +18,7 @@ pub(super) fn saturate(f: &mut FnCtx, wt: Ty, v: Val, ty: Ty, signed: bool) -> V
     let above = cmp(f, CmpOp::SGt, wt, v, hi_v);
     let v = select(f, wt, below, lo_v, v);
     let v = select(f, wt, above, hi_v, v);
+
     resize(f, v, wt, ty, false)
 }
 
@@ -38,6 +39,7 @@ pub(super) fn round_f64(f: &mut FnCtx, x: Val, mode: char) -> Val {
             let nr = f.b.un(UnOp::FNeg, Ty::F64, r);
             let r = fselect(f, Ty::F64, neg, nr, r);
             let small = cmp(f, CmpOp::FLt, Ty::F64, ax, big);
+
             fselect(f, Ty::F64, small, r, x)
         }
     }
@@ -72,6 +74,7 @@ pub(super) fn float_to_int(
     if from == Ty::F32 && to == Ty::I32 && !unsigned {
         return float_to_s32(f, x, mode);
     }
+
     let x = to_f64(f, from, x);
     let r = round_f64(f, x, mode);
     let w = bits(to) as i32;
@@ -98,6 +101,7 @@ pub(super) fn float_to_int(
     } else {
         konst(f, to, 1u64 << (w - 1))
     };
+
     select(f, to, ok, v, bad)
 }
 
@@ -106,45 +110,60 @@ pub(super) fn float_to_int(
 pub(super) fn aes_tables() -> Vec<u8> {
     let mul = |mut a: u8, mut b: u8| {
         let mut p = 0u8;
+
         while b != 0 {
             if b & 1 != 0 {
                 p ^= a;
             }
+
             let hi = a & 0x80;
+
             a <<= 1;
+
             if hi != 0 {
                 a ^= 0x1b;
             }
+
             b >>= 1;
         }
+
         p
     };
     let mut sbox = [0u8; 256];
     let mut inv = [0u8; 256];
     let mut field_inv = [0u8; 256];
+
     for x in 0..=255u8 {
         let mut y = 0u8;
+
         if x != 0 {
             // x^254 is the multiplicative inverse in GF(2^8).
             let mut acc = 1u8;
             let mut base = x;
             let mut e = 254u32;
+
             while e > 0 {
                 if e & 1 != 0 {
                     acc = mul(acc, base);
                 }
+
                 base = mul(base, base);
                 e >>= 1;
             }
+
             y = acc;
         }
+
         field_inv[x as usize] = y;
         let s =
             y ^ y.rotate_left(1) ^ y.rotate_left(2) ^ y.rotate_left(3) ^ y.rotate_left(4) ^ 0x63;
+
         sbox[x as usize] = s;
         inv[s as usize] = x;
     }
+
     let mut out = sbox.to_vec();
+
     out.extend_from_slice(&inv);
     out.extend_from_slice(&field_inv);
     out
@@ -158,6 +177,7 @@ pub(super) fn xtime(f: &mut FnCtx, x: Val) -> Val {
     let hi = bin(f, BinOp::AShr, Ty::I8, x, seven);
     let poly = konst(f, Ty::I8, 0x1b);
     let m = bin(f, BinOp::And, Ty::I8, hi, poly);
+
     bin(f, BinOp::Xor, Ty::I8, t, m)
 }
 
@@ -168,9 +188,11 @@ pub(super) fn xor8(f: &mut FnCtx, a: Val, b: Val) -> Val {
 /// AES `MixColumns` (or `InvMixColumns`) of the 16 bytes of `s`.
 pub(super) fn mix_columns(f: &mut FnCtx, s: &[Val; 16], inverse: bool) -> [Val; 16] {
     let mut out = *s;
+
     for c in 0..4 {
         let a: Vec<Val> = (0..4).map(|r| s[4 * c + r]).collect();
         let x2: Vec<Val> = a.iter().map(|&v| xtime(f, v)).collect();
+
         if inverse {
             let x4: Vec<Val> = x2.iter().map(|&v| xtime(f, v)).collect();
             let x8: Vec<Val> = x4.iter().map(|&v| xtime(f, v)).collect();
@@ -194,9 +216,11 @@ pub(super) fn mix_columns(f: &mut FnCtx, s: &[Val; 16], inverse: bool) -> [Val; 
                 })
                 .collect();
             let m9: Vec<Val> = (0..4).map(|k| xor8(f, x8[k], a[k])).collect();
+
             for r in 0..4 {
                 let t = xor8(f, m14[r], m11[(r + 1) % 4]);
                 let t = xor8(f, t, m13[(r + 2) % 4]);
+
                 out[4 * c + r] = xor8(f, t, m9[(r + 3) % 4]);
             }
         } else {
@@ -206,10 +230,12 @@ pub(super) fn mix_columns(f: &mut FnCtx, s: &[Val; 16], inverse: bool) -> [Val; 
                 let t = xor8(f, x2[r], x2[(r + 1) % 4]);
                 let t = xor8(f, t, n1);
                 let t = xor8(f, t, a[(r + 2) % 4]);
+
                 out[4 * c + r] = xor8(f, t, a[(r + 3) % 4]);
             }
         }
     }
+
     out
 }
 
@@ -218,6 +244,7 @@ pub(super) fn load_dyn(f: &mut FnCtx, base: Val, index: Val, ty: Ty) -> Val {
     let size = konst(f, Ty::I64, ty.numeric_size());
     let off = bin(f, BinOp::Mul, Ty::I64, index, size);
     let p = f.b.ptr_add(base, off);
+
     f.b.load(ty, p)
 }
 
@@ -225,6 +252,7 @@ pub(super) fn store_dyn(f: &mut FnCtx, base: Val, index: Val, ty: Ty, v: Val) {
     let size = konst(f, Ty::I64, ty.numeric_size());
     let off = bin(f, BinOp::Mul, Ty::I64, index, size);
     let p = f.b.ptr_add(base, off);
+
     f.b.store(ty, p, v);
 }
 
@@ -234,6 +262,7 @@ pub(super) fn mask_bit(f: &mut FnCtx, mask: Val, i: u64) -> Val {
     let b = bin(f, BinOp::LShr, Ty::I64, mask, at);
     let one = konst(f, Ty::I64, 1);
     let b = bin(f, BinOp::And, Ty::I64, b, one);
+
     resize(f, b, Ty::I64, Ty::I8, false)
 }
 
@@ -241,6 +270,7 @@ pub(super) fn mask_bit(f: &mut FnCtx, mask: Val, i: u64) -> Val {
 pub(super) fn when(f: &mut FnCtx, cond: Val, body: impl FnOnce(&mut FnCtx)) {
     let then = f.b.new_block();
     let join = f.b.new_block();
+
     f.b.branch(cond, then, join);
     f.b.switch_to(then);
     body(f);

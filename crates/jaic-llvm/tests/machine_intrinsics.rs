@@ -17,16 +17,20 @@ mod cpuid {
         if !toolchain::require_all(&["clang"]) {
             return;
         }
+
         let root = test_support::repo::root();
         let mut options = Options::host();
+
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         if let Err(e) = c.compile_sources(&[ProgramSource::String(
             include_str!("../../../tests/compiler/semantics/cpuid.jai").into(),
         )]) {
             panic!("{}", e.render(&c.src.sources));
         }
+
         let target = if cfg!(target_os = "macos") {
             "x86_64-apple-darwin"
         } else if cfg!(windows) {
@@ -34,9 +38,11 @@ mod cpuid {
         } else {
             "x86_64-unknown-linux-gnu"
         };
+
         for level in [OptLevel::O0, OptLevel::O2] {
             let dir = TempDir::new(&format!("cpuid-{level:?}"));
             let object = dir.join("cpuid.o");
+
             emit_object(
                 &c.out.program,
                 &jaic_llvm::Options {
@@ -49,9 +55,11 @@ mod cpuid {
             .unwrap();
             let exe = dir.join(format!("cpuid{}", std::env::consts::EXE_SUFFIX));
             let mut driver = toolchain::command("clang");
+
             if cfg!(target_os = "macos") {
                 driver.args(["-arch", "x86_64"]);
             }
+
             driver
                 .args(["-std=c11", "-Wall", "-Wextra", "-Werror"])
                 .arg(if level == OptLevel::O0 {
@@ -75,15 +83,19 @@ mod cpuid {
         if !toolchain::require_all(&["llvm-objdump", "llvm-readobj"]) {
             return;
         }
+
         let mut options = Options::host();
+
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         c.compile_sources(&[ProgramSource::String(
             include_str!("../../../tests/compiler/semantics/cpuid.jai").into(),
         )])
         .unwrap();
         let dir = TempDir::new("cpuid-metadata");
+
         for target in [
             "x86_64-apple-darwin",
             "x86_64-unknown-linux-gnu",
@@ -92,6 +104,7 @@ mod cpuid {
         ] {
             for level in [OptLevel::O0, OptLevel::O2] {
                 let object = dir.join(format!("{target}-{level:?}.o"));
+
                 emit_object(
                     &c.out.program,
                     &jaic_llvm::Options {
@@ -104,18 +117,21 @@ mod cpuid {
                 .unwrap();
                 let disassembly =
                     checked(toolchain::command("llvm-objdump").arg("-d").arg(&object));
+
                 assert!(
                     disassembly
                         .lines()
                         .any(|line| line.split_whitespace().any(|word| word == "cpuid")),
                     "{target} {level:?}: {disassembly}"
                 );
+
                 if target.contains("windows") {
                     let unwind = checked(
                         toolchain::command("llvm-readobj")
                             .arg("--unwind")
                             .arg(&object),
                     );
+
                     assert!(
                         unwind.contains("RBX"),
                         "CPUID clobbers callee-saved RBX: {unwind}"
@@ -123,6 +139,7 @@ mod cpuid {
                 }
             }
         }
+
         for target in [
             "wasm64-unknown-unknown",
             "aarch64-unknown-linux-gnu",
@@ -137,6 +154,7 @@ mod cpuid {
                 &dir.join("rejected.o"),
             )
             .expect_err("CPUID requires a real x64 target");
+
             assert!(error.contains("x86-64 target"), "{target}: {error}");
         }
     }
@@ -163,12 +181,15 @@ mod cpuid_leaf_zero {
         if !toolchain::require_all(&["clang", "llvm-objdump"]) {
             return;
         }
+
         let root = test_support::repo::root();
         let mut options = Options::host();
+
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
         options.stack_trace = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         c.compile_sources(&[ProgramSource::String(
             include_str!("../../../tests/compiler/semantics/cpuid-leaf-zero.jai").into(),
         )])
@@ -180,10 +201,12 @@ mod cpuid_leaf_zero {
         } else {
             "x86_64-unknown-linux-gnu"
         };
+
         for level in [OptLevel::O0, OptLevel::O2] {
             let dir = TempDir::new(&format!("cpuid-leaf-zero-{level:?}"));
             let object = dir.join("cpuid.o");
             let ir = dir.join("cpuid.ll");
+
             emit_object(
                 &c.out.program,
                 &jaic_llvm::Options {
@@ -196,12 +219,14 @@ mod cpuid_leaf_zero {
             )
             .unwrap();
             let ir = std::fs::read_to_string(ir).unwrap();
+
             ir::assert_line(&ir, &["\"cpuid\"", "asm sideeffect", "~{memory}"]);
             let disassembly = toolchain::command("llvm-objdump")
                 .arg("-d")
                 .arg(&object)
                 .output()
                 .unwrap();
+
             assert!(disassembly.status.success());
             assert!(
                 String::from_utf8(disassembly.stdout)
@@ -213,9 +238,11 @@ mod cpuid_leaf_zero {
             {
                 let exe = dir.join(format!("cpuid-driver{}", std::env::consts::EXE_SUFFIX));
                 let mut clang = toolchain::command("clang");
+
                 if cfg!(target_os = "macos") {
                     clang.args(["-arch", "x86_64"]);
                 }
+
                 checked(
                     clang
                         .args(["-std=c11", "-Wall", "-Wextra", "-Werror"])
@@ -244,14 +271,17 @@ mod xgetbv {
 
     fn program() -> Compiler {
         let mut options = Options::host();
+
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         if let Err(e) = c.compile_sources(&[ProgramSource::String(
             include_str!("../../../tests/compiler/semantics/xgetbv.jai").into(),
         )]) {
             panic!("{}", e.render(&c.src.sources));
         }
+
         c
     }
 
@@ -260,10 +290,13 @@ mod xgetbv {
         if !toolchain::require_all(&["llvm-objdump"]) {
             return;
         }
+
         let c = program();
         let out = out_dir();
         let dir = out.join("metadata");
+
         std::fs::create_dir_all(&dir).unwrap();
+
         for target in [
             "x86_64-apple-darwin",
             "x86_64-unknown-linux-gnu",
@@ -272,6 +305,7 @@ mod xgetbv {
         ] {
             for level in [OptLevel::O0, OptLevel::O2] {
                 let path = dir.join(format!("{target}-{level:?}.o"));
+
                 emit_object(
                     &c.out.program,
                     &jaic_llvm::Options {
@@ -283,17 +317,20 @@ mod xgetbv {
                 )
                 .unwrap();
                 let disassembly = checked(toolchain::command("llvm-objdump").arg("-d").arg(&path));
+
                 std::fs::write(path.with_extension("disassembly.txt"), &disassembly).unwrap();
                 let count = disassembly
                     .lines()
                     .filter(|line| line.split_whitespace().any(|word| word == "xgetbv"))
                     .count();
+
                 assert!(
                     count >= 5,
                     "all five exported reads, including discarded output, must survive: {target} {level:?}: {disassembly}"
                 );
             }
         }
+
         for target in [
             "aarch64-unknown-linux-gnu",
             "aarch64-pc-windows-msvc",
@@ -308,6 +345,7 @@ mod xgetbv {
                 &dir.join("rejected.o"),
             )
             .expect_err("non-x64 backend must reject XGETBV");
+
             assert!(
                 error.contains("XGETBV requires an x86-64 target"),
                 "{target}: {error}"
@@ -323,6 +361,7 @@ mod xgetbv {
         if !toolchain::require_all(&["clang"]) {
             return;
         }
+
         let c = program();
         let target = if cfg!(target_os = "macos") {
             "x86_64-apple-darwin"
@@ -331,11 +370,14 @@ mod xgetbv {
         } else {
             "x86_64-unknown-linux-gnu"
         };
+
         for level in [OptLevel::O0, OptLevel::O2] {
             let out = out_dir();
             let dir = out.join(format!("native-{level:?}"));
+
             std::fs::create_dir_all(&dir).unwrap();
             let object = dir.join("xgetbv.o");
+
             emit_object(
                 &c.out.program,
                 &jaic_llvm::Options {
@@ -349,6 +391,7 @@ mod xgetbv {
             let exe = dir.join(format!("xgetbv{}", std::env::consts::EXE_SUFFIX));
             let root = test_support::repo::root();
             let mut driver = toolchain::command("clang");
+
             driver
                 .args(["-std=c11", "-Wall", "-Wextra", "-Werror"])
                 .arg(if level == OptLevel::O0 {
@@ -362,6 +405,7 @@ mod xgetbv {
                 .arg(&exe);
             checked(&mut driver);
             let result = std::process::Command::new(&exe).output().unwrap();
+
             assert!(
                 result.status.success(),
                 "required native XGETBV proof unavailable or failed: status={:?}, stdout={}, stderr={}",
@@ -403,11 +447,14 @@ mod x86_machine {
         if !toolchain::require_all(&["opt"]) {
             return;
         }
+
         let mut options = Options::host();
+
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
         options.stack_trace = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         c.compile_sources(&[ProgramSource::String(
             r#"
     #program_export "random_parity"
@@ -429,6 +476,7 @@ mod x86_machine {
         .unwrap();
         let dir = TempDir::new("x86-parity-source");
         let ir = dir.join("parity.ll");
+
         emit_object(
             &c.out.program,
             &jaic_llvm::Options {
@@ -443,6 +491,7 @@ mod x86_machine {
         // emit_ir records the pre-optimization module. Evaluate its constant flag
         // dataflow with the same official LLVM optimizer, without executing ISA.
         let optimized = dir.join("parity-opt.ll");
+
         checked(
             toolchain::command("opt")
                 .arg("-passes=default<O2>")
@@ -452,6 +501,7 @@ mod x86_machine {
                 .arg(&optimized),
         );
         let ir = std::fs::read_to_string(optimized).unwrap();
+
         for (name, instruction) in [("random_parity", "rdrand"), ("seed_parity", "rdseed")] {
             let body = ir
                 .lines()
@@ -461,6 +511,7 @@ mod x86_machine {
                 .take_while(|line| *line != "}")
                 .collect::<Vec<_>>()
                 .join("\n");
+
             assert!(body.contains("ret i8 0"), "{name} must expose PF=0: {body}");
             ir::assert_line(&body, &[instruction, "asm sideeffect"]);
         }
@@ -471,18 +522,22 @@ mod x86_machine {
         if !toolchain::require_all(&["clang", "llvm-objdump"]) {
             return;
         }
+
         #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
         let root = test_support::repo::root();
         let mut options = Options::host();
+
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
         options.stack_trace = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         if let Err(e) = c.compile_sources(&[ProgramSource::String(
             include_str!("../../../tests/compiler/semantics/x86-machine.jai").into(),
         )]) {
             panic!("{}", e.render(&c.src.sources));
         }
+
         for target in [
             "x86_64-apple-darwin",
             "x86_64-unknown-linux-gnu",
@@ -493,6 +548,7 @@ mod x86_machine {
                 let dir = TempDir::new(&format!("x86-machine-{target}-{level:?}"));
                 let object = dir.join("machine.o");
                 let ir = dir.join("machine.ll");
+
                 emit_object(
                     &c.out.program,
                     &jaic_llvm::Options {
@@ -506,6 +562,7 @@ mod x86_machine {
                 .unwrap();
                 let disassembly =
                     checked(toolchain::command("llvm-objdump").arg("-d").arg(&object));
+
                 for instruction in [
                     "rdtsc",
                     "rdtscp",
@@ -531,13 +588,16 @@ mod x86_machine {
                         "{target} {level:?} missing {instruction}: {disassembly}"
                     );
                 }
+
                 let ir = std::fs::read_to_string(ir).unwrap();
+
                 for instruction in ["mfence", "lfence", "sfence", "rdtsc", "rdtscp"] {
                     ir::assert_line(
                         &ir,
                         &[&format!("\"{instruction}\""), "asm sideeffect", "~{memory}"],
                     );
                 }
+
                 #[cfg(any(target_arch = "x86_64", target_os = "macos"))]
                 {
                     let native = if cfg!(target_os = "macos") {
@@ -547,12 +607,15 @@ mod x86_machine {
                     } else {
                         "x86_64-unknown-linux-gnu"
                     };
+
                     if target == native {
                         let exe = dir.join(format!("isa-driver{}", std::env::consts::EXE_SUFFIX));
                         let mut clang = toolchain::command("clang");
+
                         if cfg!(target_os = "macos") {
                             clang.args(["-arch", "x86_64"]);
                         }
+
                         checked(
                             clang
                                 .args(["-std=c11", "-Wall", "-Wextra", "-Werror"])
@@ -562,12 +625,14 @@ mod x86_machine {
                                 .arg(&exe),
                         );
                         let evidence = checked(&mut std::process::Command::new(exe));
+
                         std::fs::write(dir.join("executed.txt"), &evidence).unwrap();
                         println!("{target} {level:?}: {evidence}");
                     }
                 }
             }
         }
+
         for target in [
             "aarch64-apple-darwin",
             "aarch64-pc-windows-msvc",
@@ -582,6 +647,7 @@ mod x86_machine {
                 &TempDir::new("x86-machine-rejected").join("rejected.o"),
             )
             .expect_err("architectural intrinsics must not silently disappear on another backend");
+
             assert!(error.contains("x86-64 target"), "{error}");
         }
     }
@@ -602,11 +668,13 @@ mod string_compare {
         let mut s = String::from(
             "main :: () {\n    data: [32] u8;\n    for 0..31 data[it] = cast(u8) (it % 5);\n    total: u32;\n",
         );
+
         for _ in 0..USES {
             s.push_str(
                 "    {\n        pa := data.data;\n        pb := data.data + 16;\n        idx: u32;\n        #asm SSE4_2 {\n            a_: vec;\n            b_: vec;\n            movdqu a_, [pa];\n            movdqu b_, [pb];\n            pcmpistri ecx:, a_, b_, 0;\n            mov idx, ecx;\n        }\n        total += idx;\n    }\n",
             );
         }
+
         s.push_str("}\n");
         s
     }
@@ -618,20 +686,26 @@ mod string_compare {
             .and_then(|at| ir[..at].rfind("define "))
             .unwrap_or_else(|| panic!("no definition of {name}: {ir}"));
         let end = start + ir[start..].find("\n}\n").unwrap();
+
         &ir[start..end]
     }
 
     #[test]
     fn each_use_is_a_call_to_one_helper() {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         if let Err(e) = c.compile_sources(&[ProgramSource::String(source())]) {
             panic!("{}", e.render(&c.src.sources));
         }
+
         let dir = TempDir::new("string-compare");
+
         for target in ["aarch64-apple-macosx11.0", "x86_64-unknown-linux-gnu"] {
             let ir_path = dir.join(format!("{target}.ll"));
+
             emit_object(
                 &c.out.program,
                 &jaic_llvm::Options {
@@ -648,14 +722,17 @@ mod string_compare {
                 .lines()
                 .filter(|l| l.starts_with("define") && l.contains("@jaic.string_compare"))
                 .count();
+
             assert_eq!(
                 definitions, 1,
                 "{target}: one helper for one control byte\n{ir}"
             );
             let main = function(&ir, "main");
             let calls = main.matches("@jaic.string_compare").count();
+
             assert_eq!(calls, USES, "{target}: {main}");
             let compares = main.matches(" icmp ").count();
+
             assert!(
                 compares <= 4 * USES,
                 "{target}: {compares} compares in main for {USES} uses\n{main}"

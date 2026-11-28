@@ -27,9 +27,11 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 /// pins its own count passes the flag again later, and the last one wins.
 fn jaic() -> Command {
     let mut command = Command::new(JAIC);
+
     if let Some(units) = jacket_config::env::TEST_CODEGEN_UNITS.os() {
         command.arg("-codegen_units").arg(units);
     }
+
     command
 }
 
@@ -44,13 +46,16 @@ fn read_ir_parts(path: &Path) -> String {
     let mut text = std::fs::read_to_string(path).unwrap();
     let stem = path.file_stem().unwrap().to_string_lossy().into_owned();
     let extension = path.extension().unwrap().to_string_lossy().into_owned();
+
     for unit in 1.. {
         let part = path.with_file_name(format!("{stem}.{unit}.{extension}"));
+
         match std::fs::read_to_string(&part) {
             Ok(more) => text.push_str(&more),
             Err(_) => break,
         }
     }
+
     text
 }
 
@@ -68,12 +73,14 @@ fn corpus_cases() -> Vec<Case> {
     let corpus = repo_root().join("tests/corpus");
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(corpus.join("manifest.json")).unwrap()).unwrap();
+
     manifest["cases"]
         .as_array()
         .unwrap()
         .iter()
         .filter_map(|c| {
             let runtime = c.get("runtime")?;
+
             Some(Case {
                 id: c["id"].as_str()?.to_string(),
                 source: corpus.join(c["source"].as_str()?),
@@ -110,12 +117,14 @@ fn build_and_run(source: &Path, dir: &Path, name: &str) -> Result<std::process::
         .current_dir(source.parent().unwrap())
         .output()
         .map_err(|e| e.to_string())?;
+
     if !build.status.success() {
         return Err(format!(
             "build failed: {}",
             String::from_utf8_lossy(&build.stderr)
         ));
     }
+
     quiet_crash::quiet(&mut Command::new(&exe))
         .output()
         .map_err(|e| e.to_string())
@@ -125,6 +134,7 @@ fn build_and_run(source: &Path, dir: &Path, name: &str) -> Result<std::process::
 fn corpus_runs_natively_like_the_interpreter() {
     let dir = TempDir::new("native-corpus");
     let (mut checked, mut failures) = (0, Vec::new());
+
     for case in corpus_cases() {
         // Only cases the interpreter already passes are meaningful for the backend.
         let interp = jaic()
@@ -133,10 +143,13 @@ fn corpus_runs_natively_like_the_interpreter() {
             .current_dir(case.source.parent().unwrap())
             .output()
             .unwrap();
+
         if !matches(&case, &interp) {
             continue;
         }
+
         checked += 1;
+
         match build_and_run(&case.source, &dir, &case.id) {
             Ok(native) if matches(&case, &native) => {}
             Ok(native) => failures.push(format!(
@@ -150,6 +163,7 @@ fn corpus_runs_natively_like_the_interpreter() {
             Err(e) => failures.push(format!("{}: {e}", case.id)),
         }
     }
+
     assert!(checked > 0, "no corpus case passes under the interpreter");
     assert!(
         failures.is_empty(),
@@ -163,12 +177,14 @@ fn corpus_runs_natively_like_the_interpreter() {
 fn hello_world_builds_and_prints() {
     let dir = TempDir::new("native-hello");
     let source = dir.join("hello.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\nmain :: () { print(\"hello %!\\n\", 42); }\n",
     )
     .unwrap();
     let output = build_and_run(&source, &dir, "hello").unwrap();
+
     assert_eq!(String::from_utf8_lossy(&output.stdout), "hello 42!\n");
     assert_eq!(output.status.code(), Some(0));
 }
@@ -180,6 +196,7 @@ fn hello_world_builds_and_prints() {
 fn unreferenced_code_is_not_compiled() {
     let dir = TempDir::new("native-unreferenced");
     let source = dir.join("unreferenced.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -201,6 +218,7 @@ fn unreferenced_code_is_not_compiled() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -209,6 +227,7 @@ fn unreferenced_code_is_not_compiled() {
     // Every part, when `-codegen_units` divides the program: nothing unreferenced is compiled
     // into any of them.
     let ir = read_ir_parts(&ir);
+
     assert!(ir.contains("used_helper_qz"));
     assert!(
         !ir.contains("unused_entry_qz"),
@@ -219,6 +238,7 @@ fn unreferenced_code_is_not_compiled() {
         "a procedure only unreferenced code calls was compiled"
     );
     let run = Command::new(&exe).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&run.stdout), "7\n");
 }
 
@@ -230,6 +250,7 @@ fn unreferenced_code_is_not_compiled() {
 fn quiet_procedures_push_no_stack_trace_node() {
     let dir = TempDir::new("native-quiet-procedures");
     let source = dir.join("quiet.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -254,6 +275,7 @@ fn quiet_procedures_push_no_stack_trace_node() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -276,6 +298,7 @@ fn quiet_procedures_push_no_stack_trace_node() {
             .unwrap()
             .contains("@trace_info.")
     };
+
     assert!(!pushes_node("leaf_qz"));
     assert!(!pushes_node("chain_qz"));
     assert!(!pushes_node("rec_qz"), "a procedure that only calls itself");
@@ -283,6 +306,7 @@ fn quiet_procedures_push_no_stack_trace_node() {
     assert!(pushes_node("reads_qz"));
     assert!(pushes_node("through_qz"));
     let run = Command::new(&exe).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&run.stdout), "7 true -1 55 7\n");
 }
 
@@ -293,6 +317,7 @@ fn quiet_procedures_push_no_stack_trace_node() {
 fn stack_trace_node_is_pushed_before_the_first_use() {
     let dir = TempDir::new("native-late-trace-push");
     let source = dir.join("late.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -335,6 +360,7 @@ fn stack_trace_node_is_pushed_before_the_first_use() {
     )
     .unwrap();
     let output = build_and_run(&source, &dir, "late").unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "trace:4/5 early:10/4 early:13/3 early:13/2 main:32/1 \n\
@@ -352,6 +378,7 @@ fn stack_trace_node_is_pushed_before_the_first_use() {
 fn small_aggregate_parameters_are_not_spilled_as_pointers() {
     let dir = TempDir::new("native-small-aggregate-params");
     let source = dir.join("small.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -372,6 +399,7 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -389,6 +417,7 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
         .expect("sum_small_qz is compiled");
     let prologue = body.split("\nb0:").next().unwrap();
     let mut sizes = jaic::fxhash::HashMap::default();
+
     for line in prologue.lines() {
         if let Some((slot, rest)) = line.trim().split_once(" = alloca [")
             && let Some((bytes, _)) = rest.split_once(" x i8]")
@@ -396,12 +425,15 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
             sizes.insert(slot.to_string(), bytes.parse::<u64>().unwrap());
         }
     }
+
     for line in prologue.lines() {
         let line = line.trim();
+
         if let Some(rest) = line.strip_prefix("store ptr ")
             && let Some((_, slot)) = rest.split_once(", ptr ")
         {
             let slot = slot.split(',').next().unwrap();
+
             assert!(
                 sizes.get(slot).is_some_and(|&n| n >= 8),
                 "a pointer is stored into the {:?}-byte slot {slot}: {line}\n{prologue}",
@@ -409,7 +441,9 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
             );
         }
     }
+
     let run = Command::new(&exe).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&run.stdout), "1007\n");
 }
 
@@ -417,6 +451,7 @@ fn small_aggregate_parameters_are_not_spilled_as_pointers() {
 #[test]
 fn compiler_and_abi_regressions_run_natively() {
     let dir = TempDir::new("native-stdlib-tests");
+
     for name in [
         "struct-literal-overrides-default-string",
         "array-literal-view-lifetime",
@@ -470,6 +505,7 @@ fn compiler_and_abi_regressions_run_natively() {
         if cfg!(windows) && name == "proc-sentinel-constant" {
             continue;
         }
+
         let source = repo_root().join(match name {
             "proc-sentinel-constant" => {
                 "stdlib/Compiler/tests/proc-sentinel-constant.jai".to_string()
@@ -478,6 +514,7 @@ fn compiler_and_abi_regressions_run_natively() {
             _ => format!("tests/compiler/regressions/{name}.jai"),
         });
         let output = build_and_run(&source, &dir, name).unwrap();
+
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
             "ok\n",
@@ -503,6 +540,7 @@ fn stdin_lines_are_read_natively() {
         .current_dir(source.parent().unwrap())
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -513,6 +551,7 @@ fn stdin_lines_are_read_natively() {
         .stdout(Stdio::piped())
         .spawn()
         .unwrap();
+
     child
         .stdin
         .take()
@@ -520,6 +559,7 @@ fn stdin_lines_are_read_natively() {
         .write_all(b"one\r\n\ntwo words\nlast")
         .unwrap();
     let output = child.wait_with_output().unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "[one][][two words][last]\n"
@@ -531,6 +571,7 @@ fn stdin_lines_are_read_natively() {
 #[test]
 fn asm_instructions_run_natively() {
     let dir = TempDir::new("native-asm-tests");
+
     for name in [
         "asm-scalar-extended",
         "asm-simd-extended",
@@ -541,6 +582,7 @@ fn asm_instructions_run_natively() {
     ] {
         let source = repo_root().join(format!("tests/compiler/regressions/{name}.jai"));
         let output = build_and_run(&source, &dir, name).unwrap();
+
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
             "ok\n",
@@ -556,6 +598,7 @@ fn asm_string_compares_run_interpreted() {
     for name in ["asm-string-compare", "asm-string-compare-operands"] {
         let source = repo_root().join(format!("tests/compiler/regressions/{name}.jai"));
         let output = jaic().arg("-interp").arg(&source).output().unwrap();
+
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
             "ok\n",
@@ -572,6 +615,7 @@ fn empty_workspaces_write_no_output() {
     let dir = TempDir::new("native-empty-workspaces");
     let source = repo_root().join("tests/compiler/regressions/compiler-workspace-ids.jai");
     let output = build_and_run(&source, &dir, "workspace-ids").unwrap();
+
     assert_eq!(
         output.status.code(),
         Some(0),
@@ -580,6 +624,7 @@ fn empty_workspaces_write_no_output() {
     );
     let source = repo_root().join("tests/compiler/semantics/workspace-identity.jai");
     let output = build_and_run(&source, &dir, "workspace-identity").unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -587,6 +632,7 @@ fn empty_workspaces_write_no_output() {
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
     let interpreted = jaic().arg("-interp").arg(source).output().unwrap();
+
     assert!(
         interpreted.status.success(),
         "{}",
@@ -602,8 +648,10 @@ fn stack_traces() {
     let dir = TempDir::new("native-stack-trace");
     let ok = repo_root().join("tests/compiler/regressions/stack-trace-line-through-inline.jai");
     let output = build_and_run(&ok, &dir, "through-inline").unwrap();
+
     assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
     let source = dir.join("trace.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -616,8 +664,10 @@ fn stack_traces() {
     )
     .unwrap();
     let output = build_and_run(&source, &dir, "trace").unwrap();
+
     assert_eq!(String::from_utf8_lossy(&output.stdout), "2 3\n");
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         stderr.contains("assertion failed: boom\nstack trace:\n")
             && stderr.contains("    main at "),

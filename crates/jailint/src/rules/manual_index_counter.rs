@@ -36,6 +36,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
+
         examine_block(cx, &p.body.stmts, p.body.span.end, out);
         walk(&p.body.stmts, &mut |n, _| {
             if let Some(s) = n.stmt() {
@@ -49,6 +50,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     }
                     S::StaticIf(si) => {
                         examine_block(cx, &si.then_branch, si.then_arm.end, out);
+
                         if let Some(arm) = si.else_arm {
                             examine_block(cx, &si.else_branch, arm.end, out);
                         }
@@ -56,6 +58,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     _ => {}
                 }
             }
+
             true
         });
     }
@@ -66,16 +69,20 @@ fn counter(cx: &Cx, d: &Decl) -> Option<Sym> {
     if d.kind != DeclKind::Var || d.names.len() != 1 || d.backtick || d.using {
         return None;
     }
+
     let name = d.names[0];
+
     match &d.value {
         Some(v) if matches!(v.kind, E::Int(n, ..) if n.get() == 0) => {}
         _ => return None,
     }
+
     // An `s64`, as `it_index` is.
     let ents = cx.locals(name.span);
     let all_s64 = ents.iter().all(|&e| {
         matches!(cx.compiler.entity(e).kind, jaic::sema::scope::EntityKind::Local { ty, .. } if ty == TypeId::S64)
     });
+
     (all_s64 && !ents.is_empty()).then_some(name.name)
 }
 
@@ -92,12 +99,15 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
         let S::For(f) = &s.kind else {
             continue;
         };
+
         if f.reverse || f.reverse_if.is_some() || f.iterator.is_some() || f.declares_in_caller() {
             continue;
         }
+
         let ForOver::Collection(c) = &f.over else {
             continue;
         };
+
         if !cx.ty(c).is_some_and(|t| {
             matches!(
                 cx.compiler.ty.types.kind(t),
@@ -106,6 +116,7 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
         }) {
             continue;
         }
+
         let S::Block(body) = &f.body.kind else {
             continue;
         };
@@ -120,12 +131,14 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
             S::Decl(d) => d.names[0].span,
             _ => continue,
         };
+
         // Nothing between the declaration and the loop, nor after it, mentions the counter.
         if cx.mentions(name, decl_stmt.span.end, s.span.start, decl_name_span)
             || cx.mentions(name, s.span.end, block_end, decl_name_span)
         {
             continue;
         }
+
         let first = body.stmts.first();
         let last = body.stmts.last();
         let (increment, deferred) = match (first, last) {
@@ -149,15 +162,18 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
         let mut ok = true;
         let mut rebinding: Vec<jaic::source::Span> = Vec::new();
         let mut stack = Vec::new();
+
         walk_node(Node::Stmt(&f.body), &mut stack, &mut |n, chain| {
             if !ok {
                 return false;
             }
+
             match n {
                 Node::Stmt(st) => {
                     if st.span == increment {
                         return false;
                     }
+
                     match &st.kind {
                         S::Remove(_) => ok = false,
                         // A `continue` of this loop skips an increment at the end.
@@ -172,6 +188,7 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
                                     })
                                 )
                             });
+
                             if !nested || label.is_some() {
                                 ok = false;
                             }
@@ -184,6 +201,7 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
                         }
                         _ => {}
                     }
+
                     true
                 }
                 Node::Expr(e) => {
@@ -193,32 +211,39 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
                         let inside = rebinding
                             .iter()
                             .any(|r| r.start <= e.span.start && e.span.end <= r.end);
+
                         if inside || place_use(e, chain) != PlaceUse::Read {
                             ok = false;
                         } else {
                             uses.push(e.span);
                         }
                     }
+
                     true
                 }
             }
         });
+
         if !ok {
             continue;
         }
+
         let mut edits = Vec::new();
         let (a, b) = cx.statement_removal(decl_stmt.span);
+
         edits.push(Edit {
             start: a,
             end: b,
             text: String::new(),
         });
         let (a, b) = cx.statement_removal(increment);
+
         edits.push(Edit {
             start: a,
             end: b,
             text: String::new(),
         });
+
         for u in &uses {
             edits.push(Edit {
                 start: u.start as usize,
@@ -226,7 +251,9 @@ fn examine_block(cx: &Cx, stmts: &[Stmt], block_end: u32, out: &mut Vec<Finding>
                 text: index_name.into(),
             });
         }
+
         let help = format!("use `{index_name}` instead of counting by hand");
+
         out.push(Finding {
             secondary: Vec::new(),
             start: decl_name_span.start as usize,

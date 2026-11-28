@@ -6,10 +6,13 @@ use std::{path::Path, rc::Rc};
 fn compile(body: &str) -> Result<(), String> {
     let source = format!("main :: () {{\n    a, b := 1, 2;\n    {body}\n}}\n");
     let mut fs = VirtualFs::default();
+
     fs.insert("/main.jai", source.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     compiler
         .compile_program(Path::new("/main.jai"))
         .map_err(|e| e.message)

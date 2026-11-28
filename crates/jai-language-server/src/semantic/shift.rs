@@ -54,6 +54,7 @@ impl Shift {
         if old == new {
             return Self::none();
         }
+
         let (prefix, suffix) = common_ends(old, new);
         let (old_mid, new_mid) = ((prefix, old.len() - suffix), (prefix, new.len() - suffix));
         let old_lines = lines(old, old_mid);
@@ -65,6 +66,7 @@ impl Shift {
                 new: new_mid,
             }],
         };
+
         Self {
             hunks,
         }
@@ -88,15 +90,19 @@ impl Shift {
     /// starts. An offset at the start of an edit is before it.
     fn locate_old(&self, new: usize) -> Result<usize, usize> {
         let mut growth = 0isize;
+
         for h in &self.hunks {
             if new <= h.new.0 {
                 break;
             }
+
             if new < h.new.1 {
                 return Err(h.old.0);
             }
+
             growth += h.growth();
         }
+
         Ok(new.wrapping_sub_signed(growth))
     }
 
@@ -104,15 +110,19 @@ impl Shift {
     /// What starts where text was inserted moves with it.
     pub fn to_new(&self, old: usize) -> Option<usize> {
         let mut growth = 0isize;
+
         for h in &self.hunks {
             if old < h.old.0 {
                 break;
             }
+
             if old < h.old.1 {
                 return None;
             }
+
             growth += h.growth();
         }
+
         Some(old.wrapping_add_signed(growth))
     }
 
@@ -139,15 +149,19 @@ fn move_range(
     end: usize,
 ) -> Option<(usize, usize)> {
     let mut growth = 0isize;
+
     for h in hunks {
         if end <= h.old.0 {
             break;
         }
+
         if start < h.old.1 {
             return None;
         }
+
         growth += h.growth();
     }
+
     Some((
         start.wrapping_add_signed(growth),
         end.wrapping_add_signed(growth),
@@ -166,6 +180,7 @@ fn common_ends(old: &[u8], new: &[u8]) -> (usize, usize) {
         .take(room)
         .take_while(|(a, b)| a == b)
         .count();
+
     (prefix, suffix)
 }
 
@@ -178,16 +193,19 @@ fn lines(text: &[u8], (start, end): (usize, usize)) -> Vec<Line> {
     use std::hash::Hasher;
     let mut out = Vec::new();
     let mut at = start;
+
     while at < end {
         let stop = text[at..end]
             .iter()
             .position(|&b| b == b'\n')
             .map_or(end, |n| at + n + 1);
         let mut h = jaic::fxhash::FxHasher::default();
+
         h.write(&text[at..stop]);
         out.push((at, stop, h.finish()));
         at = stop;
     }
+
     out
 }
 
@@ -209,9 +227,11 @@ fn line_hunks(
     let mut v = vec![0isize; 2 * MAX_LINE_EDITS + 3];
     let mut trace: Vec<Vec<isize>> = Vec::new();
     let mut found = None;
+
     'search: for d in 0..=MAX_LINE_EDITS as isize {
         trace.push(v.clone());
         let mut k = -d;
+
         while k <= d {
             let mut x = if k == -d || (k != d && v[at(k - 1)] < v[at(k + 1)]) {
                 v[at(k + 1)]
@@ -219,22 +239,28 @@ fn line_hunks(
                 v[at(k - 1)] + 1
             };
             let mut y = x - k;
+
             while x < n && y < m && same(x, y) {
                 x += 1;
                 y += 1;
             }
+
             v[at(k)] = x;
+
             if x >= n && y >= m {
                 found = Some(d);
                 break 'search;
             }
+
             k += 2;
         }
     }
+
     let d_end = found?;
     // Walk back from the end, collecting the matched line pairs of each step's snake.
     let mut matched = Vec::new();
     let (mut x, mut y) = (n, m);
+
     for d in (1..=d_end).rev() {
         let v = &trace[d as usize];
         let k = x - y;
@@ -251,22 +277,27 @@ fn line_hunks(
         } else {
             prev_x + 1
         };
+
         while x > snake_x {
             x -= 1;
             y -= 1;
             matched.push((x, y));
         }
+
         (x, y) = (prev_x, prev_y);
     }
+
     while x > 0 && y > 0 {
         x -= 1;
         y -= 1;
         matched.push((x, y));
     }
+
     matched.reverse();
     // The gaps between matched lines are the hunks.
     let mut hunks = Vec::new();
     let (mut ox, mut ny) = (0isize, 0isize);
+
     for (mx, my) in matched.into_iter().chain(std::iter::once((n, m))) {
         if mx > ox || my > ny {
             hunks.push(Hunk {
@@ -280,8 +311,10 @@ fn line_hunks(
                 ),
             });
         }
+
         (ox, ny) = (mx + 1, my + 1);
     }
+
     Some(hunks)
 }
 
@@ -293,6 +326,7 @@ fn line_start(lines: &[Line], i: isize, end: usize) -> usize {
 /// `h` with the bytes its two sides share at either end left out.
 fn narrow(old: &[u8], new: &[u8], h: Hunk) -> Hunk {
     let (prefix, suffix) = common_ends(&old[h.old.0..h.old.1], &new[h.new.0..h.new.1]);
+
     Hunk {
         old: (h.old.0 + prefix, h.old.1 - suffix),
         new: (h.new.0 + prefix, h.new.1 - suffix),
@@ -306,6 +340,7 @@ mod tests {
     #[test]
     fn offsets_move_past_the_edit() {
         let shift = Shift::between(b"abc def", b"abc\nx def");
+
         assert_eq!(shift.to_old(2), Some(2));
         assert_eq!(shift.to_old(7), Some(5));
         assert_eq!(shift.to_old(4), None);
@@ -319,6 +354,7 @@ mod tests {
     #[test]
     fn the_same_text_moves_nothing() {
         let shift = Shift::between(b"abc", b"abc");
+
         assert!(shift.is_none());
         assert_eq!(shift.to_old(3), Some(3));
         assert_eq!(shift.to_new(3), Some(3));
@@ -330,6 +366,7 @@ mod tests {
         let old = b"aaa\nbbb\nccc\nddd\n";
         let new = b"aaaX\nbbb\nccc\nYddd\n";
         let shift = Shift::between(old, new);
+
         // `bbb` and `ccc`.
         assert_eq!(shift.to_new(4), Some(5));
         assert_eq!(shift.to_new_range(8, 11), Some((9, 12)));
@@ -349,6 +386,7 @@ mod tests {
         let old = b"one\ntwo\nthree\nfour\nfive\n";
         let new = b"two\nthree\nfour\nfive\nsix\n";
         let shift = Shift::between(old, new);
+
         // `three` (old 8) is at 4 now.
         assert_eq!(shift.to_new_range(8, 13), Some((4, 9)));
         assert_eq!(shift.to_new(0), None);
@@ -366,9 +404,11 @@ mod tests {
             b"",
             b"f :: () {}\n",
         ];
+
         for old in texts {
             for new in texts {
                 let shift = Shift::between(old, new);
+
                 for (i, &byte) in old.iter().enumerate() {
                     if let Some(j) = shift.to_new(i)
                         && j < new.len()
@@ -377,6 +417,7 @@ mod tests {
                         assert_eq!(byte, new[j], "{i} -> {j}");
                     }
                 }
+
                 for (j, &byte) in new.iter().enumerate() {
                     if let Some((i, _)) = shift.to_old_range(j, j + 1)
                         && i < old.len()

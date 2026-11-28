@@ -24,6 +24,7 @@ fn summary(site: &Site, md: &str, from: &str) -> String {
         },
     );
     let _ = (site, from);
+
     segs.iter()
         .find_map(|s| match s {
             Segment::Html(h) if h.starts_with("<p>") => {
@@ -47,10 +48,12 @@ fn summary(site: &Site, md: &str, from: &str) -> String {
 pub fn index(site: &Site) -> String {
     let modules: Vec<Value> = site.modules.iter().map(|m| json!(m.id)).collect();
     let mut items: Vec<Value> = Vec::new();
+
     for (mi, m) in site.modules.iter().enumerate() {
         let badge = site
             .badge_of(m)
             .map_or(0, |c| u32::try_from(c + 1).unwrap_or(0) << 3);
+
         items.push(json!([
             mi,
             "",
@@ -60,6 +63,7 @@ pub fn index(site: &Site) -> String {
             [],
             u32::from(m.experimental) | badge
         ]));
+
         for item in &m.items {
             let docs = if item.docs.is_empty() {
                 item.overloads.first().map_or("", |o| o.docs.as_str())
@@ -117,12 +121,15 @@ pub fn index(site: &Site) -> String {
             ]);
             // The page folder, when it is not the slug the page works out from the name.
             let folder = site.folder(&m.id, &item.name);
+
             if folder != Site::slug(&item.name) {
                 row.as_array_mut().unwrap().push(json!(folder));
             }
+
             items.push(row);
         }
     }
+
     let cats: Vec<Value> = site
         .categories
         .iter()

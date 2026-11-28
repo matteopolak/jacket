@@ -6,6 +6,7 @@ use test_support::TempDir;
 #[test]
 fn input_file_problems() {
     let dir = TempDir::new("input");
+
     std::fs::write(dir.join("game.jai"), "main :: () {}\n").unwrap();
     std::fs::create_dir_all(dir.join("proj")).unwrap();
     std::fs::write(dir.join("proj/first.jai"), "main :: () {}\n").unwrap();
@@ -39,10 +40,13 @@ fn input_file_problems() {
             ],
         ),
     ];
+
     for (args, expected) in cases {
         let output = jaic(&dir, args, &[]);
+
         assert_eq!(output.status.code(), Some(1), "{args:?}");
         let text = stderr(&output);
+
         assert_in_order(&text, expected);
         // No snippet of some unrelated file (the stdlib's Preload used to be shown).
         assert!(!text.contains("Preload"), "{text}");
@@ -52,6 +56,7 @@ fn input_file_problems() {
 #[test]
 fn build_problems_say_what_to_change() {
     let dir = TempDir::new("build");
+
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
     std::fs::write(dir.join("lib.jai"), "f :: () {}\n").unwrap();
     // The runtime's own `main` is no program: a file of only compile-time code still has none.
@@ -94,12 +99,15 @@ fn build_problems_say_what_to_change() {
             ],
         ),
     ];
+
     for (args, code, expected) in cases {
         let output = jaic(&dir, args, &[]);
         let text = stderr(&output);
+
         assert_eq!(output.status.code(), *code, "{args:?}: {text}");
         assert_in_order(&text, expected);
     }
+
     // A build file that made its own workspace but left its own output on.
     std::fs::write(
         dir.join("first.jai"),
@@ -108,6 +116,7 @@ fn build_problems_say_what_to_change() {
     .unwrap();
     let output = jaic(&dir, &["first.jai"], &[]);
     let text = stderr(&output);
+
     assert_eq!(output.status.code(), Some(3), "{text}");
     assert_in_order(
         &text,
@@ -122,11 +131,14 @@ fn build_problems_say_what_to_change() {
         "#run {\n    set_build_options_dc(.{do_output = false});\n    w := compiler_create_workspace(\"lib\");\n    add_build_string(\"f :: () {}\", w);\n}\n#import \"Compiler\";\n",
     )
     .unwrap();
+
     for mode in [None, Some("-check")] {
         let mut args = vec!["build.jai"];
+
         args.extend(mode);
         let output = jaic(&dir, &args, &[]);
         let text = stderr(&output);
+
         assert_eq!(output.status.code(), Some(1), "{mode:?}: {text}");
         assert_in_order(
             &text,
@@ -137,6 +149,7 @@ fn build_problems_say_what_to_change() {
         );
         assert!(!text.contains("link"), "{mode:?}: {text}");
     }
+
     // A linker that is not installed: what named it, and that `-interp` needs none.
     let output = Command::new(JAIC)
         .args(["ok.jai", "-exe", "prog"])
@@ -145,6 +158,7 @@ fn build_problems_say_what_to_change() {
         .env_remove("JAIC_DIAGNOSTICS")
         .output()
         .unwrap();
+
     assert_eq!(output.status.code(), Some(1));
     assert_in_order(
         &stderr(&output),
@@ -162,6 +176,7 @@ fn build_problems_say_what_to_change() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -179,9 +194,11 @@ fn a_body_only_compile_time_code_names_is_checked_though_it_never_runs() {
                   if get_build_options().compile_time_command_line.count == 0 return;\n    \
                   helper();\n}\n\
                   helper :: () {\n    x: int = \"text\";\n}\n";
+
     for mode in ["-check", ""] {
         let output = jaic_on(&dir, "build.jai", source, mode, &[]);
         let text = stderr(&output);
+
         assert_eq!(output.status.code(), Some(1), "{mode}: {text}");
         assert_in_order(&text, &["build.jai:9:14: error[type-mismatch]"]);
     }
@@ -190,6 +207,7 @@ fn a_body_only_compile_time_code_names_is_checked_though_it_never_runs() {
 #[test]
 fn command_line_mistakes_explain_themselves() {
     let dir = TempDir::new("cli");
+
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
     std::fs::write(dir.join("two.jai"), "main :: () {}\n").unwrap();
     let cases: &[(&[&str], &[&str])] = &[
@@ -279,9 +297,11 @@ fn command_line_mistakes_explain_themselves() {
             &["error[cli-usage]: `-quiet` and `-verbose` contradict each other"],
         ),
     ];
+
     for (args, expected) in cases {
         let output = jaic(&dir, args, &[]);
         let text = stderr(&output);
+
         assert_eq!(output.status.code(), Some(2), "{args:?}: {text}");
         assert_in_order(&text, expected);
         // The full help text is not dumped on a mistake.
@@ -292,6 +312,7 @@ fn command_line_mistakes_explain_themselves() {
 #[test]
 fn plugin_arguments_help_version_and_colour() {
     let dir = TempDir::new("cli-help");
+
     std::fs::write(dir.join("ok.jai"), "main :: () {}\n").unwrap();
     // Options after a `+Plugin` are the plugin's own arguments, not mistakes.
     let output = jaic(
@@ -299,6 +320,7 @@ fn plugin_arguments_help_version_and_colour() {
         &["ok.jai", "-check", "+NoSuchPlugin", "--timings"],
         &[],
     );
+
     assert!(
         !stderr(&output).contains("unknown option"),
         "{}",
@@ -307,7 +329,9 @@ fn plugin_arguments_help_version_and_colour() {
     // A file called `build` is compiled like any other.
     std::fs::write(dir.join("build"), "main :: () {}\n").unwrap();
     let output = jaic(&dir, &["build", "-check"], &[]);
+
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
+
     for args in [
         &["--help"][..],
         &["-h"],
@@ -316,8 +340,10 @@ fn plugin_arguments_help_version_and_colour() {
         &["ok.jai", "-O2", "-h"],
     ] {
         let output = jaic(&dir, args, &[]);
+
         assert_eq!(output.status.code(), Some(0), "{args:?}");
         let text = String::from_utf8_lossy(&output.stdout);
+
         assert_in_order(
             &text,
             &[
@@ -329,6 +355,7 @@ fn plugin_arguments_help_version_and_colour() {
             ],
         );
     }
+
     // Options that shape a build's output are accepted and ignored by the modes that write none.
     for args in [
         &["ok.jai", "-check", "-exe", "x", "-O2"][..],
@@ -336,7 +363,9 @@ fn plugin_arguments_help_version_and_colour() {
     ] {
         assert_eq!(jaic(&dir, args, &[]).status.code(), Some(0), "{args:?}");
     }
+
     let printed = jaic(&dir, &["-print_stdlib"], &[]);
+
     assert_eq!(printed.status.code(), Some(0));
     assert!(
         String::from_utf8_lossy(&printed.stdout)
@@ -349,31 +378,39 @@ fn plugin_arguments_help_version_and_colour() {
         .env("JAIC_STDLIB", dir.join("no-stdlib"))
         .output()
         .unwrap();
+
     assert_eq!(missing.status.code(), Some(1));
     assert!(missing.stdout.is_empty());
     assert!(
         String::from_utf8_lossy(&missing.stderr).contains("cannot find the standard library"),
         "{missing:?}"
     );
+
     for flag in ["--version", "-version", "-V"] {
         let output = jaic(&dir, &[flag], &[]);
+
         assert_eq!(output.status.code(), Some(0), "{flag}");
         assert!(String::from_utf8_lossy(&output.stdout).starts_with("jaic "));
     }
+
     // `-no_color` reaches command-line errors too, `FORCE_COLOR` turns colour on.
     let colored = |args: &[&str], force: bool| {
         let mut command = Command::new(JAIC);
+
         command
             .args(args)
             .env("JAIC_DIAGNOSTICS", "plain")
             .env_remove("NO_COLOR")
             .env_remove("FORCE_COLOR")
             .env_remove("CLICOLOR_FORCE");
+
         if force {
             command.env("FORCE_COLOR", "1");
         }
+
         stderr(&command.output().unwrap())
     };
+
     assert!(colored(&["-bogus"], true).starts_with("\x1b[1;31merror["));
     assert!(colored(&["-bogus", "-no_color"], true).starts_with("error[cli-usage]: "));
     // After a lone `-` or a `+Plugin`, `-no_color` is not jaic's.
@@ -384,6 +421,7 @@ fn plugin_arguments_help_version_and_colour() {
 fn help_is_sectioned_and_completions_cover_the_options() {
     let dir = TempDir::new("cli-completions");
     let help = String::from_utf8_lossy(&jaic(&dir, &["-help"], &[]).stdout).into_owned();
+
     assert_in_order(
         &help,
         &[
@@ -406,21 +444,26 @@ fn help_is_sectioned_and_completions_cover_the_options() {
     // The flags for studying the compiler are accepted, not listed.
     assert!(!help.contains("-dev_"), "{help}");
     assert!(!help.contains('\x1b'), "{help}");
+
     for (shell, expected) in [
         ("bash", "complete -o filenames -F _jaic jaic"),
         ("zsh", "#compdef jaic"),
         ("fish", "complete -c jaic -o check -d "),
     ] {
         let output = jaic(&dir, &["-completions", shell], &[]);
+
         assert_eq!(output.status.code(), Some(0), "{shell}");
         let script = String::from_utf8_lossy(&output.stdout);
+
         assert!(script.contains(expected), "{shell}: {script}");
         assert!(
             script.contains("-interp") && !script.contains("-dev_"),
             "{shell}"
         );
     }
+
     let output = jaic(&dir, &["-completions", "csh"], &[]);
+
     assert_eq!(output.status.code(), Some(2));
     assert_in_order(
         &stderr(&output),
@@ -440,6 +483,7 @@ fn help_is_sectioned_and_completions_cover_the_options() {
             .unwrap();
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     assert!(colored(&["-help"]).contains("\x1b[1;4mModes:\x1b[0m"));
     assert!(!colored(&["-help", "-no_color"]).contains('\x1b'));
     // `NO_COLOR` wins over `FORCE_COLOR`.
@@ -449,9 +493,11 @@ fn help_is_sectioned_and_completions_cover_the_options() {
         .env("FORCE_COLOR", "1")
         .output()
         .unwrap();
+
     assert!(!String::from_utf8_lossy(&no_color.stdout).contains('\x1b'));
     // A glued value is not split at an `=`.
     let output = jaic(&dir, &["-Dwarnings=x"], &[]);
+
     assert_in_order(
         &stderr(&output),
         &["error[cli-usage]: unknown option `-Dwarnings=x`"],
@@ -463,22 +509,27 @@ fn rich_layouts_on_request() {
     let dir = TempDir::new("rich");
     let source =
         "#import \"Basic\";\nmain :: () {\n    counter := 1;\n    print(\"%\\n\", countr);\n}\n";
+
     std::fs::write(dir.join("u.jai"), source).unwrap();
     let rich = |layout: &str, color: bool| {
         let mut command = Command::new(JAIC);
+
         command
             .args(["-check", "u.jai"])
             .current_dir(&dir)
             .env("JAIC_DIAGNOSTICS", layout)
             .env_remove("NO_COLOR");
+
         if color {
             command.env("FORCE_COLOR", "1");
         } else {
             command.arg("-no_color");
         }
+
         stderr(&command.output().unwrap())
     };
     let unicode = rich("unicode", false);
+
     assert_in_order(
         &unicode,
         &[
@@ -495,6 +546,7 @@ fn rich_layouts_on_request() {
         ],
     );
     let ascii = rich("ascii", false);
+
     assert_in_order(
         &ascii,
         &[
@@ -505,6 +557,7 @@ fn rich_layouts_on_request() {
     );
     assert!(ascii.is_ascii(), "{ascii}");
     let colored = rich("unicode", true);
+
     assert!(colored.contains("\x1b[1;31merror["), "{colored}");
     // NO_COLOR is honoured when the choice is left to jaic.
     let output = Command::new(JAIC)
@@ -515,6 +568,7 @@ fn rich_layouts_on_request() {
         .env("NO_COLOR", "1")
         .output()
         .unwrap();
+
     assert!(!stderr(&output).contains('\x1b'));
     // `-msvc_format`: one located line per item, no snippet and no colour, whatever the layout.
     let output = Command::new(JAIC)
@@ -525,6 +579,7 @@ fn rich_layouts_on_request() {
         .output()
         .unwrap();
     let msvc = stderr(&output);
+
     assert_in_order(
         &msvc,
         &[

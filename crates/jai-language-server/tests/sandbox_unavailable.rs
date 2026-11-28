@@ -24,6 +24,7 @@ fn sandbox_unavailable_calls_are_unknown_not_errors() {
         .filter(|d| d.code == DiagnosticCode::Check)
         .map(|d| d.message)
         .collect();
+
     assert_eq!(
         errors,
         vec!["type mismatch: expected `s64`, found `string`".to_string()],
@@ -48,6 +49,7 @@ fn build_cpp_at_compile_time_is_not_an_error() {
     let (s, uri, _) = open_file(&dir, "main.jai");
     let all = s.diagnostics(&uri).unwrap();
     let messages: Vec<String> = all.iter().map(|d| d.message.clone()).collect();
+
     assert!(
         !messages
             .iter()

@@ -43,10 +43,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         if p.is_macro || p.header.flags.expand() {
             continue;
         }
+
         let params = p
             .header
             .params
@@ -59,6 +61,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             out,
             scopes: vec![params, Vec::new()],
         };
+
         local_scopes::walk(&p.body.stmts, &mut walk);
     }
 }
@@ -83,16 +86,20 @@ impl Scopes for Shadows<'_, '_> {
     /// Reported if an enclosing scope has the name; visible from here on.
     fn variable(&mut self, decl: &Decl, name: &Ident) {
         let text = name.name.as_str();
+
         if text.starts_with('_') || derived_from_itself(self.cx, decl, name) {
             return;
         }
+
         let outer = self.scopes[..self.scopes.len() - 1]
             .iter()
             .rev()
             .flat_map(|scope| scope.iter().rev())
             .find(|(n, _)| *n == name.name);
+
         if let Some(&(_, at)) = outer {
             let (line, _) = self.cx.lines.line_col(self.cx.text, at as usize);
+
             self.out.push(super::finding(
                 name.span,
                 format!("`{text}` shadows the variable of that name declared on line {line}"),
@@ -101,6 +108,7 @@ impl Scopes for Shadows<'_, '_> {
                 ),
             ));
         }
+
         self.bound(name);
     }
 

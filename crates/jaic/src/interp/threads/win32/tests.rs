@@ -15,9 +15,12 @@ fn waiting_on_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
         max: 1,
     });
     let result = interp.win32_foreign(&program, "CloseHandle", &[closed]);
+
     assert_eq!(result.unwrap().unwrap(), vec![1]);
+
     for symbol in ["WaitForSingleObject", "WaitForSingleObjectEx"] {
         let result = interp.win32_foreign(&program, symbol, &[closed, INFINITE.into(), 0]);
+
         assert_eq!(
             result
                 .expect("a closed scheduler handle is not a native one")
@@ -26,8 +29,10 @@ fn waiting_on_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
             "{symbol}"
         );
     }
+
     // Live handles are unaffected.
     let result = interp.win32_foreign(&program, "WaitForSingleObject", &[live, 0]);
+
     assert_eq!(result.unwrap().unwrap(), vec![WAIT_OBJECT_0]);
 }
 
@@ -40,8 +45,10 @@ fn closing_a_closed_scheduler_handle_fails_instead_of_reaching_native() {
         max: 1,
     });
     let result = interp.win32_foreign(&program, "CloseHandle", &[handle]);
+
     assert_eq!(result.unwrap().unwrap(), vec![1]);
     let result = interp.win32_foreign(&program, "CloseHandle", &[handle]);
+
     assert_eq!(
         result
             .expect("a closed scheduler handle is not a native one")
@@ -62,23 +69,27 @@ fn emulated_errors_survive_the_next_native_foreign_call() {
         c_fixed: 0,
         c_abi: None,
     };
+
     // Seed the FFI cache with an unrelated error, as an earlier successful call can leave.
     native::set_last_error(1234);
     let result = interp
         .win32_sync_foreign(Win32Fn::CreateSemaphoreW, &[0, 0, 0, 0])
         .unwrap()
         .unwrap();
+
     assert_eq!(result, vec![0]);
     // Interpreter work can clobber the OS slot before GetLastError is reached.
     // SAFETY: SetLastError only writes this thread's error slot.
     unsafe { SetLastError(5678) };
     let result = native::call(GetLastError as *const () as u64, &[], &sig).unwrap();
+
     assert_eq!(result.first(), Some(&u64::from(ERROR_INVALID_PARAMETER)));
 }
 
 #[test]
 fn managed_thread_lookup_accepts_native_handle_range_without_events() {
     let mut interp = Interp::native(crate::layout::DataLayout::host());
+
     // Registry-only test: no OS call or ownership of this numeric fixture handle.
     interp.new_object_at(4, Object::Thread(0));
     assert!(
@@ -98,11 +109,13 @@ fn sdk_thread_entrypoints_resolve_at_runtime() {
         compare_handles_api().is_some(),
         "Windows 10 / Server 2016 API required"
     );
+
     for symbol in ["SetThreadDescription", "GetThreadDescription"] {
         // Resolve from the documented original DLL as well as the modern SDK facade.
         // No static import of either description API is introduced by this test.
         for library in ["kernelbase", "kernel32"] {
             let module = native::Library::open(library, true, "").expect("system DLL must load");
+
             assert!(
                 native::lookup(Some(&module), symbol).is_some(),
                 "{library}!{symbol}"
@@ -115,6 +128,7 @@ fn sdk_thread_entrypoints_resolve_at_runtime() {
 #[test]
 fn suspend_only_aliases_are_identified_without_query_rights() {
     use std::os::windows::io::{AsRawHandle, FromRawHandle, OwnedHandle};
+
     #[link(name = "kernel32")]
     unsafe extern "system" {
         fn DuplicateHandle(
@@ -127,6 +141,7 @@ fn suspend_only_aliases_are_identified_without_query_rights() {
             flags: u32,
         ) -> i32;
     }
+
     let (done, wait) = std::sync::mpsc::channel::<()>();
     let worker = OwnedHandle::from(std::thread::spawn(move || {
         // Closing the channel stops this real OS worker, including assertion unwind.
@@ -137,6 +152,7 @@ fn suspend_only_aliases_are_identified_without_query_rights() {
     // SAFETY: -1 is our current-process pseudo handle, raw is owned, alias is local.
     let duplicated =
         unsafe { DuplicateHandle(usize::MAX, raw, usize::MAX, &raw mut alias, 2, 0, 0) };
+
     assert_ne!(duplicated, 0);
     // SAFETY: DuplicateHandle transferred one native thread handle to alias.
     let alias = unsafe { OwnedHandle::from_raw_handle(alias as *mut _) };
@@ -144,16 +160,19 @@ fn suspend_only_aliases_are_identified_without_query_rights() {
     let stop_worker = done; // Drop before interp on a failed assertion; join cannot hang.
     let shared = interp.shared();
     let mut thread = GThread::new(false, None);
+
     // SAFETY: the full-rights private handle supports GetThreadId.
     thread.native_id = unsafe { GetThreadId(raw) };
     thread.worker = Some(worker);
     shared.lock().add(thread);
     let alias_raw = alias.as_raw_handle() as u64;
+
     // SAFETY: SetLastError/GetLastError operate on this OS thread only.
     unsafe { SetLastError(1234) };
     assert_eq!(interp.is_unmanaged_thread_alias(alias_raw), Ok(true));
     // SAFETY: as above, this thread's last-error value.
     let last_error = unsafe { GetLastError() };
+
     assert_eq!(last_error, 1234);
     drop(alias);
     // SAFETY: as above.
@@ -161,6 +180,7 @@ fn suspend_only_aliases_are_identified_without_query_rights() {
     assert_eq!(interp.is_unmanaged_thread_alias(alias_raw), Ok(false));
     // SAFETY: as above.
     let last_error = unsafe { GetLastError() };
+
     assert_eq!(last_error, 5678);
     drop(stop_worker);
     drop(interp);
@@ -174,6 +194,7 @@ fn interpreter_teardown_closes_its_owned_thread_handle() {
     let shared = interp.shared();
     let handle = OwnedHandle::from(std::thread::spawn(|| {}));
     let raw = handle.as_raw_handle() as usize;
+
     shared.lock().threads[0].native_handle = Some(handle);
     // SAFETY: raw borrows the live OwnedHandle stored in shared state.
     assert_eq!(unsafe { WaitForSingleObject(raw, 5000) }, 0);
@@ -192,6 +213,7 @@ fn interpreter_teardown_closes_its_owned_thread_handle() {
 fn joining_an_ended_worker_handle_returns() {
     use std::os::windows::io::OwnedHandle;
     let worker = OwnedHandle::from(std::thread::spawn(|| {}));
+
     join_worker(worker);
 }
 
@@ -206,6 +228,7 @@ fn joining_a_running_worker_handle_waits_for_it() {
         std::thread::sleep(std::time::Duration::from_millis(50));
         flag.store(true, Ordering::SeqCst);
     }));
+
     join_worker(worker);
     assert!(
         done.load(Ordering::SeqCst),
@@ -219,6 +242,7 @@ fn releasing_a_protected_thread_handle_closes_it() {
     use std::os::windows::io::{AsRawHandle, OwnedHandle};
     let handle = OwnedHandle::from(std::thread::spawn(|| {}));
     let raw = handle.as_raw_handle() as usize;
+
     // SAFETY: raw borrows the live OwnedHandle; waiting and protecting need no other state.
     assert_eq!(unsafe { WaitForSingleObject(raw, 5000) }, 0);
     // SAFETY: as above; protect-from-close would make a plain drop fail.

@@ -40,13 +40,16 @@ impl FxHasher {
 #[inline]
 fn tail_word(rest: &[u8]) -> u64 {
     let n = rest.len();
+
     if n >= 4 {
         let first = u32::from_le_bytes([rest[0], rest[1], rest[2], rest[3]]) as u64;
         let last = u32::from_le_bytes([rest[n - 4], rest[n - 3], rest[n - 2], rest[n - 1]]) as u64;
+
         first | (last << ((n - 4) * 8))
     } else if n >= 2 {
         let first = u16::from_le_bytes([rest[0], rest[1]]) as u64;
         let last = u16::from_le_bytes([rest[n - 2], rest[n - 1]]) as u64;
+
         first | (last << ((n - 2) * 8))
     } else {
         rest[0] as u64
@@ -61,9 +64,11 @@ impl Hasher for FxHasher {
     #[inline]
     fn write(&mut self, bytes: &[u8]) {
         let (words, rest) = bytes.as_chunks::<8>();
+
         for word in words {
             self.add(u64::from_le_bytes(*word));
         }
+
         if !rest.is_empty() {
             // The tail's length goes in the top byte so `b"ab"` and `b"ab\0"` differ.
             self.add(tail_word(rest) ^ ((rest.len() as u64) << 56));
@@ -108,6 +113,7 @@ mod tests {
 
     fn of(text: &str) -> u64 {
         let mut h = FxHasher::default();
+
         text.hash(&mut h);
         h.finish()
     }
@@ -128,8 +134,10 @@ mod tests {
     #[test]
     fn a_tail_reads_as_a_zero_padded_word() {
         let bytes = *b"\x01\x02\x03\x04\x05\x06\x07";
+
         for n in 1..=7 {
             let mut padded = [0u8; 8];
+
             padded[..n].copy_from_slice(&bytes[..n]);
             assert_eq!(
                 super::tail_word(&bytes[..n]),

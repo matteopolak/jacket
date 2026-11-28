@@ -8,6 +8,7 @@ fn enum_members(name: &str) -> Vec<&'static str> {
     let body = &PLATFORM[PLATFORM.find(&header).expect("enum is declared")..];
     let body = &body[body.find('{').unwrap() + 1..];
     let body = &body[..body.find('}').unwrap()];
+
     body.lines()
         .filter_map(|line| line.split("::").next())
         .map(str::trim)
@@ -27,6 +28,7 @@ fn compare_decides_known_tags_only() {
         os: "LINUX",
         cpu: "X64",
     };
+
     assert_eq!(target.compare("OS", "LINUX", true), Some(true));
     assert_eq!(target.compare("OS", "LINUX", false), Some(false));
     assert_eq!(target.compare("CPU", "ARM64", true), Some(false));

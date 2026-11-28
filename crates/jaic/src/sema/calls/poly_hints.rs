@@ -51,6 +51,7 @@ fn declaration(pattern: &ast::Expr, name: Sym) -> Option<(Span, bool)> {
             {
                 return Some((span, true));
             }
+
             declaration(elem, name)
         }
         E::Call {
@@ -85,6 +86,7 @@ impl Compiler {
         binders: &Binders,
     ) -> Diagnostic {
         let shown = self.ty.types.name(ty);
+
         if let Some(name) = conflicting_variable(&d)
             && let Some(&(_, first, first_ty)) = binders.iter().find(|b| b.0 == name)
             && first != Span::NONE
@@ -108,6 +110,7 @@ impl Compiler {
                 );
             return d;
         }
+
         if arg.span != Span::NONE {
             d = d.with_note(
                 arg.span,
@@ -117,6 +120,7 @@ impl Compiler {
                 ),
             );
         }
+
         d
     }
 
@@ -133,12 +137,14 @@ impl Compiler {
         let name = param
             .name
             .map_or(String::new(), |n| format!(" `{}`", n.name));
+
         if param.span != Span::NONE {
             d = d.with_note(
                 param.span,
                 format!("parameter{name} is declared here, with type `{shown}`"),
             );
         }
+
         let (what, help) = match arg.expr.as_ref().map(|e| &e.kind) {
             Some(E::StructLit {
                 ..
@@ -157,12 +163,14 @@ impl Compiler {
                 format!("`{shown}` is not an enum: pass a value of type `{shown}`"),
             ),
         };
+
         if arg.span != Span::NONE {
             d = d.with_note(
                 arg.span,
                 format!("this argument is {what}, and `{shown}` is not a type it can build"),
             );
         }
+
         d.with_help(help)
     }
 
@@ -223,9 +231,11 @@ impl Compiler {
         ) else {
             return d;
         };
+
         if bound == given {
             return d;
         }
+
         if first.span != Span::NONE {
             d = d.with_note(
                 first.span,
@@ -235,6 +245,7 @@ impl Compiler {
                 ),
             );
         }
+
         if arg.span != Span::NONE {
             d = d.with_note(
                 arg.span,
@@ -244,6 +255,7 @@ impl Compiler {
                 ),
             );
         }
+
         d.with_help(format!(
             "pass arrays of the same length: `{name}` is set by the first argument that declares it"
         ))
@@ -270,6 +282,7 @@ impl Compiler {
         let param_name = param
             .name
             .map_or(String::new(), |n| format!(" of `{}`", n.name));
+
         d = d.with_note(
             at,
             format!("`${name}` is declared here, in the type{param_name}"),
@@ -279,11 +292,14 @@ impl Compiler {
             Slot::Variadic(list) => list.clone(),
             Slot::Default => Vec::new(),
         };
+
         for a in passed {
             let arg = &args[a];
+
             if arg.span == Span::NONE {
                 continue;
             }
+
             let text = match &arg.op {
                 Some(op) => format!(
                     "argument has type `{}`, which gave nothing for `${name}` in `{}`",
@@ -295,15 +311,19 @@ impl Compiler {
                     self.pattern_text(pattern)
                 ),
             };
+
             d = d.with_note(arg.span, text);
         }
+
         let named = header
             .params
             .iter()
             .any(|p| p.name.is_some_and(|n| n.name == name));
+
         if !is_count && !named {
             d = d.with_help(format!("pass the type by name, for example `{name} = s64`"));
         }
+
         d
     }
 }

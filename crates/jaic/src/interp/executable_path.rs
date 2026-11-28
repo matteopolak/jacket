@@ -34,11 +34,13 @@ impl Interp {
         if !handles(symbol) {
             return None;
         }
+
         let path = if self.compile_time {
             // Compile-time code is not handed a substituted command line.
             if symbol == "GetCommandLineW" {
                 return None;
             }
+
             std::env::current_exe().ok()?.to_string_lossy().into_owned()
         } else {
             self.run_executable.clone()?
@@ -50,10 +52,12 @@ impl Interp {
             "_NSGetExecutablePath" => (|| {
                 let needed = path.len() as u64 + 1;
                 let size = self.load(Ty::I32, arg(1))?;
+
                 if arg(0) == 0 || size < needed {
                     self.store(Ty::I32, arg(1), needed)?;
                     return Ok(u32::MAX as u64);
                 }
+
                 self.write_bytes(arg(0), path.as_bytes())?;
                 self.store(Ty::I8, arg(0) + path.len() as u64, 0)?;
                 Ok(0)
@@ -62,6 +66,7 @@ impl Interp {
             // to `cap`.
             "readlink" if self.c_string(arg(0)).ok()? == "/proc/self/exe" => (|| {
                 let bytes = &path.as_bytes()[..path.len().min(arg(2) as usize)];
+
                 self.write_bytes(arg(1), bytes)?;
                 Ok(bytes.len() as u64)
             })(),
@@ -70,18 +75,22 @@ impl Interp {
             "GetModuleFileNameW" if arg(0) == 0 => (|| {
                 let wide: Vec<u16> = path.encode_utf16().collect();
                 let cap = arg(2) as usize;
+
                 if cap == 0 {
                     return Ok(0);
                 }
+
                 let fits = wide.len() < cap;
                 let count = if fits {
                     wide.len()
                 } else {
                     cap - 1
                 };
+
                 for (i, unit) in wide[..count].iter().enumerate() {
                     self.store(Ty::I16, arg(1) + 2 * i as u64, *unit as u64)?;
                 }
+
                 self.store(Ty::I16, arg(1) + 2 * count as u64, 0)?;
                 Ok(if fits {
                     wide.len() as u64
@@ -93,6 +102,7 @@ impl Interp {
             "GetCommandLineW" => Ok(self.run_command_line()),
             _ => return None,
         };
+
         Some(result.map(|value| vec![value]))
     }
 
@@ -102,6 +112,7 @@ impl Interp {
         if let Some(address) = self.run_command_line {
             return address;
         }
+
         // An omitted argv vector means no caller-supplied arguments. Windows
         // still has an executable name; an empty command line would make
         // Shell32 return the compiler's real path instead of the program's.
@@ -112,12 +123,16 @@ impl Interp {
             &self.run_arguments
         };
         let mut wide: Vec<u16> = windows_command_line(arguments).encode_utf16().collect();
+
         wide.push(0);
         let mut bytes = vec![0u8; wide.len() * 2];
+
         for (unit, slot) in wide.iter().zip(bytes.chunks_mut(2)) {
             self.layout.write_uint(slot, u64::from(*unit));
         }
+
         let address = self.keep(&bytes, 2).unwrap_or(0);
+
         self.run_command_line = Some(address);
         address
     }
@@ -126,18 +141,23 @@ impl Interp {
         for (i, byte) in bytes.iter().enumerate() {
             self.store(Ty::I8, address + i as u64, *byte as u64)?;
         }
+
         Ok(())
     }
 
     fn c_string(&self, address: u64) -> Res<String> {
         let mut bytes = Vec::new();
+
         loop {
             let byte = self.load(Ty::I8, address + bytes.len() as u64)? as u8;
+
             if byte == 0 {
                 break;
             }
+
             bytes.push(byte);
         }
+
         Ok(String::from_utf8_lossy(&bytes).into_owned())
     }
 }
@@ -147,11 +167,14 @@ impl Interp {
 /// backslashes before a quote as escapes.
 pub fn windows_command_line(args: &[String]) -> String {
     let mut line = String::new();
+
     for (index, arg) in args.iter().enumerate() {
         if index > 0 {
             line.push(' ');
         }
+
         let plain = !arg.is_empty() && !arg.contains([' ', '\t', '\n', '\x0b', '"']);
+
         if plain {
             line.push_str(arg);
         } else if index == 0 {
@@ -161,6 +184,7 @@ pub fn windows_command_line(args: &[String]) -> String {
         } else {
             line.push('"');
             let mut backslashes = 0;
+
             for c in arg.chars() {
                 match c {
                     '\\' => backslashes += 1,
@@ -176,10 +200,12 @@ pub fn windows_command_line(args: &[String]) -> String {
                     }
                 }
             }
+
             line.extend(std::iter::repeat_n('\\', 2 * backslashes));
             line.push('"');
         }
     }
+
     line
 }
 
@@ -191,27 +217,33 @@ mod tests {
 
     fn wide_text(interp: &Interp, address: u64) -> String {
         let mut units = Vec::new();
+
         loop {
             let unit = interp
                 .load(Ty::I16, address + 2 * units.len() as u64)
                 .unwrap() as u16;
+
             if unit == 0 {
                 break;
             }
+
             units.push(unit);
         }
+
         String::from_utf16(&units).unwrap()
     }
 
     #[test]
     fn omitted_interpreter_arguments_still_name_the_windows_executable() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+
         interp.compile_time = false;
         interp.run_executable = Some(r"C:\program files\雪\probe.exe".into());
         let address = interp
             .executable_path_foreign("GetCommandLineW", &[])
             .unwrap()
             .unwrap()[0];
+
         assert_eq!(
             wide_text(&interp, address),
             r#""C:\program files\雪\probe.exe""#
@@ -225,12 +257,14 @@ mod tests {
         use crate::target::{Target, TargetCpu, TargetOs};
         let layout = Target::new(TargetOs::Windows, TargetCpu::X86).data_layout();
         let mut interp = Interp::native(layout);
+
         interp.compile_time = false;
         interp.run_executable = Some(r"C:\probe.exe".into());
         let address = interp
             .executable_path_foreign("GetCommandLineW", &[])
             .unwrap()
             .unwrap()[0];
+
         assert!(address != 0 && address < 1 << 32, "{address:#x}");
         assert_eq!(wide_text(&interp, address), r"C:\probe.exe");
     }
@@ -238,6 +272,7 @@ mod tests {
     #[test]
     fn command_line_parser_keeps_native_success_and_error_semantics() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+
         interp.compile_time = false;
         interp.run_executable = Some(r"C:\probe.exe".into());
         let address = interp
@@ -245,6 +280,7 @@ mod tests {
             .unwrap()
             .unwrap()[0];
         let mut count: i32 = -1;
+
         // Argument parsing must reach Shell32. A virtual executable is not an
         // allocation failure, and the runtime must never need to accept NULL.
         assert!(
@@ -262,6 +298,7 @@ mod tests {
             vec!["", "explicit empty argv zero"],
         ] {
             let mut interp = Interp::native(crate::layout::DataLayout::host());
+
             interp.compile_time = false;
             interp.run_executable = Some(r"C:\probe.exe".into());
             interp.run_arguments = args.into_iter().map(String::from).collect();
@@ -270,6 +307,7 @@ mod tests {
                 .executable_path_foreign("GetCommandLineW", &[])
                 .unwrap()
                 .unwrap()[0];
+
             assert_eq!(wide_text(&interp, address), expected);
         }
     }

@@ -40,6 +40,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, up| {
             match n {
                 Node::Expr(e) => {
@@ -53,10 +54,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         let editable = !matches!(up.last(), Some(Node::Stmt(parent))
                             if matches!(&parent.kind, S::If { else_branch: Some(e), .. }
                                 if std::ptr::eq(&raw const **e, s)));
+
                         report(cx, s.span, found, editable, out);
                     }
                 }
             }
+
             true
         });
     }
@@ -102,9 +105,11 @@ fn report(cx: &Cx, span: jaic::source::Span, found: Clamp, editable: bool, out: 
             text: replacement,
         }],
     );
+
     if !editable || cx.has_comment_between(span.start as usize, span.end as usize) {
         finding.fix = None;
     }
+
     out.push(finding);
 }
 
@@ -113,6 +118,7 @@ fn ordered(cx: &Cx, lo: &Expr, hi: &Expr) -> bool {
     if !cx.constant(lo) || !cx.constant(hi) {
         return false;
     }
+
     match (literal(lo), literal(hi)) {
         (Some(a), Some(b)) => a <= b,
         _ => true,
@@ -121,6 +127,7 @@ fn ordered(cx: &Cx, lo: &Expr, hi: &Expr) -> bool {
 
 fn is_number(cx: &Cx, e: &Expr) -> bool {
     let types = &cx.compiler.ty.types;
+
     cx.ty(e)
         .is_some_and(|t| types.is_integer(t) || types.is_float(t))
 }
@@ -128,20 +135,24 @@ fn is_number(cx: &Cx, e: &Expr) -> bool {
 /// `max(lo, min(hi, x))` and `min(hi, max(lo, x))`.
 fn calls<'a>(cx: &Cx, e: &'a Expr) -> Option<Clamp<'a>> {
     let (outer, [p, q]) = two_arg_call(cx, e)?;
+
     // The outer call has the inner call as one argument and the bound as the other.
     for (bound, inner) in [(p, q), (q, p)] {
         let Some((inner_name, [r, s])) = two_arg_call(cx, inner) else {
             continue;
         };
+
         if inner_name == outer {
             continue;
         }
+
         for (other, value) in [(r, s), (s, r)] {
             let (lo, hi) = if outer == "max" {
                 (bound, other)
             } else {
                 (other, bound)
             };
+
             if ordered(cx, lo, hi) && is_number(cx, value) {
                 return Some(Clamp {
                     value,
@@ -152,6 +163,7 @@ fn calls<'a>(cx: &Cx, e: &'a Expr) -> Option<Clamp<'a>> {
             }
         }
     }
+
     None
 }
 
@@ -167,6 +179,7 @@ fn readings(cond: &Expr) -> Vec<(&Expr, &Expr, Side)> {
     let E::Binary(op, a, b) = &cond.kind else {
         return Vec::new();
     };
+
     match op {
         BinOp::Lt | BinOp::Le => vec![(a, b, Side::Lower), (b, a, Side::Upper)],
         BinOp::Gt | BinOp::Ge => vec![(a, b, Side::Upper), (b, a, Side::Lower)],
@@ -182,6 +195,7 @@ fn tests<'a>(
     second: &'a Expr,
 ) -> Vec<(&'a Expr, &'a Expr, &'a Expr, Side)> {
     let mut found = Vec::new();
+
     for (v1, b1, s1) in readings(first) {
         for (v2, b2, s2) in readings(second) {
             if s1 != s2 && pure(v1) && cx.same_tokens(v1, v2) {
@@ -189,6 +203,7 @@ fn tests<'a>(
             }
         }
     }
+
     found
 }
 
@@ -221,13 +236,16 @@ fn chain<'a>(cx: &Cx, s: &'a Stmt) -> Option<Clamp<'a>> {
     };
     let (target, set1) = assignment(then_branch)?;
     let (target2, set2) = assignment(then2)?;
+
     if !cx.same_tokens(target, target2) {
         return None;
     }
+
     for (value, b1, b2, side1) in tests(cx, cond, cond2) {
         // Each branch assigns the value its own bound.
         if cx.same_tokens(value, target) && cx.same_tokens(set1, b1) && cx.same_tokens(set2, b2) {
             let (lo, hi) = bounds(side1, b1, b2);
+
             if ordered(cx, lo, hi) && is_number(cx, value) {
                 return Some(Clamp {
                     value,
@@ -238,6 +256,7 @@ fn chain<'a>(cx: &Cx, s: &'a Stmt) -> Option<Clamp<'a>> {
             }
         }
     }
+
     None
 }
 
@@ -255,9 +274,11 @@ fn assignment(s: &Stmt) -> Option<(&Expr, &Expr)> {
         S::Block(b) => {
             let mut stmts = b.stmts.iter().filter(|s| !matches!(s.kind, S::Empty));
             let only = stmts.next()?;
+
             if stmts.next().is_some() {
                 return None;
             }
+
             assignment(only)
         }
         _ => None,
@@ -284,9 +305,11 @@ fn ifx<'a>(cx: &Cx, e: &'a Expr) -> Option<Clamp<'a>> {
     else {
         return None;
     };
+
     for (value, b1, b2, side1) in tests(cx, cond, cond2) {
         if cx.same_tokens(value, last) && cx.same_tokens(pick1, b1) && cx.same_tokens(pick2, b2) {
             let (lo, hi) = bounds(side1, b1, b2);
+
             if ordered(cx, lo, hi) && is_number(cx, value) {
                 return Some(Clamp {
                     value,
@@ -297,5 +320,6 @@ fn ifx<'a>(cx: &Cx, e: &'a Expr) -> Option<Clamp<'a>> {
             }
         }
     }
+
     None
 }

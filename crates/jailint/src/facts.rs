@@ -9,6 +9,7 @@ pub fn enable(compiler: &mut Compiler, roots: Vec<jaic::ide::IdeRoot>) {
     if !compiler.ed.is_live() {
         compiler.ed.record(IdeFacts::new(roots));
     }
+
     if let Some(ide) = compiler.ed.facts_mut() {
         ide.lint = true;
     }
@@ -27,19 +28,24 @@ pub(crate) fn profile_retained(compiler: &mut Compiler, root: &std::path::Path, 
     if !jacket_config::env::LIFETIME_MEMORY.is_set() {
         return;
     }
+
     if jaic::memory_limit::limit().is_none() {
         return;
     }
+
     let Some(mut facts) = compiler.ed.stop() else {
         return;
     };
     let bodies = facts.lifetime_bodies.len();
     let inline = 2 * std::mem::size_of::<jaic::fxhash::HashMap<usize, usize>>();
     let before = jaic::memory_limit::live();
+
     facts.clear_lifetimes();
     let middle = jaic::memory_limit::live();
+
     drop(facts);
     let after = jaic::memory_limit::live();
+
     if let Some(sidecar) = before
         .checked_sub(middle)
         .and_then(|b| b.checked_add(inline))

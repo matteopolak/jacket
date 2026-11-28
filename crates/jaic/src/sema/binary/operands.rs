@@ -23,11 +23,13 @@ impl Compiler {
     ) -> Result<(Operand, Operand)> {
         let is_cmp = is_comparison(op);
         let is_shift = is_shift(op);
+
         for operand in [a, b] {
             if matches!(operand.kind, ast::ExprKind::Ifx { .. }) {
                 self.set_ifx_operand(operand.span);
             }
         }
+
         let lhs_expected = if is_cmp {
             None
         } else if is_shift {
@@ -57,6 +59,7 @@ impl Compiler {
                 lhs_expected
             };
             let l = self.check_expr(f, scope, a, hint)?;
+
             early_rhs = Some(r);
             l
         } else if lhs_expected.is_some() && is_number_literal(a) {
@@ -67,6 +70,7 @@ impl Compiler {
             self.check_expr(f, scope, a, None)?
         } else {
             let own = is_complement_literal(a) && !is_shift && !is_cmp;
+
             self.check_expr(
                 f,
                 scope,
@@ -78,9 +82,11 @@ impl Compiler {
                 },
             )?
         };
+
         if let Operand::PolyStruct(ps) = lhs {
             lhs = Operand::Type(self.ty.poly_struct_type(ps));
         }
+
         // Inferred enum members on the right take the left operand's type.
         let pointer_lhs = self.ty.types.is_pointer(self.ty.types.repr(lhs.ty()));
         let pointer_offset = matches!(op, BinOp::Add | BinOp::Sub) && pointer_lhs;
@@ -119,9 +125,11 @@ impl Compiler {
                 },
             )?
         };
+
         if let Operand::PolyStruct(ps) = rhs {
             rhs = Operand::Type(self.ty.poly_struct_type(ps));
         }
+
         // `s[0] == "-"`, `c - "0"`: a one-byte string constant next to a `u8` compares and
         // offsets as that byte. Wider integers do not take the conversion.
         if is_cmp || matches!(op, BinOp::Add | BinOp::Sub) {
@@ -134,12 +142,14 @@ impl Compiler {
                 }
                 _ => None,
             };
+
             if let Some(b) = byte_of(self, &rhs, &lhs) {
                 rhs = b;
             } else if let Some(b) = byte_of(self, &lhs, &rhs) {
                 lhs = b;
             }
         }
+
         Ok((lhs, rhs))
     }
 
@@ -155,6 +165,7 @@ impl Compiler {
         match (&lhs, &rhs) {
             (Operand::Procs(l), Operand::Procs(r)) if l.len() == 1 && r.len() == 1 => {
                 let (lt, rt) = (self.proc_type(l[0], span)?, self.proc_type(r[0], span)?);
+
                 Ok((
                     self.value_as(f, lhs, lt, span)?,
                     self.value_as(f, rhs, rt, span)?,
@@ -198,6 +209,7 @@ impl Compiler {
     fn value_as(&mut self, f: &mut FnCtx, op: Operand, ty: TypeId, span: Span) -> Result<Operand> {
         let converted = self.convert(f, op, ty, Site::opaque(span))?;
         let (ty, val) = self.rvalue(f, converted, span)?;
+
         Ok(Operand::Value {
             ty,
             val,
@@ -217,6 +229,7 @@ impl TypeState {
         for t in [lty, rty] {
             if matches!(self.types.kind(self.types.repr(t)), TypeKind::Array { .. }) {
                 let symbol = binop_text(op);
+
                 return Err(Box::new(
                     Diagnostic::new(
                         Code::BinaryArraysCannotCompared,
@@ -231,6 +244,7 @@ impl TypeState {
                 ));
             }
         }
+
         Ok(())
     }
 }

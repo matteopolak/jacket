@@ -10,6 +10,7 @@ impl Session {
     /// Basic blocks one compile-time evaluation may run before it fails (`0`: no limit).
     pub fn set_evaluation_budget(&mut self, blocks: u64) {
         let seconds = self.check_limits.seconds.unwrap_or(0.0);
+
         self.change_limits(CheckLimits::new(blocks, seconds));
     }
 
@@ -21,6 +22,7 @@ impl Session {
         } else {
             blocks
         };
+
         self.change_limits(CheckLimits::new(blocks, seconds));
     }
 
@@ -103,9 +105,11 @@ impl Session {
         let doc = self.document(uri)?;
         let probe = &doc.text;
         let base = self.with_semantic(uri, probe, |analysis, path| Some(analysis.coverage(path)));
+
         if base.as_ref().is_some_and(|coverage| coverage.source_loaded) {
             return Ok(base);
         }
+
         Ok(self
             .with_semantic_at(uri, probe, 0, |analysis, path, _| {
                 let coverage = analysis.coverage(path);
@@ -124,13 +128,16 @@ impl Session {
     ) -> Result<bool, Error> {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position);
+
         Ok(self
             .with_semantic_at(uri, &doc.text, byte, |analysis, path, at| {
                 let file = analysis.file(path)?;
                 let facts = analysis.compiler.ed.facts()?;
+
                 if facts.refs_at(file, at as u32).is_empty() {
                     return None;
                 }
+
                 Some(analysis.compiler.ide_builtin_reference(file, at as u32))
             })
             .is_some_and(|(builtin, _)| builtin))
@@ -152,6 +159,7 @@ impl Session {
                 analysis.scope_procedures(path, at)
             })
             .map(|(found, _)| found);
+
         Ok(found.map(|found| {
             found
                 .into_iter()
@@ -160,6 +168,7 @@ impl Session {
                     let at = crate::position::LineIndex::new(&text)
                         .position(&text, start)
                         .ok()?;
+
                     Some((target.as_str().to_string(), at))
                 })
                 .collect()
@@ -179,9 +188,11 @@ impl Session {
         let trusted = self.semantic.borrow().trusted();
         let recorded = std::mem::take(&mut self.semantic.borrow_mut().recorded);
         let version = self.semantic.borrow().recorded_version;
+
         *self.semantic.borrow_mut() = crate::semantic::Cache::default();
         {
             let mut cache = self.semantic.borrow_mut();
+
             cache.set_trusted(trusted);
             cache.set_limits(self.check_limits);
             cache.recorded = recorded;
@@ -204,6 +215,7 @@ impl Session {
             // Without trust nothing runs, so discovery falls back to the static scan; what
             // earlier runs recorded goes with the cache.
             let mut index = self.index.borrow_mut();
+
             index.record_builds(std::collections::BTreeMap::new());
             index.probed.clear();
             self.synced_builds.set(0);
@@ -219,12 +231,14 @@ impl Session {
             .as_ref()
             .and_then(|env| env.services.as_ref())
             .is_some_and(|services| services.take_arrivals());
+
         if arrived {
             self.semantic.borrow_mut().forget_compiles();
             self.workspace_diagnostics.borrow_mut().invalidate_all();
             self.call_graphs.borrow_mut().clear();
             self.touch();
         }
+
         arrived
     }
 
@@ -261,11 +275,13 @@ impl Session {
         self.polymorph_index.borrow_mut().clear();
         self.call_graphs.borrow_mut().clear();
         let mut keys: Vec<_> = Vec::with_capacity(folders.len());
+
         for key in folders.iter().map(|p| jaic::paths::identity_spelling(p)) {
             if !keys.contains(&key) {
                 keys.push(key);
             }
         }
+
         self.workspace_folders = keys;
         self.touch();
     }
@@ -285,29 +301,36 @@ impl Session {
             .borrow_mut()
             .invalidate(path, created_or_deleted);
         self.touch();
+
         if created_or_deleted {
             self.semantic.borrow_mut().forget_paths();
         }
+
         let path = self.environment.as_ref().map_or_else(
             || jaic::paths::identity_spelling(path),
             |env| crate::auto_import::canonical_key(env, path),
         );
         let path = path.as_path();
+
         if disk {
             self.semantic
                 .borrow_mut()
                 .invalidate(path, created_or_deleted);
         }
+
         self.polymorph_index
             .borrow_mut()
             .invalidate(path, created_or_deleted);
         let mut index = self.index.borrow_mut();
+
         if created_or_deleted {
             index.created_or_deleted(path);
         } else {
             index.changed(path);
         }
+
         drop(index);
+
         // The warning about a `#load`ed file nothing can read depends on whether the file exists.
         if created_or_deleted && self.analyses.values().any(|a| !a.loads.is_empty()) {
             self.rebuild();
@@ -340,6 +363,7 @@ impl Session {
         if let Some((_, config)) = self.config_document(uri) {
             return Ok(config.text.as_str());
         }
+
         Ok(self.document(uri)?.text.as_str())
     }
 
@@ -347,6 +371,7 @@ impl Session {
         if let Some((_, config)) = self.config_document(uri) {
             return Ok(config.version);
         }
+
         Ok(self.document(uri)?.version)
     }
 

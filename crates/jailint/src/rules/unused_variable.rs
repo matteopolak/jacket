@@ -28,11 +28,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         if !p.clean || p.is_macro {
             continue;
         }
+
         let body_span = p.body.span;
+
         walk(&p.body.stmts, &mut |n, chain| {
             let Some(s) = n.stmt() else {
                 return true;
@@ -40,13 +43,16 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let S::Decl(d) = &s.kind else {
                 return true;
             };
+
             if d.kind != DeclKind::Var || d.backtick || d.using || !d.notes.is_empty() {
                 return true;
             }
+
             // Declarations inside `#run` / `#code` / `#insert` operands are not this body's.
             if cx.in_code_operand(d.span) {
                 return false;
             }
+
             let block = chain
                 .iter()
                 .rev()
@@ -55,11 +61,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     _ => None,
                 })
                 .unwrap_or(body_span);
+
             // Code `#insert`ed into the block resolves its names there and may use any of
             // them; what it uses is not written in the block.
             if cx.has_insert(block.start, block.end) {
                 return true;
             }
+
             let single = d.names.len() == 1;
             let unused: Vec<bool> = d
                 .names
@@ -84,16 +92,19 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 && d.ty.is_none()
                 && d.existing().is_empty()
                 && d.backtick_names().is_empty();
+
             for (j, name) in d.names.iter().enumerate() {
                 if !unused[j] {
                     continue;
                 }
+
                 let pure = match &d.value {
                     None => true,
                     Some(v) => pure(v),
                 };
                 let (help, edits) = if single && pure && d.extra_values().is_empty() {
                     let (a, b) = cx.statement_removal(s.span);
+
                     (
                         "remove it".to_string(),
                         vec![Edit {
@@ -122,6 +133,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     } else {
                         (name.span.start, d.names[1].span.start)
                     };
+
                     (
                         "remove it from the declaration".to_string(),
                         vec![Edit {
@@ -140,6 +152,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         }],
                     )
                 };
+
                 out.push(Finding {
                     secondary: Vec::new(),
                     start: name.span.start as usize,
@@ -154,6 +167,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     }),
                 });
             }
+
             true
         });
     }

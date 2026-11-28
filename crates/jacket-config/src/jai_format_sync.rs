@@ -17,6 +17,7 @@ fn fields() -> Vec<(String, String, String)> {
         .and_then(|rest| rest.split_once('{'))
         .and_then(|(_, rest)| rest.split("\n}").next())
         .expect("Format_Config struct");
+
     body.lines()
         .map(str::trim)
         .filter(|line| !line.is_empty() && !line.starts_with("//"))
@@ -34,6 +35,7 @@ fn fields() -> Vec<(String, String, String)> {
             } else {
                 name.replace('_', "-")
             };
+
             (
                 key,
                 declaration[at..]
@@ -50,6 +52,7 @@ fn struct_fields_are_the_schema_keys() {
     let fields = fields();
     let names: Vec<&str> = fields.iter().map(|(n, ..)| n.as_str()).collect();
     let mut want: Vec<&str> = FORMAT_SETTINGS.iter().map(|s| s.name).collect();
+
     want.extend(["unknown_keys", "doc_format", "root"]);
     assert_eq!(names, want);
 }
@@ -57,6 +60,7 @@ fn struct_fields_are_the_schema_keys() {
 #[test]
 fn defaults_are_the_schema_defaults() {
     let fields = fields();
+
     for setting in FORMAT_SETTINGS {
         let (_, declared, _) = fields.iter().find(|(n, ..)| n == setting.name).unwrap();
         let want = match setting.default {
@@ -66,6 +70,7 @@ fn defaults_are_the_schema_defaults() {
             Fallback::Choice(v) => format!("Brace_Style.{}", v.to_uppercase()),
             Fallback::Empty => "[..] string".into(),
         };
+
         assert_eq!(*declared, want, "default of {}", setting.name);
     }
 }
@@ -78,9 +83,11 @@ fn notes_are_the_schema_types() {
         .find(|l| l.starts_with("FORMAT_KEYS"))
         .expect("FORMAT_KEYS");
     let keys: Vec<&str> = keys.split('"').skip(1).step_by(2).collect();
+
     assert_eq!(keys, names, "FORMAT_KEYS");
 
     let fields = fields();
+
     for (name, _, note) in &fields {
         if !names.contains(&name.as_str()) {
             assert_eq!(
@@ -89,8 +96,10 @@ fn notes_are_the_schema_types() {
             );
         }
     }
+
     for setting in FORMAT_SETTINGS {
         let (_, _, note) = fields.iter().find(|(n, ..)| n == setting.name).unwrap();
+
         match setting.kind {
             Kind::Int {
                 min,
@@ -102,10 +111,12 @@ fn notes_are_the_schema_types() {
                     setting.name
                 );
                 let text = format!("{} must be an integer from {min} to {max}", setting.name);
+
                 assert!(note.contains(&text), "{} message", setting.name);
             }
             Kind::Flag => {
                 let text = format!("{} must be true or false", setting.name);
+
                 assert!(note.contains(&text), "{} message", setting.name);
             }
             Kind::Choice(choices) => {
@@ -124,11 +135,13 @@ fn notes_are_the_schema_types() {
 #[test]
 fn validate_words_errors_like_the_jai_parser() {
     let config = crate::parse("[format]\nindent-width = 17\n").unwrap();
+
     assert_eq!(
         config.format.validate().unwrap_err(),
         "indent-width must be an integer from 1 to 16"
     );
     let config = crate::parse("[format]\nbrace-style = \"x\"\n").unwrap();
+
     assert_eq!(
         config.format.validate().unwrap_err(),
         "brace-style must be \"same_line\" or \"preserve\""
@@ -146,6 +159,7 @@ fn validate_words_errors_like_the_jai_parser() {
 fn resolved_fills_in_defaults() {
     let config = crate::parse("[format]\nindent-width = 2\nmax-width = 80\n").unwrap();
     let got = config.format.resolved();
+
     assert!(got.contains(&("case-indent", "2".to_string())));
     assert!(got.contains(&("max-width", "80".to_string())));
     assert!(got.contains(&("brace-style", "\"same_line\"".to_string())));

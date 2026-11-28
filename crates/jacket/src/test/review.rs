@@ -19,9 +19,11 @@ pub struct Pending {
 /// The `.snap.new` files below each root's `tests/` folder, in path order.
 pub fn pending(roots: &[PathBuf]) -> Vec<Pending> {
     let mut found = Vec::new();
+
     for root in roots {
         collect(&root.join("tests"), &mut found);
     }
+
     found.sort();
     found.dedup();
     found
@@ -29,6 +31,7 @@ pub fn pending(roots: &[PathBuf]) -> Vec<Pending> {
         .map(|new| {
             let text = new.to_string_lossy();
             let stored = PathBuf::from(&text[..text.len() - ".new".len()]);
+
             Pending {
                 new,
                 stored,
@@ -41,8 +44,10 @@ fn collect(dir: &Path, found: &mut Vec<PathBuf>) {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return;
     };
+
     for entry in entries.flatten() {
         let path = entry.path();
+
         if path.is_dir() {
             collect(&path, found);
         } else if path.to_string_lossy().ends_with(PENDING) {
@@ -59,9 +64,11 @@ fn normalized(text: &str) -> String {
 /// What `a` and `b` say, as the diff the prompt shows.
 fn describe(pending: &Pending) -> String {
     let new = normalized(&std::fs::read_to_string(&pending.new).unwrap_or_default());
+
     if let Ok(stored) = std::fs::read_to_string(&pending.stored) {
         return diff::lines(&normalized(&stored), &new);
     }
+
     let body: Vec<String> = new.lines().map(|l| format!("+ {l}")).collect();
     format!("(no stored snapshot yet)\n{}", body.join("\n"))
 }
@@ -82,29 +89,36 @@ pub fn run(
     out: &mut dyn Write,
 ) -> ExitCode {
     let found = pending(roots);
+
     if found.is_empty() {
         let _ = writeln!(out, "no pending snapshots");
         return ExitCode::SUCCESS;
     }
+
     if !interactive {
         for item in &found {
             let _ = writeln!(out, "{}", crate::shown::path(&item.new, cwd));
         }
+
         let _ = writeln!(
             out,
             "{} pending snapshot(s); `jacket test --review` in a terminal goes through them, `jacket test --accept` keeps them all",
             found.len()
         );
+
         return ExitCode::from(1);
     }
+
     let (mut accepted, mut rejected, mut left) = (0, 0, 0);
     let total = found.len();
     let mut quit = false;
+
     for (n, item) in found.iter().enumerate() {
         if quit {
             left += 1;
             continue;
         }
+
         let _ = writeln!(
             out,
             "\n[{}/{total}] {}\n{}",
@@ -112,29 +126,37 @@ pub fn run(
             crate::shown::path(&item.stored, cwd),
             describe(item)
         );
+
         loop {
             let _ = write!(out, "[a]ccept, [r]eject, [s]kip, [q]uit? ");
             let _ = out.flush();
             let mut answer = String::new();
+
             if input.read_line(&mut answer).unwrap_or(0) == 0 {
                 quit = true;
                 left += 1;
+
                 break;
             }
+
             match answer.trim().to_ascii_lowercase().as_str() {
                 "a" | "accept" => {
                     match accept(item) {
                         Ok(()) => accepted += 1,
                         Err(error) => {
                             let _ = writeln!(out, "cannot accept: {error}");
+
                             left += 1;
                         }
                     }
+
                     break;
                 }
                 "r" | "reject" => {
                     let _ = std::fs::remove_file(&item.new);
+
                     rejected += 1;
+
                     break;
                 }
                 "s" | "skip" => {
@@ -144,16 +166,19 @@ pub fn run(
                 "q" | "quit" => {
                     quit = true;
                     left += 1;
+
                     break;
                 }
                 _ => {}
             }
         }
     }
+
     let _ = writeln!(
         out,
         "\n{accepted} accepted, {rejected} rejected, {left} left pending"
     );
+
     if left == 0 {
         ExitCode::SUCCESS
     } else {
@@ -169,6 +194,7 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("jacket-review-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let folder = dir.join("tests/__snapshots__/file");
+
         std::fs::create_dir_all(&folder).expect("folder");
         dir
     }
@@ -181,9 +207,11 @@ mod tests {
     fn pending_snapshots_pair_with_their_stored_file() {
         let root = scratch("pending");
         let folder = snapshots(&root);
+
         std::fs::write(folder.join("a.snap.new"), "x\n").expect("write");
         std::fs::write(folder.join("b.snap"), "kept\n").expect("write");
         let found = pending(std::slice::from_ref(&root));
+
         assert_eq!(
             found,
             [Pending {
@@ -198,6 +226,7 @@ mod tests {
     fn without_a_terminal_they_are_only_listed() {
         let root = scratch("list");
         let folder = snapshots(&root);
+
         std::fs::write(folder.join("a.snap.new"), "x\n").expect("write");
         let mut out = Vec::new();
         let code = run(
@@ -208,6 +237,7 @@ mod tests {
             &mut out,
         );
         let text = String::from_utf8(out).expect("utf-8");
+
         assert_eq!(code, ExitCode::from(1), "{text}");
         assert!(
             text.contains("tests/__snapshots__/file/a.snap.new"),
@@ -221,9 +251,11 @@ mod tests {
     fn answers_accept_reject_and_skip() {
         let root = scratch("answers");
         let folder = snapshots(&root);
+
         for name in ["a", "b", "c"] {
             std::fs::write(folder.join(format!("{name}.snap.new")), "new\n").expect("write");
         }
+
         std::fs::write(folder.join("a.snap"), "old\n").expect("write");
         let mut input = std::io::Cursor::new("?\na\nr\ns\n");
         let mut out = Vec::new();
@@ -235,6 +267,7 @@ mod tests {
             &mut out,
         );
         let text = String::from_utf8(out).expect("utf-8");
+
         assert_eq!(
             code,
             ExitCode::from(1),
@@ -260,9 +293,11 @@ mod tests {
     fn a_diff_ignores_line_endings() {
         let root = scratch("endings");
         let folder = snapshots(&root);
+
         std::fs::write(folder.join("a.snap"), "one\r\ntwo\r\n").expect("write");
         std::fs::write(folder.join("a.snap.new"), "one\ntwo\n").expect("write");
         let item = &pending(std::slice::from_ref(&root))[0];
+
         assert_eq!(describe(item), "--- want\n+++ got\n  one\n  two");
         let _ = std::fs::remove_dir_all(&root);
     }

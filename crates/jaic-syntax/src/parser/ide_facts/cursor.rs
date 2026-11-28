@@ -74,6 +74,7 @@ pub fn cursor_context_in(text: &str, offset: u32, lexed: &Lexed) -> CursorContex
         comments,
         errors,
     } = lexed;
+
     if let Some(c) = comments.iter().find(|c| {
         c.span.start < offset
             && (offset < c.span.end
@@ -82,6 +83,7 @@ pub fn cursor_context_in(text: &str, offset: u32, lexed: &Lexed) -> CursorContex
     }) {
         return CursorContext::Comment(c.span);
     }
+
     let literal = tokens
         .iter()
         .filter(|t| matches!(t.tok, Tok::Str(_)))
@@ -98,8 +100,10 @@ pub fn cursor_context_in(text: &str, offset: u32, lexed: &Lexed) -> CursorContex
                     offset <= span.end
                 }
         });
+
     if let Some((span, closed)) = literal {
         let before = tokens.partition_point(|t| t.span.end <= span.start);
+
         return CursorContext::String(StringAt {
             span,
             start: span.start + 1,
@@ -107,6 +111,7 @@ pub fn cursor_context_in(text: &str, offset: u32, lexed: &Lexed) -> CursorContex
             directive: path_directive(&tokens[..before]),
         });
     }
+
     // The name the cursor is in or at the end of, else the position between tokens.
     let hit = tokens.iter().position(|t| {
         matches!(t.tok, Tok::Ident(_)) && t.span.start <= offset && offset <= t.span.end
@@ -120,11 +125,13 @@ pub fn cursor_context_in(text: &str, offset: u32, lexed: &Lexed) -> CursorContex
         },
         |i| tokens[i].span,
     );
+
     if let Some(dot) = first
         .checked_sub(1)
         .filter(|&d| tokens[d].tok == Tok::Punct(P::Dot))
     {
         let (receiver, chain) = receiver_before(tokens, dot);
+
         return CursorContext::Member(MemberAt {
             dot: tokens[dot].span.start,
             word,
@@ -132,6 +139,7 @@ pub fn cursor_context_in(text: &str, offset: u32, lexed: &Lexed) -> CursorContex
             chain,
         });
     }
+
     if let Some(i) = hit
         && let Some(names) = declared_names(tokens, i)
     {
@@ -139,11 +147,13 @@ pub fn cursor_context_in(text: &str, offset: u32, lexed: &Lexed) -> CursorContex
             .iter()
             .position(|n| n.start == tokens[i].span.start)
             .unwrap_or(0);
+
         return CursorContext::DeclName {
             names,
             at,
         };
     }
+
     CursorContext::Code
 }
 
@@ -163,6 +173,7 @@ fn path_directive(before: &[Token]) -> Option<PathDirective> {
             _ => return None,
         }
     }
+
     None
 }
 
@@ -175,6 +186,7 @@ fn ends_expression(t: &Tok) -> bool {
             "filepath" | "file" | "line" | "this" | "Context"
         );
     }
+
     // A word that opens a clause (`case`, `return`, `if`, `cast`) is followed by an expression,
     // not the end of one: `case .A` names an inferred member.
     if let Tok::Ident(name) = t {
@@ -189,6 +201,7 @@ fn ends_expression(t: &Tok) -> bool {
             )
         );
     }
+
     matches!(
         t,
         Tok::Str(_)
@@ -215,6 +228,7 @@ fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
         match tokens[i].tok {
             Tok::Ident(_) => {
                 chain.push(tokens[i].span);
+
                 match i.checked_sub(2) {
                     Some(j)
                         if tokens[i - 1].tok == Tok::Punct(P::Dot)
@@ -230,6 +244,7 @@ fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
                 let Some(open) = matching_open(tokens, i) else {
                     break tokens[i].span.start;
                 };
+
                 match open.checked_sub(1) {
                     Some(before) if matches!(tokens[before].tok, Tok::Ident(_)) => {
                         i = before;
@@ -239,6 +254,7 @@ fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
             }
             Tok::Punct(P::DotStar) => {
                 pure = false;
+
                 match i
                     .checked_sub(1)
                     .filter(|&j| ends_expression(&tokens[j].tok))
@@ -253,12 +269,14 @@ fn receiver_before(tokens: &[Token], dot: usize) -> (Option<Span>, Vec<Span>) {
             }
         }
     };
+
     chain.reverse();
     let chain = if pure {
         chain
     } else {
         Vec::new()
     };
+
     (
         Some(Span {
             start,
@@ -276,11 +294,13 @@ fn closes_cast_type(tokens: &[Token], close: usize) -> bool {
     if tokens[close].tok != Tok::Punct(P::RParen) {
         return false;
     }
+
     let Some(mut i) = matching_open(tokens, close).and_then(|open| open.checked_sub(1)) else {
         return false;
     };
     // The flags between the word and its parenthesis: `,trunc`, `,no_check`.
     let is_cast = |i: usize| matches!(&tokens[i].tok, Tok::Ident(name) if name.as_str() == "cast");
+
     while i >= 2
         && !is_cast(i)
         && matches!(tokens[i].tok, Tok::Ident(_))
@@ -288,25 +308,30 @@ fn closes_cast_type(tokens: &[Token], close: usize) -> bool {
     {
         i -= 2;
     }
+
     is_cast(i)
 }
 
 /// The index of the bracket that opens the closer at `close`.
 fn matching_open(tokens: &[Token], close: usize) -> Option<usize> {
     let mut depth = 0usize;
+
     for i in (0..=close).rev() {
         let Tok::Punct(p) = tokens[i].tok else {
             continue;
         };
+
         if matches!(p, P::RParen | P::RBracket | P::RBrace) {
             depth += 1;
         } else if closer(p).is_some() {
             depth -= 1;
+
             if depth == 0 {
                 return Some(i);
             }
         }
     }
+
     None
 }
 
@@ -314,23 +339,28 @@ fn matching_open(tokens: &[Token], close: usize) -> Option<usize> {
 /// list starts its statement and is followed by `:`, `:=` or `::`.
 fn declared_names(tokens: &[Token], at: usize) -> Option<Vec<Span>> {
     let mut first = at;
+
     while first >= 2
         && tokens[first - 1].tok == Tok::Punct(P::Comma)
         && matches!(tokens[first - 2].tok, Tok::Ident(_))
     {
         first -= 2;
     }
+
     let starts_statement = first == 0
         || tokens[first].newline_before
         || matches!(
             tokens[first - 1].tok,
             Tok::Punct(P::Semi | P::LBrace | P::RBrace)
         );
+
     if !starts_statement || !matches!(tokens[first].tok, Tok::Ident(_)) {
         return None;
     }
+
     let mut names = vec![tokens[first].span];
     let mut i = first + 1;
+
     while tokens.get(i).is_some_and(|t| t.tok == Tok::Punct(P::Comma))
         && tokens
             .get(i + 1)
@@ -339,6 +369,7 @@ fn declared_names(tokens: &[Token], at: usize) -> Option<Vec<Span>> {
         names.push(tokens[i + 1].span);
         i += 2;
     }
+
     matches!(
         tokens.get(i)?.tok,
         Tok::Punct(P::Colon | P::ColonEq | P::ColonColon)

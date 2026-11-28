@@ -6,9 +6,11 @@ use std::{path::PathBuf, rc::Rc};
 fn compile(source: &str) -> Result<(), String> {
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
+
     c.compile_sources(&[ProgramSource::String(source.into())])
         .map_err(|e| e.render(&c.src.sources))
 }
@@ -100,6 +102,7 @@ fn division_by_zero_is_reported_for_every_kind() {
              main :: () {{}}"
         );
         let error = compile(&source).expect_err("dividing by zero must stop the compile");
+
         assert!(
             error.to_lowercase().contains("divi") && error.to_lowercase().contains("zero"),
             "{ty} {op}: {error}"

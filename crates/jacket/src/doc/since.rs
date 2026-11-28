@@ -11,6 +11,7 @@ const OLDER: &str = "-";
 fn parse(version: &str) -> Option<(u32, u32, u32)> {
     let mut parts = version.split('.').map(|n| n.parse::<u32>().ok());
     let found = (parts.next()??, parts.next()??, parts.next()??);
+
     parts.next().is_none().then_some(found)
 }
 
@@ -24,6 +25,7 @@ struct Data {
 fn read(text: &str) -> Data {
     let mut covered = Vec::new();
     let mut versions: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+
     for line in text.lines() {
         if let Some(rest) = line.strip_prefix("# covers:") {
             covered = rest
@@ -32,16 +34,19 @@ fn read(text: &str) -> Data {
                 .collect();
         } else if !line.starts_with('#') {
             let mut cells = line.split('\t');
+
             if let (Some(module), Some(version), Some(names)) =
                 (cells.next(), cells.next(), cells.next())
             {
                 let entry = versions.entry(module.to_owned()).or_default();
+
                 for name in names.split(' ') {
                     entry.insert(name.to_owned(), version.to_owned());
                 }
             }
         }
     }
+
     Data {
         covered,
         versions,
@@ -59,25 +64,31 @@ pub fn assign(text: &str, modules: &mut [Module], built: &str) {
 fn apply(data: &Data, modules: &mut [Module], built: &str) {
     let new = (!data.covered.iter().any(|c| c == built) && parse(built).is_some())
         .then(|| built.to_owned());
+
     for module in modules.iter_mut() {
         let known = data.versions.get(&module.id);
         let mut earliest: Option<(u32, u32, u32)> = None;
         let mut every_item_has_one = module.items.iter().any(|i| !i.binding);
+
         for item in &mut module.items {
             if item.binding {
                 continue;
             }
+
             let version = match known.and_then(|k| k.get(&item.name)) {
                 Some(v) if v == OLDER => None,
                 Some(v) => Some(v.clone()),
                 None => new.clone(),
             };
+
             match version.as_deref().and_then(parse) {
                 Some(v) => earliest = Some(earliest.map_or(v, |e| e.min(v))),
                 None => every_item_has_one = false,
             }
+
             item.since = version.unwrap_or_default();
         }
+
         module.since = if every_item_has_one {
             earliest
                 .map(|(a, b, c)| format!("{a}.{b}.{c}"))
@@ -148,6 +159,7 @@ mod tests {
     fn items_get_the_release_that_added_them() {
         let data = read(SAMPLE);
         let mut mods = [module("A", &["old", "newer"]), module("B", &["fresh"])];
+
         apply(&data, &mut mods, "0.2.0");
         assert_eq!(mods[0].items[0].since, "");
         assert_eq!(mods[0].items[1].since, "0.2.0");
@@ -159,6 +171,7 @@ mod tests {
     fn what_the_data_lacks_is_new_in_an_uncovered_release_only() {
         let data = read(SAMPLE);
         let mut mods = [module("A", &["old", "added"]), module("C", &["x"])];
+
         apply(&data, &mut mods, "0.3.0");
         assert_eq!(mods[0].items[1].since, "0.3.0");
         assert_eq!(mods[1].since, "0.3.0");
@@ -170,6 +183,7 @@ mod tests {
     #[test]
     fn the_checked_in_data_reads() {
         let data = read(include_str!("since.tsv"));
+
         assert!(data.covered.len() > 1);
         assert!(data.versions.contains_key("String"));
     }

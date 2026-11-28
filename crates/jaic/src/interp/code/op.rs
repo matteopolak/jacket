@@ -354,6 +354,7 @@ impl Code {
     pub(in crate::interp) fn loc_at(&self, op: usize) -> Option<(u32, u32, u32)> {
         let n = self.loc_marks.partition_point(|&(at, _)| at as usize <= op);
         let (_, loc) = *self.loc_marks.get(n.checked_sub(1)?)?;
+
         Some(self.locs[loc as usize])
     }
 

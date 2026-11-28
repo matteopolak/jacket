@@ -35,6 +35,7 @@ pub fn write_program(dir: &Path) -> PathBuf {
     std::fs::create_dir_all(dir.join("modules/Echo_Plugin")).unwrap();
     std::fs::write(dir.join("modules/Echo_Plugin/module.jai"), ECHO_PLUGIN).unwrap();
     let source = dir.join("uses_plugin.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\nmain :: () { print(\"%\\n\", from_plugin()); }\n",

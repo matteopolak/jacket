@@ -31,9 +31,11 @@ fn open(session: &mut JsonSession, uri: &str, version: i32, text: &str) -> Vec<V
         session,
         json!({ "jsonrpc": "2.0", "method": method, "params": params }),
     );
+
     if version > 1 && uri.ends_with(".toml") {
         out.extend(send(session, json!({ "jsonrpc":"2.0", "method":"textDocument/didSave", "params":{"textDocument":{"uri":uri}} })));
     }
+
     out
 }
 
@@ -41,16 +43,19 @@ fn open(session: &mut JsonSession, uri: &str, version: i32, text: &str) -> Vec<V
 #[test]
 fn a_panic_is_an_error_response_and_the_server_keeps_working() {
     let mut s = JsonSession::new(Limits::default());
+
     send(
         &mut s,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
     );
     let uri = "file:///resilience/main.jai";
+
     open(&mut s, uri, 1, "answer :: 42;\nmain :: () {}\n");
     let out = send(
         &mut s,
         json!({ "jsonrpc": "2.0", "id": 2, "method": "jai/debugPanic" }),
     );
+
     assert_eq!(out[0]["error"]["code"], -32603, "{out:?}");
     assert!(
         out[0]["error"]["message"]
@@ -63,6 +68,7 @@ fn a_panic_is_an_error_response_and_the_server_keeps_working() {
         &mut s,
         json!({ "jsonrpc": "2.0", "method": "jai/debugPanic" }),
     );
+
     assert_eq!(out[0]["method"], "window/logMessage", "{out:?}");
     // The open document is still there and requests still work.
     let out = send(
@@ -74,6 +80,7 @@ fn a_panic_is_an_error_response_and_the_server_keeps_working() {
             "params": { "textDocument": { "uri": uri } },
         }),
     );
+
     assert_eq!(out[0]["result"].as_array().unwrap().len(), 2, "{out:?}");
 }
 
@@ -109,6 +116,7 @@ fn from_source(out: &[Value], uri: &str, source: &str) -> Vec<Value> {
 #[test]
 fn a_broken_settings_file_is_published_and_holds_back_the_jai_diagnostics() {
     let mut s = with_environment();
+
     send(
         &mut s,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
@@ -117,9 +125,11 @@ fn a_broken_settings_file_is_published_and_holds_back_the_jai_diagnostics() {
     let (config, main) = (format!("{dir}/jacket.toml"), format!("{dir}/main.jai"));
     let broken = "[lint.rules\nunused_variable = \"deny\"\n";
     let out = open(&mut s, &config, 1, broken);
+
     assert!(messages(&out).is_empty(), "{out:?}");
     assert_eq!(from_source(&out, &config, "jacket").len(), 1, "{out:?}");
     let out = open(&mut s, &main, 1, "main :: () {\n    x := 1;\n}\n");
+
     assert!(messages(&out).is_empty(), "{out:?}");
     assert!(from_source(&out, &main, "jailint").is_empty(), "{out:?}");
     // Fixed: the lints are back.
@@ -129,10 +139,12 @@ fn a_broken_settings_file_is_published_and_holds_back_the_jai_diagnostics() {
         2,
         "[lint.rules]\nunused_variable = \"deny\"\n",
     );
+
     assert!(from_source(&out, &config, "jacket").is_empty(), "{out:?}");
     assert_eq!(from_source(&out, &main, "jailint").len(), 1, "{out:?}");
     // Broken again: held back again.
     let out = open(&mut s, &config, 3, broken);
+
     assert_eq!(from_source(&out, &config, "jacket").len(), 1, "{out:?}");
     assert!(from_source(&out, &main, "jailint").is_empty(), "{out:?}");
 }
@@ -140,6 +152,7 @@ fn a_broken_settings_file_is_published_and_holds_back_the_jai_diagnostics() {
 #[test]
 fn a_bad_project_file_is_a_diagnostic_not_a_popup() {
     let mut s = with_environment();
+
     send(
         &mut s,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
@@ -148,6 +161,7 @@ fn a_bad_project_file_is_a_diagnostic_not_a_popup() {
     let config = format!("{dir}/jacket.toml");
     let out = open(&mut s, &config, 1, "[project]\nentry = 3\n");
     let problems = from_source(&out, &config, "jacket");
+
     assert_eq!(problems.len(), 1, "{out:?}");
     assert!(
         problems[0]["message"]
@@ -159,6 +173,7 @@ fn a_bad_project_file_is_a_diagnostic_not_a_popup() {
     let main = format!("{dir}/main.jai");
     let text = "main :: () {\n    prin\n}\n";
     let mut found = messages(&out);
+
     found.extend(messages(&open(&mut s, &main, 1, text)));
     let out = send(
         &mut s,
@@ -172,6 +187,7 @@ fn a_bad_project_file_is_a_diagnostic_not_a_popup() {
             },
         }),
     );
+
     found.extend(messages(&out));
     assert!(found.is_empty(), "{found:?}");
 }
@@ -195,6 +211,7 @@ fn complete(s: &mut JsonSession, uri: &str, line: u32, character: u32) -> Vec<Va
 #[test]
 fn completion_items_replace_the_whole_word_in_utf16() {
     let mut s = with_environment();
+
     send(
         &mut s,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
@@ -202,6 +219,7 @@ fn completion_items_replace_the_whole_word_in_utf16() {
     let uri = "file:///resilience-edit/main.jai";
     // The emoji is two UTF-16 units; the cursor is in the middle of `render_all`.
     let text = "render_all :: () {}\nmain :: () {\n    s := \"😀\"; rend_er_all();\n}\n#imp\n";
+
     open(&mut s, uri, 1, text);
     let start = text.lines().nth(2).unwrap().find("rend_er_all").unwrap();
     let units = |bytes: usize| utf16_len(&text.lines().nth(2).unwrap()[..bytes]);
@@ -211,6 +229,7 @@ fn completion_items_replace_the_whole_word_in_utf16() {
         .find(|i| i["label"] == "render_all")
         .unwrap_or_else(|| panic!("{items:?}"));
     let edit = &item["textEdit"];
+
     assert_eq!(edit["newText"], "render_all");
     assert_eq!(edit["range"]["start"]["character"], units(start));
     assert_eq!(
@@ -221,6 +240,7 @@ fn completion_items_replace_the_whole_word_in_utf16() {
     // A directive's range includes its `#`.
     let items = complete(&mut s, uri, 4, 4);
     let import = items.iter().find(|i| i["label"] == "#import").unwrap();
+
     assert_eq!(import["textEdit"]["range"]["start"]["character"], 0);
     assert_eq!(import["textEdit"]["range"]["end"]["character"], 4);
 }
@@ -228,12 +248,14 @@ fn completion_items_replace_the_whole_word_in_utf16() {
 #[test]
 fn unfinished_config_edits_do_not_apply_or_warn_until_saved() {
     let mut s = with_environment();
+
     send(
         &mut s,
         json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}),
     );
     let config = "file:///saved-config/jacket.toml";
     let main = "file:///saved-config/main.jai";
+
     open(
         &mut s,
         config,
@@ -241,6 +263,7 @@ fn unfinished_config_edits_do_not_apply_or_warn_until_saved() {
         "[lint.rules]\nunused_variable=\"deny\"\n",
     );
     open(&mut s, main, 1, "main :: () { x:=1; }\n");
+
     for (version, text) in [
         (2, "import-path ="),
         (3, "import-path = a"),
@@ -250,8 +273,10 @@ fn unfinished_config_edits_do_not_apply_or_warn_until_saved() {
             &mut s,
             json!({"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":config,"version":version},"contentChanges":[{"text":text}]}}),
         );
+
         assert!(messages(&out).is_empty(), "{out:?}");
         let out = open(&mut s, main, version, "main :: () { x:=1; }\n");
+
         assert!(messages(&out).is_empty(), "{out:?}");
         assert!(
             out.iter().any(
@@ -262,19 +287,24 @@ fn unfinished_config_edits_do_not_apply_or_warn_until_saved() {
             "{out:?}"
         );
     }
+
     let save = json!({"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":config}}});
+
     for _ in 0..2 {
         let out = send(&mut s, save.clone());
+
         assert!(messages(&out).is_empty(), "{out:?}");
         assert_eq!(from_source(&out, config, "jacket").len(), 1, "{out:?}");
         assert!(from_source(&out, main, "jailint").is_empty(), "{out:?}");
     }
+
     let out = open(
         &mut s,
         config,
         5,
         "[lint.rules]\nunused_variable=\"allow\"\n",
     );
+
     assert!(messages(&out).is_empty());
     assert!(!out.iter().any(|m| {
         m["params"]["diagnostics"]

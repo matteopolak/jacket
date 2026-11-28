@@ -5,12 +5,14 @@ use super::*;
 fn fallible_windows_release_symbols_export_only_possible_frees() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     options.os = jaic::target::TargetOs::Windows;
     options.cpu = jaic::target::TargetCpu::X64;
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -32,9 +34,12 @@ fn fallible_windows_release_symbols_export_only_possible_frees() {
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let before = Summaries::build(&c);
+
     c.release_lowered_code();
     let after = Summaries::build(&c);
+
     assert_eq!(before.procs, after.procs);
+
     for name in ["release_local", "release_global", "release_key"] {
         let id = ProcId(
             c.pr.procs
@@ -43,6 +48,7 @@ fn fallible_windows_release_symbols_export_only_possible_frees() {
                 .unwrap() as u32,
         );
         let s = &after.procs[&id];
+
         assert!(
             s.may
                 .keys()
@@ -51,12 +57,14 @@ fn fallible_windows_release_symbols_export_only_possible_frees() {
         );
         assert!(!s.guaranteed.keys().any(|e| e.kind == Kind::Free));
     }
+
     let named = ProcId(
         c.pr.procs
             .iter()
             .position(|p| p.name.as_str() == "LocalFree" && p.lit.body.is_some())
             .unwrap() as u32,
     );
+
     assert!(!after.procs[&named].may.keys().any(|e| e.kind == Kind::Free));
 }
 
@@ -64,10 +72,12 @@ fn fallible_windows_release_symbols_export_only_possible_frees() {
 fn foreign_declarations_release_only_through_their_notes() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -100,9 +110,11 @@ fn foreign_declarations_release_only_through_their_notes() {
             .keys()
             .any(|e| e.kind == Kind::Free && e.target.root == Root::Parameter(formal))
     };
+
     for bare in ["bare_free", "bare_close"] {
         assert!(!frees(get(bare), 0), "{bare} has no note");
     }
+
     assert!(!get("bare_exit").observable.exit);
     assert!(frees(get("sure_free"), 0));
     assert!(
@@ -126,10 +138,12 @@ fn foreign_declarations_release_only_through_their_notes() {
 fn narrowing_a_handle_keeps_it_the_released_argument() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -150,6 +164,7 @@ fn narrowing_a_handle_keeps_it_the_released_argument() {
             .iter()
             .position(|p| p.name.as_str() == "close_wide")
             .unwrap();
+
     assert!(
         summaries.procs[&ProcId(id as u32)]
             .guaranteed

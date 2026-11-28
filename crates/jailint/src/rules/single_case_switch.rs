@@ -35,9 +35,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let S::Switch(sw) = &s.kind else {
             return;
         };
+
         if sw.complete {
             return;
         }
+
         // The one case with a value, and the default after or before it.
         let (case, default) = match sw.cases.as_slice() {
             [c] => (c, None),
@@ -48,9 +50,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let [value] = case.values.as_slice() else {
             return;
         };
+
         if case.through || default.is_some_and(|d| d.through) || body_text(cx, case).is_none() {
             return;
         }
+
         let subject = cx.whole_src(&sw.value).trim();
         let wanted = cx.whole_src(value).trim();
         let (_, indent) = cx.line_start(s.span.start as usize);
@@ -58,10 +62,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             "if {subject} == {wanted} {{\n{indent}    {}\n{indent}}}",
             body_text(cx, case).unwrap_or_default()
         );
+
         // `case;` with nothing to do leaves the `if` without an `else`.
         if let Some(body) = default.and_then(|d| body_text(cx, d)) {
             text.push_str(&format!(" else {{\n{indent}    {body}\n{indent}}}"));
         }
+
         let header = Span::new(cx.file, s.span.start as usize, sw.header.end as usize);
         let mut finding = suggesting(
             header,
@@ -74,9 +80,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 text,
             }],
         );
+
         if cx.has_comment_between(s.span.start as usize, s.span.end as usize) {
             finding.fix = None;
         }
+
         out.push(finding);
     });
 }
@@ -90,5 +98,6 @@ fn body_text<'a>(cx: &Cx<'a>, c: &Case) -> Option<&'a str> {
         .collect();
     let (first, last) = (stmts.first()?, stmts.last()?);
     let (start, end) = (first.span.start as usize, statement_range(cx, last.span).1);
+
     cx.text.get(start..end)
 }

@@ -14,6 +14,7 @@ fn open_checked(text: &str) -> (Session, DocumentUri) {
 
 fn open_in(mut session: Session, text: &str) -> (Session, DocumentUri) {
     let uri = file_uri("/workspace/main.jai");
+
     session.open(uri.clone(), 1, text.into()).unwrap();
     (session, uri)
 }
@@ -26,6 +27,7 @@ fn completion_after_a_multibyte_separator() {
         line: 1,
         character: 3,
     };
+
     assert!(session.completion(&uri, position).is_ok());
 }
 
@@ -38,6 +40,7 @@ fn signature_help_for_a_call_at_the_start_of_the_document() {
             line: 0,
             character: text.len() as u32,
         };
+
         assert!(session.signature_help(&uri, position).is_ok());
     }
 }
@@ -49,11 +52,13 @@ fn queries_on_a_builtin_procedure_name() {
     // The text does not parse, so signature help looks the callee up by name.
     let text = "S :: struct { a: s32; }\nmain :> () { x := type_info.y; info := type_info(S";
     let (session, uri) = open_checked(text);
+
     for (line, character) in [(1, 27), (1, 28), (1, 49), (1, 50)] {
         let position = Position {
             line,
             character,
         };
+
         assert!(session.signature_help(&uri, position).is_ok());
         assert!(session.completion(&uri, position).is_ok());
         let _ = session.hover(&uri, position);
@@ -71,6 +76,7 @@ fn definition_of_a_builtin_constant() {
         character: 4,
     };
     let found = session.definition(&uri, position);
+
     assert!(found.as_ref().is_ok_and(Vec::is_empty), "{found:?}");
 }
 
@@ -79,6 +85,7 @@ fn every_location_query_on_a_builtin_constant() {
     // The same `Span::NONE` reached every query that turns declaration spans into locations or
     // reads their text; each now leaves out what has no file.
     let (session, uri) = open_checked("#if OS == .LINUX {\n}\nmain :: () { x := OS; }\n");
+
     for (line, character) in [(0, 4), (2, 18)] {
         let position = Position {
             line,
@@ -105,5 +112,6 @@ fn a_long_chain_of_operators_over_unknown_names_checks_in_linear_time() {
     let (session, uri) = open_checked(&text);
     let start = std::time::Instant::now();
     let _ = session.diagnostics(&uri);
+
     assert!(start.elapsed().as_secs() < 10, "{:?}", start.elapsed());
 }

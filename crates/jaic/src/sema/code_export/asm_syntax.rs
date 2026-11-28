@@ -12,6 +12,7 @@ impl Exporter<'_> {
             ast::AsmPin::Index(index) => index.to_string(),
         });
         let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, span);
+
         rec.str(SyntaxKey::AsmKind, b"declaration")
             .str(SyntaxKey::Name, decl.name.name.as_str().as_bytes())
             .str(
@@ -38,6 +39,7 @@ impl Exporter<'_> {
                         let scale = self.opt_expr(term.scale.as_ref());
                         let mut rec =
                             self.node(RecordTag::CodeNode, node::PLACEHOLDER, memory.span);
+
                         rec.ptr(SyntaxKey::Value, value)
                             .ptr(SyntaxKey::Scale, scale)
                             .int(SyntaxKey::Negate, i64::from(term.negate));
@@ -46,6 +48,7 @@ impl Exporter<'_> {
                     .collect();
                 let terms = self.node_list(&terms, memory.span);
                 let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, memory.span);
+
                 rec.str(SyntaxKey::AsmKind, b"memory")
                     .ptr(SyntaxKey::Terms, terms)
                     .int(SyntaxKey::Broadcast, i64::from(memory.broadcast));
@@ -81,6 +84,7 @@ impl Exporter<'_> {
                         format!("!{}", mode.map_or(String::new(), |mode| mode.to_string()))
                     });
                     let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, inst.span);
+
                     rec.str(SyntaxKey::AsmKind, b"instruction")
                         .str(SyntaxKey::Mnemonic, inst.mnemonic.name.as_str().as_bytes())
                         .ptr(SyntaxKey::Operands, operands)
@@ -98,6 +102,7 @@ impl Exporter<'_> {
             .collect();
         let items = self.node_list(&items, span);
         let mut rec = self.node(RecordTag::CodeAsm, node::ASM, span);
+
         rec.ptr(SyntaxKey::AsmItems, items)
             .int(SyntaxKey::AsmPresent, 1)
             .str(

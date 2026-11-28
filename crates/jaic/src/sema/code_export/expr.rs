@@ -92,26 +92,31 @@ impl Exporter<'_> {
             },
             E::Ident(name) => return self.ident(*name, span),
         };
+
         self.add(rec)
     }
 
     fn expr_literal_record(&mut self, e: &ast::Expr) -> std::result::Result<Record, i64> {
         use ast::ExprKind as E;
         let span = e.span;
+
         Ok(match &e.kind {
             E::Int(v, ..) => {
                 let mut rec = self.literal(span, 1);
+
                 rec.int("_s64", v.get() as i64)
                     .int("value_flags", self.literal_number_flags(span, None, false));
                 rec
             }
             E::Char(v) => {
                 let mut rec = self.literal(span, 1);
+
                 rec.int("_s64", *v as i64).int("value_flags", 0x1);
                 rec
             }
             E::Float(v, ..) => {
                 let mut rec = self.literal(span, 1);
+
                 rec.int("_float64", v.to_bits() as i64).int(
                     "value_flags",
                     self.literal_number_flags(span, Some(*v), false),
@@ -120,19 +125,23 @@ impl Exporter<'_> {
             }
             E::Str(s) => {
                 let mut rec = self.literal(span, 2);
+
                 rec.str("_string", s);
                 rec
             }
             E::Bool(b) => {
                 let mut rec = self.literal(span, 3);
+
                 rec.int("_s64", *b as i64);
                 rec
             }
             E::Null => {
                 let mut info = Record::new(RecordTag::CodePointerLiteralInfo);
+
                 info.int("pointer_literal_type", 2);
                 let info = self.r.add(info);
                 let mut rec = self.literal(span, 8);
+
                 rec.ptr("pointer_literal_info", info);
                 rec
             }
@@ -145,6 +154,7 @@ impl Exporter<'_> {
                 baked,
             } => {
                 let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
+
                 rec.str("name", name.as_str().as_bytes()).int(
                     "flags",
                     0x1 | if *baked {
@@ -163,6 +173,7 @@ impl Exporter<'_> {
             } => {
                 let restriction = self.expr(restriction);
                 let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
+
                 rec.str("name", name.as_str().as_bytes())
                     .int(
                         "flags",
@@ -184,10 +195,12 @@ impl Exporter<'_> {
     fn expr_operator_record(&mut self, e: &ast::Expr) -> std::result::Result<Record, i64> {
         use ast::ExprKind as E;
         let span = e.span;
+
         Ok(match &e.kind {
             E::Binary(op, a, b) => {
                 let (a, b) = (self.expr(a), self.expr(b));
                 let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
+
                 rec.int("operator_type", bin_op(*op))
                     .ptr("left", a)
                     .ptr("right", b);
@@ -199,12 +212,14 @@ impl Exporter<'_> {
                 match &a.kind {
                     E::Int(v, ..) => {
                         let mut rec = self.literal(span, 1);
+
                         rec.int("_s64", (v.get() as i64).wrapping_neg())
                             .int("value_flags", self.literal_number_flags(span, None, true));
                         rec
                     }
                     E::Float(v, ..) => {
                         let mut rec = self.literal(span, 1);
+
                         rec.int("_float64", (-v).to_bits() as i64).int(
                             "value_flags",
                             self.literal_number_flags(span, Some(-v), true),
@@ -225,12 +240,14 @@ impl Exporter<'_> {
                     ast::UnOp::Deref => 169,
                 };
                 let mut rec = self.node(RecordTag::CodeUnaryOperator, node::UNARY_OPERATOR, span);
+
                 rec.int("operator_type", op).ptr("subexpression", a);
                 rec
             }
             E::Member(a, name) => {
                 let (a, b) = (self.expr(a), self.name_ident(name.name, name.span));
                 let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
+
                 rec.int("operator_type", b'.' as i64)
                     .ptr("left", a)
                     .ptr("right", b);
@@ -239,12 +256,14 @@ impl Exporter<'_> {
             E::InferredMember(name) => {
                 let b = self.name_ident(name.name, name.span);
                 let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
+
                 rec.int("operator_type", b'.' as i64).ptr("right", b);
                 rec
             }
             E::Index(a, b) => {
                 let (a, b) = (self.expr(a), self.expr(b));
                 let mut rec = self.node(RecordTag::CodeBinaryOperator, node::BINARY_OPERATOR, span);
+
                 rec.int("operator_type", 500).ptr("left", a).ptr("right", b);
                 rec
             }
@@ -273,6 +292,7 @@ impl Exporter<'_> {
                     .join(",");
                 let change_list = self.node_list(&change_values, span);
                 let mut rec = self.node(RecordTag::CodeProcedureCall, node::PROCEDURE_CALL, span);
+
                 rec.ptr("procedure_expression", callee)
                     .int(
                         SyntaxKey::CallHint,
@@ -284,23 +304,28 @@ impl Exporter<'_> {
                     )
                     .refs("arguments_unsorted", unsorted)
                     .refs("arguments_sorted", sorted);
+
                 if !change_values.is_empty() {
                     rec.ptr(SyntaxKey::ContextArguments, change_list)
                         .str(SyntaxKey::ContextNames, change_names.as_bytes());
                 }
+
                 if let Some(p) = resolved {
                     let header = self.resolved_header(p);
+
                     rec.ptr("resolved_procedure_expression", header);
                     // The call's type: its first return.
                     let first = match self.r.item(header, "returns", Some(0)) {
                         Some(Item::Ref(ret)) => Some(ret),
                         _ => None,
                     };
+
                     if let Some(FieldRef::Ref(ty)) = first.and_then(|ret| self.r.field(ret, "type"))
                     {
                         rec.ptr("type", ty);
                     }
                 }
+
                 rec
             }
             E::Cast {
@@ -311,19 +336,25 @@ impl Exporter<'_> {
                 let target = ty.as_ref().map_or(0, |t| self.type_inst(t));
                 let value = self.expr(value);
                 let mut cast_flags = 0;
+
                 if ty.is_none() {
                     cast_flags |= 0x4;
                 }
+
                 if flags.no_check {
                     cast_flags |= 0x8;
                 }
+
                 if flags.truncate {
                     cast_flags |= 0x10;
                 }
+
                 if flags.force {
                     cast_flags |= 0x80;
                 }
+
                 let mut rec = self.node(RecordTag::CodeCast, node::CAST, span);
+
                 rec.ptr("target_type", target)
                     .ptr("expression", value)
                     .int("cast_flags", cast_flags);
@@ -339,6 +370,7 @@ impl Exporter<'_> {
                 let then_block = then_value.as_deref().map_or(0, |v| self.expr_block(v));
                 let else_block = else_value.as_deref().map_or(0, |v| self.expr_block(v));
                 let mut rec = self.node(RecordTag::CodeIf, node::IF, span);
+
                 rec.ptr("condition", cond)
                     .ptr("then_block", then_block)
                     .ptr("else_block", else_block)
@@ -352,6 +384,7 @@ impl Exporter<'_> {
                 let ty = ty.as_ref().map_or(0, |t| self.type_inst(t));
                 // `name = value` fields are `=` binary operators, as in Jai.
                 let mut values = Vec::new();
+
                 for field in fields {
                     let value = self.expr(&field.value);
                     let target = match (&field.name, &field.target) {
@@ -367,15 +400,19 @@ impl Exporter<'_> {
                         node::BINARY_OPERATOR,
                         field.value.span,
                     );
+
                     rec.int("operator_type", i64::from(b'='))
                         .ptr("left", target)
                         .ptr("right", value);
                     values.push(self.add(rec));
                 }
+
                 let mut info = Record::new(RecordTag::CodeStructLiteralInfo);
+
                 info.ptr("type_expression", ty).refs("arguments", values);
                 let info = self.r.add(info);
                 let mut rec = self.literal(span, 7);
+
                 rec.ptr("struct_literal_info", info);
                 rec
             }
@@ -386,11 +423,13 @@ impl Exporter<'_> {
                 let elem_ty = ty.as_ref().map_or(0, |t| self.type_inst(t));
                 let elems: Vec<i64> = elems.iter().map(|e| self.expr(e)).collect();
                 let mut info = Record::new(RecordTag::CodeArrayLiteralInfo);
+
                 info.ptr("element_type", elem_ty)
                     .refs("array_members", elems)
                     .int("array_literal_flags", ty.is_none() as i64);
                 let info = self.r.add(info);
                 let mut rec = self.literal(span, 6);
+
                 rec.ptr("array_literal_info", info);
                 rec
             }
@@ -412,7 +451,9 @@ impl Exporter<'_> {
                 };
                 let id = self.proc(&lit, &[], None, span);
                 let body = self.expr(body);
+
                 self.r.get_mut(id).unwrap().ptr(SyntaxKey::LambdaBody, body);
+
                 return Err(id);
             }
             E::Block(block) => return Err(self.syntax_block(block)),
@@ -425,6 +466,7 @@ impl Exporter<'_> {
     fn expr_directive_record(&mut self, e: &ast::Expr) -> std::result::Result<Record, i64> {
         use ast::ExprKind as E;
         let span = e.span;
+
         Ok(match &e.kind {
             E::Run {
                 body,
@@ -435,6 +477,7 @@ impl Exporter<'_> {
                     ast::RunBody::Block(block) => self.syntax_block(block),
                 };
                 let mut rec = self.node(RecordTag::CodeDirectiveRun, node::DIRECTIVE_RUN, span);
+
                 rec.ptr(SyntaxKey::RunBody, body).str(
                     SyntaxKey::Flags,
                     flags
@@ -457,6 +500,7 @@ impl Exporter<'_> {
                     ast::CodeBody::Block(b) => self.block(&b.stmts, 1, b.span),
                 };
                 let mut rec = self.node(RecordTag::CodeDirectiveCode, node::DIRECTIVE_CODE, span);
+
                 rec.ptr("expression", expr).int(
                     "code_flags",
                     if null {
@@ -483,6 +527,7 @@ impl Exporter<'_> {
                     node::DIRECTIVE_LOCATION,
                     span,
                 );
+
                 rec.ptr("expression", e);
                 rec
             }
@@ -492,22 +537,26 @@ impl Exporter<'_> {
                     node::DIRECTIVE_LOCATION,
                     span,
                 );
+
                 rec.int("is_caller_location", 1);
                 rec
             }
             E::Backtick(e) => {
                 let id = self.expr(e);
+
                 if matches!(e.kind, E::Ident(_))
                     && let Some(rec) = self.r.get_mut(id)
                 {
                     rec.set("flags", Field::Item(Item::Int(0x40))); // HAS_SCOPE_MODIFIER
                 }
+
                 return Err(id);
             }
             E::Exists(query, _) => {
                 let query = self.expr(query);
                 let mut rec =
                     self.node(RecordTag::CodeDirectiveExists, node::DIRECTIVE_EXISTS, span);
+
                 rec.ptr("query_expression", query);
                 rec
             }
@@ -516,12 +565,14 @@ impl Exporter<'_> {
             E::Bytes(e) => {
                 let e = self.expr(e);
                 let mut rec = self.node(RecordTag::CodeDirectiveBytes, node::DIRECTIVE_BYTES, span);
+
                 rec.ptr("expression", e);
                 rec
             }
             E::UnknownDirective(directive) => {
                 let operand = self.opt_expr(directive.operand.as_ref());
                 let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, span);
+
                 rec.str(
                     SyntaxKey::DirectiveName,
                     directive.name.name.as_str().as_bytes(),
@@ -541,6 +592,7 @@ impl Exporter<'_> {
             E::ProcedureOfCall(call) => {
                 let call = self.expr(call);
                 let mut rec = self.node(RecordTag::CodeNode, node::PLACEHOLDER, span);
+
                 rec.str(SyntaxKey::DirectiveName, b"procedure_of_call")
                     .ptr(SyntaxKey::DirectiveArgs, call);
                 rec
@@ -552,6 +604,7 @@ impl Exporter<'_> {
                     node::DIRECTIVE_PROCEDURE_NAME,
                     span,
                 );
+
                 rec.ptr("argument", arg);
                 rec
             }
@@ -571,6 +624,7 @@ impl Exporter<'_> {
                 };
                 let call = self.expr(&call);
                 let mut rec = self.node(RecordTag::CodeDirectiveBake, node::DIRECTIVE_BAKE, span);
+
                 // CONSTANTS_BAKE or PARAMETER_VALUE_BAKE.
                 rec.ptr("procedure_call", call)
                     .int("bake_type", i64::from(!*constants));
@@ -583,6 +637,7 @@ impl Exporter<'_> {
                     node::DIRECTIVE_LOCATION,
                     span,
                 );
+
                 rec.int("is_caller_code", 1).int(SyntaxKey::CallerCode, 1);
                 rec
             }
@@ -591,10 +646,12 @@ impl Exporter<'_> {
             E::File | E::Filepath | E::Line if self.c.is_some() => {
                 let c = self.c.as_deref().unwrap();
                 let src = c.src.sources.get(span.file);
+
                 match &e.kind {
                     E::Line => {
                         let (line, _) = src.line_col(span.start);
                         let mut rec = self.literal(span, 1);
+
                         rec.int("_s64", line as i64).int("value_flags", 0x1);
                         rec
                     }
@@ -614,6 +671,7 @@ impl Exporter<'_> {
                                 .unwrap_or_default()
                         };
                         let mut rec = self.literal(span, 2);
+
                         rec.str("_string", text.as_bytes());
                         rec
                     }
@@ -627,22 +685,28 @@ impl Exporter<'_> {
     pub(super) fn args(&mut self, args: &[ast::Arg]) -> (Vec<i64>, Vec<i64>) {
         let mut unsorted = Vec::new();
         let mut values = Vec::new();
+
         for arg in args {
             let value = self.expr(&arg.value);
+
             if arg.spread {
                 let node = self.r.get_mut(value).unwrap();
                 let flags = match node.field("node_flags") {
                     Some(FieldRef::Int(flags)) => flags,
                     _ => 0,
                 };
+
                 node.int("node_flags", flags | 1);
             }
+
             let name = arg.name.map_or(0, |n| self.name_ident(n.name, n.span));
             let mut rec = Record::new(RecordTag::CodeArgument);
+
             rec.ptr("expression", value).ptr("name", name);
             unsorted.push(self.r.add(rec));
             values.push(value);
         }
+
         (unsorted, values)
     }
 
@@ -650,6 +714,7 @@ impl Exporter<'_> {
     fn expr_block(&mut self, e: &ast::Expr) -> i64 {
         let value = self.expr(e);
         let mut rec = self.node(RecordTag::CodeBlock, node::BLOCK, e.span);
+
         rec.int("block_type", 1).refs("statements", [value]);
         self.add(rec)
     }

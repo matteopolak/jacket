@@ -10,9 +10,11 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 /// pins its own count passes the flag again later, and the last one wins.
 fn jaic() -> Command {
     let mut command = Command::new(JAIC);
+
     if let Some(units) = jacket_config::env::TEST_CODEGEN_UNITS.os() {
         command.arg("-codegen_units").arg(units);
     }
+
     command
 }
 
@@ -48,6 +50,7 @@ main :: () {
 
 fn build_and_run(level: &str) -> String {
     let dir = TempDir::new(&format!("embedded-data-{level}"));
+
     std::fs::write(dir.join("main.jai"), SOURCE).unwrap();
     let exe = dir.join(if cfg!(windows) {
         "out.exe"
@@ -60,12 +63,14 @@ fn build_and_run(level: &str) -> String {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
     let run = Command::new(&exe).output().unwrap();
+
     assert!(run.status.success());
     String::from_utf8_lossy(&run.stdout).replace("\r\n", "\n")
 }
@@ -73,13 +78,16 @@ fn build_and_run(level: &str) -> String {
 #[test]
 fn global_byte_data_survives_unoptimized_and_optimized_builds() {
     let mut sum: i64 = 0;
+
     for b in [0, 1, 2, 254, 255, 0, 0, 128] {
         sum = sum * 31 + b;
     }
+
     let expected = format!(
         "bytes {sum}\nzeros 64 0\npartial 9 0\ntext 5 97 0 98 255 99\n\
          table 4 109 7 65535\nwords -1 2 100000\n"
     );
+
     assert_eq!(build_and_run("-O0"), expected);
     assert_eq!(build_and_run("-O2"), expected);
 }

@@ -26,6 +26,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -39,11 +40,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 _ => return true,
             };
             let types = &cx.compiler.ty.types;
+
             if !cx.ty(other).is_some_and(|t| {
                 types.is_float(t) || types.int_info(t).is_some_and(|(_, signed)| signed)
             }) {
                 return true;
             }
+
             let (start, end) = (
                 cx.whole(a).0.min(cx.whole(b).0),
                 cx.whole(b).1.max(cx.whole(a).1),
@@ -55,6 +58,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } else {
                 format!("-({value})")
             };
+
             out.push(replacing(
                 Span::new(cx.file, start, end),
                 format!("`{written}` is a negation"),
@@ -73,6 +77,7 @@ fn minus_one(e: &Expr) -> bool {
     let E::Unary(UnOp::Neg, inner) = &e.kind else {
         return false;
     };
+
     match &inner.kind {
         E::Int(v, ..) => v.get() == 1,
         E::Float(v, ..) => v.to_bits() == 1.0_f64.to_bits(),

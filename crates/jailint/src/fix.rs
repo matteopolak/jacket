@@ -18,6 +18,7 @@ pub fn apply(text: &str, lints: &[&Lint]) -> (String, usize) {
         .iter()
         .flat_map(|l| l.fix.iter().flat_map(|f| f.edits.iter().cloned()))
         .collect();
+
     (apply_edits(text, edits), chosen.len())
 }
 
@@ -34,11 +35,13 @@ pub fn choose<'l>(lints: &[&'l Lint]) -> Vec<&'l Lint> {
             let fix = l.fix.as_ref().filter(|f| f.machine_applicable)?;
             let lo = fix.edits.iter().map(|e| e.start).min()?;
             let hi = fix.edits.iter().map(|e| e.end).max()?;
+
             Some((l, (lo, hi)))
         })
         .collect();
     let mut taken: Vec<&Edit> = Vec::new();
     let mut chosen = Vec::new();
+
     for (i, &(lint, (lo, hi))) in candidates.iter().enumerate() {
         let Some(fix) = lint.fix.as_ref() else {
             continue;
@@ -51,12 +54,15 @@ pub fn choose<'l>(lints: &[&'l Lint]) -> Vec<&'l Lint> {
                 .iter()
                 .any(|t| e.start < t.end.max(t.start + 1) && t.start < e.end.max(e.start + 1))
         });
+
         if wraps_another || clashes || fix.edits.iter().any(|e| e.start > e.end) {
             continue;
         }
+
         taken.extend(&fix.edits);
         chosen.push(lint);
     }
+
     chosen
 }
 
@@ -73,11 +79,13 @@ pub fn pending(lints: &[&Lint]) -> usize {
 pub fn apply_edits(text: &str, mut edits: Vec<Edit>) -> String {
     edits.sort_by_key(|e| std::cmp::Reverse((e.start, e.end)));
     let mut out = text.to_string();
+
     for e in edits {
         if e.end <= out.len() && out.is_char_boundary(e.start) && out.is_char_boundary(e.end) {
             out.replace_range(e.start..e.end, &e.text);
         }
     }
+
     out
 }
 
@@ -119,6 +127,7 @@ mod tests {
         let apart = lint(&[(30, 31)]);
         let all = [&outer, &inner, &apart];
         let chosen = choose(&all);
+
         assert_eq!(chosen, vec![&inner, &apart]);
         assert_eq!(pending(&all), 1);
         assert_eq!(pending(&[&inner, &apart]), 0);
@@ -138,6 +147,7 @@ mod tests {
                 text: String::new(),
             },
         ];
+
         assert_eq!(apply_edits("a b c", edits), "AA b ");
     }
 }

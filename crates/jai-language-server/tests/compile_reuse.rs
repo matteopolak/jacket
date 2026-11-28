@@ -32,16 +32,19 @@ fn typing_in_one_program_does_not_recompile_another() {
     let dir = project("reuse-two", &[("a.jai", a), ("b.jai", b)]);
     let (ua, ub) = (uri_of(&dir.join("a.jai")), uri_of(&dir.join("b.jai")));
     let mut s = session();
+
     s.open(ua.clone(), 1, a.into()).unwrap();
     s.open(ub.clone(), 1, b.into()).unwrap();
     assert!(messages(&s, &ua).is_empty());
     assert!(messages(&s, &ub).is_empty());
     let (compiled, _) = s.compile_counts();
+
     for version in 2..6 {
         replace(&mut s, &ua, version, &a.replace('1', &version.to_string()));
         assert!(messages(&s, &ub).is_empty());
         assert_eq!(s.compile_counts().0, compiled, "b.jai never loads a.jai");
     }
+
     replace(&mut s, &ua, 6, "main :: () { x := ; }\n");
     assert!(!messages(&s, &ua).is_empty());
     assert_eq!(
@@ -57,10 +60,12 @@ fn a_new_buffer_the_program_looks_for_recompiles_it() {
     let dir = project("reuse-new-buffer", &[("main.jai", main)]);
     let um = uri_of(&dir.join("main.jai"));
     let mut s = session();
+
     s.open(um.clone(), 1, main.into()).unwrap();
     assert!(!messages(&s, &um).is_empty(), "gen.jai does not exist yet");
     // A buffer for the file the `#load` asked for, never saved: the program can load it now.
     let gen_uri = uri_of(&dir.join("gen.jai"));
+
     s.open(gen_uri, 1, "generated :: () {}\n".into()).unwrap();
     assert_eq!(messages(&s, &um), Vec::<String>::new());
 }
@@ -70,15 +75,18 @@ fn a_buffer_compile_time_code_read_recompiles_the_program() {
     let main = "#import \"Basic\";\n#import \"File\";\nDATA :: #run read_entire_file(\"#DIR/data.txt\");\nmain :: () {\n    #assert DATA == \"one\";\n}\n";
     let dir = project("reuse-run-read", &[("data.txt", "one")]);
     let main = main.replace("#DIR", &jacket_config::slashed(&dir));
+
     std::fs::write(dir.join("main.jai"), &main).unwrap();
     let um = uri_of(&dir.join("main.jai"));
     let ud = uri_of(&dir.join("data.txt"));
     let mut s = session();
+
     s.open(um.clone(), 1, main.clone()).unwrap();
     s.open(ud.clone(), 1, "one".into()).unwrap();
     assert_eq!(messages(&s, &um), Vec::<String>::new());
     replace(&mut s, &ud, 2, "two");
     let after = messages(&s, &um);
+
     assert!(
         after
             .iter()

@@ -6,10 +6,13 @@ use std::{path::Path, rc::Rc};
 
 fn compile(source: &str) -> Result<(), String> {
     let mut fs = VirtualFs::default();
+
     fs.insert("/main.jai", source.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     compiler
         .compile_program(Path::new("/main.jai"))
         .map_err(|e| e.render(&compiler.src.sources))
@@ -30,6 +33,7 @@ fn accepts(name: &str, body: &str) {
 fn rejects(name: &str, source: &str, line: usize, col: usize, message: &str) {
     let e = compile(source).expect_err(name);
     let at = format!("main.jai:{line}:{col}: error[");
+
     assert!(e.contains(&at), "{name}: no error at {line}:{col}:\n{e}");
     assert!(e.contains(message), "{name}: missing `{message}`:\n{e}");
 }
@@ -44,6 +48,7 @@ fn arrays_do_not_compare() {
         for op in ["==", "!="] {
             let prefix = format!("f :: () {{ {decl} r := ");
             let src = format!("{prefix}a {op} b; }}\nmain :: () {{}}\n");
+
             rejects(
                 &format!("{name} {op}"),
                 &src,
@@ -53,6 +58,7 @@ fn arrays_do_not_compare() {
             );
         }
     }
+
     accepts("strings compare", r#"return "abc" == "abc" && "a" != "b";"#);
 }
 
@@ -73,8 +79,10 @@ fn constant_division_by_zero_is_an_error() {
         ),
     ] {
         let e = compile(src).expect_err(name);
+
         assert!(e.contains("division by zero"), "{name}:\n{e}");
     }
+
     rejects(
         "span",
         "X :: 1.0 / 0.0;\nmain :: () {}\n",
@@ -94,12 +102,14 @@ fn ifx_branches_must_agree() {
     ] {
         let src = format!("f :: (c: bool) {{ v := {expr}; }}\nmain :: () {{}}\n");
         let e = compile(&src).expect_err(name);
+
         assert!(e.contains("main.jai:1:"), "{name}:\n{e}");
         assert!(
             e.contains("different types") || e.contains("type mismatch"),
             "{name}:\n{e}"
         );
     }
+
     rejects(
         "notes",
         "f :: () { v := ifx true then 1 else \"a\"; }\nmain :: () {}\n",
@@ -108,6 +118,7 @@ fn ifx_branches_must_agree() {
         "the branches of `ifx` have different types",
     );
     let e = compile("f :: () { v := ifx true then 1 else \"a\"; }\nmain :: () {}\n").unwrap_err();
+
     assert!(
         e.contains("the `then` value is") && e.contains("the `else` value is `string`"),
         "{e}"
@@ -136,12 +147,16 @@ fn one_character_strings_are_bytes_only_for_u8() {
     accepts("compound", r#"x: u8 = 1; x += "a"; return x == 98;"#);
     accepts("binary", r#"x: u8 = 1; x = x + "a"; return x == 98;"#);
     accepts("compare", r#"x: u8 = 97; return x == "a";"#);
+
     for ty in ["u16", "int", "s8"] {
         let prefix = format!("f :: () {{ x: {ty} = 1; ");
         let src = format!("{prefix}x += \"a\"; }}\nmain :: () {{}}\n");
+
         rejects(ty, &src, 1, prefix.len() + 1, "cannot be combined");
     }
+
     let e = compile("f :: () { x: u8 = \"ab\"; }\nmain :: () {}\n").unwrap_err();
+
     assert!(
         e.contains("only a one-character string converts to a `u8`"),
         "{e}"
@@ -197,16 +212,20 @@ fn complemented_constants_promote_next_to_unsigned() {
         ),
         ("declared", "y: u32 = ~0; return y == 0xffff_ffff;"),
     ];
+
     for (name, body) in cases {
         accepts(name, body);
     }
+
     for (name, body) in [
         ("declared u32", "x: u32 = 13; y: u32 = x & ~0x7;"),
         ("compound u32", "x: u32 = 13; x &= ~0x7;"),
     ] {
         let e = compile(&format!("f :: () {{ {body} }}\nmain :: () {{}}\n")).expect_err(name);
+
         assert!(e.contains("expected `u32`, found `s64`"), "{name}:\n{e}");
     }
+
     rejects(
         "u64 | -1",
         "f :: () { x: u64 = 13; y := x | -1; }\nmain :: () {}\n",

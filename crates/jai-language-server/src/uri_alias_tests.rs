@@ -43,6 +43,7 @@ fn fixture(text: &str) -> (Session, DocumentUri, DocumentUri) {
             fs: Rc::new(AliasFs),
             options: Box::new(|_| {
                 let mut o = jaic::sema::Options::host();
+
                 o.runtime_support = false;
                 o.stack_trace = false;
                 o
@@ -51,12 +52,14 @@ fn fixture(text: &str) -> (Session, DocumentUri, DocumentUri) {
     );
     let stored = DocumentUri::parse("file:///alias/Helper.jai").unwrap();
     let alias = DocumentUri::parse("file:///alias/helper.jai").unwrap();
+
     s.open(stored.clone(), 1, text.into()).unwrap();
     (s, stored, alias)
 }
 
 fn pos(s: &Session, uri: &DocumentUri, needle: &str) -> Position {
     let d = s.document(uri).unwrap();
+
     d.index
         .position(&d.text, d.text.rfind(needle).unwrap() + 1)
         .unwrap()
@@ -66,6 +69,7 @@ fn pos(s: &Session, uri: &DocumentUri, needle: &str) -> Position {
 fn alias_call_hierarchy_uses_the_stored_document_records() {
     let text = "leaf :: () {}\nmain :: () { leaf(); }";
     let (s, stored, alias) = fixture(text);
+
     s.defer_compiles(true);
     s.diagnostics(&stored).unwrap();
     let compiles = s.compile_counts().0;
@@ -73,12 +77,14 @@ fn alias_call_hierarchy_uses_the_stored_document_records() {
         .prepare_call_hierarchy(&alias, pos(&s, &alias, "leaf ::"))
         .unwrap();
     let incoming = s.incoming_calls(&leaf[0]).unwrap();
+
     assert_eq!(incoming.len(), 1);
     assert_eq!(incoming[0].item.name, "main");
     let main = s
         .prepare_call_hierarchy(&alias, pos(&s, &alias, "main ::"))
         .unwrap();
     let outgoing = s.outgoing_calls(&main[0]).unwrap();
+
     assert_eq!(outgoing.len(), 1);
     assert_eq!(outgoing[0].item.name, "leaf");
     assert_eq!(outgoing[0].item.uri, stored.as_str());
@@ -89,8 +95,10 @@ fn alias_call_hierarchy_uses_the_stored_document_records() {
 fn alias_lexical_declaration_and_local_bindings_use_stored_key() {
     let text = "answer :: 42;\nmain :: () { local := 1; value := local; }";
     let (s, stored, alias) = fixture(text);
+
     for needle in ["answer", "local;"] {
         let rows = s.bindings(&alias, pos(&s, &alias, needle)).unwrap();
+
         assert_eq!(rows.len(), 1);
         assert_eq!(*rows[0].0, stored);
         assert_ne!(
@@ -105,9 +113,11 @@ fn alias_lexical_private_eligibility_is_own_file_only() {
     let text = "#scope_file\nsecret :: 42;\nmain :: () { value := secret; }";
     let (mut s, stored, alias) = fixture(text);
     let rows = s.bindings(&alias, pos(&s, &alias, "secret;")).unwrap();
+
     assert_eq!(rows.len(), 1, "own-file private binding remains eligible");
     assert_eq!(*rows[0].0, stored);
     let other = DocumentUri::parse("file:///alias/other.jai").unwrap();
+
     s.open(
         other.clone(),
         1,
@@ -120,6 +130,7 @@ fn alias_lexical_private_eligibility_is_own_file_only() {
             .is_empty()
     );
     let unproven = DocumentUri::parse("file:///alias/HELPER.jai").unwrap();
+
     assert!(s.document(&unproven).is_err(), "no filename case folding");
 }
 
@@ -127,6 +138,7 @@ fn alias_lexical_private_eligibility_is_own_file_only() {
 fn alias_document_symbol_source_details_use_stored_key() {
     let (s, stored, alias) = fixture("answer :: 42;");
     let symbols = s.document_symbols(&alias).unwrap();
+
     assert_eq!(
         symbols[0].detail,
         s.document_symbols(&stored).unwrap()[0].detail
@@ -138,29 +150,37 @@ fn alias_document_symbol_source_details_use_stored_key() {
 fn alias_public_hover_definition_and_completion_force_lexical_fallback() {
     let text = "#scope_file\nsecret :: 42;\nmain :: () { local := 1; value := local; private_value := secret; }";
     let (mut s, stored, alias) = fixture(text);
+
     s.environment.as_mut().unwrap().options = Box::new(|_| {
         let mut o = jaic::sema::Options::host();
+
         o.preload = Some(PathBuf::from("/alias/unavailable-prelude.jai"));
         o
     });
+
     for needle in ["secret ::", "local;"] {
         let at = pos(&s, &alias, needle);
         let hover = s.hover(&alias, at).unwrap().unwrap();
+
         assert!(
             hover.contents.value.contains("Source syntax declaration."),
             "{hover:?}"
         );
         let definitions = s.definition(&alias, at).unwrap();
+
         assert_eq!(definitions.len(), 1);
         assert_eq!(definitions[0].uri, stored.as_str());
     }
+
     let at = pos(&s, &alias, "secret;");
+
     assert_eq!(s.definition(&alias, at).unwrap().len(), 1);
     let d = s.document(&alias).unwrap();
     let at = d
         .index
         .position(text, text.rfind("secret;").unwrap() + 3)
         .unwrap();
+
     assert!(
         s.completion(&alias, at)
             .unwrap()
@@ -175,8 +195,10 @@ fn alias_assembly_completion_retains_lexical_scope_names() {
     // A genuinely unavailable prelude prevents checked scope metadata: syntax fallback is required.
     let text = "main :: () {\ncount: s64 = 0;\n#asm {\nr: gpr;\npopcnt r, co\n}\n}";
     let (mut s, _, alias) = fixture(text);
+
     s.environment.as_mut().unwrap().options = Box::new(|_| {
         let mut o = jaic::sema::Options::host();
+
         o.preload = Some(PathBuf::from("/alias/unavailable-prelude.jai"));
         o
     });
@@ -185,14 +207,17 @@ fn alias_assembly_completion_retains_lexical_scope_names() {
     let items = s
         .completion(&alias, d.index.position(text, at).unwrap())
         .unwrap();
+
     assert!(items.items.iter().any(|i| i.label == "count"), "{items:?}");
 }
 
 #[test]
 fn alias_workspace_symbols_exclude_canonical_disk_copy() {
     let (mut s, stored, _) = fixture("Unique_Answer :: 42;");
+
     s.set_workspace_folders(vec![PathBuf::from("/alias")]);
     let symbols = s.workspace_symbols("Unique_Answer");
+
     assert_eq!(symbols.len(), 1, "{symbols:?}");
     assert_eq!(symbols[0].location.uri, stored.as_str());
 }
@@ -201,7 +226,9 @@ fn alias_workspace_symbols_exclude_canonical_disk_copy() {
 fn locations_use_the_spelling_the_client_opened() {
     let (s, stored, _) = fixture("answer :: 42;\nmain :: () { value := answer; }");
     let found = s.definition(&stored, pos(&s, &stored, "answer;")).unwrap();
+
     assert!(!found.is_empty());
+
     for location in found {
         assert_eq!(&*location.uri, stored.as_str());
     }

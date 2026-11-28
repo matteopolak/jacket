@@ -73,6 +73,7 @@ impl Window {
         if usize::BITS < 64 {
             return None;
         }
+
         let (span, first, read_only) = if pointer_size == 2 {
             (SPAN16, FIRST16, 0)
         } else {
@@ -80,6 +81,7 @@ impl Window {
         };
         let base = host_pages::reserve(span)?;
         let heap = first + read_only;
+
         Some(Arc::new(Window {
             base,
             span,
@@ -137,8 +139,10 @@ impl Window {
         if self.read_only == 0 {
             return None;
         }
+
         let mut state = self.state.lock().unwrap();
         let slot = state.slots.iter().position(|taken| !taken)?;
+
         state.slots[slot] = true;
         Some((slot, self.base + self.first + slot * SLOT, SLOT))
     }
@@ -158,33 +162,44 @@ impl Window {
             let start = at.next_multiple_of(align);
             (start + size <= at + len).then_some((at, len, start))
         });
+
         if let Some((at, len, start)) = reused {
             state.free.remove(&at);
+
             if start > at {
                 state.free.insert(at, start - at);
             }
+
             if start + size < at + len {
                 state.free.insert(start + size, at + len - start - size);
             }
+
             // SAFETY: `start..start + size` is committed window memory that nothing owns.
             unsafe { std::ptr::write_bytes((self.base + start) as *mut u8, 0, size) };
+
             return Some(start as u64);
         }
+
         let start = state.bump.next_multiple_of(align);
         let end = start.checked_add(size)?;
+
         if end > self.span {
             return None;
         }
+
         if end > state.committed {
             let to = end.next_multiple_of(STEP).min(self.span);
             // A window whose first block starts inside a page (the 2-byte one) commits from that
             // page's start; pages committed already stay as they are.
             let from = state.committed & !(host_pages::page_size() - 1);
+
             if !host_pages::commit(self.base + from, to - from, Access::ReadWrite) {
                 return None;
             }
+
             state.committed = to;
         }
+
         state.bump = end;
         Some(start as u64)
     }
@@ -206,6 +221,7 @@ impl Window {
         let mut state = self.state.lock().unwrap();
         let mut at = at as usize;
         let mut len = size;
+
         if let Some((&before, &before_len)) = state.free.range(..at).next_back()
             && before + before_len == at
         {
@@ -213,9 +229,11 @@ impl Window {
             at = before;
             len += before_len;
         }
+
         if let Some(after_len) = state.free.remove(&(at + len)) {
             len += after_len;
         }
+
         state.free.insert(at, len);
     }
 }
@@ -234,15 +252,19 @@ mod tests {
     fn blocks_are_zeroed_aligned_and_reused() {
         let window = Window::new(4).expect("a window");
         let a = window.alloc(100, 64).unwrap();
+
         assert_eq!(a % 64, 0);
         assert!(a as usize >= FIRST + READ_ONLY);
         let host = window.addresses().host(a) as *mut u8;
+
         // SAFETY: the block is committed and ours.
         unsafe { host.write(7) };
         window.free(a, 100);
         let b = window.alloc(100, 64).unwrap();
+
         assert_eq!(a, b, "a freed block is reused");
         let reused = window.addresses().host(b) as *const u8;
+
         // SAFETY: as above.
         assert_eq!(unsafe { reused.read() }, 0);
         assert!(window.alloc(SPAN, 16).is_none());
@@ -253,17 +275,22 @@ mod tests {
     #[test]
     fn a_16_bit_window_keeps_every_block_in_16_bits() {
         let window = Window::new(2).expect("a window");
+
         assert_eq!(window.pointer_size(), 2);
         assert!(window.claim_read_only().is_none());
         let a = window.alloc(100, 1).unwrap();
+
         assert!(a as usize >= FIRST16);
         let mut last = a;
+
         while let Some(at) = window.alloc(1024, 1) {
             last = at;
         }
+
         assert!(last as usize + 1024 <= SPAN16);
         assert!(window.alloc(SPAN16, 16).is_none());
         let host = window.addresses().host(last) as *mut u8;
+
         // SAFETY: the block is committed and ours.
         unsafe { host.add(1023).write(1) };
     }
@@ -273,6 +300,7 @@ mod tests {
         let window = Window::new(4).expect("a window");
         let a = window.alloc(64, 16).unwrap();
         let b = window.alloc(64, 16).unwrap();
+
         window.free(a, 64);
         window.free(b, 64);
         assert_eq!(window.alloc(128, 16), Some(a));
@@ -281,9 +309,11 @@ mod tests {
     #[test]
     fn every_byte_of_a_block_is_writable() {
         let window = Window::new(4).expect("a window");
+
         for size in [1usize, 100, 5000, 32 << 20, 3 << 20, 7] {
             let at = window.alloc(size, 4096).unwrap();
             let host = window.addresses().host(at) as *mut u8;
+
             // SAFETY: the block is committed and ours.
             unsafe {
                 host.write(1);

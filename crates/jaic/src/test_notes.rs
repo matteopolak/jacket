@@ -19,6 +19,7 @@ pub const COMPILE_FAIL_DIR: &str = "compile_fail";
 /// ```
 pub fn in_compile_fail_folder(path: &Path) -> bool {
     let folder = path.parent();
+
     folder.and_then(Path::file_name) == Some(COMPILE_FAIL_DIR.as_ref())
         && folder.and_then(Path::parent).and_then(Path::file_name) == Some("tests".as_ref())
 }
@@ -45,18 +46,23 @@ pub fn test_program_root(file: &Path, is_file: impl Fn(&Path) -> bool) -> Option
     if file.extension()? != "jai" {
         return None;
     }
+
     let folder = file.parent()?;
     let named = |dir: &Path, name: &str| dir.file_name() == Some(name.as_ref());
+
     if named(folder, "tests") {
         return Some(folder.parent()?.to_path_buf());
     }
+
     if in_compile_fail_folder(file) {
         return Some(folder.parent()?.parent()?.to_path_buf());
     }
+
     let tests = folder.ancestors().find(|dir| named(dir, "tests"))?;
     let golden = EXPECTED_OUTPUT
         .iter()
         .any(|extension| is_file(&file.with_extension(extension)));
+
     golden.then(|| tests.parent().map(Path::to_path_buf))?
 }
 
@@ -123,6 +129,7 @@ impl TargetFilter {
     /// `.WASM, .WINDOWS, cpu = .ARM64` as a filter. `call` is `only` or `skip_on`.
     pub fn parse(call: &str, args: &str) -> Result<TargetFilter, String> {
         let mut filter = TargetFilter::default();
+
         for item in split_outside_quotes(args)
             .iter()
             .map(|i| i.trim())
@@ -130,13 +137,17 @@ impl TargetFilter {
         {
             if let Some((key, value)) = item.split_once('=') {
                 let key = key.trim();
+
                 if key == "reason" {
                     let reason = text(Some(value));
+
                     if reason.is_empty() || filter.reason.replace(reason).is_some() {
                         return Err(format!("`@{call}` takes one non-empty `reason = \"text\"`"));
                     }
+
                     continue;
                 }
+
                 let value = value.trim().trim_start_matches('.').to_ascii_lowercase();
                 let (slot, allowed) = match key {
                     "mode" => (&mut filter.mode, &MODE_NAMES[..]),
@@ -147,18 +158,23 @@ impl TargetFilter {
                         ));
                     }
                 };
+
                 if !allowed.contains(&value.as_str()) {
                     return Err(format!(
                         "`@{call}` does not know the {key} `{value}`; use {}",
                         dotted(allowed)
                     ));
                 }
+
                 if slot.replace(value).is_some() {
                     return Err(format!("`@{call}` gives `{key} =` twice"));
                 }
+
                 continue;
             }
+
             let name = item.trim_start_matches('.').to_ascii_lowercase();
+
             if ![&OS_NAMES[..], &CPU_NAMES[..], &MODE_NAMES[..]]
                 .iter()
                 .any(|names| names.contains(&name.as_str()))
@@ -167,11 +183,14 @@ impl TargetFilter {
                     "`@{call}` does not know the target `{name}`; use .LINUX, .MACOS, .WINDOWS, .WASM, .ANDROID, .X64, .ARM64, .INTERP or .NATIVE, and `mode =` or `cpu =` to narrow them"
                 ));
             }
+
             filter.names.push(name);
         }
+
         if filter.names.is_empty() && filter.mode.is_none() && filter.cpu.is_none() {
             return Err(format!("`@{call}` needs targets, as in `@{call}(.LINUX)`"));
         }
+
         Ok(filter)
     }
 
@@ -254,6 +273,7 @@ impl TargetNotes {
             },
             None => (note, ""),
         };
+
         match call {
             "only" => self.only.push(TargetFilter::parse(call, args)?),
             "skip_on" => self.skip_on.push(TargetFilter::parse(call, args)?),
@@ -261,6 +281,7 @@ impl TargetNotes {
             "native_only" => self.native_only = true,
             _ => return Ok(false),
         }
+
         Ok(true)
     }
 
@@ -274,13 +295,17 @@ impl TargetNotes {
         if self.interp_only && target.mode != RunMode::Interp {
             return Some("interp only".into());
         }
+
         if self.native_only && target.mode == RunMode::Interp {
             return Some("native only".into());
         }
+
         let mode = target.mode.name();
+
         if let Some(filter) = self.only.iter().find(|f| !f.allows(target, mode)) {
             return Some(format!("only on {filter}{}", filter.reason_suffix()));
         }
+
         if let Some(filter) = self.skip_on.iter().find(|f| f.matches(target, mode)) {
             // Name the targets that matched, not every one the call lists.
             let matched = TargetFilter {
@@ -294,6 +319,7 @@ impl TargetNotes {
             };
             return Some(format!("skipped on {matched}{}", filter.reason_suffix()));
         }
+
         None
     }
 
@@ -318,12 +344,14 @@ pub fn header_target_notes(source: &str) -> (TargetNotes, Vec<String>) {
         .iter()
         .filter_map(|note| notes.apply(note).err())
         .collect();
+
     (notes, problems)
 }
 
 impl fmt::Display for TargetFilter {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut parts = self.names.clone();
+
         parts.extend(self.mode.iter().map(|m| format!("mode = {m}")));
         parts.extend(self.cpu.iter().map(|c| format!("cpu = {c}")));
         f.write_str(&parts.join(", "))
@@ -335,11 +363,13 @@ fn split_outside_quotes(args: &str) -> Vec<String> {
     let mut items = vec![String::new()];
     let mut quoted = false;
     let mut chars = args.chars();
+
     while let Some(c) = chars.next() {
         match c {
             '\\' if quoted => {
                 items.last_mut().unwrap().push(c);
                 items.last_mut().unwrap().extend(chars.next());
+
                 continue;
             }
             '"' => quoted = !quoted,
@@ -349,8 +379,10 @@ fn split_outside_quotes(args: &str) -> Vec<String> {
             }
             _ => {}
         }
+
         items.last_mut().unwrap().push(c);
     }
+
     items
 }
 
@@ -363,6 +395,7 @@ fn dotted(names: &[&str]) -> String {
 /// A note's argument as written (case kept), without the quotes around it.
 pub fn text(args: Option<&str>) -> String {
     let args = args.unwrap_or("").trim();
+
     args.strip_prefix('"')
         .and_then(|a| a.strip_suffix('"'))
         .unwrap_or(args)
@@ -373,18 +406,23 @@ pub fn text(args: Option<&str>) -> String {
 /// The notes of the `// test:` comments at the top of `source`, before its first line of code.
 pub fn header_notes(source: &str) -> Vec<String> {
     let mut notes = Vec::new();
+
     for line in source.lines() {
         let line = line.trim();
+
         if line.is_empty() {
             continue;
         }
+
         let Some(comment) = line.strip_prefix("//") else {
             break;
         };
+
         if let Some(items) = comment.trim().strip_prefix("test:") {
             notes.extend(split_notes(items));
         }
     }
+
     notes
 }
 
@@ -396,11 +434,13 @@ fn split_notes(items: &str) -> Vec<String> {
     let mut depth = 0usize;
     let mut quoted = false;
     let mut escaped = false;
+
     for c in items.chars() {
         if std::mem::take(&mut escaped) {
             current.push(c);
             continue;
         }
+
         match c {
             '\\' if quoted => escaped = true,
             '"' => quoted = !quoted,
@@ -408,17 +448,22 @@ fn split_notes(items: &str) -> Vec<String> {
             ')' if !quoted => depth = depth.saturating_sub(1),
             _ => {}
         }
+
         if c.is_whitespace() && depth == 0 && !quoted {
             if !current.is_empty() {
                 notes.push(std::mem::take(&mut current));
             }
+
             continue;
         }
+
         current.push(c);
     }
+
     if !current.is_empty() {
         notes.push(current);
     }
+
     notes
         .into_iter()
         .map(|n| n.trim_start_matches('@').to_string())
@@ -439,9 +484,11 @@ mod tests {
 
     fn notes(list: &[&str]) -> TargetNotes {
         let mut notes = TargetNotes::default();
+
         for note in list {
             assert_eq!(notes.apply(note), Ok(true), "{note}");
         }
+
         notes
     }
 
@@ -452,6 +499,7 @@ mod tests {
             "skip_on(mode = .CHECK, reason = \"its #run runs the program it builds\")",
         ] {
             let notes = notes(&[note]);
+
             assert!(notes.skip_reason(&on(RunMode::Check)).is_some(), "{note}");
             assert_eq!(notes.skip_reason(&on(RunMode::Native)), None, "{note}");
             assert_eq!(notes.skip_reason(&on(RunMode::Interp)), None, "{note}");
@@ -461,6 +509,7 @@ mod tests {
     #[test]
     fn only_native_leaves_a_checking_run_out() {
         let notes = notes(&["only(.NATIVE)"]);
+
         assert_eq!(notes.skip_reason(&on(RunMode::Native)), None);
         assert!(notes.skip_reason(&on(RunMode::Check)).is_some());
     }

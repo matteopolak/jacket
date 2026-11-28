@@ -23,15 +23,18 @@ impl Resolver<'_> {
         let unknown = targets.unknown && !contracted
             || targets.procedures.iter().any(|p| {
                 let info = &self.compiler.pr.procs[p.0 as usize];
+
                 info.lit.body.is_none()
                     && !self.compiler.proc_has_note(*p, "NoLifetimeEffects")
                     && all.get(p).is_none_or(|s| {
                         s.memory.is_none() && s.may.is_empty() && s.returns.is_empty()
                     })
             });
+
         if !unknown {
             return Vec::new();
         }
+
         args.iter()
             .filter(|a| {
                 self.compiler.ty.types.is_pointer(a.ty)
@@ -68,11 +71,13 @@ impl Resolver<'_> {
                 ..
             } => {
                 let mut set = self.targets.get(self.body.procedure, *callee);
+
                 set.procedures.retain(|p| {
                     let compatible = self.compiler.pr.procs[p.0 as usize]
                         .sig
                         .as_ref()
                         .is_some_and(|s| s.ty == *ty);
+
                     set.unknown |= !compatible;
                     compatible
                 });
@@ -111,9 +116,11 @@ impl Resolver<'_> {
         } else {
             None
         };
+
         if guaranteed && targets.unknown && interface.is_none() {
             return Vec::new();
         }
+
         let mut result: HashMap<_, _> = interface
             .map(|s| {
                 self.summary_effects(s, args, all, guaranteed)
@@ -121,11 +128,13 @@ impl Resolver<'_> {
                     .collect()
             })
             .unwrap_or_default();
+
         for (index, callee) in targets.ordered().into_iter().enumerate() {
             let current: HashMap<_, _> = self
                 .effects(callee, args, all, guaranteed)
                 .into_iter()
                 .collect();
+
             if index == 0 && interface.is_none() || !guaranteed {
                 for (effect, chain) in current {
                     result.entry(effect).or_insert(chain);
@@ -134,12 +143,14 @@ impl Resolver<'_> {
                 result.retain(|effect, _| current.contains_key(effect));
             }
         }
+
         // An effect exported by a known member remains a may fact in an open set.
         result.into_iter().collect()
     }
 
     pub fn call_stops(&self, event: &Event, all: &HashMap<ProcId, Summary>) -> bool {
         let targets = self.call_targets(event);
+
         !targets.unknown
             && !targets.procedures.is_empty()
             && targets
@@ -194,9 +205,11 @@ impl Resolver<'_> {
         } else {
             None
         };
+
         if guaranteed && targets.unknown && interface.is_none() {
             return HashSet::default();
         }
+
         let mut result: HashSet<_> = interface
             .into_iter()
             .flat_map(|s| {
@@ -214,20 +227,24 @@ impl Resolver<'_> {
                 _ => None,
             })
             .collect();
+
         for (index, p) in targets.ordered().into_iter().enumerate() {
             let mut current = HashSet::default();
+
             if let Some(s) = all.get(&p) {
                 let effects = if guaranteed {
                     &s.guaranteed
                 } else {
                     &s.may
                 };
+
                 for e in effects.keys().filter(|e| e.kind == super::Kind::Free) {
                     let holds = e.guard.is_none_or(|(n, c)| {
                         args.iter()
                             .find(|a| a.formal == n)
                             .is_some_and(|a| a.constant.map_or(!guaranteed, |v| v == c))
                     });
+
                     if holds && let super::Root::Parameter(n) = e.target.root {
                         let descriptor = args.iter().find(|a| a.formal == n).is_some_and(|a| {
                             matches!(
@@ -239,6 +256,7 @@ impl Resolver<'_> {
                                     }
                             )
                         });
+
                         if e.target.steps.is_empty()
                             || descriptor && super::descriptor_storage(&e.target.steps)
                         {
@@ -247,12 +265,14 @@ impl Resolver<'_> {
                     }
                 }
             }
+
             if index == 0 && interface.is_none() || !guaranteed {
                 result.extend(current);
             } else {
                 result.retain(|n| current.contains(n));
             }
         }
+
         result
     }
 }
@@ -269,6 +289,7 @@ impl Resolver<'_> {
     ) -> Option<super::Path> {
         let targets = self.targets.get(self.body.procedure, callee);
         let expected = self.indirect_types.get(&callee)?;
+
         if targets.procedures.iter().any(|p| {
             self.compiler.pr.procs[p.0 as usize]
                 .sig
@@ -277,22 +298,31 @@ impl Resolver<'_> {
         }) {
             return None;
         }
+
         if targets.unknown || targets.procedures.is_empty() {
             return None;
         }
+
         let mut result = None;
+
         for p in targets.ordered() {
             let (path, guard) = all.get(&p)?.returns.get(&index)?;
+
             if let Some((formal, expected)) = guard {
                 let actual = args.iter().find(|a| a.formal == *formal)?;
+
                 self.mode_guard(actual, *expected, all)?;
             }
+
             let path = self.substitute(path, args, all, visiting, depth + 1)?;
+
             if result.as_ref().is_some_and(|old| old != &path) {
                 return None;
             }
+
             result = Some(path);
         }
+
         result
     }
 
@@ -312,16 +342,20 @@ impl Resolver<'_> {
             return None;
         };
         let targets = self.call_targets(event);
+
         if targets.unknown || targets.procedures.is_empty() {
             return None;
         }
+
         let mut selected = None;
+
         for p in targets.procedures {
             let s = all.get(&p)?;
             let (path, guard) = s.returns.get(&index)?;
             let super::Root::Parameter(formal) = path.root else {
                 return None;
             };
+
             if guard.is_some()
                 || s.may
                     .keys()
@@ -329,6 +363,7 @@ impl Resolver<'_> {
             {
                 return None;
             }
+
             let arg = args.iter().find(|a| a.formal == formal)?;
             let descriptor = matches!(
                 self.compiler.ty.types.kind(arg.ty),
@@ -340,17 +375,22 @@ impl Resolver<'_> {
             );
             let storage = matches!(path.steps.as_slice(), [super::Step::Storage])
                 || matches!(path.steps.as_slice(), [super::Step::Field(name), super::Step::Deref] if name.as_str() == "data");
+
             if !(path.steps.is_empty() && (self.compiler.ty.types.is_pointer(arg.ty) || descriptor)
                 || descriptor && storage)
             {
                 return None;
             }
+
             let value = super::value(arg)?;
+
             if selected.as_ref().is_some_and(|(v, _)| *v != value) {
                 return None;
             }
+
             selected = Some((value, arg.clone()));
         }
+
         selected.map(|(_, a)| a)
     }
 }

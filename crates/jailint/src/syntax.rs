@@ -84,15 +84,20 @@ impl<'a> Cx<'a> {
         run: &'a crate::rules::RunState,
     ) -> Self {
         let mut procs = Vec::new();
+
         collect_procs(&ast.stmts, None, false, false, compiler, &mut procs);
         let mut code_operands = Vec::new();
+
         collect_code_operands(&ast.stmts, &mut code_operands);
         let code_operands = SpanIndex::new(code_operands);
         let mut bare_bodies = Vec::new();
+
         collect_bare_bodies(text, &ast.stmts, &mut bare_bodies);
+
         for p in &procs {
             collect_bare_bodies(text, &p.body.stmts, &mut bare_bodies);
         }
+
         bare_bodies.sort_by_key(|s| s.start);
         bare_bodies.dedup();
         Self {
@@ -156,6 +161,7 @@ impl<'a> Cx<'a> {
         let last = self
             .tokens
             .partition_point(|t| (t.span.end as usize) <= end);
+
         self.tokens[first..last.max(first)].iter().map(|t| &t.tok)
     }
 
@@ -170,9 +176,11 @@ impl<'a> Cx<'a> {
         let tokens = |s: Span| {
             let first = self.tokens.partition_point(|t| t.span.start < s.start);
             let last = self.tokens.partition_point(|t| t.span.end <= s.end);
+
             &self.tokens[first..last.max(first)]
         };
         let (a, b) = (tokens(a), tokens(b));
+
         a.len() == b.len()
             && a.iter()
                 .zip(b)
@@ -201,6 +209,7 @@ impl<'a> Cx<'a> {
             return false;
         };
         let below = path.strip_prefix(root).unwrap_or(&path);
+
         !below.components().any(|c| {
             let c = c.as_os_str();
             c == "tests" || c == "test"
@@ -212,6 +221,7 @@ impl<'a> Cx<'a> {
         let first = self
             .comments
             .partition_point(|c| (c.span.end as usize) <= start);
+
         self.comments
             .get(first)
             .is_some_and(|c| (c.span.start as usize) < end)
@@ -249,6 +259,7 @@ impl<'a> Cx<'a> {
     /// made large files quadratic).
     pub fn has_insert(&self, start: u32, end: u32) -> bool {
         let first = self.tokens.partition_point(|t| t.span.start < start);
+
         self.tokens[first..]
             .iter()
             .take_while(|t| t.span.end <= end)
@@ -258,6 +269,7 @@ impl<'a> Cx<'a> {
     /// A `$` or `$$` token is written within `span` (a polymorphic declaration).
     pub fn has_dollar(&self, span: Span) -> bool {
         let first = self.tokens.partition_point(|t| t.span.start < span.start);
+
         self.tokens[first..]
             .iter()
             .take_while(|t| t.span.end <= span.end)
@@ -268,6 +280,7 @@ impl<'a> Cx<'a> {
     /// names (`x.name`).
     pub fn name_tokens(&self, name: Sym, start: u32, end: u32) -> impl Iterator<Item = usize> {
         let first = self.tokens.partition_point(|t| t.span.start < start);
+
         (first..self.tokens.len())
             .take_while(move |&i| self.tokens[i].span.end <= end)
             .filter(move |&i| {
@@ -289,11 +302,13 @@ impl<'a> Cx<'a> {
             .match_indices('\n')
             .nth(9)
             .map_or(self.text.len(), |(i, _)| i);
+
         self.comments
             .iter()
             .take_while(|c| (c.span.start as usize) < first.min(head))
             .any(|c| {
                 let body = c.body(self.text).to_ascii_lowercase();
+
                 [
                     "automatically generated",
                     "auto-generated",
@@ -323,6 +338,7 @@ impl<'a> Cx<'a> {
         let start = jaic::source::line_start(self.text, offset);
         let rest = &self.text[start..];
         let indent = &rest[..rest.len() - rest.trim_start_matches([' ', '\t']).len()];
+
         (start, indent)
     }
 
@@ -332,14 +348,17 @@ impl<'a> Cx<'a> {
         let first = self
             .tokens
             .partition_point(|t| (t.span.start as usize) < offset);
+
         for t in &self.tokens[first..] {
             if !matches!(t.tok, Tok::Note(_))
                 || !self.text[end..t.span.start as usize].trim().is_empty()
             {
                 break;
             }
+
             end = t.span.end as usize;
         }
+
         end
     }
 
@@ -374,8 +393,10 @@ impl<'a> Cx<'a> {
             } else {
                 before
             };
+
             return (start, end);
         }
+
         let (line, _) = self.line_start(span.start as usize);
         let before = &self.text[line..span.start as usize];
         let mut end = span.end as usize;
@@ -384,15 +405,18 @@ impl<'a> Cx<'a> {
         let after = &self.text[end..line_end];
         // A `;` the statement's span stops before.
         let after_trim = after.trim_start();
+
         if after_trim.starts_with(';') {
             end += after.len() - after_trim.len() + 1;
         }
+
         // The `@notes` that follow belong to the statement, on this line or the next ones.
         end = self.past_notes(end);
         let line_end = self.text[end..]
             .find('\n')
             .map_or(self.text.len(), |n| end + n);
         let after = &self.text[end..line_end];
+
         if before.trim().is_empty() && after.trim().is_empty() {
             let stop = (line_end + 1).min(self.text.len());
             (line, stop)
@@ -412,20 +436,26 @@ impl Cx<'_> {
     /// leaves no hole.
     pub fn tidy_removal(&self, span: Span) -> (usize, usize) {
         let (start, mut end) = self.statement_removal(span);
+
         if self.line_start(start).0 != start {
             return (start, end);
         }
+
         let before = self.text[..start].trim_end_matches([' ', '\t']);
+
         if before.is_empty() || before.ends_with("{\n") || before.ends_with("\n\n") {
             loop {
                 let rest = &self.text[end..];
                 let trimmed = rest.trim_start_matches([' ', '\t']);
+
                 if !trimmed.starts_with('\n') {
                     break;
                 }
+
                 end += rest.len() - trimmed.len() + 1;
             }
         }
+
         (start, end)
     }
 }
@@ -459,10 +489,12 @@ impl SpanIndex {
                     file = Some(s.file);
                     reach = 0;
                 }
+
                 reach = reach.max(s.end);
                 (s, reach)
             })
             .collect();
+
         Self {
             spans,
         }
@@ -473,6 +505,7 @@ impl SpanIndex {
         let upto = self
             .spans
             .partition_point(|(s, _)| (s.file, s.start) <= (span.file, span.start));
+
         // Every span before `upto` that is in this file starts early enough, and the entry
         // just before `upto` holds the largest end among them (earlier files reset the reach).
         upto.checked_sub(1)
@@ -509,9 +542,11 @@ fn collect_bare_bodies(text: &str, stmts: &[Stmt], out: &mut Vec<Span>) {
                 _ => true,
             },
         };
+
         if bare {
             out.push(s.span);
         }
+
         true
     });
 }
@@ -523,10 +558,12 @@ fn collect_code_operands(stmts: &[Stmt], out: &mut Vec<Span>) {
             Node::Expr(e) => matches!(e.kind, E::Run { .. } | E::Code(_) | E::Insert(_)),
             Node::Stmt(s) => matches!(s.kind, S::Run(_) | S::Insert(_)),
         };
+
         if opaque {
             out.push(jaic::ast::walk::extent(node));
             return false;
         }
+
         match node.expr().map(|e| &e.kind) {
             Some(E::Proc(lit)) => {
                 if let Some(body) = &lit.body {
@@ -536,6 +573,7 @@ fn collect_code_operands(stmts: &[Stmt], out: &mut Vec<Span>) {
             Some(E::Struct(st)) => collect_code_operands(&st.body, out),
             _ => {}
         }
+
         true
     });
 }
@@ -556,6 +594,7 @@ fn collect_procs<'a>(
             _ => decl.filter(|_| false),
         };
         let mut stack = Vec::new();
+
         find_procs(
             Node::Stmt(s),
             decl,
@@ -581,6 +620,7 @@ fn find_procs<'a>(
         let Some(x) = n.expr() else {
             return true;
         };
+
         match &x.kind {
             E::Proc(lit) => {
                 let header = &*lit.header;
@@ -588,6 +628,7 @@ fn find_procs<'a>(
                 let m = is_macro || header.flags.expand();
                 // The declaration names this procedure only when it is its value.
                 let named = decl.filter(|d| d.value.as_ref().is_some_and(|v| v.span == x.span));
+
                 if let Some(body) = &lit.body {
                     out.push(ProcSite {
                         header,
@@ -599,6 +640,7 @@ fn find_procs<'a>(
                     });
                     collect_procs(&body.stmts, None, p, m, compiler, out);
                 }
+
                 false
             }
             E::Struct(st) => {
@@ -713,10 +755,12 @@ mod tests {
             span(1, 120, 130),
         ];
         let index = SpanIndex::new(spans.clone());
+
         for file in 0..4 {
             for start in (0..170).step_by(3) {
                 for len in [0, 1, 7, 40, 101] {
                     let q = span(file, start, start + len);
+
                     assert_eq!(index.covers(q), naive(&spans, q), "{q:?}");
                 }
             }
@@ -727,6 +771,7 @@ mod tests {
     fn span_index_answers_queries_over_many_spans() {
         let spans: Vec<Span> = (0..50_000).map(|i| span(1, i * 10, i * 10 + 5)).collect();
         let index = SpanIndex::new(spans);
+
         assert!(index.covers(span(1, 499_991, 499_994)));
         assert!(!index.covers(span(1, 499_996, 499_998)));
     }

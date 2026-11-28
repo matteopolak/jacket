@@ -6,6 +6,7 @@ use test_support::lsp::{open, position, uri};
 /// The range of the first occurrence of `marker`.
 fn select(text: &str, marker: &str) -> Range {
     let at = text.find(marker).unwrap_or_else(|| panic!("no {marker:?}"));
+
     Range {
         start: position(text, at),
         end: position(text, at + marker.len()),
@@ -15,6 +16,7 @@ fn select(text: &str, marker: &str) -> Range {
 /// A cursor `offset` bytes into the first occurrence of `marker`.
 fn cursor(text: &str, marker: &str, offset: usize) -> Range {
     let at = text.find(marker).unwrap() + offset;
+
     Range {
         start: position(text, at),
         end: position(text, at),
@@ -43,14 +45,19 @@ fn apply(text: &str, action: &CodeAction) -> String {
             )
         })
         .collect();
+
     spans.sort_unstable();
+
     for pair in spans.windows(2) {
         assert!(pair[0].1 <= pair[1].0, "overlapping edits");
     }
+
     let mut out = text.to_string();
+
     for (start, end, new) in spans.into_iter().rev() {
         out.replace_range(start..end, new);
     }
+
     out
 }
 
@@ -80,6 +87,7 @@ fn compiles(text: &str) {
         .into_iter()
         .filter(|d| d.severity == DiagnosticSeverity::Error)
         .collect();
+
     assert!(errors.is_empty(), "{text}\n{errors:?}");
 }
 
@@ -88,12 +96,14 @@ fn run(text: &str, range: Range, title: &str) -> String {
     let list = actions(text, range);
     let action = titled(&list, title).unwrap_or_else(|| panic!("no {title:?} in {list:?}"));
     let result = apply(text, action);
+
     compiles(&result);
     result
 }
 
 fn declined(text: &str, range: Range, title: &str) {
     let list = actions(text, range);
+
     assert!(
         titled(&list, title).is_none(),
         "{title:?} offered: {list:?}"
@@ -119,6 +129,7 @@ fn extracts_an_expression_into_a_variable() {
         select(EXTRACT_VARIABLE, "n + 1"),
         "Extract into variable",
     );
+
     assert_eq!(
         out,
         "scale :: (a: int, b: int) -> int { return a * b; }
@@ -141,6 +152,7 @@ fn extracts_a_parenthesized_operand_and_names_it_after_the_call() {
         select(EXTRACT_VARIABLE, "(n * 3)"),
         "Extract into variable",
     );
+
     assert!(
         out.contains("    value := n * 3;\n    total := scale(n + 1, 2) + value;\n"),
         "{out}"
@@ -150,6 +162,7 @@ fn extracts_a_parenthesized_operand_and_names_it_after_the_call() {
         select(EXTRACT_VARIABLE, "scale(n, 3)"),
         "Extract into variable",
     );
+
     assert!(
         out.contains("        scale := scale(n, 3);\n        total += scale;\n")
             || out.contains("        scale2 := scale(n, 3);\n        total += scale2;\n"),
@@ -160,6 +173,7 @@ fn extracts_a_parenthesized_operand_and_names_it_after_the_call() {
 #[test]
 fn declines_to_extract_what_cannot_move() {
     let text = EXTRACT_VARIABLE;
+
     // A whole initializer, and text that is not one expression.
     declined(
         text,
@@ -180,10 +194,12 @@ fn declines_to_extract_conditions_that_run_each_time() {
     b := ifx n > 3 then n * 2 else n;
 }
 ";
+
     declined(text, select(text, "n > 0"), "Extract into variable");
     declined(text, select(text, "n < 9"), "Extract into variable");
     declined(text, select(text, "n * 2"), "Extract into variable");
     let out = run(text, select(text, "n > 1"), "Extract into variable");
+
     assert!(
         out.contains("    value := n > 1;\n    a := value && n < 9;\n"),
         "{out}"
@@ -202,6 +218,7 @@ fn inlines_a_variable() {
 }
 ";
     let out = run(text, cursor(text, "doubled :=", 2), "Inline variable");
+
     assert_eq!(
         out,
         "main :: () {
@@ -213,6 +230,7 @@ fn inlines_a_variable() {
     );
     // From a use, too.
     let out = run(text, cursor(text, "doubled + 1", 1), "Inline variable");
+
     assert!(out.contains("total := (n * 2) + 1;"), "{out}");
 }
 
@@ -226,6 +244,7 @@ main :: () {
 }
 ";
     let out = run(text, cursor(text, "sum :=", 1), "Inline variable");
+
     assert!(out.contains("    show(n + 1);\n"), "{out}");
     assert!(!out.contains("sum"), "{out}");
 }
@@ -239,6 +258,7 @@ fn declines_to_inline_a_variable_that_changes() {
     other := count;
 }
 ";
+
     declined(text, cursor(text, "count :=", 1), "Inline variable");
     let text = "ptr :: (p: *int) {}
 main :: () {
@@ -247,6 +267,7 @@ main :: () {
     ptr(*m);
 }
 ";
+
     declined(text, cursor(text, "m :=", 0), "Inline variable");
     // A call run twice would do its work twice.
     let text = "next :: () -> int { return 1; }
@@ -255,6 +276,7 @@ main :: () {
     b := a + a;
 }
 ";
+
     declined(text, cursor(text, "a :=", 0), "Inline variable");
 }
 
@@ -276,6 +298,7 @@ describe :: (k: Kind) -> int {
 #[test]
 fn fills_in_the_missing_cases_of_an_enum_switch() {
     let out = run(KINDS, cursor(KINDS, "if k ==", 1), "Add missing cases");
+
     assert_eq!(
         out,
         "Kind :: enum { ONE; TWO; THREE; FOUR; }
@@ -307,6 +330,7 @@ f :: (k: Kind) -> int {
 }
 ";
     let out = run(text, cursor(text, "if k", 0), "Add missing cases (2)");
+
     assert!(
         out.contains("        case .TWO; return 2;\n        case .ONE;\n        case .THREE;\n        case; return 0;\n"),
         "{out}"
@@ -319,6 +343,7 @@ fn offers_no_cases_when_nothing_is_missing_or_the_cursor_is_in_a_case() {
         "        case .THREE;\n            result = 3;\n",
         "        case .THREE;\n            result = 3;\n        case .TWO; #through;\n        case .FOUR;\n",
     );
+
     declined(&full, cursor(&full, "if k ==", 1), "Add missing cases");
     declined(&full, cursor(&full, "result = 1", 1), "Add missing cases");
 }
@@ -337,16 +362,19 @@ main :: () {
 #[test]
 fn fills_in_missing_struct_fields() {
     let out = run(POINTS, cursor(POINTS, "Point.{x", 3), "Add missing fields");
+
     assert!(
         out.contains("    a := Point.{x = 1, y = 0, name = \"\", ok = false, label = null};\n"),
         "{out}"
     );
     let out = run(POINTS, cursor(POINTS, "Point.{}", 6), "Add missing fields");
+
     assert!(
         out.contains("    b := Point.{ x = 0, y = 0, name = \"\", ok = false, label = null };\n"),
         "{out}"
     );
     let out = run(POINTS, cursor(POINTS, "y = 2", 0), "Add missing fields");
+
     assert!(
         out.contains(
             "        x = 1,\n        y = 2,\n        name = \"\",\n        ok = false,\n        label = null,\n    };\n"
@@ -362,6 +390,7 @@ main :: () {
     a := Point.{1};
 }
 ";
+
     declined(text, cursor(text, "Point.{1", 3), "Add missing fields");
 }
 
@@ -380,6 +409,7 @@ fn converts_ifx_to_if_else() {
         cursor(text, "big := ifx", 0),
         "Convert ifx to if/else",
     );
+
     assert_eq!(
         out,
         "main :: () {
@@ -395,6 +425,7 @@ fn converts_ifx_to_if_else() {
 "
     );
     let out = run(text, cursor(text, "big = ifx", 0), "Convert ifx to if/else");
+
     assert!(
         out.contains("    if n > 5 {\n        big = 1;\n    } else {\n        big = 2;\n    }\n"),
         "{out}"
@@ -408,6 +439,7 @@ fn converts_ifx_in_a_return() {
 }
 ";
     let out = run(text, cursor(text, "return", 0), "Convert ifx to if/else");
+
     assert_eq!(
         out,
         "pick :: (n: int) -> int {
@@ -441,6 +473,7 @@ pick :: (n: int) -> int {
         cursor(text, "if n > 3 {", 0),
         "Convert if/else to ifx",
     );
+
     assert!(
         out.contains("    big = ifx n > 3 then 10 else 20;\n"),
         "{out}"
@@ -450,6 +483,7 @@ pick :: (n: int) -> int {
         cursor(text, "if n > 3 return", 0),
         "Convert if/else to ifx",
     );
+
     assert!(
         out.contains("    return ifx n > 3 then 10 else 20;\n"),
         "{out}"
@@ -475,12 +509,14 @@ fn declines_to_convert_if_else_that_differs() {
     }
 }
 ";
+
     declined(text, cursor(text, "if n > 3", 0), "Convert if/else to ifx");
     let last = text.rfind("if n > 3").unwrap();
     let range = Range {
         start: position(text, last),
         end: position(text, last),
     };
+
     declined(text, range, "Convert if/else to ifx");
 }
 
@@ -502,6 +538,7 @@ fn extracts_statements_into_a_procedure() {
     let selection = "    scaled := sum * base;\n    label := \"total\";";
     let range = select(EXTRACT_PROCEDURE, selection.trim_start());
     let out = run(EXTRACT_PROCEDURE, range, "Extract into procedure");
+
     assert_eq!(
         out,
         "compute :: (base: int, items: []int) -> int {
@@ -540,6 +577,7 @@ print_id :: (id: s64) {}
         select(text, "row := make();"),
         "Extract into procedure",
     );
+
     assert!(out.contains("a long doc line for the id column"), "{out}");
     assert!(!out.contains('…'), "{out}");
 }
@@ -558,6 +596,7 @@ run :: (items: []int) {
         select(text, "for items {\n        show(it);\n    }"),
         "Extract into procedure",
     );
+
     assert_eq!(
         out,
         "show :: (v: int) {}
@@ -588,6 +627,7 @@ fn declines_to_extract_what_cannot_be_a_procedure() {
     return count;
 }
 ";
+
     // Assigns an outer variable.
     declined(text, select(text, "total += it;"), "Extract into procedure");
     // A `return` that would leave the caller.
@@ -618,6 +658,7 @@ fn declines_to_extract_what_cannot_be_a_procedure() {
 fn offered_refactorings_always_parse() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut offered = 0;
+
     for name in [
         "internal/build/autorun.jai",
         "internal/developer-tools/performance-report.jai",
@@ -628,6 +669,7 @@ fn offered_refactorings_always_parse() {
         let starts: Vec<usize> = std::iter::once(0)
             .chain(text.match_indices('\n').map(|(i, _)| i + 1))
             .collect();
+
         for (n, &start) in starts.iter().enumerate() {
             let end = text[start..].find('\n').map_or(text.len(), |i| start + i);
             let last = starts
@@ -635,6 +677,7 @@ fn offered_refactorings_always_parse() {
                 .map_or(text.len(), |&e| e.saturating_sub(1));
             // The line, two lines, and the cursor at the first word.
             let word = start + (text[start..end].len() - text[start..end].trim_start().len());
+
             for (a, b) in [
                 (start, end),
                 (start, last.max(end)),
@@ -642,19 +685,24 @@ fn offered_refactorings_always_parse() {
                 (word + 1, end),
             ] {
                 let (a, b) = (a.min(b), b);
+
                 if !text.is_char_boundary(a) || !text.is_char_boundary(b) {
                     continue;
                 }
+
                 let range = Range {
                     start: position(&text, a),
                     end: position(&text, b),
                 };
+
                 for action in s.code_actions(&uri(), range).unwrap() {
                     if !action.kind.is_some_and(|k| k.starts_with("refactor")) {
                         continue;
                     }
+
                     offered += 1;
                     let result = apply(&text, &action);
+
                     assert!(
                         jaic::parser::parse_file(jaic::source::FileId(0), &result).is_ok(),
                         "{} in {name} at {a}..{b} breaks the program:\n{result}",
@@ -664,6 +712,7 @@ fn offered_refactorings_always_parse() {
             }
         }
     }
+
     assert!(offered > 10, "{offered}");
 }
 
@@ -691,6 +740,7 @@ fn an_incomplete_switch_keeps_types_and_offers_its_missing_cases() {
         .expect("hover")
         .contents
         .value;
+
     assert_eq!(hover, "index: s64");
     let end = position(INCOMPLETE, INCOMPLETE.len());
     let hints = s
@@ -702,6 +752,7 @@ fn an_incomplete_switch_keeps_types_and_offers_its_missing_cases() {
             },
         )
         .unwrap();
+
     assert!(hints.iter().any(|h| h.label == ": s64"), "{hints:?}");
     // On the error: a preferred quick fix, and no second copy among the refactorings.
     let all = s
@@ -711,6 +762,7 @@ fn an_incomplete_switch_keeps_types_and_offers_its_missing_cases() {
         .iter()
         .filter(|a| a.title.starts_with("Add missing cases"))
         .collect();
+
     assert_eq!(fills.len(), 1, "{all:?}");
     assert_eq!(fills[0].kind, Some("quickfix"));
     assert!(fills[0].is_preferred);
@@ -751,9 +803,11 @@ fn missing_cases_fill_every_switch_shape() {
                 .to_string(),
         ),
     ];
+
     for (sw, body, want) in cases {
         let text = head(body, sw);
         let out = run(&text, cursor(&text, "if ", 1), "Add missing cases");
+
         assert_eq!(out, head(&want, sw), "{sw}{body}");
     }
 }
@@ -771,8 +825,10 @@ fn incomplete_switch_error_spans_the_header() {
         .expect("an error");
     let header = "if #complete k == {";
     let at = text.find(header).unwrap();
+
     assert_eq!(d.range.start, position(text, at));
     assert_eq!(d.range.end, position(text, at + header.len()));
+
     for marker in ["if #", "#complete", "k ==", "== {", "{ }"] {
         let range = cursor(text, marker, 1);
         let fixes: Vec<_> = s
@@ -781,6 +837,7 @@ fn incomplete_switch_error_spans_the_header() {
             .into_iter()
             .filter(|a| a.kind == Some("quickfix") && a.title.starts_with("Add missing cases"))
             .collect();
+
         assert_eq!(fixes.len(), 1, "{marker}");
     }
 }
@@ -789,6 +846,7 @@ fn incomplete_switch_error_spans_the_header() {
 fn missing_cases_keep_crlf_and_tabs() {
     let text = "Kind :: enum { ONE; TWO; }\r\nf :: (k: Kind) {\r\n\tif k == { }\r\n}\r\n";
     let out = run(text, cursor(text, "if k", 1), "Add missing cases");
+
     assert_eq!(
         out,
         "Kind :: enum { ONE; TWO; }\r\nf :: (k: Kind) {\r\n\tif k == {\r\n\t\tcase .ONE;\r\n\t\tcase .TWO;\r\n\t}\r\n}\r\n"
@@ -799,18 +857,21 @@ fn missing_cases_keep_crlf_and_tabs() {
 fn missing_cases_for_flags_nested_enums_and_member_values() {
     let text = "Flags :: enum_flags { READ; WRITE; EXEC; }\nf :: (k: Flags) { if k == { } }\n";
     let out = run(text, cursor(text, "if k", 1), "Add missing cases (3)");
+
     assert!(
         out.contains("case .READ;") && out.contains("case .EXEC;"),
         "{out}"
     );
     let text = "Shape :: struct { Kind :: enum { A; B; } }\nf :: (k: Shape.Kind) { if #complete k == { } }\n";
     let out = run(text, cursor(text, "if #", 1), "Add missing cases (2)");
+
     assert!(
         out.contains("case .A;") && out.contains("case .B;"),
         "{out}"
     );
     let text = "Kind :: enum { A; B; }\nP :: struct { kind: Kind; }\nf :: (p: P) {\n    if p.kind == {\n    }\n}\n";
     let out = run(text, cursor(text, "if p", 1), "Add missing cases (2)");
+
     assert!(
         out.contains("        case .A;\n        case .B;\n    }"),
         "{out}"

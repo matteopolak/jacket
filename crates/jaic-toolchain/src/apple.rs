@@ -77,6 +77,7 @@ fn select_note() -> String {
 pub fn libclang_dir(host: &dyn Host) -> Result<PathBuf, Missing> {
     let developer = developer_dir(host);
     let lib = Layout::of(host, &developer).usr(&developer).join("lib");
+
     if host.is_file(&lib.join("libclang.dylib")) {
         Ok(lib)
     } else {
@@ -111,12 +112,14 @@ impl Xcode {
         let sdk = match host.var(&env::SDKROOT).filter(|v| !v.is_empty()) {
             Some(root) => {
                 let root = PathBuf::from(root);
+
                 if !host.is_dir(&root) {
                     return Err(Missing::new(
                         format!("SDKROOT names {}, which is not a folder", root.display()),
                         vec!["point SDKROOT at a MacOSX.sdk folder, or unset SDKROOT".into()],
                     ));
                 }
+
                 root
             }
             None => layout.sdk(&developer),
@@ -126,6 +129,7 @@ impl Xcode {
             .filter(|(present, _)| !present)
             .map(|(_, path)| path.display().to_string())
             .collect::<Vec<_>>();
+
         if !lacking.is_empty() {
             return Err(Missing::new(
                 format!(
@@ -136,6 +140,7 @@ impl Xcode {
                 vec![select_note()],
             ));
         }
+
         Ok(Xcode {
             ld,
             sdk,
@@ -148,6 +153,7 @@ impl Xcode {
     pub fn sdk_version(&self, host: &dyn Host) -> Option<String> {
         let settings = host.read_to_string(&self.sdk.join("SDKSettings.json"))?;
         let version = settings.split_once("\"Version\":\"")?.1.split_once('"')?.0;
+
         version
             .bytes()
             .all(|b| b.is_ascii_digit() || b == b'.')
@@ -167,9 +173,11 @@ impl Xcode {
                     .map(|n| n.parse().ok())
                     .collect::<Option<_>>()?;
                 let lib = dir.join("lib/darwin/libclang_rt.osx.a");
+
                 host.is_file(&lib).then_some((key, lib))
             })
             .collect();
+
         found.sort();
         found.pop().map(|(_, lib)| lib)
     }
@@ -188,6 +196,7 @@ pub fn macos_version(host: &dyn Host) -> Option<String> {
         .split_once("</string>")?
         .0
         .trim();
+
     three_numbers(version)
 }
 
@@ -197,6 +206,7 @@ pub fn deployment_target(host: &dyn Host) -> Result<String, Missing> {
     match host.var(&env::MACOSX_DEPLOYMENT_TARGET).filter(|v| !v.is_empty()) {
         Some(value) => {
             let text = value.to_string_lossy();
+
             three_numbers(&text).ok_or_else(|| {
                 Missing::new(
                     format!("MACOSX_DEPLOYMENT_TARGET is `{text}`, which is not a macOS version"),
@@ -216,13 +226,17 @@ pub fn deployment_target(host: &dyn Host) -> Result<String, Missing> {
 /// `27.0` as `27.0.0`; a version with two or three numbers.
 fn three_numbers(version: &str) -> Option<String> {
     let parts: Vec<&str> = version.split('.').collect();
+
     if !(2..=3).contains(&parts.len()) || parts.iter().any(|p| p.parse::<u32>().is_err()) {
         return None;
     }
+
     let mut text = version.to_string();
+
     if parts.len() == 2 {
         text.push_str(".0");
     }
+
     Some(text)
 }
 
@@ -237,6 +251,7 @@ mod tests {
     #[test]
     fn the_developer_folder_follows_xcode_select() {
         let mut host = FakeHost::mac();
+
         assert_eq!(developer_dir(&host), PathBuf::from(COMMAND_LINE_TOOLS));
         host.dir(XCODE_APP);
         assert_eq!(developer_dir(&host), PathBuf::from(XCODE_APP));
@@ -255,22 +270,28 @@ mod tests {
     #[test]
     fn an_xcode_has_its_toolchain_and_platform_sdk() {
         let mut host = FakeHost::mac();
+
         host.dir(XCODE_APP);
         host.file(&format!("{TOOLCHAIN}/bin/ld"));
         let missing = Xcode::find(&host).unwrap_err().to_string();
+
         assert!(missing.contains("MacOSX.platform"), "{missing}");
         assert!(missing.contains("xcode-select -s"), "{missing}");
         let sdk = format!("{XCODE_APP}/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk");
+
         host.text(
             &format!("{sdk}/SDKSettings.json"),
             r#"{"Version":"27.0","x":1}"#,
         );
+
         for version in ["17.0.0", "9.1", "18"] {
             host.file(&format!(
                 "{TOOLCHAIN}/lib/clang/{version}/lib/darwin/libclang_rt.osx.a"
             ));
         }
+
         let xcode = Xcode::find(&host).unwrap();
+
         assert_eq!(xcode.ld, PathBuf::from(format!("{TOOLCHAIN}/bin/ld")));
         assert_eq!(xcode.sdk, PathBuf::from(&sdk));
         assert_eq!(xcode.sdk_version(&host).as_deref(), Some("27.0"));
@@ -287,10 +308,12 @@ mod tests {
         // An Xcode whose toolchain lost `ld`, beside a `usr` and SDK in the Command Line Tools
         // places: the Command Line Tools parts are not borrowed.
         let mut host = FakeHost::mac();
+
         host.dir(&format!("{TOOLCHAIN}/bin"));
         host.file(&format!("{XCODE_APP}/usr/bin/ld"));
         host.dir(&format!("{XCODE_APP}/SDKs/MacOSX.sdk"));
         let missing = Xcode::find(&host).unwrap_err().to_string();
+
         assert!(
             missing.contains(&format!("{TOOLCHAIN}/bin/ld")),
             "{missing}"
@@ -301,10 +324,12 @@ mod tests {
     #[test]
     fn the_command_line_tools_have_their_own_usr_and_sdk() {
         let mut host = FakeHost::mac();
+
         host.file(&format!("{COMMAND_LINE_TOOLS}/usr/bin/ld"));
         host.dir(&format!("{COMMAND_LINE_TOOLS}/SDKs/MacOSX.sdk"));
         host.file(&format!("{COMMAND_LINE_TOOLS}/usr/lib/libclang.dylib"));
         let xcode = Xcode::find(&host).unwrap();
+
         assert_eq!(
             xcode.ld,
             PathBuf::from(format!("{COMMAND_LINE_TOOLS}/usr/bin/ld"))
@@ -318,11 +343,13 @@ mod tests {
     #[test]
     fn libclang_is_taken_only_from_the_selected_folder() {
         let mut host = FakeHost::mac();
+
         host.file(&format!("{TOOLCHAIN}/lib/libclang.dylib"));
         // The Command Line Tools are selected, so the Xcode copy is not used, and the error
         // names the selected folder and how to choose another.
         host.link(SELECTION_LINK, COMMAND_LINE_TOOLS);
         let missing = libclang_dir(&host).unwrap_err().to_string();
+
         assert!(
             missing.starts_with(&format!(
                 "the selected developer folder {COMMAND_LINE_TOOLS} has no {COMMAND_LINE_TOOLS}/usr/lib/libclang.dylib"
@@ -343,6 +370,7 @@ mod tests {
     #[test]
     fn sdkroot_names_the_sdk_cc_would_use() {
         let mut host = FakeHost::mac();
+
         host.file(&format!("{COMMAND_LINE_TOOLS}/usr/bin/ld"));
         host.dir(&format!("{COMMAND_LINE_TOOLS}/SDKs/MacOSX.sdk"));
         host.dir("/sdks/MacOSX14.sdk");
@@ -353,6 +381,7 @@ mod tests {
         );
         host.set(&env::SDKROOT, "/sdks/gone.sdk");
         let missing = Xcode::find(&host).unwrap_err().to_string();
+
         assert!(
             missing.starts_with("SDKROOT names /sdks/gone.sdk, which is not a folder"),
             "{missing}"
@@ -363,6 +392,7 @@ mod tests {
     #[test]
     fn the_deployment_target_is_the_variable_else_the_running_macos() {
         let mut host = FakeHost::mac();
+
         host.text(
             "/System/Library/CoreServices/SystemVersion.plist",
             "<key>ProductVersion</key>\n\t<string>26.1</string>",
@@ -372,6 +402,7 @@ mod tests {
         assert_eq!(deployment_target(&host).unwrap(), "13.3.0");
         host.set(&env::MACOSX_DEPLOYMENT_TARGET, "thirteen");
         let missing = deployment_target(&host).unwrap_err().to_string();
+
         assert!(
             missing.starts_with("MACOSX_DEPLOYMENT_TARGET is `thirteen`"),
             "{missing}"
@@ -385,6 +416,7 @@ mod tests {
         assert_eq!(three_numbers("15"), None);
         assert_eq!(three_numbers("15.x"), None);
         let mut host = FakeHost::mac();
+
         host.text(
             "/System/Library/CoreServices/SystemVersion.plist",
             "<key>ProductVersion</key>\n\t<string>26.1</string>",

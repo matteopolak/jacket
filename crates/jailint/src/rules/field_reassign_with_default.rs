@@ -33,10 +33,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         statement_lists(&p.body.stmts, &mut |list| {
             for (i, s) in list.iter().enumerate() {
                 if let Some(found) = examine(cx, list, i, s) {
@@ -56,6 +58,7 @@ fn examine(cx: &Cx, list: &[Stmt], at: usize, s: &Stmt) -> Option<Finding> {
         return None;
     };
     let ty = d.ty.as_ref()?;
+
     if d.kind != DeclKind::Var
         || d.value.is_some()
         || d.using
@@ -65,6 +68,7 @@ fn examine(cx: &Cx, list: &[Stmt], at: usize, s: &Stmt) -> Option<Finding> {
     {
         return None;
     }
+
     // A struct (not a union, whose literal sets one member).
     let &first = cx.locals(name.span).first()?;
     let EntityKind::Local {
@@ -77,11 +81,14 @@ fn examine(cx: &Cx, list: &[Stmt], at: usize, s: &Stmt) -> Option<Finding> {
         return None;
     };
     let info = types.struct_info(*id);
+
     if info.is_union {
         return None;
     }
+
     let mut fields: Vec<(String, &jaic::ast::Expr)> = Vec::new();
     let mut last = None;
+
     for next in &list[at + 1..] {
         let S::Assign {
             op: AssignOp::Assign,
@@ -97,6 +104,7 @@ fn examine(cx: &Cx, list: &[Stmt], at: usize, s: &Stmt) -> Option<Finding> {
         let E::Member(base, field) = &target.kind else {
             break;
         };
+
         if !matches!(base.kind, E::Ident(n) if n == name.name)
             || !info.fields.iter().any(|f| f.name == Some(field.name))
             || fields.iter().any(|(f, _)| f == field.name.as_str())
@@ -107,9 +115,11 @@ fn examine(cx: &Cx, list: &[Stmt], at: usize, s: &Stmt) -> Option<Finding> {
         {
             break;
         }
+
         fields.push((field.name.as_str().to_string(), value));
         last = Some(next);
     }
+
     let last = last?;
     let shown = name.name.as_str();
     let literal = fields
@@ -134,9 +144,11 @@ fn examine(cx: &Cx, list: &[Stmt], at: usize, s: &Stmt) -> Option<Finding> {
         }
     );
     let help = "set the fields in a struct literal where the variable is declared".to_string();
+
     if cx.has_comment_between(start, end) {
         return Some(super::finding(name.span, message, Some(help)));
     }
+
     Some(suggesting(
         name.span,
         message,

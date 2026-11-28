@@ -134,6 +134,7 @@ impl Operand {
         {
             return operand.is_const();
         }
+
         matches!(self, Operand::Const { .. } | Operand::Type(_))
     }
 
@@ -408,6 +409,7 @@ impl FnCtx {
     /// Ordinary implicit ABI context arguments need no additional sidecar event.
     pub fn lifetime_current_context(&mut self) -> Option<Val> {
         let value = self.current_context()?;
+
         if !self.type_only
             && let Some(record) = &mut self.lifetimes
         {
@@ -418,6 +420,7 @@ impl FnCtx {
                 },
             );
         }
+
         Some(value)
     }
 
@@ -426,7 +429,9 @@ impl FnCtx {
             .context_slot
             .get_or_insert_with(|| self.b.entry_zeroed_slot(Ty::Ptr, 8, 8));
         let value = context.unwrap_or_else(|| self.b.iconst(Ty::Ptr, 0));
+
         self.b.store(Ty::Ptr, slot, value);
+
         if !self.type_only
             && let Some(record) = &mut self.lifetimes
         {
@@ -437,6 +442,7 @@ impl FnCtx {
                 },
             );
         }
+
         self.context = context;
     }
 
@@ -447,6 +453,7 @@ impl FnCtx {
             position: Rc::new(std::cell::Cell::new(self.defers.len())),
             serial: self.next_cleanup_mark,
         };
+
         self.next_cleanup_mark += 1;
         self.cleanup_marks
             .push((mark.serial, Rc::downgrade(&mark.position)));
@@ -474,6 +481,7 @@ impl FnCtx {
                 mark.set(mark.get() + 1);
             }
         }
+
         self.defers.insert(at, entry);
     }
 
@@ -489,6 +497,7 @@ impl FnCtx {
                 self.context = previous;
             }
         }
+
         self.defers.truncate(depth);
     }
 
@@ -498,6 +507,7 @@ impl FnCtx {
             serial: 0,
         };
         let mut b = Builder::new(name, sig);
+
         // The file its lines are in, for debug info and coverage.
         b.func.source_file = file.0;
         Self {
@@ -550,6 +560,7 @@ impl Compiler {
     /// A stack slot holding the empty view: no count and a null data pointer.
     pub fn empty_view(&self, f: &mut FnCtx) -> Val {
         let at = self.view_slot(f);
+
         f.b.zero(at, self.ty.types.builtins().view.size);
         at
     }
@@ -623,6 +634,7 @@ impl Compiler {
             } => {
                 self.ensure_complete(elem, span)?;
                 let size = self.ty.types.size_of(elem).checked_mul(n);
+
                 if size.is_none_or(|size| size > crate::types::MAX_SIZE) {
                     return err(
                         Code::ArrayTypeToo,
@@ -634,6 +646,7 @@ impl Compiler {
                         ),
                     );
                 }
+
                 Ok(())
             }
             TypeKind::Distinct(d) => {
@@ -676,6 +689,7 @@ impl Compiler {
                         },
                     );
                 }
+
                 Ok((ty, val))
             }
             Operand::Place {
@@ -683,6 +697,7 @@ impl Compiler {
                 addr,
             } => {
                 let value = self.ir_ty(ty).map_or(addr, |t| f.b.load(t, addr));
+
                 if !f.type_only
                     && let Some(record) = &mut f.lifetimes
                 {
@@ -696,6 +711,7 @@ impl Compiler {
                         },
                     );
                 }
+
                 Ok((ty, value))
             }
             Operand::Const {
@@ -710,6 +726,7 @@ impl Compiler {
                     ty
                 };
                 let val = self.materialize(f, &value, ty, span)?;
+
                 Ok((ty, val))
             }
             Operand::Type(t) => {
@@ -725,9 +742,11 @@ impl Compiler {
                             .with_help("name the overload you mean: give it its own name and use that, or declare the variable with the procedure type you want"),
                     ));
                 }
+
                 let proc = procs[0];
                 let ty = self.proc_type(proc, span)?;
                 let val = self.materialize(f, &Value::Proc(proc), ty, span)?;
+
                 Ok((ty, val))
             }
             Operand::Multi(values) => self.rvalue(f, values[0].clone(), span),
@@ -736,6 +755,7 @@ impl Compiler {
             Operand::PolyStruct(ps) => {
                 let t = self.ty.poly_struct_type(ps);
                 let val = self.materialize(f, &Value::Type(t), TypeId::TYPE, span)?;
+
                 Ok((TypeId::TYPE, val))
             }
             Operand::Builtin(_) => err(
@@ -759,6 +779,7 @@ impl Compiler {
                 ),
             );
         }
+
         Ok(())
     }
 
@@ -775,14 +796,17 @@ impl Compiler {
         {
             return self.materialize(f, &bytes, ty, span);
         }
+
         match value {
             Value::Int(v) => {
                 if let Some(t) = self.ir_ty(ty) {
                     if t.is_float() {
                         return Ok(f.b.fconst(t, *v as f64));
                     }
+
                     return Ok(f.b.iconst(t, *v as u64));
                 }
+
                 err(
                     Code::ConstantOutOfRange,
                     span,
@@ -807,6 +831,7 @@ impl Compiler {
             Value::String(bytes) => {
                 let addr = self.view_slot(f);
                 let count = f.b.iconst(Ty::I64, bytes.len() as u64);
+
                 f.b.store(Ty::I64, addr, count);
                 // `""` has a null data pointer (so e.g. `free("")` is a no-op).
                 let ptr = if bytes.is_empty() {
@@ -816,7 +841,9 @@ impl Compiler {
                     f.b.global_addr(data)
                 };
                 let field = self.view_data_at(f, addr);
+
                 f.b.store(Ty::Ptr, field, ptr);
+
                 if bytes.is_empty()
                     && !f.type_only
                     && let Some(record) = &mut f.lifetimes
@@ -829,6 +856,7 @@ impl Compiler {
                         },
                     );
                 }
+
                 Ok(addr)
             }
             Value::Type(t) => {
@@ -841,6 +869,7 @@ impl Compiler {
                     procs::ProcTarget::Func(id) => f.b.func_addr(id),
                     procs::ProcTarget::Foreign(id) => f.b.foreign_addr(id),
                 };
+
                 if !f.type_only
                     && let Some(record) = &mut f.lifetimes
                 {
@@ -854,17 +883,21 @@ impl Compiler {
                         },
                     );
                 }
+
                 Ok(value)
             }
             Value::Bytes(agg) => {
                 let size = self.size_of(ty, span)?;
                 let align = self.align_of(ty, span)?;
                 let global = self.out.const_global(size, align, agg);
+
                 if let Some(t) = self.ir_ty(ty) {
                     let addr = f.b.global_addr(global);
                     return Ok(f.b.load(t, addr));
                 }
+
                 let address = f.b.global_addr(global);
+
                 if matches!(
                     self.ty.types.kind(ty),
                     TypeKind::String
@@ -885,6 +918,7 @@ impl Compiler {
                         },
                     );
                 }
+
                 Ok(address)
             }
             Value::Code(c) => Ok(f.b.iconst(Ty::Ptr, c.0 as u64)),
@@ -902,14 +936,17 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         f.lifetime_store(addr, val, ty, span);
+
         if let Some(t) = self.ir_ty(ty) {
             f.b.store(t, addr, val);
         } else {
             let size = self.size_of(ty, span)?;
+
             if addr != val {
                 f.b.copy(addr, val, size);
             }
         }
+
         Ok(())
     }
 
@@ -918,6 +955,7 @@ impl Compiler {
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
         let addr = f.b.alloca(size.max(1), align);
+
         self.store_value(f, ty, addr, val, span)?;
         Ok(addr)
     }
@@ -934,6 +972,7 @@ impl Compiler {
             } => Ok((ty, addr)),
             other => {
                 let (ty, val) = self.rvalue(f, other, span)?;
+
                 if self.is_memory_type(ty) {
                     // Copy so the callee/user may not alias a read-only constant.
                     let tmp = self.spill(f, ty, val, span)?;
@@ -974,7 +1013,9 @@ impl Output {
         if let Some(g) = crate::sema::speculative::local_const(size, align, agg) {
             return g;
         }
+
         let name = format!("const.{}", self.program.globals.len());
+
         self.program.add_global(ir::Global {
             name,
             size,
@@ -995,6 +1036,7 @@ impl Output {
         place: crate::interp::note_watch::NotePlace,
     ) -> ir::GlobalId {
         let mut init = bytes.to_vec();
+
         init.push(0);
         let name = format!("note.{}", self.program.note_globals.len());
         let g = self.program.add_global(ir::Global {
@@ -1007,6 +1049,7 @@ impl Output {
             export: None,
             section: None,
         });
+
         self.program.note_globals.insert(g, place);
         g
     }
@@ -1014,15 +1057,20 @@ impl Output {
     /// Read-only global holding the bytes of a string literal.
     pub fn string_global(&mut self, bytes: &Arc<[u8]>) -> ir::GlobalId {
         let found = self.strings.get(bytes).copied();
+
         super::body_probe::lookup(super::body_probe::Lookup::Strings, found.is_some());
+
         if let Some(g) = found {
             return g;
         }
+
         // A speculative body asks for the global when it is committed.
         if let Some(g) = crate::sema::speculative::local_string(bytes) {
             return g;
         }
+
         let mut init = bytes.to_vec();
+
         init.push(0); // keep literals C-compatible
         let g = self.program.add_global(ir::Global {
             name: format!("str.{}", self.strings.len()),
@@ -1034,6 +1082,7 @@ impl Output {
             export: None,
             section: None,
         });
+
         self.strings.insert(bytes.clone(), g);
         g
     }

@@ -30,9 +30,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if p.is_macro {
             continue;
         }
+
         statement_lists(&p.body.stmts, &mut |list: &[Stmt]| {
             // Locals in this list that still hold a literal.
             let mut literals: Vec<(Sym, &Expr)> = Vec::new();
+
             for s in list {
                 if let S::Assign {
                     lhs, ..
@@ -40,10 +42,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 {
                     for l in lhs {
                         let shown = cx.whole_src(l).trim();
+
                         if let Some((name, literal)) = written_local(l)
                             .and_then(|n| literals.iter().find(|(held, _)| *held == n).copied())
                         {
                             let literal_text = cx.whole_src(literal).trim();
+
                             out.push(suggesting(
                                 l.span,
                                 format!(
@@ -65,7 +69,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         }
                     }
                 }
+
                 literals.retain(|(name, _)| !changes(s, *name));
+
                 if let S::Decl(d) = &s.kind
                     && let [name] = d.names.as_slice()
                     && d.rare.is_none()
@@ -91,6 +97,7 @@ fn written_local(e: &Expr) -> Option<Sym> {
         E::Unary(UnOp::Deref, base) => base,
         _ => return None,
     };
+
     match &base.kind {
         E::Ident(n) if matches!(e.kind, E::Index(..)) => Some(*n),
         E::Member(inner, field) if field.name.as_str() == "data" => match inner.kind {
@@ -106,6 +113,7 @@ fn written_local(e: &Expr) -> Option<Sym> {
 fn changes(s: &Stmt, name: Sym) -> bool {
     let mut found = false;
     let mut stack = Vec::new();
+
     walk_node(Node::Stmt(s), &mut stack, &mut |n, _| {
         match n {
             Node::Stmt(t) => match &t.kind {
@@ -133,6 +141,7 @@ fn changes(s: &Stmt, name: Sym) -> bool {
                 }
             }
         }
+
         !found
     });
     found

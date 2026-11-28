@@ -229,12 +229,15 @@ impl Module {
                 .iter()
                 .filter_map(|p| system_name(p))
                 .collect();
+
             named.sort_by_key(|n| SYSTEMS.iter().position(|s| s == n));
             named
         };
+
         if self.wasm && !out.contains(&"Wasm") {
             out.push("Wasm");
         }
+
         out
     }
 
@@ -243,6 +246,7 @@ impl Module {
     /// when some items are missing on it; the count is how many.
     pub fn support(&self) -> Vec<(&'static str, Support)> {
         let ours = self.systems();
+
         SYSTEMS
             .iter()
             .copied()
@@ -251,11 +255,13 @@ impl Module {
                 if !ours.contains(&s) {
                     return (s, Support::None);
                 }
+
                 let missing = self
                     .items
                     .iter()
                     .filter(|it| self.item_missing(it).contains(&s))
                     .count();
+
                 (
                     s,
                     if missing == 0 {
@@ -274,11 +280,13 @@ impl Module {
         if item.platforms.is_empty() {
             return Vec::new();
         }
+
         let theirs: Vec<&'static str> = item
             .platforms
             .iter()
             .filter_map(|p| system_name(p))
             .collect();
+
         self.systems()
             .into_iter()
             .filter(|s| !theirs.contains(s))
@@ -288,6 +296,7 @@ impl Module {
     /// The systems an item page lists, the same ones as its module's page, each full or none.
     pub fn item_support(&self, item: &Item) -> Vec<(&'static str, Support)> {
         let missing = self.item_missing(item);
+
         self.support()
             .into_iter()
             .map(|(s, module)| match module {
@@ -329,6 +338,7 @@ fn type_refs_of(v: &Value, key: &str, stdlib: &Path) -> Vec<TypeRef> {
         .iter()
         .filter_map(|r| {
             let r = r.as_array()?;
+
             Some(TypeRef {
                 path: r.first()?.as_str()?.to_owned(),
                 file: below(stdlib, r.get(1)?.as_str()?),
@@ -355,6 +365,7 @@ fn params(v: &Value, key: &str, stdlib: &Path) -> Vec<Param> {
 /// `file` below `stdlib`, `/`-separated; the path itself when it is elsewhere.
 fn below(stdlib: &Path, file: &str) -> String {
     let path = PathBuf::from(file);
+
     path.strip_prefix(stdlib)
         .map_or_else(|_| path.clone(), Path::to_path_buf)
         .to_string_lossy()
@@ -376,6 +387,7 @@ type Flagged = (bool, Item);
 fn identity(id: &str, root: &Path, stdlib: &Path) -> (String, String) {
     let canonical = |p: &Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
     let dir = canonical(&root.join(id));
+
     match dir.strip_prefix(canonical(stdlib)) {
         Ok(below) => {
             let key = jacket_config::slashed(below);
@@ -406,6 +418,7 @@ fn item_of(i: &Value, stdlib: &Path) -> Item {
                 .collect(),
         })
         .collect();
+
     Item {
         name: text(i, "name"),
         kind: Kind::parse(&text(i, "kind")),
@@ -435,6 +448,7 @@ fn item_of(i: &Value, stdlib: &Path) -> Item {
             .iter()
             .filter_map(|a| {
                 let a = a.as_array()?;
+
                 Some((
                     below(stdlib, a.first()?.as_str()?),
                     a.get(1)?.as_u64()? as usize,
@@ -470,6 +484,7 @@ pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module,
         .iter()
         .map(|i| {
             let item = item_of(i, stdlib);
+
             (
                 i.get("private").and_then(Value::as_bool) == Some(true),
                 item,
@@ -533,6 +548,7 @@ pub fn parse(id: &str, json: &str, root: &Path, stdlib: &Path) -> Result<Module,
             &std::fs::read_to_string(stdlib.join(id).join("module.jai")).unwrap_or_default(),
         ),
     };
+
     assign_groups(&mut module);
     Ok(module)
 }
@@ -586,10 +602,12 @@ fn title_case(stem: &str) -> String {
             } else {
                 lower
             };
+
             if let Some(known) = WORDS.iter().find(|k| k.to_lowercase() == lower) {
                 (*known).to_owned()
             } else if i == 0 {
                 let mut chars = lower.chars();
+
                 chars
                     .next()
                     .map(|c| c.to_uppercase().collect::<String>() + chars.as_str())
@@ -609,6 +627,7 @@ fn assign_groups(module: &mut Module) {
         let (file, _) = source_place(file, 0);
         let name = file.rsplit('/').next().unwrap_or(file);
         let stem = name.strip_suffix(".jai").unwrap_or(name);
+
         if stem == "module" {
             "General".to_owned()
         } else {
@@ -616,13 +635,17 @@ fn assign_groups(module: &mut Module) {
         }
     };
     let mut stems: Vec<String> = Vec::new();
+
     for item in module.items.iter().filter(|i| i.kind == Kind::Procedure) {
         let s = stem(&item.file);
+
         if !stems.contains(&s) {
             stems.push(s);
         }
     }
+
     let split = stems.len() >= 2;
+
     for item in &mut module.items {
         item.group = if item.kind == Kind::Procedure && split {
             stem(&item.file)
@@ -643,10 +666,12 @@ mod tests {
 {"name":"scan","kind":"procedure","file":"/s/internal/string/scan.jai","line":9,"docs":"","value":"","overloads":[],"members":[]},
 {"name":"LIMIT","kind":"constant","file":"/s/internal/string/bytes.jai","line":1,"docs":"","value":"4","overloads":[],"members":[]}]}"#;
         let module = parse("String", json, Path::new("/s"), Path::new("/s")).unwrap();
+
         assert_eq!(module.file, "String/module.jai");
         assert_eq!(module.items[0].file, "internal/string/bytes.jai");
         assert_eq!(module.items[0].overloads[0].params[0].doc, "the text");
         let groups: Vec<_> = module.items.iter().map(|i| i.group.as_str()).collect();
+
         assert_eq!(groups, ["Bytes", "Scan", ""]);
         assert_eq!(module.title(), "String");
         assert_eq!(title_case("jks-generation"), "JKS generation");
@@ -658,10 +683,12 @@ mod tests {
     fn a_module_documented_alone_keeps_the_names_the_compiler_uses() {
         let json = r#"{"file":"/s/Extensions/Json/module.jai","docs":"","docs_line":1,"platforms":[],"items":[]}"#;
         let inside = parse("Json", json, Path::new("/s/Extensions"), Path::new("/s")).unwrap();
+
         assert_eq!(inside.id, "Json");
         assert_eq!(inside.key(), "Extensions/Json");
         assert_eq!(inside.import_name(), "Extensions/Json");
         let outside = parse("Acme/Json", json, Path::new("/lib"), Path::new("/s")).unwrap();
+
         assert_eq!(outside.key(), "Json");
         assert_eq!(outside.import_name(), "Acme/Json");
     }
@@ -671,6 +698,7 @@ mod tests {
         let json = r#"{"file":"/s/S/module.jai","docs":"","docs_line":1,"platforms":[],"items":[
 {"name":"Flagged","kind":"struct","file":"/s/S/module.jai","line":1,"docs":"","value":"","declaration":"Flagged :: struct {\n    a: int;\n    #if X {\n        b: int;\n    }\n}","overloads":[],"members":[{"name":"a","type":"int","doc":"","line":1},{"name":"b","type":"int","doc":"","line":3},{"name":"c","type":"int","doc":""}]}]}"#;
         let module = parse("S", json, Path::new("/s"), Path::new("/s")).unwrap();
+
         assert_eq!(module.items[0].member_lines(), [Some(1), Some(3), None]);
     }
 
@@ -678,6 +706,7 @@ mod tests {
     fn links_that_name_nothing_keep_their_place() {
         let json = r#"{"file":"/s/String/module.jai","docs":"","docs_line":1,"platforms":[],"items":[],"unresolved":[{"file":"/s/String/module.jai","line":7,"text":"[Gone]"}]}"#;
         let module = parse("String", json, Path::new("/s"), Path::new("/s")).unwrap();
+
         assert_eq!(module.unresolved, ["String/module.jai:7: [Gone]"]);
     }
 
@@ -688,6 +717,7 @@ mod tests {
 {"name":"map","kind":"procedure","file":"/s/File/a.jai","line":2,"docs":"","value":"","platforms":["WINDOWS"],"overloads":[],"members":[]},
 {"name":"all","kind":"procedure","file":"/s/File/a.jai","line":3,"docs":"","value":"","platforms":["MACOS","LINUX","WINDOWS","WASM"],"overloads":[],"members":[]}]}"#;
         let mut module = parse("File", json, Path::new("/s"), Path::new("/s")).unwrap();
+
         assert_eq!(module.systems(), ["macOS", "Linux", "Windows"]);
         assert!(module.item_missing(&module.items[0]).is_empty());
         assert_eq!(module.item_missing(&module.items[1]), ["macOS", "Linux"]);
@@ -699,6 +729,7 @@ mod tests {
             ["macOS", "Linux", "Wasm"]
         );
         let support = module.item_support(&module.items[1]);
+
         assert_eq!(support[2], ("Windows", Support::Full));
         assert_eq!(support[0], ("macOS", Support::None));
     }

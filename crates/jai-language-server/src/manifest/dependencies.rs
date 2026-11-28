@@ -43,27 +43,32 @@ impl Standing {
             tooltip: Some(tooltip.to_string()),
         };
         let mut hints = Vec::new();
+
         if let Some(problem) = &self.problem {
             hints.push(hint("can't check for updates".into(), problem));
         }
+
         if let Some(pinned) = &self.pinned {
             hints.push(hint(
                 format!("pinned {pinned}"),
                 "What the submodule is checked out at.",
             ));
         }
+
         if let Some(newer) = &self.newer {
             hints.push(hint(
                 format!("{newer} available"),
                 "The newest release the version range and `min-release-age` accept. `jacket dep update` moves to it.",
             ));
         }
+
         if let Some((tag, wait)) = &self.waiting {
             hints.push(hint(
                 format!("{tag} in {wait}"),
                 "A newer release that is inside the release-age window; it is accepted when the wait is over.",
             ));
         }
+
         hints
     }
 }

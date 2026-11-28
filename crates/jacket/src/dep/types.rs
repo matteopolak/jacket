@@ -10,6 +10,7 @@ impl CommitId {
     /// Reads a full id, in either case.
     pub fn parse(text: &str) -> Result<Self, String> {
         let text = text.trim();
+
         if matches!(text.len(), 40 | 64) && text.bytes().all(|b| b.is_ascii_hexdigit()) {
             Ok(Self(text.to_ascii_lowercase()))
         } else {
@@ -71,6 +72,7 @@ pub struct Rev(String);
 impl Rev {
     pub fn parse(text: &str) -> Result<Self, String> {
         let text = text.trim();
+
         if (7..=64).contains(&text.len()) && text.bytes().all(|b| b.is_ascii_hexdigit()) {
             Ok(Self(text.to_ascii_lowercase()))
         } else {
@@ -131,24 +133,29 @@ pub struct RefName(String);
 impl RefName {
     pub fn parse(text: &str) -> Result<Self, String> {
         let bad = |why: &str| Err(format!("`{text}` is not a tag or branch name: {why}"));
+
         if text.is_empty() {
             return bad("it is empty");
         }
+
         if text.starts_with(['-', '/', '.'])
             || text.ends_with(['/', '.'])
             || text.ends_with(".lock")
         {
             return bad("it starts or ends with a character git refuses there");
         }
+
         if text.contains("..") || text.contains("//") || text.contains("@{") || text == "@" {
             return bad("it has a sequence git refuses");
         }
+
         if text
             .chars()
             .any(|c| c.is_control() || c.is_whitespace() || "~^:?*[\\".contains(c))
         {
             return bad("it has a character git refuses");
         }
+
         Ok(Self(text.to_string()))
     }
 
@@ -183,18 +190,23 @@ impl SubPath {
                 "`{text}` is not a folder inside the project: {why}"
             ))
         };
+
         if text.is_empty() {
             return bad("it is empty");
         }
+
         if text.starts_with('/') || text.contains('\\') || text.as_bytes().get(1) == Some(&b':') {
             return bad("it is absolute or uses `\\`");
         }
+
         if text.chars().any(char::is_control) {
             return bad("it has a control character");
         }
+
         if text.split('/').any(|part| matches!(part, "" | "." | "..")) {
             return bad("it has an empty, `.` or `..` part");
         }
+
         Ok(Self(text.to_string()))
     }
 
@@ -298,9 +310,11 @@ impl Age {
                 "`{text}` is not a duration: write a number and a unit (`3d`, `12h`, `90m`, `2w`), or `0`"
             )
         };
+
         if text == "0" {
             return Ok(Self::ZERO);
         }
+
         let scale: i64 = match text.chars().last().ok_or_else(bad)? {
             's' => 1,
             'm' => 60,
@@ -310,9 +324,11 @@ impl Age {
             _ => return Err(bad()),
         };
         let n: i64 = text[..text.len() - 1].trim().parse().map_err(|_| bad())?;
+
         if n < 0 {
             return Err(bad());
         }
+
         n.checked_mul(scale).map(Self).ok_or_else(bad)
     }
 
@@ -329,6 +345,7 @@ impl fmt::Display for Age {
                 return write!(f, "{}{unit}", self.0 / scale);
             }
         }
+
         write!(
             f,
             "{}",
@@ -348,6 +365,7 @@ mod tests {
     #[test]
     fn commit_ids_are_full_and_lowercase() {
         let id = CommitId::parse(&"AB".repeat(20)).unwrap();
+
         assert_eq!(id.as_str(), "ab".repeat(20));
         assert_eq!(id.short(), "abababa");
         assert!(CommitId::parse("3f9c2a1").is_err());
@@ -360,6 +378,7 @@ mod tests {
         assert!(Rev::parse("3f9c2a1").is_ok());
         assert!(Rev::parse("3f9c2a").is_err());
         let id = CommitId::parse(&"3f9c2a1".repeat(6)[..40]).unwrap();
+
         assert!(id.starts_with(&Rev::parse("3f9c2a1").unwrap()));
     }
 
@@ -368,6 +387,7 @@ mod tests {
         for ok in ["v1.2.0", "release/1.0", "alpha-3", "feature_x"] {
             assert!(RefName::parse(ok).is_ok(), "{ok}");
         }
+
         for bad in [
             "", "-x", "a..b", "a b", "a:b", "x.lock", "a//b", "/a", "a/", "a^", "@",
         ] {
@@ -380,12 +400,15 @@ mod tests {
         for ok in ["modules/a", "vendor/x/y", "a"] {
             assert!(SubPath::parse(ok).is_ok(), "{ok}");
         }
+
         for bad in [
             "", "/etc", "../x", "a/../b", "a/./b", "a//b", "a/", "C:/x", "a\\b", "a\nb",
         ] {
             assert!(SubPath::parse(bad).is_err(), "{bad:?}");
         }
+
         let path = SubPath::parse("modules/a").unwrap();
+
         assert_eq!(path.parent(), Some("modules"));
         assert_eq!(path.name(), "a");
         assert_eq!(
@@ -404,6 +427,7 @@ mod tests {
         assert_eq!(Age::parse("3d").unwrap().to_string(), "3d");
         assert_eq!(Age::parse("90s").unwrap().to_string(), "90s");
         assert_eq!(Age::ZERO.to_string(), "0");
+
         for bad in ["", "3", "d", "-1d", "3x", "1.5d", "3 days"] {
             assert!(Age::parse(bad).is_err(), "{bad}");
         }

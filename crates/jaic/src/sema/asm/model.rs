@@ -203,15 +203,19 @@ pub(super) fn lookup_op(name: &str) -> Option<Op> {
             if let Some(rest) = name.strip_prefix("set") {
                 return lookup_cond(rest).map(Op::Setcc);
             }
+
             if let Some(rest) = name.strip_prefix("cmov") {
                 return lookup_cond(rest).map(Op::Cmovcc);
             }
+
             if name.starts_with("movzx") {
                 return Some(Op::Movzx);
             }
+
             if name.starts_with("movsx") {
                 return Some(Op::Movsx);
             }
+
             return None;
         }
     })
@@ -309,18 +313,21 @@ impl AsmArgs<'_> {
     /// Checks the operand count against `lo..=hi`.
     pub(super) fn want(&self, lo: usize, hi: usize) -> Result<()> {
         let n = self.opds.len();
+
         if n < lo || n > hi {
             let expected = if lo == hi {
                 lo.to_string()
             } else {
                 format!("{lo} to {hi}")
             };
+
             return err(
                 Code::AsmOperandCount,
                 self.span,
                 format!("`{}` takes {expected} operand(s), found {n}", self.name),
             );
         }
+
         Ok(())
     }
 }

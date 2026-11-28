@@ -31,6 +31,7 @@ impl Compiler {
         let Some(ide) = self.ed.facts_mut() else {
             return;
         };
+
         ide.sketch_from.get_or_insert(crate::ide::SketchMark {
             refs: ide.refs.len(),
             entities,
@@ -38,11 +39,14 @@ impl Compiler {
         });
         // Nor do the lint-only facts (expression types, casts, uses) get the stand-ins.
         let lint = std::mem::replace(&mut ide.lint, false);
+
         ide.sketching = true;
         let mut i = 0;
         let count = self.pr.procs.len();
+
         while i < count {
             let id = ProcId(i as u32);
+
             i += 1;
             let p = self.proc(id);
             let (file, scope) = (p.span.file, p.scope);
@@ -50,6 +54,7 @@ impl Compiler {
                 c.ed.facts()
                     .is_some_and(|ide| ide.expanded_macros.contains(i))
             };
+
             if !(p.is_poly || p.is_macro)
                 || p.bindings.is_some()
                 || p.instances.values().any(|&i| self.ide_body_checked(i))
@@ -61,12 +66,16 @@ impl Compiler {
             {
                 continue;
             }
+
             let ok = self.ide_sketch(id);
+
             if !ok {
                 break;
             }
         }
+
         self.ide_sketch_structs();
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.lint = lint;
             ide.sketching = false;
@@ -96,13 +105,17 @@ impl Compiler {
                 return;
             };
             let span = self.proc(id).span;
+
             if let Some(ide) = self.ed.facts_mut() {
                 ide.sketch_root = true;
             }
+
             let inst = self.instantiate(id, bindings, span);
+
             if let Some(ide) = self.ed.facts_mut() {
                 ide.sketch_root = false;
             }
+
             if let Ok(inst) = inst {
                 self.pr.procs[id.0 as usize]
                     .instances
@@ -110,6 +123,7 @@ impl Compiler {
                 // A macro is sketched as a procedure: what it reaches in its caller (`x`) is
                 // missing, and those statements are skipped.
                 self.pr.procs[inst.0 as usize].is_macro = false;
+
                 if let Ok(ProcTarget::Func(root)) = self.proc_func(inst, span) {
                     // A sketch owns only its reachable work. Draining the global queue
                     // retries independent failed bodies after source/compile-time progress,
@@ -120,21 +134,26 @@ impl Compiler {
         }));
         // Forget the sketch: what it queued, its errors, and the bodies that failed.
         let sketch = |p: &ProcId| (p.0 as usize) >= first_new;
+
         self.pr.body_queue.retain(|p| !sketch(p));
         self.pr.parked_bodies.retain(|p| !sketch(p));
         self.pr.lenient_failures.retain(|p, _| !sketch(p));
+
         for p in &mut self.pr.procs[first_new..] {
             if p.body_state == BodyState::Queued {
                 p.body_state = BodyState::NotNeeded;
             }
         }
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.errors.truncate(errors);
+
             // A sketch that ran away (compile-time code generating without end) is dropped.
             if ide.refs.len() - refs > MAX_SKETCH_REFS {
                 ide.truncate_refs(refs);
             }
         }
+
         self.diag.warnings.truncate(warnings);
         self.diag.deferred_errors.truncate(deferred);
         self.ct.asserts.truncate(asserts);
@@ -148,6 +167,7 @@ impl Compiler {
         let header = self.proc(id).lit.header.clone();
         let scope = self.proc(id).scope;
         let mut sizes: Vec<Sym> = Vec::new();
+
         crate::ide::for_header_types(&header, &mut |e| {
             if let ast::ExprKind::ArrayType {
                 size: ast::ArraySize::Fixed(n),
@@ -162,6 +182,7 @@ impl Compiler {
         });
         // `Matrix($T, $M, $N)`: each binds a parameter of the struct, of its type.
         let mut struct_args: Vec<ast::Expr> = Vec::new();
+
         crate::ide::for_header_types(&header, &mut |e| {
             if let ast::ExprKind::Call {
                 args, ..
@@ -175,6 +196,7 @@ impl Compiler {
         });
         // `$M/Matrix`: an instance of the struct, with stand-in parameters.
         let mut restricted: Vec<(Sym, ast::Expr)> = Vec::new();
+
         crate::ide::for_header_types(&header, &mut |e| {
             if let ast::ExprKind::PolyRestricted {
                 name,
@@ -186,6 +208,7 @@ impl Compiler {
             }
         });
         let mut typed: Vec<(Sym, TypeId)> = Vec::new();
+
         for call in &struct_args {
             let ast::ExprKind::Call {
                 callee,
@@ -198,6 +221,7 @@ impl Compiler {
             let Ok(Operand::PolyStruct(ps)) = self.check_expr_no_emit(scope, callee) else {
                 continue;
             };
+
             for (i, arg) in args.iter().enumerate() {
                 if let ast::ExprKind::PolyVar {
                     name, ..
@@ -208,13 +232,16 @@ impl Compiler {
                 }
             }
         }
+
         let binders = self.poly_binders(&header);
         let mut out: Vec<(Sym, Value, TypeId)> = Vec::new();
+
         for (name, at) in binders {
             let typed = typed
                 .iter()
                 .find(|(n, _)| *n == name)
                 .map(|&(_, t)| (t, self.ty.types.kind(self.ty.types.repr(t)).clone()));
+
             if sizes.contains(&name) {
                 out.push((name, Value::Int(1), TypeId::S64));
             } else if let Some((
@@ -234,17 +261,21 @@ impl Compiler {
                 out.push((name, Value::Type(t), TypeId::TYPE));
             } else {
                 let t = self.ide_stand_in(name, at, scope);
+
                 out.push((name, Value::Type(t), TypeId::TYPE));
             }
         }
+
         // `v: Vec2` with `Vec2` polymorphic: a call binds `Vec2` to the argument's instance.
         for param in &header.params {
             let Some(mut ty) = param.ty.as_ref() else {
                 continue;
             };
+
             if procs::has_poly(ty) {
                 continue;
             }
+
             while let ast::ExprKind::Unary(_, e)
             | ast::ExprKind::ArrayType {
                 elem: e, ..
@@ -255,6 +286,7 @@ impl Compiler {
             {
                 ty = e;
             }
+
             if let ast::ExprKind::Ident(name) = ty.kind
                 && !out.iter().any(|(n, ..)| *n == name)
                 && let Some(t) = self.ide_sketch_restricted(scope, ty, ty.span)
@@ -262,22 +294,27 @@ impl Compiler {
                 out.push((name, Value::Type(t), TypeId::TYPE));
             }
         }
+
         for param in &header.params {
             let Some(name) = param.name.filter(|_| param.baked) else {
                 continue;
             };
+
             if param.variadic {
                 return None;
             }
+
             if out.iter().any(|(n, ..)| *n == name.name) {
                 continue;
             }
+
             if let Some(d) = &param.default
                 && let Ok((v, t)) = self.baked_default(scope, param, d, &out, name.span)
             {
                 out.push((name.name, v, t));
                 continue;
             }
+
             let param_ty = param.ty.as_ref()?;
             // `$handler: $H`: of the type the sketch binds `H` to.
             let bound = match &param_ty.kind {
@@ -311,8 +348,10 @@ impl Compiler {
                 )),
                 _ => return None,
             };
+
             out.push((name.name, value, ty));
         }
+
         Some(out)
     }
 
@@ -340,11 +379,14 @@ impl Compiler {
     ) -> Option<TypeId> {
         let lit = self.ty.poly_structs[ps.0 as usize].lit.clone();
         let mut args: Vec<(Option<Sym>, Operand)> = Vec::new();
+
         for (i, param) in lit.params.iter().enumerate() {
             let name = param.name?;
+
             if param.variadic || param.default.is_some() {
                 continue;
             }
+
             let ty = self.poly_struct_param_type(ps, i, None)?;
             let op = match self.ty.types.kind(self.ty.types.repr(ty)) {
                 TypeKind::Type => Operand::Type(self.ide_stand_in(name.name, name.span, scope)),
@@ -358,11 +400,14 @@ impl Compiler {
                 },
                 _ => return None,
             };
+
             args.push((Some(name.name), op));
         }
+
         let t = self.instantiate_struct(ps, args, span).ok()?;
         // Fields are resolved when the layout is first needed.
         let _ = self.size_of(t, span);
+
         Some(t)
     }
 
@@ -373,6 +418,7 @@ impl Compiler {
             let ps = PolyStructId(i as u32);
             let p = &self.ty.poly_structs[i];
             let (file, scope) = (p.lit.span.file, p.scope);
+
             if p.origin.is_some()
                 || !p.instances.is_empty()
                 || p.lit.params.is_empty()
@@ -381,6 +427,7 @@ impl Compiler {
             {
                 continue;
             }
+
             let span = self.ty.poly_structs[i].lit.span;
             let errors = self.ed.facts().map_or(0, |ide| ide.errors.len());
             let (warnings, deferred) = (self.diag.warnings.len(), self.diag.deferred_errors.len());
@@ -388,14 +435,18 @@ impl Compiler {
             let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 self.ide_sketch_struct_instance(ps, scope, span)
             }));
+
             if let Some(ide) = self.ed.facts_mut() {
                 ide.errors.truncate(errors);
+
                 if ide.refs.len() - refs > MAX_SKETCH_REFS {
                     ide.truncate_refs(refs);
                 }
             }
+
             self.diag.warnings.truncate(warnings);
             self.diag.deferred_errors.truncate(deferred);
+
             if checked.is_err() {
                 break;
             }
@@ -416,9 +467,11 @@ impl Compiler {
             span,
         });
         let t = self.new_struct_type(name, lit, scope, Vec::new(), None);
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.stand_ins.insert(t);
         }
+
         t
     }
 }
@@ -440,10 +493,12 @@ impl Compiler {
     /// `ty` is a stand-in, or a pointer to or array of one.
     fn mentions_stand_in(&self, ty: TypeId) -> bool {
         let mut t = ty;
+
         for _ in 0..8 {
             if self.is_stand_in(t) {
                 return true;
             }
+
             t = match self.ty.types.kind(t) {
                 TypeKind::Array {
                     elem, ..
@@ -452,6 +507,7 @@ impl Compiler {
                 _ => return false,
             };
         }
+
         false
     }
 
@@ -461,21 +517,25 @@ impl Compiler {
             return false;
         };
         let mut t = ty;
+
         for _ in 0..8 {
             if ide.stand_ins.contains(&t) {
                 return true;
             }
+
             match self.ty.types.pointee(t) {
                 Some(p) => t = p,
                 None => return false,
             }
         }
+
         false
     }
 
     /// A runtime value of type `ty`. Only a sketch makes one up: its code never runs.
     pub(crate) fn ide_sketch_value(&mut self, f: &mut FnCtx, ty: TypeId, span: Span) -> Operand {
         let size = self.size_of(ty, span).unwrap_or(8).max(1);
+
         Operand::Place {
             ty,
             addr: f.b.alloca(size, 8),
@@ -488,6 +548,7 @@ impl Compiler {
             Operand::Type(_) | Operand::Procs(_) | Operand::Module(_) | Operand::Void => return,
             other => other.ty(),
         };
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.sketch_types.insert(span, ty);
         }
@@ -540,6 +601,7 @@ impl Compiler {
         // Outside a sketch nothing recorded the operands' types: check them here, once.
         let mut checked: HashMap<Span, TypeId> = HashMap::default();
         let sketching = self.ed.sketching();
+
         for child in &children {
             let tried = sketching
                 && self
@@ -550,6 +612,7 @@ impl Compiler {
                 .ed
                 .facts()
                 .is_some_and(|ide| ide.failed_exprs.contains(&child.span));
+
             if !tried
                 && !failed
                 && let Ok(op) = self.check_expr(f, scope, child, None)
@@ -562,6 +625,7 @@ impl Compiler {
                 checked.insert(child.span, op.ty());
             }
         }
+
         let ty_of = |c: &Self, e: &ast::Expr| {
             checked.get(&e.span).copied().or_else(|| {
                 c.ed.facts()
@@ -574,6 +638,7 @@ impl Compiler {
             E::Member(base, member) => {
                 let base_ty = loose(self, base)?;
                 let ty = self.ide_stand_in_member(base_ty, member.name, member.span);
+
                 self.ide_note_member_ref(member.span, member.name, ty);
                 ty
             }
@@ -590,6 +655,7 @@ impl Compiler {
             E::Binary(op, a, b) => {
                 use ast::BinOp as B;
                 loose(self, a).or_else(|| loose(self, b))?;
+
                 if matches!(
                     op,
                     B::Eq | B::Ne | B::Lt | B::Le | B::Gt | B::Ge | B::And | B::Or
@@ -624,11 +690,13 @@ impl Compiler {
             } => {
                 let values = then_value.iter().chain(else_value).map(|e| ty_of(self, e));
                 let values: Vec<TypeId> = values.flatten().collect();
+
                 // Like every other arm, only a stand-in is the reason to recover: an `ifx`
                 // that fails on its own (an unknown name in a branch) keeps its error.
                 if !values.iter().any(|&t| self.is_stand_in(t)) {
                     return None;
                 }
+
                 values
                     .iter()
                     .copied()
@@ -637,6 +705,7 @@ impl Compiler {
             }
             _ => return None,
         };
+
         Some(self.ide_sketch_value(f, ty, span))
     }
 
@@ -648,6 +717,7 @@ impl Compiler {
             .pointee(base)
             .filter(|_| !self.ide_is_own_stand_in(base))
             .unwrap_or(base);
+
         if let Some(&t) = self
             .ed
             .facts()
@@ -655,6 +725,7 @@ impl Compiler {
         {
             return t;
         }
+
         let full = if name.as_str() == "[]" || name.as_str() == "()" {
             format!("{}{}", self.ty.types.name(base), name.as_str())
         } else {
@@ -662,9 +733,11 @@ impl Compiler {
         };
         let scope = self.ns.root_scope;
         let t = self.ide_stand_in(Sym::intern(&full), span, scope);
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.stand_in_members.insert((base, name), t);
         }
+
         t
     }
 
@@ -682,6 +755,7 @@ impl Compiler {
         if decl.kind != ast::DeclKind::Var || decl.backtick {
             return;
         }
+
         let ty = if let Some(Ok(ty)) = decl.ty.as_ref().map(|t| self.eval_type(scope, t)) {
             ty
         } else {
@@ -689,16 +763,19 @@ impl Compiler {
             self.ide_stand_in(Sym::intern("?"), decl.span, root)
         };
         let depth = self.scope(scope).proc_depth;
+
         for name in &decl.names {
             if name.name.as_str() == "_" || self.declares_local(scope, name.name) {
                 continue;
             }
+
             let Operand::Place {
                 addr, ..
             } = self.ide_sketch_value(f, ty, name.span)
             else {
                 continue;
             };
+
             self.add_entity(
                 scope,
                 name.name,

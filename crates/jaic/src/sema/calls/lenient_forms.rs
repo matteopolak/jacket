@@ -22,6 +22,7 @@ impl Compiler {
         ) else {
             return;
         };
+
         self.warn(
             d.with_label("this is the location of the line itself")
                 .with_help(
@@ -40,6 +41,7 @@ impl Compiler {
         ) else {
             return;
         };
+
         self.warn(
             d.with_label("other arguments also fill this parameter")
                 .with_help(
@@ -64,6 +66,7 @@ impl Compiler {
         ) else {
             return;
         };
+
         self.warn(
             d.with_label("this casts a procedure to a number")
                 .with_help(format!(
@@ -95,6 +98,7 @@ impl Compiler {
             .filter_map(|m| m.0)
             .map(|n| format!("`{n}`"))
             .collect();
+
         self.warn(
             d.with_label(format!("{} left to the default", left.join(", ")))
                 .with_help(
@@ -118,6 +122,7 @@ impl Compiler {
         ) else {
             return;
         };
+
         self.warn(
             d.with_label("a call gives this macro parameter a constant")
                 .with_help(format!(
@@ -142,6 +147,7 @@ impl Compiler {
         ) else {
             return;
         };
+
         self.warn(
             d.with_label(format!("a literal of {name} is wanted here"))
                 .with_help(format!("name the type: `{name}.{{ .. }}`")),

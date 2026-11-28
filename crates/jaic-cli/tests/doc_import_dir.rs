@@ -9,6 +9,7 @@ fn stdlib() -> PathBuf {
 /// A library whose `make` forwards to `Shapes`, a module that lives in another folder.
 fn library(tag: &str) -> TempDir {
     let dir = TempDir::new(tag);
+
     dir.write(
         "lib/module.jai",
         "// A module.\n\nShapes :: #import \"Shapes\";\n\nmake :: Shapes.make;\n",
@@ -19,11 +20,15 @@ fn library(tag: &str) -> TempDir {
 
 fn run(dir: &TempDir, flag: &str, import_dir: bool) -> String {
     let mut command = Command::new(env!("CARGO_BIN_EXE_jaic"));
+
     command.env("JAIC_STDLIB", stdlib());
+
     if import_dir {
         command.arg("-import_dir").arg(dir.join("more"));
     }
+
     let output = command.arg(flag).arg(dir.join("lib")).output().unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -35,6 +40,7 @@ fn run(dir: &TempDir, flag: &str, import_dir: bool) -> String {
 #[test]
 fn doc_comments_follow_an_alias_into_an_import_dir() {
     let dir = library("doc-comments-import-dir");
+
     assert!(!run(&dir, "-doc_comments", false).contains("Makes one."));
     assert!(run(&dir, "-doc_comments", true).contains("Makes one."));
 }
@@ -51,6 +57,7 @@ fn doc_gaps_follow_an_alias_into_an_import_dir() {
             .to_owned();
         row.split('\t').nth(4).unwrap().to_owned()
     };
+
     assert_ne!(documented(run(&dir, "-doc_gaps", false)), "1");
     assert_eq!(documented(run(&dir, "-doc_gaps", true)), "1");
 }

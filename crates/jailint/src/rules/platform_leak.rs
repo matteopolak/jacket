@@ -63,11 +63,13 @@ impl<'a> Probe<'a> {
         if !self.config.builds_on(path, os) {
             return false;
         }
+
         let mut comments = self.comments.borrow_mut();
         let listed = comments.entry(path.to_path_buf()).or_insert_with(|| {
             let text = std::fs::read_to_string(path).ok()?;
             file_platforms(&text)
         });
+
         listed.as_ref().is_none_or(|systems| systems.contains(&os))
     }
 
@@ -115,14 +117,17 @@ pub(crate) fn analyze(
 ) -> Vec<Leak> {
     let mut into: HashMap<&Path, Vec<&ImportEdge>> = HashMap::default();
     let mut out_of: HashMap<&Path, Vec<&ImportEdge>> = HashMap::default();
+
     for edge in edges {
         into.entry(&edge.to).or_default().push(edge);
         out_of.entry(&edge.from).or_default().push(edge);
     }
+
     let bad: HashSet<&Path> = failed.iter().map(|f| f.path.as_path()).collect();
     // The files from which a failing assert can be reached.
     let mut reaches: HashSet<&Path> = bad.clone();
     let mut queue: Vec<&Path> = bad.iter().copied().collect();
+
     while let Some(file) = queue.pop() {
         for edge in into.get(file).into_iter().flatten() {
             if reaches.insert(&edge.from) {
@@ -130,9 +135,11 @@ pub(crate) fn analyze(
             }
         }
     }
+
     let mut leaks = Vec::new();
     let mut seen_sites = HashSet::default();
     let mut explained: HashSet<&Path> = HashSet::default();
+
     for edge in edges {
         if !reaches.contains(edge.to.as_path())
             || !probe.portable(&edge.from, os)
@@ -141,20 +148,26 @@ pub(crate) fn analyze(
         {
             continue;
         }
+
         // The nearest failing file below the import, and everything below it.
         let mut below: HashSet<&Path> = HashSet::default();
         let mut order: Vec<&Path> = vec![&edge.to];
+
         below.insert(&edge.to);
         let mut next = 0;
+
         while next < order.len() {
             let file = order[next];
+
             next += 1;
+
             for e in out_of.get(file).into_iter().flatten() {
                 if below.insert(&e.to) {
                     order.push(&e.to);
                 }
             }
         }
+
         explained.extend(below.iter().copied());
         let Some(witness) = order
             .iter()
@@ -162,6 +175,7 @@ pub(crate) fn analyze(
         else {
             continue;
         };
+
         leaks.push(Leak::Import {
             from: edge.from.clone(),
             start: edge.start,
@@ -170,7 +184,9 @@ pub(crate) fn analyze(
             assert: witness.clone(),
         });
     }
+
     let mut own_sites = HashSet::default();
+
     for assert in failed {
         if !explained.contains(assert.path.as_path())
             && probe.portable(&assert.path, os)
@@ -181,12 +197,14 @@ pub(crate) fn analyze(
             });
         }
     }
+
     leaks
 }
 
 /// What a file is called in a message: a module by its folder, any other file by its name.
 pub(crate) fn display_name(path: &Path) -> String {
     let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
+
     match name.as_deref() {
         Some("module.jai") => path
             .parent()
@@ -204,6 +222,7 @@ pub(crate) fn line_col(text: &str, at: usize) -> (usize, usize) {
     let before = &text[..at];
     let line = before.matches('\n').count() + 1;
     let start = before.rfind('\n').map_or(0, |i| i + 1);
+
     (line, text[start..at].chars().count() + 1)
 }
 
@@ -213,6 +232,7 @@ pub(crate) fn system_list(systems: &[TargetOs]) -> String {
         .iter()
         .map(|os| jaic::target::os_name(*os))
         .collect();
+
     match names.as_slice() {
         [] => "no target".to_string(),
         [one] => (*one).to_string(),

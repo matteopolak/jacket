@@ -4,6 +4,7 @@ use super::*;
 #[test]
 fn lifetime_call_results_borrow_storage_after_the_calls_release_effects() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/post-resize-result.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -19,6 +20,7 @@ fn lifetime_call_results_borrow_storage_after_the_calls_release_effects() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
         assert!(
             findings
@@ -33,6 +35,7 @@ fn lifetime_call_results_borrow_storage_after_the_calls_release_effects() {
 #[test]
 fn lifetime_return_origins_distinguish_heap_copies_and_temporary_results() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/return-origins.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -45,6 +48,7 @@ fn lifetime_return_origins_distinguish_heap_copies_and_temporary_results() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 6, "{}", rendered(&findings, &text, &path));
         assert!(
             findings
@@ -61,6 +65,7 @@ fn lifetime_return_origins_distinguish_heap_copies_and_temporary_results() {
 fn lifetime_windows_stdlib_shapes_preserve_headers_and_copied_results() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/windows-stdlib.jai");
     let mut target = jaic::sema::Options::host();
+
     target.os = jaic::target::TargetOs::Windows;
     target.cpu = jaic::target::TargetCpu::X64;
     let rules = [
@@ -70,12 +75,14 @@ fn lifetime_windows_stdlib_shapes_preserve_headers_and_copied_results() {
         ("large_stack_array", Level::Warn),
     ];
     let (findings, text) = lint_target(&path, &rules, Config::default(), target);
+
     assert!(findings.is_empty(), "{}", rendered(&findings, &text, &path));
 }
 
 #[test]
 fn lifetime_mixed_return_contracts_remain_possible_without_tainting_heap_copies() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/return-defaults.jai");
+
     for (mode, expected) in [
         (jacket_config::LifetimeMode::Must, 1),
         (jacket_config::LifetimeMode::Strict, 3),
@@ -88,6 +95,7 @@ fn lifetime_mixed_return_contracts_remain_possible_without_tainting_heap_copies(
                 ..Config::default()
             },
         );
+
         assert_eq!(
             findings.len(),
             expected,
@@ -108,6 +116,7 @@ fn lifetime_mixed_return_contracts_remain_possible_without_tainting_heap_copies(
 fn lifetime_windows_close_releases_even_when_it_fails() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/failed-close.jai");
     let mut target = jaic::sema::Options::host();
+
     target.os = jaic::target::TargetOs::Windows;
     target.cpu = jaic::target::TargetCpu::X64;
     let (findings, text) = lint_target(
@@ -119,6 +128,7 @@ fn lifetime_windows_close_releases_even_when_it_fails() {
         Config::default(),
         target,
     );
+
     assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
     assert_eq!(findings[0].rule, "double_free");
 }
@@ -126,6 +136,7 @@ fn lifetime_windows_close_releases_even_when_it_fails() {
 #[test]
 fn lifetime_reassigned_heap_header_does_not_alias_its_contained_storage() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/reassigned-header.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -141,6 +152,7 @@ fn lifetime_reassigned_heap_header_does_not_alias_its_contained_storage() {
                 ..Config::default()
             },
         );
+
         assert!(findings.is_empty(), "{}", rendered(&findings, &text, &path));
     }
 }
@@ -148,6 +160,7 @@ fn lifetime_reassigned_heap_header_does_not_alias_its_contained_storage() {
 #[test]
 fn lifetime_returned_address_aliases_preserve_their_original_generation() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/aligned-alias.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -160,6 +173,7 @@ fn lifetime_returned_address_aliases_preserve_their_original_generation() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
         assert!(
             findings
@@ -176,6 +190,7 @@ fn lifetime_returned_address_aliases_preserve_their_original_generation() {
 #[test]
 fn lifetime_reconstructed_temporary_descriptors_taint_the_caller() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/reconstructed-descriptor.jai");
+
     for (mode, expected) in [
         (jacket_config::LifetimeMode::Must, 1),
         (jacket_config::LifetimeMode::Strict, 3),
@@ -188,6 +203,7 @@ fn lifetime_reconstructed_temporary_descriptors_taint_the_caller() {
                 ..Config::default()
             },
         );
+
         assert_eq!(
             findings.len(),
             expected,
@@ -207,6 +223,7 @@ fn lifetime_reconstructed_temporary_descriptors_taint_the_caller() {
 #[test]
 fn lifetime_descriptor_aliases_keep_their_allocation_generation() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/reconstructed-descriptor.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -219,6 +236,7 @@ fn lifetime_descriptor_aliases_keep_their_allocation_generation() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
         assert!(
             findings
@@ -234,6 +252,7 @@ fn lifetime_descriptor_aliases_keep_their_allocation_generation() {
 #[test]
 fn lifetime_nested_aggregate_copies_keep_individual_field_origins() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/nested-temporary-record.jai");
+
     for (mode, expected) in [
         (jacket_config::LifetimeMode::Must, 1),
         (jacket_config::LifetimeMode::Strict, 2),
@@ -249,6 +268,7 @@ fn lifetime_nested_aggregate_copies_keep_individual_field_origins() {
                 ..Config::default()
             },
         );
+
         assert_eq!(
             findings.len(),
             expected,
@@ -266,6 +286,7 @@ fn lifetime_nested_aggregate_copies_keep_individual_field_origins() {
 #[test]
 fn lifetime_cleared_temporary_globals_do_not_escape_their_scope() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/cleared-temporary-globals.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -278,6 +299,7 @@ fn lifetime_cleared_temporary_globals_do_not_escape_their_scope() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
         assert!(
             findings
@@ -292,6 +314,7 @@ fn lifetime_cleared_temporary_globals_do_not_escape_their_scope() {
 #[test]
 fn lifetime_http_response_origins_reach_the_actual_caller() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/http-response-origins.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -304,6 +327,7 @@ fn lifetime_http_response_origins_reach_the_actual_caller() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
         assert!(
             findings
@@ -318,6 +342,7 @@ fn lifetime_http_response_origins_reach_the_actual_caller() {
 #[test]
 fn lifetime_inferred_descriptor_release_invalidates_its_backing_allocation() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/inferred-descriptor-release.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -330,6 +355,7 @@ fn lifetime_inferred_descriptor_release_invalidates_its_backing_allocation() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
         assert!(text[findings[0].start..].starts_with("old["));
     }
@@ -338,6 +364,7 @@ fn lifetime_inferred_descriptor_release_invalidates_its_backing_allocation() {
 #[test]
 fn lifetime_swap_identity_follows_the_body_instead_of_notes_or_names() {
     let path = repo().join("tests/lint/pointer_lifetime/movement/inferred-swap.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -350,6 +377,7 @@ fn lifetime_swap_identity_follows_the_body_instead_of_notes_or_names() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
         assert!(
             text[findings[0].start..].starts_with("bad_slot"),
@@ -362,8 +390,10 @@ fn lifetime_swap_identity_follows_the_body_instead_of_notes_or_names() {
 #[test]
 fn lifetime_cleanup_queries_distinguish_storage_from_reusable_headers() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/descriptor-cleanup.jai");
+
     for rule in ["defer_frees_returned", "defer_in_loop"] {
         let (findings, text) = lint(&path, &[(rule, Level::Warn)]);
+
         assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
         assert!(findings[0].start < text.find("good_pool ::").unwrap());
     }

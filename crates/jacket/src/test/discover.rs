@@ -49,9 +49,11 @@ pub fn import_folders(flags: &[String]) -> Vec<PathBuf> {
 fn jai_files_below(dir: &Path) -> Vec<PathBuf> {
     let mut files = Vec::new();
     let mut pending = vec![dir.to_path_buf()];
+
     while let Some(dir) = pending.pop() {
         for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
             let path = entry.path();
+
             if path.is_dir() {
                 pending.push(path);
             } else if path.extension().is_some_and(|e| e == "jai") {
@@ -59,6 +61,7 @@ fn jai_files_below(dir: &Path) -> Vec<PathBuf> {
             }
         }
     }
+
     files.sort();
     files
 }
@@ -66,6 +69,7 @@ fn jai_files_below(dir: &Path) -> Vec<PathBuf> {
 /// Whether the file's top comment block holds `// test: compile_fail` (or `compile_fail(text)`).
 fn marked_compile_fail(source: &Path) -> bool {
     let text = std::fs::read_to_string(source).unwrap_or_default();
+
     super::options::header_notes(&text)
         .iter()
         .any(|n| n == "compile_fail" || n.starts_with("compile_fail("))
@@ -79,6 +83,7 @@ fn jai_files(dir: &Path) -> Vec<PathBuf> {
         .map(|e| e.path())
         .filter(|p| p.is_file() && p.extension().is_some_and(|e| e == "jai"))
         .collect();
+
     files.sort();
     files
 }
@@ -91,6 +96,7 @@ fn module_name(dir: &Path, stdlib: &Path) -> Option<String> {
         .components()
         .map(|c| c.as_os_str().to_string_lossy().into_owned())
         .collect();
+
     (!parts.is_empty()).then(|| parts.join("/"))
 }
 
@@ -120,6 +126,7 @@ pub fn is_golden(source: &Path) -> bool {
 /// `module.jai`, so a library with no wasm target needs `skip_on(.WASM)` once, not on each example.
 fn apply_module_notes(dir: &Path, docs: &mut [super::doctest::Block]) {
     let source = std::fs::read_to_string(dir.join("module.jai")).unwrap_or_default();
+
     for note in super::options::header_notes(&source) {
         for block in docs.iter_mut() {
             if let Err(problem) = block.options.apply(&note) {
@@ -145,10 +152,12 @@ impl Root {
         let compile_dir = tests.join(jaic::test_notes::COMPILE_FAIL_DIR);
         let (mut unit, mut golden) = (Vec::new(), Vec::new());
         let mut compile_fail = jai_files(&compile_dir);
+
         for file in jai_files_below(&tests) {
             if file.starts_with(&compile_dir) {
                 continue;
             }
+
             if !is_golden(&file) {
                 if file.parent() == Some(tests.as_path()) {
                     unit.push(file);
@@ -159,6 +168,7 @@ impl Root {
                 golden.push(file);
             }
         }
+
         let label = dir
             .file_name()
             .map_or_else(|| "tests".into(), |n| n.to_string_lossy().into_owned());
@@ -169,8 +179,10 @@ impl Root {
         } else {
             Vec::new()
         };
+
         apply_module_notes(&dir, &mut docs);
         let mut bench = jai_files(&dir.join("benches"));
+
         bench.extend(unit.iter().filter(|file| holds_bench(file)).cloned());
         Ok(Root {
             dir,
@@ -210,22 +222,28 @@ pub fn expand(
     ignore: &[PathPattern],
 ) -> Result<Vec<PathBuf>, String> {
     let mut found = BTreeSet::new();
+
     for text in patterns {
         let pattern = PathPattern::new(text).map_err(|e| e.to_string())?;
+
         if pattern.is_literal() {
             found.insert(project.join(text));
             continue;
         }
+
         let base = project.join(pattern.literal_prefix());
         let mut pending = vec![base];
+
         while let Some(dir) = pending.pop() {
             if is_test_root(&dir) && names_root(&pattern, project, &dir) {
                 found.insert(dir.clone());
             }
+
             for entry in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
                 let name = entry.file_name();
                 let name = name.to_string_lossy();
                 let path = entry.path();
+
                 if name.starts_with('.')
                     || name == "tests"
                     || !entry.file_type().is_ok_and(|t| t.is_dir())
@@ -233,10 +251,12 @@ pub fn expand(
                 {
                     continue;
                 }
+
                 pending.push(path);
             }
         }
     }
+
     Ok(found.into_iter().collect())
 }
 
@@ -261,20 +281,25 @@ pub fn roots(
     if !explicit.is_empty() {
         return explicit.iter().map(|p| cwd.join(p)).collect();
     }
+
     let inside: Vec<PathBuf> = configured
         .iter()
         .filter(|root| cwd.starts_with(root))
         .cloned()
         .collect();
+
     if inside.is_empty() {
         if let Some(own) = enclosing_root(cwd, project) {
             return vec![own];
         }
+
         if configured.is_empty() {
             return vec![project.to_path_buf()];
         }
+
         return configured.to_vec();
     }
+
     // The innermost: inside `A/B` of roots `A` and `A/B`, only `A/B` runs.
     inside
         .iter()
@@ -294,6 +319,7 @@ mod tests {
     #[test]
     fn module_notes_reach_every_doc_test_of_the_library() {
         let dir = std::env::temp_dir().join(format!("jacket-module-notes-{}", std::process::id()));
+
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(
             dir.join("module.jai"),
@@ -310,8 +336,10 @@ mod tests {
             problems: Vec::new(),
         };
         let mut docs = vec![block("M#1"), block("M.f#1")];
+
         apply_module_notes(&dir, &mut docs);
         std::fs::remove_dir_all(&dir).ok();
+
         for doc in &docs {
             assert_eq!(doc.options.target.skip_on.len(), 1, "{}", doc.name);
             assert_eq!(doc.problems.len(), 1, "{:?}", doc.problems);
@@ -332,6 +360,7 @@ mod tests {
         ]
         .into();
         let folders = import_folders(&flags);
+
         assert_eq!(folders.len(), 2, "{folders:?}");
         assert!(folders.iter().all(|f| f.is_dir()));
     }
@@ -342,6 +371,7 @@ mod tests {
         let flags: Vec<String> = ["-add", "-I", here.as_str(), "+Plugin", "-I", here.as_str()]
             .map(String::from)
             .into();
+
         assert!(import_folders(&flags).is_empty());
     }
 
@@ -349,6 +379,7 @@ mod tests {
     fn the_current_directory_narrows_the_configured_roots() {
         let configured = [PathBuf::from("/r/stdlib/A"), PathBuf::from("/r/stdlib/B")];
         let project = Path::new("/r");
+
         assert_eq!(
             roots(&[], &configured, project, Path::new("/r")),
             configured
@@ -359,6 +390,7 @@ mod tests {
         );
         // Of nested roots, the innermost one the directory is in.
         let nested = [PathBuf::from("/r/A"), PathBuf::from("/r/A/B")];
+
         assert_eq!(
             roots(&[], &nested, project, Path::new("/r/A/B")),
             [PathBuf::from("/r/A/B")]
@@ -386,9 +418,11 @@ mod tests {
     fn a_folder_with_its_own_tests_below_the_project_is_the_root() {
         let dir = std::env::temp_dir().join(format!("jacket-enclosing-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(dir.join("ex/app/tests/sub")).unwrap();
         std::fs::create_dir_all(dir.join("ex/other")).unwrap();
         let app = dir.join("ex/app");
+
         // Nothing configured: the folder, from itself or from inside its tests.
         assert_eq!(roots(&[], &[], &dir, &app), vec![app.clone()]);
         assert_eq!(
@@ -397,6 +431,7 @@ mod tests {
         );
         // Configured roots elsewhere do not hide it.
         let configured = [dir.join("ex/other")];
+
         assert_eq!(roots(&[], &configured, &dir, &app), vec![app.clone()]);
         // A folder with no tests of its own, and the project itself, are unchanged.
         assert_eq!(
@@ -411,6 +446,7 @@ mod tests {
     fn patterns_expand_to_the_test_roots_they_match() {
         let dir = std::env::temp_dir().join(format!("jacket-expand-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         for folder in [
             "lib/A/tests/inner",
             "lib/A/B",
@@ -423,6 +459,7 @@ mod tests {
         ] {
             std::fs::create_dir_all(dir.join(folder)).unwrap();
         }
+
         std::fs::write(dir.join("lib/A/B/module.jai"), "").unwrap();
         std::fs::write(dir.join("lib/D/notes.txt"), "").unwrap();
         // `lib/A/tests/inner` is under a tests folder: never a root.
@@ -430,12 +467,14 @@ mod tests {
         let ignore = [PathPattern::new("lib/skip/**").unwrap()];
         let found = |patterns: &[&str]| -> Vec<String> {
             let patterns: Vec<String> = patterns.iter().map(ToString::to_string).collect();
+
             expand(&patterns, &dir, &ignore)
                 .unwrap()
                 .iter()
                 .map(|p| relative_text(p, &dir))
                 .collect()
         };
+
         assert_eq!(
             found(&["lib/**"]),
             ["lib/A", "lib/A/B", "lib/C/sub", "lib/E"]
@@ -454,10 +493,12 @@ mod tests {
     fn files_are_sorted_into_kinds() {
         let dir = std::env::temp_dir().join(format!("jacket-discover-{}", std::process::id()));
         let tests = dir.join("tests");
+
         std::fs::create_dir_all(tests.join("compile_fail")).unwrap();
         std::fs::create_dir_all(tests.join("helpers")).unwrap();
         std::fs::create_dir_all(tests.join("faults")).unwrap();
         std::fs::create_dir_all(tests.join("negative")).unwrap();
+
         for file in [
             "unit.jai",
             "hello.jai",
@@ -472,6 +513,7 @@ mod tests {
         ] {
             std::fs::write(tests.join(file), "").unwrap();
         }
+
         std::fs::write(tests.join("negative/n.jai"), "// test: compile_fail\n").unwrap();
         std::fs::write(dir.join("module.jai"), "").unwrap();
         let root = Root::read(
@@ -483,6 +525,7 @@ mod tests {
             false,
         )
         .unwrap();
+
         assert_eq!(root.module, root.label);
         assert!(root.library);
         assert_eq!(root.unit, [tests.join("unit.jai")]);

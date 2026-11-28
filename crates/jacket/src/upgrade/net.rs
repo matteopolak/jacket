@@ -24,9 +24,11 @@ pub trait Source {
 pub fn require_tools(check_only: bool) -> Result<(), String> {
     use jaic_toolchain::package::Need;
     crate::prerequisite::require(&Need::Curl, "curl", "jacket upgrade")?;
+
     if !check_only && !cfg!(windows) {
         crate::prerequisite::require(&Need::Tar, "tar", "jacket upgrade")?;
     }
+
     Ok(())
 }
 
@@ -43,6 +45,7 @@ impl Github {
             .map(|t| t.trim().to_owned())
             .filter(|t| !t.is_empty())
             .map(|t| format!("Bearer {t}"));
+
         Github {
             token,
         }
@@ -51,6 +54,7 @@ impl Github {
     /// `url` through `curl`, retried; the token goes only to the API.
     fn curl<'a>(&'a self, url: &'a str, with_token: bool) -> Curl<'a> {
         let curl = Curl::get(url, "jacket upgrade").retry(3);
+
         match self.token.as_deref().filter(|_| with_token) {
             Some(token) => curl.secret_header("Authorization", token),
             None => curl,
@@ -78,6 +82,7 @@ impl Source for Github {
             .header("Accept: application/vnd.github+json")
             .run()
             .map_err(rate_limited)?;
+
         String::from_utf8(body).map_err(|_| "GitHub's answer was not text".to_owned())
     }
 

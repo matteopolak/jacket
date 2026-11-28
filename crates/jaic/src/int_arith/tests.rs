@@ -110,6 +110,7 @@ width_test!(u64_matches_native_arithmetic, u64, false);
 #[test]
 fn untyped_constants_use_the_full_width() {
     let op = |op, x, y| int_binop(op, x, y, 128, true);
+
     assert_eq!(op(IntOp::Shl, 1, 100), Ok(1 << 100));
     assert_eq!(op(IntOp::Shl, 1, 128), Ok(0));
     assert_eq!(op(IntOp::Shr, -5, 128), Ok(-1));

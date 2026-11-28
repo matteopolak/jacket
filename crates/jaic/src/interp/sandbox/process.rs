@@ -14,6 +14,7 @@ impl SandboxHost {
             LibcFn::WasmWriteString => {
                 let (len, ptr, to_stderr) = (arg(0) as usize, arg(1), arg(2) & 1 != 0);
                 let bytes = read_bytes(ptr, len);
+
                 self.write(&bytes, to_stderr);
                 0
             }
@@ -92,14 +93,18 @@ impl SandboxHost {
             None => return 0,
         };
         let key = (name, value);
+
         if let Some(&text) = self.environment_texts.get(&key) {
             return text;
         }
+
         let text = self.alloc(key.1.len() + 1);
+
         if text != 0 {
             super::write_bytes(text, key.1.as_bytes());
             self.environment_texts.insert(key, text);
         }
+
         text
     }
 }
@@ -109,10 +114,13 @@ impl SandboxHost {
 #[cfg(unix)]
 fn host_entropy(len: usize) -> Option<Vec<u8>> {
     use std::io::Read;
+
     if len > 256 {
         return None;
     }
+
     let mut bytes = vec![0; len];
+
     std::fs::File::open("/dev/urandom")
         .and_then(|mut f| f.read_exact(&mut bytes))
         .ok()?;

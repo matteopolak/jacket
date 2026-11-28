@@ -34,19 +34,24 @@ impl Compiler {
         else {
             return Ok(None);
         };
+
         if self.ty.types.wide_float(*lt).is_some() || self.ty.types.wide_float(*rt).is_some() {
             let folded = self.wide_fold(op, (*lt, lv), (*rt, rv));
+
             if folded.is_some() {
                 let ty = if self.ty.types.wide_float(*lt).is_some() {
                     *lt
                 } else {
                     *rt
                 };
+
                 self.record_expression_type(f, node.a.span, ty, true);
                 self.record_expression_type(f, node.b.span, ty, true);
             }
+
             return Ok(folded);
         }
+
         let untyped = *lu && *ru;
         let is_shift = matches!(op, BinOp::Shl | BinOp::Shr | BinOp::Rotl | BinOp::Rotr);
         let plain_int = |c: &Self, t: TypeId| {
@@ -119,6 +124,7 @@ impl Compiler {
                     BinOp::Shr => Some(IntOp::Shr),
                     _ => None,
                 };
+
                 if matches!(op, BinOp::Shl | BinOp::Shr) && b < 0 {
                     return err(
                         Code::BinaryNegativeShiftAmount,
@@ -126,6 +132,7 @@ impl Compiler {
                         format!("negative shift amount {b} in constant expression"),
                     );
                 }
+
                 // An untyped constant is as wide as a constant can be. A typed one may carry a
                 // non-integer type (an enum value, a `bool`); those wrap like a 64-bit signed
                 // integer.
@@ -134,6 +141,7 @@ impl Compiler {
                 } else {
                     self.ty.types.int_info(ty).unwrap_or((64, true))
                 };
+
                 match int_op {
                     Some(int_op) => match int_binop(int_op, a, b, bits, signed) {
                         Ok(x) => Some(Value::Int(x)),
@@ -151,6 +159,7 @@ impl Compiler {
             }
             (Value::Int(_) | Value::Float(_, _), Value::Int(_) | Value::Float(_, _)) => {
                 let mut precision = crate::lexer::FloatLiteralPrecision::default();
+
                 for value in [lv, rv] {
                     if let Value::Float(_, p) = value {
                         precision.defaults_to_float64 |= p.defaults_to_float64;
@@ -159,6 +168,7 @@ impl Compiler {
                             p.requires_float64_due_to_significant_digits;
                     }
                 }
+
                 if self.ty.types.repr(ty) == TypeId::F32 && !untyped && precision.requires_float64 {
                     return err(
                         Code::BinaryFloatingLiteral,
@@ -166,13 +176,16 @@ impl Compiler {
                         "this floating literal requires float64 precision (use an explicit cast to round it)",
                     );
                 }
+
                 let a = num(lv);
                 let b = num(rv);
                 let float = |value| {
                     let mut p = precision;
+
                     p.requires_float64 |= crate::lexer::has_big_float32_exponent(value);
                     Value::Float(value, p)
                 };
+
                 match op {
                     BinOp::Add => Some(float(a + b)),
                     BinOp::Sub => Some(float(a - b)),
@@ -185,6 +198,7 @@ impl Compiler {
                                 "division by zero in constant expression",
                             );
                         }
+
                         Some(float(a / b))
                     }
                     _ => a.partial_cmp(&b).and_then(cmp),
@@ -239,6 +253,7 @@ impl Compiler {
         } else {
             ty
         };
+
         self.record_expression_type(f, node.a.span, operand_ty, true);
         self.record_expression_type(
             f,

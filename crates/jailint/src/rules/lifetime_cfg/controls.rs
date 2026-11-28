@@ -32,9 +32,11 @@ impl<'a> Controls<'a> {
 
     pub fn initial(&self) -> Vec<Option<u64>> {
         let mut state = vec![None; self.slots.len() + self.values.len()];
+
         for &(v, n) in &self.code.constants {
             state[self.values[&v]] = Some(n);
         }
+
         state
     }
 
@@ -52,6 +54,7 @@ impl<'a> Controls<'a> {
 
     pub fn apply(&self, block: usize, state: &mut [Option<u64>]) {
         let get = |v: &Val, state: &[Option<u64>]| self.values.get(v).and_then(|&i| state[i]);
+
         for inst in &self.code.blocks[block] {
             match inst {
                 Inst::Load {

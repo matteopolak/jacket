@@ -13,8 +13,10 @@ fn complete_in_main(typed: &str) -> Vec<String> {
     let cursor = text.len();
     let text = format!("{text}{rest}");
     let mut s = session();
+
     s.open(uri(), 1, text.clone()).unwrap();
     let end = position(&text, cursor);
+
     s.completion(&uri(), end)
         .unwrap()
         .items
@@ -33,8 +35,10 @@ fn completion_works_inside_range_expressions() {
         "x := lo..ta",
     ] {
         let labels = complete_in_main(typed);
+
         assert!(labels.iter().any(|l| l == "table"), "{typed}: {labels:?}");
     }
+
     for typed in [
         "for i: 0..table.co",
         "for i: 0 .. table.co",
@@ -42,11 +46,14 @@ fn completion_works_inside_range_expressions() {
         "for i: lo..table.co",
     ] {
         let labels = complete_in_main(typed);
+
         assert!(labels.iter().any(|l| l == "count"), "{typed}: {labels:?}");
         assert!(!labels.iter().any(|l| l == "table"), "{typed}: {labels:?}");
     }
+
     // The end of a range also offers the names after it.
     let labels = complete_in_main("for i: lo..");
+
     assert!(labels.iter().any(|l| l == "hi"), "{labels:?}");
 }
 
@@ -62,6 +69,7 @@ run :: () {
     CALL
 }
 ";
+
     for (call, label, params, active) in [
         ("f(1, ", "f: (s64, string) -> s64", vec!["s64", "string"], 1),
         (
@@ -74,11 +82,13 @@ run :: () {
     ] {
         let text = program.replace("CALL", call);
         let mut s = session();
+
         s.open(uri(), 1, text.clone()).unwrap();
         let help = s
             .signature_help(&uri(), at_nth(&text, call, 0, call.len()))
             .unwrap()
             .unwrap_or_else(|| panic!("no signature help for {call}"));
+
         assert_eq!(help.signatures.len(), 1);
         assert_eq!(help.signatures[0].label, label);
         assert_eq!(help.signatures[0].parameters, params);
@@ -90,15 +100,18 @@ run :: () {
 fn hover_of_a_baked_procedure_is_its_remaining_header() {
     let text = "scale_by :: (value: int, factor: int) -> int { return value * factor; }\ndouble_it :: #bake_arguments scale_by(factor = 2);\nmain :: () { x := double_it(4); }\n";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let decl = hover(&s, at_nth(text, "double_it ::", 0, 2));
     let used = hover(&s, at_nth(text, "double_it(4", 0, 2));
+
     assert_eq!(decl, "double_it :: (value: int) -> int");
     assert_eq!(used, "double_it :: (value: int) -> int");
     let help = s
         .signature_help(&uri(), at_nth(text, "double_it(4", 0, 10))
         .unwrap()
         .expect("signature help");
+
     assert_eq!(help.signatures[0].label, "double_it :: (value: int) -> int");
 }
 
@@ -106,6 +119,7 @@ fn hover_of_a_baked_procedure_is_its_remaining_header() {
 fn names_from_a_using_parameter_hover_and_go_to_it() {
     let text = "#import \"Basic\";\nVec2 :: struct { x: float; y: float; }\nCreature :: struct { name: string; health: int; position: Vec2; }\nreport :: (using creature: Creature) {\n    print(\"% % %\\n\", name, health, position.x);\n}\nmain :: () { report(.{}); }\n";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let name = s
         .hover(&uri(), at_nth(text, "name, health", 0, 1))
@@ -118,6 +132,7 @@ fn names_from_a_using_parameter_hover_and_go_to_it() {
     let def = s
         .definition(&uri(), at_nth(text, "name, health", 0, 1))
         .unwrap();
+
     assert_eq!(name.as_deref(), Some("name: string"));
     assert_eq!(
         pos.as_deref(),
@@ -149,6 +164,7 @@ main :: () {
 }
 ";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, offset: usize| {
         s.hover(&uri(), at_nth(text, needle, 0, offset))
@@ -157,6 +173,7 @@ main :: () {
             .unwrap_or_default()
     };
     let mut wrong = Vec::new();
+
     for (needle, offset, want) in [
         ("target: Target", 1, "target: Target"),
         ("count :=", 1, "count: s64"),
@@ -167,10 +184,12 @@ main :: () {
         ("result: Target", 1, "result: Target"),
     ] {
         let got = hover(&mut s, needle, offset);
+
         if !got.contains(want) {
             wrong.push(format!("{needle}: {got:?}"));
         }
     }
+
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert_eq!(
         s.definition(&uri(), at_nth(text, "Target;", 0, 1))
@@ -182,6 +201,7 @@ main :: () {
     // The sketch's errors (`items[0]` of a stand-in `T` is fine, but nothing else is checked
     // against real types) are not the program's.
     let diagnostics = s.diagnostics(&uri()).unwrap();
+
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
@@ -218,6 +238,7 @@ bump :: (counter: *Counter) #expand {
 main :: () {}
 ";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, offset: usize| {
         s.hover(&uri(), at_nth(text, needle, 0, offset))
@@ -226,6 +247,7 @@ main :: () {}
             .unwrap_or_default()
     };
     let mut wrong = Vec::new();
+
     for (needle, offset, want) in [
         ("label :=", 1, "label: T.label"),
         ("total :=", 1, "total: s64"),
@@ -240,10 +262,12 @@ main :: () {}
         ("bumped :=", 1, "bumped: s64"),
     ] {
         let got = hover(&mut s, needle, offset);
+
         if !got.contains(want) {
             wrong.push(format!("{needle}: {got:?}"));
         }
     }
+
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert_eq!(
         s.definition(&uri(), at_nth(text, "hits += 2", 0, 0))
@@ -253,6 +277,7 @@ main :: () {}
         Some(at_nth(text, "hits: int", 0, 0))
     );
     let diagnostics = s.diagnostics(&uri()).unwrap();
+
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
@@ -268,6 +293,7 @@ flatten :: (v: Vec2) -> Vec2f { return .{xx v.x, xx v.y}; }
 main :: () {}
 ";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, offset: usize| {
         s.hover(&uri(), at_nth(text, needle, 0, offset))
@@ -276,6 +302,7 @@ main :: () {}
             .unwrap_or_default()
     };
     let mut wrong = Vec::new();
+
     for (needle, offset, want) in [
         ("N = 2", 0, "N: s64"),
         ("by = 2", 0, "by: s64"),
@@ -285,11 +312,14 @@ main :: () {}
         ("y}", 0, "y:"),
     ] {
         let got = hover(&mut s, needle, offset);
+
         if !got.contains(want) {
             wrong.push(format!("{needle}: {got:?}"));
         }
     }
+
     assert!(wrong.is_empty(), "{wrong:#?}");
+
     for (needle, decl) in [
         ("N = 2", "N: int"),
         ("by = 2", "by: int"),
@@ -304,7 +334,9 @@ main :: () {}
             "{needle}"
         );
     }
+
     let diagnostics = s.diagnostics(&uri()).unwrap();
+
     assert!(diagnostics.is_empty(), "{diagnostics:#?}");
 }
 
@@ -315,6 +347,7 @@ length :: (text: *u8) -> u64 #foreign libc "strlen";
 main :: () {}
 "#;
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str| {
         s.hover(&uri(), at_nth(text, needle, 0, 0))
@@ -322,6 +355,7 @@ main :: () {}
             .map(|h| h.contents.value)
             .unwrap_or_default()
     };
+
     assert!(hover(&mut s, "text:").contains("text: *u8"));
     assert!(hover(&mut s, "libc \"strlen").contains("libc"));
     assert_eq!(
@@ -344,6 +378,7 @@ main :: () {}
     let web_text = "web_factor :: () -> int { return 2; }\n";
     let web = file_uri("/lsp-test/web.jai");
     let mut s = session();
+
     s.open(uri(), 1, main.into()).unwrap();
     s.open(web.clone(), 1, web_text.into()).unwrap();
     let shown = s
@@ -351,16 +386,19 @@ main :: () {}
         .unwrap()
         .map(|h| h.contents.value)
         .unwrap_or_default();
+
     assert!(shown.contains("by: s64"), "{shown}");
     let found = s
         .definition(&uri(), at_nth(main, "web_factor", 0, 0))
         .unwrap();
+
     assert_eq!(found.first().map(|d| d.uri.as_str()), Some(web.as_str()));
     let shown = s
         .hover(&web, at_nth(web_text, "int", 0, 0))
         .unwrap()
         .map(|h| h.contents.value)
         .unwrap_or_default();
+
     assert!(shown.contains("int"), "{shown}");
 }
 
@@ -372,8 +410,10 @@ swap :: (p: *Pair) { p.a, p.b = p.b, p.a; }
 main :: () {}
 "#;
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let diagnostics = s.diagnostics(&uri()).unwrap();
+
     assert!(
         diagnostics.iter().all(|d| d.range.start.line == 0),
         "{diagnostics:#?}"
@@ -407,6 +447,7 @@ main :: () {
 }
 "#;
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let hover = |s: &mut Session, needle: &str, nth: usize, offset: usize| {
         s.hover(&uri(), at_nth(text, needle, nth, offset))
@@ -421,6 +462,7 @@ main :: () {
             .map(|d| d.range.start)
     };
     let mut wrong = Vec::new();
+
     for (needle, nth, offset, want) in [
         ("first = 1", 0, 1, "first: s64"),
         ("by = 3", 0, 1, "by: s64"),
@@ -432,10 +474,12 @@ main :: () {
         ("log_level", 0, 1, "log_level: Log_Level"),
     ] {
         let got = hover(&mut s, needle, nth, offset);
+
         if !got.starts_with(want) {
             wrong.push(format!("{needle}: {got:?}"));
         }
     }
+
     assert!(wrong.is_empty(), "{wrong:#?}");
     assert!(hover(&mut s, "trunc", 0, 1).contains("Cast flag"));
     assert!(hover(&mut s, "#expand", 0, 1).contains("#expand"));
@@ -461,6 +505,7 @@ main :: () {
 fn hover_of_a_pointer_constant_leaves_out_its_address() {
     let text = "#import \"Basic\";\nraw :: () -> *void { return alloc(32); }\nnothing :: () -> *void { return null; }\nBLOCK :: #run raw();\nNONE :: #run nothing();\nmain :: () { b := BLOCK; n := NONE; }\n";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     assert_eq!(hover(&s, at_nth(text, "BLOCK ::", 0, 1)), "BLOCK :: *void");
     assert_eq!(
@@ -484,14 +529,19 @@ main :: () {
 }
 "#;
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
+
     for needle in ["size(1", "area(\"", "print("] {
         let at = at_nth(text, needle, 0, 0);
         let scope = s.semantic_scope_targets(&uri(), at).unwrap();
         let scope = scope.unwrap_or_else(|| panic!("{needle}: not a plain name"));
+
         assert!(!scope.is_empty(), "{needle}: scope found no procedure");
         let definitions = s.definition(&uri(), at).unwrap();
+
         assert!(!definitions.is_empty(), "{needle}: no definition");
+
         for target in &definitions {
             assert!(
                 scope.iter().any(|(uri, p)| *uri == target.uri.as_str()

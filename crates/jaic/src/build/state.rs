@@ -71,6 +71,7 @@ impl Workspace {
                 self.name
             ));
         }
+
         self.pending.push(source);
         Ok(())
     }

@@ -69,11 +69,14 @@ impl Parser<'_> {
             if prec <= min_prec {
                 break;
             }
+
             self.bump();
             let rhs = self.parse_binary(prec)?;
             let span = lhs.span.to(rhs.span);
+
             lhs = mk(ExprKind::Binary(op, Box::new(lhs), Box::new(rhs)), span);
         }
+
         Ok(lhs)
     }
 
@@ -90,17 +93,21 @@ impl Parser<'_> {
         let Tok::Punct(p) = self.tok() else {
             return None;
         };
+
         // `if x == {` opens a switch rather than continuing the expression.
         if *p == P::EqEq && self.switch_body_follows(1) {
             return None;
         }
+
         // After `}` on the previous line, `*p = 1;` and `-x;` start new statements.
         if self.continues_after_block() && matches!(p, P::Star | P::Minus | P::Plus | P::Shl) {
             return None;
         }
+
         if self.recovery.is_some() && self.continues_after_block() {
             return None;
         }
+
         binary_op(*p)
     }
 
@@ -149,9 +156,11 @@ impl Parser<'_> {
             },
             _ => return self.parse_postfix(true),
         };
+
         self.bump();
         let operand = self.parse_unary()?;
         let span = start.to(operand.span);
+
         // `*Block.[a, b]` is an array literal of `*Block`; `*(Block.[a, b])` takes the address of
         // an array literal.
         if op == UnOp::Star
@@ -170,6 +179,7 @@ impl Parser<'_> {
         {
             let elem_span = start.to(elem.span);
             let pointer = mk(ExprKind::Unary(UnOp::Star, elem), elem_span);
+
             return Ok(mk(
                 ExprKind::ArrayLit {
                     ty: Some(Box::new(pointer)),
@@ -178,6 +188,7 @@ impl Parser<'_> {
                 span,
             ));
         }
+
         // `*T.{..}` is a pointer to a struct literal here; the official compiler reads it as the
         // pointer type `*T` followed by a literal.
         if op == UnOp::Star
@@ -192,6 +203,7 @@ impl Parser<'_> {
         {
             self.note_lenient(crate::diagnostics::Code::AddressOfLiteral, span);
         }
+
         Ok(mk(ExprKind::Unary(op, Box::new(operand)), span))
     }
 
@@ -200,14 +212,17 @@ impl Parser<'_> {
         let inner = self.parse_primary()?;
         let span = start.to(inner.span);
         let expr = mk(ExprKind::Backtick(Box::new(inner)), span);
+
         self.postfix_loop(expr, true)
     }
 
     fn parse_cast(&mut self) -> PResult<Expr> {
         let start = self.bump();
         let flags = self.parse_cast_flags();
+
         self.expect(P::LParen, "after `cast`")?;
         let ty = self.parse_expr()?;
+
         // Newer syntax: `cast(T, value)`.
         if self.eat(P::Comma) {
             let value = self.parse_expr()?;
@@ -221,11 +236,14 @@ impl Parser<'_> {
                 },
                 span,
             );
+
             return self.postfix_loop(cast, true);
         }
+
         self.expect(P::RParen, "after the type in `cast`")?;
         let value = self.parse_cast_value()?;
         let span = start.to(value.span);
+
         Ok(mk(
             ExprKind::Cast {
                 ty: Some(Box::new(ty)),
@@ -251,6 +269,7 @@ impl Parser<'_> {
         let flags = self.parse_cast_flags();
         let value = self.parse_cast_value()?;
         let span = start.to(value.span);
+
         Ok(mk(
             ExprKind::Cast {
                 ty: None,
@@ -263,15 +282,19 @@ impl Parser<'_> {
 
     fn parse_cast_flags(&mut self) -> CastFlags {
         let mut flags = CastFlags::default();
+
         while self.at(P::Comma) && self.kw_at(1).is_some_and(is_cast_flag) {
             self.bump();
+
             match self.kw() {
                 Some("no_check") => flags.no_check = true,
                 Some("force") => flags.force = true,
                 _ => flags.truncate = true,
             }
+
             self.bump();
         }
+
         flags
     }
 
@@ -282,6 +305,7 @@ impl Parser<'_> {
         } else {
             CallHint::NoInline
         };
+
         if self.at_n(1, P::LParen) && self.paren_starts_header(1) || self.at_n(1, P::Arrow) {
             self.bump();
             let flag = if hint == CallHint::Inline {
@@ -290,16 +314,20 @@ impl Parser<'_> {
                 CallHintFlag::NoInline
             };
             let proc = self.parse_proc_expr(flag)?;
+
             return self.postfix_loop(proc, true);
         }
+
         let start = self.bump();
         let mut operand = self.parse_unary()?;
+
         if let ExprKind::Call {
             hint: slot, ..
         } = &mut operand.kind
         {
             *slot = hint;
         }
+
         operand.span = start.to(operand.span);
         Ok(operand)
     }
@@ -316,6 +344,7 @@ impl Parser<'_> {
     pub(super) fn postfix_loop(&mut self, mut expr: Expr, literals: bool) -> PResult<Expr> {
         loop {
             let start = expr.span;
+
             match self.tok() {
                 Tok::Punct(P::Dot | P::DotStar) if self.continues_after_block() => return Ok(expr),
                 Tok::Punct(P::Dot) if self.at_n(1, P::LParen) => {
@@ -325,6 +354,7 @@ impl Parser<'_> {
                     let ty = self.parse_expr()?;
                     // `value.(u32, trunc)`: cast flags after the type.
                     let mut flags = CastFlags::default();
+
                     while self.eat(P::Comma) {
                         match self.ident("as a cast flag")?.name.as_str() {
                             "no_check" => flags.no_check = true,
@@ -332,12 +362,14 @@ impl Parser<'_> {
                             _ => flags.truncate = true,
                         }
                     }
+
                     let end = self.expect(P::RParen, "after the type in `.(T)`")?;
                     let kind = ExprKind::Cast {
                         ty: Some(Box::new(ty)),
                         value: Box::new(expr),
                         flags,
                     };
+
                     expr = mk(kind, start.to(end));
                 }
                 Tok::Punct(P::Dot) => {
@@ -348,6 +380,7 @@ impl Parser<'_> {
                         // `a.b."c"`: a member named by a string literal.
                         let name = Sym::intern(&String::from_utf8_lossy(text));
                         let span = self.bump();
+
                         Ident {
                             name,
                             span,
@@ -355,6 +388,7 @@ impl Parser<'_> {
                     } else {
                         self.ident("after `.`")?
                     };
+
                     expr = mk(
                         ExprKind::Member(Box::new(expr), member),
                         start.to(member.span),
@@ -362,12 +396,14 @@ impl Parser<'_> {
                 }
                 Tok::Punct(P::DotStar) => {
                     let end = self.bump();
+
                     expr = mk(ExprKind::Unary(UnOp::Deref, Box::new(expr)), start.to(end));
                 }
                 Tok::Punct(P::DotBrace) if literals => {
                     self.bump();
                     let fields = self.parse_args(P::RBrace, "in struct literal")?;
                     let end = self.prev_span();
+
                     expr = mk(
                         ExprKind::StructLit {
                             ty: Some(Box::new(expr)),
@@ -380,6 +416,7 @@ impl Parser<'_> {
                     self.bump();
                     let elems = self.parse_elements(P::RBracket, "in array literal")?;
                     let end = self.prev_span();
+
                     expr = mk(
                         ExprKind::ArrayLit {
                             ty: Some(Box::new(expr)),
@@ -395,6 +432,7 @@ impl Parser<'_> {
                     self.bump();
                     let index = self.parse_expr()?;
                     let end = self.expect(P::RBracket, "after index expression")?;
+
                     expr = mk(
                         ExprKind::Index(Box::new(expr), Box::new(index)),
                         start.to(end),
@@ -407,12 +445,15 @@ impl Parser<'_> {
                         && (!self.at_n(1, P::DotStar) || !self.at_n(2, P::RParen)) =>
                 {
                     let open = self.toks[self.pos].span.start;
+
                     if self.ide_call_opens.contains(&open) {
                         self.ide_call_callees.insert(open, expr.clone());
                     }
+
                     self.bump();
                     let args = self.parse_args(P::RParen, "in argument list")?;
                     let end = self.prev_span();
+
                     expr = mk(
                         ExprKind::Call {
                             callee: Box::new(expr),
@@ -433,24 +474,31 @@ impl Parser<'_> {
         let mut args = Vec::new();
         // `f(,, allocator = temp)`: context arguments with no ordinary arguments before them.
         let mut after_context_comma = self.at(P::Comma) && self.at_n(1, P::Comma);
+
         if after_context_comma {
             self.bump();
             self.bump();
         }
+
         while !self.at(close) {
             let mut arg = self.parse_arg()?;
+
             arg.context = after_context_comma;
             args.push(arg);
+
             if !self.eat(P::Comma) {
                 break;
             }
+
             // `f(a, b,, allocator = temp)`: everything after `,,` modifies the context. A
             // trailing comma may come first: `f(a, b, ,, allocator = temp)`.
             if !after_context_comma && self.at(P::Comma) && self.at_n(1, P::Comma) {
                 self.bump();
             }
+
             after_context_comma |= self.eat(P::Comma);
         }
+
         self.in_list = saved;
         self.expect(close, context)?;
         Ok(args)
@@ -459,16 +507,20 @@ impl Parser<'_> {
     pub(super) fn parse_arg(&mut self) -> PResult<Arg> {
         let mut spread = self.eat(P::DotDot);
         let (mut name, mut target) = (None, None);
+
         if !spread && let Some(simple) = self.named_arg_ahead() {
             if simple {
                 name = Some(self.ident("as argument name")?);
             } else {
                 target = Some(Box::new(self.parse_postfix(true)?));
             }
+
             self.bump();
             spread = self.eat(P::DotDot);
         }
+
         let value = self.parse_expr()?;
+
         Ok(Arg {
             name,
             target,
@@ -483,7 +535,9 @@ impl Parser<'_> {
         if !matches!(self.tok_at(0), Tok::Ident(_)) {
             return None;
         }
+
         let mut i = 1;
+
         loop {
             match (self.tok_at(i), self.tok_at(i + 1)) {
                 (Tok::Punct(P::Dot), Tok::Ident(_)) => i += 2,
@@ -497,11 +551,13 @@ impl Parser<'_> {
     /// Offset just past the `]` matching the `[` at offset `n`.
     pub(super) fn bracket_end(&self, n: usize) -> Option<usize> {
         let mut depth = 0usize;
+
         for i in n.. {
             match self.tok_at(i) {
                 Tok::Punct(P::LBracket | P::DotBracket) => depth += 1,
                 Tok::Punct(P::RBracket) => {
                     depth -= 1;
+
                     if depth == 0 {
                         return Some(i + 1);
                     }
@@ -510,6 +566,7 @@ impl Parser<'_> {
                 _ => {}
             }
         }
+
         None
     }
 
@@ -517,12 +574,15 @@ impl Parser<'_> {
     pub(super) fn parse_elements(&mut self, close: P, context: &str) -> PResult<Vec<Expr>> {
         let saved = std::mem::replace(&mut self.in_list, true);
         let mut elems = Vec::new();
+
         while !self.at(close) {
             elems.push(self.parse_expr()?);
+
             if !self.eat(P::Comma) {
                 break;
             }
         }
+
         self.in_list = saved;
         self.expect(close, context)?;
         Ok(elems)
@@ -532,6 +592,7 @@ impl Parser<'_> {
 
     pub(super) fn parse_primary(&mut self) -> PResult<Expr> {
         let span = self.span();
+
         match self.tok().clone() {
             Tok::Int(v) => {
                 self.bump();
@@ -540,9 +601,11 @@ impl Parser<'_> {
             }
             Tok::Float(v) => {
                 self.bump();
+
                 if self.is_exponent_without_fraction(span) {
                     self.note_lenient(crate::diagnostics::Code::FloatExponent, span);
                 }
+
                 let text = self.literal_text(span);
                 Ok(mk(ExprKind::float_literal(v, text), span))
             }
@@ -568,11 +631,13 @@ impl Parser<'_> {
     fn is_exponent_without_fraction(&self, span: Span) -> bool {
         let text = self.literal_text(span);
         let hex = text.starts_with("0x") || text.starts_with("0X");
+
         !hex && !text.contains('.') && text.contains(['e', 'E'])
     }
 
     fn parse_ident_primary(&mut self, name: Sym) -> PResult<Expr> {
         let span = self.span();
+
         match name.as_str() {
             "true" | "false" => {
                 self.bump();
@@ -603,6 +668,7 @@ impl Parser<'_> {
 
     fn parse_punct_primary(&mut self, p: P) -> PResult<Expr> {
         let span = self.span();
+
         match p {
             P::LParen if self.paren_starts_header(0) => {
                 self.parse_proc_expr(CallHintFlag::default())
@@ -612,6 +678,7 @@ impl Parser<'_> {
                 self.bump();
                 let inner = self.parse_expr()?;
                 let close = self.expect(P::RParen, "to close the parenthesized expression")?;
+
                 Ok(Expr {
                     parens: Some(Parens::new(span, close, inner.span)),
                     ..inner
@@ -621,6 +688,7 @@ impl Parser<'_> {
             P::DotBrace => {
                 self.bump();
                 let fields = self.parse_args(P::RBrace, "in struct literal")?;
+
                 Ok(mk(
                     ExprKind::StructLit {
                         ty: None,
@@ -632,6 +700,7 @@ impl Parser<'_> {
             P::DotBracket => {
                 self.bump();
                 let elems = self.parse_elements(P::RBracket, "in array literal")?;
+
                 Ok(mk(
                     ExprKind::ArrayLit {
                         ty: None,
@@ -648,6 +717,7 @@ impl Parser<'_> {
             P::LBrace if self.brace_is_struct_literal() => {
                 self.bump();
                 let fields = self.parse_args(P::RBrace, "in struct literal")?;
+
                 Ok(mk(
                     ExprKind::StructLit {
                         ty: None,
@@ -668,9 +738,11 @@ impl Parser<'_> {
                                 .into(),
                         );
                     }
+
                     e
                 })?;
                 let span = block.span;
+
                 Ok(mk(ExprKind::Block(Box::new(block)), span))
             }
             P::Uninit => {
@@ -689,18 +761,22 @@ impl Parser<'_> {
         if self.at_n(1, P::RBrace) {
             return true;
         }
+
         if self.at_prev(P::FatArrow) {
             return false;
         }
+
         let statement = self
             .kw_at(1)
             .and_then(super::stmt::Keyword::of)
             .is_some_and(super::stmt::Keyword::only_starts_statements)
             || matches!(self.tok_at(1), Tok::Directive(d) if d.as_str() != "char")
             || self.at_n(1, P::Backtick);
+
         if statement {
             return false;
         }
+
         // `{ name := ... }` declares; `{ name = 1, ... }` names a field.
         if matches!(self.tok_at(1), Tok::Ident(_))
             && matches!(
@@ -710,6 +786,7 @@ impl Parser<'_> {
         {
             return false;
         }
+
         self.brace_separator() != Some(P::Semi)
     }
 
@@ -717,6 +794,7 @@ impl Parser<'_> {
     /// An unclosed brace counts as holding statements.
     fn brace_separator(&self) -> Option<P> {
         let mut depth = 0usize;
+
         for i in 0.. {
             match self.tok_at(i) {
                 Tok::Punct(P::LBrace | P::DotBrace | P::LParen | P::LBracket | P::DotBracket) => {
@@ -724,6 +802,7 @@ impl Parser<'_> {
                 }
                 Tok::Punct(P::RBrace | P::RParen | P::RBracket) => {
                     depth -= 1;
+
                     if depth == 0 {
                         break;
                     }
@@ -733,6 +812,7 @@ impl Parser<'_> {
                 _ => {}
             }
         }
+
         None
     }
 
@@ -768,22 +848,27 @@ impl Parser<'_> {
     pub(super) fn parse_operator_name(&mut self) -> PResult<Ident> {
         let start = self.bump();
         let mut text = String::from("operator");
+
         if let Tok::Punct(mut symbol) = *self.tok() {
             text.push_str(symbol.text());
             self.bump();
+
             if symbol == P::Star && self.at(P::LBracket) && self.at_n(1, P::RBracket) {
                 symbol = P::LBracket;
                 text.push('[');
                 self.bump();
             }
+
             if symbol == P::LBracket {
                 self.expect(P::RBracket, "in operator name")?;
                 text.push(']');
+
                 if self.eat(P::Eq) {
                     text.push('=');
                 }
             }
         }
+
         Ok(Ident {
             name: Sym::intern(&text),
             span: start.to(self.prev_span()),
@@ -803,11 +888,13 @@ impl Parser<'_> {
             ArraySize::Resizable
         } else {
             let n = self.parse_expr()?;
+
             self.expect(P::RBracket, "after array size")?;
             ArraySize::Fixed(Box::new(n))
         };
         let elem = self.parse_element_type()?;
         let span = start.to(elem.span);
+
         Ok(mk(
             ExprKind::ArrayType {
                 size,
@@ -826,8 +913,10 @@ impl Parser<'_> {
             let start = self.bump();
             let inner = self.parse_element_type()?;
             let span = start.to(inner.span);
+
             return Ok(mk(ExprKind::Unary(UnOp::Star, Box::new(inner)), span));
         }
+
         self.parse_postfix(false)
     }
 
@@ -835,24 +924,31 @@ impl Parser<'_> {
     fn parse_poly_var(&mut self) -> PResult<Expr> {
         let start = self.span();
         let baked = self.at(P::DollarDollar);
+
         self.bump();
         let name = self.ident("after `$`")?;
         let mut end = name.span;
+
         if self.at(P::Slash) {
             self.bump();
             let interface = self.at_kw("interface") && matches!(self.tok_at(1), Tok::Ident(_));
+
             if interface {
                 self.bump();
             }
+
             let restriction = self.parse_postfix(true)?;
+
             end = restriction.span;
             let kind = ExprKind::PolyRestricted {
                 name: name.name,
                 restriction: Box::new(restriction),
                 interface,
             };
+
             return Ok(mk(kind, start.to(end)));
         }
+
         Ok(mk(
             ExprKind::PolyVar {
                 name: name.name,
@@ -865,6 +961,7 @@ impl Parser<'_> {
     pub(super) fn parse_ifx(&mut self, is_static: bool) -> PResult<Expr> {
         let start = self.bump();
         let cond = self.parse_expr()?;
+
         self.parse_ifx_after(start, cond, is_static)
     }
 
@@ -885,17 +982,21 @@ impl Parser<'_> {
             self.eat_kw("then");
             Some(Box::new(self.parse_branch_value()?))
         };
+
         // `#ifx c then a; else b;` (seen in older code): the `;` before `else` is dropped.
         if is_static && matches!(self.tok(), Tok::Punct(P::Semi)) && self.kw_at(1) == Some("else") {
             let semicolon = self.bump();
+
             self.note_lenient(crate::diagnostics::Code::IfxThenSemicolon, semicolon);
         }
+
         let else_value = if self.eat_kw("else") {
             Some(Box::new(self.parse_branch_value()?))
         } else {
             None
         };
         let span = start.to(self.prev_span());
+
         Ok(mk(
             ExprKind::Ifx {
                 cond: Box::new(cond),
@@ -911,8 +1012,10 @@ impl Parser<'_> {
         if self.at(P::LBrace) {
             let block = self.parse_block()?;
             let span = block.span;
+
             return Ok(mk(ExprKind::Block(Box::new(block)), span));
         }
+
         self.parse_expr()
     }
 }

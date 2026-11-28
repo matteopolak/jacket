@@ -232,9 +232,11 @@ pub(super) fn incoming(input: &str) -> Result<Option<Incoming>, Value> {
     let value: Value = serde_json::from_str(input)
         .map_err(|_| failure(Value::Null, ErrorCode::ParseError, "Parse error"))?;
     let answer = value.get("result").is_some() || value.get("error").is_some();
+
     if value.get("method").is_none() && value.get("id").is_some() && answer {
         return Ok(None);
     }
+
     let id = match value.get("id") {
         None => None,
         Some(id) => match serde_json::from_value::<RequestId>(id.clone()) {
@@ -242,6 +244,7 @@ pub(super) fn incoming(input: &str) -> Result<Option<Incoming>, Value> {
             _ => return Err(invalid("Invalid request id")),
         },
     };
+
     match serde_json::from_value::<Envelope>(value) {
         Ok(e) if e.jsonrpc == "2.0" && !e.method.is_empty() => Ok(Some(Incoming {
             id,

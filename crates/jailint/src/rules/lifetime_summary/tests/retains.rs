@@ -19,9 +19,11 @@ fn retained(c: &Compiler, all: &Summaries, name: &str) -> Vec<(usize, Vec<String
                     other => format!("{other:?}"),
                 })
                 .collect();
+
             Some((holder, members, *held))
         })
         .collect();
+
     found.sort();
     found
 }
@@ -44,6 +46,7 @@ fn stores_of_a_parameter_into_a_field_are_retained_through_wrappers() {
     "#,
     );
     let item = vec!["item".to_string()];
+
     assert_eq!(retained(&c, &all, "keep"), [(0, item.clone(), 1)]);
     assert_eq!(retained(&c, &all, "keep_twice"), [(0, item.clone(), 1)]);
     assert_eq!(retained(&c, &all, "keep_swapped"), [(1, item.clone(), 0)]);

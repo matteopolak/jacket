@@ -186,6 +186,7 @@ mod imp {
             fault: Fault::default(),
         };
         let guard_ptr: *mut Guard = &raw mut guard;
+
         INNERMOST.with(|g| g.set(guard_ptr));
         let f_ptr: extern "C" fn(*mut c_void) = run::<F, R>;
         // SAFETY: `run` takes the job pointer; the registers buffer is this guard's.
@@ -196,13 +197,17 @@ mod imp {
                 (&raw mut job).cast::<c_void>(),
             )
         };
+
         INNERMOST.with(|g| g.set(guard.previous));
+
         if status == 0 {
             if let Some(payload) = job.panic {
                 std::panic::resume_unwind(payload);
             }
+
             return Ok(job.out.expect("the guarded closure ran"));
         }
+
         // SAFETY: the handler wrote the field through the pointer stored in `INNERMOST`.
         Err(unsafe { std::ptr::read_volatile(&raw const (*guard_ptr).fault) })
     }
@@ -211,13 +216,16 @@ mod imp {
     /// resume in `recover`. `context` is the `ucontext_t` the kernel passed the handler.
     pub fn redirect(address: usize, context: *mut c_void) -> bool {
         let guard = INNERMOST.with(Cell::get);
+
         if guard.is_null() || context.is_null() {
             return false;
         }
+
         // SAFETY: `guard` is live while it is `INNERMOST`; `context` is the kernel's.
         unsafe {
             let resume = recover as *const () as usize;
             let write = set_resume(context, resume, &raw mut (*guard).regs as usize);
+
             std::ptr::write_volatile(
                 &raw mut (*guard).fault,
                 Fault {
@@ -239,6 +247,7 @@ mod imp {
         unsafe {
             let mcontext = std::ptr::read_unaligned(context.cast::<u8>().add(48).cast::<*mut u8>());
             let esr = std::ptr::read_unaligned(mcontext.add(8).cast::<u32>());
+
             std::ptr::write_unaligned(mcontext.add(16).cast::<usize>(), arg);
             std::ptr::write_unaligned(mcontext.add(272).cast::<usize>(), pc);
             // A data abort (class 0x24 or 0x25) has the write-not-read bit at 6.
@@ -252,21 +261,26 @@ mod imp {
         // SAFETY: `context` is the kernel's `ucontext_t`, laid out as described above.
         unsafe {
             let mcontext = context.cast::<u8>().add(176);
+
             std::ptr::write_unaligned(mcontext.add(8).cast::<usize>(), arg);
             std::ptr::write_unaligned(mcontext.add(8 + 31 * 8 + 8).cast::<usize>(), pc);
             // The records after the registers (`_aarch64_ctx`: magic, size) hold the exception
             // syndrome when the kernel has one; the list ends with a zero magic.
             let mut record = mcontext.add(288);
+
             for _ in 0..16 {
                 let magic = std::ptr::read_unaligned(record.cast::<u32>());
                 let size = std::ptr::read_unaligned(record.add(4).cast::<u32>()) as usize;
+
                 if magic == 0 || size < 8 {
                     break;
                 }
+
                 if magic == 0x4553_5201 {
                     let esr = std::ptr::read_unaligned(record.add(8).cast::<u64>());
                     return matches!(esr >> 26, 0x24 | 0x25).then_some(esr & 0x40 != 0);
                 }
+
                 record = record.add(size);
             }
         }
@@ -285,6 +299,7 @@ mod imp {
             )]
             let gregs = context.cast::<u8>().add(40).cast::<u64>();
             let err = std::ptr::read_unaligned(gregs.add(19));
+
             std::ptr::write_unaligned(gregs.add(8), arg as u64);
             std::ptr::write_unaligned(gregs.add(16), pc as u64);
             Some(err & 2 != 0)
@@ -351,8 +366,10 @@ mod tests {
     #[test]
     fn a_wild_read_and_write_come_back_as_faults() {
         let fault = guarded(|| read(0xdead_0000)).unwrap_err();
+
         assert_eq!(fault.address, 0xdead_0000);
         let fault = guarded(|| write(0xdead_0008)).unwrap_err();
+
         assert_eq!(fault.address, 0xdead_0008);
         // The processor reports the direction on these targets.
         assert_eq!(fault.write, Some(true));
@@ -363,12 +380,15 @@ mod tests {
         let inner = guarded(|| {
             let before = String::from("kept");
             let inner = guarded(|| read(0xdead_0000));
+
             assert!(inner.is_err());
             // The outer guard is still armed after the inner one recovered.
             let outer = read(0xbeef_0000);
             (before, outer)
         });
+
         assert_eq!(inner.unwrap_err().address, 0xbeef_0000);
+
         for _ in 0..100 {
             assert!(guarded(|| read(0x1000_0000_0000)).is_err());
         }
@@ -379,6 +399,7 @@ mod tests {
         let caught = std::panic::catch_unwind(|| {
             let _ = guarded(|| panic!("through"));
         });
+
         assert!(caught.is_err());
     }
 }

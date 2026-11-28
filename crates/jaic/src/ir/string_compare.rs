@@ -72,6 +72,7 @@ pub fn string_compare(
     let va = valid(&a, len_a);
     let vb = valid(&b, len_b);
     let mut result = 0u32;
+
     for i in 0..n {
         let r = match (ctl >> 2) & 3 {
             // Equal any: some valid element of `a` equals this valid element of `b`.
@@ -94,8 +95,10 @@ pub fn string_compare(
             3 => r != vb[i],
             _ => r,
         };
+
         result |= (r as u32) << i;
     }
+
     StringCompare {
         result,
         b_ends: !vb[n - 1],

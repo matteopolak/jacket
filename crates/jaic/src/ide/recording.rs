@@ -41,7 +41,9 @@ impl Compiler {
         if self.ct.interp.run_effects.is_some() {
             return None;
         }
+
         let cached = self.ed.facts()?.missing_modules.get(&(scope, span))?;
+
         (cached.epoch == self.ide_missing_module_epoch()
             && cached.wanted == wanted
             && cached.dir == dir
@@ -61,6 +63,7 @@ impl Compiler {
         if !self.ed.is_live() || self.ct.interp.run_effects.is_some() {
             return;
         }
+
         let cached = IdeMissingModule {
             epoch: self.ide_missing_module_epoch(),
             wanted: wanted.into(),
@@ -69,6 +72,7 @@ impl Compiler {
             preload: self.options.preload.clone(),
             error: Box::new(error.clone()),
         };
+
         self.ed
             .facts_mut()
             .unwrap()
@@ -89,10 +93,13 @@ impl Compiler {
         epoch: u64,
     ) -> Option<Box<Diagnostic>> {
         let ide = self.ed.facts()?;
+
         if !self.epochs.placeholders_final || ide.sketching {
             return None;
         }
+
         let (at, error) = self.pr.lenient_failures.get(&id)?;
+
         (*at == epoch && Arc::ptr_eq(ide.failed_body_lits.get(&id)?, &self.proc(id).lit))
             .then(|| error.clone())
     }
@@ -107,6 +114,7 @@ impl Compiler {
         if !self.epochs.placeholders_final || self.ed.facts().is_none_or(|ide| ide.sketching) {
             return;
         }
+
         match result {
             Ok(()) => {
                 self.pr.lenient_failures.remove(&id);
@@ -119,6 +127,7 @@ impl Compiler {
                 ) == misses =>
             {
                 let lit = self.proc(id).lit.clone();
+
                 self.pr.lenient_failures.insert(id, (epoch, error.clone()));
                 self.ed
                     .facts_mut()
@@ -138,13 +147,17 @@ impl Compiler {
         let Some(ide) = self.ed.facts() else {
             return false;
         };
+
         if let Some(&w) = ide.wanted.get(&file) {
             return w;
         }
+
         let w = self.ide_wants_now(file);
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.wanted.insert(file, w);
         }
+
         w
     }
 
@@ -164,6 +177,7 @@ impl Compiler {
         let Some(source) = self.src.sources.try_get(file) else {
             return false;
         };
+
         match &source.path {
             SourcePath::Virtual(_) => ide.virtual_root,
             SourcePath::File(path) => {
@@ -172,6 +186,7 @@ impl Compiler {
                 let key = self.src.fs.canonical(path);
                 // `starts_with(root)` holds exactly when `root` is one of the ancestors.
                 let under = |p: &Path| p.ancestors().any(|a| ide.under.contains(a));
+
                 under(path) || under(&key) || ide.files.contains(&key)
             }
         }
@@ -181,6 +196,7 @@ impl Compiler {
         if self.ed.facts().is_some_and(|i| i.lint) && self.ide_wants(expr.span.file) {
             let ty = op.ty();
             let constant = matches!(op, Operand::Const { .. });
+
             if let Some(ide) = self.ed.facts_mut() {
                 ide.exprs
                     .entry(expr.span)
@@ -192,9 +208,11 @@ impl Compiler {
                     });
             }
         }
+
         if self.ed.is_live() {
             self.ide_note_ainfo(expr, op);
         }
+
         if let ast::ExprKind::Call {
             callee, ..
         } = &expr.kind
@@ -206,13 +224,16 @@ impl Compiler {
                 ast::ExprKind::Member(_, name) => Some(name.span),
                 _ => None,
             };
+
             if let Some(span) = name
                 && self.ide_wants(span.file)
             {
                 self.ide_note_instance(span, *t);
             }
+
             return;
         }
+
         let (span, what) = match &expr.kind {
             ast::ExprKind::Ident(_) | ast::ExprKind::Member(_, _) => {
                 let (span, qualified_member) = match &expr.kind {
@@ -235,6 +256,7 @@ impl Compiler {
                         {
                             ide.type_names.insert(span, e);
                         }
+
                         IdeWhat::Type(*t)
                     }
                     Operand::Procs(p) => IdeWhat::Procs(p.clone()),
@@ -245,17 +267,21 @@ impl Compiler {
                         (None, None) => return,
                     },
                 };
+
                 (span, what)
             }
             ast::ExprKind::InferredMember(name) => (name.span, IdeWhat::Member(name.name)),
             _ => return,
         };
+
         // An empty span names nothing in the source: the hidden locals the checker makes (the
         // pointer behind `p.x += 1`) get one at the target's start, where the user's name is.
         if span.start == span.end || !self.ide_wants(span.file) {
             return;
         }
+
         let ty = op.ty();
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
@@ -272,6 +298,7 @@ impl Compiler {
         if self.ed.sketching() || !self.ide_wants(name.span.file) {
             return;
         }
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span: name.span,
@@ -287,8 +314,10 @@ impl Compiler {
         if !self.ed.facts().is_some_and(|i| i.lint) || !self.ide_wants(span.file) {
             return;
         }
+
         let from = op.ty();
         let from_constant = matches!(op, Operand::Const { .. });
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.casts
                 .entry(span)
@@ -328,9 +357,11 @@ impl Compiler {
     pub(crate) fn ide_entity_name_span(&self, id: EntityId) -> Option<Span> {
         let e = self.entity(id);
         let (span, name) = (e.span, e.name);
+
         if span.end <= span.start || (span.file.0 as usize) >= self.src.sources.len() {
             return None;
         }
+
         let text = self.src.sources.snippet(span);
         let name_at = |&(at, _): &(usize, &str)| {
             let ident = |c: char| c.is_alphanumeric() || c == '_';
@@ -338,6 +369,7 @@ impl Compiler {
         };
         let (at, _) = text.match_indices(name.as_str()).find(name_at)?;
         let start = span.start + at as u32;
+
         Some(Span {
             file: span.file,
             start,
@@ -350,9 +382,11 @@ impl Compiler {
         let Some(span) = self.ide_entity_name_span(id) else {
             return;
         };
+
         if !self.ide_wants(span.file) {
             return;
         }
+
         let ty = match &self.entity(id).kind {
             EntityKind::Local {
                 ty, ..
@@ -362,6 +396,7 @@ impl Compiler {
             } => *ty,
             _ => TypeId::COMPILE_TIME,
         };
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
@@ -378,9 +413,11 @@ impl Compiler {
         let Some(span) = name else {
             return;
         };
+
         if !self.ide_wants(span.file) {
             return;
         }
+
         let ty = match &self.entity(id).kind {
             EntityKind::Local {
                 ty, ..
@@ -390,6 +427,7 @@ impl Compiler {
             } => *ty,
             _ => TypeId::COMPILE_TIME,
         };
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
@@ -406,6 +444,7 @@ impl Compiler {
         if !self.ide_wants(span.file) {
             return;
         }
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
@@ -420,7 +459,9 @@ impl Compiler {
         if !self.ed.is_live() {
             return;
         }
+
         let parameters = self.ns.modules[module.0 as usize].param_entities.clone();
+
         for arg in &import.params {
             let Some(name) = arg.name else {
                 continue;
@@ -440,6 +481,7 @@ impl Compiler {
                 } => ty,
                 _ => TypeId::COMPILE_TIME,
             };
+
             self.ide_note_entity_use(name.span, id, ty);
         }
     }
@@ -463,6 +505,7 @@ impl Compiler {
         }) {
             return Err(Box::new(error.clone()));
         }
+
         Ok(())
     }
 }

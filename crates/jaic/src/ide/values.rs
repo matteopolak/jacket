@@ -41,13 +41,16 @@ fn fold_binary(
     result: &AInfo,
 ) -> Option<Interval> {
     let logic = interval::is_comparison(op) || matches!(op, BinOp::And | BinOp::Or);
+
     // A negative value met an unsigned type: the operation sees it as a different number.
     if !matches!(op, BinOp::And | BinOp::Or) && ((x.lo < 0 && yu) || (y.lo < 0 && xu)) {
         return None;
     }
+
     if !logic && result.unsigned && (x.lo < 0 || y.lo < 0) {
         return None;
     }
+
     let r = interval::binary(op, x, y)?;
     (logic || r.within(result.range)).then_some(r)
 }
@@ -112,9 +115,11 @@ impl IdeFacts {
             ide.ainfo.get(&a.span)?.unsigned,
             ide.ainfo.get(&b.span)?.unsigned,
         );
+
         if (ia.lo < 0 && ub) || (ib.lo < 0 && ua) {
             return None;
         }
+
         interval::compare(op, ia, ib)
     }
 
@@ -132,6 +137,7 @@ impl IdeFacts {
             }
             E::Unary(op, a) => {
                 let x = self.eval(n, a)?;
+
                 interval::unary(*op, x, info.range)
                     .filter(|r| matches!(op, UnOp::Not) || r.within(info.range))
             }
@@ -140,12 +146,14 @@ impl IdeFacts {
             } => self.eval(n, value).filter(|x| x.within(info.range)),
             _ => None,
         };
+
         Some(tighter.and_then(|t| t.meet(info.iv)).unwrap_or(info.iv))
     }
 
     /// Whether `local` keeps the value it has at a test through `region`.
     fn narrowable(&self, local: EntityId, region: Span) -> bool {
         let ide = self;
+
         !ide.addr_taken.contains(&local)
             && ide.assigned.get(&local).is_none_or(|writes| {
                 writes.iter().all(|w| {
@@ -172,6 +180,7 @@ impl IdeFacts {
                 } else {
                     negate(*op)
                 };
+
                 self.constrain(n, a, op, b, region);
                 self.constrain(n, b, flip(op), a, region);
             }
@@ -203,12 +212,14 @@ impl IdeFacts {
         let (Some(cur), Some(o)) = (self.eval(n, side), self.eval(n, other)) else {
             return;
         };
+
         if !self.narrowable(local, region)
             || (o.lo < 0 && info.unsigned)
             || (cur.lo < 0 && other_info.unsigned)
         {
             return;
         }
+
         let (lo, hi) = match op {
             BinOp::Lt => (cur.lo, cur.hi.min(o.hi.saturating_sub(1))),
             BinOp::Le => (cur.lo, cur.hi.min(o.hi)),
@@ -222,6 +233,7 @@ impl IdeFacts {
             },
             _ => return,
         };
+
         if let Some(narrower) = Interval::new(lo, hi) {
             n.0.push((local, narrower));
         }
@@ -241,14 +253,18 @@ impl IdeFacts {
         let Some(local) = self.ainfo.get(&value.span).and_then(|a| a.local) else {
             return;
         };
+
         if case.values.is_empty() || !self.narrowable(local, body) {
             return;
         }
+
         let mut hull: Option<Interval> = None;
+
         for v in &case.values {
             let Some(i) = self.eval(n, v).filter(|i| i.singleton().is_some()) else {
                 return;
             };
+
             hull = Some(match hull {
                 Some(h) => Interval {
                     lo: h.lo.min(i.lo),
@@ -257,6 +273,7 @@ impl IdeFacts {
                 None => i,
             });
         }
+
         if let Some(h) = hull {
             n.0.push((local, h));
         }
@@ -269,8 +286,11 @@ impl Compiler {
         if self.ed.sketching() || !self.ide_wants_pub(expr.span.file) {
             return;
         }
+
         let info = self.compute_ainfo(expr, op);
+
         self.ide_note_macro_writes(expr);
+
         if let Some(ide) = self.ed.facts_mut() {
             match info {
                 Some(info) => {
@@ -297,6 +317,7 @@ impl Compiler {
 
     fn compute_ainfo(&self, expr: &ast::Expr, op: &Operand) -> Option<AInfo> {
         let ide = self.ed.facts()?;
+
         if let Operand::Const {
             value,
             ty,
@@ -312,6 +333,7 @@ impl Compiler {
             let (range, unsigned) = self
                 .value_range(*ty)
                 .unwrap_or((Interval::of_type(64, true)?, false));
+
             return Some(AInfo {
                 iv: Interval::point(v),
                 range,
@@ -319,6 +341,7 @@ impl Compiler {
                 local: None,
             });
         }
+
         let (range, unsigned) = self.value_range(op.ty())?;
         let mut info = AInfo {
             iv: range,
@@ -327,6 +350,7 @@ impl Compiler {
             local: None,
         };
         let child = |e: &ast::Expr| ide.ainfo.get(&e.span).map(|a| (a.iv, a.unsigned));
+
         match &expr.kind {
             E::Ident(_) => {
                 info.local = ide
@@ -361,6 +385,7 @@ impl Compiler {
             }
             _ => {}
         }
+
         Some(info)
     }
 
@@ -383,6 +408,7 @@ impl Compiler {
                 .map(|(_, id)| id),
             _ => None,
         };
+
         if let Some(id) = id
             && let Some(ide) = self.ed.facts_mut()
         {
@@ -395,11 +421,14 @@ impl Compiler {
         if !self.ed.is_live() || self.ed.sketching() {
             return;
         }
+
         for target in lhs {
             let mut root = target;
+
             while let E::Backtick(inner) = &root.kind {
                 root = inner;
             }
+
             if let E::Ident(name) = &root.kind
                 && let Ok(ids) = self.lookup(scope, *name)
                 && let Some(ide) = self.ed.facts_mut()
@@ -421,14 +450,17 @@ impl Compiler {
         if !self.ed.is_live() || self.ed.sketching() {
             return;
         }
+
         let truth = self
             .ed
             .facts()
             .and_then(|i| i.ainfo.get(&cond.span))
             .and_then(|a| a.iv.truth());
+
         if let Some(then) = then_value {
             self.ide_note_ran(then.span, truth != Some(false));
         }
+
         if let Some(other) = else_value {
             self.ide_note_ran(other.span, truth != Some(true));
         }

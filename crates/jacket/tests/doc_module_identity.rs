@@ -5,6 +5,7 @@ use test_support::{TempDir, toolchain};
 
 fn tools() -> Option<PathBuf> {
     let jacket = PathBuf::from(env!("CARGO_BIN_EXE_jacket"));
+
     toolchain::jaic_beside(&jacket)?;
     Some(jacket)
 }
@@ -28,6 +29,7 @@ fn imported_as(name: &str, args: &[&str]) -> Option<String> {
         .current_dir(&temp)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}{}",
@@ -36,6 +38,7 @@ fn imported_as(name: &str, args: &[&str]) -> Option<String> {
     );
     let page: serde_json::Value =
         serde_json::from_slice(&std::fs::read(temp.join("input/modules/0.json")).unwrap()).unwrap();
+
     Some(
         page["page"]["content"]["import"]
             .as_str()
@@ -50,6 +53,7 @@ fn a_module_documented_by_its_folder_is_imported_by_its_stdlib_path() {
     let Some(import) = imported_as("doc-identity-folder", &[folder.to_str().unwrap()]) else {
         return;
     };
+
     assert_eq!(import, "Extensions/Json");
 }
 
@@ -58,5 +62,6 @@ fn a_module_documented_with_others_is_imported_by_its_stdlib_path() {
     let Some(import) = imported_as("doc-identity-filter", &["--module", "Extensions/Json"]) else {
         return;
     };
+
     assert_eq!(import, "Extensions/Json");
 }

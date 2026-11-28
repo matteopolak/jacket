@@ -37,6 +37,7 @@ impl ZeroedBlock {
         // Zeroed pages are mapped lazily, so a large block nobody touches costs no memory.
         // SAFETY: `layout` has a non-zero size (`size.max(1)`).
         let ptr = std::ptr::NonNull::new(unsafe { std::alloc::alloc_zeroed(layout) })?;
+
         Some(ZeroedBlock {
             place: Place::Host {
                 ptr,
@@ -55,6 +56,7 @@ impl ZeroedBlock {
             return Self::new(size, align);
         };
         let offset = window.alloc(size, align)?;
+
         Some(ZeroedBlock {
             place: Place::Window {
                 window: window.clone(),
@@ -94,6 +96,7 @@ impl Drop for ZeroedBlock {
                 size,
             } => window.free(*offset, *size),
         }
+
         // Its pages may be unmapped now.
         probe::invalidate();
     }
@@ -105,9 +108,11 @@ impl Interp {
     pub fn keep_pointers(&mut self, words: &[u64]) -> Option<u64> {
         let width = self.layout.pointer_size as usize;
         let mut bytes = vec![0; (words.len() * width).max(1)];
+
         for (word, slot) in words.iter().zip(bytes.chunks_mut(width)) {
             self.layout.write_ptr(slot, *word);
         }
+
         self.keep(&bytes, width.max(8))
     }
 
@@ -116,6 +121,7 @@ impl Interp {
     pub fn keep(&mut self, bytes: &[u8], align: usize) -> Option<u64> {
         let block = ZeroedBlock::in_window(self.window.as_ref(), bytes.len().max(1), align)?;
         let addr = block.addr();
+
         // SAFETY: the block is `bytes.len().max(1)` bytes of fresh memory that nothing else uses.
         unsafe {
             std::ptr::copy_nonoverlapping(
@@ -145,12 +151,15 @@ impl Interp {
     /// `read_only` globals go where interpreted code cannot write them, as in a native build.
     pub fn global_addr(&mut self, program: &Program, g: GlobalId) -> Res<u64> {
         let i = g.0 as usize;
+
         if let Some(Some(m)) = self.globals.get(i) {
             return Ok(m.addr);
         }
+
         if self.globals.len() <= i {
             self.globals.resize_with(i + 1, || None);
         }
+
         let global = &program.globals[i];
         let align = global.align.max(8).next_power_of_two();
         let size_align = usize::try_from(global.size)
@@ -174,23 +183,27 @@ impl Interp {
                     global.size
                 ));
             };
+
             GlobalMem {
                 addr: storage.addr(),
                 _storage: Some(storage),
             }
         };
         let addr = mem.addr;
+
         // Registered before its relocations are resolved, so globals pointing at each other
         // are made once.
         self.globals[i] = Some(mem);
         self.ranges.insert(addr, (addr + global.size.max(1), g));
         self.initialize_global(program, g, addr, true)?;
+
         // A note's text from type info: reads of it are reads of that note.
         if let Some(place) = program.note_globals.get(&g)
             && let Some(watch) = self.note_watch.as_mut()
         {
             watch.add(addr, global.size.saturating_sub(1), place.clone());
         }
+
         Ok(addr)
     }
 
@@ -205,17 +218,21 @@ impl Interp {
     ) -> Res<()> {
         let global = &program.globals[g.0 as usize];
         let mut pointers = Vec::with_capacity(global.relocs.len());
+
         for r in &global.relocs {
             let target = match r.target {
                 ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
                 ir::RelocTarget::Func(f) => self.proc_value(program, f),
                 ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
             };
+
             pointers.push((r.offset, target.wrapping_add(r.addend as u64)));
         }
+
         let size = global.size as usize;
         let host = self.host_addr(addr);
         let layout = self.layout;
+
         self.read_only.fill(host, size, || {
             // SAFETY: `addr` is the live block of this global, `global.size` bytes long (see
             // `global_addr`), writable for now; the copy is no longer than that, and each
@@ -226,13 +243,16 @@ impl Interp {
                 if !fresh {
                     std::ptr::write_bytes(host as *mut u8, 0, size);
                 }
+
                 std::ptr::copy_nonoverlapping(
                     global.init.as_ptr(),
                     host as *mut u8,
                     global.init.len().min(size),
                 );
+
                 for (offset, value) in pointers {
                     let mut word = [0; 8];
+
                     layout.write_ptr(&mut word, value);
                     std::ptr::copy_nonoverlapping(
                         word.as_ptr(),
@@ -254,18 +274,22 @@ impl Interp {
         let addr = m.addr;
         let global = &program.globals[g.0 as usize];
         let mut pointers = Vec::new();
+
         for r in global.relocs.iter().filter(|r| r.offset >= from) {
             let target = match r.target {
                 ir::RelocTarget::Global(t) => self.global_addr(program, t)?,
                 ir::RelocTarget::Func(f) => self.proc_value(program, f),
                 ir::RelocTarget::Foreign(f) => self.foreign_addr(program, f)?,
             };
+
             pointers.push((r.offset, target.wrapping_add(r.addend as u64)));
         }
+
         let from = from as usize;
         let end = (global.size as usize).min(global.init.len());
         let host = self.host_addr(addr);
         let layout = self.layout;
+
         self.read_only.fill(host, global.size as usize, || {
             // SAFETY: `addr` is the live block of this global, `global.size` bytes long (see
             // `global_addr`); `from..end` lies inside it and inside `init`, and each relocation
@@ -278,8 +302,10 @@ impl Interp {
                         end - from,
                     );
                 }
+
                 for (offset, value) in pointers {
                     let mut word = [0; 8];
+
                     layout.write_ptr(&mut word, value);
                     std::ptr::copy_nonoverlapping(
                         word.as_ptr(),
@@ -308,6 +334,7 @@ impl Interp {
                 self.initialize_global(program, g, m.addr, false)?;
             }
         }
+
         Ok(())
     }
 
@@ -345,9 +372,11 @@ impl Interp {
             ZeroedBlock::in_window(self.window.as_ref(), bytes.len().max(1), align as usize)
                 .ok_or_else(|| Trap::new("cannot allocate compiler-managed global data"))?;
         let address = storage.addr();
+
         if !self.write(address, bytes) {
             return Err(Trap::new("cannot initialize compiler-managed global data"));
         }
+
         self.pending_data_globals.push(PendingDataGlobal {
             storage,
             size: bytes.len() as u64,
@@ -360,6 +389,7 @@ impl Interp {
 
     pub fn adopt_data_global(&mut self, global: GlobalId, data: PendingDataGlobal) {
         let address = data.storage.addr();
+
         self.globals
             .resize_with(self.globals.len().max(global.0 as usize + 1), || None);
         self.globals[global.0 as usize] = Some(GlobalMem {
@@ -376,10 +406,12 @@ impl Interp {
     /// remain owned by this interpreter, while the data pointers retain storage identity.
     pub fn runtime_data_snapshot(&mut self, program: &Program) -> Res<u64> {
         let mut entries = Vec::new();
+
         for (index, data) in program.globals.iter().enumerate() {
             if data.size == 0 {
                 continue;
             }
+
             let global = GlobalId(index as u32);
             let address = self.global_addr(program, global)?;
             let tag = self
@@ -391,13 +423,16 @@ impl Interp {
                 } else {
                     1
                 });
+
             entries.extend_from_slice(&[tag as u64, data.size, address]);
         }
+
         for data in &self.pending_data_globals {
             if data.size > 0 {
                 entries.extend_from_slice(&[data.segment_tag as u64, data.size, data.address()]);
             }
         }
+
         // `Global_Data_Info { version_stamp: u64; segment_info: [] Global_Data_Segment_Info }` and
         // `Global_Data_Segment_Info { segment_tag: u16; data: [] u8 }`: the tag, the data's
         // count and its pointer each start a word, and the pointer is the target's width.
@@ -410,8 +445,10 @@ impl Interp {
         let Some(address) = self.keep(&[0; 24], 16) else {
             return self.trap("cannot allocate the global data snapshot");
         };
+
         for (i, entry) in entries.chunks(3).enumerate() {
             let at = table + i as u64 * 24;
+
             // SAFETY: `table` is a block of `count * 24` zeroed bytes.
             unsafe {
                 self.poke(at, 8, entry[0]);
@@ -419,6 +456,7 @@ impl Interp {
                 self.poke(at + 8 + view.data, word, entry[2]);
             }
         }
+
         // SAFETY: `address` is a block of 24 zeroed bytes.
         unsafe {
             self.poke(address + 8 + view.count, 8, count as u64);

@@ -35,28 +35,34 @@ impl Compiler {
             span,
             format!("{names} {noun} but {}", counted(count, "value")),
         );
+
         if count < names {
             return Box::new(d.with_help(format!(
                 "give each of the {names} {noun} its own value, or use fewer {noun}"
             )));
         }
+
         // Extra values: delete from the end of the last one that has a name.
         let usable = values.len() == count
             && values.len() > names
             && values
                 .iter()
                 .all(|v| v.span != Span::NONE && v.span.file == values[0].span.file);
+
         if !usable {
             return Box::new(d.with_help(format!(
                 "remove the extra values, or add {} more {noun}",
                 count - names
             )));
         }
+
         let last = values[count - 1].span;
         let start = values[names - 1].span.end;
+
         if start > last.end {
             return Box::new(d);
         }
+
         let span = Span {
             start,
             end: last.end,
@@ -68,6 +74,7 @@ impl Compiler {
         } else {
             ("remove the extra values", "Remove the extra values")
         };
+
         d = d.with_suggestion(
             Suggestion::replace(title, span, "", Applicability::MaybeIncorrect).with_action(action),
         );

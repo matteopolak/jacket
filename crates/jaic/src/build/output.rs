@@ -23,13 +23,16 @@ use std::path::PathBuf;
 /// ```
 pub fn report_executable(settings: &BuildSettings, output: &std::path::Path) -> Result<(), String> {
     use std::io::Write;
+
     if settings.output_type != OutputType::Executable {
         return Ok(());
     }
+
     let Some(file) = jacket_config::env::REPORT_EXE.non_empty() else {
         return Ok(());
     };
     let path = std::path::absolute(output).unwrap_or_else(|_| output.to_path_buf());
+
     std::fs::OpenOptions::new()
         .create(true)
         .append(true)
@@ -66,17 +69,21 @@ pub(super) fn write_output(
 ) -> Result<Written, String> {
     events.push(phase(PHASE_ALL_TARGET_CODE_BUILT));
     let settings = shared.borrow_mut().ws(id)?.settings.clone();
+
     if !settings.do_output || settings.output_type == OutputType::NoOutput {
         return Ok(Written::Done(true));
     }
+
     if shared.borrow().run_target == Some(id) {
         // The embedder runs this program once the metaprogram is done.
         shared.borrow_mut().run_ready = true;
         return Ok(Written::Done(true));
     }
+
     if settings.output_type == OutputType::Executable && compiler.misses_main() {
         let mut reg = shared.borrow_mut();
         let name = reg.ws(id)?.name.clone();
+
         (reg.env.report)(
             ReportSeverity::Error,
             &format!(
@@ -86,11 +93,15 @@ pub(super) fn write_output(
                  library"
             ),
         );
+
         return Ok(Written::Done(false));
     }
+
     let output = output_path(&settings, compiler);
+
     if shared.borrow().env.backend.is_none() {
         let mut reg = shared.borrow_mut();
+
         if let Some(hint) = reg.env.unwritten_output_hint.clone() {
             let name = reg.ws(id)?.name.clone();
             let kind = match settings.output_type {
@@ -99,6 +110,7 @@ pub(super) fn write_output(
                 OutputType::ObjectFile => "an object file",
                 _ => "an executable",
             };
+
             (reg.env.report)(
                 ReportSeverity::Warning,
                 &format!(
@@ -110,8 +122,10 @@ pub(super) fn write_output(
                 ),
             );
         }
+
         return Ok(Written::Done(true));
     }
+
     events.push(Event {
         kind: EVENT_PHASE,
         // The phase, then the four file-list counts the metaprogram's reader asks for (none yet).
@@ -121,6 +135,7 @@ pub(super) fn write_output(
     {
         let mut reg = shared.borrow_mut();
         let ws = reg.ws(id)?;
+
         if ws.intercepted {
             ws.awaiting_write = true;
             return Ok(Written::AwaitingWrite);
@@ -140,6 +155,7 @@ pub(super) fn write_now(
     let settings = shared.borrow_mut().ws(id)?.settings.clone();
     let output = output_path(&settings, compiler);
     let name = output.display().to_string().into_bytes();
+
     // Output preparation prunes checked-but-unreferenced bodies and freezes runtime globals for
     // emission.
     compiler
@@ -149,16 +165,21 @@ pub(super) fn write_now(
         settings.output_type,
         OutputType::Executable | OutputType::DynamicLibrary
     );
+
     if settings.use_custom_link_command && links {
         let mut reg = shared.borrow_mut();
+
         if let Some(backend) = reg.env.backend.as_mut() {
             let objects = backend.write_objects(&compiler.out.program, &settings, &output);
+
             return match objects {
                 Ok(o) => {
                     let mut strings: Vec<Vec<u8>> = Vec::new();
+
                     for list in [&o.objects, &o.system_libraries, &o.user_libraries] {
                         strings.extend(list.iter().map(|s| s.clone().into_bytes()));
                     }
+
                     strings.push(name);
                     events.push(Event {
                         kind: EVENT_PHASE,
@@ -187,6 +208,7 @@ pub(super) fn write_now(
             };
         }
     }
+
     let written = {
         let mut reg = shared.borrow_mut();
         let backend = reg
@@ -194,14 +216,17 @@ pub(super) fn write_now(
             .backend
             .as_mut()
             .expect("only a backend writes output");
+
         backend.write_output(&compiler.out.program, &settings, &output)
     };
+
     if let Err(message) = &written {
         (shared.borrow_mut().env.report)(
             ReportSeverity::Error,
             &format!("error: writing {}: {message}", output.display()),
         );
     }
+
     events.push(Event {
         kind: EVENT_PHASE,
         ints: vec![PHASE_POST_WRITE_EXECUTABLE, written.is_err() as i64, 0],
@@ -217,6 +242,7 @@ pub(super) fn finish_custom_link(shared: &SharedWorkspaces, id: i64) -> Result<(
     let (link, compiler) = {
         let mut reg = shared.borrow_mut();
         let ws = reg.ws(id)?;
+
         (ws.link.take().expect("a pending link"), ws.compiler.take())
     };
     let failed = match link.exit_code {
@@ -248,9 +274,11 @@ pub(super) fn finish_custom_link(shared: &SharedWorkspaces, id: i64) -> Result<(
     let report = compiler
         .as_mut()
         .and_then(|compiler| performance_event(shared, id, compiler));
+
     {
         let mut reg = shared.borrow_mut();
         let ws = reg.ws(id)?;
+
         ws.events.push_back(Event {
             kind: EVENT_PHASE,
             ints: vec![
@@ -270,10 +298,12 @@ pub(super) fn finish_custom_link(shared: &SharedWorkspaces, id: i64) -> Result<(
         ws.stage = Stage::Done;
     }
     let observer = shared.borrow_mut().env.observer.take();
+
     if let (Some(mut o), Some(compiler)) = (observer, compiler) {
         o.finished(compiler, failed);
         shared.borrow_mut().env.observer = Some(o);
     }
+
     Ok(())
 }
 
@@ -297,11 +327,13 @@ pub(super) fn output_path(settings: &BuildSettings, compiler: &Compiler) -> Path
 /// `get_type_table` after `COMPLETE`.
 pub fn hand_over_kept(shared: &SharedWorkspaces) {
     let mut id = TOP_LEVEL_WORKSPACE + 1;
+
     while id < shared.borrow().list.len() as i64 {
         let kept = {
             let mut reg = shared.borrow_mut();
             let running = reg.run_target == Some(id) && reg.run_ready;
             let ws = &mut reg.list[id as usize];
+
             if ws.stage == Stage::Done && !running {
                 let failed = ws.failed;
                 ws.compiler.take().map(|c| (c, failed))
@@ -309,13 +341,16 @@ pub fn hand_over_kept(shared: &SharedWorkspaces) {
                 None
             }
         };
+
         if let Some((compiler, failed)) = kept {
             let observer = shared.borrow_mut().env.observer.take();
+
             if let Some(mut o) = observer {
                 o.finished(compiler, failed);
                 shared.borrow_mut().env.observer = Some(o);
             }
         }
+
         id += 1;
     }
 }
@@ -325,22 +360,27 @@ pub fn hand_over_kept(shared: &SharedWorkspaces) {
 /// from `budget`, the top-level compiler's interpreter budget.
 pub fn finish_all(shared: &SharedWorkspaces, budget: &mut Option<u64>) -> Result<(), String> {
     let mut id = TOP_LEVEL_WORKSPACE + 1;
+
     while id < shared.borrow().list.len() as i64 {
         // A workspace nobody added a file or string to has nothing to compile; building it
         // would link an executable without `main`.
         {
             let mut reg = shared.borrow_mut();
             let ws = &mut reg.list[id as usize];
+
             if ws.stage == Stage::Open && ws.pending.is_empty() {
                 ws.stage = Stage::Done;
             }
         }
+
         while shared.borrow().list[id as usize].stage != Stage::Done {
             step(shared, id, budget, false)?;
         }
+
         shared.borrow_mut().list[id as usize].events.clear();
         id += 1;
     }
+
     hand_over_kept(shared);
     Ok(())
 }

@@ -117,6 +117,7 @@ impl Recorder for Editor {
     fn named(&mut self, span: Span, ids: &[EntityId]) {
         if let Some(facts) = &mut self.facts {
             facts.last_entity = Some((span, ids[0]));
+
             if facts.lint {
                 facts.used.extend(ids.iter().copied());
             }
@@ -150,6 +151,7 @@ impl Recorder for Editor {
     fn inferred(&mut self, span: Span, ty: TypeId) {
         if let Some(facts) = &mut self.facts {
             let seen = facts.inferred_expected.entry(span).or_default();
+
             if !seen.contains(&ty) {
                 seen.push(ty);
             }
@@ -184,6 +186,7 @@ impl Recorder for Editor {
         let Some(facts) = &mut self.facts else {
             return;
         };
+
         for error in errors {
             if let Some(at) = facts
                 .errors
@@ -258,11 +261,13 @@ impl Recorder for Editor {
             reuse.parse(*compile, path, file, text)
         } else {
             let parsed = crate::parser::parse_file_ide(file, text);
+
             Arc::new(SharedParse {
                 file: parsed.file,
                 diagnostics: parsed.diagnostics,
             })
         };
+
         facts
             .parse_errors
             .extend(shared.diagnostics.iter().cloned());
@@ -323,6 +328,7 @@ impl Recorder for Editor {
                 {
                     facts.errors.push(*error);
                 }
+
                 Ok(())
             }
             None => Err(error),
@@ -389,9 +395,11 @@ impl Recorder for Editor {
         let Some(ide) = self.facts_mut() else {
             return;
         };
+
         dead.sort_by_key(|s| (s.start, s.end));
         dead.dedup();
         *ide.body_evals.entry(body).or_default() += 1;
+
         for run in dead {
             *ide.dead_runs.entry((body, run)).or_default() += 1;
         }

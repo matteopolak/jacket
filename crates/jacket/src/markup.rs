@@ -10,6 +10,7 @@
 /// ```
 pub fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
+
     for c in text.chars() {
         match c {
             '&' => out.push_str("&amp;"),
@@ -20,6 +21,7 @@ pub fn escape(text: &str) -> String {
             c => out.push(c),
         }
     }
+
     out
 }
 

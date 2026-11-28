@@ -12,10 +12,12 @@ impl Resolver<'_> {
         all: &HashMap<ProcId, Summary>,
     ) -> HashSet<usize> {
         let mut out = HashSet::default();
+
         for formal in formals {
             let Some(arg) = args.iter().find(|a| a.formal == *formal) else {
                 continue;
             };
+
             match self.argument_trace(arg, all, &mut HashSet::default(), 0) {
                 Some(Path {
                     root: Root::Parameter(formal),
@@ -31,6 +33,7 @@ impl Resolver<'_> {
                 _ => {}
             }
         }
+
         out
     }
 
@@ -42,6 +45,7 @@ impl Resolver<'_> {
         let live = returning_blocks(body, all, self.targets);
         let mut block_writes: Vec<Vec<(Effect, Vec<jaic::source::Span>)>> =
             vec![Vec::new(); body.blocks.len()];
+
         for (at, event) in body
             .blocks
             .iter()
@@ -50,9 +54,11 @@ impl Resolver<'_> {
             .flat_map(|(i, b)| b.events.iter().map(move |e| (i, e)))
         {
             let before = writes.len();
+
             self.write_event(event, all, &mut writes, &mut unknown_write, &mut escapes);
             block_writes[at].extend(writes[before..].iter().cloned());
         }
+
         let overwrites = writes
             .iter()
             .map(|(effect, _)| effect)
@@ -61,6 +67,7 @@ impl Resolver<'_> {
             .map(|effect| effect.target.clone())
             .collect();
         let retains = self.infer_retains(all, &writes, &unknown_write);
+
         Writes {
             effects: writes,
             unknown: unknown_write,
@@ -86,6 +93,7 @@ impl Resolver<'_> {
                     span,
                 } => {
                     let p = self.places.place(*place, *ty);
+
                     if let Some(target) = self.location(p, all, &mut HashSet::default(), 0)
                         && matches!(target.root, Root::Parameter(_))
                     {
@@ -112,6 +120,7 @@ impl Resolver<'_> {
                 {
                     let p = self.places.place(*place, *ty);
                     let resolved = self.location(p, all, &mut HashSet::default(), 0);
+
                     if self.places.unresolved(p)
                         && resolved
                             .as_ref()
@@ -119,8 +128,10 @@ impl Resolver<'_> {
                     {
                         unknown_write.extend(self.potential(self.places.paths[p].0.0));
                     }
+
                     let owned =
                         !self.places.unresolved(p) && self.owned.contains(&self.places.root_of(p));
+
                     if let Some(Path {
                         root: Root::Parameter(formal),
                         ..
@@ -145,10 +156,12 @@ impl Resolver<'_> {
                                 Some(target.clone())
                             }
                         });
+
                         if self.value(*value, all) != restored {
                             escapes.insert(formal);
                         }
                     }
+
                     if let Some(target) = resolved
                         && matches!(target.root, Root::Parameter(_))
                     {
@@ -157,6 +170,7 @@ impl Resolver<'_> {
                         } else {
                             Some(target.clone())
                         };
+
                         if self.value(*value, all) != expected {
                             writes.push((
                                 Effect {
@@ -196,10 +210,12 @@ impl Resolver<'_> {
                             } else {
                                 &called.unknown_write
                             };
+
                             unknown_write.extend(self.argument_dependencies(accessed, args, all));
                             escapes.extend(self.argument_dependencies(&called.escapes, args, all));
                         }
                     }
+
                     for (effect, witness) in self.call_effects(event, all, false) {
                         if effect.kind == Kind::Write && effect.exported() {
                             writes.push((effect, chain(*span, &witness)));
@@ -226,14 +242,18 @@ impl super::Summaries {
             if jaic::interrupt::should_stop() {
                 return;
             }
+
             let recursive = component.len() > 1 || graph[&component[0]].contains(&component[0]);
             let mut resolvers = HashMap::default();
+
             loop {
                 let mut changed = false;
+
                 for id in component {
                     if jaic::interrupt::should_stop() {
                         return;
                     }
+
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
                         Resolver::cached(
                             cache,
@@ -254,24 +274,29 @@ impl super::Summaries {
                     } = resolver.infer_writes(&self.procs);
                     let summary = self.procs.get_mut(id).unwrap();
                     let previous = summary.unknown_write.len() + summary.escapes.len();
+
                     summary.unknown_write.extend(unknown_write);
                     summary.escapes.extend(escapes);
                     changed |= previous != summary.unknown_write.len() + summary.escapes.len();
                     let before = summary.may.len();
+
                     summary.may.retain(|e, _| !matches!(e.target.root, Root::Parameter(p) if e.kind == Kind::Write && summary.unknown_write.contains(&p)));
                     changed |= before != summary.may.len();
                     changed |= summary.retains != retains;
                     summary.retains = retains;
                     changed |= summary.overwrites != overwrites;
                     summary.overwrites = overwrites;
+
                     for (effect, witness) in writes {
                         if matches!(effect.target.root, Root::Parameter(p) if effect.kind == Kind::Write && summary.unknown_write.contains(&p))
                         {
                             continue;
                         }
+
                         changed |= super::insert(&mut summary.may, effect, witness);
                     }
                 }
+
                 if !changed || !recursive {
                     break;
                 }

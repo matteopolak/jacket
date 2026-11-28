@@ -27,6 +27,7 @@ main :: () {
 
 fn hover(marker: &str) -> String {
     let s = open(PROGRAM);
+
     s.hover(&uri(), at(PROGRAM, marker))
         .unwrap()
         .expect("hover")
@@ -38,6 +39,7 @@ fn hover(marker: &str) -> String {
 fn a_multi_line_procedure_header_shows_every_parameter() {
     for marker in ["copy ::", "copy(b)"] {
         let text = hover(marker);
+
         assert!(
             text.contains("copy :: (using source: Bits, extra: s64 = 0) -> Bits"),
             "{text}"
@@ -52,5 +54,6 @@ fn a_multi_line_procedure_header_shows_every_parameter() {
 #[test]
 fn a_multi_line_polymorphic_struct_shows_every_parameter() {
     let text = hover("Pair ::");
+
     assert!(text.contains("Pair :: struct (A: Type, B: Type)"), "{text}");
 }

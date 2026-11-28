@@ -411,6 +411,7 @@ impl Term {
                 for c in cases {
                     f(c.1);
                 }
+
                 f(*default);
             }
             Term::Ret(_) | Term::Unreachable => {}

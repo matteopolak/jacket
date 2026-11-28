@@ -82,14 +82,17 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
     } = compile_root(root, options, os, cpu, Some(report), canon, caches);
     let mut error = error;
     let top_complete = error.is_none();
+
     if top_complete
         && let Err(message) =
             jaic::build::finish_all(&workspaces, &mut compiler.ct.interp.block_budget)
     {
         error = Some(message);
     }
+
     // The workspaces' programs first: a file both compile is the target program's.
     let mut compilers: Vec<(Box<Compiler>, bool)> = std::mem::take(&mut *done.borrow_mut());
+
     if error.is_none()
         && let Some((_, true)) = compilers.iter().find(|(_, failed)| *failed)
     {
@@ -99,13 +102,16 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
             .map(|r| r.lines().next().unwrap_or_default().to_string())
             .or_else(|| Some("a workspace failed to compile".into()));
     }
+
     compilers.reverse();
     compilers.push((compiler, !top_complete));
     // One notice for the root, whatever the evaluation that ran into the limit was.
     let stopped = host.borrow_mut().has_stopped();
+
     if stopped {
         error = Some(limits.stopped_notice(jaic::source::Span::NONE).message);
     }
+
     // Check every program first: which files this root compiled settles which it reports.
     struct Checked {
         compiler: Box<Compiler>,
@@ -114,31 +120,39 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         files: Vec<(jaic::source::FileId, PathBuf)>,
         diagnostics: Vec<jaic::diagnostics::Diagnostic>,
     }
+
     let mut checked = Vec::new();
     let mut failures = Vec::new();
     let top = compilers.len() - 1;
+
     for (i, (mut compiler, failed)) in compilers.into_iter().enumerate() {
         failures.extend(failures_of(&compiler, root.path()));
         let mut diagnostics = compiler.ide_check_all();
+
         if i == top
             && let Some(stopping) = &stopping
         {
             diagnostics.insert(0, (**stopping).clone());
         }
+
         let complete = !failed && diagnostics.is_empty();
+
         if error.is_none()
             && let Some(diagnostic) = diagnostics.first()
         {
             error = Some(diagnostic.message.clone());
         }
+
         let files = (0..compiler.src.sources.len() as u32)
             .map(jaic::source::FileId)
             .filter_map(|f| {
                 let file = compiler.src.sources.get(f).path.as_file()?;
                 let path = canon.get_or_insert_with(file, canonical);
+
                 report.contains(&path).then_some((f, path))
             })
             .collect();
+
         checked.push(Checked {
             compiler,
             complete,
@@ -146,6 +160,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
             diagnostics,
         });
     }
+
     // A note and the compile-time code that read it are usually in different workspaces.
     jaic::ide::share_note_reads(
         &mut checked
@@ -157,6 +172,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
         .iter()
         .flat_map(|c| c.files.iter().map(|(_, path)| path.clone()))
         .collect();
+
     claims.publish(index, compiled.iter().cloned());
     let owned = claims.owned(index, &compiled);
     let mut lints = Vec::new();
@@ -164,6 +180,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
     let mut errors = Vec::new();
     let mut contexts = Vec::new();
     let mut read_notes = BTreeSet::new();
+
     for Checked {
         mut compiler,
         complete,
@@ -177,9 +194,11 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
             {
                 continue;
             }
+
             let Some((_, path)) = files.iter().find(|(f, _)| *f == d.span.file) else {
                 continue;
             };
+
             if owned.contains(path) {
                 errors.push(CompileError {
                     path: path.clone(),
@@ -190,6 +209,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
                 });
             }
         }
+
         for (f, path) in &files {
             if owned.contains(path) {
                 texts.insert(
@@ -198,6 +218,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
                 );
             }
         }
+
         for (f, path) in &files {
             for (span, _) in compiler.ide_note_readers_in(*f) {
                 read_notes.insert((
@@ -207,6 +228,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
                 ));
             }
         }
+
         // Whether anything reaches a declaration is a question for every program that compiles
         // its file, so each context records what it found dead, owned files or not.
         let wants_reach = files
@@ -221,6 +243,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
                 .flat_map(|r| &r.dead)
                 .filter_map(|d| {
                     let (_, path) = files.iter().find(|(f, _)| *f == d.file)?;
+
                     Some((
                         path.to_string_lossy().into_owned(),
                         d.name.start as usize,
@@ -229,6 +252,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
                 })
                 .collect::<BTreeSet<_>>()
         });
+
         contexts.push(CheckedContext {
             dead: dead.filter(|_| reach.is_some()),
             root: root.path().to_path_buf(),
@@ -243,6 +267,7 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
             .filter(|(_, path)| owned.contains(path))
             .map(|&(f, _)| f)
             .collect();
+
         if !own.is_empty() {
             let entry = if matches!(&root.root, jaic::project::Root::Module { entry, .. } if !jaic::paths::is_module_entry(entry))
                 && files
@@ -276,21 +301,26 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
             };
             let mut found =
                 lint_files_with_entry(&mut compiler, &own, configs, complete, entry, reach);
+
             for l in &mut found {
                 l.path = canon
                     .get_or_insert_with(Path::new(&l.path), canonical)
                     .to_string_lossy()
                     .into_owned();
             }
+
             lints.extend(found);
             lints.extend(compiler_warnings(&compiler, &own, configs, canon));
         }
+
         if options.jobs == 1 {
             crate::facts::profile_retained(&mut compiler, root.path(), complete);
         }
+
         // Drop the compiler now: they hold the workspace registry, which held them.
         drop(compiler);
     }
+
     errors.sort_by(|a, b| (&a.path, a.start, a.code).cmp(&(&b.path, b.start, b.code)));
     errors.dedup_by(|a, b| a.path == b.path && a.start == b.start && a.code == b.code);
     RootResult {
@@ -315,6 +345,7 @@ fn compiler_warnings(
 ) -> Vec<Lint> {
     let path_of = |file| {
         let path = compiler.src.sources.get(file).path.as_file()?;
+
         Some(
             canon
                 .get_or_insert_with(path, canonical)
@@ -323,22 +354,27 @@ fn compiler_warnings(
         )
     };
     let mut lints = Vec::new();
+
     for warning in &*compiler.diag.warnings {
         if !files.contains(&warning.span.file) {
             continue;
         }
+
         let Some(path) = path_of(warning.span.file) else {
             continue;
         };
         let level = configs
             .at(Path::new(&path))
             .compiler_level(warning.code, Path::new(&path));
+
         if level == Level::Allow {
             continue;
         }
+
         let warning = warning.clone();
         let mut notes = Vec::new();
         let mut secondary = Vec::new();
+
         for (span, message) in warning.notes.iter().chain(warning.secondary_labels()) {
             if let Some(path) = (*span != Span::NONE).then(|| path_of(span.file)).flatten() {
                 secondary.push(SecondaryLabel {
@@ -352,6 +388,7 @@ fn compiler_warnings(
                 notes.push(message.clone());
             }
         }
+
         // The suggestions come first, as the compiler prints them; the first one's edits are the
         // fix when they all stay in this file.
         let suggestions: Vec<_> = warning.suggestions().iter().filter(|s| s.listed).collect();
@@ -371,6 +408,7 @@ fn compiler_warnings(
                     _ => None,
                 })
                 .collect::<Option<Vec<_>>>()?;
+
             Some(Fix {
                 title: s.title.clone(),
                 edits,
@@ -382,6 +420,7 @@ fn compiler_warnings(
             .map(|s| s.title.clone())
             .chain(warning.help.iter().cloned())
             .collect();
+
         lints.push(Lint {
             rule: warning.code.name(),
             level,
@@ -396,5 +435,6 @@ fn compiler_warnings(
             fix,
         });
     }
+
     lints
 }

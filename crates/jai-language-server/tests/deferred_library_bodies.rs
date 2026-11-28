@@ -27,6 +27,7 @@ const PROGRAMS: &[&str] = &[
 
 fn open(defer: bool, text: &str) -> Session {
     let mut s = session();
+
     s.defer_library_bodies(defer);
     s.open(
         DocumentUri::parse("file:///lsp-test/jacket.toml").unwrap(),
@@ -42,8 +43,10 @@ fn open(defer: bool, text: &str) -> Session {
 fn answers(s: &Session, text: &str) -> String {
     let mut out = format!("{:?}\n", s.diagnostics(&uri()));
     let lines: Vec<&str> = text.lines().collect();
+
     for (line, content) in lines.iter().enumerate() {
         let mut word_start = None;
+
         for (at, c) in content
             .char_indices()
             .chain(std::iter::once((content.len(), ' ')))
@@ -55,6 +58,7 @@ fn answers(s: &Session, text: &str) -> String {
                     line: line as u32,
                     character: start as u32,
                 };
+
                 out += &format!(
                     "{line}:{start} {:?} {:?}\n",
                     s.hover(&uri(), position),
@@ -63,6 +67,7 @@ fn answers(s: &Session, text: &str) -> String {
             }
         }
     }
+
     out
 }
 
@@ -71,6 +76,7 @@ fn deferring_changes_no_answer() {
     for (n, text) in PROGRAMS.iter().enumerate() {
         let with = answers(&open(true, text), text);
         let without = answers(&open(false, text), text);
+
         assert_eq!(with, without, "program {n}");
     }
 }
@@ -79,10 +85,12 @@ fn deferring_changes_no_answer() {
 fn compile_time_code_still_runs_stdlib_procedures() {
     let text = PROGRAMS[3];
     let s = open(true, text);
+
     s.staged_unless_interrupted(Stage::Compile).unwrap();
     // The run asked for the bodies it calls, before any lint did.
     assert!(s.deferred_library_bodies().1 > 0);
     let diagnostics = s.diagnostics(&uri()).unwrap();
+
     assert!(
         diagnostics
             .iter()
@@ -95,6 +103,7 @@ fn compile_time_code_still_runs_stdlib_procedures() {
 fn lints_follow_stdlib_callees() {
     let s = open(true, PROGRAMS[2]);
     let diagnostics = s.diagnostics(&uri()).unwrap();
+
     assert!(
         diagnostics
             .iter()
@@ -107,15 +116,18 @@ fn lints_follow_stdlib_callees() {
 fn the_compile_leaves_stdlib_bodies_unchecked_until_something_asks() {
     let on = open(true, PROGRAMS[0]);
     let off = open(false, PROGRAMS[0]);
+
     on.staged_unless_interrupted(Stage::Compile).unwrap();
     off.staged_unless_interrupted(Stage::Compile).unwrap();
     let (deferred, promoted) = on.deferred_library_bodies();
+
     assert!(deferred > 0, "{deferred} bodies deferred");
     assert_eq!(promoted, 0, "nothing needed one yet");
     assert_eq!(off.deferred_library_bodies(), (0, 0));
     // The lints read what the code calls: they ask for every body.
     on.staged_unless_interrupted(Stage::Full).unwrap();
     let (left, promoted) = on.deferred_library_bodies();
+
     assert_eq!(left, 0);
     assert!(promoted >= deferred, "{promoted} of {deferred}");
 }
@@ -123,10 +135,12 @@ fn the_compile_leaves_stdlib_bodies_unchecked_until_something_asks() {
 #[test]
 fn a_library_file_open_in_the_editor_is_checked_whole() {
     let mut s = session();
+
     s.defer_library_bodies(true);
     let path = test_support::lsp::stdlib().join("Basic/module.jai");
     let text = std::fs::read_to_string(&path).unwrap();
     let library = test_support::lsp::uri_of(&path);
+
     s.open(library.clone(), 1, text).unwrap();
     s.staged_unless_interrupted(Stage::Compile).unwrap();
     assert_eq!(s.deferred_library_bodies().0, 0);

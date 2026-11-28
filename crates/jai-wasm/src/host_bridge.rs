@@ -74,6 +74,7 @@ impl PlayHost {
     fn stream_output(&mut self) {
         let host = self.shared.0.borrow();
         let (out, err) = self.sent;
+
         send_output(&host.stdout[out.min(host.stdout.len())..], false);
         send_output(&host.stderr[err.min(host.stderr.len())..], true);
         self.sent = (host.stdout.len(), host.stderr.len());
@@ -90,18 +91,23 @@ impl PlayHost {
         let mut results = [0u64];
         let outcome = host_call("jai_stdin_read", &args, &mut results);
         let mut shared = self.shared.0.borrow_mut();
+
         match outcome {
             Some(Ok(waited)) => {
                 drop(shared);
+
                 if waited {
                     self.after_wait();
                 }
+
                 let count = (results[0] as usize).min(buffer.len());
                 let mut shared = self.shared.0.borrow_mut();
+
                 if count == 0 {
                     shared.end_stdin();
                     return false;
                 }
+
                 shared.feed_stdin(&buffer[..count]);
                 true
             }
@@ -122,10 +128,12 @@ impl PlayHost {
         self.stream_output();
         // Sleeping only moves the sandbox's virtual clock; a wait for the page took real time.
         let now = now_ms();
+
         if now > self.last_ms {
             self.shared
                 .advance_clock(((now - self.last_ms) * 1_000_000.0) as u64);
         }
+
         self.last_ms = now;
     }
 }
@@ -146,18 +154,23 @@ impl Host for PlayHost {
                 break;
             }
         }
+
         // Asked of the page first: a page without the procedure (or without any host) answers
         // that nothing is provided, which the sandbox says too.
         let ask_page_first = symbol == "jai_host_provides";
+
         if !ask_page_first && let Some(result) = self.shared.foreign(symbol, args, sig) {
             return Some(result);
         }
+
         let mut results = vec![0u64; sig.returns.len()];
+
         match host_call(symbol, args, &mut results) {
             Some(Ok(waited)) => {
                 if waited {
                     self.after_wait();
                 }
+
                 Some(Ok(results))
             }
             Some(Err(message)) => Some(Err(format!("{symbol}: {message}"))),
@@ -213,12 +226,14 @@ fn host_call(symbol: &str, args: &[u64], results: &mut [u64]) -> Option<Result<b
         ),
         s => (s, false),
     };
+
     match status {
         0 => Some(Ok(waited)),
         1 => None,
         _ => {
             let mut buffer = vec![0u8; 4096];
             let len = imports::error(buffer.as_mut_ptr() as usize, buffer.len());
+
             buffer.truncate(len.min(4096));
             Some(Err(String::from_utf8_lossy(&buffer).into_owned()))
         }
@@ -264,12 +279,15 @@ pub fn host_alloc(size: usize) -> usize {
         return 0;
     };
     let mut block = Vec::new();
+
     if block.try_reserve_exact(units).is_err() {
         return 0;
     }
+
     block.resize(units, 0u128);
     let block = block.into_boxed_slice();
     let address = block.as_ptr() as usize;
+
     HOST_BLOCKS.with(|blocks| blocks.borrow_mut().insert(address, block));
     address
 }
@@ -287,11 +305,13 @@ mod tests {
     fn host_blocks_are_aligned_zeroed_and_freed() {
         let a = host_alloc(3);
         let b = host_alloc(100);
+
         assert!(a != 0 && b != 0 && a != b);
         assert_eq!(a % 16, 0);
         assert_eq!(b % 16, 0);
         HOST_BLOCKS.with(|blocks| {
             let blocks = blocks.borrow();
+
             assert_eq!(blocks[&b].len(), 7);
             assert!(blocks[&b].iter().all(|&unit| unit == 0));
         });

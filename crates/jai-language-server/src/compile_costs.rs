@@ -28,6 +28,7 @@ pub fn cost_text(blocks: u64, elapsed: Duration) -> String {
         s if s >= 0.001 => format!("{:.0} ms", s * 1e3),
         _ => "<1 ms".to_string(),
     };
+
     format!("{count} blocks · {time}")
 }
 
@@ -63,15 +64,18 @@ impl Session {
                 .into_iter()
                 .filter(|c| c.path == path && c.blocks >= hint)
                 .collect();
+
             own
         });
         let mut lenses = Vec::new();
+
         for cost in found.unwrap_or_default() {
             let Some(range) =
                 self.range_of(uri, crate::analysis::Span::new(cost.start, cost.start))
             else {
                 continue;
             };
+
             lenses.push(CodeLens {
                 range,
                 command: Command::at(
@@ -82,6 +86,7 @@ impl Session {
                 ),
             });
         }
+
         Ok(lenses)
     }
 
@@ -91,6 +96,7 @@ impl Session {
         let costs = self
             .checked(uri, |a, _| a.evaluation_costs())
             .unwrap_or_default();
+
         costs
             .into_iter()
             .filter_map(|c| {
@@ -109,12 +115,15 @@ impl Session {
     /// notifications for a client that asked for them (`compileTime.limitNotices`).
     pub(crate) fn take_limit_notices(&self) -> Vec<Value> {
         let hits = self.semantic.borrow_mut().take_limit_hits();
+
         if !self.limit_notices {
             return Vec::new();
         }
+
         hits.into_iter()
             .filter_map(|hit| {
                 let location = self.location_in(&hit.path, &hit.text, hit.start, hit.end)?;
+
                 Some(json!({
                     "jsonrpc": "2.0",
                     "method": NOTIFICATION,

@@ -47,6 +47,7 @@ fn parameter(cx: &Cx, event: &Event, name: &str) -> Option<Vec<String>> {
     else {
         return None;
     };
+
     lifetime_movement::notes(cx.compiler, *callee).find_map(|n| {
         lifetime_movement::parameters(&n.text, name)
             .map(|a| a.into_iter().map(str::to_owned).collect())
@@ -88,6 +89,7 @@ impl Builder {
             completions: HashMap::default(),
             successors: body.blocks.iter().map(|b| b.successors.clone()).collect(),
         };
+
         for event in body.blocks.iter().flat_map(|b| &b.events) {
             for note in [
                 "RegistersBorrower",
@@ -104,6 +106,7 @@ impl Builder {
                     continue;
                 };
                 let own = resolver.places.import(places, p);
+
                 if let Some(owner) = resolver.local_destination_of(own, &summaries.procs)
                     && resolver.places.types.get(&owner).is_some_and(|&ty| {
                         matches!(
@@ -121,10 +124,12 @@ impl Builder {
                         owner,
                         crate::rules::lifetime_places::Projection::DynamicElement(index),
                     );
+
                     this.aliases.insert(p, element);
                 }
             }
         }
+
         for (at, event) in body.blocks.iter().enumerate().flat_map(|(block, b)| {
             b.events.iter().enumerate().map(move |(event, e)| {
                 (
@@ -143,6 +148,7 @@ impl Builder {
             {
                 this.started.push(region);
             }
+
             if let Some(args) = parameter(cx, event, "RegistersBorrower") {
                 let (Some(receiver_formal), Some(callback_formal), Some(callback_input)) = (
                     args.first().and_then(|a| a.parse().ok()),
@@ -168,11 +174,13 @@ impl Builder {
                 };
                 let mut common =
                     None::<jaic::fxhash::HashSet<Vec<crate::rules::lifetime_summary::Step>>>;
+
                 for proc in targets.procedures {
                     let Some(s) = summaries.procs.get(&proc) else {
                         registration.opaque = true;
                         continue;
                     };
+
                     registration.opaque |= !s.stable_captures(
                         cx.compiler,
                         cx.compiler
@@ -190,6 +198,7 @@ impl Builder {
                         .filter(|p| p.root == Root::Parameter(callback_input))
                         .map(|p| p.steps.clone())
                         .collect::<jaic::fxhash::HashSet<_>>();
+
                     if let Some(old) = &mut common {
                         if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
                             old.extend(current);
@@ -200,7 +209,9 @@ impl Builder {
                         common = Some(current);
                     }
                 }
+
                 registration.reads.extend(common.into_iter().flatten());
+
                 if let Some(old) = this.registrations.get_mut(&region) {
                     old.opaque |= registration.opaque;
                     old.sites.extend(registration.sites);
@@ -209,6 +220,7 @@ impl Builder {
                     this.registrations.insert(region, registration);
                 }
             }
+
             if let Some(args) = parameter(cx, event, "CompletesBorrower")
                 && let Some(formal) = args.first().and_then(|a| a.parse().ok())
                 && let Some(region) = this.receiver(event, formal, places, resolver)
@@ -220,6 +232,7 @@ impl Builder {
                 this.completions.insert(value, region);
             }
         }
+
         this
     }
 
@@ -245,6 +258,7 @@ impl Builder {
     ) -> Vec<Op> {
         let (places, cells) = storage;
         let mut out = Vec::new();
+
         if let Some(args) = parameter(cx, event, "EndsBorrower")
             && let Some(formal) = args.first().and_then(|a| a.parse().ok())
             && let Some(region) = self.receiver(event, formal, places, resolver)
@@ -259,6 +273,7 @@ impl Builder {
                     header: true,
                 }),
             ]);
+
             for &started in &self.started {
                 if may_alias(places, region, started) {
                     for header in [false, true] {
@@ -270,6 +285,7 @@ impl Builder {
                 }
             }
         }
+
         if let Some(args) = parameter(cx, event, "StartsBorrower")
             && let Some(formal) = args.first().and_then(|a| a.parse().ok())
             && let Some(region) = self.receiver(event, formal, places, resolver)
@@ -288,6 +304,7 @@ impl Builder {
                 possible: false,
                 span: *span,
             });
+
             if let Some(registration) = self.registrations.get(&region)
                 && (cx.lifetime_mode == jacket_config::LifetimeMode::Strict
                     || registration
@@ -296,8 +313,10 @@ impl Builder {
                         .any(|&site| self.dominates(site, at)))
             {
                 let mut captured = Vec::new();
+
                 for steps in &registration.reads {
                     let own = resolver.places.import(places, region);
+
                     if let Some(p) = resolver.materialize(&Path {
                         root: Root::Local(own),
                         steps: steps.clone(),
@@ -305,6 +324,7 @@ impl Builder {
                         captured.push(cells.id(Cell::Place(places.import(&resolver.places, p))));
                     }
                 }
+
                 if registration.opaque && cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
                     captured.extend(
                         places
@@ -313,6 +333,7 @@ impl Builder {
                             .map(|p| cells.id(Cell::Place(p))),
                     );
                 }
+
                 captured.sort_unstable();
                 captured.dedup();
                 out.push(Op::Start {
@@ -326,6 +347,7 @@ impl Builder {
                 });
             }
         }
+
         if let Event::Call {
             callee,
             args,
@@ -342,6 +364,7 @@ impl Builder {
                 header: false,
             }));
         }
+
         out
     }
 
@@ -349,17 +372,22 @@ impl Builder {
         if earlier.block == later.block {
             return earlier.event < later.event;
         }
+
         let mut seen = jaic::fxhash::HashSet::default();
         let mut queue = std::collections::VecDeque::from([0]);
+
         while let Some(block) = queue.pop_front() {
             if block == earlier.block || !seen.insert(block) {
                 continue;
             }
+
             if block == later.block {
                 return false;
             }
+
             queue.extend(&self.successors[block]);
         }
+
         true
     }
 
@@ -367,6 +395,7 @@ impl Builder {
         let Selector::Local(value) = facts.selector(value, None, at) else {
             return None;
         };
+
         self.completions.get(&value).map(|&region| Token {
             region,
             header: false,
@@ -380,6 +409,7 @@ fn may_alias(places: &Places, a: usize, b: usize) -> bool {
     use crate::rules::lifetime_places::Projection;
     let (root_a, path_a) = &places.paths[a];
     let (root_b, path_b) = &places.paths[b];
+
     a != b
         && root_a == root_b
         && path_a.len() == path_b.len()

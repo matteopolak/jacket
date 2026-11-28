@@ -4,6 +4,7 @@ use test_support::compiler::bare_compiler as compiler;
 
 fn compiles(source: &str) -> Result<(), String> {
     let mut c = compiler();
+
     c.compile_sources(&[ProgramSource::String(source.into())])
         .map_err(|e| e.render(&c.src.sources))
 }
@@ -16,6 +17,7 @@ fn swapped_call_of_a_symmetric_procedure_compiles() {
         "{TYPES}f :: (a: A, b: B) -> float #symmetric {{ return a.x + b.y; }}\n\
          main :: () {{ a: A; b: B; f(a, b); f(b, a); }}"
     );
+
     compiles(&source).expect("both argument orders are accepted");
 }
 
@@ -26,5 +28,6 @@ fn swapped_call_of_an_unmarked_procedure_is_still_rejected() {
          main :: () {{ a: A; b: B; f(b, a); }}"
     );
     let error = compiles(&source).expect_err("no #symmetric, no swapping");
+
     assert!(error.contains("does not match"), "{error}");
 }

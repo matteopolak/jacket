@@ -13,23 +13,29 @@ impl Exporter<'_> {
             node::TYPE_INSTANTIATION,
             expr.span,
         );
+
         if !procs::has_poly(expr)
             && let Some(t) = self.eval_type(expr)
         {
             let t = self.ty(t);
+
             rec.ptr("result", t);
             rec.ptr("type", t);
         }
+
         match &expr.kind {
             ast::ExprKind::ArrayType {
                 size,
                 elem,
             } => {
                 let elem = self.type_inst(elem);
+
                 rec.ptr("array_element_type", elem);
+
                 match size {
                     ast::ArraySize::Fixed(size) => {
                         let size = self.expr(size);
+
                         rec.ptr("array_dimension", size);
                     }
                     ast::ArraySize::View => {
@@ -42,6 +48,7 @@ impl Exporter<'_> {
             }
             ast::ExprKind::Unary(ast::UnOp::Star, pointee) => {
                 let pointee = self.type_inst(pointee);
+
                 rec.ptr("pointer_to", pointee);
             }
             ast::ExprKind::ProcType(header) => {
@@ -50,6 +57,7 @@ impl Exporter<'_> {
                     body: None,
                 };
                 let value = self.proc(&lit, &[], None, expr.span);
+
                 rec.ptr("type_valued_expression", value)
                     .int("inst_flags", inst_flags::TYPE_OF_PROCEDURE);
             }
@@ -58,6 +66,7 @@ impl Exporter<'_> {
                 ty,
             } => {
                 let value = self.type_inst(ty);
+
                 rec.ptr("type_directive_target", value).int(
                     "inst_flags",
                     match modifier {
@@ -69,9 +78,11 @@ impl Exporter<'_> {
             }
             _ => {
                 let value = self.expr(expr);
+
                 rec.ptr("type_valued_expression", value);
             }
         }
+
         self.add(rec)
     }
 
@@ -87,10 +98,12 @@ impl Exporter<'_> {
         if nodes.len() <= 1 {
             return nodes.first().copied().unwrap_or(0);
         }
+
         let arguments: Vec<_> = nodes
             .iter()
             .map(|&node| {
                 let mut arg = Record::new(RecordTag::CodeCommaSeparatedArgument);
+
                 arg.ptr("node", node).int("modifier", 0);
                 self.r.add(arg)
             })
@@ -100,12 +113,14 @@ impl Exporter<'_> {
             node::COMMA_SEPARATED_ARGUMENTS,
             span,
         );
+
         rec.refs("arguments", arguments);
         self.add(rec)
     }
 
     pub(super) fn syntax_block(&mut self, block: &ast::Block) -> i64 {
         let id = self.block(&block.stmts, 1, block.span);
+
         self.r
             .get_mut(id)
             .unwrap()
@@ -123,6 +138,7 @@ impl Exporter<'_> {
             node::DIRECTIVE_MODIFY,
             block.span,
         );
+
         rec.ptr("block", body);
         vec![self.add(rec)]
     }
@@ -138,6 +154,7 @@ impl Exporter<'_> {
         let value = self.expr(value);
         let scope = self.opt_expr(scope);
         let mut rec = self.node(RecordTag::CodeDirectiveInsert, node::DIRECTIVE_INSERT, span);
+
         rec.ptr("expression", value)
             .ptr("scope_redirection", scope)
             .str(
@@ -148,6 +165,7 @@ impl Exporter<'_> {
                     .collect::<String>()
                     .as_bytes(),
             );
+
         for replacement in replacements {
             let Some(name) = replacement.name else {
                 rec.int(SyntaxKey::Incomplete, 1);
@@ -163,8 +181,10 @@ impl Exporter<'_> {
                 }
             };
             let value = self.expr(&replacement.value);
+
             rec.ptr(field, value);
         }
+
         rec
     }
 
@@ -174,12 +194,14 @@ impl Exporter<'_> {
 
     pub(super) fn literal(&mut self, span: Span, value_type: i64) -> Record {
         let mut rec = self.node(RecordTag::CodeLiteral, node::LITERAL, span);
+
         rec.int("value_type", value_type);
         rec
     }
 
     pub(super) fn using_filter(&mut self, filter: &ast::UsingFilter) -> (i64, i64) {
         use ast::{UsingFilter, UsingFilterKind};
+
         match filter {
             UsingFilter::None => (0, 0),
             // Static name-list/map expression shapes are not established by the
@@ -243,6 +265,7 @@ impl Exporter<'_> {
             } else {
                 0
             };
+
         if spelling.starts_with("0x")
             || spelling.starts_with("0X")
             || spelling.starts_with("0h")
@@ -250,19 +273,24 @@ impl Exporter<'_> {
         {
             flags |= 0x2;
         }
+
         if spelling.starts_with("0b") || spelling.starts_with("0B") {
             flags |= 0x20;
         }
+
         if let Some(value) = float {
             flags |= 0x4;
             let precision = crate::lexer::float_literal_precision(spelling, value);
+
             if precision.defaults_to_float64 {
                 flags |= 0x100;
             }
+
             if precision.requires_float64 {
                 flags |= 0x200;
             }
         }
+
         flags
     }
 
@@ -272,7 +300,9 @@ impl Exporter<'_> {
         let Some(code) = self.code.filter(|_| self.procedure.is_none()) else {
             return;
         };
+
         use ast::ExprKind as E;
+
         if !matches!(
             e.kind,
             E::Ident(_)
@@ -293,7 +323,9 @@ impl Exporter<'_> {
         ) {
             return;
         }
+
         let mut safe = true;
+
         ast::walk::walk_node(e.into(), &mut Vec::new(), &mut |node, _| {
             if let Some(e) = node.expr()
                 && (matches!(e.kind, E::Run { .. } | E::Insert(..))
@@ -301,14 +333,18 @@ impl Exporter<'_> {
             {
                 safe = false;
             }
+
             safe
         });
+
         if !safe {
             return;
         }
+
         let Some(c) = self.c.as_deref_mut() else {
             return;
         };
+
         if c.meta
             .export
             .code_expression_types
@@ -318,7 +354,9 @@ impl Exporter<'_> {
         {
             return;
         }
+
         let mut f = c.scratch_ctx(self.scope);
+
         f.expression_code = Some(code);
         let scope = self.scope;
         let _ = c.probing_types(|c| c.check_expr(&mut f, scope, e, None));
@@ -339,14 +377,17 @@ impl Exporter<'_> {
             }?;
             types.get(e.span)
         });
+
         if let Some(checked) = checked {
             // An ambiguous expansion must not inherit a guessed identifier/call type.
             let ty = checked.map_or(0, |ty| self.ty(ty));
+
             self.r
                 .get_mut(id)
                 .unwrap()
                 .set("type", Field::Item(Item::Ref(ty)));
         }
+
         id
     }
 }

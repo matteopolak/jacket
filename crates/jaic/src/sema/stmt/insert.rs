@@ -34,6 +34,7 @@ impl Compiler {
                     ..
                 }
             );
+
         if string_payload {
             let stmts = self.insert_stmts_from(op, value.span)?;
             let block = ast::Block {
@@ -42,6 +43,7 @@ impl Compiler {
                 checks_off: crate::ast::CheckBits::NONE,
             };
             let code = self.add_code(Arc::new(ast::CodeBody::Block(block)), scope);
+
             op = Operand::Const {
                 ty: TypeId::CODE,
                 value: Value::Code(code),
@@ -49,6 +51,7 @@ impl Compiler {
                 origin: Origin::Computed,
             };
         }
+
         if let Operand::Const {
             value: Value::Code(code),
             ..
@@ -73,9 +76,12 @@ impl Compiler {
                     continue_: replacement("continue"),
                     remove: replacement("remove"),
                 };
+
                 return self.insert_for_body(f, frame_index, replacements, span);
             }
+
             let body = self.pr.codes[code.0 as usize].clone();
+
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
             {
@@ -84,6 +90,7 @@ impl Compiler {
                     ast::CodeBody::Stmt(s) => vec![s.span],
                     ast::CodeBody::Block(b) => b.stmts.iter().map(|s| s.span).collect(),
                 };
+
                 record.push(
                     f.b.current,
                     crate::ide::lifetimes::LifetimeEvent::Expansion {
@@ -92,6 +99,7 @@ impl Compiler {
                     },
                 );
             }
+
             // Inserted code resolves names where it was written, unless `,scope()` names
             // the insertion site or `,scope(other_code)` another code's scope.
             let code_scope = match target {
@@ -101,6 +109,7 @@ impl Compiler {
                         ..
                     } => {
                         let target = self.pr.code_scopes[other.0 as usize];
+
                         if self.pr.unscoped_codes.contains_key(&(code.0 as usize)) {
                             self.code_scope_at(code, target)
                         } else {
@@ -125,10 +134,13 @@ impl Compiler {
             };
             let inner = self.new_hidden_scope(code_scope);
             let unbraced = string_payload || !matches!(&*body, ast::CodeBody::Block(_));
+
             if unbraced {
                 self.ns.scopes[inner.0 as usize].inserted_into = Some(scope);
             }
+
             self.ns.scopes[inner.0 as usize].proc_depth = self.scope(scope).proc_depth;
+
             // Constants inserted into a file or module scope are declared there (and
             // reported to the metaprogram like any top-level declaration).
             if target.is_some()
@@ -142,6 +154,7 @@ impl Compiler {
                     ast::CodeBody::Stmt(stmt) => std::slice::from_ref(stmt),
                     ast::CodeBody::Expr(_) => &[],
                 };
+
                 for stmt in statements {
                     if let S::Decl(decl) = &stmt.kind
                         && decl.kind == ast::DeclKind::Const
@@ -152,13 +165,16 @@ impl Compiler {
                     }
                 }
             }
+
             // Code written in a macro's caller returns from the caller, not from the macro.
             let saved_caller_code = f.caller_code_macros;
+
             if let Some(frame) = f.macros.last()
                 && self.scope_within(self.pr.code_scopes[code.0 as usize], frame.caller_scope)
             {
                 f.caller_code_macros = Some(f.macros.len());
             }
+
             let previous_lifetime_site = f.lifetime_enter_site(Some(span));
             let result = match &*body {
                 ast::CodeBody::Expr(e) => self.check_expr(f, inner, e, None).map(|_| ()),
@@ -180,17 +196,22 @@ impl Compiler {
                     )
                     .and_then(|()| self.ide_require_parsed_body(b.span)),
             };
+
             f.lifetime_restore_site(previous_lifetime_site);
             f.caller_code_macros = saved_caller_code;
             // Only a brace-less payload declares in the receiving lexical block.
             // Its wrapper supplies captured lookup without adding a lexical boundary.
             result?;
+
             if unbraced {
                 self.publish_insert_scope(inner, scope, span)?;
             }
+
             return Ok(());
         }
+
         let stmts = self.insert_stmts_from(op, value.span)?;
+
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
         {
@@ -202,8 +223,10 @@ impl Compiler {
                 },
             );
         }
+
         let previous_lifetime_site = f.lifetime_enter_site(Some(span));
         let result = self.check_block_stmts(f, scope, &stmts);
+
         f.lifetime_restore_site(previous_lifetime_site);
         result
     }
@@ -214,6 +237,7 @@ impl Compiler {
             if scope == outer {
                 return true;
             }
+
             match self.scope(scope).parent {
                 Some(parent) => scope = parent,
                 None => return false,
@@ -226,6 +250,7 @@ impl Compiler {
     fn publish_insert_scope(&mut self, source: ScopeId, target: ScopeId, at: Span) -> Result<()> {
         // Declaration/hoisting order determines which collision is diagnosed first.
         let mut publish = Vec::new();
+
         for (id, name) in self.scope(source).declared() {
             let existing = self
                 .scope(target)
@@ -233,6 +258,7 @@ impl Compiler {
                 .get(&name)
                 .map_or(&[][..], Vec::as_slice);
             let mut already_bound = false;
+
             for old in self.diag.bound_entities(existing) {
                 let new = self.entity(id);
                 let previous = self.entity(old);
@@ -262,10 +288,12 @@ impl Compiler {
                         ) => decl.backtick && Arc::ptr_eq(decl, old_decl),
                         _ => false,
                     };
+
                 if same_binding {
                     already_bound = true;
                     continue;
                 }
+
                 if let (
                     EntityKind::Decl {
                         decl, ..
@@ -279,6 +307,7 @@ impl Compiler {
                 {
                     continue;
                 }
+
                 return Err(Box::new(
                     Diagnostic::new(
                         Code::AlreadyDeclaredScope,
@@ -290,19 +319,23 @@ impl Compiler {
                     .with_note(at, "this Code is inserted here"),
                 ));
             }
+
             if !already_bound {
                 publish.push((name, id));
             }
         }
+
         // Check newly formed overload sets now: an unreferenced enclosing body
         // may be checked after the driver's earlier declared-overload check.
         // The regular checker uses the logical receiving namespace while the
         // entities keep their captured lookup scopes.
         let mut sets = Vec::<Vec<EntityId>>::new();
         let mut set_indices = HashMap::<Sym, usize>::default();
+
         for &(name, id) in &publish {
             let index = *set_indices.entry(name).or_insert_with(|| {
                 let index = sets.len();
+
                 sets.push(
                     self.scope(target)
                         .names
@@ -312,23 +345,29 @@ impl Compiler {
                 );
                 index
             });
+
             sets[index].push(id);
         }
+
         for ids in sets {
             if ids.len() > 1 {
                 self.check_identical_overloads(&ids)?;
             }
         }
+
         // Validate the complete namespace before publishing any of it. A bad
         // insertion must not leave a partially published set of declarations.
         for (name, id) in publish {
             self.bind_name(target, name, id);
         }
+
         let usings = self.scope(source).usings.clone();
+
         if !usings.is_empty() {
             self.scope_mut(target).usings.extend(usings);
             self.namespace_changed(target);
         }
+
         Ok(())
     }
 
@@ -344,10 +383,12 @@ impl Compiler {
         // The names this insertion adds for the body live in a scope of its own: a macro may
         // insert the body more than once, and the editor reads them after the check.
         let names = self.new_hidden_scope(body.scope);
+
         // A for_expansion that forwards its body (`for_expansion(*inner, body, flags)`):
         // the macro inserting it declared `it` / `it_index` in its own caller's scope.
         if frame_index + 1 < f.macros.len() {
             let inserter = f.macros.last().unwrap().caller_scope;
+
             for name in ["it", "it_index"] {
                 let name = Sym::intern(name);
                 let missing = self
@@ -360,20 +401,25 @@ impl Compiler {
                     .names
                     .get(&name)
                     .and_then(|ids| ids.last().copied());
+
                 if missing && let Some(id) = found {
                     let kind = self.entity(id).kind.clone();
+
                     self.add_entity(names, name, span, kind, false);
                 }
             }
         }
+
         // Alias custom iterator names to the macro's `it` / `it_index`. The renamed
         // originals are hidden from the body, so an enclosing `it_index` stays visible.
         let mut hidden = Vec::new();
         let aliases = [(body.it_name, "it"), (body.index_name, "it_index")];
+
         for ((alias, original), at) in aliases.into_iter().zip(body.name_spans) {
             if alias.as_str() == original {
                 continue;
             }
+
             let original = Sym::intern(original);
             let Some((holder, id)) = [names, body.scope].into_iter().find_map(|holder| {
                 let id = *self.scope(holder).names.get(&original)?.last()?;
@@ -383,17 +429,22 @@ impl Compiler {
             };
             let kind = self.entity(id).kind.clone();
             let alias_id = self.add_entity(names, alias, at.unwrap_or(span), kind, false);
+
             if at.is_some() && self.ed.is_live() {
                 self.ide_note_entity(alias_id);
             }
+
             if let Some(ids) = self.scope_mut(holder).names.get_mut(&original) {
                 ids.retain(|&e| e != id);
             }
+
             self.namespace_changed(holder);
+
             if holder == body.scope {
                 hidden.push((original, id));
             }
         }
+
         // ``for c, `it_index: text`` in a macro: the backticked names are also the macro
         // caller's, sharing the loop's storage, as for a loop over an array.
         if let Some((caller, backticks)) = body.caller_names {
@@ -409,9 +460,11 @@ impl Compiler {
                     continue;
                 };
                 let kind = self.entity(id).kind.clone();
+
                 self.add_entity(caller, name, span, kind, false);
             }
         }
+
         // Inserted loop controls target the macro's innermost loop. Forward its array
         // removal state as well as jump/defer state; a numeric loop still has no remove.
         let (brk, cont, defer_depth, remove) = match f.loops.last() {
@@ -430,6 +483,7 @@ impl Compiler {
                 ),
             ),
         };
+
         f.loops.push(LoopFrame {
             label: body.label,
             break_block: brk,
@@ -438,11 +492,14 @@ impl Compiler {
             remove,
         });
         let saved = f.macros.split_off(frame_index);
+
         f.insert_replacements.push(replacements);
         let result = self.check_scoped(f, names, &body.body);
+
         for (original, id) in hidden {
             self.bind_name(body.scope, original, id);
         }
+
         f.insert_replacements.pop();
         f.macros.extend(saved);
         f.loops.pop();
@@ -486,6 +543,7 @@ impl Compiler {
             ast::ExprKind::Block(block) => self.check_block_stmts(f, inner, &block.stmts),
             _ => self.check_expr(f, inner, &code, None).map(|_| ()),
         };
+
         f.loops.extend(saved_loops);
         f.insert_replacements.extend(saved_reps);
         let _ = span;

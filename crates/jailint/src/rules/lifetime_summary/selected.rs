@@ -12,6 +12,7 @@ pub(super) fn retain(
     if files.is_empty() {
         return None;
     }
+
     let globals = crate::rules::lifetime_targets::globals::Globals::build(compiler, valid);
     let mut queue: VecDeque<_> = valid
         .iter()
@@ -19,10 +20,12 @@ pub(super) fn retain(
         .map(|(&p, _)| p)
         .collect();
     let mut needed = HashSet::default();
+
     while let Some(proc) = queue.pop_front() {
         if !needed.insert(proc) {
             continue;
         }
+
         for global in globals.used_by.get(&proc).into_iter().flatten() {
             queue.extend(globals.users.get(global).into_iter().flatten().copied());
             queue.extend(
@@ -33,9 +36,11 @@ pub(super) fn retain(
                     .flat_map(|s| s.procedures.iter().copied()),
             );
         }
+
         let Some(body) = valid.get(&proc) else {
             continue;
         };
+
         queue.extend(
             body.blocks
                 .iter()
@@ -51,6 +56,7 @@ pub(super) fn retain(
                 }),
         );
     }
+
     valid.retain(|p, _| needed.contains(p));
     Some(needed)
 }

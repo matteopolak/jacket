@@ -65,11 +65,13 @@ struct DocComment {
 fn unescape(field: &str) -> String {
     let mut out = String::with_capacity(field.len());
     let mut chars = field.chars();
+
     while let Some(c) = chars.next() {
         if c != '\\' {
             out.push(c);
             continue;
         }
+
         match chars.next() {
             Some('n') => out.push('\n'),
             Some('t') => out.push('\t'),
@@ -78,6 +80,7 @@ fn unescape(field: &str) -> String {
             None => out.push('\\'),
         }
     }
+
     out
 }
 
@@ -90,6 +93,7 @@ fn parse_records(text: &str) -> Vec<DocComment> {
             let symbol = unescape(fields.next()?);
             let text = unescape(fields.next()?);
             let forwarded = fields.next().is_some_and(|f| !f.is_empty());
+
             Some(DocComment {
                 file,
                 line,
@@ -105,9 +109,11 @@ fn parse_records(text: &str) -> Vec<DocComment> {
 /// modules in `import_dirs` as the compiler does.
 fn doc_comments_args(dir: &Path, import_dirs: &[PathBuf]) -> Vec<OsString> {
     let mut args = Vec::new();
+
     for import_dir in import_dirs {
         args.extend(["-import_dir".into(), import_dir.into()]);
     }
+
     args.extend(["-doc_comments".into(), dir.into()]);
     args
 }
@@ -145,18 +151,22 @@ pub fn blocks(
     let mut claimed: BTreeSet<PathBuf> = BTreeSet::new();
     let mut counts: BTreeMap<String, u32> = BTreeMap::new();
     let mut out = Vec::new();
+
     for comment in records {
         if seen.contains(&comment.file) || comment.forwarded {
             continue;
         }
+
         claimed.insert(comment.file.clone());
         let name = match &comment.symbol {
             Some(symbol) => format!("{module}.{symbol}"),
             None => module.to_string(),
         };
         let lines: Vec<&str> = comment.text.lines().collect();
+
         for (offset, block) in fenced(&lines) {
             let n = counts.entry(name.clone()).or_insert(0);
+
             *n += 1;
             out.push(Block {
                 name: format!("{name}#{n}"),
@@ -166,6 +176,7 @@ pub fn blocks(
             });
         }
     }
+
     seen.extend(claimed);
     Ok(out)
 }
@@ -176,12 +187,14 @@ fn fence_words(info: &str) -> Vec<String> {
     let mut words = Vec::new();
     let mut word = String::new();
     let mut depth = 0usize;
+
     for c in info.chars() {
         match c {
             '(' => depth += 1,
             ')' => depth = depth.saturating_sub(1),
             _ => {}
         }
+
         if depth == 0 && (c == ',' || c.is_whitespace()) {
             if !word.is_empty() {
                 words.push(std::mem::take(&mut word));
@@ -190,9 +203,11 @@ fn fence_words(info: &str) -> Vec<String> {
             word.push(c);
         }
     }
+
     if !word.is_empty() {
         words.push(word);
     }
+
     words
 }
 
@@ -207,6 +222,7 @@ fn declared(line: &str) -> Option<&str> {
         .chars()
         .next()
         .is_some_and(|c| c.is_alphabetic() || c == '_');
+
     (starts_well && rest.trim_start().starts_with("::")).then_some(name)
 }
 
@@ -214,6 +230,7 @@ fn declared(line: &str) -> Option<&str> {
 pub(crate) fn fenced(lines: &[&str]) -> Vec<(usize, Block)> {
     let mut out = Vec::new();
     let mut i = 0;
+
     while i < lines.len() {
         let open = lines[i].trim_start();
         let indent = lines[i].len() - open.len();
@@ -225,18 +242,24 @@ pub(crate) fn fenced(lines: &[&str]) -> Vec<(usize, Block)> {
         let runs = words.next().as_deref() == Some("jai");
         let start = i;
         let mut code = String::new();
+
         i += 1;
+
         while i < lines.len() && lines[i].trim() != "```" {
             let line = lines[i];
             let cut = line.len() - line.trim_start().len();
+
             code.push_str(&line[cut.min(indent)..]);
             code.push('\n');
             i += 1;
         }
+
         i += 1;
+
         if !runs {
             continue;
         }
+
         let mut block = Block {
             name: String::new(),
             file: PathBuf::new(),
@@ -246,6 +269,7 @@ pub(crate) fn fenced(lines: &[&str]) -> Vec<(usize, Block)> {
             options: TestOptions::default(),
             problems: Vec::new(),
         };
+
         for word in words {
             match word.as_str() {
                 "ignore" => block.options.ignore = true,
@@ -260,8 +284,10 @@ pub(crate) fn fenced(lines: &[&str]) -> Vec<(usize, Block)> {
                 }
             }
         }
+
         out.push((start, block));
     }
+
     out
 }
 
@@ -291,6 +317,7 @@ pub(crate) fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
             lines.push(from);
         }
     };
+
     push(
         &format!(
             "// Written by `jacket test`: the example at {}:{}.",
@@ -299,18 +326,23 @@ pub(crate) fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
         ),
         0,
     );
+
     if !imports(&block.code, "Basic") {
         push("#import \"Basic\";", 0);
     }
+
     if !imports(&block.code, module) {
         push(&format!("#import \"{module}\";"), 0);
     }
+
     // The block's lines follow its fence.
     let code: Vec<(&str, u32)> = block.code.lines().zip(block.line + 1..).collect();
     let wrapped = !has_main(&block.code);
+
     if wrapped {
         for &(line, from) in &code {
             let trimmed = line.trim_start();
+
             if trimmed.starts_with("#import") || trimmed.starts_with("#load") {
                 push(trimmed, from);
             }
@@ -320,14 +352,17 @@ pub(crate) fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
             push(line, from);
         }
     }
+
     push("__jacket_doc_testing :: #import \"Extensions/Testing\";", 0);
     push(
         "__jacket_doc_example :: (t: *__jacket_doc_testing.Test) {",
         0,
     );
+
     if wrapped {
         for &(line, from) in &code {
             let trimmed = line.trim_start();
+
             if !(trimmed.starts_with("#import") || trimmed.starts_with("#load")) {
                 push(&format!("    {line}"), from);
             }
@@ -335,6 +370,7 @@ pub(crate) fn generate(block: &Block, module: &str) -> (String, Vec<u32>) {
     } else {
         push("    main();", 0);
     }
+
     push(
         &format!(
             "}}\n\
@@ -358,34 +394,44 @@ pub(crate) fn standalone(block: &Block, module: &str) -> Option<String> {
     // `t.` as a whole word is the harness's test handle.
     let leans = |line: &str| {
         let code = line.split("//").next().unwrap_or("");
+
         code.contains("expect")
             || code.match_indices("t.").any(|(i, _)| {
                 !code[..i].ends_with(|c: char| c.is_alphanumeric() || c == '_' || c == '.')
             })
     };
+
     if block.code.lines().any(leans) {
         return None;
     }
+
     let mut out = String::new();
+
     if !imports(&block.code, "Basic") {
         out.push_str("#import \"Basic\";\n");
     }
+
     if !imports(&block.code, module) {
         out.push_str(&format!("#import \"{module}\";\n"));
     }
+
     if has_main(&block.code) {
         out.push_str(&block.code);
         return Some(out);
     }
+
     let (header, body): (Vec<&str>, Vec<&str>) = block.code.lines().partition(|l| {
         let t = l.trim_start();
         t.starts_with("#import") || t.starts_with("#load")
     });
+
     for line in header {
         out.push_str(line.trim_start());
         out.push('\n');
     }
+
     out.push_str("\nmain :: () {\n");
+
     for line in body {
         if line.is_empty() {
             out.push('\n');
@@ -395,6 +441,7 @@ pub(crate) fn standalone(block: &Block, module: &str) -> Option<String> {
             out.push('\n');
         }
     }
+
     out.push_str("}\n");
     Some(out)
 }
@@ -418,20 +465,25 @@ impl Template {
     #[cfg(test)]
     fn fill(&self, code: &str) -> String {
         let mut out = self.head.clone();
+
         if self.wrapped {
             let (header, body): (Vec<&str>, Vec<&str>) = code.lines().partition(|l| {
                 let t = l.trim_start();
                 t.starts_with("#import") || t.starts_with("#load")
             });
+
             for line in header {
                 out.push_str(line.trim_start());
                 out.push('\n');
             }
+
             out.push_str(&self.middle);
+
             for line in body {
                 if !line.is_empty() || self.pad_blank {
                     out.push_str("    ");
                 }
+
                 out.push_str(line);
                 out.push('\n');
             }
@@ -440,8 +492,10 @@ impl Template {
                 out.push_str(line);
                 out.push('\n');
             }
+
             out.push_str(&self.middle);
         }
+
         out.push_str(&self.tail);
         out
     }
@@ -450,12 +504,15 @@ impl Template {
 /// The imports a program for `module` starts with unless `code` has them.
 fn default_imports(code: &str, module: &str) -> String {
     let mut out = String::new();
+
     if !imports(code, "Basic") {
         out.push_str("#import \"Basic\";\n");
     }
+
     if !imports(code, module) {
         out.push_str(&format!("#import \"{module}\";\n"));
     }
+
     out
 }
 
@@ -466,6 +523,7 @@ pub(crate) fn generate_template(block: &Block, module: &str) -> Template {
         block.file.display(),
         block.line
     );
+
     head.push_str(&default_imports(&block.code, module));
     let wrapped = !has_main(&block.code);
     let intro = "__jacket_doc_testing :: #import \"Extensions/Testing\";\n\
@@ -480,6 +538,7 @@ pub(crate) fn generate_template(block: &Block, module: &str) -> Template {
          options.entry_point_name = \"{ENTRY_POINT}\";\n    \
          C.set_build_options(options);\n}}\n"
     );
+
     Template {
         head,
         middle: if wrapped {
@@ -497,6 +556,7 @@ pub(crate) fn generate_template(block: &Block, module: &str) -> Template {
 /// it is the caller's call (see `standalone`).
 pub(crate) fn standalone_template(block: &Block, module: &str) -> Template {
     let head = default_imports(&block.code, module);
+
     if has_main(&block.code) {
         Template {
             head,
@@ -521,6 +581,7 @@ fn relabel(text: &str, lines: &[u32], file: &Path) -> String {
     const NAME: &str = "doc.jai:";
     let mut out = String::new();
     let mut rest = text;
+
     while let Some(at) = rest.find(NAME) {
         let digits_at = at + NAME.len();
         let digits = rest[digits_at..]
@@ -531,6 +592,7 @@ fn relabel(text: &str, lines: &[u32], file: &Path) -> String {
         let path_at = rest[..at]
             .rfind(|c: char| c.is_whitespace())
             .map_or(0, |n| n + 1);
+
         match line.checked_sub(1).and_then(|i| lines.get(i)) {
             Some(&from) if from > 0 => {
                 out.push_str(&rest[..path_at]);
@@ -538,8 +600,10 @@ fn relabel(text: &str, lines: &[u32], file: &Path) -> String {
             }
             _ => out.push_str(&rest[..digits_at + digits]),
         }
+
         rest = &rest[digits_at + digits..];
     }
+
     out.push_str(rest);
     out
 }
@@ -561,28 +625,36 @@ pub fn check(
     let (mut checked, ending) = check_program(
         block, module, root_flags, toolchain, work, cwd, timeout, live,
     );
+
     for problem in &mut checked.problems {
         *problem = relabel(problem, &lines, &block.file);
     }
+
     for stream in [&mut checked.stdout, &mut checked.stderr] {
         let text = relabel(&String::from_utf8_lossy(stream), &lines, &block.file);
+
         *stream = text.into_bytes();
     }
+
     let Some(ending) = ending else {
         return checked;
     };
+
     // A failed check prints its place and stops the example with status 1: show it like a
     // test's failure, and keep only the rest of standard error.
     if ending == Ending::Exited(1) {
         let stderr = String::from_utf8_lossy(&checked.stderr).into_owned();
         let (failures, rest) = reported_failures(&format!("doc: {}", block.name), &stderr);
+
         if !failures.is_empty() {
             checked.failures = failures;
             checked.stderr = rest.into_bytes();
             checked.passed = false;
+
             return checked;
         }
     }
+
     checked
         .problems
         .push(format!("the example {}", ending_text(&ending)));
@@ -596,14 +668,19 @@ fn reported_failures(test: &str, stderr: &str) -> (Vec<Failure>, String) {
     let mut failures: Vec<Failure> = Vec::new();
     let mut rest = String::new();
     let mut open = false;
+
     for line in stderr.lines() {
         if open && let Some(more) = line.strip_prefix("    ") {
             let failure = failures.last_mut().expect("an open failure");
+
             failure.message.push('\n');
             failure.message.push_str(more);
+
             continue;
         }
+
         open = false;
+
         if let Some(failure) = failure_line(test, line) {
             failures.push(failure);
             open = true;
@@ -612,6 +689,7 @@ fn reported_failures(test: &str, stderr: &str) -> (Vec<Failure>, String) {
             rest.push('\n');
         }
     }
+
     (failures, rest)
 }
 
@@ -619,6 +697,7 @@ fn reported_failures(test: &str, stderr: &str) -> (Vec<Failure>, String) {
 fn failure_line(test: &str, line: &str) -> Option<Failure> {
     let (place, message) = line.split_once(".jai:")?;
     let (number, message) = message.split_once(": ")?;
+
     Some(Failure {
         test: test.to_owned(),
         file: format!("{place}.jai"),
@@ -641,12 +720,14 @@ fn check_program(
     let mut checked = Checked::default();
     let source = work.join("doc.jai");
     let (text, _) = generate(block, module);
+
     if let Err(error) = std::fs::write(&source, text) {
         checked
             .problems
             .push(format!("cannot write {}: {error}", source.display()));
         return (checked, None);
     }
+
     if toolchain.check_only || matches!(block.mode, Mode::NoRun | Mode::CompileFail) {
         let output = toolchain
             .jaic_command()
@@ -657,6 +738,7 @@ fn check_program(
             .args(root_flags)
             .current_dir(work)
             .output();
+
         match output {
             Err(error) => checked.problems.push(format!(
                 "could not start `{}`: {error}",
@@ -670,9 +752,12 @@ fn check_program(
                 .push("it compiled; `compile_fail` expects it not to".into()),
             Ok(_) => {}
         }
+
         checked.passed = checked.problems.is_empty();
+
         return (checked, None);
     }
+
     let invocation = match golden::invocation(&source, root_flags, toolchain, work, cwd) {
         Ok(invocation) => invocation,
         Err(problem) => {
@@ -681,9 +766,11 @@ fn check_program(
         }
     };
     let outcome = golden::run_plain(&invocation, timeout, live);
+
     checked.stdout = outcome.preamble_stdout;
     checked.stderr = outcome.preamble;
     let clean = outcome.ending == Ending::Exited(0);
+
     if outcome.ending == Ending::TimedOut {
         checked.timed_out = true;
         checked.problems.push("it timed out".into());
@@ -692,6 +779,7 @@ fn check_program(
             .problems
             .push("it passed; `should_fail` expects it to fail".into());
     }
+
     checked.passed = checked.problems.is_empty();
     // An example that should run cleanly and did not: `check` says why.
     let failed =
@@ -706,6 +794,7 @@ mod tests {
     #[test]
     fn the_doc_comments_are_read_with_the_projects_import_dirs() {
         let args = doc_comments_args(Path::new("lib"), &["/a".into(), "/b".into()]);
+
         assert_eq!(
             args,
             [
@@ -733,6 +822,7 @@ mod tests {
             &mut BTreeSet::new(),
         )
         .unwrap_err();
+
         assert!(error.contains("could not start `/nowhere/jaic`"), "{error}");
     }
 
@@ -747,6 +837,7 @@ mod tests {
             &mut BTreeSet::new(),
         )
         .unwrap_err();
+
         assert!(error.contains("could not read the doc comments"), "{error}");
     }
 
@@ -758,6 +849,7 @@ mod tests {
             .iter()
             .map(|f| (f.test.as_str(), f.file.as_str(), f.line, f.message.as_str()))
             .collect();
+
         assert_eq!(
             seen,
             [
@@ -782,6 +874,7 @@ mod tests {
     fn records_become_blocks() {
         let text = "/a.jai\t4\tsplit\tSplits.\\n\\n```jai,no_run\\nx := 1;\\n```\\n```\\nnot jai\\n```\\n```jai ignore bogus\\ny := 2;\\n```\n/a.jai\t1\t\tModule.\\n```jai\\nexpect(true);\\n```\n";
         let comments = parse_records(text);
+
         assert_eq!(comments.len(), 2);
         assert!(!comments[0].forwarded);
         assert_eq!(comments[0].symbol.as_deref(), Some("split"));
@@ -792,6 +885,7 @@ mod tests {
             .iter()
             .map(|(at, b)| (*at, b.mode, b.options.ignore))
             .collect();
+
         assert_eq!(summary, [(2, Mode::NoRun, false), (8, Mode::Run, true)]);
         assert_eq!(blocks[1].1.problems, ["unknown option `bogus` (ignored)"]);
     }
@@ -802,6 +896,7 @@ mod tests {
             "#import \"Math\";\n\nx := 1;\nprint(\"%\\n\", x);\n",
             "main :: () {\n    print(\"hi\\n\");\n}\n",
         ];
+
         for code in cases {
             let lines: Vec<&str> = ["```jai"]
                 .into_iter()
@@ -809,6 +904,7 @@ mod tests {
                 .chain(["```"])
                 .collect();
             let (_, mut block) = fenced(&lines).remove(0);
+
             block.file = PathBuf::from("stdlib/a.jai");
             block.line = 3;
             assert_eq!(
@@ -826,6 +922,7 @@ mod tests {
     fn a_forwarded_record_is_read_but_not_run() {
         let text = "/a.jai\t4\thello\tExample.\\n```jai\\nx := 1;\\n```\tImpl.hello\n/b.jai\t2\tother\tPlain.\t\n";
         let comments = parse_records(text);
+
         assert_eq!(
             comments.iter().map(|c| c.forwarded).collect::<Vec<_>>(),
             [true, false]
@@ -839,6 +936,7 @@ mod tests {
             ["jai", "only(linux, macos)", "no_run"]
         );
         let blocks = fenced(&["```jai,skip_on(wasm),timeout(3)", "x := 1;", "```"]);
+
         assert_eq!(blocks[0].1.options.target.skip_on[0].names, ["wasm"]);
         assert_eq!(blocks[0].1.options.timeout, Some(3));
     }
@@ -855,8 +953,10 @@ mod tests {
             problems: Vec::new(),
         };
         let (text, lines) = generate(&block, "M");
+
         assert_eq!(text.lines().count(), lines.len());
         let y = text.lines().position(|l| l == "    y := 2;").unwrap();
+
         assert_eq!(lines[y], 8);
         assert_eq!(text.lines().nth(y - 1), Some(""));
         assert_eq!(lines[y - 1], 7);
@@ -874,8 +974,10 @@ mod tests {
             problems: Vec::new(),
         };
         let (text, lines) = generate(&block, "M");
+
         assert!(text.contains("#import \"Basic\";\n#import \"M\";\n#import \"Math\";\n"));
         let x = text.lines().position(|l| l == "    x := 1;").unwrap();
+
         assert_eq!(lines[x], 6);
         assert_eq!(
             relabel(
@@ -891,6 +993,7 @@ mod tests {
             ..block
         };
         let text = generate(&with_main, "M").0;
+
         assert!(!text.contains("#import \"M\";\n#import \"M\""));
         assert!(text.contains("main :: () {}\n"));
         assert!(text.contains("{\n    main();\n}"));

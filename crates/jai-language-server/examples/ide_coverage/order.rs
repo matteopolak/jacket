@@ -9,6 +9,7 @@ pub fn shuffle<T>(values: &mut [T], mut seed: u64) {
     if seed == 0 {
         return;
     }
+
     for i in (1..values.len()).rev() {
         seed ^= seed << 13;
         seed ^= seed >> 7;
@@ -55,8 +56,10 @@ pub fn checkpoint(
     let symbols = answer(session.document_symbols(uri));
     let mut references = Vec::new();
     let mut completions = Vec::new();
+
     if let Ok(tokens) = jaic::lexer::lex(jaic::source::FileId(0), text) {
         let identifiers: Vec<_> = tokens.iter().filter(|t| matches!(&t.tok, jaic::lexer::Tok::Ident(n) if !jaic::lexicon::is_reserved(n.as_str()))).collect();
+
         for token in identifiers
             .iter()
             .step_by(identifiers.len().div_ceil(64).max(1))
@@ -66,11 +69,13 @@ pub fn checkpoint(
                 &jaic::source::LineIndex::new(text),
                 token.span.start as usize,
             );
+
             references.push(json!([
                 token.span.start,
                 answer(session.hover(uri, at)),
                 answer(session.definition(uri, at))
             ]));
+
             if token.span.start > 0 && text.as_bytes()[token.span.start as usize - 1] == b'.' {
                 let response = match session.completion(uri, at) {
                     Ok(list) => {
@@ -79,15 +84,18 @@ pub fn checkpoint(
                             .iter()
                             .map(|i| format!("{}:{:?}:{:?}", i.label, i.kind, i.detail))
                             .collect();
+
                         items.sort();
                         json!({"items":items,"incomplete":list.is_incomplete})
                     }
                     Err(e) => json!({"error":format!("{e:?}")}),
                 };
+
                 completions.push(json!([token.span.start, response]));
             }
         }
     }
+
     let semantic = session.semantic_coverage(uri).ok().flatten().map(|s| {
         json!({
             "loaded":s.source_loaded,"complete":s.program_complete,"errors":s.program_errors,
@@ -95,6 +103,7 @@ pub fn checkpoint(
             "analysis":s.analysis,
         })
     });
+
     if let Some(path) = details {
         let row = json!({"input_id":id,"phase":phase,"redacted":false,
             "diagnostics":diagnostics,"inlay_hints":hints,"symbols":symbols,
@@ -104,8 +113,10 @@ pub fn checkpoint(
             .append(true)
             .open(path)
             .expect("observation details");
+
         writeln!(out, "{row}").expect("observation detail record");
     }
+
     let fingerprint = |value: &Value| super::report::fingerprint(&value.to_string());
     let row = json!({"kind":"observations","phase":phase,"input_id":id,"redacted":true,"compiles":session.compile_counts().0,
         "diagnostics":fingerprint(&diagnostics),"inlay_hints":fingerprint(&hints),
@@ -116,5 +127,6 @@ pub fn checkpoint(
         .append(true)
         .open(path)
         .expect("progress output");
+
     writeln!(out, "{row}").expect("progress record");
 }

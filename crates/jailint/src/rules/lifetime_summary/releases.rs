@@ -42,10 +42,13 @@ impl Summary {
                     && !descriptor_storage(&p.steps)
             })
             .collect();
+
         if freed.is_empty() {
             return None;
         }
+
         let mut fields = Some(Vec::new());
+
         for path in &freed {
             let chain: Vec<Sym> = path
                 .steps
@@ -55,6 +58,7 @@ impl Summary {
                     _ => None,
                 })
                 .collect();
+
             match &mut fields {
                 Some(chains) if !chain.is_empty() => {
                     if !chains.contains(&chain) {
@@ -64,6 +68,7 @@ impl Summary {
                 _ => fields = None,
             }
         }
+
         let written: Vec<&Path> = self
             .overwrites
             .iter()
@@ -72,6 +77,7 @@ impl Summary {
         let reset = freed
             .iter()
             .all(|path| written.iter().any(|w| path.steps.starts_with(&w.steps)));
+
         Some(Contents {
             fields,
             reset,
@@ -88,6 +94,7 @@ impl Summary {
                 _ => None,
             })
             .collect();
+
         formals.sort_unstable();
         formals.dedup();
         formals

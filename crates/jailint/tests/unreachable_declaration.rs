@@ -8,26 +8,32 @@ const RULE: &str = "unreachable_declaration";
 
 fn project(name: &str, files: &[(&str, &str)]) -> TempDir {
     let root = TempDir::new(name);
+
     for dir in ["stdlib/prelude", "stdlib/Runtime_Support", "app"] {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }
+
     std::fs::write(root.join("stdlib/prelude/module.jai"), "").unwrap();
     std::fs::write(
         root.join("stdlib/Runtime_Support/module.jai"),
         "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);",
     )
     .unwrap();
+
     for (path, text) in files {
         let path = root.join("app").join(path);
+
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, text).unwrap();
     }
+
     root
 }
 
 /// The names the rule reports in the project's `app` folder, sorted.
 fn dead(root: &Path) -> Vec<String> {
     let mut config = Config::default();
+
     config.levels.insert(RULE.into(), Level::Warn);
     let options = Options {
         compiler_options: jaic::sema::Options::host(),
@@ -43,6 +49,7 @@ fn dead(root: &Path) -> Vec<String> {
         verbose: false,
     };
     let outcome = run(&options);
+
     assert!(outcome.incomplete.is_empty(), "{:?}", outcome.incomplete);
     let mut names: Vec<String> = outcome
         .lints
@@ -51,6 +58,7 @@ fn dead(root: &Path) -> Vec<String> {
         .map(|l| {
             let text = &outcome.texts[&l.path];
             let file = PathBuf::from(&l.path);
+
             format!(
                 "{}:{}",
                 file.file_name().unwrap().to_string_lossy(),
@@ -58,6 +66,7 @@ fn dead(root: &Path) -> Vec<String> {
             )
         })
         .collect();
+
     names.sort();
     names
 }
@@ -71,6 +80,7 @@ fn an_unused_procedure_is_reported_and_a_called_one_is_not() {
             "used :: () {}\nunused :: () {}\nmain :: () { used(); }\n",
         )],
     );
+
     assert_eq!(dead(&root), ["main.jai:unused"]);
 }
 
@@ -83,6 +93,7 @@ fn what_only_dead_code_uses_is_dead_too() {
             "leaf :: () {}\nmiddle :: () { leaf(); }\ntop :: () { middle(); }\nmain :: () {}\n",
         )],
     );
+
     assert_eq!(
         dead(&root),
         ["main.jai:leaf", "main.jai:middle", "main.jai:top"]
@@ -98,6 +109,7 @@ fn recursion_does_not_keep_a_procedure_alive() {
             "ping :: (n: int) { if n > 0 pong(n - 1); }\npong :: (n: int) { if n > 0 ping(n - 1); }\nmain :: () {}\n",
         )],
     );
+
     assert_eq!(dead(&root), ["main.jai:ping", "main.jai:pong"]);
 }
 
@@ -110,6 +122,7 @@ fn run_directives_are_roots() {
             "helper :: () -> int { return 1; }\nonly_at_compile_time :: () -> int { return helper(); }\nTABLE :: #run only_at_compile_time();\nstray :: () {}\nmain :: () {}\n",
         )],
     );
+
     assert_eq!(dead(&root), ["main.jai:stray"]);
 }
 
@@ -122,6 +135,7 @@ fn a_bare_run_statement_keeps_what_it_calls() {
             "setup :: () {}\nunused :: () {}\n#run setup();\nmain :: () {}\n",
         )],
     );
+
     assert_eq!(dead(&root), ["main.jai:unused"]);
 }
 
@@ -134,6 +148,7 @@ fn an_overload_nothing_selects_is_dead() {
             "show :: (n: int) {}\nshow :: (f: float) {}\nmain :: () { show(1); }\n",
         )],
     );
+
     assert_eq!(dead(&root), ["main.jai:show"]);
 }
 
@@ -146,6 +161,7 @@ fn a_struct_reached_through_using_is_used() {
             "Base :: struct { id: int; }\nDerived :: struct { using base: Base; }\nOrphan :: struct { id: int; }\nmain :: () { d: Derived; d.id = 1; }\n",
         )],
     );
+
     assert_eq!(dead(&root), ["main.jai:Orphan"]);
 }
 
@@ -158,6 +174,7 @@ fn types_constants_enums_and_variables_are_judged_too() {
             "Mode :: enum { A; B; }\nLIMIT :: 4;\ncounter: int;\nUnused_Mode :: enum { A; }\nUNUSED_LIMIT :: 9;\nunused_counter: int;\nmain :: () { m := Mode.A; x := LIMIT + counter; }\n",
         )],
     );
+
     assert_eq!(
         dead(&root),
         [
@@ -177,6 +194,7 @@ fn a_constant_read_only_by_an_if_condition_is_used() {
             "ENABLED :: true;\nunused :: () {}\n#if ENABLED { visible :: () {} }\nmain :: () {}\n",
         )],
     );
+
     assert_eq!(dead(&root), ["main.jai:unused"]);
 }
 
@@ -189,6 +207,7 @@ fn a_procedure_the_program_exports_or_the_compiler_calls_is_a_root() {
             "exported :: () #program_export {}\nnoted :: () {} @Keep\nmain :: () {}\n",
         )],
     );
+
     assert_eq!(dead(&root), Vec::<String>::new());
 }
 
@@ -201,6 +220,7 @@ fn loaded_files_are_followed_and_judged() {
             ("util.jai", "used :: () {}\nunused :: () {}\n"),
         ],
     );
+
     assert_eq!(dead(&root), ["util.jai:unused"]);
 }
 
@@ -217,6 +237,7 @@ fn a_shared_file_is_judged_by_every_program_that_loads_it() {
             ),
         ],
     );
+
     assert_eq!(dead(&root), ["shared.jai:neither"]);
 }
 
@@ -235,6 +256,7 @@ fn imports_of_a_local_module_count_as_uses() {
             ),
         ],
     );
+
     assert_eq!(dead(&root), Vec::<String>::new());
 }
 
@@ -247,6 +269,7 @@ fn a_name_in_code_the_compiler_skipped_is_used() {
             "ONLY_ELSEWHERE :: 3;\nunused :: () {}\nmain :: () {\n    #if false { x := ONLY_ELSEWHERE; }\n}\n",
         )],
     );
+
     assert_eq!(dead(&root), ["main.jai:unused"]);
 }
 
@@ -259,6 +282,7 @@ fn a_name_in_the_note_of_live_code_is_used() {
             "CASES :: int.[1, 2];\nunused :: () {}\ncheck :: (n: int) {} @test @cases(CASES)\nmain :: () {}\n",
         )],
     );
+
     assert_eq!(dead(&root), ["main.jai:unused"]);
 }
 
@@ -274,5 +298,6 @@ fn an_alias_of_a_module_is_used_through_its_members() {
             ("modules/tools/module.jai", "exported :: () {}\n"),
         ],
     );
+
     assert_eq!(dead(&root), ["main.jai:Unused"]);
 }

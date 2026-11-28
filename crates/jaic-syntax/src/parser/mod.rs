@@ -54,6 +54,7 @@ pub fn parse_file(file: FileId, text: &str) -> Result<File, Diagnostic> {
     let tokens = lex(file, text)?;
     let mut parser = Parser::new(text, tokens);
     let stmts = parser.parse_file_stmts()?;
+
     Ok(File {
         file,
         stmts,
@@ -76,11 +77,14 @@ pub fn parse_file_stoppable(
         Err(error) => return Some(Err(error)),
     };
     let mut parser = Parser::new(text, tokens);
+
     parser.stop = Some(stop);
     let stmts = parser.parse_file_stmts();
+
     if parser.stopped {
         return None;
     }
+
     Some(stmts.map(|stmts| File {
         file,
         stmts,
@@ -103,8 +107,10 @@ pub fn parse_file_for_target(
 ) -> Result<File, Diagnostic> {
     let tokens = crate::lexer::lex_for_target(file, text, target)?;
     let mut parser = Parser::new(text, tokens);
+
     parser.platform = Some(target);
     let stmts = parser.parse_file_stmts()?;
+
     Ok(File {
         file,
         stmts,
@@ -125,6 +131,7 @@ pub fn parse_tokens(
         stmts,
         lenient: std::mem::take(&mut parser.lenient),
     });
+
     (parsed, parser.toks)
 }
 
@@ -133,9 +140,11 @@ pub fn parse_tokens(
 pub fn parse_expression(text: &str, tokens: Vec<Token>) -> Result<crate::ast::Expr, Diagnostic> {
     let mut parser = Parser::new(text, tokens);
     let expr = parser.parse_expr()?;
+
     if !parser.at_eof() {
         return Err(parser.expected("the end of the expression", ""));
     }
+
     Ok(expr)
 }
 
@@ -239,9 +248,12 @@ impl<'a> Parser<'a> {
         let Some(stop) = self.stop.as_mut() else {
             return;
         };
+
         self.stop_countdown -= 1;
+
         if self.stop_countdown == 0 {
             self.stop_countdown = STOP_POLL_STATEMENTS;
+
             if stop() {
                 self.stopped = true;
                 self.pos = self.toks.len() - 1;
@@ -255,6 +267,7 @@ impl<'a> Parser<'a> {
             kind,
             span,
         };
+
         // A speculative parse may read the same text twice.
         if !self.lenient.contains(&found) {
             self.lenient.push(found);
@@ -269,25 +282,32 @@ impl<'a> Parser<'a> {
                 format!("code is nested too deeply (more than {MAX_NESTING} levels)"),
             ));
         }
+
         self.depth += 1;
         let result = f(self);
+
         self.depth -= 1;
         result
     }
 
     fn parse_file_stmts(&mut self) -> PResult<Vec<Stmt>> {
         let mut stmts = Vec::new();
+
         while !self.at_eof() {
             self.poll_stop();
+
             if self.stopped {
                 break;
             }
+
             let hoisted = self.hoisted.len();
+
             if let Some(stmt) = self.parse_stmt_recovering(None)? {
                 stmts.extend(self.hoisted.split_off(hoisted));
                 stmts.push(stmt);
             }
         }
+
         Ok(stmts)
     }
 
@@ -322,6 +342,7 @@ impl<'a> Parser<'a> {
         let Some(prev) = self.pos.checked_sub(1).map(|i| &self.toks[i]) else {
             return false;
         };
+
         matches!(prev.tok, Tok::Str(_))
             && self.src.as_bytes().get(prev.span.start as usize) == Some(&b'#')
     }
@@ -333,9 +354,11 @@ impl<'a> Parser<'a> {
     /// Consumes the current token and returns its span.
     fn bump(&mut self) -> Span {
         let span = self.span();
+
         if self.pos + 1 < self.toks.len() {
             self.pos += 1;
         }
+
         span
     }
 
@@ -349,9 +372,11 @@ impl<'a> Parser<'a> {
 
     fn eat(&mut self, p: P) -> bool {
         let found = self.at(p);
+
         if found {
             self.bump();
         }
+
         found
     }
 
@@ -381,9 +406,11 @@ impl<'a> Parser<'a> {
 
     fn eat_kw(&mut self, kw: &str) -> bool {
         let found = self.at_kw(kw);
+
         if found {
             self.bump();
         }
+
         found
     }
 
@@ -408,6 +435,7 @@ impl<'a> Parser<'a> {
             Tok::Ident(name) => {
                 let name = *name;
                 let span = self.bump();
+
                 Ok(Ident {
                     name,
                     span,
@@ -427,6 +455,7 @@ impl<'a> Parser<'a> {
     /// `x.remove` then reaches.
     fn reject_keyword_name(&self, name: Ident, backticked: bool) -> PResult<Ident> {
         let word = name.name.as_str();
+
         if is_builtin_type_name(word) {
             return Err(Diagnostic::new(
                 Code::ShadowsBuiltinType,
@@ -435,12 +464,15 @@ impl<'a> Parser<'a> {
             )
             .with_help("choose another name"));
         }
+
         let keyword = stmt::Keyword::of(word);
         let in_if = matches!(word, "then" | "else");
         let literal = !self.in_aggregate_body && matches!(word, "null" | "true" | "false");
+
         if !literal && (backticked || (keyword.is_none() && !in_if)) {
             return Ok(name);
         }
+
         let help = if literal {
             format!("`{word}` always means the literal; use another name")
         } else if keyword.is_some_and(stmt::Keyword::only_starts_statements) {
@@ -450,6 +482,7 @@ impl<'a> Parser<'a> {
         } else {
             format!("`{word}` always starts an expression; use another name")
         };
+
         Err(Diagnostic::new(
             Code::ParseKeywordDeclared,
             name.span,
@@ -473,24 +506,29 @@ impl<'a> Parser<'a> {
     fn parse_notes(&mut self) -> Vec<Note> {
         let after_block = self.at_prev(P::RBrace);
         let mut notes = Vec::new();
+
         while let Tok::Note(text) = self.tok() {
             let text = text.clone();
             let span = self.bump();
+
             // A plain note's span is its `@` and its text; a quoted `@"..."` is longer.
             if (span.end - span.start) as usize == text.len() + 1
                 && text.contains(|c: char| c.is_ascii_whitespace())
             {
                 self.note_lenient(Code::NoteWithSpaces, span);
             }
+
             notes.push(Note {
                 text,
                 span,
             });
         }
+
         // `} @Note` still ends the statement with its block.
         if after_block && !notes.is_empty() {
             self.block_end = self.pos;
         }
+
         notes
     }
 
@@ -512,6 +550,7 @@ impl<'a> Parser<'a> {
             start: end,
             ..self.prev_span()
         };
+
         Suggestion::insert(title, at, text, applicability)
     }
 
@@ -526,6 +565,7 @@ impl<'a> Parser<'a> {
         } else {
             Applicability::MaybeIncorrect
         };
+
         error.with_suggestion(
             self.insert_after_previous("end the statement here with `;`", ";", applicability)
                 .with_action("Insert `;`"),
@@ -538,9 +578,11 @@ impl<'a> Parser<'a> {
         let error = self
             .expected("`}`", context)
             .with_note(open, "the block opens here");
+
         if !self.at_eof() {
             return error;
         }
+
         let end = self.src.len() as u32;
         let at = Span {
             start: end,
@@ -552,6 +594,7 @@ impl<'a> Parser<'a> {
         } else {
             "\n}\n"
         };
+
         error.with_suggestion(
             Suggestion::insert(
                 "close the block at the end of the file with `}`",
@@ -570,6 +613,7 @@ impl<'a> Parser<'a> {
         } else {
             format!(" {context}")
         };
+
         self.error(
             Code::ParseExpectedToken,
             format!("expected {what}{context}, found {}", describe(self.tok())),

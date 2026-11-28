@@ -18,6 +18,7 @@ impl Resolver<FileId> for Checked<'_> {
         let names: Vec<Sym> = path.iter().map(|n| Sym::intern(n)).collect();
         let found = self.0.ide_resolve_path(scope, &names);
         let span = found.first()?;
+
         Some((span.file, span.start as usize))
     }
 }
@@ -30,10 +31,13 @@ impl Compiler {
         if decl == Span::NONE || self.src.sources.try_get(decl.file).is_none() {
             return decl;
         }
+
         let (file, at) = docs::docs_site(&mut Checked(self), decl.file, decl.start as usize);
+
         if (file, at) == (decl.file, decl.start as usize) {
             return decl;
         }
+
         let named = self
             .src
             .sources
@@ -46,6 +50,7 @@ impl Compiler {
             })
             .unwrap_or(0);
         let end = (at + named) as u32;
+
         Span {
             file,
             start: at as u32,

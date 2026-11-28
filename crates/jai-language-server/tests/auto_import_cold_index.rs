@@ -9,6 +9,7 @@ fn session() -> Session {
         Limits::default(),
         modules_environment(Some(jaic::target::TargetOs::Linux)),
     );
+
     s.defer_compiles(true);
     s
 }
@@ -39,11 +40,14 @@ fn auto_imports_wait_for_the_warm_up() {
     let path = dir.join("main.jai");
     let text = "main :: () { meas }";
     let mut s = session();
+
     s.open(uri_of(&path), 1, text.into()).unwrap();
     let cold = complete(&s, &path, text, "meas");
+
     assert_eq!(auto_imports(&cold), 0, "{cold:?}");
     assert!(cold.is_incomplete, "the client asks again");
     s.warm_auto_import();
     let warm = complete(&s, &path, text, "meas");
+
     assert!(auto_imports(&warm) > 0, "{warm:?}");
 }

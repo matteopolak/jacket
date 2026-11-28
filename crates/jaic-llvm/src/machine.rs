@@ -33,6 +33,7 @@ pub(super) fn set_coverage_options(fuzzer: bool) {
             .map(|a| std::ffi::CString::new(a).expect("no NUL in a constant"))
             .collect();
         let pointers: Vec<*const std::ffi::c_char> = args.iter().map(|a| a.as_ptr()).collect();
+
         // SAFETY: the strings outlive the call, which copies what it keeps.
         unsafe {
             inkwell::llvm_sys::support::LLVMParseCommandLineOptions(
@@ -50,6 +51,7 @@ pub(super) fn set_coverage_options(fuzzer: bool) {
 fn host_triple(macos_version: Option<&str>) -> TargetTriple {
     let default = TargetMachine::get_default_triple();
     let text = default.as_str().to_string_lossy().into_owned();
+
     match text.split_once("-apple-darwin") {
         Some((arch, _)) => {
             let version = macos_version
@@ -78,6 +80,7 @@ pub(super) fn cpu_and_features(
     let cpu = match cpu.filter(|c| !c.is_empty()) {
         Some("native") => {
             let host = TargetMachine::get_host_cpu_features().to_string();
+
             features = if features.is_empty() {
                 host
             } else {
@@ -88,6 +91,7 @@ pub(super) fn cpu_and_features(
         Some(cpu) => cpu.to_string(),
         None => baseline_cpu(target).to_string(),
     };
+
     // wasm: `memory.copy`/`memory.fill` for memcpy and memset. Without them LLVM calls
     // `memmove`, which Wasi_Runtime implements with that same intrinsic. Only an explicit
     // `-bulk-memory` turns them off.
@@ -95,8 +99,10 @@ pub(super) fn cpu_and_features(
         if !features.is_empty() {
             features.push(',');
         }
+
         features.push_str("+bulk-memory");
     }
+
     // Freestanding code starts with the MMU off, where every access is to Device memory and an
     // unaligned one faults. A board that turns the MMU on can pass `-strict-align`.
     // (AVR has no unaligned-access feature to set: nothing there is aligned.)
@@ -110,8 +116,10 @@ pub(super) fn cpu_and_features(
         if !features.is_empty() {
             features.push(',');
         }
+
         features.push_str("+strict-align");
     }
+
     (cpu, features)
 }
 
@@ -120,9 +128,11 @@ pub(super) fn cpu_and_features(
 /// `generic` (armv8-a, the wasm MVP) elsewhere.
 pub(super) fn baseline_cpu(target: BuildTarget) -> &'static str {
     use jaic::target::{TargetAbi, TargetCpu};
+
     if let (TargetCpu::Arm, TargetAbi::CortexM(core)) = (target.cpu, target.abi) {
         return core.llvm_cpu();
     }
+
     match (target.cpu, target.is_apple()) {
         // Every Intel Mac (and Rosetta) has SSSE3.
         (TargetCpu::X64, true) => "core2",
@@ -193,6 +203,7 @@ pub(super) fn target_machine(
             disassembler: false,
             ..InitializationConfig::default()
         };
+
         Target::initialize_x86(&config);
         Target::initialize_aarch64(&config);
         Target::initialize_webassembly(&config);
@@ -237,9 +248,11 @@ pub(super) fn target_machine(
             CodeModel::Default,
         )
         .ok_or("could not create a target machine")?;
+
     if level == OptLevel::O0 && !arch.is_wasm() {
         use_fast_isel(&machine);
     }
+
     Ok((machine, triple, build_target, arch))
 }
 
@@ -263,6 +276,7 @@ fn unoptimized_machine_level(
 ) -> OptLevel {
     let needs_better_allocator =
         arch.is_wasm() || matches!(arch, jaic::abi::Arch::X86 | jaic::abi::Arch::Avr);
+
     if needs_better_allocator && level == OptLevel::O0 && options.codegen.machine_level.is_none() {
         OptLevel::O1
     } else {
@@ -296,6 +310,7 @@ pub(super) fn verify_ir(options: &Options) -> bool {
 /// The target machine's optimization level for `level`.
 fn llvm_level(level: OptLevel) -> inkwell::OptimizationLevel {
     use inkwell::OptimizationLevel;
+
     match level {
         OptLevel::O0 => OptimizationLevel::None,
         OptLevel::O1 => OptimizationLevel::Less,
@@ -313,6 +328,7 @@ mod tests {
     #[test]
     fn an_unoptimized_wasm_module_gets_register_coloring_unless_the_program_chose_a_level() {
         let options = Options::default();
+
         assert_eq!(
             unoptimized_machine_level(Arch::Wasm, &options, OptLevel::O0),
             OptLevel::O1
@@ -332,6 +348,7 @@ mod tests {
             },
             ..Options::default()
         };
+
         assert_eq!(
             unoptimized_machine_level(Arch::Wasm, &chosen, OptLevel::O0),
             OptLevel::O0
@@ -364,16 +381,20 @@ mod tests {
             "thumbv7em-none-eabihf",
             "thumbv8m.main-none-eabihf",
         ];
+
         // The backends some LLVM builds leave out (official Windows releases have none).
         if cfg!(llvm_backend = "systemz") {
             triples.push("s390x-unknown-linux-gnu");
         }
+
         if cfg!(llvm_backend = "powerpc") {
             triples.push("powerpc64-unknown-linux-gnu");
         }
+
         if cfg!(llvm_backend = "avr") {
             triples.push("avr-none-elf");
         }
+
         for triple in triples {
             let ours = BuildTarget::parse(triple).unwrap().data_layout();
             let llvm_triple =
@@ -400,8 +421,10 @@ mod tests {
                 context.i32_type(),
                 context.i64_type(),
             ];
+
             for (bytes, ty) in [1u64, 2, 4, 8].into_iter().zip(ints) {
                 let (size, align) = size_align(&ty);
+
                 assert_eq!(size, bytes, "{triple}: i{} size", bytes * 8);
                 assert_eq!(
                     align,
@@ -410,23 +433,31 @@ mod tests {
                     bytes * 8
                 );
             }
+
             let (size, align) = size_align(&context.f32_type());
+
             assert_eq!((size, align), (4, ours.float_align_of(4)), "{triple}: f32");
             let (size, align) = size_align(&context.f64_type());
+
             assert_eq!((size, align), (8, ours.float_align_of(8)), "{triple}: f64");
             let pointer = context.ptr_type(inkwell::AddressSpace::default());
             let (size, align) = size_align(&pointer);
+
             assert_eq!(size, ours.ptr_bytes(), "{triple}: pointer size");
             assert_eq!(align, ours.pointer_align as u64, "{triple}: pointer align");
+
             if matches!(ours.f80_size, 12 | 16) && triple.starts_with(['x', 'i']) {
                 let (size, align) = size_align(&context.x86_f80_type());
+
                 assert_eq!(
                     (size, align),
                     (ours.f80_size as u64, ours.f80_align as u64),
                     "{triple}: x86_fp80"
                 );
             }
+
             let big = data.get_byte_ordering() == ByteOrdering::BigEndian;
+
             assert_eq!(
                 ours.endian == jaic::layout::Endian::Big,
                 big,

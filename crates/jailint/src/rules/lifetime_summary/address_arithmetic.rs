@@ -20,21 +20,27 @@ fn round_up(e: &Expr, address: Sym, alignment: Sym) -> bool {
     let Some((division, last_alignment)) = binary(e, BinOp::Mul) else {
         return false;
     };
+
     if !identifier(last_alignment, alignment) {
         return false;
     }
+
     let Some((numerator, divisor)) = binary(division, BinOp::Div) else {
         return false;
     };
+
     if !identifier(divisor, alignment) {
         return false;
     }
+
     let Some((sum, one)) = binary(numerator, BinOp::Sub) else {
         return false;
     };
+
     if !matches!(&one.kind,E::Int(n,..) if n.get()==1) {
         return false;
     }
+
     let Some((a, b)) = binary(sum, BinOp::Add) else {
         return false;
     };
@@ -46,9 +52,11 @@ impl Resolver<'_> {
         let sig = self.compiler.pr.procs[self.body.procedure.0 as usize]
             .sig
             .as_ref()?;
+
         if sig.params.len() != 2 || sig.returns.len() != 1 {
             return None;
         }
+
         let integer = |ty| {
             matches!(
                 self.compiler.ty.types.kind(ty),
@@ -58,22 +66,28 @@ impl Resolver<'_> {
                 }
             )
         };
+
         if !sig.params.iter().all(|p| integer(p.ty)) || !integer(sig.returns[0]) {
             return None;
         }
+
         let params = &self.body.syntax.header.params;
+
         if params.len() != 2 {
             return None;
         }
+
         let a = params[0].name?.name;
         let b = params[1].name?.name;
         let statements = &self.body.syntax.body.as_ref()?.stmts;
         let [prefix, returned] = statements.as_slice() else {
             return None;
         };
+
         if !matches!(prefix.kind, S::Expr(_)) {
             return None;
         }
+
         let S::Return {
             values,
             backtick: false,
@@ -84,9 +98,11 @@ impl Resolver<'_> {
         let [result] = values.as_slice() else {
             return None;
         };
+
         if !round_up(&result.value, a, b) {
             return None;
         }
+
         if self
             .params
             .keys()
@@ -94,6 +110,7 @@ impl Resolver<'_> {
         {
             return None;
         }
+
         // A source-level operator overload must not be mistaken for primitive arithmetic.
         if self
             .body
@@ -126,6 +143,7 @@ impl Resolver<'_> {
         {
             return None;
         }
+
         Some(0)
     }
 
@@ -139,6 +157,7 @@ impl Resolver<'_> {
         if depth > 24 || !seen.insert(integer) {
             return None;
         }
+
         let result = if let Some(cast) = self.address_casts.get(&integer).filter(|c| !c.to_pointer)
         {
             Some(cast.source)
@@ -146,6 +165,7 @@ impl Resolver<'_> {
             let [definition] = self.values.get(&integer)?.as_slice() else {
                 return None;
             };
+
             match definition {
                 Def::Copy(source) => self.integer_address_source(*source, all, seen, depth + 1),
                 Def::Load(place, _) => self
@@ -160,6 +180,7 @@ impl Resolver<'_> {
                 _ => None,
             }
         };
+
         seen.remove(&integer);
         result
     }
@@ -176,9 +197,11 @@ impl Resolver<'_> {
         if depth > 24 || !seen.insert(v) {
             return false;
         }
+
         if let Some(cast) = self.address_casts.get(&v) {
             return self.adjusted_pointer(cast.source, all, seen, depth + 1);
         }
+
         self.values.get(&v).into_iter().flatten().any(|d| match d {
             Def::Copy(source) => self.adjusted_pointer(*source, all, seen, depth + 1),
             Def::Load(place, _) => self

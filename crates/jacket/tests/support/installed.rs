@@ -16,6 +16,7 @@ pub fn stdlib() -> PathBuf {
 /// A scratch directory of its own, so tests do not share files.
 pub fn scratch(name: &str) -> TempDir {
     let dir = TempDir::new(&format!("jacket-test-{name}"));
+
     std::fs::create_dir_all(&dir).expect("create the scratch directory");
     dir
 }
@@ -25,14 +26,18 @@ pub fn scratch(name: &str) -> TempDir {
 pub fn archive(root: &Path) -> Option<PathBuf> {
     let suffix = std::env::consts::EXE_SUFFIX;
     let jaic = target_dir().join(format!("jaic{suffix}"));
+
     if !jaic.is_file() {
         eprintln!("skipped: build `jaic` first (`cargo build -p jaic-cli`)");
         return None;
     }
+
     let bin = root.join("archive");
+
     std::fs::create_dir_all(&bin).expect("create the archive directory");
     std::fs::copy(&jaic, bin.join(format!("jaic{suffix}"))).expect("copy jaic");
     let jacket = bin.join(format!("jacket{suffix}"));
+
     std::fs::copy(env!("CARGO_BIN_EXE_jacket"), &jacket).expect("copy jacket");
     Some(jacket)
 }

@@ -63,6 +63,7 @@ mod imp {
                     BEHAVIOR,
                     NO_FLAVOR,
                 );
+
                 if status == 0 {
                     Ok(())
                 } else {
@@ -96,6 +97,7 @@ mod tests {
         let status = quiet(Command::new("sh").args(["-c", "kill -SEGV $$"]))
             .status()
             .unwrap();
+
         assert_eq!(status.signal(), Some(11));
     }
 
@@ -104,6 +106,7 @@ mod tests {
         let output = quiet(Command::new("sh").args(["-c", "echo hi; exit 3"]))
             .output()
             .unwrap();
+
         assert_eq!(output.status.code(), Some(3));
         assert_eq!(output.stdout, b"hi\n");
     }

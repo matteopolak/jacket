@@ -16,6 +16,7 @@ fn leading_members(steps: &[super::super::Step]) -> (Vec<Sym>, bool) {
         })
         .collect();
     let complete = chain.len() == steps.len();
+
     (chain, complete)
 }
 
@@ -44,6 +45,7 @@ impl Resolver<'_> {
                 ..
             } => {
                 let p = self.places.existing(*value, *base_ty)?;
+
                 if let Some((formal, _)) = self.params.get(&p) {
                     (
                         Some(Path {
@@ -66,9 +68,11 @@ impl Resolver<'_> {
             return None;
         };
         let (mut chain, complete) = leading_members(&path.steps);
+
         if complete && let Some(name) = member {
             chain.push(name);
         }
+
         Some((formal, chain))
     }
 
@@ -81,14 +85,19 @@ impl Resolver<'_> {
         all: &HashMap<ProcId, Summary>,
     ) -> Option<Vec<Vec<Sym>>> {
         let targets = self.call_targets(event);
+
         if targets.unknown || targets.procedures.is_empty() {
             return None;
         }
+
         let mut chains = Vec::new();
+
         for proc in &targets.procedures {
             let known = all.get(proc)?.read_members.get(&arg.formal)?;
+
             chains.extend(known.iter().cloned());
         }
+
         (!chains.iter().any(Vec::is_empty)).then_some(chains)
     }
 
@@ -103,8 +112,10 @@ impl Resolver<'_> {
             .iter()
             .map(|block| {
                 let mut facts = Vec::new();
+
                 for event in &block.events {
                     facts.extend(self.foreground_direct(event, all));
+
                     for arg in self.read_arguments(event, all, must) {
                         let Some(Path {
                             root: Root::Parameter(formal),
@@ -114,6 +125,7 @@ impl Resolver<'_> {
                             continue;
                         };
                         let (prefix, complete) = leading_members(&steps);
+
                         match self.read_members(event, arg, all).filter(|_| complete) {
                             Some(chains) => facts.extend(chains.into_iter().map(|chain| {
                                 (formal, prefix.iter().copied().chain(chain).collect())
@@ -122,6 +134,7 @@ impl Resolver<'_> {
                         }
                     }
                 }
+
                 facts
             })
             .collect()
@@ -154,6 +167,7 @@ impl Resolver<'_> {
             })
             .collect();
         let candidates: HashSet<_> = effects.iter().flatten().map(|(e, _)| e.clone()).collect();
+
         candidates
             .into_iter()
             .filter(|e| !must || guaranteed(self.body, &effects, e).is_some())
@@ -170,9 +184,11 @@ impl Resolver<'_> {
         all: &HashMap<ProcId, Summary>,
     ) -> HashMap<usize, HashSet<Vec<Sym>>> {
         let mut members = HashMap::<usize, HashSet<Vec<Sym>>>::default();
+
         for (formal, chain) in self.foreground_facts(all, false).into_iter().flatten() {
             members.entry(formal).or_default().insert(chain);
         }
+
         members
     }
 }
@@ -185,12 +201,16 @@ pub(in crate::rules) fn solve<'a>(
     all: &mut Summaries,
 ) {
     let mut ids: Vec<_> = valid.keys().copied().collect();
+
     ids.sort_unstable_by_key(|p| p.0);
+
     for component in sccs(&ids, graph) {
         let once = acyclic(&component, graph);
         let mut resolvers = HashMap::default();
+
         loop {
             let mut changed = false;
+
             for id in &component {
                 let resolver = resolvers.entry(*id).or_insert_with(|| {
                     Resolver::cached(
@@ -213,8 +233,10 @@ pub(in crate::rules) fn solve<'a>(
                         + s.read_members.values().map(HashSet::len).sum::<usize>()
                 };
                 let before = size(summary);
+
                 summary.read_formals.extend(must);
                 summary.may_read_formals.extend(may);
+
                 for (formal, chains) in members {
                     summary
                         .read_members
@@ -222,8 +244,10 @@ pub(in crate::rules) fn solve<'a>(
                         .or_default()
                         .extend(chains);
                 }
+
                 changed |= before != size(summary);
             }
+
             if !changed || once {
                 break;
             }

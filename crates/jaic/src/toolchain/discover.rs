@@ -35,6 +35,7 @@ pub fn lib_env(arch: &str) -> Option<OsString> {
     if lib_is_set() {
         return None;
     }
+
     find_tool("link.exe", arch)?
         .env
         .into_iter()
@@ -49,6 +50,7 @@ pub(crate) fn library_dirs(arch: &str) -> Vec<PathBuf> {
         .os()
         .filter(|v| !v.is_empty())
         .or_else(|| lib_env(arch));
+
     value
         .map(|v| std::env::split_paths(&v).collect())
         .unwrap_or_default()
@@ -62,6 +64,7 @@ pub fn find_tool(tool: &str, arch: &str) -> Option<Tool> {
     } else {
         found.env().into_iter().cloned().collect()
     };
+
     Some(Tool {
         program: found.path().to_path_buf(),
         env,

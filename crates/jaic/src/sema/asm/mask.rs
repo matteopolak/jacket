@@ -44,12 +44,14 @@ pub(super) fn lookup_kop(name: &str) -> Option<(KOp, Ty)> {
             _ => return None,
         })
     };
+
     match name {
         "kunpckbw" => return Some((KOp::Unpack, Ty::I16)),
         "kunpckwd" => return Some((KOp::Unpack, Ty::I32)),
         "kunpckdq" => return Some((KOp::Unpack, Ty::I64)),
         _ => {}
     }
+
     for (prefix, op) in [
         ("kmov", KOp::Mov),
         ("kandn", KOp::AndNot),
@@ -70,6 +72,7 @@ pub(super) fn lookup_kop(name: &str) -> Option<(KOp, Ty)> {
             return Some((op, ty));
         }
     }
+
     None
 }
 
@@ -88,9 +91,11 @@ impl Compiler {
         let name = inst.mnemonic.name.as_str();
         let span = inst.span;
         let mut opds = Vec::with_capacity(inst.operands.len());
+
         for o in &inst.operands {
             opds.push(self.mask_operand(f, cx, o)?);
         }
+
         let n = opds.len();
         let want = |k: usize| -> Result<()> {
             if n != k {
@@ -100,6 +105,7 @@ impl Compiler {
                     format!("`{name}` takes {k} operand(s), found {n}"),
                 );
             }
+
             Ok(())
         };
         let need_mask = |o: KOpd| -> Result<Val> {
@@ -112,6 +118,7 @@ impl Compiler {
                 ),
             }
         };
+
         match op {
             KOp::Mov => {
                 want(2)?;
@@ -122,6 +129,7 @@ impl Compiler {
                     }
                     KOpd::Other(o) => self.asm_read(f, o, ty, span)?,
                 };
+
                 match opds[0] {
                     KOpd::Mask(p) => Self::mask_store(f, p, ty, v),
                     KOpd::Other(o @ Opd::Mem(_)) => self.asm_write(f, o, ty, v, span)?,
@@ -133,6 +141,7 @@ impl Compiler {
                             Ty::I32
                         };
                         let v = resize(f, v, ty, wide, false);
+
                         self.asm_write(f, o, wide, v, span)?;
                     }
                 }
@@ -164,9 +173,11 @@ impl Compiler {
                         let lo = resize(f, b, src_ty, ty, false);
                         let s = konst(f, ty, bits(src_ty));
                         let hi = bin(f, BinOp::Shl, ty, hi, s);
+
                         bin(f, BinOp::Or, ty, hi, lo)
                     }
                 };
+
                 Self::mask_store(f, dst, ty, r);
             }
             KOp::Not => {
@@ -174,6 +185,7 @@ impl Compiler {
                 let dst = need_mask(opds[0])?;
                 let a = Self::mask_load(f, need_mask(opds[1])?, ty);
                 let r = f.b.un(UnOp::Not, ty, a);
+
                 Self::mask_store(f, dst, ty, r);
             }
             KOp::ShiftLeft | KOp::ShiftRight => {
@@ -197,6 +209,7 @@ impl Compiler {
                 } else {
                     bin(f, BinOp::LShr, ty, a, c)
                 };
+
                 Self::mask_store(f, dst, ty, r);
             }
             KOp::Test | KOp::OrTest => {
@@ -208,15 +221,18 @@ impl Compiler {
                     let and = bin(f, BinOp::And, ty, a, b);
                     let na = f.b.un(UnOp::Not, ty, a);
                     let andn = bin(f, BinOp::And, ty, na, b);
+
                     (is_zero(f, ty, and), is_zero(f, ty, andn))
                 } else {
                     // ZF: a | b == 0; CF: a | b all ones.
                     let or = bin(f, BinOp::Or, ty, a, b);
                     let ones = konst(f, ty, u64::MAX);
+
                     (is_zero(f, ty, or), cmp(f, CmpOp::Eq, ty, or, ones))
                 };
                 let zero = konst(f, Ty::I8, 0);
                 let odd = konst(f, Ty::I8, 1);
+
                 cx.flags = Flags {
                     cf: Some(cf),
                     zf: Some(zf),
@@ -226,6 +242,7 @@ impl Compiler {
                 };
             }
         }
+
         Ok(true)
     }
 
@@ -238,6 +255,7 @@ impl Compiler {
     /// Write `ty` bits to a mask register, clearing the bits above.
     pub(super) fn mask_store(f: &mut FnCtx, p: Val, ty: Ty, v: Val) {
         let v = resize(f, v, ty, Ty::I64, false);
+
         f.b.store(Ty::I64, p, v);
     }
 
@@ -245,6 +263,7 @@ impl Compiler {
         match o {
             AsmOperand::Decl(d) if d.colon => {
                 let (kind, addr) = self.asm_declare(f, cx, d, "omr")?;
+
                 match kind {
                     AsmReg::Mask => Ok(KOpd::Mask(addr)),
                     _ => Ok(KOpd::Other(self.asm_gpr_opd(kind, addr, d.name.span)?)),

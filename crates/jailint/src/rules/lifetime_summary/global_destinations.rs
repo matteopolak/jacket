@@ -7,18 +7,23 @@ impl Resolver<'_> {
         if matches!(path.root, Root::Parameter(_) | Root::ScopedGlobal(..)) {
             return Some(path);
         }
+
         let Root::Local(place) = path.root else {
             return None;
         };
         let ((value, ty), projections) = &self.places.paths[place];
+
         if !projections.is_empty() || !matches!(path.steps.as_slice(), [Step::Deref, Step::Storage])
         {
             return None;
         }
+
         let (_, global) = self.body.globals.iter().find(|(v, _)| v == value)?;
+
         if !self.targets.scoped_pointers.contains(global) {
             return None;
         }
+
         path.root = Root::ScopedGlobal(*global, *ty);
         Some(path)
     }
@@ -33,6 +38,7 @@ impl Resolver<'_> {
         if steps.first() != Some(&Step::Deref) || self.rebinds_global(event, global) {
             return None;
         }
+
         let address = self.body.globals.iter().find(|(_, id)| *id == global)?.0;
         let slot = self.places.place(address, ty);
         let start = self.body.blocks.iter().enumerate().find_map(|(b, block)| {
@@ -43,21 +49,26 @@ impl Resolver<'_> {
                 .map(|i| (b, i))
         })?;
         let mut incoming = vec![Vec::new(); self.body.blocks.len()];
+
         for (index, block) in self.body.blocks.iter().enumerate() {
             for &next in &block.successors {
                 incoming[next].push(index);
             }
         }
+
         let mut queue = vec![start];
         let mut seen = HashSet::default();
         let mut source = None;
+
         // Every path to the call must agree on the most recent binding. A dominating
         // assignment alone is insufficient when a branch can overwrite the slot.
         while let Some((block, end)) = queue.pop() {
             if !seen.insert((block, end)) {
                 continue;
             }
+
             let mut bound = false;
+
             for event in self.body.blocks[block].events[..end].iter().rev() {
                 if let Event::Store {
                     place,
@@ -74,18 +85,23 @@ impl Resolver<'_> {
                     {
                         return None;
                     }
+
                     source = Some(value);
                     bound = true;
+
                     break;
                 }
+
                 if self.rebinds_global(event, global) {
                     return None;
                 }
             }
+
             if !bound {
                 if incoming[block].is_empty() {
                     return None;
                 }
+
                 queue.extend(
                     incoming[block]
                         .iter()
@@ -93,9 +109,11 @@ impl Resolver<'_> {
                 );
             }
         }
+
         let owner = self
             .places
             .place(source?, self.compiler.ty.types.pointee(ty)?);
+
         self.materialize_storage(&Path {
             root: Root::Local(owner),
             steps: steps[1..].to_vec(),
@@ -108,13 +126,16 @@ impl Resolver<'_> {
         let Some(facts) = self.compiler.ed.facts() else {
             return true;
         };
+
         while let Some(id) = queue.pop() {
             if !seen.insert(id) {
                 continue;
             }
+
             let Some(body) = facts.lifetime_bodies.get(&id) else {
                 continue;
             };
+
             for event in body.blocks.iter().flat_map(|b| &b.events) {
                 match event {
                     Event::Store {
@@ -140,6 +161,7 @@ impl Resolver<'_> {
                 }
             }
         }
+
         false
     }
 }

@@ -5,6 +5,7 @@ use test_support::compiler::compile_source;
 fn error_of(declarations: &str, body: &str) -> String {
     let source = format!("{declarations}\nmain :: () {{ {body} }}");
     let (c, result) = compile_source(&source);
+
     match result {
         Ok(()) => panic!("expected an error from `{body}`"),
         Err(error) => error.render(&c.src.sources),
@@ -14,6 +15,7 @@ fn error_of(declarations: &str, body: &str) -> String {
 #[track_caller]
 fn rejects(declarations: &str, body: &str, expected: &str) {
     let rendered = error_of(declarations, body);
+
     assert!(
         rendered.contains(expected),
         "`{body}` should report `{expected}`:\n{rendered}"
@@ -61,6 +63,7 @@ fn unbound_type_variable_is_named() {
 #[test]
 fn array_lengths_must_agree() {
     let declarations = "same :: (a: [$N] int, b: [N] int) {}\nlit :: (a: [$N] int = .[1, 2]) {}";
+
     rejects(
         declarations,
         "a: [2] int; b: [3] int; same(a, b);",
@@ -90,6 +93,7 @@ fn polymorphic_struct_patterns_reject_other_types() {
     let pairs = format!(
         "{PAIR}\nbare :: (p: Pair) {{}}\nargs :: (p: Pair($X, $Y)) {{}}\nrestricted :: (p: $P/Pair) {{}}"
     );
+
     rejects(&pairs, "bare(5);", "is not an instance of `Pair`");
     rejects(&pairs, "args(5);", "is not an instance of this struct");
     rejects(&pairs, "restricted(5);", "is not an instance of `Pair`");

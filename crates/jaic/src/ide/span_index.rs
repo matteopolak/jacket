@@ -78,9 +78,11 @@ fn found<K: Hash + Eq, V>(map: &Map<K, V>, key: &K) -> Found<V> {
 
 fn grouped<K: Hash + Eq, V>(pairs: impl IntoIterator<Item = (K, V)>) -> Map<K, V> {
     let mut lists: HashMap<K, Vec<V>> = HashMap::default();
+
     for (k, v) in pairs {
         lists.entry(k).or_default().push(v);
     }
+
     lists.into_iter().map(|(k, v)| (k, Rc::from(v))).collect()
 }
 
@@ -115,12 +117,14 @@ impl Compiler {
             procs: key.procs,
         });
         let mut index = self.ed.index.borrow_mut();
+
         if index.key != Some(key) {
             *index = SpanIndex {
                 key: Some(key),
                 sections: Rc::default(),
             };
         }
+
         Some((index.sections.clone(), mark))
     }
 
@@ -137,6 +141,7 @@ impl Compiler {
                 .map_or(&[][..], |ide| &ide.refs[..mark.refs]);
             let mut seen: HashSet<(Span, EntityId)> = HashSet::default();
             let mut pairs: Vec<(Span, EntityId)> = Vec::new();
+
             for r in refs {
                 if let (false, IdeWhat::Entity(e)) = (r.decl, &r.what)
                     && seen.insert((r.span, *e))
@@ -144,8 +149,10 @@ impl Compiler {
                     pairs.push((r.span, *e));
                 }
             }
+
             grouped(pairs)
         });
+
         found(idents, &span)
     }
 
@@ -158,6 +165,7 @@ impl Compiler {
         };
         let locals = sections.locals.get_or_init(|| {
             let mut wanted = Wanted::default();
+
             grouped(
                 self.ns.entities[..mark.entities]
                     .iter()
@@ -168,6 +176,7 @@ impl Compiler {
                     .map(|(i, e)| (e.span, EntityId(i as u32))),
             )
         });
+
         found(locals, &span)
     }
 
@@ -179,6 +188,7 @@ impl Compiler {
         };
         let headers = sections.headers.get_or_init(|| {
             let mut wanted = Wanted::default();
+
             grouped(
                 self.pr.procs[..mark.procs]
                     .iter()
@@ -187,6 +197,7 @@ impl Compiler {
                     .map(|(i, p)| (p.lit.header.span, ProcId(i as u32))),
             )
         });
+
         found(headers, &span)
     }
 
@@ -196,6 +207,7 @@ impl Compiler {
             return Vec::new();
         };
         let mut pairs: Vec<(Span, ProcId)> = Vec::new();
+
         for r in ide.refs[..mark.refs].iter().filter(|r| !r.decl) {
             let named: Vec<ProcId> = match &r.what {
                 IdeWhat::Procs(ps) => ps.clone(),
@@ -212,8 +224,10 @@ impl Compiler {
                 },
                 _ => Vec::new(),
             };
+
             pairs.extend(named.into_iter().map(|p| (r.span, p)));
         }
+
         pairs
     }
 
@@ -225,6 +239,7 @@ impl Compiler {
         let uses = sections
             .uses
             .get_or_init(|| grouped(self.ide_proc_names(mark).into_iter().map(|(s, p)| (p, s))));
+
         found(uses, &proc)
     }
 
@@ -236,9 +251,11 @@ impl Compiler {
         let named = sections.named.get_or_init(|| {
             let mut pairs = self.ide_proc_names(mark);
             let mut seen = HashSet::default();
+
             pairs.retain(|pair| seen.insert(*pair));
             grouped(pairs)
         });
+
         found(named, &span)
     }
 
@@ -253,13 +270,16 @@ impl Compiler {
             let mut wanted = Wanted::default();
             let mut done: HashSet<Span> = HashSet::default();
             let mut failed: HashSet<Span> = HashSet::default();
+
             for p in &self.pr.procs[..mark.procs] {
                 let Some(block) = &p.lit.body else {
                     continue;
                 };
+
                 if !wanted.has(self, block.span.file) {
                     continue;
                 }
+
                 match p.body_state {
                     BodyState::Done => {
                         done.insert(block.span);
@@ -270,8 +290,10 @@ impl Compiler {
                     BodyState::NotNeeded | BodyState::Deferred => {}
                 }
             }
+
             done.difference(&failed).copied().collect()
         });
+
         clean.contains(&body)
     }
 }

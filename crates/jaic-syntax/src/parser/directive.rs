@@ -61,12 +61,15 @@ pub(super) fn directive_starts_expr(name: &str) -> bool {
 impl Parser<'_> {
     pub(super) fn parse_directive_expr(&mut self, name: &str) -> PResult<Expr> {
         let start = self.span();
+
         if name == "import" {
             return self.parse_import_expr(start);
         }
+
         let Some(directive) = Directive::from_name(name) else {
             return self.parse_unknown_directive();
         };
+
         match directive {
             Directive::CallerLocation => self.parse_leaf_directive(start, ExprKind::CallerLocation),
             Directive::CallerCode => self.parse_leaf_directive(start, ExprKind::CallerCode),
@@ -107,6 +110,7 @@ impl Parser<'_> {
             span: start,
         };
         let import = self.parse_import(Some(name), start)?;
+
         self.hoisted.push(import);
         Ok(mk(ExprKind::Ident(name.name), start.to(self.prev_span())))
     }
@@ -124,6 +128,7 @@ impl Parser<'_> {
     /// Flags written directly after a directive, with no space before the comma.
     pub(super) fn parse_directive_flags(&mut self) -> PResult<Vec<DirectiveFlag>> {
         let mut flags = Vec::new();
+
         // `#run,stallable`: no space on either side of the comma (`#code,null, loc := ...` has an argument).
         while self.at(P::Comma)
             && self.span().start == self.prev_span().end
@@ -139,16 +144,19 @@ impl Parser<'_> {
                 } else {
                     Some(self.parse_expr()?)
                 };
+
                 self.expect(P::RParen, "after the directive flag argument")?;
                 arg
             } else {
                 None
             };
+
             flags.push(DirectiveFlag {
                 name,
                 arg,
             });
         }
+
         Ok(flags)
     }
 
@@ -178,6 +186,7 @@ impl Parser<'_> {
             // `#run -> T { ... }`: run an anonymous procedure and use its result.
             let proc = self.parse_proc_expr(crate::ast::CallHintFlag::default())?;
             let span = proc.span;
+
             RunBody::Expr(mk(
                 ExprKind::Call {
                     callee: Box::new(proc),
@@ -194,6 +203,7 @@ impl Parser<'_> {
                 } => RunBody::Expr(expr),
                 other => {
                     let span = other.span;
+
                     RunBody::Block(Block {
                         stmts: vec![other],
                         span,
@@ -205,6 +215,7 @@ impl Parser<'_> {
             RunBody::Expr(self.parse_expr()?)
         };
         let end = self.prev_span();
+
         Ok(mk(
             ExprKind::Run {
                 body: Arc::new(body),
@@ -223,6 +234,7 @@ impl Parser<'_> {
         } else if self.at(P::LBrace) {
             let outer = std::mem::replace(&mut self.code_in_args, self.in_list);
             let block = self.parse_block();
+
             self.code_in_args = outer;
             CodeBody::Block(block?)
         } else if self.at_directive("add_context") {
@@ -234,6 +246,7 @@ impl Parser<'_> {
                 // `#code case 1; stmts` takes the statements up to the closing `}`.
                 let case = self.parse_case()?;
                 let span = case.span;
+
                 Stmt {
                     kind: StmtKind::Case(Arc::new(case)),
                     span,
@@ -253,6 +266,7 @@ impl Parser<'_> {
                 } else {
                     None
                 };
+
                 Stmt {
                     kind: make(label),
                     span: start.to(self.prev_span()),
@@ -264,24 +278,29 @@ impl Parser<'_> {
             {
                 let saved = std::mem::replace(&mut self.in_code_stmt, true);
                 let stmt = self.parse_stmt();
+
                 self.in_code_stmt = saved;
                 let stmt = stmt?;
+
                 // `x := #code return 1;`: the `;` ends the enclosing statement (in
                 // `f(#code using x;)` it is the code's own).
                 if self.at_prev(P::Semi) && !matches!(self.tok(), Tok::Punct(P::RParen | P::Comma))
                 {
                     self.pos -= 1;
                 }
+
                 stmt
             } else {
                 self.parse_simple_stmt()?
             };
+
             match stmt.kind {
                 StmtKind::Expr(expr) => CodeBody::Expr(expr),
                 _ => CodeBody::Stmt(stmt),
             }
         };
         let end = self.prev_span();
+
         Ok(mk(ExprKind::Code(Arc::new(body)), start.to(end)))
     }
 
@@ -297,6 +316,7 @@ impl Parser<'_> {
             scope,
             replacements,
         }));
+
         Ok(mk(kind, span))
     }
 
@@ -305,12 +325,16 @@ impl Parser<'_> {
         if !(self.at(P::LParen) && matches!(self.tok_at(1), Tok::Ident(_)) && self.at_n(2, P::Eq)) {
             return Ok(Vec::new());
         }
+
         self.bump();
         let mut replacements = Vec::new();
+
         while !self.at(P::RParen) {
             let name = self.ident("as replacement name")?;
+
             self.expect(P::Eq, "after the replacement name")?;
             let value = self.parse_replacement_value()?;
+
             replacements.push(crate::ast::Arg {
                 name: Some(name),
                 target: None,
@@ -318,10 +342,12 @@ impl Parser<'_> {
                 spread: false,
                 value,
             });
+
             if !self.eat(P::Comma) {
                 break;
             }
         }
+
         self.expect(P::RParen, "to end the `#insert` replacements")?;
         Ok(replacements)
     }
@@ -343,6 +369,7 @@ impl Parser<'_> {
             None
         };
         let span = start.to(self.prev_span());
+
         Ok(mk(
             ExprKind::Block(Box::new(Block {
                 stmts: vec![super::stmt::stmt(make(label), span)],
@@ -357,6 +384,7 @@ impl Parser<'_> {
     fn parse_assert_expr(&mut self) -> PResult<Expr> {
         let assert = self.parse_assert_core()?;
         let span = assert.span;
+
         Ok(mk(
             ExprKind::Block(Box::new(Block {
                 stmts: vec![assert],
@@ -371,18 +399,21 @@ impl Parser<'_> {
     pub(super) fn split_insert_flags(flags: Vec<DirectiveFlag>) -> (Vec<Ident>, Option<Expr>) {
         let mut names = Vec::new();
         let mut scope = None;
+
         for flag in flags {
             match flag.arg {
                 Some(arg) if flag.name.name.as_str() == "scope" => scope = Some(arg),
                 _ => names.push(flag.name),
             }
         }
+
         (names, scope)
     }
 
     fn parse_type_directive(&mut self) -> PResult<Expr> {
         let start = self.bump();
         let mut modifier = TypeModifier::Plain;
+
         for flag in self.parse_directive_flags()? {
             match flag.name.name.as_str() {
                 "distinct" => modifier = TypeModifier::Distinct,
@@ -390,6 +421,7 @@ impl Parser<'_> {
                 _ => {}
             }
         }
+
         // `#type (...)` is always a procedure type: `#type (*T)` takes one `*T` argument.
         let ty = if self.at(P::LParen) {
             self.parse_proc_expr(crate::ast::CallHintFlag::None)?
@@ -397,6 +429,7 @@ impl Parser<'_> {
             self.parse_unary()?
         };
         let span = start.to(ty.span);
+
         Ok(mk(
             ExprKind::TypeDirective {
                 modifier,
@@ -423,6 +456,7 @@ impl Parser<'_> {
                 ));
             }
         };
+
         Ok(mk(ExprKind::Char(value), start.to(span)))
     }
 
@@ -435,13 +469,17 @@ impl Parser<'_> {
         self.bump();
         let mut end = start;
         let mut operand = None;
+
         if self.at(P::LParen) && self.span().start == self.prev_span().end {
             self.bump();
+
             if !self.at(P::RParen) {
                 operand = Some(Box::new(self.parse_expr()?));
             }
+
             end = self.expect(P::RParen, "to close the directive operand")?;
         }
+
         Ok(mk(ctor(operand), start.to(end)))
     }
 
@@ -454,11 +492,13 @@ impl Parser<'_> {
         self.bump();
         let operand = self.parse_unary()?;
         let span = start.to(operand.span);
+
         Ok(mk(ctor(Box::new(operand)), span))
     }
 
     fn parse_exists(&mut self) -> PResult<Expr> {
         let start = self.bump();
+
         self.expect(P::LParen, "after `#exists`")?;
         let operand = self.parse_expr()?;
         let other = if self.eat(P::Comma) {
@@ -467,9 +507,11 @@ impl Parser<'_> {
             None
         };
         let end = self.expect(P::RParen, "after the `#exists` operands")?;
+
         if !is_name_chain(&operand) {
             self.note_lenient(crate::diagnostics::Code::ExistsOnExpression, operand.span);
         }
+
         Ok(mk(
             ExprKind::Exists(Box::new(operand), other),
             start.to(end),
@@ -481,6 +523,7 @@ impl Parser<'_> {
         let start = self.bump();
         let operand = self.parse_unary()?;
         let span = start.to(operand.span);
+
         match operand.kind {
             ExprKind::Call {
                 callee,
@@ -505,9 +548,11 @@ impl Parser<'_> {
     /// At `,flag,flag "string"`: flags that belong to the directive rather than to an argument list.
     fn flags_before_string_ahead(&self) -> bool {
         let mut i = 0;
+
         while self.at_n(i, P::Comma) && matches!(self.tok_at(i + 1), Tok::Ident(_)) {
             i += 2;
         }
+
         i > 0 && matches!(self.tok_at(i), Tok::Str(_))
     }
 
@@ -518,10 +563,13 @@ impl Parser<'_> {
         let Tok::Directive(sym) = self.tok().clone() else {
             return Err(self.expected("directive", ""));
         };
+
         self.bump();
+
         if matches!(sym.as_str(), "foreign_library" | "foreign_system_library") {
             self.note_lenient(crate::diagnostics::Code::ForeignLibrary, start);
         }
+
         let name = Ident {
             name: sym,
             span: start,
@@ -529,11 +577,13 @@ impl Parser<'_> {
         // A flag list that ends in the string operand may be spaced out:
         // `#library, system, link_always "Metal"`.
         let mut flags = Vec::new();
+
         if self.flags_before_string_ahead() {
             while self.eat(P::Comma) {
                 flags.push(self.ident("as a directive flag")?);
             }
         }
+
         // `#jaic_type long_double`: a jaic extension type, named by a bare identifier.
         let jaic_type = DirectiveKind::of(sym.as_str()) == DirectiveKind::JaicType
             && matches!(self.tok(), Tok::Ident(_));
@@ -543,6 +593,7 @@ impl Parser<'_> {
             None
         };
         let end = self.prev_span();
+
         Ok(mk(
             ExprKind::UnknownDirective(Box::new(UnknownDirective {
                 kind: DirectiveKind::of(sym.as_str()),

@@ -40,8 +40,10 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
     let lookup = lookup()?;
     let wasm_ld = find_linker(&lookup, Some(target), &Overrides::from_env())
         .map_err(|missing| missing.to_string())?;
+
     crate::toolchain::report("Linker", &wasm_ld, &lookup, Some(target));
     let mut cmd = command(&wasm_ld);
+
     cmd.arg(if link.memory64 {
         "-mwasm64"
     } else {
@@ -50,23 +52,29 @@ pub fn link_wasm(link: &WasmLink) -> Result<(), String> {
     .args(link.objects)
     .arg("-o")
     .arg(link.output);
+
     if !link.has_start {
         cmd.arg("--no-entry");
     }
+
     cmd.arg("--stack-first")
         .arg("-z")
         .arg(format!("stack-size={STACK_SIZE}"));
+
     if link.strip_debug {
         cmd.arg("--strip-debug");
     }
+
     for lib in link.libraries {
         if let Some(path) = crate::linker::static_library_file(lib) {
             cmd.arg(path);
         }
     }
+
     cmd.args(link.extra_args);
     let out =
         crate::linker::run_captured(&mut cmd).map_err(|e| crate::linker_not_run(&wasm_ld, &e))?;
+
     if out.status.success() {
         Ok(())
     } else {

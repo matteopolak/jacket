@@ -38,6 +38,7 @@ pub struct Context {
 /// (`Fiber_Context` holds four pointers).
 pub const fn offsets(pointer_size: u8) -> FieldOffsets {
     let step = pointer_size as u64;
+
     FieldOffsets {
         sp: 0,
         stack_low: step,
@@ -93,6 +94,7 @@ pub fn module_asm(arch: crate::abi::Arch, macho: bool) -> Option<String> {
     } else {
         ""
     };
+
     Some(format!("{symbols}{tib}{routines}{note}"))
 }
 
@@ -202,12 +204,14 @@ mod tests {
             stack_dealloc: low,
             ..Context::default()
         };
+
         MAIN.store(&raw mut main, Ordering::SeqCst);
         CHILD.store(&raw mut child, Ordering::SeqCst);
         // SAFETY: `stack` is a live allocation whose end is `high`; `counting_entry` never
         // returns; `main` and `child` stay alive and are used from this thread only.
         unsafe {
             child.sp = host::jaic_fiber_prepare(high, counting_entry, 100);
+
             for turn in 1..=3 {
                 host::jaic_fiber_switch(&raw mut main, &raw mut child);
                 assert_eq!(SEEN.load(Ordering::SeqCst), 100 + turn);
@@ -222,6 +226,7 @@ mod tests {
     #[test]
     fn every_target_has_module_text_defining_both_routines() {
         use crate::abi::Arch;
+
         for (arch, macho) in [
             (Arch::X86_64, false),
             (Arch::X86_64, true),
@@ -232,17 +237,20 @@ mod tests {
             (Arch::X86, false),
         ] {
             let text = super::module_asm(arch, macho).unwrap();
+
             for routine in [super::SWITCH, super::PREPARE] {
                 assert!(
                     text.contains(&format!("fiber_symbol {routine}")),
                     "{arch:?} lacks {routine}"
                 );
             }
+
             assert_eq!(
                 text.contains(".note.GNU-stack"),
                 matches!(arch, Arch::X86_64 | Arch::Aarch64 | Arch::X86) && !macho
             );
         }
+
         assert!(super::module_asm(Arch::Wasm, false).is_none());
     }
 }

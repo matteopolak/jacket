@@ -495,20 +495,24 @@ fn parse_cpu(name: &str) -> Result<String, String> {
 /// `--cpu` clap knows.
 pub fn test_args(args: Vec<OsString>) -> Vec<OsString> {
     let mut seen_end = false;
+
     args.into_iter()
         .map(|arg| {
             seen_end |= arg == "--";
             let Some(text) = arg.to_str().filter(|_| !seen_end) else {
                 return arg;
             };
+
             for name in ["os", "cpu"] {
                 if text == format!("-{name}") {
                     return format!("--{name}").into();
                 }
+
                 if let Some(value) = text.strip_prefix(&format!("-{name}=")) {
                     return format!("--{name}={value}").into();
                 }
             }
+
             arg
         })
         .collect()
@@ -573,6 +577,7 @@ mod tests {
             "-os",
             "x",
         ]));
+
         assert_eq!(
             got,
             args(&["test", "--os", "wasm", "--cpu=arm64", "--", "-os", "x"])

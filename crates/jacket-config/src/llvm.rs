@@ -36,6 +36,7 @@ pub fn check_configured() -> Result<(), String> {
             check_prefix(var.name, &PathBuf::from(value))?;
         }
     }
+
     Ok(())
 }
 
@@ -43,6 +44,7 @@ fn check_prefix(name: &str, prefix: &std::path::Path) -> Result<(), String> {
     if prefix.join("bin").is_dir() {
         return Ok(());
     }
+
     Err(format!(
         "{name} is set to {}, which has no `bin` folder\n\
          note: point {name} at an LLVM install (the folder that holds `bin/clang`), or unset it",
@@ -57,6 +59,7 @@ fn llvm_config_query(flag: &str) -> Option<PathBuf> {
         .find_map(|program| {
             let out = Command::new(program).arg(flag).output().ok()?;
             let text = String::from_utf8_lossy(&out.stdout);
+
             (out.status.success() && !text.trim().is_empty()).then(|| PathBuf::from(text.trim()))
         })
 }
@@ -64,12 +67,15 @@ fn llvm_config_query(flag: &str) -> Option<PathBuf> {
 /// Every LLVM install to look in, best first. `baked` is the prefix recorded at build time.
 pub fn prefixes(baked: Option<&str>) -> Vec<PathBuf> {
     let mut found: Vec<PathBuf> = Vec::new();
+
     found.extend(configured_prefix());
     found.extend(baked.filter(|p| !p.is_empty()).map(PathBuf::from));
     found.extend(llvm_config_query("--prefix"));
+
     for root in ["/opt/homebrew/opt", "/usr/local/opt"] {
         found.push(PathBuf::from(root).join(format!("llvm@{MAJOR}")));
     }
+
     found.push(PathBuf::from(format!("/usr/lib/llvm-{MAJOR}")));
     found
 }
@@ -77,6 +83,7 @@ pub fn prefixes(baked: Option<&str>) -> Vec<PathBuf> {
 /// The `bin` directory of each of [`prefixes`], plus the one `llvm-config --bindir` names.
 pub fn bin_dirs(baked: Option<&str>) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = prefixes(baked).iter().map(|p| p.join("bin")).collect();
+
     dirs.extend(llvm_config_query("--bindir"));
     dirs
 }
@@ -99,16 +106,19 @@ mod tests {
         let version = line.split('"').nth(3).expect("llvm pin value");
         let mut parts = version.split('.');
         let (major, minor) = (parts.next().unwrap(), parts.next().unwrap());
+
         assert_eq!(SYS_PREFIX_VAR, format!("LLVM_SYS_{major}{minor}_PREFIX"));
         assert_eq!(MAJOR, major);
 
         // The inkwell feature names in the manifests spell the version too (`llvm23-1`).
         let feature = format!("llvm{major}-{minor}");
+
         for manifest in ["Cargo.toml", "crates/jaic-llvm/Cargo.toml"] {
             let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../..")
                 .join(manifest);
             let text = std::fs::read_to_string(&path).expect("manifest is readable");
+
             assert!(
                 text.contains(&format!("\"{feature}\""))
                     || text.contains(&format!("inkwell/{feature}-")),
@@ -120,9 +130,11 @@ mod tests {
     #[test]
     fn a_prefix_without_bin_is_an_error_naming_the_variable() {
         let dir = std::env::temp_dir().join(format!("llvm-prefix-{}", std::process::id()));
+
         std::fs::create_dir_all(dir.join("bin")).unwrap();
         assert!(check_prefix("LLVM_PREFIX", &dir).is_ok());
         let error = check_prefix("LLVM_PREFIX", &dir.join("nowhere")).unwrap_err();
+
         assert!(
             error.starts_with("LLVM_PREFIX is set to ")
                 && error.contains("which has no `bin` folder"),
@@ -135,6 +147,7 @@ mod tests {
     #[test]
     fn prefixes_end_with_platform_defaults() {
         let all = prefixes(Some("/baked"));
+
         assert!(all.contains(&PathBuf::from("/baked")));
         assert_eq!(
             all.last().unwrap(),

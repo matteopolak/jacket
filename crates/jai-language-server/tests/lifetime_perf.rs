@@ -9,8 +9,10 @@ fn warm_single_file_lifetime_lint() {
     const SOURCE: &str = "#import \"Basic\";\nmain :: () {\n    xs: [..] int;\n    array_add(*xs, 1);\n    p := *xs[0];\n    array_add(*xs, 2);\n    print(\"%\\n\", p.*);\n}\n";
     let mut rule_work = Vec::new();
     let mut cached = Vec::new();
+
     for _ in 0..21 {
         let mut s = session();
+
         s.open(
             DocumentUri::parse("file:///lsp-test/jacket.toml").unwrap(),
             1,
@@ -32,6 +34,7 @@ fn warm_single_file_lifetime_lint() {
         );
         let start = Instant::now();
         let diagnostics = s.diagnostics(&uri()).unwrap();
+
         rule_work.push(start.elapsed().as_secs_f64() * 1000.0);
         assert!(
             diagnostics
@@ -39,9 +42,11 @@ fn warm_single_file_lifetime_lint() {
                 .any(|d| d.code == jai_language_server::DiagnosticCode::Lint("pointer_lifetime"))
         );
         let start = Instant::now();
+
         std::hint::black_box(s.diagnostics(&uri()).unwrap());
         cached.push(start.elapsed().as_secs_f64() * 1000.0);
     }
+
     // The first sample warms OS/library caches; subsequent samples still run uncached rules.
     rule_work.remove(0);
     cached.remove(0);

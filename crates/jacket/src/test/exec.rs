@@ -122,15 +122,19 @@ impl Demux {
     pub fn feed(&mut self, bytes: &[u8]) -> Vec<Piece> {
         let mut pieces = Vec::new();
         let mut text = Vec::new();
+
         for &b in bytes {
             if self.in_record {
                 if b == 0x03 {
                     self.in_record = false;
                     let body = String::from_utf8_lossy(&self.pending).into_owned();
+
                     self.pending.clear();
+
                     if !text.is_empty() {
                         pieces.push(Piece::Text(std::mem::take(&mut text)));
                     }
+
                     pieces.push(Piece::Record(
                         body.split('\x1f').map(String::from).collect(),
                     ));
@@ -139,6 +143,7 @@ impl Demux {
                     text.push(0x02);
                     text.append(&mut self.pending);
                     self.in_record = b == 0x02;
+
                     if b != 0x02 {
                         text.push(b);
                     }
@@ -151,9 +156,11 @@ impl Demux {
                 text.push(b);
             }
         }
+
         if !text.is_empty() {
             pieces.push(Piece::Text(text));
         }
+
         pieces
     }
 
@@ -162,8 +169,10 @@ impl Demux {
         if !self.in_record {
             return Vec::new();
         }
+
         self.in_record = false;
         let mut text = vec![0x02];
+
         text.append(&mut self.pending);
         text
     }
@@ -179,6 +188,7 @@ enum Chunk {
 fn reader(mut stream: impl Read + Send + 'static, out: bool, tx: mpsc::Sender<Chunk>) {
     std::thread::spawn(move || {
         let mut buffer = [0u8; 8192];
+
         loop {
             match stream.read(&mut buffer) {
                 Ok(0) | Err(_) => break,
@@ -189,12 +199,14 @@ fn reader(mut stream: impl Read + Send + 'static, out: bool, tx: mpsc::Sender<Ch
                     } else {
                         Chunk::Err(bytes)
                     };
+
                     if tx.send(chunk).is_err() {
                         return;
                     }
                 }
             }
         }
+
         let _ = tx.send(Chunk::Closed);
     });
 }
@@ -202,6 +214,7 @@ fn reader(mut stream: impl Read + Send + 'static, out: bool, tx: mpsc::Sender<Ch
 /// Stops `child` and whatever it started.
 pub fn kill_tree(child: &mut Child) {
     let pid = child.id();
+
     #[cfg(unix)]
     {
         // The child leads its own process group (see `spawn`).
@@ -231,6 +244,7 @@ fn kill_group_args(pid: u32) -> [String; 4] {
 
 pub(super) fn spawn(invocation: &Invocation) -> std::io::Result<Child> {
     let mut command = Command::new(&invocation.program);
+
     command
         .args(&invocation.args)
         .envs(invocation.env.iter().map(|(name, value)| (name, value)))
@@ -276,6 +290,7 @@ pub fn run_bounded(invocation: &Invocation, limit: Option<Duration>) -> std::io:
         std::thread::spawn(move || {
             let mut bytes = Vec::new();
             let _ = stream.read_to_end(&mut bytes);
+
             bytes
         })
     };
@@ -286,13 +301,17 @@ pub fn run_bounded(invocation: &Invocation, limit: Option<Duration>) -> std::io:
         if let Some(status) = child.try_wait()? {
             break Some(status);
         }
+
         if limit.is_some_and(|limit| started.elapsed() > limit) {
             kill_tree(&mut child);
             child.wait()?;
+
             break None;
         }
+
         std::thread::sleep(Duration::from_millis(5));
     };
+
     Ok(Bounded {
         stdout: out.join().unwrap_or_default(),
         stderr: err.join().unwrap_or_default(),
@@ -325,6 +344,7 @@ pub fn start(invocation: &Invocation) -> std::io::Result<Started> {
     let mut child = spawn(invocation)?;
     let input = child.stdin.take();
     let (tx, rx) = mpsc::channel();
+
     reader(child.stdout.take().expect("piped"), true, tx.clone());
     reader(child.stderr.take().expect("piped"), false, tx);
     Ok(Started {
@@ -344,6 +364,7 @@ impl Started {
     pub fn records(&mut self, until: Option<&str>) -> Vec<Vec<String>> {
         let mut records = Vec::new();
         let mut done = false;
+
         while self.open > 0 && !done {
             match self.rx.recv() {
                 Ok(Chunk::Closed) => self.open -= 1,
@@ -355,6 +376,7 @@ impl Started {
                             // What follows the record asked for is for the run, as it was.
                             Piece::Record(fields) if done => {
                                 let text = format!("\x02{}\x03", fields.join("\x1f"));
+
                                 self.backlog.push(Chunk::Out(text.into_bytes()));
                             }
                             Piece::Record(fields) => {
@@ -367,6 +389,7 @@ impl Started {
                 Err(_) => break,
             }
         }
+
         records
     }
 
@@ -374,6 +397,7 @@ impl Started {
     pub fn failure(mut self) -> String {
         let _ = self.child.wait();
         let mut text = Vec::new();
+
         for want_err in [true, false] {
             for chunk in &self.backlog {
                 match chunk {
@@ -383,6 +407,7 @@ impl Started {
                 }
             }
         }
+
         String::from_utf8_lossy(&text).into_owned()
     }
 
@@ -450,6 +475,7 @@ pub fn run_child(
         last_end: Some(Instant::now()),
         ..State::default()
     };
+
     for chunk in backlog {
         match chunk {
             Chunk::Out(bytes) => state.stdout(&bytes, &mut outcome, limits.stream, live),
@@ -457,9 +483,11 @@ pub fn run_child(
             Chunk::Closed => {}
         }
     }
+
     let process_deadline = limits.process_timeout.map(|limit| launched + limit);
     let mut timed_out = false;
     let mut status = None;
+
     loop {
         // Closing captured output does not mean the program has exited.
         if open == 0
@@ -468,6 +496,7 @@ pub fn run_child(
             status = Some(exited);
             break;
         }
+
         let now = Instant::now();
         let (test_deadline, slow_at) =
             state
@@ -478,6 +507,7 @@ pub fn run_child(
                         .slow
                         .filter(|_| !state.reported_slow)
                         .map(|s| started + s);
+
                     (deadline, slow)
                 });
         let deadline = [test_deadline, process_deadline]
@@ -491,6 +521,7 @@ pub fn run_child(
             .map_or(Duration::from_millis(500), |at| {
                 at.saturating_duration_since(now)
             });
+
         if open > 0 {
             match rx.recv_timeout(wake) {
                 Ok(Chunk::Closed) => open -= 1,
@@ -503,20 +534,25 @@ pub fn run_child(
             // There are no readers to wake us; poll exit without spinning or missing a deadline.
             std::thread::sleep(wake.min(Duration::from_millis(50)));
         }
+
         // The child may have exited while we waited with its streams already closed.
         let observation = after_wait(
             open,
             || child.try_wait().transpose(),
             || deadline.is_some_and(|d| Instant::now() >= d),
         );
+
         if let WaitState::Exited(exited) = observation {
             status = Some(exited);
             break;
         }
+
         let now = Instant::now();
+
         if matches!(observation, WaitState::TimedOut) {
             kill_tree(&mut child);
             timed_out = true;
+
             // Drain what is left; the pipes close once the processes are gone.
             while open > 0 {
                 match rx.recv_timeout(Duration::from_secs(2)) {
@@ -526,8 +562,10 @@ pub fn run_child(
                     Err(_) => break,
                 }
             }
+
             break;
         }
+
         if let Some((name, started)) = state.running(&outcome)
             && slow_at.is_some_and(|s| now >= s)
             && !state.reported_slow
@@ -536,7 +574,9 @@ pub fn run_child(
             live(Live::Slow(&name, now - started));
         }
     }
+
     let status = status.unwrap_or_else(|| child.wait());
+
     state.finish(&mut outcome);
     outcome.ending = if timed_out {
         Ending::TimedOut
@@ -547,12 +587,14 @@ pub fn run_child(
         }
     };
     let end = Instant::now();
+
     if let Some(last) = outcome.tests.last_mut()
         && last.end.is_none()
         && let Some(started) = state.started
     {
         last.duration = end - started;
     }
+
     outcome
 }
 
@@ -572,6 +614,7 @@ fn ending_of(status: std::process::ExitStatus) -> Ending {
     #[cfg(unix)]
     {
         use std::os::unix::process::ExitStatusExt;
+
         if let Some(signal) = status.signal() {
             return Ending::Signal(signal);
         }
@@ -591,6 +634,7 @@ fn after_wait<T>(
     {
         return WaitState::Exited(status);
     }
+
     if expired() {
         WaitState::TimedOut
     } else {
@@ -655,6 +699,7 @@ impl State {
                     if stream {
                         live(Live::Output(&text, true));
                     }
+
                     Self::give(outcome, self.out_test, &text, true);
                 }
                 Piece::Record(fields) if fields.len() == 2 && fields[0] == "start" => {
@@ -678,6 +723,7 @@ impl State {
                     if stream {
                         live(Live::Output(&text, false));
                     }
+
                     Self::give(outcome, self.current, &text, false);
                 }
                 Piece::Record(fields) => self.record(&fields, outcome, live),
@@ -688,6 +734,7 @@ impl State {
     fn record(&mut self, fields: &[String], outcome: &mut Outcome, live: &mut dyn FnMut(Live)) {
         let field = |i: usize| fields.get(i).cloned().unwrap_or_default();
         let now = Instant::now();
+
         match fields[0].as_str() {
             "start" if !field(1).contains('/') => {
                 outcome.tests.push(Raw {
@@ -699,21 +746,25 @@ impl State {
                 // its records come in quick succession, often in one read.
                 self.started = Some(self.last_end.unwrap_or(now));
                 self.reported_slow = false;
+
                 if outcome.tests.len() == 1 {
                     outcome.tests[0].stderr = std::mem::take(&mut outcome.preamble);
                 }
+
                 live(Live::Started(&fields[1]));
             }
             "start" => self.subtest_started.push((field(1), now)),
             "end" => {
                 let name = field(1);
                 let status = field(2);
+
                 if name.contains('/') {
                     let started = self
                         .subtest_started
                         .iter()
                         .rposition(|(n, _)| *n == name)
                         .map(|i| self.subtest_started.remove(i).1);
+
                     if let Some(i) = Self::index_of(outcome, &name) {
                         outcome.tests[i].subtests.push(Subtest {
                             name,
@@ -723,9 +774,11 @@ impl State {
                     }
                 } else if let Some(i) = Self::index_of(outcome, &name) {
                     outcome.tests[i].end = Some(status);
+
                     if let Some(started) = self.started {
                         outcome.tests[i].duration = now - started;
                     }
+
                     self.current = None;
                     self.started = None;
                     self.last_end = Some(now);
@@ -733,6 +786,7 @@ impl State {
             }
             "fail" => {
                 let name = field(1);
+
                 if let Some(i) = Self::index_of(outcome, &name) {
                     outcome.tests[i].failures.push(Failure {
                         test: name,
@@ -745,6 +799,7 @@ impl State {
             "skip" => {
                 if let Some(i) = Self::index_of(outcome, &field(1)) {
                     let reason = field(2);
+
                     outcome.tests[i].skip_reason = Some(reason);
                 }
             }
@@ -755,14 +810,19 @@ impl State {
 
     fn finish(&mut self, outcome: &mut Outcome) {
         let out = self.out.finish();
+
         Self::give(outcome, self.out_test, &out, true);
+
         // Standard output before the first mark: the first test's, when there is one.
         if let Some(first) = outcome.tests.first_mut() {
             let mut stdout = std::mem::take(&mut outcome.preamble_stdout);
+
             stdout.append(&mut first.stdout);
             first.stdout = stdout;
         }
+
         let err = self.err.finish();
+
         Self::give(
             outcome,
             self.current.or(outcome.tests.len().checked_sub(1)),
@@ -792,6 +852,7 @@ mod tests {
     fn records_split_across_reads() {
         let mut demux = Demux::default();
         let mut pieces = demux.feed(b"hi\x02start\x1fa");
+
         pieces.extend(demux.feed(b"dds\x03 there\x02x"));
         assert_eq!(
             pieces,
@@ -808,6 +869,7 @@ mod tests {
     fn a_stray_start_byte_is_text() {
         let mut demux = Demux::default();
         let pieces = demux.feed(b"a\x02b\x02end\x1fx\x1fpass\x03");
+
         assert_eq!(
             pieces,
             [
@@ -845,11 +907,13 @@ mod process_tests {
             marker.display()
         );
         let ran = run_bounded(&script(&body), Some(Duration::from_millis(300))).unwrap();
+
         assert!(ran.status.is_none(), "{ran:?}");
         assert_eq!(ran.stdout, b"started\n");
         std::thread::sleep(Duration::from_secs(3));
         assert!(!marker.exists(), "the grandchild outlived the timeout");
         let ran = run_bounded(&script("echo out; echo err >&2; exit 4"), None).unwrap();
+
         assert_eq!(ran.status.and_then(|s| s.code()), Some(4));
         assert_eq!(
             (ran.stdout, ran.stderr),
@@ -859,6 +923,7 @@ mod process_tests {
             program: PathBuf::from("/nowhere/program"),
             ..script("")
         };
+
         assert!(run_bounded(&missing, None).is_err());
     }
 
@@ -872,6 +937,7 @@ mod process_tests {
         };
         let body = r"printf '\002start\037a\003' >&2; printf '\002start\037a\003out'; printf 'err\002fail\037a\037/f.jai\0377\037bad\003\002end\037a\037fail\003' >&2; printf '\002start\037b\003' >&2; exit 3";
         let outcome = run(&script(body), &limits, &mut |_| {});
+
         assert_eq!(outcome.tests.len(), 2, "{outcome:?}");
         assert_eq!(outcome.tests[0].end.as_deref(), Some("fail"));
         assert_eq!(outcome.tests[0].stdout, b"out");
@@ -892,9 +958,11 @@ mod process_tests {
         let body = r"printf 'noise\002manifest\037t\003\002done\003'; printf 'warn' >&2; printf '\002start\037a\003out'; printf '\002start\037a\003\002end\037a\037pass\003' >&2";
         let mut process = start(&script(body)).unwrap();
         let taken = process.records(Some("done"));
+
         assert_eq!(taken[0], ["manifest", "t"]);
         assert_eq!(taken.last().unwrap(), &["done"]);
         let outcome = run_child(Ok(process), &script(body), &limits, &mut |_| {});
+
         assert_eq!(outcome.tests.len(), 1, "{outcome:?}");
         assert_eq!(outcome.tests[0].end.as_deref(), Some("pass"));
         // What the process printed before the record is still seen, ahead of the test's own.
@@ -905,6 +973,7 @@ mod process_tests {
     #[test]
     fn a_process_that_ends_without_the_record_says_what_it_printed() {
         let mut process = start(&script("echo out; echo bad >&2; exit 1")).unwrap();
+
         assert!(process.records(Some("done")).is_empty());
         assert_eq!(process.failure(), "bad\nout\n");
     }
@@ -921,6 +990,7 @@ mod process_tests {
             Some(Duration::from_secs(1)),
             &mut |_| {},
         );
+
         assert_eq!(outcome.ending, Ending::Exited(0));
         assert_eq!(outcome.preamble_stdout, b"out");
         assert_eq!(outcome.preamble, b"err");
@@ -929,6 +999,7 @@ mod process_tests {
     #[test]
     fn closing_output_does_not_disable_the_running_process_deadline() {
         let limit = |_: &str| Some(Duration::from_millis(50));
+
         for framed in [false, true] {
             let limits = Limits {
                 process_timeout: None,
@@ -948,6 +1019,7 @@ mod process_tests {
             } else {
                 super::super::golden::run_plain(&invocation, limit(""), &mut |_| {})
             };
+
             assert_eq!(outcome.ending, Ending::TimedOut, "framed={framed}");
         }
     }
@@ -959,6 +1031,7 @@ mod process_tests {
             "exec 1>&- 2>&-; sleep 0.01; exit 0",
         ] {
             let outcome = super::super::golden::run_plain(&script(body), None, &mut |_| {});
+
             assert_eq!(outcome.ending, Ending::Exited(0), "{body}");
         }
     }
@@ -979,6 +1052,7 @@ mod process_tests {
             &limits,
             &mut |_| {},
         );
+
         assert_eq!(outcome.ending, Ending::Exited(0));
         assert_eq!(outcome.tests.len(), 2);
         assert!(
@@ -997,6 +1071,7 @@ mod process_tests {
             Some(Duration::from_millis(50)),
             &mut |_| {},
         );
+
         assert_eq!(outcome.ending, Ending::TimedOut);
     }
 
@@ -1027,6 +1102,7 @@ mod process_tests {
             } else {
                 super::super::golden::run_plain(&invocation, second(""), &mut |_| {})
             };
+
             assert_eq!(outcome.ending, Ending::TimedOut);
             assert!(started.elapsed() < Duration::from_secs(10));
             // The grandchild is gone too, and this test process is still here to check.
@@ -1040,12 +1116,15 @@ mod process_tests {
                     .output()
                     .unwrap();
                 let state = String::from_utf8_lossy(&state.stdout);
+
                 !state.trim().is_empty() && !state.trim().starts_with('Z')
             };
             let deadline = Instant::now() + Duration::from_secs(5);
+
             while running() && Instant::now() < deadline {
                 std::thread::sleep(Duration::from_millis(50));
             }
+
             assert!(!running(), "the sleep the test started is still running");
         }
     }

@@ -29,9 +29,11 @@ pub fn configure(threads: usize) {
 /// The pool's size: what was configured, else `-threads`, else the number of cores.
 pub fn threads() -> usize {
     let configured = CONFIGURED.load(Ordering::Relaxed);
+
     if configured != 0 {
         return configured;
     }
+
     crate::knobs::get().threads.map_or_else(cores, |n| n.max(1))
 }
 
@@ -67,16 +69,20 @@ pub fn units<R: Send>(
 ) -> Vec<R> {
     let slots: Vec<std::sync::Mutex<Option<R>>> =
         (0..count).map(|_| std::sync::Mutex::new(None)).collect();
+
     get().in_place_scope(|scope| {
         for (index, slot) in slots.iter().enumerate() {
             let task = &task;
+
             scope.spawn(move |_| {
                 let result = task(index);
+
                 *slot
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(result);
             });
         }
+
         local();
     });
     slots

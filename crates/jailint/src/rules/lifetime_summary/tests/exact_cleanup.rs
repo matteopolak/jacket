@@ -28,14 +28,18 @@ fn whole_pointer_cleanup_contracts_match_checked_bodies_on_host_and_windows() {
             .canonicalize()
             .unwrap();
         let mut options = Options::host();
+
         options.import_paths = vec![stdlib.clone()];
         options.set_stdlib(&NativeFs, &stdlib);
+
         if windows {
             options.os = jaic::target::TargetOs::Windows;
             options.cpu = jaic::target::TargetCpu::X64;
         }
+
         let mut c = Compiler::new(options, Rc::new(NativeFs));
         let mut facts = IdeFacts::new(vec![IdeRoot::Virtual, IdeRoot::under(&stdlib)]);
+
         facts.lint = true;
         c.ed.record(facts);
         c.begin_sources(&[ProgramSource::String(
@@ -63,14 +67,18 @@ fn whole_pointer_cleanup_contracts_match_checked_bodies_on_host_and_windows() {
         .unwrap();
         c.finish_program().unwrap();
         let diagnostics = c.ide_check_all();
+
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
         let mut ids = Vec::new();
         let mut seen = vec![0; CARRIERS.len()];
+
         for (i, p) in c.pr.procs.iter().enumerate() {
             if p.is_poly || p.body_state != jaic::sema::procs::BodyState::Done {
                 continue;
             }
+
             let path = c.src.sources.get(p.lit.header.span.file).path.to_string();
+
             if let Some(index) = CARRIERS
                 .iter()
                 .position(|(file, name)| path.ends_with(file) && p.name.as_str() == *name)
@@ -79,14 +87,18 @@ fn whole_pointer_cleanup_contracts_match_checked_bodies_on_host_and_windows() {
                 ids.push((ProcId(i as u32), index));
             }
         }
+
         for (i, count) in seen.iter().enumerate() {
             assert!(*count > 0, "unchecked {:?}, windows={windows}", CARRIERS[i]);
         }
+
         without_body_notes(&mut c);
         c.release_lowered_code();
         let all = Summaries::build(&c);
+
         for (id, index) in ids {
             let summary = &all.procs[&id];
+
             assert!(
                 summary.guaranteed.keys().any(|e| e.kind == Kind::Free
                     && e.guard.is_none()

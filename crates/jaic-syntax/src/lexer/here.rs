@@ -63,6 +63,7 @@ fn blanks(src: &[u8], mut at: usize) -> usize {
     while matches!(src.get(at), Some(b' ' | b'\t')) {
         at += 1;
     }
+
     at
 }
 
@@ -79,6 +80,7 @@ fn gap(src: &[u8], mut at: usize) -> usize {
             }
             (Some(b'/'), Some(b'*')) => {
                 let mut depth = 0usize;
+
                 while at < src.len() {
                     if src[at..].starts_with(b"/*") {
                         depth += 1;
@@ -86,6 +88,7 @@ fn gap(src: &[u8], mut at: usize) -> usize {
                     } else if src[at..].starts_with(b"*/") {
                         at += 2;
                         depth -= 1;
+
                         if depth == 0 {
                             break;
                         }
@@ -103,18 +106,23 @@ fn word(src: &[u8], mut at: usize) -> usize {
     while src.get(at).copied().is_some_and(is_ident_char) {
         at += 1;
     }
+
     at
 }
 
 /// Reads the flags and the terminator from `at`, just after `#string`.
 pub(super) fn header(src: &[u8], mut at: usize) -> Header {
     let (mut escape_percent, mut cr) = (false, false);
+
     loop {
         at = gap(src, at);
+
         if src.get(at) != Some(&b',') {
             break;
         }
+
         at = gap(src, at + 1);
+
         if src.get(at) == Some(&b'\\') {
             at += 1;
             escape_percent |= src.get(at) == Some(&b'%');
@@ -122,11 +130,14 @@ pub(super) fn header(src: &[u8], mut at: usize) -> Header {
             at = (at + 1).min(src.len());
         } else {
             let end = word(src, at);
+
             cr |= &src[at..end] == b"cr";
             at = end;
         }
     }
+
     let end = word(src, at);
+
     Header {
         escape_percent,
         cr,
@@ -139,14 +150,18 @@ pub(super) fn header(src: &[u8], mut at: usize) -> Header {
 /// for any other token.
 pub fn here_string_tag(spelling: &str) -> Option<&str> {
     let src = spelling.as_bytes();
+
     if src.first() != Some(&b'#') {
         return None;
     }
+
     let name = blanks(src, 1);
     let after = word(src, name);
+
     if &src[name..after] != b"string" {
         return None;
     }
+
     let tag = header(src, after).tag;
     (!tag.is_empty()).then(|| &spelling[tag])
 }

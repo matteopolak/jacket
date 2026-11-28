@@ -176,9 +176,11 @@ pub fn classify_vararg(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Pas
     if arch == Arch::Arm32 {
         return Passing::Registers(arm32_int_pieces(layout));
     }
+
     if arch != Arch::Win64Arm {
         return classify_arg(arch, layout, data);
     }
+
     if layout.size <= 16 {
         Passing::Registers(int_pieces(layout.size))
     } else {
@@ -209,6 +211,7 @@ impl RegBudget {
             Arch::Avr => 18 - 2 * hidden_in_int as u32,
             _ => 8,
         };
+
         RegBudget {
             arch,
             ints: if arch == Arch::Avr {
@@ -234,9 +237,12 @@ impl RegBudget {
                 Ty::I64 | Ty::F64 => 8,
                 Ty::F80 | Ty::F128 => 16,
             };
+
             self.ints = self.ints.saturating_sub(bytes.next_multiple_of(2));
+
             return;
         }
+
         match ty {
             Ty::F80 => {}
             Ty::F128 => self.vectors = self.vectors.saturating_sub(1),
@@ -260,10 +266,12 @@ impl RegBudget {
             })
             .sum();
         let bytes = bytes.next_multiple_of(2);
+
         if bytes <= self.ints {
             self.ints -= bytes;
             return passing;
         }
+
         self.ints = 0;
         Passing::ByVal
     }
@@ -273,11 +281,13 @@ impl RegBudget {
         if self.arch == Arch::Avr {
             return self.avr_aggregate(passing);
         }
+
         // Only System V needs the count: Windows passes by position and has no multi-register
         // aggregates, WebAssembly has no registers, and AArch64's arrays are the backend's job.
         if self.arch != Arch::X86_64 {
             return passing;
         }
+
         match passing {
             Passing::Indirect => {
                 self.ints = self.ints.saturating_sub(1);
@@ -289,11 +299,14 @@ impl RegBudget {
             Passing::Registers(pieces) => {
                 let ints = pieces.iter().filter(|p| p.ty == PieceTy::I64).count() as u32;
                 let vectors = pieces.len() as u32 - ints;
+
                 if ints <= self.ints && vectors <= self.vectors {
                     self.ints -= ints;
                     self.vectors -= vectors;
+
                     return Passing::Registers(pieces);
                 }
+
                 Passing::ByVal
             }
             Passing::ByVal => passing,
@@ -308,13 +321,16 @@ pub fn classify_ret(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Option
     if arch == Arch::S390x && layout.size > 0 {
         return None;
     }
+
     // AAPCS: only a float aggregate or one of at most 4 bytes comes back in registers.
     if arch == Arch::Arm32 && layout.size > 4 && hfa(layout).is_none() {
         return None;
     }
+
     if arch == Arch::Avr && layout.size > 8 {
         return None;
     }
+
     classify_registers(arch, layout, data)
 }
 
@@ -322,12 +338,14 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
     if layout.size == 0 {
         return Some(Vec::new());
     }
+
     // Microsoft x64: an aggregate of exactly 1, 2, 4 or 8 bytes travels as an integer of that
     // size (in a general register even when its members are floats); anything else goes by
     // reference to a caller copy, and is returned through a hidden pointer.
     if arch == Arch::Win64 {
         return matches!(layout.size, 1 | 2 | 4 | 8).then(|| int_pieces(layout.size));
     }
+
     // i386 System V (Linux): no argument or result travels in a register but a scalar one. An
     // aggregate is copied onto the stack as an argument and returned through a hidden pointer,
     // whatever its size or members (`-fno-reg-struct-return`, the Linux default). ELFv1
@@ -335,21 +353,27 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
     if arch == Arch::X86 || arch == Arch::PowerPc64 {
         return None;
     }
+
     if arch == Arch::Wasm {
         return wasm_single_scalar(layout);
     }
+
     if arch == Arch::S390x {
         return s390x_small(layout);
     }
+
     if arch == Arch::Arm32 {
         return Some(arm32_pieces(layout));
     }
+
     if arch == Arch::Avr {
         return Some(avr_pieces(layout, data));
     }
+
     if layout.size > 16 && !(arch.is_aarch64() && hfa(layout).is_some()) {
         return None;
     }
+
     // System V classes an x87 `long double` X87/X87UP: alone (a scalar, or a struct holding just
     // one) it is passed in memory and returned in `st(0)`; mixed with anything else, the whole
     // aggregate is MEMORY.
@@ -361,6 +385,7 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
             }]
         });
     }
+
     match arch {
         Arch::Aarch64 | Arch::Win64Arm => {
             // Homogeneous floating-point aggregates (up to four members) use vector registers.
@@ -376,6 +401,7 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
                         .collect(),
                 );
             }
+
             Some(int_pieces(layout.size))
         }
         Arch::Win64
@@ -397,8 +423,10 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
             {
                 return None;
             }
+
             let count = layout.size.div_ceil(8);
             let mut pieces = Vec::new();
+
             for k in 0..count {
                 let fields: Vec<Ty> = layout
                     .fields
@@ -417,11 +445,13 @@ fn classify_registers(arch: Arch, layout: &AggLayout, data: &DataLayout) -> Opti
                 } else {
                     PieceTy::F32
                 };
+
                 pieces.push(Piece {
                     offset: k * 8,
                     ty,
                 });
             }
+
             Some(pieces)
         }
     }
@@ -440,6 +470,7 @@ fn wasm_single_scalar(layout: &AggLayout) -> Option<Vec<Piece>> {
         Ty::F32 => PieceTy::F32,
         _ => return None,
     };
+
     (layout.size == ty_size(ty)).then(|| {
         vec![Piece {
             offset: 0,
@@ -465,6 +496,7 @@ fn s390x_small(layout: &AggLayout) -> Option<Vec<Piece>> {
         _ if matches!(layout.size, 1 | 2 | 4 | 8) => PieceTy::Int(layout.size as u8),
         _ => return None,
     };
+
     Some(vec![Piece {
         offset: 0,
         ty,
@@ -493,6 +525,7 @@ fn arm32_int_pieces(layout: &AggLayout) -> Vec<Piece> {
     } else {
         (4, PieceTy::Int(4))
     };
+
     (0..layout.size.div_ceil(step))
         .map(|k| Piece {
             offset: k * step,
@@ -530,13 +563,17 @@ fn int_pieces(size: u64) -> Vec<Piece> {
 /// returns the member type. A binary128 `long double` counts as a float member (a quad HFA).
 fn hfa(layout: &AggLayout) -> Option<PieceTy> {
     let first = layout.fields.first()?.1;
+
     if layout.fields.len() > 4 || !(first.is_float() || first == Ty::F128) {
         return None;
     }
+
     if layout.fields.iter().any(|&(_, t)| t != first) {
         return None;
     }
+
     let stride = first.numeric_size();
+
     // Members must be laid out back to back, or an HFA's registers would not
     // line up with its memory image.
     if layout
@@ -547,6 +584,7 @@ fn hfa(layout: &AggLayout) -> Option<PieceTy> {
     {
         return None;
     }
+
     let ty = match first {
         Ty::F32 => PieceTy::F32,
         Ty::F128 => PieceTy::F128,
@@ -578,8 +616,10 @@ mod tests {
     #[test]
     fn i386_aggregates_go_on_the_stack_and_come_back_in_memory() {
         let i686 = crate::target::Target::parse("i686-unknown-linux-gnu").unwrap();
+
         assert_eq!(i686.arch(), Some(Arch::X86));
         let data = i686.data_layout();
+
         for l in [
             layout(4, &[(0, Ty::I32)]),
             layout(8, &[(0, Ty::F64)]),
@@ -590,6 +630,7 @@ mod tests {
             assert_eq!(classify_arg(Arch::X86, &l, &data), Passing::ByVal, "{l:?}");
             assert!(classify_ret(Arch::X86, &l, &data).is_none(), "{l:?}");
         }
+
         assert_eq!(
             classify_ret(Arch::X86, &layout(0, &[]), &data),
             Some(vec![])
@@ -603,6 +644,7 @@ mod tests {
     #[test]
     fn s390x_passes_small_aggregates_as_exact_integers() {
         let target = crate::target::Target::parse("s390x-unknown-linux-gnu").unwrap();
+
         assert_eq!(target.arch(), Some(Arch::S390x));
         let data = target.data_layout();
         let piece = |ty| {
@@ -611,6 +653,7 @@ mod tests {
                 ty,
             }])
         };
+
         assert_eq!(
             classify_arg(
                 Arch::S390x,
@@ -631,6 +674,7 @@ mod tests {
             classify_arg(Arch::S390x, &layout(4, &[(0, Ty::F32)]), &data),
             piece(PieceTy::F32)
         );
+
         for l in [
             layout(16, &[(0, Ty::I64), (8, Ty::I64)]),
             layout(3, &[(0, Ty::I8), (1, Ty::I8), (2, Ty::I8)]),
@@ -641,6 +685,7 @@ mod tests {
                 "{l:?}"
             );
         }
+
         assert!(classify_ret(Arch::S390x, &layout(8, &[(0, Ty::I64)]), &data).is_none());
         assert!(sret_takes_int_register(Arch::S390x, false));
     }
@@ -650,8 +695,10 @@ mod tests {
     #[test]
     fn powerpc64_passes_aggregates_by_value_and_returns_them_in_memory() {
         let target = crate::target::Target::parse("powerpc64-unknown-linux-gnu").unwrap();
+
         assert_eq!(target.arch(), Some(Arch::PowerPc64));
         let data = target.data_layout();
+
         for l in [
             layout(4, &[(0, Ty::F32)]),
             layout(8, &[(0, Ty::I64)]),
@@ -664,6 +711,7 @@ mod tests {
             );
             assert!(classify_ret(Arch::PowerPc64, &l, &data).is_none(), "{l:?}");
         }
+
         assert!(sret_takes_int_register(Arch::PowerPc64, false));
     }
 
@@ -673,6 +721,7 @@ mod tests {
     #[test]
     fn arm32_follows_the_vfp_variant_of_aapcs() {
         let target = crate::target::Target::parse("armv7-unknown-linux-gnueabihf").unwrap();
+
         assert_eq!(target.arch(), Some(Arch::Arm32));
         let data = target.data_layout();
         let l = |size, align, fields: &[(u64, Ty)]| AggLayout {
@@ -691,15 +740,18 @@ mod tests {
             )
         };
         let small = l(2, 1, &[(0, Ty::I8), (1, Ty::I8)]);
+
         assert_eq!(classify_arg(Arch::Arm32, &small, &data), words(1));
         assert_eq!(
             classify_ret(Arch::Arm32, &small, &data).map(|p| p.len()),
             Some(1)
         );
         let triple = l(12, 4, &[(0, Ty::I32), (4, Ty::I32), (8, Ty::I32)]);
+
         assert_eq!(classify_arg(Arch::Arm32, &triple, &data), words(3));
         assert!(classify_ret(Arch::Arm32, &triple, &data).is_none());
         let eight = l(8, 8, &[(0, Ty::I64)]);
+
         assert_eq!(
             classify_arg(Arch::Arm32, &eight, &data),
             Passing::Registers(vec![Piece {
@@ -719,6 +771,7 @@ mod tests {
                     .collect(),
             )
         };
+
         assert_eq!(
             classify_arg(Arch::Arm32, &floats, &data),
             in_vfp(PieceTy::F32)
@@ -734,6 +787,7 @@ mod tests {
     #[test]
     fn avr_passes_aggregates_in_registers_while_they_fit() {
         let target = crate::target::Target::parse("avr-none-elf").unwrap();
+
         assert_eq!(target.arch(), Some(Arch::Avr));
         let data = target.data_layout();
         let l = |size, fields: &[(u64, Ty)]| AggLayout {
@@ -745,28 +799,34 @@ mod tests {
         let Passing::Registers(pieces) = classify_arg(Arch::Avr, &pair, &data) else {
             panic!("a small aggregate travels in registers");
         };
+
         assert_eq!(
             pieces.iter().map(|p| p.ty).collect::<Vec<_>>(),
             [PieceTy::Int(2), PieceTy::Int(1)]
         );
         let mut budget = RegBudget::new(Arch::Avr, false);
+
         // Nine 16-bit scalars use all 18 registers: the next aggregate goes on the stack.
         for _ in 0..9 {
             budget.scalar(Ty::I16);
         }
+
         assert_eq!(
             budget.aggregate(classify_arg(Arch::Avr, &pair, &data)),
             Passing::ByVal
         );
         let mut budget = RegBudget::new(Arch::Avr, false);
+
         budget.scalar(Ty::I8);
         assert!(matches!(
             budget.aggregate(classify_arg(Arch::Avr, &pair, &data)),
             Passing::Registers(_)
         ));
         let eight = l(8, &[(0, Ty::I32), (4, Ty::I32)]);
+
         assert!(classify_ret(Arch::Avr, &eight, &data).is_some());
         let nine = l(9, &[(0, Ty::I64), (8, Ty::I8)]);
+
         assert!(classify_ret(Arch::Avr, &nine, &data).is_none());
         assert!(sret_takes_int_register(Arch::Avr, false));
     }
@@ -775,16 +835,20 @@ mod tests {
     fn sysv_unaligned_member_forces_memory() {
         // `char; int` packed: the int sits at offset 1.
         let l = layout(5, &[(0, Ty::I8), (1, Ty::I32)]);
+
         assert!(classify_ret(Arch::X86_64, &l, &LP64).is_none());
         assert_eq!(classify_arg(Arch::X86_64, &l, &LP64), Passing::ByVal);
         // `int; double` packed: the double is at offset 4, inside one eightbyte.
         let l = layout(12, &[(0, Ty::I32), (4, Ty::F64)]);
+
         assert!(classify_ret(Arch::X86_64, &l, &LP64).is_none());
         // Naturally aligned members of a packed struct are still register class.
         let l = layout(12, &[(0, Ty::F64), (8, Ty::I32)]);
+
         assert_eq!(classify_ret(Arch::X86_64, &l, &LP64).unwrap().len(), 2);
         // The other ABIs size-code packed structs like any other.
         let l = layout(5, &[(0, Ty::I8), (1, Ty::I32)]);
+
         assert_eq!(classify_ret(Arch::Aarch64, &l, &LP64).unwrap().len(), 1);
         assert_eq!(classify_ret(Arch::Win64Arm, &l, &LP64).unwrap().len(), 1);
         assert_eq!(classify_arg(Arch::Win64, &l, &LP64), Passing::Indirect);
@@ -794,33 +858,40 @@ mod tests {
     fn sysv_aggregate_without_enough_registers_goes_to_memory() {
         let two = layout(16, &[(0, Ty::I64), (8, Ty::I64)]);
         let mut budget = RegBudget::new(Arch::X86_64, false);
+
         for _ in 0..5 {
             budget.scalar(Ty::I64);
         }
+
         // One integer register left: the two-eightbyte struct is MEMORY, a scalar still fits.
         assert_eq!(
             budget.aggregate(classify_arg(Arch::X86_64, &two, &LP64)),
             Passing::ByVal
         );
         let one = layout(8, &[(0, Ty::I64)]);
+
         assert!(matches!(
             budget.aggregate(classify_arg(Arch::X86_64, &one, &LP64)),
             Passing::Registers(_)
         ));
         // A hidden result pointer takes the first register.
         let mut budget = RegBudget::new(Arch::X86_64, true);
+
         for _ in 0..4 {
             budget.scalar(Ty::I64);
         }
+
         assert_eq!(
             budget.aggregate(classify_arg(Arch::X86_64, &two, &LP64)),
             Passing::ByVal
         );
         // AArch64 leaves it to the backend's array parameter.
         let mut budget = RegBudget::new(Arch::Aarch64, false);
+
         for _ in 0..7 {
             budget.scalar(Ty::I64);
         }
+
         assert!(matches!(
             budget.aggregate(classify_arg(Arch::Aarch64, &two, &LP64)),
             Passing::Registers(_)
@@ -831,9 +902,11 @@ mod tests {
     fn aarch64_packed_floats_stay_homogeneous() {
         let l = layout(8, &[(0, Ty::F32), (4, Ty::F32)]);
         let p = classify_ret(Arch::Aarch64, &l, &LP64).unwrap();
+
         assert!(p.iter().all(|p| p.ty == PieceTy::F32) && p.len() == 2);
         // Not back to back, or not one type: integer pieces.
         let l = layout(9, &[(0, Ty::I8), (1, Ty::F64)]);
+
         assert!(
             classify_ret(Arch::Aarch64, &l, &LP64)
                 .unwrap()
@@ -845,6 +918,7 @@ mod tests {
     #[test]
     fn aarch64_small_int_struct_uses_x_registers() {
         let l = layout(12, &[(0, Ty::I64), (8, Ty::I32)]);
+
         assert_eq!(classify_ret(Arch::Aarch64, &l, &LP64).unwrap().len(), 2);
     }
 
@@ -855,12 +929,14 @@ mod tests {
             &[(0, Ty::F32), (4, Ty::F32), (8, Ty::F32), (12, Ty::F32)],
         );
         let p = classify_ret(Arch::Aarch64, &l, &LP64).unwrap();
+
         assert!(p.iter().all(|p| p.ty == PieceTy::F32) && p.len() == 4);
     }
 
     #[test]
     fn aarch64_large_aggregate_is_indirect() {
         let l = layout(24, &[(0, Ty::I64), (8, Ty::I64), (16, Ty::I64)]);
+
         assert_eq!(classify_arg(Arch::Aarch64, &l, &LP64), Passing::Indirect);
         assert!(classify_ret(Arch::Aarch64, &l, &LP64).is_none());
     }
@@ -869,9 +945,11 @@ mod tests {
     fn sysv_mixed_eightbytes() {
         let l = layout(16, &[(0, Ty::I64), (8, Ty::F64)]);
         let p = classify_ret(Arch::X86_64, &l, &LP64).unwrap();
+
         assert_eq!(p[0].ty, PieceTy::I64);
         assert_eq!(p[1].ty, PieceTy::F64);
         let v = layout(8, &[(0, Ty::F32), (4, Ty::F32)]);
+
         assert_eq!(
             classify_ret(Arch::X86_64, &v, &LP64).unwrap()[0].ty,
             PieceTy::V2F32
@@ -882,6 +960,7 @@ mod tests {
     fn win64_power_of_two_sizes_use_one_integer_register() {
         let floats = layout(8, &[(0, Ty::F32), (4, Ty::F32)]);
         let p = classify_ret(Arch::Win64, &floats, &LP64).unwrap();
+
         assert_eq!(
             p,
             vec![Piece {
@@ -890,6 +969,7 @@ mod tests {
             }]
         );
         let small = layout(4, &[(0, Ty::I16), (2, Ty::I16)]);
+
         assert!(
             matches!(classify_arg(Arch::Win64, &small, &LP64), Passing::Registers(p) if p.len() == 1)
         );
@@ -898,11 +978,14 @@ mod tests {
     #[test]
     fn win64_other_sizes_go_by_reference() {
         let odd = layout(12, &[(0, Ty::I32), (4, Ty::I32), (8, Ty::I32)]);
+
         assert_eq!(classify_arg(Arch::Win64, &odd, &LP64), Passing::Indirect);
         assert!(classify_ret(Arch::Win64, &odd, &LP64).is_none());
         let pair = layout(16, &[(0, Ty::F64), (8, Ty::F64)]);
+
         assert_eq!(classify_arg(Arch::Win64, &pair, &LP64), Passing::Indirect);
         let three = layout(3, &[(0, Ty::I8), (1, Ty::I8), (2, Ty::I8)]);
+
         assert_eq!(classify_arg(Arch::Win64, &three, &LP64), Passing::Indirect);
     }
 
@@ -931,22 +1014,28 @@ mod tests {
         use PieceTy::*;
         let arch = Arch::Win64Arm;
         let f2 = layout(8, &[(0, Ty::F32), (4, Ty::F32)]);
+
         assert_eq!(shape(classify_arg(arch, &f2, &LP64)), Some(vec![F32, F32]));
         let d4 = layout(
             32,
             &[(0, Ty::F64), (8, Ty::F64), (16, Ty::F64), (24, Ty::F64)],
         );
+
         // An HFA of up to four members uses vector registers even beyond 16 bytes.
         assert_eq!(shape(classify_arg(arch, &d4, &LP64)), Some(vec![F64; 4]));
         assert_eq!(classify_ret(arch, &d4, &LP64).map(|p| p.len()), Some(4));
         let i12 = layout(12, &[(0, Ty::I32), (4, Ty::I32), (8, Ty::I32)]);
+
         assert_eq!(shape(classify_arg(arch, &i12, &LP64)), Some(vec![I64, I64]));
         let c3 = layout(3, &[(0, Ty::I8), (1, Ty::I8), (2, Ty::I8)]);
+
         assert_eq!(shape(classify_arg(arch, &c3, &LP64)), Some(vec![I64]));
         let mix = layout(16, &[(0, Ty::F64), (8, Ty::I64)]);
+
         assert_eq!(shape(classify_arg(arch, &mix, &LP64)), Some(vec![I64, I64]));
         // Over 16 bytes and not an HFA: by reference, and returned through x8.
         let i3 = layout(24, &[(0, Ty::I64), (8, Ty::I64), (16, Ty::I64)]);
+
         assert_eq!(classify_arg(arch, &i3, &LP64), Passing::Indirect);
         assert!(classify_ret(arch, &i3, &LP64).is_none());
     }
@@ -956,16 +1045,19 @@ mod tests {
         use PieceTy::*;
         let arch = Arch::Win64Arm;
         let f2 = layout(8, &[(0, Ty::F32), (4, Ty::F32)]);
+
         assert_eq!(shape(classify_vararg(arch, &f2, &LP64)), Some(vec![I64]));
         let f4 = layout(
             16,
             &[(0, Ty::F32), (4, Ty::F32), (8, Ty::F32), (12, Ty::F32)],
         );
+
         assert_eq!(
             shape(classify_vararg(arch, &f4, &LP64)),
             Some(vec![I64, I64])
         );
         let d2 = layout(16, &[(0, Ty::F64), (8, Ty::F64)]);
+
         assert_eq!(
             shape(classify_vararg(arch, &d2, &LP64)),
             Some(vec![I64, I64])
@@ -974,6 +1066,7 @@ mod tests {
             32,
             &[(0, Ty::F64), (8, Ty::F64), (16, Ty::F64), (24, Ty::F64)],
         );
+
         assert_eq!(classify_vararg(arch, &d4, &LP64), Passing::Indirect);
         // Results are unaffected: a variadic procedure still returns an HFA in v0-v3.
         assert_eq!(classify_ret(arch, &f4, &LP64).map(|p| p.len()), Some(4));
@@ -994,6 +1087,7 @@ mod tests {
         ] {
             assert_eq!(target_arch(triple), Some(Arch::Win64Arm), "{triple}");
         }
+
         assert_eq!(
             target_arch("aarch64-unknown-linux-gnu"),
             Some(Arch::Aarch64)
@@ -1015,6 +1109,7 @@ mod tests {
             offset: 0,
             ty: PieceTy::X87,
         }];
+
         assert_eq!(
             classify_arg(Arch::X86_64, &x87, &LP64),
             Passing::Registers(one.clone())
@@ -1025,6 +1120,7 @@ mod tests {
             align: 16,
             fields: vec![(0, Ty::I8), (16, Ty::F80)],
         };
+
         assert_eq!(classify_arg(Arch::X86_64, &tagged, &LP64), Passing::ByVal);
         assert!(classify_ret(Arch::X86_64, &tagged, &LP64).is_none());
         // MinGW: by reference, returned through a hidden pointer.
@@ -1036,6 +1132,7 @@ mod tests {
             fields: (0..n).map(|i| (i * 16, Ty::F128)).collect(),
         };
         let p = classify_ret(Arch::Aarch64, &quad(2), &LP64).unwrap();
+
         assert!(p.len() == 2 && p.iter().all(|p| p.ty == PieceTy::F128));
         assert!(
             matches!(classify_arg(Arch::Aarch64, &quad(1), &LP64), Passing::Registers(p) if p.len() == 1)
@@ -1045,6 +1142,7 @@ mod tests {
             align: 16,
             fields: vec![(0, Ty::I8), (16, Ty::F128)],
         };
+
         assert_eq!(
             classify_arg(Arch::Aarch64, &mixed, &LP64),
             Passing::Indirect
@@ -1054,6 +1152,7 @@ mod tests {
     #[test]
     fn sysv_large_aggregate_is_byval() {
         let l = layout(24, &[(0, Ty::I64), (8, Ty::I64), (16, Ty::I64)]);
+
         assert_eq!(classify_arg(Arch::X86_64, &l, &LP64), Passing::ByVal);
     }
 
@@ -1061,6 +1160,7 @@ mod tests {
     fn wasm64_passes_single_scalars_directly_and_the_rest_by_pointer() {
         assert_eq!(target_arch("wasm64-unknown-unknown"), Some(Arch::Wasm));
         let one = layout(8, &[(0, Ty::F64)]);
+
         assert_eq!(
             classify_arg(Arch::Wasm, &one, &LP64),
             Passing::Registers(vec![Piece {
@@ -1069,9 +1169,11 @@ mod tests {
             }])
         );
         let pair = layout(16, &[(0, Ty::I64), (8, Ty::I64)]);
+
         assert_eq!(classify_arg(Arch::Wasm, &pair, &LP64), Passing::ByVal);
         assert!(classify_ret(Arch::Wasm, &pair, &LP64).is_none());
         let small = layout(4, &[(0, Ty::I32)]);
+
         assert_eq!(classify_arg(Arch::Wasm, &small, &LP64), Passing::ByVal);
     }
 }

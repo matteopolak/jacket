@@ -40,6 +40,7 @@ impl Compiler {
                                     .any(|p| p.name.map(|pn| pn.name) == Some(n.name))
                         })
                     });
+
                 self.ide_note_bake_proc_args(def_scope, &lit.header, args);
                 let (kept, mut consts) =
                     self.bake_params(scope, def_scope, &params, &param_args, span)?;
@@ -55,6 +56,7 @@ impl Compiler {
                     )?)
                 };
                 let mut header = (*lit.header).clone();
+
                 header.params = kept;
                 // `#bake_constants f(T = float)` on `f :: (m: Matrix($T, $M, $N))`: the copy is
                 // still polymorphic over `M` and `N`, with `T` a constant its header names.
@@ -65,11 +67,14 @@ impl Compiler {
                     .collect();
                 let partial = !poly_args.is_empty() && poly_vars.iter().any(|v| !bound.contains(v));
                 let binders = self.poly_binders(&lit.header);
+
                 if partial {
                     for arg in &poly_args {
                         let ty = self.eval_type(scope, &arg.value)?;
+
                         consts.push((arg.name.unwrap().name, Value::Type(ty), TypeId::TYPE));
                     }
+
                     for t in header
                         .params
                         .iter_mut()
@@ -79,6 +84,7 @@ impl Compiler {
                         unbind_poly(t, &bound);
                     }
                 }
+
                 header.baked = true;
                 // The copy is a new procedure, not another export of the original.
                 header.flags.program_export = None;
@@ -94,30 +100,40 @@ impl Compiler {
                     .flatten()
                     .copied()
                     .collect();
+
                 for id in fixed {
                     self.entity_mut(id).baked_argument = true;
                 }
+
                 if partial {
                     // A bound `$T` is still declared where the header writes it.
                     for (n, at) in binders {
                         let ids = self.scope(baked_scope).names.get(&n).cloned();
+
                         for id in ids.into_iter().flatten().filter(|_| bound.contains(&n)) {
                             self.entity_mut(id).span = at;
+
                             if self.ed.is_live() {
                                 self.ide_note_entity(id);
                             }
                         }
                     }
                 }
+
                 let baked = self.new_proc(name, lit, baked_scope, span);
+
                 if poly_args.is_empty() || partial {
                     return Ok(Operand::Procs(vec![baked]));
                 }
+
                 let mut bindings = Vec::new();
+
                 for arg in poly_args {
                     let ty = self.eval_type(scope, &arg.value)?;
+
                     bindings.push((arg.name.unwrap().name, Value::Type(ty), TypeId::TYPE));
                 }
+
                 Ok(Operand::Procs(vec![
                     self.instantiate(baked, bindings, span)?,
                 ]))
@@ -127,6 +143,7 @@ impl Compiler {
                     let p = &self.ty.poly_structs[ps.0 as usize];
                     (p.name, p.lit.clone())
                 };
+
                 if let Some(arg) = args.iter().find(|a| a.context) {
                     return err(
                         Code::CallBakeArguments,
@@ -134,7 +151,9 @@ impl Compiler {
                         "context arguments can only be baked into a procedure",
                     );
                 }
+
                 let def_scope = self.ty.poly_structs[ps.0 as usize].scope;
+
                 self.ide_note_bake_struct_args(ps, &lit.params, args);
                 let args: Vec<&ast::Arg> = args.iter().collect();
                 let (kept, consts) =
@@ -148,10 +167,13 @@ impl Compiler {
                     .chain(consts)
                     .collect();
                 let mut lit = (*lit).clone();
+
                 lit.params = kept;
                 let baked = self.ty.new_poly_struct(name, Arc::new(lit), def_scope);
+
                 self.ty.poly_structs[baked.0 as usize].baked = consts;
                 self.ty.poly_structs[baked.0 as usize].origin = Some(origin);
+
                 if self.ty.poly_structs[baked.0 as usize].lit.params.is_empty() {
                     return Ok(Operand::Type(self.instantiate_struct(
                         baked,
@@ -159,6 +181,7 @@ impl Compiler {
                         span,
                     )?));
                 }
+
                 Ok(Operand::PolyStruct(baked))
             }
             _ => err(
@@ -183,6 +206,7 @@ impl Compiler {
                 Operand::Procs(p) if p.len() == 1 => {
                     let v = Value::Proc(p[0]);
                     let ty = self.type_of_value(&v);
+
                     (v, ty)
                 }
                 Operand::Const {
@@ -240,6 +264,7 @@ impl Compiler {
             notes: ast::Notes::default(),
         };
         let mut stmts = Vec::new();
+
         for (i, arg) in overrides.iter().enumerate() {
             let field = arg.name.unwrap_or(ast::Ident {
                 name: Sym::intern("allocator"),
@@ -247,6 +272,7 @@ impl Compiler {
             });
             let (value, ty) = self.bake_value(scope, &arg.value, None)?;
             let held = Sym::intern(&format!("\u{0}context_argument_{i}"));
+
             consts.push((held, value, ty));
             stmts.push(stmt(
                 S::Assign {
@@ -260,6 +286,7 @@ impl Compiler {
                 arg.value.span,
             ));
         }
+
         stmts.push(stmt(S::Block(body.clone()), body.span));
         let pushed = ast::PushContextStmt {
             backtick: false,
@@ -274,6 +301,7 @@ impl Compiler {
             )),
             bare: true,
         };
+
         Ok(ast::Block {
             stmts: vec![stmt(S::PushContext(Box::new(pushed)), body.span)],
             span: body.span,
@@ -292,6 +320,7 @@ impl Compiler {
         span: Span,
     ) -> Result<(Vec<ast::Param>, Vec<ConstArg>)> {
         let mut baked: Vec<Option<&ast::Arg>> = vec![None; params.len()];
+
         for (i, &arg) in args.iter().enumerate() {
             let index = match arg.name {
                 Some(n) => params
@@ -313,16 +342,21 @@ impl Compiler {
                     );
                 }
             };
+
             baked[index] = Some(arg);
         }
+
         let mut kept = Vec::new();
         let mut consts = Vec::new();
         // A name some parameter declares as `$T`; baked parameters may mention it as plain `T`.
         let mut binders = Vec::new();
+
         for ty in params.iter().filter_map(|p| p.ty.as_ref()) {
             procs::for_poly_binders(ty, &mut |n| binders.push(n));
         }
+
         let mut inferred = Vec::new();
+
         for (param, arg) in params.iter().zip(baked) {
             let Some(arg) = arg else {
                 kept.push(param.clone());
@@ -337,6 +371,7 @@ impl Compiler {
             };
             let pattern = param.ty.as_ref().and_then(|t| {
                 let mut t = t.clone();
+
                 polyfy(&mut t, &binders);
                 procs::has_poly(&t).then_some(t)
             });
@@ -360,11 +395,14 @@ impl Compiler {
                 _ => None,
             };
             let (value, ty) = self.bake_value(scope, &arg.value, declared)?;
+
             // `($v: $T)` baked with `v = 3`: `T` is what the value's type says, and the body and
             // the other parameter types still name it.
             if let Some(pattern) = &pattern {
                 let mut found = Vec::new();
+
                 self.match_pattern(pattern, ty, &mut found, def_scope)?;
+
                 for bound in found {
                     if !consts.iter().any(|c: &ConstArg| c.0 == bound.0) {
                         inferred.push(bound.0);
@@ -372,8 +410,10 @@ impl Compiler {
                     }
                 }
             }
+
             consts.push((name.name, value, ty));
         }
+
         // What a baked value fixed is no longer a variable of the parameters left open.
         for ty in kept
             .iter_mut()
@@ -381,6 +421,7 @@ impl Compiler {
         {
             unbind_poly(ty, &inferred);
         }
+
         Ok((kept, consts))
     }
 
@@ -391,10 +432,12 @@ impl Compiler {
         span: Span,
     ) -> ScopeId {
         let scope = self.new_hidden_scope(parent);
+
         // Each name is written as an argument, recorded as naming the parameter it bakes.
         for (name, value, ty) in consts {
             self.new_const(scope, name, span, value, ty);
         }
+
         scope
     }
 
@@ -409,7 +452,9 @@ impl Compiler {
         if !self.ed.is_live() {
             return;
         }
+
         let binders = self.poly_binders(header);
+
         for arg in args {
             let Some(name) = arg.name else {
                 continue;
@@ -432,6 +477,7 @@ impl Compiler {
                     None => continue,
                 },
             };
+
             self.ide_note_named_field(name.span, name.name, decl, ty);
         }
     }
@@ -446,6 +492,7 @@ impl Compiler {
         if !self.ed.is_live() {
             return;
         }
+
         for arg in args {
             let Some(name) = arg.name else {
                 continue;
@@ -460,6 +507,7 @@ impl Compiler {
             let ty = self
                 .poly_struct_param_type(ps, i, None)
                 .unwrap_or(TypeId::COMPILE_TIME);
+
             self.ide_note_named_field(name.span, name.name, decl, ty);
         }
     }
@@ -468,6 +516,7 @@ impl Compiler {
 /// Plain `T` in a type expression becomes `$T` for the given names.
 fn polyfy(expr: &mut ast::Expr, names: &[Sym]) {
     use ast::ExprKind as E;
+
     match &mut expr.kind {
         E::Ident(name) if names.contains(name) => {
             expr.kind = E::PolyVar {
@@ -486,6 +535,7 @@ fn polyfy(expr: &mut ast::Expr, names: &[Sym]) {
             if let ast::ArraySize::Fixed(n) = size {
                 polyfy(n, names);
             }
+
             polyfy(elem, names);
         }
         E::Call {
@@ -494,12 +544,14 @@ fn polyfy(expr: &mut ast::Expr, names: &[Sym]) {
             ..
         } => {
             polyfy(callee, names);
+
             for a in args {
                 polyfy(&mut a.value, names);
             }
         }
         E::ProcType(header) => {
             let header = Arc::make_mut(header);
+
             for t in header
                 .params
                 .iter_mut()
@@ -516,6 +568,7 @@ fn polyfy(expr: &mut ast::Expr, names: &[Sym]) {
 /// `$T` (and `$T/R`) in a type expression become plain `T`: `T` is bound elsewhere.
 fn unbind_poly(expr: &mut ast::Expr, names: &[Sym]) {
     use ast::ExprKind as E;
+
     match &mut expr.kind {
         E::PolyVar {
             name, ..
@@ -534,6 +587,7 @@ fn unbind_poly(expr: &mut ast::Expr, names: &[Sym]) {
             if let ast::ArraySize::Fixed(n) = size {
                 unbind_poly(n, names);
             }
+
             unbind_poly(elem, names);
         }
         E::Call {
@@ -542,12 +596,14 @@ fn unbind_poly(expr: &mut ast::Expr, names: &[Sym]) {
             ..
         } => {
             unbind_poly(callee, names);
+
             for a in args {
                 unbind_poly(&mut a.value, names);
             }
         }
         E::ProcType(header) => {
             let header = Arc::make_mut(header);
+
             for t in header
                 .params
                 .iter_mut()

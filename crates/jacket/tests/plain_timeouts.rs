@@ -22,10 +22,12 @@ elif '-interp' in args:
 fn declared_golden_timeout_is_enforced_in_native_and_interpreter_modes() {
     for interpreted in [false, true] {
         let project = TempDir::new("plain-timeout-contract");
+
         std::fs::create_dir_all(project.join("tests")).unwrap();
         std::fs::create_dir_all(project.join("stdlib/prelude")).unwrap();
         std::fs::write(project.join("stdlib/prelude/module.jai"), "").unwrap();
         std::fs::write(project.join("jacket.toml"), "[project]\n").unwrap();
+
         for (name, expected) in [("slow", ""), ("quick", "quick\n")] {
             std::fs::write(
                 project.join(format!("tests/{name}.jai")),
@@ -34,26 +36,34 @@ fn declared_golden_timeout_is_enforced_in_native_and_interpreter_modes() {
             .unwrap();
             std::fs::write(project.join(format!("tests/{name}.stdout")), expected).unwrap();
         }
+
         let compiler = project.join("jaic");
+
         std::fs::write(&compiler, COMPILER).unwrap();
         std::fs::set_permissions(&compiler, std::fs::Permissions::from_mode(0o755)).unwrap();
         let jacket = project.join("jacket");
+
         std::fs::copy(env!("CARGO_BIN_EXE_jacket"), &jacket).unwrap();
         let mut command = Command::new(jacket);
+
         command
             .args(["test", "--no-doc", "--format", "json"])
             .current_dir(&project)
             .env("JAIC_STDLIB", project.join("stdlib"));
+
         if interpreted {
             command.arg("--interp");
         }
+
         let output = command.output().unwrap();
         let stdout = String::from_utf8_lossy(&output.stdout);
+
         assert!(!output.status.success(), "{stdout}");
         let records: Vec<serde_json::Value> = stdout
             .lines()
             .map(|line| serde_json::from_str(line).unwrap())
             .collect();
+
         for (name, event) in [("slow", "timed_out"), ("quick", "passed")] {
             assert!(
                 records.iter().any(|record| {
@@ -63,7 +73,9 @@ fn declared_golden_timeout_is_enforced_in_native_and_interpreter_modes() {
                 String::from_utf8_lossy(&output.stderr)
             );
         }
+
         let summary = records.last().unwrap();
+
         assert_eq!(summary["event"], "finished");
         assert_eq!(summary["passed"], 1);
         assert_eq!(summary["timed_out"], 1);

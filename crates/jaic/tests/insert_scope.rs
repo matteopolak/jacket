@@ -4,8 +4,10 @@ use std::{path::PathBuf, rc::Rc};
 
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     compiler
         .compile_sources(&[ProgramSource::String(source.into())])
         .map_err(|error| error.render(&compiler.src.sources))
@@ -18,12 +20,14 @@ fn exact_human_declaration_insertion_is_visible_to_the_following_statement() {
         PathBuf::from,
     );
     let mut options = Options::host();
+
     options.import_paths = vec![root.clone()];
     options.preload = Some(root.join("prelude/module.jai"));
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let result = compiler.compile_sources(&[ProgramSource::String(
         include_str!("../../../tests/fixtures/insert-scope/main.jai").into(),
     )]);
+
     result
         .map_err(|error| error.render(&compiler.src.sources))
         .unwrap();
@@ -35,6 +39,7 @@ fn unbraced_declarations_publish_but_explicit_blocks_do_not() {
         "verify::()->int {code::#code value:=2; #insert code; return value;} #assert verify()==2;",
     )
     .unwrap();
+
     for body in [
         "a::#code {b:=2;}; #insert a; x:=b;",
         "a::#code {{b:=2;}}; #insert a; x:=b;",
@@ -42,6 +47,7 @@ fn unbraced_declarations_publish_but_explicit_blocks_do_not() {
     ] {
         let error =
             compile(&format!("main::(){{{body}}}")).expect_err("official lexical scope negative");
+
         assert!(error.contains("unknown identifier"), "{body}: {error}");
     }
 }
@@ -62,6 +68,7 @@ fn explicit_blocks_keep_locals_and_defers_inside_the_block() {
     .unwrap();
     let error = compile("main::(){code::#code {local:=2;} #insert code; out:=local;}")
         .expect_err("explicit Code block locals stay private");
+
     assert!(error.contains("unknown identifier"), "{error}");
 }
 
@@ -99,6 +106,7 @@ fn duplicate_inserted_and_receiving_declarations_are_rejected() {
     ] {
         let error = compile(&format!("main :: () {{ {body} }}"))
             .expect_err("same-block declaration insertion must not silently shadow");
+
         assert!(error.contains("already declared"), "{body}: {error}");
     }
 }
@@ -154,6 +162,7 @@ fn inserted_using_declaration_exposes_only_its_receiving_block() {
     ",
     )
     .expect_err("nested using must not leak");
+
     assert!(error.contains("unknown identifier"), "{error}");
 }
 
@@ -161,6 +170,7 @@ fn inserted_using_declaration_exposes_only_its_receiving_block() {
 fn inserted_constants_remain_immutable() {
     let error = compile("main :: () { code::#code value::2; #insert code; value=3; }")
         .expect_err("insertion does not change :: storage semantics");
+
     assert!(
         error.contains("constant") || error.contains("assign"),
         "{error}"
@@ -179,6 +189,7 @@ fn inserting_inside_a_nested_receiving_block_does_not_leak_out() {
     ",
     )
     .expect_err("the receiving block still bounds visibility");
+
     assert!(error.contains("unknown identifier"), "{error}");
 }
 
@@ -186,6 +197,7 @@ fn inserting_inside_a_nested_receiving_block_does_not_leak_out() {
 fn a_use_before_an_inserted_mutable_declaration_is_not_a_forward_local() {
     let error = compile("main :: () { code::#code value:=2; out:=value; #insert code; }")
         .expect_err("ordinary runtime locals are not forward declarations");
+
     assert!(error.contains("unknown identifier"), "{error}");
 }
 
@@ -213,6 +225,7 @@ fn insertion_does_not_create_a_new_overload_declaration_scope() {
     ",
     )
     .expect_err("a synthetic insertion lookup scope must not hide duplicate signatures");
+
     assert!(error.contains("identical parameter types"), "{error}");
 }
 
@@ -243,6 +256,7 @@ fn captured_private_module_names_do_not_escape_with_new_bindings() {
         #scope_export
         declaration :: #code generated:=private_value;
     ";
+
     for tail in ["return generated;", "return generated+private_value;"] {
         let source = format!(
             r#"
@@ -252,19 +266,23 @@ fn captured_private_module_names_do_not_escape_with_new_bindings() {
         "#
         );
         let mut fs = VirtualFs::default();
+
         fs.insert("/lib/Maker/module.jai", module.as_bytes());
         fs.insert("/main.jai", source.as_bytes());
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.import_paths = vec!["/lib".into()];
         let mut compiler = Compiler::new(options, Rc::new(fs));
         let result = compiler.compile_program(std::path::Path::new("/main.jai"));
+
         if tail == "return generated;" {
             result
                 .map_err(|error| error.render(&compiler.src.sources))
                 .unwrap();
         } else {
             let error = result.expect_err("captured module privacy is not a namespace reexport");
+
             assert!(
                 error.message.contains("unknown identifier"),
                 "{}",
@@ -317,6 +335,7 @@ fn macro_private_declarations_do_not_leak_and_backtick_bindings_still_work() {
     ",
     )
     .expect_err("macro body privacy survives insertion");
+
     assert!(error.contains("unknown identifier"), "{error}");
 }
 
@@ -402,6 +421,7 @@ fn insertion_declarations_do_not_escape_the_receiving_block() {
     ] {
         let error = compile(&format!("main :: () {{ {body} }}"))
             .expect_err("declarations stay in the receiving block, after the insertion");
+
         assert!(error.contains("unknown identifier"), "{body}: {error}");
     }
 }
@@ -415,6 +435,7 @@ fn code_export_and_text_parse_preserve_payload_shape_without_source_heuristics()
         sema::code_export::export_code,
         source::FileId,
     };
+
     for (text, statement) in [
         ("value:=2", true),
         ("{value:=2;}", false),
@@ -427,10 +448,12 @@ fn code_export_and_text_parse_preserve_payload_shape_without_source_heuristics()
         let Some(ExprKind::Code(body)) = decl.value.as_ref().map(|value| &value.kind) else {
             panic!("{text}: not a code literal");
         };
+
         assert_eq!(matches!(&**body, CodeBody::Stmt(_)), statement);
         let mut records = Records::default();
         // An unavailable/replaced source spelling cannot change AST lexical shape.
         let (root, _) = export_code(&mut records, body);
+
         assert_eq!(
             records.get(root).unwrap().tag,
             if statement {

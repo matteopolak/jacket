@@ -29,6 +29,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(s) = n.stmt() else {
                 return true;
@@ -42,22 +43,27 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let E::Member(arr, member) = &hi.kind else {
                 return true;
             };
+
             if member.name.as_str() != "count" || !is_path(arr) || f.iterator.is_some() {
                 return true;
             }
+
             let Some(ty) = cx.ty(arr) else {
                 return true;
             };
+
             if !matches!(
                 cx.compiler.ty.types.kind(ty),
                 TypeKind::Array { .. } | TypeKind::String
             ) {
                 return true;
             }
+
             let var = f.it.map_or_else(|| Sym::intern("it"), |i| i.name);
             let mut indexed = None;
             let mut guarded = false;
             let mut stack = Vec::new();
+
             walk_node(Node::Stmt(&f.body), &mut stack, &mut |n, _| {
                 if let Some(e) = n.expr() {
                     match &e.kind {
@@ -75,14 +81,17 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         _ => {}
                     }
                 }
+
                 true
             });
             let Some(_) = indexed else {
                 return true;
             };
+
             if guarded {
                 return true;
             }
+
             let (_, end) = cx.whole(hi);
             let mut found = finding(
                 hi.span,
@@ -96,6 +105,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     cx.src(arr.span)
                 )),
             );
+
             found.fix = Some(Fix {
                 title: format!("end the range at `{}.count - 1`", cx.src(arr.span)),
                 edits: vec![Edit {

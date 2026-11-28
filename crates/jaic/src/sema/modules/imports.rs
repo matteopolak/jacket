@@ -13,13 +13,17 @@ impl Compiler {
     /// Resolve the module behind import entry `index` of `scope`, loading it on first use.
     pub fn import_module(&mut self, scope: ScopeId, index: usize) -> Result<Option<ModuleId>> {
         let known = &self.scope(scope).imports[index];
+
         if let Some(module) = known.module {
             return Ok(Some(module));
         }
+
         if known.loading {
             return Ok(None);
         }
+
         let entry = known.clone();
+
         self.scope_mut(scope).imports[index].loading = true;
         let mapping = matches!(
             entry.filter,
@@ -30,11 +34,13 @@ impl Compiler {
         );
         let resolved = (|| -> Result<ModuleId> {
             let module = self.resolve_import(entry.from_scope, &entry.import)?;
+
             if mapping {
                 // The mapper is compile-time code that may need names of this very module
                 // (through the program's types); until it has run they are visible unmapped.
                 self.scope_mut(scope).imports[index].module = Some(module);
             }
+
             crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsMappingImports);
             self.epochs.mapping_imports += u32::from(mapping);
             let filter = self.resolve_module_filter(
@@ -43,12 +49,15 @@ impl Compiler {
                 &entry.filter,
                 entry.import.span,
             );
+
             crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsMappingImports);
             self.epochs.mapping_imports -= u32::from(mapping);
             let filter = filter?;
+
             self.scope_mut(scope).imports[index].filter = filter;
             Ok(module)
         })();
+
         self.scope_mut(scope).imports[index].loading = false;
         let module = match resolved {
             Ok(module) => module,
@@ -57,11 +66,14 @@ impl Compiler {
                 return Err(error);
             }
         };
+
         self.scope_mut(scope).imports[index].module = Some(module);
+
         if mapping {
             crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsNamespaceGeneration);
             self.epochs.namespace_generation += 1;
         }
+
         self.ide_note_filter_names(&scope::UsingEntry::Module(module, None), &entry.filter);
         Ok(Some(module))
     }
@@ -86,6 +98,7 @@ impl Compiler {
         import: &ast::Import,
     ) -> Result<ModuleId> {
         let module = self.resolve_import_instance(from_scope, import)?;
+
         self.ide_note_module_arguments(module, import);
         Ok(module)
     }
@@ -99,6 +112,7 @@ impl Compiler {
         let file = self.scope_file(from_scope);
         let dir = self.file_dir(file);
         let mut params = Vec::new();
+
         for (position, arg) in import.params.iter().enumerate() {
             // `.Member` (or `.A | .B`) needs the parameter's type, known only once the module is
             // read.
@@ -115,6 +129,7 @@ impl Compiler {
                 let typed = matches!(value, Value::Bytes(_))
                     || matches!(self.ty.types.kind(ty), crate::types::TypeKind::Enum(_))
                     || (!untyped && matches!(value, Value::Int(_) | Value::Float(_, _)));
+
                 (
                     value,
                     if typed {
@@ -127,8 +142,10 @@ impl Compiler {
             let name = arg
                 .name
                 .map_or_else(|| Sym::intern(&format!("${position}")), |n| n.name);
+
             params.push((name, value, ty));
         }
+
         match &import.source {
             ast::ImportSource::Module(name)
                 if BootstrapModule::named(name) == Some(BootstrapModule::RuntimeSupport)
@@ -137,8 +154,10 @@ impl Compiler {
                 // One runtime per program; explicit arguments must describe that
                 // configured instance rather than silently changing or ignoring it.
                 let id = self.ns.runtime_support.unwrap();
+
                 self.validate_or_queue_import_groups(id, import)?;
                 let entities = self.ns.modules[id.0 as usize].param_entities.clone();
+
                 for (name, value, _) in params {
                     let entity = if let Some(position) = name.as_str().strip_prefix('$') {
                         position
@@ -159,6 +178,7 @@ impl Compiler {
                         );
                     };
                     let expected = self.resolve_entity(entity)?;
+
                     if !matches!(expected, scope::Resolved::Const { value: ref existing, .. } if *existing == value)
                     {
                         return err(
@@ -170,6 +190,7 @@ impl Compiler {
                         );
                     }
                 }
+
                 Ok(id)
             }
             ast::ImportSource::Module(name) => {
@@ -182,6 +203,7 @@ impl Compiler {
                     .rev()
                     .find(|(h, n, _)| n == &**name && (h.is_empty() || *h == host))
                     .map_or_else(|| name.to_string(), |(_, _, r)| r.clone());
+
                 if let Some(error) = self.ide_missing_module(from_scope, import.span, &wanted, &dir)
                 {
                     // A newly supplied import wins even if filesystem discovery
@@ -191,18 +213,24 @@ impl Compiler {
                     {
                         return Ok(id);
                     }
+
                     self.ns.failed_imports.push((host, name.to_string()));
+
                     return Err(error);
                 }
+
                 let Some(entry) = self.find_module(&wanted, &dir) else {
                     if let Some(id) =
                         self.provided_module(&provided, &host, name, &dir, &params, import)?
                     {
                         return Ok(id);
                     }
+
                     self.ns.failed_imports.push((host, name.to_string()));
                     let error = self.module_not_found(&wanted, &dir, import.span);
+
                     self.ide_record_missing_module(from_scope, import.span, &wanted, &dir, &error);
+
                     return Err(Box::new(error));
                 };
                 self.load_module_request(&wanted, &entry, params, import.span, Some(import))
@@ -220,10 +248,12 @@ impl Compiler {
             }
             ast::ImportSource::String(source) => {
                 let id = self.new_module("string", None, params);
+
                 self.ns.modules[id.0 as usize]
                     .argument_imports
                     .push(Arc::new(import.clone()));
                 let label = format!("import string {}", self.src.sources.len());
+
                 self.load_string(&label, source, id)?;
                 self.validate_module_arguments(id, import.span)?;
                 Ok(id)
@@ -242,6 +272,7 @@ impl Compiler {
         let supplies_program_arguments = import
             .program_params_start
             .is_some_and(|start| start < import.params.len());
+
         if supplies_program_arguments && Some(self.scope(scope).module) != self.ns.main_module {
             return err(
                 Code::ModuleProgramParameters,
@@ -249,6 +280,7 @@ impl Compiler {
                 "PROGRAM parameters may only be supplied by the main program of this workspace",
             );
         }
+
         Ok(())
     }
 
@@ -258,12 +290,14 @@ impl Compiler {
         import: &ast::Import,
     ) -> Result<()> {
         let module = &mut self.ns.modules[id.0 as usize];
+
         if !module.arguments_validated {
             // A recursive or deferred header has not registered its slots yet.
             // Retain each request for validation before that header binds values.
             module.argument_imports.push(Arc::new(import.clone()));
             return Ok(());
         }
+
         let module = &self.ns.modules[id.0 as usize];
         let ordinary = module
             .param_entities
@@ -271,6 +305,7 @@ impl Compiler {
             .map(|&id| self.entity(id).name)
             .filter(|name| !module.program_params.contains(name))
             .collect::<Vec<_>>();
+
         self.validate_import_groups(import, &ordinary, &module.program_params)
     }
 
@@ -282,6 +317,7 @@ impl Compiler {
         program: &[Sym],
     ) -> Result<()> {
         let split = import.program_params_start.unwrap_or(import.params.len());
+
         for (args, names, label) in [
             (&import.params[..split], ordinary, "module"),
             (&import.params[split..], program, "program"),
@@ -297,12 +333,14 @@ impl Compiler {
                     ),
                 );
             }
+
             for arg in args {
                 if let Some(name) = arg.name
                     && !names.contains(&name.name)
                 {
                     let belongs_to_other_list =
                         ordinary.contains(&name.name) || program.contains(&name.name);
+
                     return err(
                         Code::ModuleParameterInvalid,
                         name.span,
@@ -318,6 +356,7 @@ impl Compiler {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -352,17 +391,22 @@ impl Compiler {
                     self.validate_or_queue_import_groups(id, import)?;
                     return Ok(Some(id));
                 }
+
                 let id = self.new_module(name, None, params.to_vec());
+
                 self.ns.modules[id.0 as usize]
                     .argument_imports
                     .push(Arc::new(import.clone()));
                 let label = format!("provided import {name}");
+
                 self.load_string(&label, &provided.value, id)?;
                 self.validate_module_arguments(id, span)?;
                 self.src.provided_texts.insert(provided.value.clone(), id);
+
                 return Ok(Some(id));
             }
         };
+
         match entry {
             Some(entry) if self.src.fs.is_file(&entry) => Ok(Some(self.load_module_request(
                 name,

@@ -48,24 +48,30 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         if !p.clean || p.is_macro {
             continue;
         }
+
         let return_tys = return_types(cx, p.header.span);
         let body = p.body.span;
+
         statement_lists(&p.body.stmts, &mut |list| {
             for pair in list.windows(2) {
                 let (first, next) = (&pair[0], &pair[1]);
+
                 if cx.in_code_operand(first.span) || cx.in_code_operand(next.span) {
                     continue;
                 }
+
                 let S::Decl(a) = &first.kind else {
                     continue;
                 };
                 let Some(a) = alias_candidate(cx, first, a, next, body) else {
                     continue;
                 };
+
                 match &next.kind {
                     S::Decl(b) => copy(cx, a, b, out),
                     S::Return {
@@ -106,27 +112,36 @@ fn alias_candidate<'a>(
     body: Span,
 ) -> Option<Candidate<'a>> {
     let init = d.value.as_ref()?;
+
     if !plain(d) || !first.notes.is_empty() || matches!(init.kind, E::Uninit) {
         return None;
     }
+
     let name = &d.names[0];
     let between = cx
         .text
         .get(first.span.end as usize..next.span.start as usize)?;
+
     if !between.chars().all(|c| c.is_whitespace() || c == ';') {
         return None;
     }
+
     if cx.has_insert(body.start, body.end) {
         return None;
     }
+
     if cx.name_tokens(name.name, body.start, body.end).count() != 2 {
         return None;
     }
+
     let ents = cx.locals(name.span).to_vec();
+
     if ents.is_empty() {
         return None;
     }
+
     let tys = local_types(cx, &ents)?;
+
     Some(Candidate {
         decl: d,
         init,
@@ -154,6 +169,7 @@ fn plain(d: &Decl) -> bool {
 
 fn local_types(cx: &Cx, ents: &[EntityId]) -> Option<Vec<TypeId>> {
     let mut tys = Vec::new();
+
     for &e in ents {
         match cx.compiler.entity(e).kind {
             EntityKind::Local {
@@ -162,6 +178,7 @@ fn local_types(cx: &Cx, ents: &[EntityId]) -> Option<Vec<TypeId>> {
             _ => return None,
         }
     }
+
     tys.sort_by_key(|t| t.0);
     tys.dedup();
     (!tys.is_empty()).then_some(tys)
@@ -172,6 +189,7 @@ fn is_use(cx: &Cx, a: &Candidate, e: &Expr) -> bool {
     let E::Ident(n) = e.kind else {
         return false;
     };
+
     n == a.decl.names[0].name
         && !cx.entities(e.span).is_empty()
         && cx.entities(e.span).iter().all(|x| a.ents.contains(x))
@@ -181,11 +199,14 @@ fn copy(cx: &Cx, a: Candidate, b: &Decl, out: &mut Vec<Finding>) {
     let Some(v) = &b.value else {
         return;
     };
+
     if !plain(b) || b.ty.is_some() || !is_use(cx, &a, v) {
         return;
     }
+
     let bname = &b.names[0];
     let (init_start, init_end) = cx.whole(a.init);
+
     // `b` named in the initializer would mean the outer `b` there, and the new one after.
     if cx
         .name_tokens(bname.name, init_start as u32, init_end as u32)
@@ -194,6 +215,7 @@ fn copy(cx: &Cx, a: Candidate, b: &Decl, out: &mut Vec<Finding>) {
     {
         return;
     }
+
     let bents = cx.locals(bname.span);
     let Some(btys) = (!bents.is_empty())
         .then(|| local_types(cx, &bents))
@@ -201,11 +223,14 @@ fn copy(cx: &Cx, a: Candidate, b: &Decl, out: &mut Vec<Finding>) {
     else {
         return;
     };
+
     if btys != a.tys {
         return;
     }
+
     let aname = &a.decl.names[0];
     let (_, use_end) = cx.whole(v);
+
     push(
         aname.span,
         format!(
@@ -239,19 +264,23 @@ fn returned(
     if a.decl.ty.is_some() || !is_use(cx, &a, v) {
         return;
     }
+
     // The returned type is the local's type: no conversion happens at the `return`.
     let Some(rt) = return_tys else {
         return;
     };
+
     if rt != a.tys.as_slice() {
         return;
     }
+
     // A call's several results must not all end up in the `return`.
     if let E::Call {
         callee, ..
     } = &a.init.kind
     {
         let procs = callee_procs(cx, callee);
+
         if procs.is_empty()
             || procs
                 .iter()
@@ -260,9 +289,11 @@ fn returned(
             return;
         }
     }
+
     let aname = &a.decl.names[0];
     let (init_start, init_end) = cx.whole(a.init);
     let (_, use_end) = cx.whole(v);
+
     push(
         aname.span,
         format!("`{}` is returned right after it is declared", aname.name),
@@ -296,18 +327,24 @@ fn push(span: Span, message: String, help: String, edits: Vec<Edit>, out: &mut V
 /// (several returns, a named one, an unresolved signature).
 fn return_types(cx: &Cx, header: Span) -> Option<Vec<TypeId>> {
     let procs = cx.procs_with_header(header);
+
     if procs.is_empty() {
         return None;
     }
+
     let mut tys = Vec::new();
+
     for &p in &*procs {
         let info = &cx.compiler.pr.procs[p.0 as usize];
         let sig = info.sig.as_ref()?;
+
         if sig.returns.len() != 1 || sig.return_names.iter().any(std::option::Option::is_some) {
             return None;
         }
+
         tys.push(sig.returns[0]);
     }
+
     tys.sort_by_key(|t| t.0);
     tys.dedup();
     (!tys.is_empty()).then_some(tys)

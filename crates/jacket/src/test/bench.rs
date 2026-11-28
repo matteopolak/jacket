@@ -79,12 +79,15 @@ fn read_samples(value: &Value) -> Result<Samples, String> {
         iterations: number_list(value, "sample_iterations")?,
         nanoseconds: number_list(value, "sample_ns")?,
     };
+
     if samples.len() < 2 || samples.len() != samples.nanoseconds.len() {
         return Err("the record has fewer than two samples, or the lists differ in length".into());
     }
+
     if samples.iterations.iter().any(|&i| i < 1.0) {
         return Err("a sample ran no iterations".into());
     }
+
     Ok(samples)
 }
 
@@ -105,6 +108,7 @@ impl Measure {
         };
         let samples = read_samples(&value)?;
         let analysis = stats::analyze(&samples, resamples, &mut Rng::new(SEED));
+
         Ok(Measure {
             name: case.name.clone(),
             file: crate::shown::path(&case.file, base),
@@ -137,6 +141,7 @@ impl Measure {
 
     fn json(&self) -> Value {
         let a = &self.analysis;
+
         json!({
             "name": self.name,
             "file": self.file,
@@ -198,6 +203,7 @@ fn read_baseline(path: &Path) -> Result<Vec<(String, Samples)>, String> {
         .map_err(|e| format!("cannot read the baseline {}: {e}", path.display()))?;
     let value: Value = serde_json::from_str(&text)
         .map_err(|e| format!("the baseline {} is not JSON: {e}", path.display()))?;
+
     if value["schema"].as_u64() != Some(u64::from(SCHEMA)) {
         return Err(format!(
             "the baseline {} was saved by an older jacket (schema {}, this is {SCHEMA}); save it again",
@@ -205,9 +211,11 @@ fn read_baseline(path: &Path) -> Result<Vec<(String, Samples)>, String> {
             value["schema"]
         ));
     }
+
     let results = value["results"]
         .as_array()
         .ok_or_else(|| format!("the baseline {} has no `results`", path.display()))?;
+
     results
         .iter()
         .map(|result| {
@@ -241,12 +249,15 @@ pub fn run(run: &Run) -> ExitCode {
     let noise = args.noise_threshold / 100.0;
     let mut failed = false;
     let mut results: Vec<(Measure, Option<Change>)> = Vec::new();
+
     for case in run.cases {
         if let Some(reason) = case.options.skip_reason(run.target, run.needs) {
             eprintln!("        SKIP {} ({reason})", case.name);
             continue;
         }
+
         eprintln!("     Running {}", case.name);
+
         match measure(run, case) {
             Ok(measure) => {
                 let change = baseline
@@ -263,17 +274,20 @@ pub fn run(run: &Run) -> ExitCode {
                         )?;
                         let baseline_time =
                             stats::analyze(old, 0, &mut Rng::new(SEED)).time.estimate;
+
                         Some(Change {
                             baseline_time,
                             comparison,
                         })
                     });
+
                 if args.test.format == OutputFormat::Human {
                     print!(
                         "{}",
                         report(&measure, change.as_ref(), baseline.is_some(), args)
                     );
                 }
+
                 results.push((measure, change));
             }
             Err(error) => {
@@ -282,19 +296,24 @@ pub fn run(run: &Run) -> ExitCode {
             }
         }
     }
+
     let document = document(&results, run);
+
     if args.test.format == OutputFormat::Json {
         println!("{document:#}");
     }
+
     if let Some(name) = &args.save_baseline {
         let path = baseline_path(run.project_dir, name);
         let saved = path
             .parent()
             .map_or(Ok(()), std::fs::create_dir_all)
             .and_then(|()| std::fs::write(&path, format!("{document:#}\n")));
+
         match saved {
             Ok(()) => {
                 let cwd = std::env::current_dir().unwrap_or_default();
+
                 eprintln!(
                     "jacket: saved the baseline {}",
                     crate::shown::path(&path, &cwd)
@@ -303,6 +322,7 @@ pub fn run(run: &Run) -> ExitCode {
             Err(error) => return super::fail(format!("cannot write {}: {error}", path.display())),
         }
     }
+
     if let (Some(limit), Some(_)) = (args.max_regression, &baseline) {
         for (measure, change) in &results {
             if let Some(change) = change.as_ref().filter(|c| c.regressed(limit)) {
@@ -315,6 +335,7 @@ pub fn run(run: &Run) -> ExitCode {
             }
         }
     }
+
     if failed {
         ExitCode::from(1)
     } else {
@@ -326,6 +347,7 @@ pub fn run(run: &Run) -> ExitCode {
 fn measure(run: &Run, case: &Case) -> Result<Measure, String> {
     let built = run.built[case.root].as_ref().ok_or("it was not built")?;
     let mut words = vec!["--bench".to_string(), case.local.clone()];
+
     for (flag, value) in [
         ("--samples", run.args.samples),
         ("--warmup", run.args.warmup),
@@ -335,6 +357,7 @@ fn measure(run: &Run, case: &Case) -> Result<Measure, String> {
             words.extend([flag.to_string(), value.to_string()]);
         }
     }
+
     let (program, words) = build::program_and_args(&built.program, &run.toolchain.runner, &words);
     let invocation = Invocation {
         program,
@@ -361,6 +384,7 @@ fn measure(run: &Run, case: &Case) -> Result<Measure, String> {
         }
         _ => None,
     });
+
     match record {
         Some(text) => {
             Measure::from_record(&text, case, run.project_dir, run.args.resamples as usize)
@@ -384,8 +408,10 @@ fn document(results: &[(Measure, Option<Change>)], run: &Run) -> Value {
         .iter()
         .map(|(measure, change)| {
             let mut value = measure.json();
+
             if let Some(change) = change {
                 let c = &change.comparison;
+
                 value["baseline"] = json!({
                     "time_ns": change.baseline_time,
                     "change": interval_json(c.change),
@@ -395,9 +421,11 @@ fn document(results: &[(Measure, Option<Change>)], run: &Run) -> Value {
                     "regression": run.args.max_regression.map(|limit| change.regressed(limit)),
                 });
             }
+
             value
         })
         .collect();
+
     json!({
         "schema": SCHEMA,
         "jacket": env!("CARGO_PKG_VERSION"),
@@ -442,6 +470,7 @@ fn digits(value: f64) -> String {
 pub fn time_triplet(i: Interval) -> String {
     let (divisor, unit) = unit_of(i.estimate.max(0.0));
     let at = |v: f64| digits(v.max(0.0) / divisor);
+
     format!("[{} {} {} {unit}]", at(i.low), at(i.estimate), at(i.high))
 }
 
@@ -457,9 +486,11 @@ fn percent_triplet(i: Interval) -> String {
 /// `[low estimate high]` of a rate: a slower time is a lower rate, so the ends swap.
 fn rate_triplet(measure: &Measure) -> Option<String> {
     let time = measure.analysis.time;
+
     if time.estimate <= 0.0 || time.low <= 0.0 || time.high <= 0.0 {
         return None;
     }
+
     let (work, scale): (f64, &[(f64, &str)]) = if measure.bytes > 0 {
         (
             measure.bytes as f64,
@@ -479,6 +510,7 @@ fn rate_triplet(measure: &Measure) -> Option<String> {
         .iter()
         .find(|(d, _)| estimate >= *d)
         .unwrap_or(&scale[scale.len() - 1]);
+
     Some(format!(
         "[{} {} {} {unit}]",
         digits(low / divisor),
@@ -499,28 +531,38 @@ pub fn report(
     let a = &measure.analysis;
     let pad = " ".repeat(COLUMN);
     let mut out = String::new();
+
     if measure.name.chars().count() >= COLUMN {
         out.push_str(&format!("{}\n{pad}", measure.name));
     } else {
         out.push_str(&format!("{:<COLUMN$}", measure.name));
     }
+
     out.push_str(&format!("time:   {}\n", time_triplet(a.time)));
+
     if let Some(rate) = rate_triplet(measure) {
         out.push_str(&format!("{pad}thrpt:  {rate}\n"));
     }
+
     let mut details = Vec::new();
+
     if let Some(r) = a.r_squared {
         details.push(format!("R² {r:.4}"));
     }
+
     details.push(format!("median {}", time_triplet(a.median)));
     details.push(format!("allocs/iter {:.2}", measure.allocs));
+
     if measure.attempts > 1 {
         details.push(format!("{} attempts", measure.attempts));
     }
+
     if measure.paused {
         details.push("clock paused per iteration".to_string());
     }
+
     out.push_str(&format!("{pad}{}\n", details.join("   ")));
+
     match change {
         Some(change) => {
             let c = &change.comparison;
@@ -529,6 +571,7 @@ pub fn report(
             } else {
                 ">"
             };
+
             out.push_str(&format!(
                 "{pad}change: {} (p = {:.2} {relation} {:.2})\n{pad}{}\n",
                 percent_triplet(c.change),
@@ -540,15 +583,19 @@ pub fn report(
         None if compared => out.push_str(&format!("{pad}change: new (not in the baseline)\n")),
         None => {}
     }
+
     let o = &a.outliers;
+
     if o.total() > 0 {
         let n = measure.samples.len();
         let share = |count: usize| count as f64 / n as f64 * 100.0;
+
         out.push_str(&format!(
             "Found {} outliers among {n} measurements ({:.2}%)\n",
             o.total(),
             share(o.total())
         ));
+
         for (count, kind) in [
             (o.low_severe, "low severe"),
             (o.low_mild, "low mild"),
@@ -560,6 +607,7 @@ pub fn report(
             }
         }
     }
+
     out.push('\n');
     out
 }
@@ -580,6 +628,7 @@ mod tests {
     fn measure(name: &str, per: f64) -> Measure {
         let samples = samples(per, 30);
         let analysis = stats::analyze(&samples, 500, &mut Rng::new(1));
+
         Measure {
             name: name.into(),
             file: String::new(),
@@ -600,17 +649,20 @@ mod tests {
 
     fn args() -> BenchArgs {
         use clap::Parser;
+
         #[derive(Parser)]
         struct Wrapper {
             #[command(flatten)]
             bench: BenchArgs,
         }
+
         Wrapper::parse_from(["bench"]).bench
     }
 
     #[test]
     fn throughput_comes_from_the_time_and_the_work_per_iteration() {
         let mut m = measure("a", 1000.0);
+
         assert_eq!(m.mb_per_s(), None);
         m.bytes = 2000;
         assert!((m.mb_per_s().unwrap() - 2000.0).abs() < 1.0);
@@ -627,6 +679,7 @@ mod tests {
                 high,
             })
         };
+
         assert_eq!(t(37.0, 37.5, 38.1), "[37.00 37.50 38.10 ns]");
         assert_eq!(t(4200.0, 4310.0, 4400.0), "[4.200 4.310 4.400 µs]");
         assert_eq!(t(-0.1, 0.0, 0.2), "[0.000 0.000 0.200 ns]");
@@ -636,6 +689,7 @@ mod tests {
     #[test]
     fn the_report_has_the_time_the_outliers_and_the_change() {
         let mut m = measure("fnv1a", 40.0);
+
         m.bytes = 80;
         m.analysis.outliers.high_mild = 2;
         m.analysis.outliers.high_severe = 1;
@@ -648,6 +702,7 @@ mod tests {
         };
         let text = report(&m, Some(&change), true, &args());
         let lines: Vec<&str> = text.lines().collect();
+
         assert!(
             lines[0].starts_with("fnv1a") && lines[0].contains("time:   [40."),
             "{text}"
@@ -671,6 +726,7 @@ mod tests {
             false,
             &args(),
         );
+
         assert!(text.starts_with("a_benchmark_with_a_very_long_name\n"));
         assert!(
             text.lines()
@@ -694,6 +750,7 @@ mod tests {
         let case = super::super::tests::case("hash", super::super::Kind::Bench);
         let text = r#"{"name":"hash","mode":"linear","samples":4,"step":100,"cpu":-1,"bytes_per_iteration":16,"items_per_iteration":0,"allocs_per_iteration":0.0,"alloc_bytes_per_iteration":0.0,"sample_iterations":[100,200,300,400],"sample_ns":[1010,2005,3020,4010]}"#;
         let measure = Measure::from_record(text, &case, Path::new("/"), 200).unwrap();
+
         assert_eq!((measure.samples.len(), measure.step), (4, 100));
         assert_eq!(measure.file, "t.jai");
         assert_eq!(measure.cpu, None);
@@ -713,16 +770,20 @@ mod tests {
         let single = text
             .replace("[100,200,300,400]", "[100]")
             .replace("[1010,2005,3020,4010]", "[1010]");
+
         assert!(Measure::from_record(&single, &case, Path::new("/p"), 10).is_err());
     }
 
     #[test]
     fn an_old_baseline_is_refused_with_a_reason() {
         let dir = std::env::temp_dir().join(format!("jacket-bench-{}", std::process::id()));
+
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("old.json");
+
         std::fs::write(&path, r#"{"schema":1,"results":[]}"#).unwrap();
         let error = read_baseline(&path).unwrap_err();
+
         assert!(error.contains("save it again"), "{error}");
         let _ = std::fs::remove_dir_all(&dir);
     }

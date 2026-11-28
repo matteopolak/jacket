@@ -21,6 +21,7 @@ pub fn find_clang(lookup: &Lookup) -> Option<PathBuf> {
         .into_iter()
         .map(|base| base.join("LLVM").join("bin"))
         .collect();
+
     lookup.in_dirs(&installed, "clang").or_else(|| {
         let host_arch = discover::arch_dir(host_target(lookup.host).cpu);
         lookup.host.visual_studio_tool("clang.exe", host_arch)
@@ -59,6 +60,7 @@ mod tests {
     #[test]
     fn clang_is_found_under_either_program_files() {
         let mut host = FakeHost::new(Os::Windows, "x86_64");
+
         host.program_files = vec![r"C:\Program Files".into(), r"C:\Program Files (x86)".into()];
         host.file(r"C:\Program Files (x86)/LLVM/bin/clang.exe");
         assert_eq!(
@@ -72,15 +74,18 @@ mod tests {
         // An x64 machine building for arm64 runs the x64 Clang with `--target`; Visual Studio
         // also ships an arm64 Clang, which would not start here.
         let mut host = FakeHost::new(Os::Windows, "x86_64");
+
         host.visual_studio("clang.exe", "x64", r"C:\VS\x64\clang.exe");
         host.visual_studio("clang.exe", "arm64", r"C:\VS\arm64\clang.exe");
         let lookup = Lookup::new(&host);
+
         assert_eq!(find_clang(&lookup), Some(r"C:\VS\x64\clang.exe".into()));
     }
 
     #[test]
     fn a_link_on_path_counts_only_with_microsofts_banner_whatever_it_exits_with() {
         let mut host = FakeHost::new(Os::Windows, "x86_64");
+
         host.fails_printing(
             r"C:\git\link.exe",
             &["/?"],

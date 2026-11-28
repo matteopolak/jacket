@@ -15,6 +15,7 @@ fn windows_crash_runtime_exists() -> bool {
         "libplatform_io_windows_crash.dll.a",
         "platform_io_windows_crash.dll",
     ];
+
     let holds = |dir: &Path| NAMES.iter().any(|name| dir.join(name).is_file());
     let subfolders = |dir: PathBuf| -> Vec<PathBuf> {
         std::fs::read_dir(dir)
@@ -28,10 +29,13 @@ fn windows_crash_runtime_exists() -> bool {
         .os()
         .map_or_else(|| repo_root().join("target"), PathBuf::from);
     let mut places = vec![repo_root().join("stdlib/internal/runtime/crash-native")];
+
     places.extend(subfolders(target.join("native-libs")));
+
     if let Ok(cache) = jacket_config::user_cache_dir() {
         places.extend(subfolders(cache.join("jaic/crash-runtime")));
     }
+
     places.iter().any(|dir| holds(dir))
 }
 
@@ -44,7 +48,9 @@ fn jaifmt_builds_and_formats() {
     if cfg!(windows) {
         return;
     }
+
     let dir = TempDir::new("native-jaifmt");
+
     std::fs::create_dir_all(dir.join("src/skipped")).unwrap();
     let exe = exe_path(&dir, "jaifmt");
     let build = jaic()
@@ -53,6 +59,7 @@ fn jaifmt_builds_and_formats() {
         .arg(&exe)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -69,6 +76,7 @@ fn jaifmt_builds_and_formats() {
         let dump = String::from_utf8_lossy(&dump.stdout);
         let mut symbol = "";
         let mut beyond = None;
+
         for line in dump.lines() {
             if line.ends_with(">:") {
                 symbol = line;
@@ -79,6 +87,7 @@ fn jaifmt_builds_and_formats() {
                 break;
             }
         }
+
         assert!(beyond.is_none(), "beyond baseline x86-64: {beyond:?}");
     }
 
@@ -90,10 +99,12 @@ fn jaifmt_builds_and_formats() {
             .stderr(std::process::Stdio::piped())
             .spawn()
             .unwrap();
+
         use std::io::Write;
         // Writes everything, then closes the pipe (as Homebrew's `pipe_output` does).
         child.stdin.take().unwrap().write_all(input).unwrap();
         let output = child.wait_with_output().unwrap();
+
         assert!(
             output.status.success(),
             "{:?}: {}",
@@ -102,6 +113,7 @@ fn jaifmt_builds_and_formats() {
         );
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     assert_eq!(
         format_stdin(b"f :: ()\n{\n  x:=1;\n}\n"),
         "f :: () {\n    x := 1;\n}\n"
@@ -114,6 +126,7 @@ fn jaifmt_builds_and_formats() {
 
     let messy = "main :: () {\nx:=1;\n}\n";
     let bad_source = "f :: () { x := (1; }\n";
+
     std::fs::write(
         dir.join("jacket.toml"),
         "[format]\nindent-width = 2\nignore = [\"src/skipped\"]\n",
@@ -143,6 +156,7 @@ fn jaifmt_builds_and_formats() {
     );
 
     let check = fmt(&["--check", "src/a.jai"]);
+
     assert_eq!(check.status.code(), Some(1));
     // Paths below the current directory are shown relative to it.
     assert_eq!(String::from_utf8_lossy(&check.stdout), "src/a.jai:2\n");
@@ -154,8 +168,10 @@ fn jaifmt_builds_and_formats() {
     assert_eq!(read("src/a.jai"), messy);
 
     let rewrite = fmt(&["src"]);
+
     assert_eq!(rewrite.status.code(), Some(2));
     let stderr = String::from_utf8_lossy(&rewrite.stderr);
+
     assert!(
         stderr
             .contains("src/bad.jai:1:20: error: unbalanced `}`\nhelp: the file was left unchanged"),
@@ -163,12 +179,14 @@ fn jaifmt_builds_and_formats() {
     );
     // Command-line mistakes say what is wrong and what to do instead.
     let missing = fmt(&["src/nope.jai"]);
+
     assert_eq!(missing.status.code(), Some(2));
     assert_eq!(
         String::from_utf8_lossy(&missing.stderr),
         "error: `src/nope.jai` does not exist\nhelp: relative paths start from the current directory\n"
     );
     let unknown = fmt(&["--chek", "src"]);
+
     assert_eq!(unknown.status.code(), Some(2));
     assert_eq!(
         String::from_utf8_lossy(&unknown.stderr),
@@ -176,8 +194,10 @@ fn jaifmt_builds_and_formats() {
     );
     // --help is generated from the option declarations and goes to stdout (exit 0).
     let help = fmt(&["--help"]);
+
     assert_eq!(help.status.code(), Some(0));
     let help = String::from_utf8_lossy(&help.stdout);
+
     assert!(
         help.contains("Usage: jaifmt [OPTIONS] [PATHS]..."),
         "{help}"
@@ -185,6 +205,7 @@ fn jaifmt_builds_and_formats() {
     assert!(help.contains("--config <FILE>"), "{help}");
     // --stdin and paths exclude each other.
     let both = fmt(&["--stdin", "src"]);
+
     assert_eq!(both.status.code(), Some(2));
     assert!(
         String::from_utf8_lossy(&both.stderr)
@@ -205,6 +226,7 @@ fn jaifmt_build_metaprogram() {
     if cfg!(windows) {
         return;
     }
+
     let dir = TempDir::new("native-jaifmt-metaprogram");
     let exe = exe_path(&dir, "jaifmt");
     let build = jaic()
@@ -213,6 +235,7 @@ fn jaifmt_build_metaprogram() {
         .arg(&exe)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -224,6 +247,7 @@ fn jaifmt_build_metaprogram() {
         .stdout(std::process::Stdio::piped())
         .spawn()
         .unwrap();
+
     use std::io::Write;
     child
         .stdin
@@ -232,6 +256,7 @@ fn jaifmt_build_metaprogram() {
         .write_all(b"f :: ()\n{\n  x:=1;\n}\n")
         .unwrap();
     let output = child.wait_with_output().unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "f :: () {\n    x := 1;\n}\n"
@@ -242,6 +267,7 @@ fn jaifmt_build_metaprogram() {
         .args(["-", "bogus"])
         .output()
         .unwrap();
+
     assert!(!bad.status.success());
     assert!(
         String::from_utf8_lossy(&bad.stderr).contains("invalid value `bogus` for `<TARGET>`"),
@@ -257,6 +283,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
     if cfg!(windows) {
         return;
     }
+
     let dir = TempDir::new("native-jaifmt-idempotence");
     let exe = exe_path(&dir, "jaifmt");
     let build = jaic()
@@ -265,6 +292,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
         .arg(&exe)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -275,6 +303,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
         for entry in std::fs::read_dir(from).unwrap() {
             let path = entry.unwrap().path();
             let name = path.file_name().unwrap();
+
             if path.is_dir() {
                 // tests/corpus holds deliberately malformed and byte-pinned fixtures.
                 if name != "corpus" {
@@ -285,10 +314,12 @@ fn jaifmt_is_idempotent_on_the_repository() {
             {
                 std::fs::create_dir_all(to).unwrap();
                 let destination = to.join(name);
+
                 std::fs::copy(&path, &destination).unwrap();
                 // Frozen source inputs may be read-only. This test formats its
                 // own copy; the original file's protections stay untouched.
                 let mut permissions = std::fs::metadata(&destination).unwrap().permissions();
+
                 #[cfg(unix)]
                 {
                     use std::os::unix::fs::PermissionsExt;
@@ -305,33 +336,41 @@ fn jaifmt_is_idempotent_on_the_repository() {
             }
         }
     }
+
     let tree = dir.join("tree");
     let mut count = 0;
     let protected = dir.join("protected-input");
+
     std::fs::create_dir_all(&protected).unwrap();
     let protected_file = protected.join("read-only.jai");
     let protected_text = "main :: () { value:=1; }\n";
+
     std::fs::write(&protected_file, protected_text).unwrap();
     let mut protected_permissions = std::fs::metadata(&protected_file).unwrap().permissions();
+
     protected_permissions.set_readonly(true);
     std::fs::set_permissions(&protected_file, protected_permissions).unwrap();
     let readonly_retained = std::fs::metadata(&protected_file)
         .unwrap()
         .permissions()
         .readonly();
+
     // Some transport filesystems accept chmod but discard write-bit changes.
     // CI must exercise the actual readonly premise on a capable filesystem.
     formatter_fixtures::require_readonly_capability(
         readonly_retained,
         jacket_config::env::CI.is_set() || jacket_config::env::GITHUB_ACTIONS.is_set(),
     );
+
     if !readonly_retained {
         eprintln!(
             "readonly capability unavailable: set_permissions succeeded but {} remains writable; copy formatting and idempotence checks still run",
             protected_file.display()
         );
     }
+
     copy_jai(&protected, &tree.join("protected-input"), &mut count);
+
     for part in [
         "stdlib",
         "tests",
@@ -341,13 +380,16 @@ fn jaifmt_is_idempotent_on_the_repository() {
         "examples",
     ] {
         let source = repo_root().join(part);
+
         if source.is_dir() {
             copy_jai(&source, &tree.join(part), &mut count);
         }
     }
+
     assert!(count > 300, "only {count} Jai files copied");
     let run = |args: &[&str]| Command::new(&exe).args(args).arg(&tree).output().unwrap();
     let first = run(&[]);
+
     assert_eq!(
         first.status.code(),
         Some(0),
@@ -355,6 +397,7 @@ fn jaifmt_is_idempotent_on_the_repository() {
         String::from_utf8_lossy(&first.stderr)
     );
     let again = run(&["--check"]);
+
     assert_eq!(
         again.status.code(),
         Some(0),
@@ -388,6 +431,7 @@ fn windows_runtime_program() {
     let dir = TempDir::new("native-windows-runtime");
     let source = repo_root().join("tests/compiler/native/windows/runtime.jai");
     let output = build_and_run(&source, &dir, "runtime").unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "ok\n",
@@ -395,6 +439,7 @@ fn windows_runtime_program() {
         output.status,
         String::from_utf8_lossy(&output.stderr)
     );
+
     if cfg!(windows) {
         // Its threads run on the interpreter's scheduler through the Win32 calls, and its
         // arguments come back through GetCommandLineW as the program's, not jaic's.
@@ -404,6 +449,7 @@ fn windows_runtime_program() {
             .args(["--", "runtime-arg"])
             .output()
             .unwrap();
+
         assert_eq!(
             String::from_utf8_lossy(&run.stdout).replace('\r', ""),
             "ok\n",
@@ -411,8 +457,10 @@ fn windows_runtime_program() {
             run.status,
             String::from_utf8_lossy(&run.stderr)
         );
+
         return;
     }
+
     // x64 with MinGW-w64 GCC (or llvm-mingw), arm64 with llvm-mingw; each only when installed.
     // The machine field: IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_ARM64.
     for (cpu, toolchain, machine) in [
@@ -422,12 +470,14 @@ fn windows_runtime_program() {
         if Command::new(toolchain).arg("--version").output().is_err() {
             continue;
         }
+
         if !windows_crash_runtime_exists() {
             eprintln!(
                 "skipping {cpu}: the Windows crash runtime (platform_io_windows_crash) is not built here; `tools/native/windows_cross.py` builds it"
             );
             continue;
         }
+
         let name = format!("cross-{cpu}");
         let build = jaic()
             .arg(&source)
@@ -435,14 +485,17 @@ fn windows_runtime_program() {
             .arg(dir.join(&name))
             .output()
             .unwrap();
+
         assert!(
             build.status.success(),
             "{cpu}: {}",
             String::from_utf8_lossy(&build.stderr)
         );
         let image = std::fs::read(dir.join(format!("{name}.exe"))).unwrap();
+
         assert_eq!(&image[..2], b"MZ");
         let pe = u32::from_le_bytes(image[0x3c..0x40].try_into().unwrap()) as usize;
+
         assert_eq!(&image[pe..pe + 4], b"PE\0\0");
         assert_eq!(
             u16::from_le_bytes([image[pe + 4], image[pe + 5]]),
@@ -459,18 +512,22 @@ fn windows_runtime_program() {
 fn interpreted_threads() {
     let dir = repo_root().join("tests/compiler/regressions");
     let mut checked = 0;
+
     for entry in std::fs::read_dir(&dir).unwrap() {
         let path = entry.unwrap().path();
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
+
         if !(name.starts_with("threads-") && name.ends_with(".jai")) {
             continue;
         }
+
         let run = jaic()
             .arg("-interp")
             .arg(&path)
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert_eq!(
             String::from_utf8_lossy(&run.stdout).replace('\r', ""),
             "ok\n",
@@ -480,6 +537,7 @@ fn interpreted_threads() {
         );
         checked += 1;
     }
+
     assert!(
         checked >= 2,
         "no tests/compiler/regressions/threads-*.jai found"
@@ -494,8 +552,10 @@ fn msvc_builds_write_a_pdb() {
     if !cfg!(all(windows, target_env = "msvc")) {
         return;
     }
+
     let dir = TempDir::new("native-pdb");
     let source = dir.join("pdb_lines.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -510,11 +570,13 @@ fn msvc_builds_write_a_pdb() {
     let pdb = dir.join("pdb_lines.pdb");
     let _ = std::fs::remove_file(&pdb);
     let output = build_and_run(&source, &dir, "pdb_lines").unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&output.stdout).replace('\r', ""),
         "42\n"
     );
     assert!(pdb.is_file(), "no {} after jaic", pdb.display());
+
     match toolchain::command("llvm-pdbutil")
         .args(["dump", "-l"])
         .arg(&pdb)
@@ -522,6 +584,7 @@ fn msvc_builds_write_a_pdb() {
     {
         Ok(dump) => {
             let text = String::from_utf8_lossy(&dump.stdout);
+
             assert!(
                 dump.status.success(),
                 "{}",
@@ -543,6 +606,7 @@ fn msvc_builds_write_a_pdb() {
         Err(e) if jacket_config::env::CI.os().is_some() => panic!("llvm-pdbutil: {e}"),
         Err(_) => eprintln!("llvm-pdbutil not found: skipping the line information check"),
     }
+
     let _ = std::fs::remove_file(&pdb);
     let build = jaic()
         .arg(&source)
@@ -552,6 +616,7 @@ fn msvc_builds_write_a_pdb() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",

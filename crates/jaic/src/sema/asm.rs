@@ -79,6 +79,7 @@ impl Compiler {
                 );
             }
         }
+
         let has = |prefix: &str| {
             block
                 .features
@@ -86,6 +87,7 @@ impl Compiler {
                 .any(|f| f.name.as_str().starts_with(prefix))
         };
         let vex = has("AVX");
+
         self.pr.asm_pins.clear();
         let mut cx = AsmCtx {
             scope,
@@ -102,12 +104,14 @@ impl Compiler {
             float_vars: Vec::new(),
             float_dst: None,
         };
+
         for item in &block.items {
             match item {
                 AsmItem::Decl(decl) => self.asm_decl_item(f, &cx, decl)?,
                 AsmItem::Inst(inst) => self.asm_inst(f, &mut cx, inst)?,
             }
         }
+
         Ok(Operand::Void)
     }
 }

@@ -13,6 +13,7 @@ fn resolve(name: &str, config: Option<&jacket_config::Config>) -> Result<Target,
         .find(|target| target.name == name)
         .and_then(|target| target.effective_triple())
         .unwrap_or(name);
+
     Target::parse(triple).map_err(|error| {
         format!(
             "`{name}` is not a target jacket knows: {error}\nhelp: `jacket toolchain` lists them"
@@ -47,10 +48,13 @@ fn clear_live() {
 /// of a freestanding one. Returns whether every target worked.
 pub fn add(names: &[String], config: Option<&jacket_config::Config>) -> Result<(), String> {
     let lookup = super::lookup();
+
     for name in names {
         let target = resolve(name, config)?;
+
         add_one(target, &lookup)?;
     }
+
     Ok(())
 }
 
@@ -59,6 +63,7 @@ pub fn add(names: &[String], config: Option<&jacket_config::Config>) -> Result<(
 fn downloads_possible(lookup: &Lookup) -> Result<(), String> {
     use jaic_toolchain::package::Need;
     let command = "jacket toolchain add";
+
     crate::prerequisite::require(&Need::Curl, "curl", command)?;
     crate::prerequisite::require(&Need::Tar, "tar", command)?;
     let root = cache::root(lookup.host).ok_or_else(|| {
@@ -71,14 +76,17 @@ fn downloads_possible(lookup: &Lookup) -> Result<(), String> {
 
 fn add_one(target: Target, lookup: &Lookup) -> Result<(), String> {
     let color = jaic::render::detect(jaic::render::ColorChoice::Auto).color;
+
     if let Some(family) = pins::compiler_rt_family(target) {
         let pin = pins::compiler_rt(family);
+
         if let Some((_, source)) = cache::builtins(lookup.host, target)
             && cache::builtins_stamp(lookup.host, target).as_deref() == Some(pin.stamp().as_str())
         {
             status::print("Builtins", &format!("{source} (cached)"), color);
             return Ok(());
         }
+
         downloads_possible(lookup)?;
         let version = pin.version;
         let built = super::runtime::add(target, lookup, &|done, total| {
@@ -87,29 +95,38 @@ fn add_one(target: Target, lookup: &Lookup) -> Result<(), String> {
                 "Building"
             ));
         });
+
         clear_live();
         let built = built?;
+
         status::print("Builtins", &super::runtime::finished(&built), color);
+
         return Ok(());
     }
+
     if pins::sysroot(target).is_some() {
         if let Some(dir) = cache::sysroot(lookup.host, target) {
             status::print("Sysroot", &format!("{} (cached)", tilde(&dir)), color);
             return Ok(());
         }
+
         downloads_possible(lookup)?;
         let sysroot = super::sysroot::add(target, lookup.host, &|what| {
             live_line(&format!("{:>12} {what}", "Fetching"));
         });
+
         clear_live();
         let sysroot = sysroot?;
+
         status::print(
             "Sysroot",
             &format!("{} (jacket toolchain)", tilde(&sysroot)),
             color,
         );
+
         return Ok(());
     }
+
     Err(format!(
         "there is nothing to add for {target}\nnote: jaic links it with the system's tools; `jacket toolchain check {target}` says which"
     ))
@@ -122,12 +139,14 @@ pub fn list() -> String {
     let Some(root) = cache::root(&host) else {
         return "no cache folder: HOME is not set\n".to_string();
     };
+
     if entries.is_empty() {
         return format!(
             "{} holds nothing yet\nnote: `jacket toolchain add TARGET` fetches a sysroot or builds builtins\n",
             tilde(&root)
         );
     }
+
     let mut text = format!("{}\n", tilde(&root));
     let width = entries
         .iter()
@@ -135,10 +154,12 @@ pub fn list() -> String {
         .max()
         .unwrap_or(0)
         .max(6);
+
     text.push_str(&format!(
         "{:<width$}  {:<8}  BUILTINS\n",
         "TARGET", "SYSROOT"
     ));
+
     for entry in entries {
         text.push_str(&format!(
             "{:<width$}  {:<8}  {}\n",
@@ -151,6 +172,7 @@ pub fn list() -> String {
             entry.builtins.as_deref().unwrap_or("-"),
         ));
     }
+
     text
 }
 
@@ -164,26 +186,33 @@ pub fn remove(
     let host = System;
     let root = cache::root(&host).ok_or("no cache folder: HOME is not set")?;
     let mut removed = Vec::new();
+
     if all {
         if root.is_dir() {
             std::fs::remove_dir_all(&root).map_err(|e| format!("{}: {e}", root.display()))?;
             removed.push(tilde(&root));
         }
+
         return Ok(removed);
     }
+
     if names.is_empty() {
         return Err("name a target to remove, or `--all`\nhelp: `jacket toolchain list` shows what is cached".into());
     }
+
     for name in names {
         let target = resolve(name, config)?;
         let dir = cache::entry_dir(&host, target).ok_or("no cache folder: HOME is not set")?;
+
         if !host.is_dir(&dir) {
             return Err(format!(
                 "nothing is cached for {target}\nhelp: `jacket toolchain list` shows what is"
             ));
         }
+
         std::fs::remove_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
         removed.push(tilde(&dir));
     }
+
     Ok(removed)
 }

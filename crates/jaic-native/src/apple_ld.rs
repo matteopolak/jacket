@@ -16,12 +16,15 @@ use std::process::Command;
 pub(super) fn direct_command(args: &[OsString]) -> Result<Option<Command>, String> {
     let mut linker_args: Vec<OsString> = Vec::new();
     let mut rest = args.iter();
+
     while let Some(arg) = rest.next() {
         let text = arg.to_str();
+
         if matches!(text, Some("-o" | "-framework")) {
             let operand = rest
                 .next()
                 .ok_or_else(|| format!("`{}` has no operand", arg.display()))?;
+
             linker_args.push(arg.clone());
             linker_args.push(operand.clone());
         } else if let Some(wl) = os_text::strip_prefix(arg, "-Wl,") {
@@ -36,6 +39,7 @@ pub(super) fn direct_command(args: &[OsString]) -> Result<Option<Command>, Strin
             linker_args.push(arg.clone());
         }
     }
+
     let host = crate::toolchain::system();
     let xcode = Xcode::find(host).map_err(|missing| missing.to_string())?;
     let sdk_version = xcode.sdk_version(host).ok_or_else(|| {
@@ -48,6 +52,7 @@ pub(super) fn direct_command(args: &[OsString]) -> Result<Option<Command>, Strin
         .compiler_rt(host)
         .ok_or_else(|| format!("no libclang_rt.osx.a for {}", xcode.ld.display()))?;
     let mut cmd = Command::new(&xcode.ld);
+
     cmd.args(["-dynamic", "-arch", arch()?, "-platform_version", "macos"])
         .arg(apple::deployment_target(host).map_err(|missing| missing.to_string())?)
         .arg(sdk_version)
@@ -91,6 +96,7 @@ mod tests {
             .map(|a| a.to_string_lossy().into_owned())
             .collect();
         let tail = args.join(" ");
+
         assert!(tail.contains("-rpath /x"), "{tail}");
         assert!(tail.contains("-framework AppKit"), "{tail}");
         assert!(tail.ends_with(".a") && tail.contains("-lSystem"), "{tail}");

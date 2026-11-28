@@ -37,6 +37,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for t in cx.tokens {
         let text = cx.src(t.span);
         let grouped = match &t.tok {
@@ -47,9 +48,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let Some(grouped) = grouped else {
             continue;
         };
+
         if cx.in_macro(t.span.start as usize) {
             continue;
         }
+
         out.push(replacing(
             Span::new(cx.file, t.span.start as usize, t.span.end as usize),
             format!("`{text}` is hard to read without separators"),
@@ -66,14 +69,17 @@ fn integer(text: &str) -> Option<String> {
     if text.contains('_') {
         return None;
     }
+
     if let Some(hex) = text.strip_prefix("0x") {
         return (hex.len() >= 8 && hex.bytes().all(|b| b.is_ascii_hexdigit()))
             .then(|| format!("0x{}", group(hex, 4)));
     }
+
     if let Some(bits) = text.strip_prefix("0b") {
         return (bits.len() >= 9 && bits.bytes().all(|b| matches!(b, b'0' | b'1')))
             .then(|| format!("0b{}", group(bits, 4)));
     }
+
     (text.len() >= 6 && text.bytes().all(|b| b.is_ascii_digit())).then(|| group(text, 3))
 }
 
@@ -82,7 +88,9 @@ fn float(text: &str) -> Option<String> {
     if text.contains(['_', 'e', 'E', 'x', 'h']) {
         return None;
     }
+
     let (whole, fraction) = text.split_once('.')?;
+
     (whole.len() >= 6 && whole.bytes().all(|b| b.is_ascii_digit()))
         .then(|| format!("{}.{fraction}", group(whole, 3)))
 }
@@ -91,14 +99,18 @@ fn float(text: &str) -> Option<String> {
 fn group(digits: &str, size: usize) -> String {
     let first = digits.len() % size;
     let mut out = String::with_capacity(digits.len() + digits.len() / size);
+
     if first > 0 {
         out.push_str(&digits[..first]);
     }
+
     for chunk in digits.as_bytes()[first..].chunks(size) {
         if !out.is_empty() {
             out.push('_');
         }
+
         out.push_str(std::str::from_utf8(chunk).unwrap_or(""));
     }
+
     out
 }

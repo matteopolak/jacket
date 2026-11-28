@@ -25,7 +25,9 @@ main :: () {
 #[test]
 fn pointer_facts_respect_abi_mapping_and_nullable_user_pointers() {
     let dir = TempDir::new("llvm-pointer-facts");
+
     std::fs::write(dir.join("main.jai"), SOURCE).unwrap();
+
     // AArch64 passes this struct indirectly; SysV x86-64 uses byval instead.
     // Cross builds may lack a linker, but emit_ir is written before linking.
     for target in ["aarch64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"] {
@@ -45,6 +47,7 @@ fn pointer_facts_respect_abi_mapping_and_nullable_user_pointers() {
                 .unwrap()
         };
         let jai = definition("@trusted_inputs.");
+
         assert!(
             jai.contains("(ptr nonnull %0, ptr nonnull %1, ptr %2, ptr nonnull %3)"),
             "{target}: {jai}"

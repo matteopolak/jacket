@@ -60,6 +60,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let (start, end) = cx.tidy_removal(s.span);
         let message = format!("{what} can never fail");
         let help = "remove it, or assert the condition it stands in for".to_string();
+
         if in_block && spent.iter().all(|e| pure(e)) && !cx.has_comment_between(start, end) {
             out.push(replacing(
                 s.span,

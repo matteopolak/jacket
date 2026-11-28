@@ -93,6 +93,7 @@ pub(super) struct Exporter<'a> {
 
 fn bin_op(op: ast::BinOp) -> i64 {
     use ast::BinOp as B;
+
     match op {
         B::Add => b'+' as i64,
         B::Sub => b'-' as i64,
@@ -119,6 +120,7 @@ fn bin_op(op: ast::BinOp) -> i64 {
 
 fn assign_op(op: ast::AssignOp) -> i64 {
     use ast::BinOp as B;
+
     match op {
         ast::AssignOp::Assign => b'=' as i64,
         ast::AssignOp::Op(op) => match op {
@@ -148,11 +150,15 @@ impl Exporter<'_> {
         let ast::ExprKind::Ident(name) = &expr.kind else {
             return c.eval_type(scope, expr).ok();
         };
+
         c.meta.export.refresh_name_caches(c.ns.entities.len());
+
         if let Some(&cached) = c.meta.export.type_names.get(&(scope, *name)) {
             return cached;
         }
+
         let found = c.eval_type(scope, expr).ok();
+
         // Evaluating may have added entities, which drops the caches; the result is still good.
         c.meta.export.refresh_name_caches(c.ns.entities.len());
         c.meta.export.type_names.insert((scope, *name), found);
@@ -165,10 +171,12 @@ impl Exporter<'_> {
         // The common fields (kind, location, serial, type) and a node's own few: growing
         // from empty reallocated most records two or three times.
         let mut rec = Record::with_capacity(tag, 12);
+
         rec.int(names.kind, kind).int(SyntaxKey::OriginalKind, kind);
         let Some(c) = self.c.as_deref_mut() else {
             return rec;
         };
+
         if (span.file.0 as usize) < c.src.sources.len() {
             // Nodes come in runs from one file: remember the last file's module.
             let module = match c.meta.export.last_file_module {
@@ -185,17 +193,20 @@ impl Exporter<'_> {
             let source = c.src.sources.get(span.file);
             let (l0, c0) = source.line_col(span.start);
             let (l1, c1) = source.line_col(span.end);
+
             rec.ptr(names.enclosing_load, file)
                 .int(names.l0, l0 as i64)
                 .int(names.c0, c0 as i64)
                 .int(names.l1, l1 as i64)
                 .int(names.c1, c1 as i64);
         }
+
         rec
     }
 
     fn add(&mut self, mut rec: Record) -> i64 {
         let id = self.r.reserve(rec.tag);
+
         rec.int(NODE_NAMES.with(|names| names.serial), id);
         *self.r.get_mut(id).unwrap() = rec;
         self.sub.push(id);
@@ -206,24 +217,31 @@ impl Exporter<'_> {
         let Some(c) = self.c.as_deref_mut() else {
             return 0;
         };
+
         if self.own {
             // Read by this compiler's own compile-time code: its real type descriptor, so
             // `get_type` gives back a `Type` the compiler knows.
             if let Some(&id) = c.meta.export.own_types.get(&ty) {
                 return id;
             }
+
             let addr = c
                 .type_info_global(ty, Span::NONE)
                 .ok()
                 .and_then(|g| c.ct.interp.global_addr(&c.out.program, g).ok());
+
             if let Some(addr) = addr {
                 let mut rec = Record::new(RecordTag::TypeInfo);
+
                 rec.int(lang_items::record_fields::ADDRESS, addr as i64);
                 let id = self.r.add(rec);
+
                 c.meta.export.own_types.insert(ty, id);
+
                 return id;
             }
         }
+
         c.type_record(self.r, ty)
     }
 
@@ -232,6 +250,7 @@ impl Exporter<'_> {
             .iter()
             .map(|n| {
                 let mut rec = self.node(RecordTag::CodeNote, node::NOTE, n.span);
+
                 rec.str("text", n.text.as_bytes());
                 self.add(rec)
             })
@@ -240,13 +259,17 @@ impl Exporter<'_> {
 
     fn ident(&mut self, name: Sym, span: Span) -> i64 {
         let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
+
         rec.str("name", name.as_str().as_bytes());
+
         if let Some(decl) = self.resolve_name(name) {
             rec.ptr("resolved_declaration", decl);
+
             if let Some(FieldRef::Ref(ty)) = self.r.field(decl, "type") {
                 rec.ptr("type", ty);
             }
         }
+
         self.add(rec)
     }
 
@@ -255,6 +278,7 @@ impl Exporter<'_> {
     /// miss after the slowest search, or find an unrelated global of the same name.
     fn name_ident(&mut self, name: Sym, span: Span) -> i64 {
         let mut rec = self.node(RecordTag::CodeIdent, node::IDENT, span);
+
         rec.str("name", name.as_str().as_bytes());
         self.add(rec)
     }

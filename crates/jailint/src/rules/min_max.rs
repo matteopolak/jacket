@@ -29,6 +29,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -52,6 +53,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 ("max", "min") => bound > other,
                 _ => false,
             };
+
             if always {
                 let (lo, hi) = (bound.min(other), bound.max(other));
                 let outer_literal = if literal(x).is_some() {
@@ -72,6 +74,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 let (lo_text, hi_text) =
                     (cx.whole_src(lo_expr).trim(), cx.whole_src(hi_expr).trim());
                 let value = cx.whole_src(value).trim();
+
                 out.push(suggesting(
                     e.span,
                     format!(
@@ -93,6 +96,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     }],
                 ));
             }
+
             true
         });
     }
@@ -120,9 +124,11 @@ pub(super) fn two_arg_call<'e>(cx: &Cx, e: &'e Expr) -> Option<(&'static str, [&
     let [a, b] = args.as_slice() else {
         return None;
     };
+
     if a.name.is_some() || b.name.is_some() || a.spread || b.spread {
         return None;
     }
+
     let name = [("min", Effect::Minimum), ("max", Effect::Maximum)]
         .into_iter()
         .find(|(_, effect)| effects::calls(cx, callee, *effect))?

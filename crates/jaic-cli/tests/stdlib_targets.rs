@@ -38,6 +38,7 @@ fn depends_on_host(key: &str, error: &str) -> bool {
         "linux"
     };
     let target = key.rsplit(' ').next().unwrap_or("");
+
     error.contains("is not available here") && target.split('-').next() != Some(host)
 }
 
@@ -49,6 +50,7 @@ fn root() -> PathBuf {
 /// `Extensions/X`.
 fn modules(stdlib: &Path, skip: &[String]) -> Vec<String> {
     let mut names = modules_in(stdlib, "", skip);
+
     names.extend(modules_in(stdlib, "Extensions", skip));
     names
 }
@@ -77,24 +79,31 @@ fn modules_in(stdlib: &Path, folder: &str, skip: &[String]) -> Vec<String> {
             } else {
                 path.extension().is_some_and(|x| x == "jai")
             };
+
             module.then(|| format!("{prefix}{name}"))
         })
         .filter(|name| !skip.contains(name))
         .collect();
+
     for entry in std::fs::read_dir(stdlib.join(folder)).unwrap() {
         let entry = entry.unwrap();
+
         if !entry.file_type().unwrap().is_dir() {
             continue;
         }
+
         let name = entry.file_name().to_string_lossy().into_owned();
+
         // Private implementation roots are checked through their importing
         // facades; application imports must not admit them. Extensions are
         // collected separately with their public prefix.
         if folder.is_empty() && matches!(name.as_str(), "internal" | "Extensions") {
             continue;
         }
+
         nested_modules(&entry.path(), &format!("{prefix}{name}"), &mut names);
     }
+
     names.retain(|name| !skip.contains(name));
     names.sort();
     names.dedup();
@@ -104,17 +113,22 @@ fn modules_in(stdlib: &Path, folder: &str, skip: &[String]) -> Vec<String> {
 fn nested_modules(directory: &Path, prefix: &str, names: &mut Vec<String>) {
     for entry in std::fs::read_dir(directory).unwrap() {
         let entry = entry.unwrap();
+
         if !entry.file_type().unwrap().is_dir() {
             continue;
         }
+
         // A module's tests hold their own helper modules; those are not stdlib modules.
         if entry.file_name() == "tests" {
             continue;
         }
+
         let name = format!("{prefix}/{}", entry.file_name().to_string_lossy());
+
         if entry.path().join("module.jai").is_file() {
             names.push(name.clone());
         }
+
         nested_modules(&entry.path(), &name, names);
     }
 }
@@ -122,6 +136,7 @@ fn nested_modules(directory: &Path, prefix: &str, names: &mut Vec<String>) {
 #[test]
 fn discovery_covers_nested_public_facades_without_importing_private_fragments() {
     let root = TempDir::new(&format!("nested-module-discovery-{}", std::process::id()));
+
     for file in [
         "A/module.jai",
         "A/Child/module.jai",
@@ -130,9 +145,11 @@ fn discovery_covers_nested_public_facades_without_importing_private_fragments() 
         "Extensions/Test/module.jai",
     ] {
         let file = root.join(file);
+
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(file, "").unwrap();
     }
+
     assert_eq!(modules(&root, &[]), ["A", "A/Child", "Extensions/Test"]);
     assert_eq!(
         modules(&root, &["A/Child".into()]),
@@ -144,17 +161,21 @@ fn discovery_covers_nested_public_facades_without_importing_private_fragments() 
 fn expectations(text: &str) -> (Vec<String>, BTreeMap<String, String>) {
     let mut skip = Vec::new();
     let mut failures = BTreeMap::new();
+
     for line in text.lines().map(str::trim) {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
+
         if let Some(name) = line.strip_prefix("skip ") {
             skip.push(name.trim().to_string());
         } else {
             let (key, error) = line.split_once(": ").expect("`Module os: error` line");
+
             failures.insert(key.to_string(), error.to_string());
         }
     }
+
     (skip, failures)
 }
 
@@ -169,6 +190,7 @@ fn first_error(stderr: &str, stdlib: &str) -> String {
     let (location, rest) = line.split_once(": error[").unwrap_or(("", &line));
     let message = rest.split_once("]: ").map_or(rest, |(_, m)| m);
     let file = location.split(':').next().unwrap_or("");
+
     format!("{file}: {message}")
 }
 
@@ -181,6 +203,7 @@ fn part() -> (usize, usize) {
     let parsed = value
         .split_once('/')
         .and_then(|(k, n)| Some((k.parse::<usize>().ok()?, n.parse::<usize>().ok()?)));
+
     match parsed {
         Some((k, n)) if (1..=n).contains(&k) => (k - 1, n),
         _ => panic!("JACKET_STDLIB_TARGETS_PART must be K/N with 1 <= K <= N, not `{value}`"),
@@ -201,6 +224,7 @@ fn every_stdlib_module_checks_for_every_target() {
         .into_iter()
         .flat_map(|m| TARGETS.map(|os| (m.clone(), os)))
         .collect();
+
     assert!(
         !all_jobs.is_empty(),
         "stdlib/target catalogue must not be empty"
@@ -215,6 +239,7 @@ fn every_stdlib_module_checks_for_every_target() {
     let next = Mutex::new(jobs.into_iter());
     let actual = Mutex::new(BTreeMap::new());
     let threads = std::thread::available_parallelism().map_or(4, std::num::NonZero::get);
+
     std::thread::scope(|scope| {
         for _ in 0..threads {
             scope.spawn(|| {
@@ -233,6 +258,7 @@ fn every_stdlib_module_checks_for_every_target() {
                     } else {
                         ""
                     };
+
                     std::fs::write(
                         &source,
                         format!("{initialization}\n#import \"{module}\";\nmain :: () {{}}\n"),
@@ -240,21 +266,26 @@ fn every_stdlib_module_checks_for_every_target() {
                     .unwrap();
                     let (target_os, cpu) = os.split_once('-').unwrap_or((os, ""));
                     let mut command = Command::new(JAIC);
+
                     command
                         .arg("-check")
                         .arg(&source)
                         .args(["-no_dce", "-os", target_os]);
+
                     if !cpu.is_empty() {
                         command.args(["-cpu", cpu]);
                     }
+
                     // From the stdlib folder, jaic names its files relative to it.
                     let output = command
                         .env("JAIC_STDLIB", &stdlib)
                         .current_dir(&stdlib)
                         .output()
                         .unwrap();
+
                     if !output.status.success() {
                         let stderr = String::from_utf8_lossy(&output.stderr);
+
                         actual.lock().unwrap().insert(
                             format!("{module} {os}"),
                             first_error(&stderr, &stdlib_prefix),
@@ -267,6 +298,7 @@ fn every_stdlib_module_checks_for_every_target() {
 
     let actual = actual.into_inner().unwrap();
     let mut problems = Vec::new();
+
     for (key, error) in &actual {
         match expected.get(key) {
             None if depends_on_host(key, error) => {}
@@ -277,15 +309,18 @@ fn every_stdlib_module_checks_for_every_target() {
             Some(_) => {}
         }
     }
+
     for (key, error) in &expected {
         // Listed from another host, where the foreign procedure is not available.
         let listed_for_another_host = error.contains("is not available here");
+
         if checked.contains(key) && !actual.contains_key(key) && !listed_for_another_host {
             problems.push(format!(
                 "{key} passes now: remove it from tests/compiler/stdlib-targets.txt"
             ));
         }
     }
+
     assert!(
         problems.is_empty(),
         "{} of the stdlib/target checks differ from tests/compiler/stdlib-targets.txt:\n{}",

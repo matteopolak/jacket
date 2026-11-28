@@ -41,14 +41,17 @@ pub(super) fn lead(segments: &[Segment]) -> Option<(usize, String)> {
 
 fn by_category(site: &Site) -> Vec<(&str, Vec<usize>)> {
     let mut out = vec![("", Vec::new())];
+
     out.extend(
         site.categories
             .iter()
             .map(|c| (c.name.as_str(), Vec::new())),
     );
+
     for (i, m) in site.modules.iter().enumerate() {
         out[m.category.map_or(0, |c| c + 1)].1.push(i);
     }
+
     out.retain(|(_, m)| !m.is_empty());
     out
 }
@@ -57,6 +60,7 @@ fn by_group<'a>(site: &'a Site, members: &[usize]) -> Vec<(&'a str, Vec<usize>)>
     if site.groups.is_empty() {
         return vec![("", members.to_vec())];
     }
+
     site.groups
         .iter()
         .map(|g| {
@@ -84,6 +88,7 @@ fn category(site: &Site, m: &Module) -> Option<Badge> {
 /// Shared module sidebar: configured docs precede API categories, e.g. Guides, Tools, Library.
 pub(super) fn nav(site: &Site, current: Option<usize>) -> Vec<NavCategory> {
     let mut out = site.extra_nav.clone();
+
     out.extend(by_category(site).into_iter().map(|(category, members)| {
         NavCategory {
             label: category.into(),
@@ -97,6 +102,7 @@ pub(super) fn nav(site: &Site, current: Option<usize>) -> Vec<NavCategory> {
                         .iter()
                         .map(|&i| {
                             let m = &site.modules[i];
+
                             NavLink {
                                 href: site.module_href(&m.id),
                                 label: m.title().into(),
@@ -141,6 +147,7 @@ fn chips(
                 Support::Partial(_) => "partial",
                 Support::None => "none",
             };
+
             Platform {
                 name: name.into(),
                 state: state.into(),
@@ -171,12 +178,14 @@ fn image(site: &Site, file: &str) -> Image {
 
 pub fn site(site: &Site) -> SiteView {
     let mut header_links = Vec::new();
+
     if let Some(href) = &site.pages_href {
         header_links.push(Link {
             href: href.clone(),
             label: site.pages_title.clone(),
         });
     }
+
     header_links.push(Link {
         href: site.playground_href(),
         label: "Playground".into(),
@@ -241,19 +250,23 @@ fn crumbs(site: &Site, m: &Module, last: Option<&str>) -> Vec<Crumb> {
     }];
     let parts: Vec<_> = m.id.split('/').collect();
     let mut path = String::new();
+
     for (i, part) in parts.iter().enumerate() {
         if !path.is_empty() {
             path.push('/');
         }
+
         path.push_str(part);
         let linked =
             site.module_index(&path).is_some() && !(i + 1 == parts.len() && last.is_none());
+
         out.push(Crumb {
             label: (*part).into(),
             href: linked.then(|| site.module_href(&path)),
             mono: false,
         });
     }
+
     if let Some(last) = last {
         out.push(Crumb {
             label: last.into(),
@@ -261,6 +274,7 @@ fn crumbs(site: &Site, m: &Module, last: Option<&str>) -> Vec<Crumb> {
             mono: true,
         });
     }
+
     out
 }
 
@@ -304,6 +318,7 @@ fn inline_html(site: &Site, doc: &str) -> String {
     if doc.is_empty() {
         return String::new();
     }
+
     markdown::segments(
         doc,
         &Settings {
@@ -338,6 +353,7 @@ fn definitions(
         .map(|(raw, ty, doc, refs)| {
             let (name, default) = raw.split_once(" := ").unwrap_or((raw, ""));
             let doc_html = inline_html(site, doc);
+
             Definition {
                 id: (!anchor.is_empty()).then(|| format!("{anchor}{raw}")),
                 name: name.into(),
@@ -372,6 +388,7 @@ fn members(
     keep: &dyn Fn(usize) -> bool,
 ) -> Vec<Definition> {
     let enumerated = matches!(item.kind, Kind::Enum | Kind::EnumFlags);
+
     definitions(
         site,
         mi,
@@ -404,15 +421,18 @@ fn comment_text(site: &Site, doc: &str) -> (String, bool) {
     let segments = blocks_at(site, doc, "a parameter", 3);
     let [Segment::Html(h)] = segments.as_slice() else {
         let first = doc.trim_start();
+
         if first.starts_with("```") || first.starts_with("    ") {
             return (String::new(), false);
         }
+
         return (first_sentence(doc), false);
     };
     let plain = h.matches("<p>").count() == 1
         && !["<pre", "<ul", "<ol", "<table", "<blockquote", "<h"]
             .iter()
             .any(|tag| h.contains(tag));
+
     if plain {
         (doc.to_owned(), true)
     } else {
@@ -423,6 +443,7 @@ fn comment_text(site: &Site, doc: &str) -> (String, bool) {
 fn first_sentence(doc: &str) -> String {
     let paragraph = doc.trim().split("\n\n").next().unwrap_or_default();
     let paragraph = paragraph.split_whitespace().collect::<Vec<_>>().join(" ");
+
     match paragraph.find(". ") {
         Some(end) => paragraph[..=end].to_owned(),
         None => paragraph,
@@ -434,9 +455,11 @@ fn first_sentence(doc: &str) -> String {
 /// table, because their description does not fit in a comment or their line was not found.
 fn commented_declaration(site: &Site, mi: usize, item: &Item, anchor: &str) -> (String, Vec<bool>) {
     let html = declaration(site, mi, item);
+
     if html.is_empty() {
         return (html, vec![true; item.members.len()]);
     }
+
     let lines = item.member_lines();
     let mut table: Vec<bool> = item
         .members
@@ -446,33 +469,44 @@ fn commented_declaration(site: &Site, mi: usize, item: &Item, anchor: &str) -> (
         .collect();
     let rows: Vec<&str> = html.split('\n').collect();
     let source: Vec<&str> = item.declaration.split('\n').collect();
+
     if rows.len() != source.len() {
         return (html, table);
     }
+
     let mut at: Vec<Vec<usize>> = vec![Vec::new(); rows.len()];
+
     for (k, line) in lines.iter().enumerate() {
         if let Some(i) = line {
             at[*i].push(k);
         }
     }
+
     let mut out = String::with_capacity(html.len() + 256);
+
     for (i, row) in rows.iter().enumerate() {
         if at[i].is_empty() {
             out.push_str(row);
+
             if i + 1 < rows.len() {
                 out.push('\n');
             }
+
             continue;
         }
+
         let indent = source[i].len() - source[i].trim_start().len();
+
         // Members sharing a line (`a, b: int;`) share its description.
         if let Some(&k) = at[i].iter().find(|&&k| !item.members[k].doc.is_empty()) {
             let (text, whole) = comment_text(site, &item.members[k].doc);
+
             for &j in &at[i] {
                 if !item.members[j].doc.is_empty() {
                     table[j] |= !whole;
                 }
             }
+
             if !text.is_empty() {
                 out.push_str(&format!(
                     "<span class=\"fc\" style=\"--i:{indent}\">// {}</span>",
@@ -480,6 +514,7 @@ fn commented_declaration(site: &Site, mi: usize, item: &Item, anchor: &str) -> (
                 ));
             }
         }
+
         let names: Vec<String> = at[i]
             .iter()
             .map(|&k| crate::markup::escape(&item.members[k].name))
@@ -488,11 +523,13 @@ fn commented_declaration(site: &Site, mi: usize, item: &Item, anchor: &str) -> (
             .iter()
             .map(|n| format!("<span id=\"{anchor}{n}\"></span>"))
             .collect();
+
         out.push_str(&format!(
             "<span class=\"fl\" style=\"--i:{indent}\" id=\"{anchor}{}\">{extra}{row}</span>",
             names[0]
         ));
     }
+
     (out, table)
 }
 
@@ -501,6 +538,7 @@ fn declaration(site: &Site, mi: usize, item: &Item) -> String {
     if item.declaration.is_empty() {
         return String::new();
     }
+
     site.declaration_html(&item.declaration, &item.decl_refs, mi, &item.name)
 }
 
@@ -523,6 +561,7 @@ fn row_body(site: &Site, mi: usize, item: &Item) -> (Vec<String>, String, Vec<De
     } else {
         Vec::new()
     };
+
     (
         lines.into_iter().filter(|s| !s.is_empty()).collect(),
         declaration_html,
@@ -550,6 +589,7 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
             .into_iter()
             .map(|(d, platforms)| {
                 let (lines_html, declaration_html, members) = row_body(site, mi, d);
+
                 RowVariant {
                     label: system_list(platforms),
                     lines_html,
@@ -564,6 +604,7 @@ fn row(site: &Site, mi: usize, item: &Item) -> Row {
     } else {
         Default::default()
     };
+
     Row {
         id: item.name.clone(),
         href: site.item_href(&m.id, &item.name),
@@ -599,6 +640,7 @@ fn heading_id(text: &str) -> String {
             }
         })
         .collect();
+
     id.split('-')
         .filter(|s| !s.is_empty())
         .collect::<Vec<_>>()
@@ -635,9 +677,11 @@ fn group(
     if let Some(h) = &heading {
         outline.push(outline_heading(&h.href, &h.label, true));
     }
+
     if !items.is_empty() {
         outline.push(outline_items(items));
     }
+
     RowGroup {
         heading,
         rows: items.iter().map(|i| row(site, mi, i)).collect(),
@@ -649,6 +693,7 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
     let mut segs = blocks_at(site, &m.docs, &m.id, 1);
     let description = lead(&segs).map_or_else(String::new, |(_, h)| h);
     let mut first = true;
+
     for s in &mut segs {
         if let Segment::Html(h) = s
             && first
@@ -658,6 +703,7 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
             first = false;
         }
     }
+
     let parameters = definitions(
         site,
         mi,
@@ -679,10 +725,13 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
         "",
     );
     let mut outline = Vec::new();
+
     if !parameters.is_empty() {
         outline.push(outline_heading("parameters", "Module parameters", false));
     }
+
     let mut sections = Vec::new();
+
     for (id, label) in [
         ("procedures", "Procedures"),
         ("types", "Types"),
@@ -697,14 +746,18 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                 _ => i.kind == Kind::Constant,
             })
             .collect();
+
         items.sort_by_key(|i| i.binding);
+
         if items.is_empty() {
             continue;
         }
+
         outline.push(outline_heading(id, label, false));
         // Procedures split by group, with foreign bindings in a group of their own, so each
         // item is listed once.
         let mut names = Vec::new();
+
         if id == "procedures" {
             for i in items.iter().filter(|i| !i.binding) {
                 if !names.contains(&i.group.as_str()) {
@@ -712,8 +765,10 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                 }
             }
         }
+
         let bindings = items.iter().any(|i| i.binding);
         let mut groups = Vec::new();
+
         if names.len() > 1 || (bindings && names.iter().any(|n| !n.is_empty())) {
             for name in names {
                 let selected: Vec<_> = items
@@ -726,6 +781,7 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                 } else {
                     name
                 };
+
                 groups.push(group(
                     site,
                     mi,
@@ -737,8 +793,10 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
                     &mut outline,
                 ));
             }
+
             if bindings {
                 let selected: Vec<_> = items.iter().copied().filter(|i| i.binding).collect();
+
                 groups.push(group(
                     site,
                     mi,
@@ -753,12 +811,14 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
         } else {
             groups.push(group(site, mi, &items, None, &mut outline));
         }
+
         sections.push(Section {
             id: id.into(),
             label: label.into(),
             groups,
         });
     }
+
     if outline
         .iter()
         .filter(|e| matches!(e, Outline::Heading { .. }))
@@ -767,11 +827,14 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
     {
         outline.clear();
     }
+
     // Resolve each peer list once. Item pages carry only a group and window offsets.
     let mut peers: std::collections::BTreeMap<_, Vec<&Item>> = std::collections::BTreeMap::new();
+
     for item in &m.items {
         peers.entry(peer_key(item)).or_default().push(item);
     }
+
     let groups: Vec<_> = peers.values().collect();
     let group_of: std::collections::BTreeMap<_, _> =
         peers.keys().enumerate().map(|(n, key)| (*key, n)).collect();
@@ -793,9 +856,11 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
         .collect();
     // Pages of types the module does not export list no neighbours, and no list has them.
     let private_nav = nav.len();
+
     if !m.private.is_empty() {
         nav.push(Vec::new());
     }
+
     let mut items: Vec<PageView> = m
         .items
         .iter()
@@ -803,23 +868,28 @@ pub fn module(site: &Site, mi: usize) -> ModuleView {
             let group = group_of[&peer_key(i)];
             let same = groups[group];
             let at = same.iter().position(|p| p.name == i.name).unwrap_or(0);
+
             item(site, mi, i, group, same, at)
         })
         .collect();
+
     items.extend(m.private.iter().map(|i| {
         let mut page = item(site, mi, i, private_nav, &[], 0);
+
         if let Content::Item {
             private, ..
         } = &mut page.content
         {
             *private = true;
         }
+
         if let Sidebar::Item {
             heading, ..
         } = &mut page.sidebar
         {
             heading.clear();
         }
+
         page
     }));
     ModuleView {
@@ -914,6 +984,7 @@ fn overload(
         })
         .collect();
     let notes = definitions(site, mi, &rows, "");
+
     OverloadView {
         id: format!("o{}", n + 1),
         label: (item.overloads.len() > 1).then(|| format!("overload {}", n + 1)),
@@ -938,15 +1009,19 @@ fn see_also(site: &Site, mi: usize, item: &Item, same: &[&Item], at: usize) -> V
     let m = &site.modules[mi];
     let mut found: Vec<(String, String)> = Vec::new();
     let mut raw = item_docs(item).to_owned();
+
     for o in &item.overloads {
         raw.push_str(&o.docs);
     }
+
     let mut rest = raw.as_str();
+
     while let Some(at) = rest.find("jaidoc:") {
         let tail = &rest[at + 7..];
         let end = tail
             .find(|c: char| !(c.is_alphanumeric() || c == '_' || c == '/'))
             .unwrap_or(tail.len());
+
         if let Some((module, name)) = tail[..end].rsplit_once('/')
             && let Some(other) = site.module_for_link(module)
             && site.modules[other].item(name).is_some()
@@ -957,8 +1032,10 @@ fn see_also(site: &Site, mi: usize, item: &Item, same: &[&Item], at: usize) -> V
         {
             found.push((site.modules[other].id.clone(), name.into()));
         }
+
         rest = &tail[end..];
     }
+
     {
         for i in [at.wrapping_sub(2), at.wrapping_sub(1), at + 1, at + 2] {
             if let Some(other) = same.get(i)
@@ -1000,14 +1077,17 @@ fn written(site: &Site, mi: usize, item: &Item, anchor: &str) -> (String, Vec<De
         let lines = item.member_lines();
         let mut defs = members(site, mi, item, anchor, &|k| table[k]);
         let shown = (0..item.members.len()).filter(|&k| table[k]);
+
         for (def, k) in defs.iter_mut().zip(shown) {
             // Its anchor is on its line in the declaration.
             if lines[k].is_some() && !declaration_html.is_empty() {
                 def.id = None;
             }
         }
+
         defs
     };
+
     (declaration_html, member_defs)
 }
 
@@ -1046,10 +1126,13 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
         .collect();
     let mut anchors = Vec::new();
     let mut overload_views = Vec::new();
+
     if item.kind == Kind::Procedure {
         let labels = super::super::site::overload_labels(item);
+
         for (n, o) in item.overloads.iter().enumerate() {
             overload_views.push(overload(site, mi, item, n, o, lifted));
+
             if item.overloads.len() > 1 {
                 anchors.push(Link {
                     href: format!("#o{}", n + 1),
@@ -1058,40 +1141,48 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
             }
         }
     }
+
     // A name defined once per system shows each definition under the systems it is for, and
     // the page's own declaration and fields stay empty.
     let variants = variant_views(site, mi, item);
+
     for v in &variants {
         anchors.push(Link {
             href: format!("#{}", v.id),
             label: v.label.clone(),
         });
     }
+
     let (declaration_html, member_defs) = if variants.is_empty() {
         written(site, mi, item, "m-")
     } else {
         (String::new(), Vec::new())
     };
     let members_label = members_label(item);
+
     if !declaration_html.is_empty() {
         anchors.push(Link {
             href: "#declaration".into(),
             label: "Declaration".into(),
         });
     }
+
     if !member_defs.is_empty() {
         anchors.push(Link {
             href: "#members".into(),
             label: members_label.clone(),
         });
     }
+
     let also = see_also(site, mi, item, same, at);
+
     if !also.is_empty() {
         anchors.push(Link {
             href: "#see".into(),
             label: "See also".into(),
         });
     }
+
     let (start, end) = if same.len() > 40 {
         let start = at.saturating_sub(20);
         (start, (start + 40).min(same.len()))
@@ -1107,6 +1198,7 @@ fn item(site: &Site, mi: usize, item: &Item, nav: usize, same: &[&Item], at: usi
     } else {
         "Constants".into()
     };
+
     PageView {
         head: PageHead::default(),
         not_found: false,

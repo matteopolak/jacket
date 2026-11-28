@@ -33,6 +33,7 @@ impl Compiler {
                             ..
                         }
                     );
+
                     b.is_const() || (fixed && self.is_global_var(scope, base))
                 }
                 // `type_info(T).type` / `.runtime_size` are constant.
@@ -55,6 +56,7 @@ impl Compiler {
                 let Ok(b) = self.check_expr_no_emit(scope, base) else {
                     return false;
                 };
+
                 matches!(
                     self.ty.types.kind(self.ty.types.repr(b.ty())),
                     TypeKind::Array { .. } | TypeKind::String
@@ -73,6 +75,7 @@ impl Compiler {
         let Ok(op) = self.check_expr_no_emit(scope, expr) else {
             return false;
         };
+
         op.is_const()
             || matches!(op, Operand::Procs(_))
             || self.is_constant_pointer(scope, expr, &op)
@@ -86,6 +89,7 @@ impl Compiler {
         let Ok(ids) = self.lookup(scope, *name) else {
             return false;
         };
+
         matches!(ids[..], [id] if matches!(
             &self.entity(id).kind,
             EntityKind::Decl { decl, .. } if decl.kind == ast::DeclKind::Var

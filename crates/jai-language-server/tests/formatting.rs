@@ -19,6 +19,7 @@ fn jaifmt() -> Option<PathBuf> {
             .map(Path::to_path_buf)
             .collect::<Vec<_>>()
     });
+
     above
         .map(|dir| dir.join(&name))
         .find(|candidate| candidate.is_file())
@@ -44,6 +45,7 @@ impl Editor {
         let reply = editor.send(json!({"jsonrpc": "2.0", "id": 0, "method": "initialize",
             "params": { "initializationOptions": options }}));
         let capabilities = &reply[0]["result"]["capabilities"];
+
         assert_eq!(capabilities["documentFormattingProvider"], true);
         assert_eq!(capabilities["documentRangeFormattingProvider"], true);
         editor.send(
@@ -73,6 +75,7 @@ impl Editor {
         } else {
             "textDocument/formatting"
         };
+
         self.send(json!({"jsonrpc": "2.0", "id": self.next, "method": method, "params": params}))
     }
 }
@@ -104,25 +107,32 @@ fn apply(text: &str, edits: &Value) -> String {
         let start: usize = text.split_inclusive('\n').take(line).map(str::len).sum();
         let mut units = 0;
         let mut bytes = 0;
+
         for c in text[start..].chars() {
             if units >= column {
                 break;
             }
+
             units += c.len_utf16();
             bytes += c.len_utf8();
         }
+
         start + bytes
     };
     let mut out = text.to_string();
     let mut all: Vec<_> = edits.as_array().unwrap().iter().collect();
+
     all.sort_by_key(|e| std::cmp::Reverse(offset(&e["range"]["start"])));
+
     for edit in all {
         let (a, b) = (
             offset(&edit["range"]["start"]),
             offset(&edit["range"]["end"]),
         );
+
         out.replace_range(a..b, edit["newText"].as_str().unwrap());
     }
+
     out
 }
 
@@ -138,9 +148,11 @@ fn a_document_is_formatted_with_edits_for_the_changed_lines_only() {
     let mut editor = Editor::open(&dir, Some(&jaifmt), MESSY);
     let replies = editor.format(&dir, None);
     let edits = &response(&replies)["result"];
+
     assert!(response(&replies)["error"].is_null());
     assert!(logs(&replies).is_empty(), "{:?}", logs(&replies));
     let formatted = apply(MESSY, edits);
+
     assert_eq!(
         formatted,
         "first :: () {\n    x := 1;\n}\n\nsecond :: () {\n    y := 2;\n}\n\nthird :: () {\n    z := 3;\n}\n"
@@ -148,8 +160,10 @@ fn a_document_is_formatted_with_edits_for_the_changed_lines_only() {
     // The unchanged `}` lines between the changed ones are not in any edit's range, and the
     // first and last lines never are.
     let start = edits[0]["range"]["start"]["line"].as_u64().unwrap();
+
     assert_eq!(start, 1);
     let end = edits[0]["range"]["end"]["line"].as_u64().unwrap();
+
     assert!(end <= 10, "{edits}");
 }
 
@@ -162,6 +176,7 @@ fn formatted_text_has_no_edits() {
     let clean = "main :: () {\n    x := 1;\n}\n";
     let mut editor = Editor::open(&dir, Some(&jaifmt), clean);
     let replies = editor.format(&dir, None);
+
     assert_eq!(response(&replies)["result"], json!([]));
 }
 
@@ -177,17 +192,21 @@ fn a_range_in_the_middle_of_a_statement_formats_only_that_statement() {
         json!({ "start": { "line": 5, "character": 3 }, "end": { "line": 5, "character": 6 } });
     let replies = editor.format(&dir, Some(range));
     let edits = &response(&replies)["result"];
+
     assert!(logs(&replies).is_empty(), "{:?}", logs(&replies));
     let formatted = apply(MESSY, edits);
+
     assert_eq!(
         formatted,
         "first :: () {\nx:=1;\n}\n\nsecond :: () {\n    y := 2;\n}\n\nthird :: () {\nz:=3;\n}\n"
     );
+
     for edit in edits.as_array().unwrap() {
         let (a, b) = (
             edit["range"]["start"]["line"].as_u64().unwrap(),
             edit["range"]["end"]["line"].as_u64().unwrap(),
         );
+
         assert!((4..=6).contains(&a) && (4..=7).contains(&b), "{edit}");
     }
 }
@@ -201,6 +220,7 @@ fn stand_in(dir: &Path, body: &str) -> PathBuf {
         "#!/bin/sh\nif [ \"$1\" = \"--is-ignored\" ]; then exit 1; fi\necho \"$@\" > \"{}\"\n{body}\n",
         dir.join("args").display()
     );
+
     std::fs::write(&path, script).unwrap();
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
     path
@@ -220,8 +240,10 @@ fn a_range_is_sent_to_jaifmt_as_byte_offsets_of_its_utf16_positions() {
     let range =
         json!({ "start": { "line": 2, "character": 5 }, "end": { "line": 2, "character": 9 } });
     let replies = editor.format(&dir, Some(range));
+
     assert!(response(&replies)["error"].is_null());
     let args = std::fs::read_to_string(dir.join("args")).unwrap();
+
     assert_eq!(
         args.trim(),
         format!("--stdin --range {}:{}", start_of_y + 5, start_of_y + 11)
@@ -229,8 +251,10 @@ fn a_range_is_sent_to_jaifmt_as_byte_offsets_of_its_utf16_positions() {
     // The same on the first line, where the character before the range is outside the BMP.
     let range =
         json!({ "start": { "line": 0, "character": 5 }, "end": { "line": 0, "character": 5 } });
+
     editor.format(&dir, Some(range));
     let args = std::fs::read_to_string(dir.join("args")).unwrap();
+
     assert_eq!(args.trim(), "--stdin --range 7:7");
 }
 
@@ -241,9 +265,11 @@ fn a_missing_formatter_gives_no_edits_and_a_log_line() {
     let mut editor = Editor::open(&dir, Some(&nowhere), MESSY);
     let replies = editor.format(&dir, None);
     let reply = response(&replies);
+
     assert!(reply["error"].is_null(), "{reply}");
     assert_eq!(reply["result"], json!([]));
     let logs = logs(&replies);
+
     assert_eq!(logs.len(), 1, "{logs:?}");
     assert!(logs[0].contains("does not exist"), "{logs:?}");
 }
@@ -257,12 +283,15 @@ fn a_failing_formatter_gives_no_edits_and_a_log_line() {
         "echo '<stdin>:1:1: unbalanced bracket' >&2\ncat > /dev/null\nexit 2",
     );
     let mut editor = Editor::open(&dir, Some(&formatter), "main :: () {\n");
+
     for _ in 0..2 {
         let replies = editor.format(&dir, None);
         let reply = response(&replies);
+
         assert!(reply["error"].is_null(), "{reply}");
         assert_eq!(reply["result"], json!([]));
         let logs = logs(&replies);
+
         assert_eq!(logs.len(), 1, "every failure is logged: {logs:?}");
         assert!(logs[0].contains("unbalanced bracket"), "{logs:?}");
     }
@@ -276,5 +305,6 @@ fn output_larger_than_the_pipe_buffers_is_read_in_full() {
     let mut editor = Editor::open(&dir, Some(&formatter), "x := 1;\n");
     let replies = editor.format(&dir, None);
     let edits = &response(&replies)["result"];
+
     assert!(apply("x := 1;\n", edits).len() > 400_000);
 }

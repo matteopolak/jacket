@@ -7,15 +7,20 @@ use test_support::TempDir;
 
 fn compiler(files: &[(&str, &str)], bootstrap: bool) -> Compiler {
     let mut fs = VirtualFs::default();
+
     for &(path, source) in files {
         fs.insert(path, source.as_bytes());
     }
+
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec!["/lib".into()];
+
     if bootstrap {
         options.preload = Some("/lib/prelude/module.jai".into());
     }
+
     Compiler::new(options, Rc::new(fs))
 }
 
@@ -43,10 +48,13 @@ fn forward_overlay_field_types_keep_the_loaded_declaration_file_scope() {
         ),
     ];
     let mut c = compiler(&files, false);
+
     succeeds(&mut c);
     let mut invalid = files;
+
     invalid[3].1 = "V :: #import \"Views\"; bad:V.Local; main :: () {}";
     let mut c = compiler(&invalid, false);
+
     rejects(&mut c, "Local");
 }
 
@@ -66,6 +74,7 @@ fn an_import_inside_a_body_is_found_next_to_the_file_that_writes_it() {
         ),
     ];
     let mut c = compiler(&files, false);
+
     succeeds(&mut c);
 }
 
@@ -73,6 +82,7 @@ fn rejects(c: &mut Compiler, name: &str) {
     let error = c
         .compile_program(Path::new("/app/main.jai"))
         .expect_err("source violating visibility must be rejected");
+
     assert!(
         error.message.contains(name),
         "{}",
@@ -99,8 +109,10 @@ fn qualified_constant_aggregate_members_are_not_writable_places() {
             ],
             false,
         );
+
         rejects(&mut c, "constant");
     }
+
     let mut c = compiler(
         &[
             (
@@ -114,6 +126,7 @@ fn qualified_constant_aggregate_members_are_not_writable_places() {
         ],
         false,
     );
+
     rejects(&mut c, "constant");
 }
 
@@ -126,12 +139,14 @@ fn aggregate_assignment_validation_keeps_macro_caller_scope() {
         )],
         false,
     );
+
     succeeds(&mut c);
 }
 
 #[test]
 fn implicit_runtime_load_passes_only_reviewed_module_parameters() {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/Runtime_Support/module.jai",r"
         #module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);
         #assert(DEFINE_SYSTEM_ENTRY_POINT);
@@ -139,12 +154,14 @@ fn implicit_runtime_load_passes_only_reviewed_module_parameters() {
         #assert(ENABLE_BACKTRACE_ON_CRASH);
     ".as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = true;
     options.runtime_entry_point = true;
     options.runtime_initialization = false;
     options.backtrace_on_crash = true;
     options.import_paths = vec!["/lib".into()];
     let mut c = Compiler::new(options, Rc::new(fs));
+
     if let Err(error) = c.load_bootstrap() {
         panic!("{}", error.render(&c.src.sources));
     }
@@ -153,15 +170,18 @@ fn implicit_runtime_load_passes_only_reviewed_module_parameters() {
 #[test]
 fn nondefault_runtime_storage_cannot_be_silently_ignored() {
     let mut options = Options::host();
+
     options.temporary_storage_size = 65536;
     options.import_paths = vec!["/lib".into()];
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/Runtime_Support/module.jai", "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);".as_bytes());
     fs.insert("/app/main.jai", "main :: () {}".as_bytes());
     let mut c = Compiler::new(options, Rc::new(fs));
     let error = c
         .compile_program(Path::new("/app/main.jai"))
         .expect_err("missing runtime configuration must diagnose");
+
     assert!(error.message.contains("temporary_storage_size"));
 }
 
@@ -196,6 +216,7 @@ fn library_modules_do_not_ignore_unknown_excess_or_duplicate_arguments() {
         let error = c
             .compile_program(Path::new("/app/main.jai"))
             .expect_err("library imports obey ordinary module binding rules");
+
         assert!(
             error.message.contains("parameter") || error.message.contains("argument"),
             "{}",
@@ -231,6 +252,7 @@ fn loaded_constructor_and_generic_factory_keep_the_declaring_type_namespace() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -274,8 +296,10 @@ fn loaded_module_parameters_resolve_private_file_types_and_interfaces() {
             ],
             false,
         );
+
         succeeds(&mut c);
     }
+
     let mut c = compiler(
         &[
             (
@@ -294,6 +318,7 @@ fn loaded_module_parameters_resolve_private_file_types_and_interfaces() {
         ],
         false,
     );
+
     rejects(&mut c, "run");
 }
 
@@ -309,6 +334,7 @@ fn unused_program_parameters_can_bind_after_the_initial_import() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -321,6 +347,7 @@ fn module_arguments_retain_literal_precision_and_use_real_conversion() {
         ],
         false,
     );
+
     rejects(&mut c, "requires float64");
     let mut c = compiler(
         &[
@@ -335,6 +362,7 @@ fn module_arguments_retain_literal_precision_and_use_real_conversion() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -364,6 +392,7 @@ fn editor_completions_apply_import_and_transitive_reexport_filters() {
         ],
         false,
     );
+
     succeeds(&mut c);
     let facade =
         c.ns.modules
@@ -371,6 +400,7 @@ fn editor_completions_apply_import_and_transitive_reexport_filters() {
             .position(|m| m.path.as_deref() == Some(Path::new("/lib/Facade/module.jai")))
             .unwrap();
     let exported = c.ide_members(IdeReceiver::Module(ModuleId(facade as u32)));
+
     assert!(exported.iter().any(|n| n.name == "shown"));
     assert!(
         !exported
@@ -389,6 +419,7 @@ fn editor_completions_apply_import_and_transitive_reexport_filters() {
             .position(|s| s.file == Some(file))
             .unwrap();
     let visible = c.ide_visible(ScopeId(scope as u32), file, u32::MAX);
+
     assert!(visible.iter().any(|n| n.name == "shown"));
     assert!(
         !visible
@@ -406,15 +437,18 @@ fn procedure_and_macro_using_parameters_retain_member_filters() {
                 "Point :: struct {{ x: int; y: int; }} update :: (using,{filter} p: *Point) {qualifier} {{ x = 7; y = 9; }} main :: () {{ p: Point; update(*p); }}"
             );
             let mut c = compiler(&[("/app/main.jai", &source)], false);
+
             rejects(&mut c, "y");
         }
     }
+
     for qualifier in ["", "#expand"] {
         for filter in ["map(renamed=x)", "map(rename)"] {
             let source = format!(
                 "rename :: (names: [] string) {{ for *names if it.* == \"x\" it.* = \"renamed\"; }} Point :: struct {{ x: int; y: int; }} update :: (using,{filter} p: *Point) {qualifier} {{ renamed = 7; }} check :: () -> int {{ p: Point; update(*p); return p.x; }} #assert(check() == 7);"
             );
             let mut c = compiler(&[("/app/main.jai", &source)], false);
+
             succeeds(&mut c);
         }
     }
@@ -424,12 +458,15 @@ fn procedure_and_macro_using_parameters_retain_member_filters() {
 fn embedded_computed_filters_keep_original_member_storage() {
     let shared = "Point :: struct { x: int; y: int; } Container :: struct { using,only(.[\"x\"]) point: Point; } object: Container; #assert(*object.x == *object.point.x);";
     let mut c = compiler(&[("/app/main.jai", shared)], false);
+
     succeeds(&mut c);
     let negative = format!("{shared} #assert(object.y == 0);");
     let mut c = compiler(&[("/app/main.jai", &negative)], false);
+
     rejects(&mut c, "y");
     let mapped = "rename :: (names: [] string) { for *names if it.* == \"x\" it.* = \"axis\"; } Point :: struct { x: int; y: int; } Container :: struct { using,map(rename) point: Point; } object: Container; #assert(*object.axis == *object.point.x);";
     let mut c = compiler(&[("/app/main.jai", mapped)], false);
+
     succeeds(&mut c);
 }
 
@@ -448,6 +485,7 @@ fn bootstrap_alias_preserves_types_and_storage() {
         ],
         true,
     );
+
     succeeds(&mut c);
     assert_eq!(
         c.ns.modules
@@ -474,12 +512,14 @@ fn selected_bootstrap_cannot_be_shadowed_by_local_preload() {
         ],
         true,
     );
+
     succeeds(&mut c);
 }
 
 #[test]
 fn bootstrap_discovery_uses_only_canonical_entry() {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/module.jai", b"legacy".as_slice());
     assert_eq!(jaic::find_preload(&fs, Path::new("/lib")), None);
     fs.insert("/lib/prelude/module.jai", b"".as_slice());
@@ -508,6 +548,7 @@ fn module_scope_declarations_are_qualified_members() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -527,6 +568,7 @@ fn named_private_imports_in_loaded_files_do_not_leak() {
         ],
         false,
     );
+
     rejects(&mut c, "secret");
 }
 
@@ -542,6 +584,7 @@ fn only_import_does_not_offer_filtered_out_names_as_fallback() {
         ],
         false,
     );
+
     rejects(&mut c, "hidden");
 }
 
@@ -560,6 +603,7 @@ fn loaded_file_has_independent_visibility_and_private_shadowing() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -575,6 +619,7 @@ fn imported_module_cannot_look_into_importer_scope() {
         ],
         false,
     );
+
     rejects(&mut c, "application_only");
 }
 
@@ -595,6 +640,7 @@ fn applications_cannot_import_or_load_library_internals() {
             ],
             true,
         );
+
         rejects(&mut c, "internal");
     }
 }
@@ -619,6 +665,7 @@ fn library_facades_can_use_private_internals_without_exporting_import_alias() {
         ],
         true,
     );
+
     succeeds(&mut c);
 }
 
@@ -639,6 +686,7 @@ fn cached_internal_module_does_not_bypass_origin_check() {
         ],
         true,
     );
+
     rejects(&mut c, "internal");
 }
 
@@ -654,6 +702,7 @@ fn application_cannot_use_internal_source_as_main() {
     let error = c
         .compile_program(Path::new("/lib/internal/Hidden/module.jai"))
         .expect_err("internal entry is private");
+
     assert!(error.message.contains("internal"));
 }
 
@@ -661,6 +710,7 @@ fn application_cannot_use_internal_source_as_main() {
 fn virtual_path_normalization_preserves_consecutive_parent_components() {
     use jaic::sema::FileSystem;
     let fs = VirtualFs::default();
+
     assert_eq!(
         fs.canonical(Path::new("../../lib/internal/Hidden/module.jai")),
         Path::new("../../lib/internal/Hidden/module.jai")
@@ -680,22 +730,27 @@ fn virtual_path_normalization_preserves_consecutive_parent_components() {
 fn native_symlink_cannot_expose_internal_source_as_public_module() {
     use std::os::unix::fs::symlink;
     let root = TempDir::new(&format!("internal-symlink-{}", std::process::id()));
+
     std::fs::create_dir_all(root.join("lib/internal/Hidden")).unwrap();
     std::fs::create_dir_all(root.join("lib/prelude")).unwrap();
     std::fs::create_dir_all(root.join("app/modules")).unwrap();
     std::fs::write(root.join("lib/prelude/module.jai"), "").unwrap();
     std::fs::write(root.join("lib/internal/Hidden/module.jai"), "secret :: 31;").unwrap();
     let alias = root.join("app/modules/Exposed.jai");
+
     if alias.symlink_metadata().is_ok() {
         std::fs::remove_file(&alias).unwrap();
     }
+
     symlink(root.join("lib/internal/Hidden/module.jai"), &alias).unwrap();
+
     for source in [
         "H :: #import \"Exposed\"; #assert(H.secret == 31);",
         "#load \"modules/Exposed.jai\"; #assert(secret == 31);",
     ] {
         std::fs::write(root.join("app/main.jai"), source).unwrap();
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.preload = Some(root.join("lib/prelude/module.jai"));
         options.import_paths = vec![root.join("lib")];
@@ -703,12 +758,14 @@ fn native_symlink_cannot_expose_internal_source_as_public_module() {
         let error = c
             .compile_program(&root.join("app/main.jai"))
             .expect_err("canonical internal path must be private");
+
         assert!(
             error.message.contains("internal"),
             "{}",
             error.render(&c.src.sources)
         );
     }
+
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -720,6 +777,7 @@ fn procedure_modification_rejects_unknown_body_record() {
         stmts: Vec::new(),
         source: "".into(),
     };
+
     assert!(c.modify_procedure(unknown).is_err());
 }
 
@@ -736,10 +794,12 @@ fn import_message_records_describe_actual_source_entry() {
         ],
         false,
     );
+
     succeeds(&mut c);
     let mut records = Records::default();
     let events = c.export_file_events(&mut records);
     let record = events.into_iter().filter(|(kind, _)| *kind == 2).map(|(_, id)| id).find(|&id| matches!(records.field(id, "module_name"), Some(FieldRef::Str(s)) if &**s == b"M")).expect("import event for M");
+
     assert!(matches!(
         records.field(record, "module_type"),
         Some(FieldRef::Int(4))
@@ -766,6 +826,7 @@ fn typechecked_events_include_resolved_selected_library_declarations() {
         ],
         true,
     );
+
     succeeds(&mut c);
     let mut records = Records::default();
     let message = c.export_typechecked(&mut records).unwrap();
@@ -784,9 +845,11 @@ fn typechecked_events_include_resolved_selected_library_declarations() {
             let Some(FieldRef::Str(name)) = records.field(decl, "name") else {
                 panic!("missing declaration name");
             };
+
             name.to_vec()
         })
         .collect();
+
     names.sort();
     assert_eq!(
         names,
@@ -797,6 +860,7 @@ fn typechecked_events_include_resolved_selected_library_declarations() {
 #[test]
 fn failed_source_loads_cannot_become_successful_cache_hits() {
     let mut c = compiler(&[("/lib/Broken/module.jai", "value :: ;")], false);
+
     for _ in 0..2 {
         assert!(
             c.load_module(
@@ -808,7 +872,9 @@ fn failed_source_loads_cannot_become_successful_cache_hits() {
             .is_err()
         );
     }
+
     let module = c.new_module("direct", None, vec![]);
+
     for _ in 0..2 {
         assert!(
             c.load_file(
@@ -844,13 +910,16 @@ fn qualified_members_do_not_flatten_private_names_through_using() {
             "M :: #import \"M\"; #assert M.I.hidden==2; #assert M.public==1; #assert type_of(M.x)==int; main :: () {}",
         ),
     ];
+
     succeeds(&mut compiler(&files, false));
+
     for source in [
         "M :: #import \"M\"; #assert M.hidden==2;",
         "M :: #import \"M\"; #assert M.I.local==3;",
         "#import \"M\"; #assert public==1;",
     ] {
         let mut invalid = files;
+
         invalid[2].1 = source;
         assert!(
             compiler(&invalid, false)
@@ -872,6 +941,7 @@ fn context_additions_from_separate_modules_share_one_field_namespace() {
                 "F :: #import \"Foo\"; B :: #import \"Bar\"; #assert size_of(#Context)>0; main :: () {}",
             ),
         ];
+
         rejects(
             &mut compiler(&files, false),
             "member `hello_world` is declared more than once",

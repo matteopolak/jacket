@@ -32,12 +32,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let Node::Stmt(s) = n else {
             return;
         };
+
         // An empty statement that is the body of a loop, an `if`, a `defer` or an `#if` arm is
         // deliberate: removing it would leave its parent without a body.
         if !matches!(s.kind, S::Empty) || cx.src(s.span) != ";" || cx.is_bare_body(s.span) {
             return;
         }
+
         let (start, end) = cx.tidy_removal(s.span);
+
         out.push(replacing(
             s.span,
             "this `;` ends nothing".into(),

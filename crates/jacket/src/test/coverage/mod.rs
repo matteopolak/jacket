@@ -134,6 +134,7 @@ impl Coverage {
         } else {
             dwarf::find_dwarfdump().ok()
         };
+
         Ok(Coverage {
             output: config.output,
             dir: config.dir,
@@ -159,6 +160,7 @@ impl Coverage {
         let n = self.next.fetch_add(1, Ordering::Relaxed);
         let dir = self.dir.join(n.to_string());
         let _ = std::fs::create_dir_all(&dir);
+
         dir
     }
 
@@ -168,14 +170,18 @@ impl Coverage {
     pub fn collect(&self, dir: &Path) -> Collected {
         let found = runs(dir);
         let collected = found.counted();
+
         self.lose_files(&found.unreadable);
+
         for run in found.runs {
             match run {
                 Run::Blocks(program, blocks) => {
                     let mut programs = self.programs.lock().expect("lock");
                     let merged = programs.entry(program).or_default();
+
                     for (address, block) in blocks {
                         let into: &mut Block = merged.entry(address).or_default();
+
                         into.count += block.count;
                         into.entry |= block.entry;
                     }
@@ -183,6 +189,7 @@ impl Coverage {
                 Run::Lines(lines) => self.add_lines(lines),
             }
         }
+
         let _ = std::fs::remove_dir_all(dir);
         collected
     }
@@ -191,7 +198,9 @@ impl Coverage {
     /// the folder. For a program built to run once, which is read while it still exists.
     pub fn collect_once(&self, dir: &Path) {
         let found = runs(dir);
+
         self.lose_files(&found.unreadable);
+
         for run in found.runs {
             let (program, blocks) = match run {
                 Run::Blocks(program, blocks) => (program, blocks),
@@ -200,14 +209,17 @@ impl Coverage {
                     continue;
                 }
             };
+
             // A program a test built and deleted again cannot be read.
             if !program.exists() {
                 continue;
             }
+
             if let Err(error) = self.read(&program, &blocks) {
                 self.failure.lock().expect("lock").get_or_insert(error);
             }
         }
+
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -227,20 +239,25 @@ impl Coverage {
     fn incomplete(&self) -> Option<String> {
         const LISTED: usize = 10;
         let lost = self.lost.lock().expect("lock");
+
         if lost.is_empty() {
             return None;
         }
+
         let mut text = format!(
             "{} test processes ended without leaving the coverage of what they ran, so the numbers are too low:",
             lost.len()
         );
+
         for what in lost.iter().take(LISTED) {
             text.push_str("\n  ");
             text.push_str(what);
         }
+
         if lost.len() > LISTED {
             text.push_str(&format!("\n  and {} more", lost.len() - LISTED));
         }
+
         Some(text)
     }
 
@@ -254,12 +271,14 @@ impl Coverage {
             CoverageFormat::Lcov => lcov(data),
             CoverageFormat::Html => html::render(data, &self.base),
         };
+
         write_file(out, &text)?;
         let by = match self.output.by {
             CoverageBy::File => Group::File,
             CoverageBy::Module => Group::Module,
         };
         let shown = rows(data, &self.base, by);
+
         if data.lines.is_empty() {
             eprintln!("jacket: no lines of the tested code ran");
         } else {
@@ -269,23 +288,28 @@ impl Coverage {
                 "Module"
             };
             let table = table(&shown, what);
+
             if to_stdout {
                 print!("\n{table}");
             } else {
                 eprint!("\n{table}");
             }
         }
+
         if measured.unbuilt > 0 {
             eprintln!(
                 "jacket: {} procedures are in no program the tests built; their lines count as not run",
                 measured.unbuilt
             );
         }
+
         eprintln!("jacket: coverage written to {}", out.display());
+
         // Neither compared with a baseline nor recorded as one: it would count what never ran.
         if let Some(why) = self.incomplete() {
             return Err(why);
         }
+
         self.compare(data)
     }
 
@@ -293,15 +317,18 @@ impl Coverage {
     fn compare(&self, data: &Data) -> Result<Verdict, String> {
         let modules = rows(data, &self.base, Group::Module);
         let now = Baseline::of(&modules);
+
         if let Some(path) = &self.output.record {
             write_file(path, &now.render())?;
             eprintln!("jacket: coverage baseline recorded in {}", path.display());
         }
+
         let baseline =
             match &self.output.baseline {
                 Some(path) => {
                     let text = std::fs::read_to_string(path)
                         .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+
                     Some(Baseline::parse(&text).map_err(|e| {
                         format!("{} is not a coverage baseline: {e}", path.display())
                     })?)
@@ -311,16 +338,20 @@ impl Coverage {
         let drops = baseline
             .as_ref()
             .map_or_else(Vec::new, |b| b.drops(&now, self.output.margin));
+
         for drop in &drops {
             eprintln!(
                 "jacket: coverage of {} dropped from {:.1}% to {:.1}% (allowed: {} points)",
                 drop.name, drop.before, drop.after, self.output.margin
             );
         }
+
         if let Some(path) = &self.output.summary {
             let text = baseline::markdown(&modules, baseline.as_ref(), &drops, self.output.margin);
+
             append_file(path, &text)?;
         }
+
         Ok(if drops.is_empty() {
             Verdict::Held
         } else {
@@ -334,10 +365,13 @@ impl Coverage {
         if let Some(error) = self.failure.lock().expect("lock").take() {
             return Err(error);
         }
+
         let programs = std::mem::take(&mut *self.programs.lock().expect("lock"));
+
         for (program, blocks) in &programs {
             self.read(program, blocks)?;
         }
+
         let mut lines = self.files.lock().expect("lock").clone();
         let entries = self.entries.lock().expect("lock").clone();
         let listed = procedures::list((&self.jaic, &self.stdlib), &self.include, &self.jaic_flags)?;
@@ -347,6 +381,7 @@ impl Coverage {
             .collect();
         let unbuilt = procedures::unreferenced(&lines, &listed);
         let functions = procedures::functions(&listed, &lines, &entries);
+
         procedures::add_never_run(&mut lines, &unbuilt);
         Ok(Measured {
             unbuilt: unbuilt.len(),
@@ -363,6 +398,7 @@ impl Coverage {
             .into_iter()
             .filter_map(|(path, lines)| Some((self.reported(&path.to_string_lossy())?, lines)))
             .collect();
+
         merge(&mut self.files.lock().expect("lock"), wanted);
     }
 
@@ -381,6 +417,7 @@ impl Coverage {
                 .or_insert_with(|| self.reported(path))
                 .clone()
         });
+
         merge(&mut self.files.lock().expect("lock"), counted.lines);
         merge(&mut self.entries.lock().expect("lock"), counted.entries);
         Ok(())
@@ -400,6 +437,7 @@ impl Coverage {
                     .components()
                     .any(|c| c.as_os_str() == "tests" || c.as_os_str() == "benches")
             });
+
         (inside(&self.include) && !inside(&self.exclude) && !in_tests).then_some(file)
     }
 }
@@ -409,6 +447,7 @@ fn write_file(path: &Path, text: &str) -> Result<(), String> {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("cannot create {}: {e}", parent.display()))?;
     }
+
     std::fs::write(path, text).map_err(|e| format!("cannot write {}: {e}", path.display()))
 }
 
@@ -427,6 +466,7 @@ fn append_file(path: &Path, text: &str) -> Result<(), String> {
 fn merge(files: &mut Files, more: Files) {
     for (path, lines) in more {
         let counts = files.entry(path).or_default();
+
         for (line, count) in lines {
             *counts.entry(line).or_default() += count;
         }
@@ -461,6 +501,7 @@ fn runs(dir: &Path) -> Found {
         runs: Vec::new(),
         unreadable: Vec::new(),
     };
+
     for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
         match std::fs::read_to_string(entry.path())
             .ok()
@@ -472,6 +513,7 @@ fn runs(dir: &Path) -> Found {
                 .push(entry.file_name().to_string_lossy().into_owned()),
         }
     }
+
     found
 }
 
@@ -481,12 +523,14 @@ fn runs(dir: &Path) -> Found {
 /// then a `file PATH` line and a `line count` line for each line of it.
 fn parse_run(text: &str) -> Option<Run> {
     let mut lines = text.lines();
+
     lines.next()?.starts_with("jaic-coverage").then_some(())?;
     let mut program = None;
     let mut blocks = Blocks::new();
     let mut files = Files::new();
     let mut interp = false;
     let mut file: Option<PathBuf> = None;
+
     for line in lines {
         if let Some(path) = line.strip_prefix("exe ") {
             program = Some(PathBuf::from(path.trim()));
@@ -497,6 +541,7 @@ fn parse_run(text: &str) -> Option<Run> {
         } else if interp {
             let (number, count) = line.split_once(' ')?;
             let counts = files.entry(file.clone()?).or_default();
+
             *counts.entry(number.parse().ok()?).or_default() += count.parse::<u64>().ok()?;
         } else if !line.starts_with("module ") {
             let mut fields = line.split_whitespace();
@@ -504,10 +549,12 @@ fn parse_run(text: &str) -> Option<Run> {
             let entry = fields.next()? != "0";
             let count: u64 = fields.next()?.parse().ok()?;
             let block: &mut Block = blocks.entry(address).or_default();
+
             block.count += count;
             block.entry |= entry;
         }
     }
+
     if interp {
         Some(Run::Lines(files))
     } else {
@@ -519,6 +566,7 @@ fn parse_run(text: &str) -> Option<Run> {
 /// already covered by it).
 pub fn outermost(folders: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
     let all: BTreeSet<PathBuf> = folders.into_iter().collect();
+
     all.iter()
         .filter(|f| !all.iter().any(|other| other != *f && f.starts_with(other)))
         .cloned()
@@ -536,6 +584,7 @@ mod tests {
         let Some(Run::Blocks(program, blocks)) = parse_run(RUN) else {
             panic!("not a native run");
         };
+
         assert_eq!(program, PathBuf::from("/w/tests"));
         assert_eq!(
             blocks.into_iter().collect::<Vec<_>>(),
@@ -576,6 +625,7 @@ mod tests {
         let Some(Run::Lines(files)) = parse_run(text) else {
             panic!("not an interpreted run");
         };
+
         assert_eq!(
             files[Path::new("/p/a.jai")],
             BTreeMap::from([(3, 2), (4, 0)])
@@ -591,6 +641,7 @@ mod tests {
     fn counts_of_separate_runs_add_up() {
         let mut files = Files::new();
         let a = PathBuf::from("/p/a.jai");
+
         merge(&mut files, [(a.clone(), [(1, 2), (2, 0)].into())].into());
         merge(&mut files, [(a.clone(), [(1, 3), (3, 1)].into())].into());
         assert_eq!(
@@ -604,16 +655,20 @@ mod tests {
         let coverage = bare();
         let dir = std::env::temp_dir().join(format!("jacket-cov-reported-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(dir.join("tests")).unwrap();
         std::fs::create_dir_all(dir.join("benches")).unwrap();
+
         for name in ["module.jai", "tests/t.jai", "benches/b.jai"] {
             std::fs::write(dir.join(name), "").unwrap();
         }
+
         let include = dir.canonicalize().unwrap();
         let coverage = Coverage {
             include: vec![include.clone()],
             ..coverage
         };
+
         assert!(
             coverage
                 .reported(&dir.join("module.jai").to_string_lossy())
@@ -667,6 +722,7 @@ mod tests {
         let coverage = bare();
         let dir = std::env::temp_dir().join(format!("jacket-cov-collect-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(&dir).unwrap();
         assert_eq!(coverage.collect(&dir).recorded, 0, "deleted already");
         std::fs::create_dir_all(&dir).unwrap();
@@ -674,10 +730,12 @@ mod tests {
         std::fs::write(dir.join("tests.2.cov"), "jaic-coverage 1\ninterp\n").unwrap();
         std::fs::write(dir.join("tests.3.cov"), "jaic-coverage 1\nexe /w/t\n10 1\n").unwrap();
         let found = coverage.collect(&dir);
+
         assert_eq!((found.recorded, found.unreadable), (2, 1));
         assert!(!dir.exists(), "the folder is deleted");
         // A file that cannot be read is lost coverage too, even though the process wrote one.
         let text = coverage.incomplete().expect("incomplete");
+
         assert!(text.contains("tests.3.cov"), "{text}");
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -685,10 +743,12 @@ mod tests {
     #[test]
     fn coverage_a_process_did_not_write_makes_the_report_incomplete() {
         let coverage = bare();
+
         assert!(coverage.incomplete().is_none());
         coverage.lost("/p/Uuid (Uuid::a) exited with status 0 but wrote no coverage".into());
         coverage.lost("/p/Vt (Vt::b) exited with status 0 but wrote no coverage".into());
         let text = coverage.incomplete().expect("incomplete");
+
         assert!(text.contains("2 test processes"), "{text}");
         assert!(text.contains("/p/Uuid (Uuid::a)"), "{text}");
         assert!(text.contains("/p/Vt (Vt::b)"), "{text}");
@@ -697,10 +757,13 @@ mod tests {
     #[test]
     fn only_the_first_lost_runs_are_listed() {
         let coverage = bare();
+
         for n in 0..30 {
             coverage.lost(format!("process {n}"));
         }
+
         let text = coverage.incomplete().expect("incomplete");
+
         assert!(text.contains("30 test processes"), "{text}");
         assert!(text.contains("process 0"), "{text}");
         assert!(!text.contains("process 29"), "{text}");
@@ -710,6 +773,7 @@ mod tests {
     #[test]
     fn folders_inside_others_are_dropped() {
         let folders = ["/a/b", "/a", "/c"].map(PathBuf::from);
+
         assert_eq!(
             outermost(folders),
             [PathBuf::from("/a"), PathBuf::from("/c")]

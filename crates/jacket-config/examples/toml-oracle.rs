@@ -22,12 +22,14 @@ fn tag(value: &toml::Value) -> Json {
                 _ => unreachable!("parser returned invalid datetime"),
             };
             let mut text = value.to_string();
+
             if value.time.is_some() {
                 let at = if value.date.is_some() {
                     16
                 } else {
                     5
                 };
+
                 if text.len() == at
                     || text
                         .as_bytes()
@@ -37,6 +39,7 @@ fn tag(value: &toml::Value) -> Json {
                     text.insert_str(at, ":00");
                 }
             }
+
             (kind, text)
         }
     };
@@ -51,9 +54,11 @@ fn untag(value: &Json) -> Result<toml::Value, String> {
             .collect::<Result<Vec<_>, _>>()
             .map(toml::Value::Array);
     }
+
     let table = value
         .as_object()
         .ok_or("tagged value must be an object or array")?;
+
     if table.len() == 2
         && let (Some(kind), Some(text)) = (
             table.get("type").and_then(Json::as_str),
@@ -81,6 +86,7 @@ fn untag(value: &Json) -> Result<toml::Value, String> {
             _ => Err(format!("unknown tag {kind}")),
         };
     }
+
     table
         .iter()
         .map(|(k, v)| Ok((k.clone(), untag(v)?)))
@@ -91,6 +97,7 @@ fn untag(value: &Json) -> Result<toml::Value, String> {
 fn run() -> Result<(), String> {
     let args: Vec<_> = std::env::args().collect();
     let mut mode = args.get(1).cloned().unwrap_or_default();
+
     if mode.is_empty()
         && args
             .first()
@@ -98,8 +105,10 @@ fn run() -> Result<(), String> {
     {
         mode = "encode".into();
     }
+
     let batch = mode.starts_with("batch-");
     let mut input_bytes = Vec::new();
+
     if batch {
         input_bytes =
             std::fs::read(args.get(2).ok_or("missing input path")?).map_err(|e| e.to_string())?;
@@ -108,11 +117,13 @@ fn run() -> Result<(), String> {
             .read_to_end(&mut input_bytes)
             .map_err(|e| e.to_string())?;
     }
+
     let input = if batch {
         ""
     } else {
         std::str::from_utf8(&input_bytes).map_err(|e| e.to_string())?
     };
+
     if matches!(
         mode.as_str(),
         "batch-read"
@@ -129,9 +140,11 @@ fn run() -> Result<(), String> {
             .ok_or("missing iterations")?
             .parse()
             .map_err(|e| format!("{e}"))?;
+
         if iterations == 0 {
             return Err("iterations must be positive".into());
         }
+
         let prepared =
             if mode == "batch-write" || mode == "batch-write-verify" || mode == "batch-lookup" {
                 Some(
@@ -151,25 +164,31 @@ fn run() -> Result<(), String> {
         } else {
             -3
         };
+
         for iteration in first..iterations as isize {
             if iteration == 0 {
                 started = std::time::Instant::now();
                 checksum = 0;
                 output_bytes = 0;
             }
+
             if mode == "batch-reject" || mode == "batch-verify-error" {
                 let parsed = toml::from_str::<toml::Table>(
                     std::str::from_utf8(std::hint::black_box(input_bytes.as_slice()))
                         .map_err(|e| format!("{e}"))?,
                 );
+
                 if mode == "batch-verify-error" {
                     println!("{}", json!({"rejected": parsed.is_err()}));
                     return Ok(());
                 }
+
                 std::hint::black_box(parsed.err().ok_or("invalid benchmark input was accepted")?);
                 checksum += 1;
+
                 continue;
             }
+
             let parsed;
             let value = if let Some(value) = &prepared {
                 value
@@ -181,7 +200,9 @@ fn run() -> Result<(), String> {
                 .map_err(|e| format!("{e}"))?;
                 &parsed
             };
+
             std::hint::black_box(value);
+
             if mode == "batch-lookup" {
                 for key in value.keys() {
                     std::hint::black_box(
@@ -197,17 +218,21 @@ fn run() -> Result<(), String> {
                 || mode == "batch-write-verify"
             {
                 let text = toml::to_string(&value).map_err(|e| format!("{e}"))?;
+
                 if iteration == 0 && (mode == "batch-verify" || mode == "batch-write-verify") {
                     print!("{text}");
                     return Ok(());
                 }
+
                 checksum = text
                     .bytes()
                     .fold(checksum, |sum, b| sum.wrapping_add(u64::from(b)));
                 output_bytes += text.len();
             }
         }
+
         let nanoseconds = started.elapsed().as_nanos();
+
         println!(
             "{}",
             json!({"nanoseconds": nanoseconds, "iterations": iterations, "checksum": checksum, "output_bytes": output_bytes})
@@ -215,9 +240,11 @@ fn run() -> Result<(), String> {
     } else if mode == "encode" {
         let value: Json = serde_json::from_str(input).map_err(|e| e.to_string())?;
         let output = toml::to_string(&untag(&value)?).map_err(|e| e.to_string())?;
+
         print!("{output}");
     } else if mode == "settings" {
         let (config, unknown) = jacket_config::parse_lenient(input)?;
+
         config.format.validate()?;
         config.doc.format.validate_doc()?;
         let resolved: serde_json::Map<String, Json> = config
@@ -233,6 +260,7 @@ fn run() -> Result<(), String> {
             .into_iter()
             .map(|(key, text)| (key.into(), Json::String(text)))
             .collect();
+
         println!(
             "{}",
             json!({"resolved": resolved, "overrides": overrides, "ignore": config.format.ignore, "unknown": unknown})
@@ -241,8 +269,10 @@ fn run() -> Result<(), String> {
         let table: toml::Table = toml::from_str(input).map_err(|e: toml::de::Error| {
             json!({"message": e.message(), "span": e.span().map(|r| [r.start, r.end])}).to_string()
         })?;
+
         println!("{}", tag(&toml::Value::Table(table)));
     }
+
     Ok(())
 }
 

@@ -7,9 +7,11 @@ use std::rc::Rc;
 #[test]
 fn member_constants_see_field_types_before_unused_checking() {
     let mut options = Options::host();
+
     options.preload = None;
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+
     compiler
         .ed
         .record(IdeFacts::new(vec![jaic::ide::IdeRoot::Virtual]));
@@ -28,8 +30,10 @@ fn member_constants_see_field_types_before_unused_checking() {
         .iter()
         .position(|entity| entity.name == Sym::intern("Record"))
         .unwrap();
+
     compiler.resolve_entity(EntityId(index as u32)).unwrap();
     let errors = compiler.ide_check_all();
+
     assert!(
         errors.is_empty(),
         "{:?}",
@@ -40,16 +44,19 @@ fn member_constants_see_field_types_before_unused_checking() {
 #[test]
 fn nested_record_constants_can_depend_on_earlier_using_fields() {
     let mut options = Options::host();
+
     options.preload = None;
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![jaic::ide::IdeRoot::Virtual]);
+
     facts.lint = true;
     compiler.ed.record(facts);
     compiler.compile_sources(&[ProgramSource::String(
         "Table :: struct { items: [] Padded; Padded :: struct { using info: Payload; INFO_SIZE :: size_of(type_of(info)); PADDING_SIZE :: #run round(INFO_SIZE) - INFO_SIZE; padding: [PADDING_SIZE]u8; } Payload :: struct { owner: *Padded; } }\nround :: (value: s64) -> s64 { return (value + 63) / 64 * 64; }\nmain :: () -> s64 { return Table.Padded.INFO_SIZE; }".into(),
     )]).expect("load nested record declarations");
     let errors = compiler.ide_check_all();
+
     assert!(
         errors.is_empty(),
         "{:?}",
@@ -66,16 +73,19 @@ fn production_layout_fixture_finishes_strict_ide_checking() {
     let library = root.join("stdlib");
     let source = root.join("tests/compiler/semantics/record-layout.jai");
     let mut options = Options::host();
+
     options.set_stdlib(&jaic::sema::NativeFs, &library);
     options.import_paths = vec![library];
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![jaic::ide::IdeRoot::under(source.clone())]);
+
     facts.lint = true;
     compiler.ed.record(facts);
     compiler
         .compile_sources(&[ProgramSource::File(source)])
         .unwrap();
     let errors = compiler.ide_check_all();
+
     assert!(
         errors.is_empty(),
         "{:?}",
@@ -87,27 +97,33 @@ fn production_layout_fixture_finishes_strict_ide_checking() {
 fn field_type_queries_infer_values_select_branches_and_reject_real_cycles() {
     for query in ["type_of(value)", "type_of(Record.value)"] {
         let mut options = Options::host();
+
         options.preload = None;
         options.runtime_support = false;
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+
         compiler
             .ed
             .record(IdeFacts::new(vec![jaic::ide::IdeRoot::Virtual]));
         let source = format!(
             "Record :: struct {{ COUNT :: size_of({query}); #if true {{ value := cast(s64) 1; }} else {{ value: Missing_Type; }} tail: [COUNT]u8; }} main :: () -> s64 {{ return Record.COUNT; }}"
         );
+
         compiler
             .compile_sources(&[ProgramSource::String(source)])
             .unwrap();
         assert!(compiler.ide_check_all().is_empty());
     }
+
     let mut options = Options::host();
+
     options.preload = None;
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let error = compiler.compile_sources(&[ProgramSource::String(
         "Record :: struct { COUNT :: size_of(type_of(value)); value: [COUNT]u8; } main :: () -> s64 { return Record.COUNT; }".into(),
     )]).expect_err("a genuinely recursive type size must reject");
+
     assert!(
         error.message.contains("cycle in struct field types"),
         "{}",

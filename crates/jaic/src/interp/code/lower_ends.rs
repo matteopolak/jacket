@@ -7,6 +7,7 @@ impl Builder<'_> {
     /// Emit the ending of block `bi`. A jump to the block that follows is no op at all.
     pub(super) fn end(&mut self, bi: usize, block: &ir::Block) {
         let next = bi as u32 + 1;
+
         match block.term {
             Term::Jump(t) => {
                 if t.0 != next {
@@ -31,6 +32,7 @@ impl Builder<'_> {
                     } else {
                         else_block.0
                     };
+
                     if t != next {
                         self.push(
                             Op::Jump {
@@ -39,8 +41,10 @@ impl Builder<'_> {
                             None,
                         );
                     }
+
                     return;
                 }
+
                 // Fall through to whichever successor comes next, if either does.
                 let (sense, target, after) = if then_block.0 == next {
                     (false, else_block.0, None)
@@ -60,6 +64,7 @@ impl Builder<'_> {
                 let op = match fused {
                     Some(_) if test.is_some() => {
                         let (op, a, mask) = test.unwrap();
+
                         Op::BranchTest {
                             sense: sense == (op == CmpOp::Ne),
                             a,
@@ -89,7 +94,9 @@ impl Builder<'_> {
                         target,
                     },
                 };
+
                 self.push(op, None);
+
                 if let Some(other) = after {
                     self.push(
                         Op::Jump {
@@ -114,6 +121,7 @@ impl Builder<'_> {
                 for &v in values {
                     self.v(v);
                 }
+
                 let op = match values[..] {
                     [] => Op::Ret0,
                     [v] => Op::Ret1 {
@@ -121,6 +129,7 @@ impl Builder<'_> {
                     },
                     _ => {
                         let at = self.pool.len() as u32;
+
                         self.pool.extend(values.iter().map(|v| v.0));
                         Op::RetN {
                             at,
@@ -128,6 +137,7 @@ impl Builder<'_> {
                         }
                     }
                 };
+
                 self.push(op, None);
             }
             Term::Unreachable => self.push(
@@ -145,6 +155,7 @@ impl Builder<'_> {
         if self.uses[cond as usize] != 1 || self.defs[cond as usize] != 1 {
             return None;
         }
+
         let i = self.ops[self.block_start_mark..]
             .iter()
             .rposition(|op| op_dst(op) == Some(cond))?;
@@ -184,6 +195,7 @@ impl Builder<'_> {
             }
             _ => return None,
         };
+
         // The comparison's own operand uses stay counted (it is dropped below only if nothing
         // else reads its result).
         self.uses[cond as usize] = 0;
@@ -198,6 +210,7 @@ impl Builder<'_> {
         if self.uses[reg as usize] != 2 || self.defs[reg as usize] != 1 {
             return None;
         }
+
         let i = self.ops[self.block_start_mark..]
             .iter()
             .rposition(|op| op_dst(op) == Some(reg))?;
@@ -210,9 +223,11 @@ impl Builder<'_> {
         else {
             return None;
         };
+
         if self.defs[a as usize] != 1 {
             return None;
         }
+
         self.uses[reg as usize] -= 1;
         self.uses[a as usize] += 1;
         Some((a, imm))

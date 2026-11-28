@@ -27,6 +27,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() || p.header.operator.is_some() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -38,6 +39,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 |x| cx.ty(x).is_some_and(|t| cx.compiler.ty.types.is_float(t)) && !cx.constant(x);
             // `x != x` is the NaN test.
             let same = cx.same_tokens(a, b);
+
             if float(a) && float(b) && !same {
                 out.push(Finding {
                     secondary: Vec::new(),
@@ -51,6 +53,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     fix: None,
                 });
             }
+
             true
         });
     }

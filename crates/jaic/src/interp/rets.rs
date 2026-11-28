@@ -14,6 +14,7 @@ impl Rets {
             len: values.len(),
             ..Default::default()
         };
+
         if rets.len <= 4 {
             for (slot, v) in rets.inline.iter_mut().zip(values) {
                 *slot = v;
@@ -21,6 +22,7 @@ impl Rets {
         } else {
             rets.spill = values.collect();
         }
+
         rets
     }
 
@@ -38,6 +40,7 @@ impl From<Vec<u64>> for Rets {
         if values.len() <= 4 {
             return Rets::collect(values.into_iter());
         }
+
         Rets {
             len: values.len(),
             inline: [0; 4],

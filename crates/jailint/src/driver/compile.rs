@@ -80,14 +80,17 @@ pub(super) fn compile_root(
     let root = &program.root;
     let main_dir = root.main_dir();
     let mut copts = options.compiler_options.clone();
+
     jaic::target::select_os_cpu(&mut copts, os, cpu);
     // RootedFs resolves program-generated relative paths from the source root. Import
     // directories are invocation configuration, so anchor them before that rebasing.
     // Also anchor nonexistent roots: they must not accidentally find a source-local shadow.
     let mut anchored = program.clone();
+
     for path in &mut anchored.import_dirs {
         *path = canon.get_or_insert_with(path, canonical);
     }
+
     copts.use_program(&jaic::sema::NativeFs, &anchored);
     let fs: Rc<dyn FileSystem> = Rc::new(RootedFs {
         resolved: shared.resolved.clone(),
@@ -123,12 +126,14 @@ pub(super) fn compile_root(
         report: Box::new(move |_, text| sink.borrow_mut().push(text.to_string())),
         limits: options.limits,
     });
+
     if lint {
         crate::facts::enable(&mut started.compiler, roots);
         started.compiler.ed.parse_reuse = Some((shared.parses.clone(), shared.parses.begin()));
     } else {
         started.compiler.keep_going_past_asserts();
     }
+
     let extra: Vec<_> = options
         .add_sources
         .iter()
@@ -149,6 +154,7 @@ pub(super) fn compile_root(
         (root, _) => LintRoot::Program(root.path()),
     };
     let result = started.compile(lint_root, &extra);
+
     Compiled {
         compiler: started.compiler,
         workspaces: started.workspaces.clone(),
@@ -164,13 +170,16 @@ pub(super) fn compile_root(
 /// compile-time evaluation ran out of budget, and how to raise it).
 fn stopping_error(e: &jaic::diagnostics::Diagnostic) -> String {
     let mut text = e.message.clone();
+
     for (_, note) in &e.notes {
         text.push_str("\n  note: ");
         text.push_str(note);
     }
+
     for help in &e.help {
         text.push_str("\n  help: ");
         text.push_str(help);
     }
+
     text
 }

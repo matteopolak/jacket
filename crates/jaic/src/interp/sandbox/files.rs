@@ -9,6 +9,7 @@ impl SandboxHost {
             LibcFn::Write => {
                 let (fd, ptr, len) = (arg(0) as i32 as i64, arg(1), arg(2) as usize);
                 let bytes = read_bytes(ptr, len);
+
                 if fd == 1 || fd == 2 {
                     self.write(&bytes, fd == 2);
                     len as u64
@@ -21,6 +22,7 @@ impl SandboxHost {
             }
             LibcFn::Access => {
                 let path = self.path(arg(0));
+
                 if self.fs.is_dir(&path) || self.fs.exists_file(&path) {
                     0
                 } else {
@@ -31,6 +33,7 @@ impl SandboxHost {
             // writable), so changing them succeeds on any path that exists.
             LibcFn::Chmod => {
                 let path = self.path(arg(0));
+
                 if self.fs.is_dir(&path) || self.fs.exists_file(&path) {
                     0
                 } else {
@@ -47,10 +50,12 @@ impl SandboxHost {
             LibcFn::Stat | LibcFn::Lstat | LibcFn::StatTime64 | LibcFn::LstatTime64 => {
                 let path = self.path(arg(0));
                 let result = self.fill_stat(&path, arg(1)).map(|()| 0);
+
                 self.libc_result(result)
             }
             LibcFn::Fstat | LibcFn::FstatTime64 => {
                 let fd = arg(0) as i32 as i64;
+
                 match self.fds.get(&fd).map(|f| f.path.clone()) {
                     Some(path) => {
                         let result = self.fill_stat(&path, arg(1)).map(|()| 0);
@@ -64,6 +69,7 @@ impl SandboxHost {
                 // Flags the sandbox has no use for (`O_CLOEXEC`, `O_NONBLOCK`) change nothing.
                 let (open, _) = self.abi().decode_open(arg(1) as u32 as u64);
                 let result = self.open_file(path, open).map(|fd| fd as u64);
+
                 self.libc_result(result)
             }
             LibcFn::Close => {
@@ -85,9 +91,11 @@ impl SandboxHost {
             }
             LibcFn::Unlink | LibcFn::Remove => {
                 let path = self.path(arg(0));
+
                 if self.fs.is_dir(&path) && fun == LibcFn::Remove {
                     return Some(self.rmdir(&path));
                 }
+
                 if self.fs.exists_file(&path) {
                     self.fs.files.remove(&path);
                     self.fs.forget(&path);
@@ -100,10 +108,12 @@ impl SandboxHost {
             LibcFn::Rename => {
                 let (from, to) = (self.path(arg(0)), self.path(arg(1)));
                 let result = self.rename_file(&from, &to).map(|()| 0);
+
                 self.libc_result(result)
             }
             LibcFn::Link => {
                 let (from, to) = (self.path(arg(0)), self.path(arg(1)));
+
                 if !self.fs.exists_file(&from) {
                     self.set_errno(ENOENT)
                 } else if self.fs.exists_file(&to) {
@@ -113,12 +123,15 @@ impl SandboxHost {
                     self.fs.load(&from);
                     let data = self.fs.files.get(&from).cloned().unwrap_or_default();
                     let inode = self.fs.inode(&from);
+
                     self.fs.inodes.insert(from.clone(), inode);
                     self.fs.inodes.insert(to.clone(), inode);
                     let stamp = self.fs.mtimes.get(&from).copied();
+
                     if let Some(stamp) = stamp {
                         self.fs.mtimes.insert(to.clone(), stamp);
                     }
+
                     self.fs.removed.remove(&to);
                     self.fs.files.insert(to, data);
                     0
@@ -133,20 +146,25 @@ impl SandboxHost {
         if self.fs.is_dir(from) {
             return Err(EINVAL);
         }
+
         if !self.fs.exists_file(from) {
             return Err(ENOENT);
         }
+
         self.fs.load(from);
         let data = self.fs.files.remove(from).unwrap_or_default();
         // The file keeps its identity and time under the new name.
         let inode = self.fs.inode(from);
         let stamp = self.fs.mtimes.get(from).copied();
+
         self.fs.forget(from);
         self.fs.forget(to);
         self.fs.inodes.insert(to.to_string(), inode);
+
         if let Some(stamp) = stamp {
             self.fs.mtimes.insert(to.to_string(), stamp);
         }
+
         self.fs.removed.insert(from.to_string());
         self.fs.removed.remove(to);
         self.fs.files.insert(to.to_string(), data);

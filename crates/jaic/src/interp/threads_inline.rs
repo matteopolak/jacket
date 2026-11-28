@@ -192,6 +192,7 @@ pub(super) struct InlineSched {
 impl InlineSched {
     fn new() -> Self {
         let mut slots = Slots::default();
+
         slots.acquire();
         InlineSched {
             threads: vec![ThreadRec::new(FuncId(0), 0, State::Running)],
@@ -216,14 +217,17 @@ impl InlineSched {
     /// Put a new thread in a free slot, or in a new one, and return its number.
     fn add(&mut self, thread: ThreadRec) -> usize {
         let id = self.slots.acquire();
+
         if id == self.threads.len() {
             self.threads.push(thread);
         } else {
             self.threads[id] = thread;
         }
+
         if self.threads[id].state != State::Finished {
             self.live.insert(id);
         }
+
         id
     }
 
@@ -231,6 +235,7 @@ impl InlineSched {
     fn finish(&mut self, t: usize) {
         self.threads[t].state = State::Finished;
         self.live.remove(&t);
+
         if self.slots.is_released(t) {
             self.free(t);
         }
@@ -287,6 +292,7 @@ impl InlineSched {
     /// May run now without waiting for anything: not started yet, or its wait is over.
     fn ready(&self, t: usize) -> bool {
         let rec = &self.threads[t];
+
         match rec.state {
             State::Pending => true,
             // `expired`: its deadline passed while another thread waited for the page.
@@ -313,6 +319,7 @@ impl InlineSched {
     /// Whether any other thread could run, now or once the clock moves.
     fn others_can_go_on(&self) -> bool {
         let me = self.current;
+
         self.order().any(|t| {
             t != me && (self.ready(t) || self.yielded(t) || self.threads[t].deadline.is_some())
         })
@@ -331,6 +338,7 @@ impl Interp {
         let native_idle = self.compiler_native_threads_idle();
         #[cfg(target_arch = "wasm32")]
         let native_idle = true;
+
         inline_idle && native_idle
     }
 
@@ -354,12 +362,14 @@ impl Interp {
     fn take_resume(&mut self) -> Option<Resume> {
         let sched = self.isched();
         let me = sched.current;
+
         sched.threads[me].resume.take()
     }
 
     fn set_resume(&mut self, resume: Resume) {
         let sched = self.isched();
         let me = sched.current;
+
         sched.threads[me].resume = Some(resume);
     }
 
@@ -378,15 +388,19 @@ impl Interp {
             ThreadFn::Join => self.inline_join(arg(0), arg(1)),
             ThreadFn::TryJoin => {
                 let sched = self.isched();
+
                 match sched.resolve_joinable(arg(0)) {
                     Some(id) if sched.threads[id].state == State::Finished => {
                         let value = sched.threads[id].result;
+
                         sched.release_handle(id);
+
                         if arg(1) != 0
                             && let Err(trap) = self.put_ptr(arg(1), value)
                         {
                             return Some(Err(trap));
                         }
+
                         Ok(0)
                     }
                     Some(_) => {
@@ -398,6 +412,7 @@ impl Interp {
             }
             ThreadFn::Detach => {
                 let sched = self.isched();
+
                 Ok(match sched.resolve_joinable(arg(0)) {
                     Some(id) => {
                         sched.release_handle(id);
@@ -424,6 +439,7 @@ impl Interp {
             ThreadFn::MutexLock => self.inline_lock(arg(0), 1).map(|()| 0),
             ThreadFn::MutexTryLock => {
                 let me = self.isched().current;
+
                 if self.isched().mutexes.try_lock(arg(0), me, 1) {
                     Ok(0)
                 } else {
@@ -472,6 +488,7 @@ impl Interp {
             ThreadFn::YieldForWait => self.inline_yield_for_wait(),
             _ => return None,
         };
+
         Some(result.map(|v| vec![v]))
     }
 
@@ -485,23 +502,29 @@ impl Interp {
         let Some(func) = self.func_of(start) else {
             return self.trap("pthread_create needs an interpreted thread procedure");
         };
+
         self.require_callable(program, func)?;
         let sched = self.isched();
         let id = sched.add(ThreadRec::new(func, argument, State::Pending));
         let handle = sched.slots.handle_of(id);
+
         self.multi = true;
+
         if out != 0 {
             self.put_ptr(out, handle)?;
         }
+
         Ok(0)
     }
 
     fn inline_join(&mut self, handle: u64, result_out: u64) -> Res<u64> {
         let sched = self.isched();
         let me = sched.current;
+
         if sched.resolve_joinable(handle).is_none_or(|id| id == me) {
             return Ok(EINVAL);
         }
+
         self.wait_until(Wait::Join(handle), None)?;
         // Another joiner or a detach may have taken the thread while this one waited.
         let sched = self.isched();
@@ -509,19 +532,24 @@ impl Interp {
             return Ok(EINVAL);
         };
         let value = sched.threads[id].result;
+
         sched.release_handle(id);
+
         if result_out != 0 {
             self.put_ptr(result_out, value)?;
         }
+
         Ok(0)
     }
 
     fn inline_lock(&mut self, addr: u64, count: u32) -> Res<()> {
         loop {
             let me = self.isched().current;
+
             if self.isched().mutexes.try_lock(addr, me, count) {
                 return Ok(());
             }
+
             self.wait_until(Wait::Mutex(addr), None)?;
         }
     }
@@ -547,6 +575,7 @@ impl Interp {
                     _ => self.inline_cond_enter(cond, mutex),
                 };
                 let outcome = self.wait_until(Wait::Cond(token), deadline);
+
                 if suspended(&outcome) {
                     self.set_resume(Resume::Cond {
                         token,
@@ -554,22 +583,28 @@ impl Interp {
                     });
                     return outcome.map(|_| 0);
                 }
+
                 let sched = self.isched();
+
                 sched.woken.remove(&token);
                 sched.cond_waiters.remove(cond, token);
                 (held, outcome?)
             }
         };
+
         if held > 0 {
             let relocked = self.inline_lock(mutex, held);
+
             if suspended(&relocked) {
                 self.set_resume(Resume::Relock {
                     held,
                     timed_out,
                 });
             }
+
             relocked?;
         }
+
         Ok(if timed_out {
             ETIMEDOUT
         } else {
@@ -583,6 +618,7 @@ impl Interp {
         let sched = self.isched();
         let held = sched.mutexes.release_all(mutex, me);
         let token = sched.next_token;
+
         sched.next_token += 1;
         sched.cond_waiters.enqueue(cond, token);
         (token, held)
@@ -594,6 +630,7 @@ impl Interp {
             woken,
             ..
         } = self.isched();
+
         cond_waiters.dequeue(cond, all, |token| {
             woken.insert(token);
         });
@@ -613,11 +650,13 @@ impl Interp {
             },
         };
         let outcome = self.wait_until(Wait::Time, Some(until));
+
         if suspended(&outcome) {
             self.set_resume(Resume::Sleep {
                 until,
             });
         }
+
         outcome.map(|_| 0)
     }
 
@@ -626,9 +665,11 @@ impl Interp {
         if let Some(Resume::Yield) = self.take_resume() {
             return Ok(());
         }
+
         if !self.can_suspend() || !self.isched().others_can_go_on() {
             return Ok(());
         }
+
         self.set_resume(Resume::Yield);
         self.suspend_as(Wait::None, None)
     }
@@ -642,7 +683,9 @@ impl Interp {
         if !self.multi || self.isched.is_none() {
             return Ok(0);
         }
+
         let resumed = matches!(self.take_resume(), Some(Resume::Yield));
+
         if let Some(now) = self.host.virtual_now_ns() {
             for rec in &mut self.isched().threads {
                 if rec.state == State::Suspended && rec.deadline.is_some_and(|at| at <= now) {
@@ -650,13 +693,16 @@ impl Interp {
                 }
             }
         }
+
         let can_suspend = self.can_suspend();
         let sched = self.isched();
         let me = sched.current;
+
         if !resumed && can_suspend && sched.order().any(|t| t != me && sched.ready(t)) {
             self.set_resume(Resume::Yield);
             return self.suspend_as(Wait::Host, None);
         }
+
         Ok(u64::from(self.isched().others_can_go_on()))
     }
 
@@ -672,13 +718,17 @@ impl Interp {
     /// runs deterministic and switches rare.
     pub(super) fn inline_preempt(&mut self, _program: &Program) -> Res<()> {
         let sched = self.isched();
+
         if sched.polls < POLLS_BEFORE_SWITCH {
             return Ok(());
         }
+
         sched.polls = 0;
+
         if !self.can_suspend() || !self.isched().others_can_go_on() {
             return Ok(());
         }
+
         self.suspend_as(Wait::None, None)
     }
 
@@ -687,6 +737,7 @@ impl Interp {
         let sched = self.isched();
         let me = sched.current;
         let rec = &mut sched.threads[me];
+
         rec.wait = wait;
         rec.deadline = deadline;
         self.suspend()
@@ -700,37 +751,47 @@ impl Interp {
         let sched = self.isched();
         let me = sched.current;
         let expired = std::mem::take(&mut sched.threads[me].expired);
+
         if sched.satisfied(me, wait) {
             return Ok(false);
         }
+
         if expired {
             return Ok(true);
         }
+
         let now = self.host.virtual_now_ns();
+
         if let (Some(at), Some(now)) = (deadline, now)
             && now >= at
         {
             return Ok(true);
         }
+
         let can_suspend = self.can_suspend();
         let sched = self.isched();
         let others_ready = sched.order().any(|t| t != me && sched.ready(t));
+
         if !others_ready || !can_suspend {
             // Nothing else runs before the clock moves: when this deadline comes first, it is
             // over now.
             let other = sched.earliest_deadline(Some(me)).map(|(at, _)| at);
+
             if let Some(at) = deadline
                 && (other.is_none_or(|o| at <= o) || !can_suspend)
             {
                 if let Some(now) = now {
                     self.host.advance_clock(at.saturating_sub(now));
                 }
+
                 return Ok(true);
             }
+
             if !can_suspend || !self.isched().others_can_go_on() {
                 return self.trap("deadlock: every thread is blocked");
             }
         }
+
         self.suspend_as(wait, deadline)
     }
 
@@ -742,13 +803,16 @@ impl Interp {
         mut result: Res<Rets>,
     ) -> Res<Rets> {
         let main = self.isched().current;
+
         loop {
             let current = self.isched().current;
+
             match result {
                 Err(trap) if trap.kind == Some(TrapKind::Suspended) => {
                     let frames = std::mem::take(&mut self.captured);
                     let exec = self.take_exec_state();
                     let rec = &mut self.isched().threads[current];
+
                     rec.frames = frames;
                     rec.exec = Some(exec);
                     rec.state = State::Suspended;
@@ -757,47 +821,58 @@ impl Interp {
                 Ok(rets) => {
                     let stack = self.take_exec_state().stack;
                     let sched = self.isched();
+
                     sched.threads[current].result = rets.first().copied().unwrap_or(0);
                     sched.finish(current);
                     sched.spare_stacks.push(stack);
                 }
                 Err(trap) => {
                     self.inline_back_to(main);
+
                     if current == main {
                         return Err(trap);
                     }
+
                     let at = trap
                         .loc
                         .map(|(_, line, col)| format!(" (line {line}, column {col})"))
                         .unwrap_or_default();
+
                     return Err(trap.map_message(|m| format!("runtime error in a thread: {m}{at}")));
                 }
             }
+
             let Some(next) = self.inline_pick() else {
                 // Report where the last thread to stop waits, or else where `main` does.
                 let sched = self.isched();
                 let loc_of = |t: usize| sched.threads[t].exec.as_ref().and_then(|e| e.loc);
                 let loc = loc_of(current).or_else(|| loc_of(main));
+
                 self.inline_back_to(main);
                 self.loc = loc;
+
                 return self.trap("deadlock: every thread is blocked");
             };
             let sched = self.isched();
+
             sched.current = next;
             sched.polls = 0;
             let rec = &mut sched.threads[next];
             let was = rec.state;
+
             rec.state = State::Running;
             rec.wait = Wait::None;
             rec.deadline = None;
             let (func, argument) = (rec.func, rec.argument);
             let frames = std::mem::take(&mut rec.frames);
             let exec = rec.exec.take();
+
             result = if was == State::Pending {
                 let stack = sched
                     .spare_stacks
                     .pop()
                     .map_or_else(|| self.new_stack(self.stack_bytes(THREAD_STACK) / 8), Ok)?;
+
                 self.put_exec_state(ExecState {
                     stack,
                     ..ExecState::default()
@@ -814,16 +889,21 @@ impl Interp {
     /// that is what lets one run. `None`: a deadlock.
     fn inline_pick(&mut self) -> Option<usize> {
         let sched = self.isched();
+
         if let Some(t) = sched.order().find(|&t| sched.ready(t)) {
             return Some(t);
         }
+
         if let Some((at, t)) = sched.earliest_deadline(None) {
             sched.threads[t].expired = true;
+
             if let Some(now) = self.host.virtual_now_ns() {
                 self.host.advance_clock(at.saturating_sub(now));
             }
+
             return Some(t);
         }
+
         let sched = self.isched();
         sched.order().find(|&t| sched.yielded(t))
     }
@@ -833,22 +913,29 @@ impl Interp {
     fn inline_back_to(&mut self, main: usize) {
         let sched = self.isched();
         let current = sched.current;
+
         sched.current = main;
         let live = self.take_exec_state();
+
         if current == main {
             self.put_exec_state(live);
         } else {
             let sched = self.isched();
+
             if sched.threads[current].state == State::Running {
                 sched.finish(current);
             }
+
             if !live.stack.is_empty() {
                 sched.spare_stacks.push(live.stack);
             }
         }
+
         let rec = &mut self.isched().threads[main];
+
         rec.state = State::Running;
         rec.frames.clear();
+
         if let Some(exec) = rec.exec.take() {
             self.put_exec_state(exec);
         }
@@ -860,6 +947,7 @@ impl Interp {
             .suspend_at
             .take()
             .expect("a suspending frame records where");
+
         self.captured.push(SuspFrame {
             exit,
             frame,
@@ -871,10 +959,12 @@ impl Interp {
     /// Restore trace/context/call state before releasing a compiler-owned wait.
     pub(super) fn unwind_compile_frames(&mut self, program: &Program, frames: Vec<SuspFrame>) {
         let mut result = Err(Trap::new("compile-time dependency cancelled"));
+
         for frame in frames {
             let func = program.funcs[frame.exit.id.0 as usize]
                 .as_ref()
                 .expect("suspended compiler frames retain their bodies");
+
             result = self.leave_frame(func, frame.exit, result);
         }
     }
@@ -884,6 +974,7 @@ impl Interp {
     pub(super) fn resume_frames(&mut self, program: &Program, frames: Vec<SuspFrame>) -> Res<Rets> {
         let mut rets: Option<Rets> = None;
         let mut frames = frames.into_iter();
+
         while let Some(mut f) = frames.next() {
             let func = program.funcs[f.exit.id.0 as usize]
                 .as_ref()
@@ -892,15 +983,19 @@ impl Interp {
             let frame = unsafe { &*f.frame };
             let regs = frame.regs(f.stack_base);
             let mut op = f.at;
+
             if let Some(rets) = rets.take() {
                 for (r, &v) in frame.code.call_results(func, op).iter().zip(rets.iter()) {
                     // SAFETY: a register of the frame, which `enter` made room for.
                     unsafe { *regs.add(*r as usize) = v };
                 }
+
                 op += 1;
             }
+
             (self.frame_blocks, self.frame_insts) = (0, 0);
             let result = self.run_code(program, func, frame, f.stack_base, regs, Some(op));
+
             if suspended(&result) {
                 f.at = self
                     .suspend_at
@@ -908,23 +1003,29 @@ impl Interp {
                     .expect("a suspending frame records where");
                 self.captured.push(f);
                 self.captured.extend(frames);
+
                 return result.map(|_| Rets::default());
             }
+
             match self.leave_frame(func, f.exit, result) {
                 Ok(n) => {
                     // SAFETY: the frame's callee left `n` results at the start of its registers.
                     let results = unsafe { std::slice::from_raw_parts(regs, n as usize) };
+
                     rets = Some(Rets::collect(results.iter().copied()));
                 }
                 Err(mut trap) => {
                     for f in frames {
                         let func = program.funcs[f.exit.id.0 as usize].as_ref().unwrap();
+
                         trap = self.leave_frame(func, f.exit, Err(trap)).unwrap_err();
                     }
+
                     return Err(trap);
                 }
             }
         }
+
         Ok(rets.unwrap_or_default())
     }
 }
@@ -939,6 +1040,7 @@ mod tests {
         let ids: Vec<usize> = (0..3)
             .map(|n| sched.add(ThreadRec::new(FuncId(0), n, State::Pending)))
             .collect();
+
         assert_eq!(ids, [1, 2, 3]);
         assert_eq!(sched.order().collect::<Vec<_>>(), [1, 2, 3, 0]);
         // One thread ended with its handle gone (slot free), one ended with its handle kept.
@@ -950,6 +1052,7 @@ mod tests {
         assert_eq!(sched.order().collect::<Vec<_>>(), [0, 3]);
         // A new thread takes the free slot and is scanned again.
         let again = sched.add(ThreadRec::new(FuncId(0), 9, State::Pending));
+
         assert_eq!(again, 1);
         assert_eq!(sched.order().collect::<Vec<_>>(), [0, 1, 3]);
     }

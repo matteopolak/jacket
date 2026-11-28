@@ -28,32 +28,42 @@ impl Parser<'_> {
     pub(super) fn parse_asm(&mut self) -> PResult<Expr> {
         let start = self.bump();
         let mut features = Vec::new();
+
         while !self.at(P::LBrace) {
             features.push(self.ident("as an `#asm` feature name or `{`")?);
+
             if !self.eat(P::Comma) {
                 break;
             }
         }
+
         self.expect(P::LBrace, "after `#asm`")?;
         let mut items = Vec::new();
+
         loop {
             if self.eat(P::Semi) {
                 continue;
             }
+
             if self.at(P::RBrace) {
                 break;
             }
+
             if self.at_eof() {
                 return Err(
                     self.error(Code::ParseUnterminatedAsmBlock, "unterminated `#asm` block")
                 );
             }
+
             items.push(self.parse_asm_item()?);
+
             if !self.at(P::RBrace) {
                 self.expect(P::Semi, "after the `#asm` instruction")?;
             }
         }
+
         let end = self.bump();
+
         Ok(mk(
             ExprKind::Asm(Arc::new(AsmBlock {
                 features,
@@ -74,20 +84,25 @@ impl Parser<'_> {
         if matches!(self.tok(), Tok::Ident(_)) && (self.at_n(1, P::Colon) || self.at_asm_pin(1)) {
             return Ok(AsmItem::Decl(self.parse_asm_decl()?));
         }
+
         let mnemonic = self.ident("as an instruction mnemonic")?;
         let size = self.parse_asm_size()?;
         let mut operands = Vec::new();
         let mut evex = AsmEvex::default();
+
         if !self.at(P::Semi) && !self.at(P::RBrace) {
             loop {
                 let mut operand = self.parse_asm_operand()?;
+
                 self.parse_asm_evex(&mut operand, &mut evex)?;
                 operands.push(operand);
+
                 if !self.eat(P::Comma) {
                     break;
                 }
             }
         }
+
         Ok(AsmItem::Inst(AsmInst {
             mnemonic,
             size,
@@ -101,11 +116,14 @@ impl Parser<'_> {
     fn parse_asm_evex(&mut self, operand: &mut AsmOperand, evex: &mut AsmEvex) -> PResult<()> {
         if self.at(P::Bang) {
             let bang = self.span();
+
             self.bump();
+
             if let AsmOperand::Mem(m) = operand {
                 m.broadcast = true;
             } else {
                 let mut mode = None;
+
                 if let Tok::Ident(name) = self.tok().clone()
                     && self.span().start == bang.end
                     && matches!(name.as_str(), "n" | "d" | "u" | "z")
@@ -113,14 +131,18 @@ impl Parser<'_> {
                     self.bump();
                     mode = name.as_str().chars().next();
                 }
+
                 evex.round = Some(mode);
             }
         }
+
         if self.eat(P::Amp) {
             let zeroing = self.eat(P::Star);
             let mask = self.parse_asm_operand()?;
+
             evex.mask = Some((Box::new(mask), zeroing));
         }
+
         Ok(())
     }
 
@@ -133,18 +155,24 @@ impl Parser<'_> {
                 Tok::Int(bits) => Sym::intern(&bits.to_string()),
                 _ => return Err(self.expected("operand size", "after `.`")),
             };
+
             self.bump();
+
             return Ok(Some(AsmSize::Suffix(Ident {
                 name,
                 span,
             })));
         }
+
         if self.eat(P::Question) {
             let outer = std::mem::replace(&mut self.in_asm_size, true);
             let size = self.parse_unary();
+
             self.in_asm_size = outer;
+
             return Ok(Some(AsmSize::Dynamic(Box::new(size?))));
         }
+
         Ok(None)
     }
 
@@ -152,9 +180,11 @@ impl Parser<'_> {
         if self.at(P::LBracket) {
             return self.parse_asm_mem();
         }
+
         if matches!(self.tok(), Tok::Ident(_)) && self.at_n(1, P::Colon) {
             return Ok(AsmOperand::Decl(self.parse_asm_decl()?));
         }
+
         Ok(AsmOperand::Value(self.parse_unary()?))
     }
 
@@ -184,6 +214,7 @@ impl Parser<'_> {
         } else {
             None
         };
+
         Ok(AsmDecl {
             name,
             colon,
@@ -197,6 +228,7 @@ impl Parser<'_> {
         let start = self.bump();
         let mut terms = Vec::new();
         let mut negate = self.eat(P::Minus);
+
         loop {
             let value = self.parse_unary()?;
             let scale = if self.eat(P::Star) {
@@ -204,11 +236,13 @@ impl Parser<'_> {
             } else {
                 None
             };
+
             terms.push(AsmMemTerm {
                 negate,
                 value,
                 scale,
             });
+
             if self.eat(P::Plus) {
                 negate = false;
             } else if self.eat(P::Minus) {
@@ -217,7 +251,9 @@ impl Parser<'_> {
                 break;
             }
         }
+
         let end = self.expect(P::RBracket, "to close the memory operand")?;
+
         Ok(AsmOperand::Mem(AsmMem {
             terms,
             broadcast: false,

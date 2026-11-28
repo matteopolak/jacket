@@ -54,16 +54,21 @@ impl<'a> Calls<'a> {
             callees: Vec::new(),
             values: std::cell::OnceCell::new(),
         };
+
         if body.blocks.is_empty() {
             return out;
         }
+
         let mut queue = vec![0];
         let mut visited = HashSet::default();
+
         while let Some(i) = queue.pop() {
             if !visited.insert(i) {
                 continue;
             }
+
             let mut stopped = false;
+
             for event in &body.blocks[i].events {
                 if let Event::Call {
                     callee,
@@ -74,6 +79,7 @@ impl<'a> Calls<'a> {
                 {
                     out.callees.push(*callee);
                     out.sites.push((*callee, args));
+
                     if all
                         .get(callee)
                         .is_some_and(|s| s.normal_return == Some(false))
@@ -83,10 +89,12 @@ impl<'a> Calls<'a> {
                     }
                 }
             }
+
             if !stopped {
                 queue.extend(&body.blocks[i].successors);
             }
         }
+
         out.callees.sort_unstable_by_key(|p| p.0);
         out.callees.dedup();
         out
@@ -97,8 +105,10 @@ impl<'a> Calls<'a> {
         let mut remaining = vec![usize::MAX; self.body.blocks.len()];
         let mut predecessors = vec![Vec::new(); self.body.blocks.len()];
         let mut queue = std::collections::VecDeque::new();
+
         for (i, block) in self.body.blocks.iter().enumerate() {
             let mut stopped = false;
+
             for event in &block.events {
                 if let Event::Call {
                     callee,
@@ -110,45 +120,56 @@ impl<'a> Calls<'a> {
                     if summary.observable.exit {
                         proved[i] = true;
                         queue.push_back(i);
+
                         break;
                     }
+
                     if summary.normal_return == Some(false) {
                         stopped = true;
                         break;
                     }
                 }
             }
+
             if !proved[i] && !stopped && !block.normal_return && !block.successors.is_empty() {
                 remaining[i] = block.successors.len();
+
                 for &next in &block.successors {
                     predecessors[next].push(i);
                 }
             }
         }
+
         while let Some(i) = queue.pop_front() {
             for &previous in &predecessors[i] {
                 if proved[previous] {
                     continue;
                 }
+
                 remaining[previous] -= 1;
+
                 if remaining[previous] == 0 {
                     proved[previous] = true;
                     queue.push_back(previous);
                 }
             }
         }
+
         proved.first().copied().unwrap_or(false)
     }
 
     pub fn infer(&self, all: &HashMap<ProcId, Summary>) -> Observable {
         let mut out = Observable::default();
+
         for &(callee, args) in &self.sites {
             let through = all.get(&callee).map(|s| s.observable).unwrap_or_default();
+
             for formal in output_formal(self.compiler, callee)
                 .into_iter()
                 .chain(through.output_formals())
             {
                 let values = self.values.get_or_init(|| Values::new(self.body));
+
                 match values.output(self.compiler, formal, args) {
                     Reaches::Output => out.output = true,
                     Reaches::Formal(k) if k < 64 => out.output_through |= 1 << k,
@@ -156,11 +177,13 @@ impl<'a> Calls<'a> {
                 }
             }
         }
+
         for p in &self.callees {
             if let Some(s) = all.get(p) {
                 out.include(s.observable);
             }
         }
+
         // An error path that aborts does not make an ordinary printing call an
         // exit operation. Every path must cross an exit, including divergent paths.
         out.exit = out.exit && self.always_exits(all);
@@ -206,6 +229,7 @@ impl<'a> Values<'a> {
             stores: HashMap::default(),
             exposed: HashSet::default(),
         };
+
         for e in body.blocks.iter().flat_map(|b| &b.events) {
             match e {
                 Event::Parameter {
@@ -224,6 +248,7 @@ impl<'a> Values<'a> {
                     ..
                 } => {
                     out.stores.entry(*place).or_default().push(*value);
+
                     if let Some(n) = constant {
                         out.defs.entry(*value).or_default().push(Def::Constant(*n));
                     }
@@ -259,6 +284,7 @@ impl<'a> Values<'a> {
                 _ => {}
             }
         }
+
         out
     }
 
@@ -270,6 +296,7 @@ impl<'a> Values<'a> {
             .constant
             .map(|v| Value::Numbers(vec![v]))
             .or_else(|| super::value(arg).and_then(|v| self.get(c, v, &mut HashSet::default(), 0)));
+
         match actual {
             Some(Value::Numbers(v)) if !v.is_empty() && v.iter().all(|v| matches!(v, 1 | 2)) => {
                 Reaches::Output
@@ -284,8 +311,10 @@ impl<'a> Values<'a> {
         if depth > 24 || !seen.insert(v) {
             return None;
         }
+
         let result = (|| {
             let mut result = None;
+
             for d in self.defs.get(&v)? {
                 let selected = match d {
                     Def::Constant(n) => Value::Numbers(vec![*n]),
@@ -295,10 +324,13 @@ impl<'a> Values<'a> {
                         if self.exposed.contains(p) {
                             return None;
                         }
+
                         let mut value = None;
+
                         for v in self.stores.get(p)? {
                             merge(&mut value, self.get(c, *v, seen, depth + 1)?)?;
                         }
+
                         value?
                     }
                     Def::Call(p, args)
@@ -313,19 +345,24 @@ impl<'a> Values<'a> {
                         let Value::Numbers(numbers) = actual else {
                             return None;
                         };
+
                         if numbers.is_empty()
                             || !numbers.iter().all(|v| matches!(*v as i32, -11 | -12))
                         {
                             return None;
                         }
+
                         Value::OutputHandle
                     }
                     Def::Call(..) => return None,
                 };
+
                 merge(&mut result, selected)?;
             }
+
             result
         })();
+
         seen.remove(&v);
         result
     }
@@ -338,6 +375,7 @@ fn merge(into: &mut Option<Value>, value: Value) -> Option<()> {
             a.extend(b);
             a.sort_unstable();
             a.dedup();
+
             if a.len() > 8 {
                 return None;
             }
@@ -346,5 +384,6 @@ fn merge(into: &mut Option<Value>, value: Value) -> Option<()> {
         (Some(Value::Formal(a)), Value::Formal(b)) if *a == b => {}
         _ => return None,
     }
+
     Some(())
 }

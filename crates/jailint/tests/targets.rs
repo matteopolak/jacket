@@ -7,9 +7,11 @@ use test_support::TempDir;
 
 fn fixture(name: &str) -> TempDir {
     let root = TempDir::new(name);
+
     for dir in ["stdlib/prelude", "stdlib/Runtime_Support", "app"] {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }
+
     std::fs::write(root.join("stdlib/prelude/module.jai"), "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }").unwrap();
     // A runtime that, like the real one, exports the system entry point that calls `main`.
     std::fs::write(root.join("stdlib/Runtime_Support/module.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool); program_entry :: () -> s32 #entry_point; #if DEFINE_SYSTEM_ENTRY_POINT { #program_export \"main\" runtime_entry :: () -> s32 { return program_entry(); } }").unwrap();
@@ -29,6 +31,7 @@ fn lint(root: &Path, flags: &[&str], path: &str) -> Output {
 fn expect(output: Output, code: i32) -> (String, String) {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
+
     assert_eq!(output.status.code(), Some(code), "{stdout}\n{stderr}");
     (stdout, stderr)
 }
@@ -36,6 +39,7 @@ fn expect(output: Output, code: i32) -> (String, String) {
 #[test]
 fn relative_include_roots_are_relative_to_invocation_not_each_source() {
     let root = fixture("relative-includes");
+
     std::fs::create_dir_all(root.join("external/Probe")).unwrap();
     std::fs::write(
         root.join("external/Probe/module.jai"),
@@ -66,7 +70,9 @@ fn relative_include_roots_are_relative_to_invocation_not_each_source() {
         0,
     );
     let (_, stderr) = expect(lint(&root, &[], "app/main.jai"), 1);
+
     assert!(stderr.contains("Probe"), "{stderr}");
+
     for include in ["external", "./external", "app/../external"] {
         expect(
             lint(&root, &["-I", include, "-D", "warnings"], "app/main.jai"),
@@ -81,6 +87,7 @@ fn relative_include_roots_are_relative_to_invocation_not_each_source() {
             0,
         );
     }
+
     // A missing invocation-relative root must not resolve a source-relative shadow.
     std::fs::create_dir_all(root.join("app/missing/Probe")).unwrap();
     std::fs::write(
@@ -89,6 +96,7 @@ fn relative_include_roots_are_relative_to_invocation_not_each_source() {
     )
     .unwrap();
     let (_, stderr) = expect(lint(&root, &["-I", "missing"], "app/main.jai"), 1);
+
     assert!(stderr.contains("Probe"), "{stderr}");
     std::fs::write(
         root.join("external/Probe/module.jai"),
@@ -96,6 +104,7 @@ fn relative_include_roots_are_relative_to_invocation_not_each_source() {
     )
     .unwrap();
     let (_, stderr) = expect(lint(&root, &["-I", "external"], "app/main.jai"), 1);
+
     assert!(stderr.contains("unresolved_body"), "{stderr}");
 }
 
@@ -114,6 +123,7 @@ fn selected_target_branches_check_with_unchanged_compiler_host() {
         | jaic::target::TargetCpu::Avr
         | jaic::target::TargetCpu::Wasm => "CUSTOM",
     };
+
     for (flags, os, cpu) in [
         (vec!["-os", "windows", "-cpu", "x64"], "WINDOWS", "X64"),
         (vec!["-os", "windows", "-cpu", "arm64"], "WINDOWS", "ARM64"),
@@ -134,6 +144,7 @@ fn selected_target_branches_check_with_unchanged_compiler_host() {
         )
         .unwrap();
         let (_, stderr) = expect(lint(&root, &flags, "app/main.jai"), 1);
+
         assert!(stderr.contains("missing_target_body"), "{stderr}");
     }
 }
@@ -141,6 +152,7 @@ fn selected_target_branches_check_with_unchanged_compiler_host() {
 #[test]
 fn active_branch_produces_real_lints_and_inactive_invalid_body_stays_inactive() {
     let root = fixture("findings");
+
     std::fs::write(root.join("app/main.jai"), "main :: () { #if OS == .WINDOWS { target_unused := 1; } else { non_windows_unused := 2; } } #if OS != .WINDOWS { broken :: () { unavailable_other_target(); } }").unwrap();
     let (stdout, stderr) = expect(
         lint(
@@ -150,6 +162,7 @@ fn active_branch_produces_real_lints_and_inactive_invalid_body_stays_inactive() 
         ),
         1,
     );
+
     assert!(
         stdout.contains("unused variable `target_unused`"),
         "{stdout}{stderr}"
@@ -160,12 +173,14 @@ fn active_branch_produces_real_lints_and_inactive_invalid_body_stays_inactive() 
     );
     assert!(!stderr.contains("did not compile completely"), "{stderr}");
     let (_, stderr) = expect(lint(&root, &["-os", "linux"], "app/main.jai"), 1);
+
     assert!(stderr.contains("unavailable_other_target"), "{stderr}");
 }
 
 #[test]
 fn triples_override_flags_and_invalid_targets_fail_as_usage_errors() {
     let root = fixture("triples");
+
     std::fs::write(
         root.join("app/main.jai"),
         "#assert OS == .WINDOWS; #assert CPU == .ARM64; main :: () {}",
@@ -186,6 +201,7 @@ fn triples_override_flags_and_invalid_targets_fail_as_usage_errors() {
         ),
         0,
     );
+
     for flags in [
         vec!["-os", "linxu"],
         vec!["-cpu", "sparc"],
@@ -201,6 +217,7 @@ fn triples_override_flags_and_invalid_targets_fail_as_usage_errors() {
     ] {
         expect(lint(&root, &flags, "app/main.jai"), 2);
     }
+
     for flag in ["-os", "-cpu", "-target", "--context", "--manifest"] {
         // No source argument: otherwise it is legitimately consumed as the option value.
         let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
@@ -210,6 +227,7 @@ fn triples_override_flags_and_invalid_targets_fail_as_usage_errors() {
             .output()
             .unwrap();
         let (_, stderr) = expect(output, 2);
+
         assert!(stderr.contains(&format!("`{flag}` needs ")), "{stderr}");
     }
 }
@@ -217,11 +235,14 @@ fn triples_override_flags_and_invalid_targets_fail_as_usage_errors() {
 #[test]
 fn driver_preserves_supplied_source_runtime_and_target_options() {
     let root = fixture("compiler-options");
+
     std::fs::create_dir_all(root.join("configured/prelude")).unwrap();
     let preload = root.join("configured/prelude/module.jai");
+
     std::fs::write(&preload, "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; } selected_bootstrap :: 73;").unwrap();
     std::fs::write(root.join("app/main.jai"), "#assert selected_bootstrap == 73; #assert OS == .LINUX; #assert CPU == .ARM64; main :: () {}").unwrap();
     let mut compiler_options = jaic::sema::Options::host();
+
     compiler_options.preload = Some(preload);
     compiler_options.runtime_support = false;
     jaic::target::Selection {
@@ -245,6 +266,7 @@ fn driver_preserves_supplied_source_runtime_and_target_options() {
         overlay: std::collections::BTreeMap::new(),
     };
     let result = jailint::driver::run(&options);
+
     assert!(result.incomplete.is_empty(), "{:?}", result.incomplete);
     assert_eq!(result.contexts.len(), 1);
     assert!(result.contexts[0].complete);
@@ -255,6 +277,7 @@ fn driver_preserves_supplied_source_runtime_and_target_options() {
 #[test]
 fn target_manifest_retains_config_source_and_required_parameter_failure() {
     let root = fixture("config-required");
+
     std::fs::create_dir_all(root.join("Required")).unwrap();
     std::fs::write(
         root.join("Required/module.jai"),
@@ -281,9 +304,11 @@ fn target_manifest_retains_config_source_and_required_parameter_failure() {
         ),
         1,
     );
+
     assert!(stderr.contains("MODE"), "{stderr}");
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("required.json")).unwrap()).unwrap();
+
     assert!(
         manifest["config_source"]
             .as_str()
@@ -296,9 +321,11 @@ fn target_manifest_retains_config_source_and_required_parameter_failure() {
 #[test]
 fn parallel_roots_and_fix_passes_keep_the_selected_target() {
     let root = fixture("parallel-fix");
+
     for name in ["one", "two"] {
         std::fs::write(root.join(format!("app/{name}.jai")), "#assert OS == .WINDOWS; #assert CPU == .ARM64; main :: () { #if OS == .WINDOWS { target_unused := 1; } else { unavailable_host_branch(); } }").unwrap();
     }
+
     expect(
         lint(
             &root,
@@ -320,13 +347,16 @@ fn parallel_roots_and_fix_passes_keep_the_selected_target() {
     );
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("parallel.json")).unwrap()).unwrap();
+
     assert_eq!(manifest["roots"], 2);
     assert_eq!(manifest["contexts"].as_array().unwrap().len(), 2);
+
     for context in manifest["contexts"].as_array().unwrap() {
         assert_eq!(context["os"], "windows");
         assert_eq!(context["cpu"], "arm64");
         assert_eq!(context["complete"], true);
     }
+
     expect(
         lint(
             &root,
@@ -344,6 +374,7 @@ fn parallel_roots_and_fix_passes_keep_the_selected_target() {
         0,
     );
     let fixed = std::fs::read_to_string(root.join("app/one.jai")).unwrap();
+
     assert!(!fixed.contains("target_unused"));
     assert!(
         fixed.contains("unavailable_host_branch"),
@@ -354,6 +385,7 @@ fn parallel_roots_and_fix_passes_keep_the_selected_target() {
 #[test]
 fn real_child_workspace_inherits_target_and_records_its_body_check() {
     let root = fixture("workspace-target");
+
     // Exercise the public compiler operations, independent of the real stdlib.
     std::fs::write(
         root.join("app/build.jai"),
@@ -403,6 +435,7 @@ fn real_child_workspace_inherits_target_and_records_its_body_check() {
                     .any(|path| path.as_str().unwrap().ends_with("child.jai"))
         })
         .expect("real child workspace must be visited under the builder root");
+
     assert_eq!(child["os"], "windows");
     assert_eq!(child["cpu"], "arm64");
     assert_eq!(child["complete"], true);
@@ -426,12 +459,14 @@ fn real_child_workspace_inherits_target_and_records_its_body_check() {
         ),
         1,
     );
+
     assert!(stderr.contains("missing_child_body"), "{stderr}");
 }
 
 #[test]
 fn explicit_program_context_supplies_real_module_arguments_without_changing_privacy() {
     let root = fixture("explicit-context");
+
     std::fs::create_dir_all(root.join("stdlib/Public")).unwrap();
     std::fs::write(
         root.join("stdlib/Public/module.jai"),
@@ -461,6 +496,7 @@ fn explicit_program_context_supplies_real_module_arguments_without_changing_priv
         ),
         1,
     );
+
     assert!(
         stdout.contains("unused variable `context_unused`"),
         "{stdout}{stderr}"
@@ -492,6 +528,7 @@ fn explicit_program_context_supplies_real_module_arguments_without_changing_priv
         ),
         1,
     );
+
     assert!(stderr.contains("private"), "{stderr}");
     std::fs::write(root.join("app/context.jai"), "main :: () {}").unwrap();
     let (_, stderr) = expect(
@@ -509,18 +546,21 @@ fn explicit_program_context_supplies_real_module_arguments_without_changing_priv
         ),
         1,
     );
+
     assert!(stderr.contains("did not visit requested file"), "{stderr}");
 }
 
 #[test]
 fn target_reaches_loaded_private_configured_module_and_preserves_privacy() {
     let root = fixture("private-loaded");
+
     std::fs::create_dir_all(root.join("stdlib/internal/Probe")).unwrap();
     std::fs::write(root.join("stdlib/internal/Probe/module.jai"), "#module_parameters(MODE:int); #assert MODE == 7; #if OS == .WINDOWS { #load \"windows.jai\"; } else { #assert false; }").unwrap();
     std::fs::write(root.join("stdlib/internal/Probe/windows.jai"), "#scope_file #assert CPU == .ARM64; hidden :: () -> int #no_context { return MODE; } #scope_export read :: () -> int #no_context { unused_platform_local := 1; return hidden(); }").unwrap();
     std::fs::write(root.join("stdlib/Runtime_Support/module.jai"), "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool); #scope_file H :: #import \"internal/Probe\"(MODE=7); #program_export \"marker\" marker :: () -> int #c_call { return H.read(); }").unwrap();
     let flags = ["-os", "windows", "-cpu", "arm64", "-D", "warnings"];
     let (stdout, stderr) = expect(lint(&root, &flags, "stdlib/internal/Probe/windows.jai"), 1);
+
     assert!(
         stdout.contains("unused variable `unused_platform_local`"),
         "{stdout}{stderr}"
@@ -532,12 +572,14 @@ fn target_reaches_loaded_private_configured_module_and_preserves_privacy() {
     )
     .unwrap();
     let (_, stderr) = expect(lint(&root, &flags, "app/main.jai"), 1);
+
     assert!(stderr.contains("private"), "{stderr}");
 }
 
 #[test]
 fn manifest_records_real_checked_contexts_and_unvisited_conditional_loads() {
     let root = fixture("manifest");
+
     std::fs::create_dir_all(root.join("Pkg")).unwrap();
     std::fs::write(
         root.join("Pkg/module.jai"),
@@ -571,10 +613,12 @@ fn manifest_records_real_checked_contexts_and_unvisited_conditional_loads() {
     );
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("coverage.json")).unwrap()).unwrap();
+
     assert_eq!(manifest["target"]["os"], "windows");
     assert_eq!(manifest["target"]["cpu"], "arm64");
     assert_eq!(manifest["contexts"][0]["complete"], true);
     let visited = manifest["contexts"][0]["visited_files"].as_array().unwrap();
+
     assert!(
         visited
             .iter()
@@ -602,6 +646,7 @@ fn manifest_records_real_checked_contexts_and_unvisited_conditional_loads() {
     );
     let manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(root.join("failure.json")).unwrap()).unwrap();
+
     assert!(
         manifest["contexts"]
             .as_array()

@@ -12,8 +12,10 @@ fn runtime_bounds_check_names_the_check_and_the_call_stack() {
         "-interp",
         &[],
     );
+
     assert_eq!(output.status.code(), Some(1));
     let text = stderr(&output);
+
     assert_in_order(
         &text,
         &[
@@ -42,6 +44,7 @@ fn failure_inside_the_stdlib_points_at_the_users_call() {
         "-interp",
         &[],
     );
+
     assert_eq!(output.status.code(), Some(1));
     assert_in_order(
         &stderr(&output),
@@ -70,6 +73,7 @@ fn crash_in_native_code_names_the_foreign_call() {
         "-interp",
         &[],
     );
+
     assert_eq!(run.status.code(), Some(121), "{}", stderr(&run));
     assert_in_order(
         &stderr(&run),
@@ -89,6 +93,7 @@ fn crash_in_native_code_names_the_foreign_call() {
         "-check",
         &[],
     );
+
     assert_eq!(compile_time.status.code(), Some(121));
     assert_in_order(
         &stderr(&compile_time),
@@ -108,6 +113,7 @@ fn failure_in_a_procedure_called_from_c_says_where() {
     let dir = TempDir::new("callback-trap");
     let source = "libc :: #system_library \"libc\";\nqsort :: (base: *void, n: u64, size: u64, compare: (*void, *void) -> s32 #c_call) #foreign libc;\ncompare :: (a: *void, b: *void) -> s32 #c_call {\n    x: [2] s32;\n    i := 5;\n    return x[i];\n}\nmain :: () {\n    a := int.[3, 1, 2];\n    qsort(a.data, 3, 8, compare);\n}\n";
     let run = jaic_on(&dir, "callback.jai", source, "-interp", &[]);
+
     assert_eq!(run.status.code(), Some(1), "{}", stderr(&run));
     assert_in_order(
         &stderr(&run),
@@ -128,6 +134,7 @@ fn crash_on_a_c_thread_is_not_blamed_on_another_call() {
     let source = "libc :: #system_library \"libc\";\npthread_create :: (thread: *u64, attributes: *void, start: *void, argument: *void) -> s32 #foreign libc;\npthread_join :: (thread: u64, result: **void) -> s32 #foreign libc;\nmain :: () {\n    thread: u64;\n    pthread_create(*thread, null, cast(*void) 16, null);\n    pthread_join(thread, null);\n}\n";
     let run = jaic_on(&dir, "thread.jai", source, "-interp", &[]);
     let err = stderr(&run);
+
     assert!(!run.status.success(), "{err}");
     assert_ne!(run.status.code(), Some(121), "{err}");
     assert!(!err.contains("native code crashed"), "{err}");
@@ -144,6 +151,7 @@ fn cast_and_switch_checks_say_which_value() {
         "-interp",
         &[],
     );
+
     assert_eq!(cast.status.code(), Some(1));
     assert_in_order(
         &stderr(&cast),
@@ -160,6 +168,7 @@ fn cast_and_switch_checks_say_which_value() {
         "-interp",
         &[],
     );
+
     assert_in_order(
         &stderr(&signed),
         &[
@@ -167,6 +176,7 @@ fn cast_and_switch_checks_say_which_value() {
             "help: `s8` holds -128 to 127;",
         ],
     );
+
     // A change of sign is checked at the same width, and `xx` is checked like `cast`.
     for (name, body, message) in [
         (
@@ -187,9 +197,11 @@ fn cast_and_switch_checks_say_which_value() {
             "-interp",
             &[],
         );
+
         assert_eq!(run.status.code(), Some(1));
         assert!(stderr(&run).contains(message), "{}", stderr(&run));
     }
+
     let switch = jaic_on(
         &dir,
         "switch.jai",
@@ -197,6 +209,7 @@ fn cast_and_switch_checks_say_which_value() {
         "-interp",
         &[],
     );
+
     assert_eq!(switch.status.code(), Some(1));
     assert_in_order(
         &stderr(&switch),
@@ -217,6 +230,7 @@ fn null_pointer_and_missing_return_and_recursion() {
         "-interp",
         &[],
     );
+
     assert_in_order(
         &stderr(&null),
         &[
@@ -232,6 +246,7 @@ fn null_pointer_and_missing_return_and_recursion() {
         "-interp",
         &[],
     );
+
     assert_eq!(boxed.status.code(), Some(0), "{}", stderr(&boxed));
     assert!(stderr(&boxed).is_empty(), "{}", stderr(&boxed));
     assert!(boxed.stdout.is_empty());
@@ -242,6 +257,7 @@ fn null_pointer_and_missing_return_and_recursion() {
         "-interp",
         &[],
     );
+
     assert_in_order(
         &stderr(&missing),
         &[
@@ -257,6 +273,7 @@ fn null_pointer_and_missing_return_and_recursion() {
         &[],
     );
     let text = stderr(&deep);
+
     assert_in_order(
         &text,
         &[
@@ -279,8 +296,10 @@ fn compile_time_failure_shows_user_code_and_the_run_site() {
         "-check",
         &[],
     );
+
     assert_eq!(output.status.code(), Some(1));
     let text = stderr(&output);
+
     assert_in_order(
         &text,
         &[
@@ -304,14 +323,17 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         "-interp",
         &[],
     );
+
     assert_eq!(output.status.code(), Some(1));
     let text = stderr(&output);
+
     assert_eq!(
         text.lines().next().map(|l| l.rsplit('/').next().unwrap()),
         Some("a.jai:4:5: error[runtime-error]: runtime error: assertion failed: x was 3"),
         "{text}"
     );
     assert_in_order(&text, &["    assert(x == 4, \"x was %\", x);"]);
+
     for noise in [
         "debug_break",
         "Stack trace",
@@ -321,6 +343,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
     ] {
         assert!(!text.contains(noise), "{noise}: {text}");
     }
+
     // Without a message, the condition from the source; the callers below it.
     let output = jaic_on(
         &dir,
@@ -329,6 +352,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         "-interp",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -348,6 +372,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         "-interp",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -362,6 +387,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         "-interp",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &["assertion failed: `(flags & 1) == 0` is false"],
@@ -375,6 +401,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         &[],
     );
     let text = stderr(&output);
+
     assert_in_order(
         &text,
         &[
@@ -391,6 +418,7 @@ fn failed_assert_reports_the_users_line_not_debug_break() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[

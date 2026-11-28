@@ -13,6 +13,7 @@ pub fn strip_experimental(doc: &str) -> (String, bool) {
     if !doc.lines().any(tag_line) {
         return (doc.to_owned(), false);
     }
+
     let kept: Vec<&str> = doc.lines().filter(|l| !tag_line(l)).collect();
     (kept.join("\n").trim().to_owned(), true)
 }
@@ -22,6 +23,7 @@ pub fn noted(doc: &str) -> Cow<'_, str> {
     if !doc.lines().any(tag_line) {
         return Cow::Borrowed(doc);
     }
+
     let lines: Vec<&str> = doc
         .lines()
         .map(|l| {

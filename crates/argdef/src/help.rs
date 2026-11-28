@@ -53,11 +53,13 @@ impl Spec {
     pub fn help(&self) -> Help {
         let meta = &self.meta;
         let mut titles: Vec<&str> = meta.sections.to_vec();
+
         for opt in self.opts.iter().filter(|o| o.listed()) {
             if !titles.contains(&opt.section) {
                 titles.push(opt.section);
             }
         }
+
         let sections = titles
             .into_iter()
             .map(|title| {
@@ -70,6 +72,7 @@ impl Spec {
                         text: o.help.to_string(),
                     })
                     .collect();
+
                 (
                     if title.is_empty() {
                         "Options"
@@ -82,6 +85,7 @@ impl Spec {
             })
             .filter(|(_, rows)| !rows.is_empty())
             .collect();
+
         Help {
             name: meta.name.to_string(),
             version: meta.version.to_string(),
@@ -135,6 +139,7 @@ impl Help {
             .iter()
             .position(|(t, _)| t == before)
             .unwrap_or(self.sections.len());
+
         self.sections.insert(at, (title.to_string(), rows));
         self
     }
@@ -183,34 +188,42 @@ impl Help {
         };
         let mut out = String::new();
         let mut title = self.name.clone();
+
         if !self.version.is_empty() {
             title.push(' ');
             title.push_str(&self.version);
         }
+
         if !self.about.is_empty() {
             title.push_str(": ");
             title.push_str(&self.about);
         }
+
         out.push_str(&paint(BOLD, &title));
         out.push_str("\n\n");
+
         if !self.usage.is_empty() {
             out.push_str(&paint(HEADING, "Usage:"));
             out.push(' ');
             out.push_str(&paint(BOLD, &self.usage));
             out.push_str("\n\n");
         }
+
         if !self.description.is_empty() {
             out.push_str(&self.description);
             out.push_str("\n\n");
         }
+
         for (title, rows) in &self.sections {
             out.push_str(&paint(HEADING, &format!("{title}:")));
             out.push('\n');
+
             for row in rows {
                 let mut lines = row.text.lines();
                 let first = lines.next().unwrap_or_default();
                 let width = row.label.chars().count();
                 let label = paint(BOLD, &row.label);
+
                 if width <= LABEL_WIDTH {
                     out.push_str(&format!(
                         "  {label}{:pad$}{first}\n",
@@ -220,19 +233,24 @@ impl Help {
                 } else {
                     out.push_str(&format!("  {label}\n{:28}{first}\n", ""));
                 }
+
                 for more in lines {
                     out.push_str(&format!("{:28}{more}\n", ""));
                 }
             }
+
             out.push('\n');
         }
+
         for paragraph in &self.footer {
             out.push_str(paragraph);
             out.push_str("\n\n");
         }
+
         while out.ends_with('\n') {
             out.pop();
         }
+
         out
     }
 }

@@ -64,6 +64,7 @@ impl Compiler {
     /// speculative body, so a write the hooks missed fails a test instead of the output.
     pub(super) fn spec_fingerprint(&self) -> [u64; FINGERPRINT.len()] {
         let id = |v: Option<u32>| v.map_or(u64::MAX, u64::from);
+
         [
             u64::from(self.ns.check_handler_resolved),
             self.ns.named_imports_done as u64,

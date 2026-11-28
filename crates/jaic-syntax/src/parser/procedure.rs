@@ -85,6 +85,7 @@ impl Parser<'_> {
             return false;
         };
         let after = &self.toks[(close + 1).min(self.toks.len() - 1)].tok;
+
         match after {
             Tok::Punct(P::Arrow | P::FatArrow) => return true,
             Tok::Directive(d)
@@ -94,6 +95,7 @@ impl Parser<'_> {
             }
             _ => {}
         }
+
         self.interior_looks_like_params(self.pos + n + 1, close)
     }
 
@@ -101,11 +103,13 @@ impl Parser<'_> {
     pub(super) fn matching_paren(&self, n: usize) -> Option<usize> {
         let start = self.pos + n;
         let mut depth = 0usize;
+
         for (i, token) in self.toks.iter().enumerate().skip(start) {
             match &token.tok {
                 Tok::Punct(P::LParen) => depth += 1,
                 Tok::Punct(P::RParen) => {
                     depth = depth.saturating_sub(1);
+
                     if depth == 0 {
                         return Some(i);
                     }
@@ -114,6 +118,7 @@ impl Parser<'_> {
                 _ => {}
             }
         }
+
         None
     }
 
@@ -121,7 +126,9 @@ impl Parser<'_> {
         if from == close {
             return true;
         }
+
         let tok = |i: usize| &self.toks[i.min(close)].tok;
+
         match tok(from) {
             Tok::Punct(P::Dollar | P::DollarDollar | P::DotDot) => true,
             Tok::Directive(d) if d.as_str() == "discard" => true,
@@ -153,11 +160,13 @@ impl Parser<'_> {
                 Tok::Ident(name) => Some(name.as_str()),
                 _ => None,
             };
+
             i > 0
                 && i + 1 < self.toks.len()
                 && word(i - 1).is_some_and(|w| w == "cast" || w == "xx" || is_cast_flag(w))
                 && word(i + 1).is_some_and(is_cast_flag)
         };
+
         for (i, token) in self.toks[from..close].iter().enumerate() {
             match &token.tok {
                 Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
@@ -168,6 +177,7 @@ impl Parser<'_> {
                 _ => {}
             }
         }
+
         false
     }
 
@@ -178,6 +188,7 @@ impl Parser<'_> {
         // Parameters and the body start afresh; a literal's own return type does not (below).
         let in_return_type = std::mem::take(&mut self.in_return_type);
         let result = self.parse_proc_expr_in(inline, in_return_type);
+
         self.in_return_type = in_return_type;
         result
     }
@@ -185,19 +196,25 @@ impl Parser<'_> {
     fn parse_proc_expr_in(&mut self, inline: CallHintFlag, in_return_type: bool) -> PResult<Expr> {
         let start = self.span();
         let mut header = new_header(start, inline);
+
         header.operator = self.pending_operator.take();
+
         if self.eat(P::LParen) {
             header.params = self.parse_params(P::RParen)?;
         }
+
         if self.at(P::FatArrow) {
             return self.finish_lambda(header, start);
         }
+
         if self.eat(P::Arrow) {
             self.in_return_type = true;
             let returns = self.parse_returns();
+
             self.in_return_type = false;
             header.returns = returns?;
         }
+
         self.parse_proc_flags(&mut header)?;
         header.span = start.to(self.prev_span());
         let has_external_body = header.foreign.is_some()
@@ -205,6 +222,7 @@ impl Parser<'_> {
             || header.flags.intrinsic()
             || header.flags.elsewhere.is_some();
         let header = Arc::new(header);
+
         if self.at(P::LBrace) && in_return_type {
             let error = Diagnostic::new(
                 Code::ParseProcedureTypeReturn,
@@ -215,13 +233,17 @@ impl Parser<'_> {
             let Some(errors) = self.recovery.as_mut() else {
                 return Err(error);
             };
+
             errors.push(error);
             let span = header.span;
+
             return Ok(mk(ExprKind::ProcType(header), span));
         }
+
         if self.at(P::LBrace) {
             let body = self.parse_proc_body()?;
             let span = start.to(body.span);
+
             return Ok(mk(
                 ExprKind::Proc(Arc::new(ProcLit {
                     header,
@@ -230,7 +252,9 @@ impl Parser<'_> {
                 span,
             ));
         }
+
         let span = header.span;
+
         if has_external_body {
             return Ok(mk(
                 ExprKind::Proc(Arc::new(ProcLit {
@@ -240,6 +264,7 @@ impl Parser<'_> {
                 span,
             ));
         }
+
         Ok(mk(ExprKind::ProcType(header), span))
     }
 
@@ -248,6 +273,7 @@ impl Parser<'_> {
         let start = self.span();
         let name = self.ident("as lambda parameter")?;
         let mut header = new_header(start, CallHintFlag::None);
+
         header.params.push(Param {
             name: Some(name),
             baked: false,
@@ -271,6 +297,7 @@ impl Parser<'_> {
         start: crate::source::Span,
     ) -> PResult<Expr> {
         self.expect(P::FatArrow, "in lambda")?;
+
         // `(a, b) =>` parses like the unnamed parameter types of a procedure type;
         // a bare identifier there is the parameter's name.
         for p in &mut header.params {
@@ -287,14 +314,17 @@ impl Parser<'_> {
                 });
             }
         }
+
         let body = if self.at(P::LBrace) {
             let block = self.parse_proc_body()?;
             let span = block.span;
+
             mk(ExprKind::Block(Box::new(block)), span)
         } else {
             self.parse_expr()?
         };
         let span = start.to(body.span);
+
         header.span = span;
         Ok(mk(
             ExprKind::Lambda {
@@ -313,12 +343,15 @@ impl Parser<'_> {
         let outer = std::mem::replace(&mut self.in_aggregate_body, false);
         let mut params = Vec::new();
         let mut parsed = Ok(());
+
         while !self.at(close) {
             parsed = self.parse_param_group(&mut params);
+
             if parsed.is_err() || !(self.eat(P::Comma) || self.eat(P::Semi)) {
                 break;
             }
         }
+
         self.in_list = saved;
         self.in_aggregate_body = outer;
         parsed?;
@@ -336,10 +369,12 @@ impl Parser<'_> {
                     Tok::Punct(P::Comma | P::Semi | P::RParen | P::Eq)
                 )
             });
+
             if closes_type {
                 return self.parse_proc_expr(CallHintFlag::default());
             }
         }
+
         self.parse_expr()
     }
 
@@ -347,6 +382,7 @@ impl Parser<'_> {
     fn parse_param_group(&mut self, out: &mut Vec<Param>) -> PResult<()> {
         let start = self.span();
         let (mut using, mut discard, mut using_filter) = (false, false, None);
+
         loop {
             if self.at_kw("using") && self.using_modifier_follows() {
                 self.bump();
@@ -360,10 +396,12 @@ impl Parser<'_> {
                 break;
             }
         }
+
         if !self.named_param_ahead() {
             let variadic = self.eat(P::DotDot);
             let ty = self.parse_param_type()?;
             let span = start.to(ty.span);
+
             out.push(Param {
                 name: None,
                 baked: false,
@@ -377,42 +415,56 @@ impl Parser<'_> {
                 notes: Vec::new(),
                 span,
             });
+
             return Ok(());
         }
+
         let mut names = Vec::new();
+
         loop {
             // `$$x` bakes only constant arguments (decided per call in sema).
             let baked = matches!(self.tok(), Tok::Punct(P::Dollar));
             let auto = matches!(self.tok(), Tok::Punct(P::DollarDollar));
+
             if baked || auto {
                 self.bump();
             }
+
             let name = self.ident("as parameter name")?;
+
             names.push((self.reject_keyword_name(name, false)?, baked, auto));
+
             if !self.eat(P::Comma) {
                 break;
             }
         }
+
         let (mut variadic, mut ty, mut default) = (false, None, None);
+
         if self.eat(P::ColonEq) {
             default = Some(self.parse_expr()?);
         } else {
             self.expect(P::Colon, "after the parameter name")?;
             variadic = self.eat(P::DotDot);
+
             if !matches!(
                 self.tok(),
                 Tok::Punct(P::Eq | P::Comma | P::Semi | P::RParen)
             ) {
                 ty = Some(self.parse_param_type()?);
             }
+
             if self.eat(P::Eq) {
                 default = Some(self.parse_expr()?);
             }
         }
+
         let notes = self.parse_notes();
         let end = self.prev_span();
+
         for (name, baked, auto_bake) in names {
             let (ty, default, notes) = (ty.clone(), default.clone(), notes.clone());
+
             out.push(Param {
                 name: Some(name),
                 baked,
@@ -427,6 +479,7 @@ impl Parser<'_> {
                 span: start.to(end),
             });
         }
+
         Ok(())
     }
 
@@ -442,22 +495,28 @@ impl Parser<'_> {
     /// At `[$]name {, [$]name} :` or `:=`.
     pub(super) fn named_param_ahead(&self) -> bool {
         let mut i = 0;
+
         loop {
             if matches!(self.tok_at(i), Tok::Punct(P::Dollar | P::DollarDollar)) {
                 i += 1;
             }
+
             let Tok::Ident(word) = self.tok_at(i) else {
                 return false;
             };
             let builtin = super::is_builtin_type_name(word.as_str());
+
             i += 1;
+
             if !matches!(self.tok_at(i), Tok::Punct(P::Comma)) {
                 return matches!(self.tok_at(i), Tok::Punct(P::Colon | P::ColonEq));
             }
+
             // `string,` between names is a nameless parameter of that type, not a name.
             if builtin {
                 return false;
             }
+
             i += 1;
         }
     }
@@ -469,21 +528,28 @@ impl Parser<'_> {
         if self.at(P::LParen) && self.return_list_in_parens() {
             self.bump();
             let mut returns = Vec::new();
+
             while !self.at(P::RParen) {
                 returns.push(self.parse_return_value()?);
+
                 if !(self.eat(P::Comma) || self.eat(P::Semi)) {
                     break;
                 }
             }
+
             self.expect(P::RParen, "to end the return list")?;
+
             return Ok(returns);
         }
+
         let mut returns = vec![self.parse_return_value()?];
+
         // Inside argument and parameter lists a comma separates the arguments instead.
         while self.at(P::Comma) && (!self.in_list || self.return_list_precedes_body()) {
             self.bump();
             returns.push(self.parse_return_value()?);
         }
+
         Ok(returns)
     }
 
@@ -492,6 +558,7 @@ impl Parser<'_> {
     /// procedure literal whose body follows.
     fn return_list_precedes_body(&self) -> bool {
         let mut depth = 0usize;
+
         for token in &self.toks[self.pos + 1..] {
             match &token.tok {
                 Tok::Punct(P::LParen | P::LBracket) => depth += 1,
@@ -505,6 +572,7 @@ impl Parser<'_> {
                 _ => {}
             }
         }
+
         false
     }
 
@@ -513,6 +581,7 @@ impl Parser<'_> {
         let Some(close) = self.matching_paren(0) else {
             return false;
         };
+
         !matches!(
             self.toks[(close + 1).min(self.toks.len() - 1)].tok,
             Tok::Punct(P::Arrow)
@@ -535,7 +604,9 @@ impl Parser<'_> {
             if name.is_some() {
                 self.bump();
             }
+
             let ty = self.parse_expr()?;
+
             (
                 Some(ty),
                 // Only named results take defaults; `(K) -> bool = null` in a
@@ -548,10 +619,13 @@ impl Parser<'_> {
             )
         };
         let must = self.at_directive("must");
+
         if must {
             let at = self.bump();
+
             self.note_lenient(crate::diagnostics::Code::MustAfterReturnType, at);
         }
+
         Ok(Return {
             name,
             ty,
@@ -565,6 +639,7 @@ impl Parser<'_> {
     fn parse_proc_body(&mut self) -> PResult<crate::ast::Block> {
         let outer = std::mem::replace(&mut self.code_in_args, false);
         let block = self.parse_block();
+
         self.code_in_args = outer;
         block
     }
@@ -574,9 +649,11 @@ impl Parser<'_> {
         if self.at(P::LBrace) {
             return self.parse_block();
         }
+
         let expr = self.parse_expr()?;
         let span = expr.span;
         let statement = super::stmt::stmt(crate::ast::StmtKind::Expr(expr), span);
+
         Ok(crate::ast::Block {
             stmts: vec![statement],
             span,
@@ -598,11 +675,14 @@ impl Parser<'_> {
                     let Some(flag) = ProcFlag::from_name(name.as_str()) else {
                         return Ok(());
                     };
+
                     self.apply_proc_flag(header, flag)?;
+
                     continue;
                 }
                 _ => return Ok(()),
             }
+
             self.bump();
         }
     }
@@ -611,6 +691,7 @@ impl Parser<'_> {
     fn apply_proc_flag(&mut self, header: &mut ProcHeader, flag: ProcFlag) -> PResult<()> {
         let span = self.bump();
         let flags = &mut header.flags;
+
         match flag {
             ProcFlag::CCall => flags.set(ProcBits::C_CALL),
             ProcFlag::NoContext => flags.set(ProcBits::NO_CONTEXT),
@@ -630,6 +711,7 @@ impl Parser<'_> {
                 } else {
                     flags.set(ProcBits::COMPILER);
                 }
+
                 if let Tok::Str(s) = self.tok() {
                     flags.builtin_name = Some(String::from_utf8_lossy(s).into_owned().into());
                     self.bump();
@@ -649,11 +731,13 @@ impl Parser<'_> {
                 let text = match self.tok() {
                     Tok::Str(s) => {
                         let s = s.clone();
+
                         self.bump();
                         Some(s)
                     }
                     _ => None,
                 };
+
                 if flag == ProcFlag::Deprecated {
                     flags.deprecated = Some(text);
                 } else {
@@ -662,6 +746,7 @@ impl Parser<'_> {
             }
             ProcFlag::Elsewhere => {
                 let foreign = self.parse_elsewhere_library()?;
+
                 flags.elsewhere = Some(foreign.as_ref().and_then(|foreign| foreign.library));
                 header.foreign = header.foreign.take().or(foreign);
             }
@@ -672,6 +757,7 @@ impl Parser<'_> {
                     None
                 };
                 let name = self.parse_foreign_symbol();
+
                 header.foreign = Some(Foreign {
                     library,
                     name,
@@ -686,6 +772,7 @@ impl Parser<'_> {
                 });
             }
         }
+
         Ok(())
     }
 }

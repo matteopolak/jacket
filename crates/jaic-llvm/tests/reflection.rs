@@ -35,6 +35,7 @@ check :: () -> s32 #c_call {
 #[test]
 fn generic_default_storage_and_relocations_native_and_wasm() {
     let files = [("/lib/prelude/module.jai", bootstrap::BOOTSTRAP)];
+
     backend::execute(
         "reflection-backend",
         "reflection_check",

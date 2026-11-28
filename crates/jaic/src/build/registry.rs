@@ -27,6 +27,7 @@ impl Workspaces {
 
     pub fn new(env: BuildEnv) -> SharedWorkspaces {
         let mut top = Workspace::new("Target Program".into());
+
         // The embedder compiles the top-level program itself.
         top.stage = Stage::Checked;
         Rc::new(RefCell::new(Workspaces {
@@ -83,6 +84,7 @@ impl Workspaces {
     pub fn take_program_to_run(shared: &SharedWorkspaces) -> Option<Box<Compiler>> {
         let mut reg = shared.borrow_mut();
         let id = reg.run_target.filter(|_| reg.run_ready)?;
+
         reg.ws(id).ok()?.compiler.take()
     }
 
@@ -120,6 +122,7 @@ impl Workspaces {
         } else {
             id
         };
+
         self.list
             .get_mut(id as usize)
             .filter(|_| id > 0)
@@ -141,14 +144,19 @@ impl Workspaces {
         } else {
             id
         };
+
         if self.current.contains(&actual) {
             return Err("cannot destroy an active compiler workspace".into());
         }
+
         let ws = self.ws(id)?;
+
         ws.pending.clear();
+
         if ws.stage == Stage::Open {
             ws.stage = Stage::Done;
         }
+
         Ok(())
     }
 
@@ -159,6 +167,7 @@ impl Workspaces {
         value: &str,
     ) -> Result<(), String> {
         let s = self.workspace_settings(id)?;
+
         match option {
             WorkspaceText::OutputExecutableName => s.output_executable_name = value.into(),
             WorkspaceText::OutputPath => s.output_path = value.into(),
@@ -175,6 +184,7 @@ impl Workspaces {
             WorkspaceText::LlvmTargetSystemFeatures => s.llvm_features = value.into(),
             WorkspaceText::MinimumOsVersion => s.minimum_os_version = value.into(),
         }
+
         Ok(())
     }
 
@@ -185,6 +195,7 @@ impl Workspaces {
         on: bool,
     ) -> Result<(), String> {
         let s = self.workspace_settings(id)?;
+
         match option {
             WorkspaceFlag::DoOutput => s.do_output = on,
             WorkspaceFlag::StackTrace => s.stack_trace = Some(on),
@@ -211,6 +222,7 @@ impl Workspaces {
             | WorkspaceFlag::LlvmEnableSplitModules
             | WorkspaceFlag::LlvmFunctionSections => s.llvm_switches.push((option, on)),
         }
+
         Ok(())
     }
 
@@ -227,8 +239,10 @@ impl Workspaces {
         ) -> Result<T, String> {
             decode(raw).ok_or_else(|| format!("internal: {option:?} has no value {raw}"))
         }
+
         let current_cpu = self.env.options.cpu;
         let s = self.workspace_settings(id)?;
+
         match option {
             WorkspaceNumber::OutputType => {
                 s.output_type = member(option, raw, OutputType::from_raw)?;
@@ -302,15 +316,18 @@ impl Workspaces {
                     member(option, raw, MachineCodeOptimization::from_raw)?;
             }
         }
+
         Ok(())
     }
 
     pub(super) fn clear_list(&mut self, id: i64, option: WorkspaceList) -> Result<(), String> {
         let s = self.workspace_settings(id)?;
+
         match option {
             WorkspaceList::ImportPath => s.import_paths = Some(Vec::new()),
             WorkspaceList::AdditionalLinkerArgument => s.additional_linker_arguments.clear(),
         }
+
         Ok(())
     }
 
@@ -321,6 +338,7 @@ impl Workspaces {
         value: &str,
     ) -> Result<(), String> {
         let s = self.workspace_settings(id)?;
+
         match option {
             WorkspaceList::ImportPath => s
                 .import_paths
@@ -330,6 +348,7 @@ impl Workspaces {
                 s.additional_linker_arguments.push(value.into());
             }
         }
+
         Ok(())
     }
 
@@ -341,8 +360,10 @@ impl Workspaces {
         if let Some(data) = interp.keep_narrow(bytes) {
             return (bytes.len() as u64, data);
         }
+
         let boxed: Box<[u8]> = bytes.into();
         let ptr = boxed.as_ptr() as u64;
+
         self.strings.push(boxed);
         (bytes.len() as u64, ptr)
     }
@@ -382,6 +403,7 @@ pub(crate) fn isolated_host_environment(
         }),
         observer: None,
     });
+
     (shared, host)
 }
 
@@ -403,6 +425,7 @@ pub fn dead_code_setting(shared: &SharedWorkspaces, id: i64) -> Option<DeadCode>
 pub fn entry_point_setting(shared: &SharedWorkspaces, id: i64) -> Option<String> {
     let reg = shared.borrow();
     let name = &reg.list.get(id as usize)?.settings.entry_point_name;
+
     (!name.is_empty()).then(|| name.clone())
 }
 
@@ -415,6 +438,7 @@ pub(crate) fn runtime_storage_setting(
 ) -> Option<(bool, i64)> {
     let reg = shared.borrow();
     let settings = &reg.list.get(id as usize)?.settings;
+
     Some((
         settings.output_type != OutputType::NoOutput,
         settings.temporary_storage_size.unwrap_or(default_size),
@@ -428,6 +452,7 @@ pub fn import_rules(
     id: i64,
 ) -> (Vec<(String, String, String)>, Vec<ProvidedImport>) {
     let reg = shared.borrow();
+
     match reg.list.get(id as usize) {
         Some(ws) => (ws.remaps.clone(), ws.provided.clone()),
         None => (Vec::new(), Vec::new()),
@@ -437,6 +462,7 @@ pub fn import_rules(
 /// Header records `compiler_make_procedure_live` named for workspace `id` since last asked.
 pub fn take_live_requests(shared: &SharedWorkspaces, id: i64) -> Vec<i64> {
     let mut reg = shared.borrow_mut();
+
     match reg.list.get_mut(id as usize) {
         Some(ws) => std::mem::take(&mut ws.live),
         None => Vec::new(),
@@ -448,6 +474,7 @@ pub fn take_live_requests(shared: &SharedWorkspaces, id: i64) -> Vec<i64> {
 pub fn take_own_sources(shared: &SharedWorkspaces, id: i64) -> Vec<ProgramSource> {
     let mut reg = shared.borrow_mut();
     let running = reg.current_id() == id;
+
     match reg.list.get_mut(id as usize) {
         Some(ws) if running && ws.stage != Stage::Done => std::mem::take(&mut ws.pending),
         _ => Vec::new(),
@@ -462,81 +489,105 @@ pub(super) fn new_compiler(shared: &SharedWorkspaces, id: i64) -> Result<Box<Com
         let options = reg.env.options.clone();
         let os = settings.os.unwrap_or(options.os);
         let host = (reg.env.make_host)(os, options.layout.is_foreign_memory());
+
         (settings, options, reg.env.fs.clone(), host)
     };
+
     // A metaprogram sees its workspace's checked bodies (intercepted messages) and may run what
     // it builds: only the editor's own program leaves library bodies unchecked.
     options.defer_library_bodies = false;
+
     if let Some(paths) = &settings.import_paths {
         // The module search path the metaprogram set, then the defaults (stdlib).
         let defaults = std::mem::take(&mut options.import_paths);
+
         options.import_paths.clone_from(paths);
+
         for d in defaults {
             if !options.import_paths.contains(&d) {
                 options.import_paths.push(d);
             }
         }
     }
+
     if let Some(os) = settings.os {
         options.os = os;
     }
+
     if let Some(cpu) = settings.cpu {
         options.cpu = cpu;
     }
+
     // The triple says the OS, CPU and data layout, and wins over `os_target` and `cpu_target`,
     // which a metaprogram that only read the options back still holds at the host's values.
     if let Some(target) = settings.llvm_target {
         target.apply(&mut options);
     }
+
     if let Some(size) = settings.temporary_storage_size {
         options.temporary_storage_size = size;
     }
+
     if let Some(check) = settings.array_bounds_check {
         options.array_bounds_check = check;
     }
+
     if let Some(check) = settings.null_pointer_check {
         options.null_pointer_check = check;
     }
+
     if let Some(check) = settings.arithmetic_overflow_check {
         options.arithmetic_overflow_check = check;
     }
+
     if let Some(check) = settings.cast_bounds_check {
         options.cast_bounds_check = check;
     }
+
     if let Some(trace) = settings.stack_trace {
         options.stack_trace = trace;
     }
+
     if let Some(debug) = settings.emit_debug_info {
         options.debug_info &= debug;
     }
+
     if let Some(mode) = settings.dead_code_elimination {
         options.dead_code = mode;
     }
+
     if !settings.entry_point_name.is_empty() {
         options.entry_point.clone_from(&settings.entry_point_name);
     }
+
     if let Some(which) = &settings.runtime_support_definitions {
         if options.os == TargetOs::None && *which == RuntimeSupport::EntryPointAndInit {
             return Err("`runtime_support_definitions = .ENTRY_POINT_AND_INIT` defines a system entry point, and a freestanding target (`os_target = .NONE`) has none\nhelp: use `.ONLY_INIT` (or `.AUTO`), or `.OMIT` to write the start-up code yourself".into());
         }
+
         // AUTO and ENTRY_POINT_AND_INIT: both; ONLY_INIT: the program has its own entry point.
         options.runtime_entry_point =
             !matches!(which, RuntimeSupport::OnlyInit | RuntimeSupport::Omit);
         options.runtime_initialization = *which != RuntimeSupport::Omit;
     }
+
     if let Some(on) = settings.backtrace_on_crash {
         // WebAssembly has no signals to catch (`docs/metaprogramming/build-options.md`).
         options.backtrace_on_crash = on && options.os != TargetOs::Wasm;
     }
+
     let mut compiler = Box::new(Compiler::new(options, fs));
+
     compiler.ct.interp.set_host(host);
     compiler.meta.workspace = id;
     compiler.attach_workspaces(shared.clone());
     let observer = shared.borrow_mut().env.observer.take();
+
     if let Some(mut o) = observer {
         o.created(&mut compiler);
         shared.borrow_mut().env.observer = Some(o);
     }
+
     Ok(compiler)
 }
 

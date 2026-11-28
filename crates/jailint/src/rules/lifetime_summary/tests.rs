@@ -16,10 +16,12 @@ use std::rc::Rc;
 fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     let source = r#"
@@ -39,6 +41,7 @@ fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
                 append(*builder, "hello");
             }
         "#;
+
     c.begin_sources(&[ProgramSource::String(source.into())])
         .unwrap();
     c.finish_program().unwrap();
@@ -53,6 +56,7 @@ fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
                 .unwrap();
         &summaries.procs[&ProcId(i as u32)]
     };
+
     assert!(
         get("probe_release")
             .guaranteed
@@ -84,6 +88,7 @@ fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
             .filter(|(_, p)| p.name.as_str() == "table_add" && !p.is_poly)
             .filter_map(|(i, _)| summaries.procs.get(&ProcId(i as u32)))
             .collect();
+
     assert!(
         table_effects
             .iter()
@@ -105,6 +110,7 @@ fn allocator_mode_guards_distinguish_allocate_resize_and_free() {
             })
             .filter_map(|(i, _)| summaries.procs.get(&ProcId(i as u32)))
             .collect();
+
     assert!(!reserves.is_empty());
     assert!(
         reserves
@@ -126,6 +132,7 @@ fn prefix_compaction_preserves_independent_allocation_effects() {
             guard: None,
         };
         let mut child = parent.clone();
+
         child.target.steps.extend([Step::Element(0), Step::Storage]);
         insert(&mut effects, child.clone(), Vec::new());
         insert(&mut effects, parent.clone(), Vec::new());
@@ -141,10 +148,12 @@ fn prefix_compaction_preserves_independent_allocation_effects() {
 fn intrinsic_memory_and_vector_search_have_no_release_effects() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String("#import \"Basic\"; #import \"String\"; probe_search :: (s: string) -> int { return find_index_from_left(s, #char \"x\"); }".into())]).unwrap();
@@ -177,6 +186,7 @@ fn intrinsic_memory_and_vector_search_have_no_release_effects() {
             )
         })
         .collect();
+
     assert!(bad.is_empty(), "{bad:#?}");
 }
 
@@ -184,10 +194,12 @@ fn intrinsic_memory_and_vector_search_have_no_release_effects() {
 fn pointee_resources_preserve_distinct_header_ownership() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String("lib :: #library \"c\";\nrelease_handle :: (value: s32) #foreign lib; @FreesArgument\nrelease_field :: (value: *s32) { release_handle(value.*); }".into())]).unwrap();
@@ -200,6 +212,7 @@ fn pointee_resources_preserve_distinct_header_ownership() {
             .position(|p| p.name.as_str() == "release_field")
             .unwrap();
     let summary = &summaries.procs[&ProcId(id as u32)];
+
     assert!(
         summary
             .guaranteed
@@ -214,15 +227,18 @@ fn allocator_epoch_requires_returned_context_storage_after_ir_release() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let stdlib = root.join("stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     let mut source =
         std::fs::read_to_string(root.join("tests/lint/pointer_lifetime/strict/return-origins.jai"))
             .unwrap();
+
     source.push_str(r"
 independent :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *void, data: *void) -> *void {
     if mode == .CAPS return cast(*void) 0x0400_0000;
@@ -243,11 +259,14 @@ context_owned :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *v
     c.begin_sources(&[ProgramSource::String(source)]).unwrap();
     c.finish_program().unwrap();
     let diagnostics = c.ide_check_all();
+
     assert!(diagnostics.is_empty(), "{diagnostics:?}");
     let before = Summaries::build(&c);
+
     assert!(!c.ed.facts().unwrap().lifetime_globals.is_empty());
     c.release_lowered_code();
     let after = Summaries::build(&c);
+
     assert_eq!(before.procs, after.procs);
     let names: HashSet<_> = after
         .allocators
@@ -255,6 +274,7 @@ context_owned :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *v
         .iter()
         .map(|p| c.pr.procs[p.0 as usize].name.as_str())
         .collect();
+
     assert!(names.contains("temporary_allocator_proc"));
     assert!(names.contains("context_owned"), "{names:?}");
     assert!(!names.contains("incidental"));
@@ -266,10 +286,12 @@ context_owned :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory: *v
 fn empty_error_results_preserve_body_inferred_storage_without_notes() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     let source = r#"
@@ -297,6 +319,7 @@ fn empty_error_results_preserve_body_inferred_storage_without_notes() {
         release_only :: (memory: *void) { free(memory); }
         main :: () {}
     "#;
+
     c.begin_sources(&[ProgramSource::String(source.into())])
         .unwrap();
     c.finish_program().unwrap();
@@ -305,9 +328,11 @@ fn empty_error_results_preserve_body_inferred_storage_without_notes() {
     let before = Summaries::build(&c);
     let original_context = c.ty.context_type.take().unwrap();
     let rebuilt_context = c.context_type(Span::NONE).unwrap();
+
     assert_ne!(original_context, rebuilt_context);
     c.release_lowered_code();
     let after = Summaries::build(&c);
+
     assert_eq!(before.procs, after.procs);
     let get = |name: &str| {
         let id =
@@ -317,6 +342,7 @@ fn empty_error_results_preserve_body_inferred_storage_without_notes() {
                 .unwrap();
         &after.procs[&ProcId(id as u32)]
     };
+
     for (name, expected) in [
         ("empty_or_temp", Root::Temporary),
         ("tprint", Root::Temporary),
@@ -324,17 +350,21 @@ fn empty_error_results_preserve_body_inferred_storage_without_notes() {
         ("builder_to_string", Root::CallerAllocator),
     ] {
         let summary = get(name);
+
         assert_eq!(
             summary.returns.get(&0).map(|(p, _)| &p.root),
             Some(&expected),
             "{name}: {summary:?}"
         );
     }
+
     assert!(get("literal_or_temp").returns.is_empty());
     assert!(get("literal_or_temp").may_returns.contains(&0));
     assert!(get("changed_empty").returns.is_empty());
+
     for name in ["scratch_only", "scoped_scratch", "empty_or_copy"] {
         let summary = get(name);
+
         assert!(
             summary
                 .allocation_effects
@@ -342,6 +372,7 @@ fn empty_error_results_preserve_body_inferred_storage_without_notes() {
             "{name}: {summary:?}"
         );
     }
+
     assert!(
         get("empty_or_copy")
             .allocation_effects
@@ -354,7 +385,9 @@ fn empty_error_results_preserve_body_inferred_storage_without_notes() {
             .enumerate()
             .filter(|(_, p)| p.name.as_str() == "push_allocator")
             .collect();
+
     assert!(!macros.is_empty());
+
     for (id, _) in macros {
         assert!(after.procs[&ProcId(id as u32)].pushes_context);
     }
@@ -372,20 +405,25 @@ fn without_body_notes(c: &mut Compiler) {
             })
             .map(|(id, _)| *id)
             .collect();
+
     // Remove every body annotation after checking, including annotations on
     // imported polymorphic declarations. Bodyless primitive contracts survive.
     for i in 0..c.pr.procs.len() {
         if c.pr.procs[i].lit.body.is_none() {
             continue;
         }
+
         let mut lit = (*c.pr.procs[i].lit).clone();
         let mut header = (*lit.header).clone();
+
         header.notes.clear();
         lit.header = std::sync::Arc::new(header);
         c.pr.procs[i].lit = std::sync::Arc::new(lit);
         c.pr.proc_decl_notes.remove(&ProcId(i as u32));
     }
+
     let syntax: Vec<_> = c.pr.procs.iter().map(|p| p.lit.clone()).collect();
+
     for (id, body) in &mut c.ed.facts_mut().unwrap().lifetime_bodies {
         if valid.contains(id) {
             body.syntax = syntax[id.0 as usize].clone();
@@ -398,14 +436,18 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
     for windows in [false, true] {
         let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let mut options = Options::host();
+
         options.import_paths = vec![stdlib.clone()];
         options.set_stdlib(&NativeFs, &stdlib);
+
         if windows {
             options.os = jaic::target::TargetOs::Windows;
             options.cpu = jaic::target::TargetCpu::X64;
         }
+
         let mut c = Compiler::new(options, Rc::new(NativeFs));
         let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
         facts.lint = true;
         c.ed.record(facts);
         let source = r#"
@@ -433,15 +475,19 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
             unreachable_output :: () { raw_exit(1); print("unreachable"); }
             main :: () {}
         "#;
+
         c.begin_sources(&[ProgramSource::String(source.into())])
             .unwrap();
         c.finish_program().unwrap();
         let diagnostics = c.ide_check_all();
+
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
         without_body_notes(&mut c);
         let before = Summaries::build(&c);
+
         c.release_lowered_code();
         let after = Summaries::build(&c);
+
         assert_eq!(before.procs, after.procs);
         let get = |name: &str| {
             let id =
@@ -451,6 +497,7 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
                     .unwrap();
             &after.procs[&ProcId(id as u32)]
         };
+
         for name in ["select_output", "wrapped_print", "wrapped_output"] {
             assert!(
                 get(name).observable.output,
@@ -458,6 +505,7 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
                 get(name)
             );
         }
+
         for name in [
             "file_output",
             "not_output",
@@ -470,6 +518,7 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
                 get(name)
             );
         }
+
         for name in ["wrapped_exit", "all_exit", "unreachable_output"] {
             assert!(
                 get(name).observable.exit,
@@ -477,6 +526,7 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
                 get(name)
             );
         }
+
         for name in ["wrapped_print", "conditional_exit", "never", "may_diverge"] {
             assert!(
                 !get(name).observable.exit,
@@ -484,6 +534,7 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
                 get(name)
             );
         }
+
         assert!(!get("unreachable_output").observable.output);
     }
 }
@@ -492,10 +543,12 @@ fn output_and_exit_effects_follow_bodies_and_standard_handle_values() {
 fn release_may_provenance_follows_cursor_and_ambiguous_copies_without_guarantees() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     let source = r#"
@@ -518,12 +571,14 @@ fn release_may_provenance_follows_cursor_and_ambiguous_copies_without_guarantees
         }
         main :: () {}
     "#;
+
     c.begin_sources(&[ProgramSource::String(source.into())])
         .unwrap();
     c.finish_program().unwrap();
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let summaries = Summaries::build(&c);
+
     for (name, formals) in [("release_list", vec![0]), ("release_selected", vec![0, 1])] {
         let id =
             c.pr.procs
@@ -531,6 +586,7 @@ fn release_may_provenance_follows_cursor_and_ambiguous_copies_without_guarantees
                 .position(|p| p.name.as_str() == name)
                 .unwrap();
         let summary = &summaries.procs[&ProcId(id as u32)];
+
         for formal in formals {
             assert!(
                 summary
@@ -540,6 +596,7 @@ fn release_may_provenance_follows_cursor_and_ambiguous_copies_without_guarantees
                 "{name}: {summary:?}"
             );
         }
+
         assert!(
             !summary.guaranteed.keys().any(|e| e.kind == Kind::Free),
             "{name}: {summary:?}"
@@ -551,10 +608,12 @@ fn release_may_provenance_follows_cursor_and_ambiguous_copies_without_guarantees
 fn foreign_release_protocols_propagate_without_wrapper_notes() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     let source = r#"
@@ -571,14 +630,17 @@ fn foreign_release_protocols_propagate_without_wrapper_notes() {
         free :: (handle: *Handle) { handle.value = 0; }
         main :: () {}
     "#;
+
     c.begin_sources(&[ProgramSource::String(source.into())])
         .unwrap();
     c.finish_program().unwrap();
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let before = Summaries::build(&c);
+
     c.release_lowered_code();
     let after = Summaries::build(&c);
+
     assert_eq!(before.procs, after.procs);
     let source_file =
         c.pr.procs
@@ -595,6 +657,7 @@ fn foreign_release_protocols_propagate_without_wrapper_notes() {
                 .unwrap();
         &after.procs[&ProcId(id as u32)]
     };
+
     assert!(
         get("release_memory")
             .guaranteed
@@ -623,10 +686,12 @@ fn bodyless_pointer_contracts_follow_the_lexical_interface_not_abi_identity() {
     for known_body in [false, true] {
         let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let mut options = Options::host();
+
         options.import_paths = vec![stdlib.clone()];
         options.set_stdlib(&NativeFs, &stdlib);
         let mut c = Compiler::new(options, Rc::new(NativeFs));
         let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
         facts.lint = true;
         c.ed.record(facts);
         let mut source = r"
@@ -635,6 +700,7 @@ fn bodyless_pointer_contracts_follow_the_lexical_interface_not_abi_identity() {
             #assert Release == Plain;
         "
         .to_string();
+
         if known_body {
             source.push_str(
                 r"
@@ -654,15 +720,19 @@ fn bodyless_pointer_contracts_follow_the_lexical_interface_not_abi_identity() {
             ",
             );
         }
+
         source.push_str("main :: () {}\n");
         c.begin_sources(&[ProgramSource::String(source)]).unwrap();
         c.finish_program().unwrap();
         let diagnostics = c.ide_check_all();
+
         assert!(diagnostics.is_empty(), "{diagnostics:?}");
         without_body_notes(&mut c);
         let before = Summaries::build(&c);
+
         c.release_lowered_code();
         let after = Summaries::build(&c);
+
         assert_eq!(before.procs, after.procs);
         let get = |name: &str| {
             let id =
@@ -672,6 +742,7 @@ fn bodyless_pointer_contracts_follow_the_lexical_interface_not_abi_identity() {
                     .unwrap();
             &after.procs[&ProcId(id as u32)]
         };
+
         if known_body {
             assert!(!get("invoke_known").may.keys().any(|e| e.kind == Kind::Free));
         } else {
@@ -692,10 +763,12 @@ fn bodyless_pointer_contracts_follow_the_lexical_interface_not_abi_identity() {
 fn null_cleanup_paths_are_vacuous_but_unrelated_conditions_remain_possible() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -718,6 +791,7 @@ fn null_cleanup_paths_are_vacuous_but_unrelated_conditions_remain_possible() {
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let summaries = Summaries::build(&c);
+
     for (name, definite) in [
         ("nullable", true),
         ("inverse", true),
@@ -731,6 +805,7 @@ fn null_cleanup_paths_are_vacuous_but_unrelated_conditions_remain_possible() {
                 .position(|p| p.name.as_str() == name)
                 .unwrap();
         let s = &summaries.procs[&ProcId(id as u32)];
+
         assert_eq!(
             s.guaranteed.keys().any(|e| e.kind == Kind::Free),
             definite,
@@ -743,10 +818,12 @@ fn null_cleanup_paths_are_vacuous_but_unrelated_conditions_remain_possible() {
 fn minimum_and_maximum_effects_come_from_comparisons_and_component_choices() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(r#"
@@ -765,9 +842,12 @@ fn minimum_and_maximum_effects_come_from_comparisons_and_component_choices() {
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let before = Summaries::build(&c);
+
     c.release_lowered_code();
     let after = Summaries::build(&c);
+
     assert_eq!(before.procs, after.procs);
+
     for (name, expected) in [
         ("lesser", Some(Ordering::Minimum)),
         ("greater", Some(Ordering::Maximum)),
@@ -782,6 +862,7 @@ fn minimum_and_maximum_effects_come_from_comparisons_and_component_choices() {
                 .iter()
                 .position(|p| p.name.as_str() == name)
                 .unwrap();
+
         assert_eq!(after.procs[&ProcId(id as u32)].ordering, expected, "{name}");
     }
 }
@@ -790,10 +871,12 @@ fn minimum_and_maximum_effects_come_from_comparisons_and_component_choices() {
 fn destroy_heap_releases_allocator_data_without_treating_it_as_an_allocation() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -810,6 +893,7 @@ fn destroy_heap_releases_allocator_data_without_treating_it_as_an_allocation() {
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let summaries = Summaries::build(&c);
+
     for (name, releases) in [("dispose", true), ("query", false)] {
         let id =
             c.pr.procs
@@ -817,6 +901,7 @@ fn destroy_heap_releases_allocator_data_without_treating_it_as_an_allocation() {
                 .position(|p| p.name.as_str() == name)
                 .unwrap();
         let s = &summaries.procs[&ProcId(id as u32)];
+
         assert_eq!(
             s.guaranteed
                 .keys()
@@ -832,10 +917,12 @@ fn destroy_heap_releases_allocator_data_without_treating_it_as_an_allocation() {
 fn descriptor_fields_are_defined_before_their_uses_not_unrelated_error_returns() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -864,9 +951,11 @@ fn descriptor_fields_are_defined_before_their_uses_not_unrelated_error_returns()
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let before = Summaries::build(&c);
+
     c.release_lowered_code();
     c.release_lowered_code();
     let after = Summaries::build(&c);
+
     for (id, summary) in &before.procs {
         assert_eq!(
             Some(summary),
@@ -875,6 +964,7 @@ fn descriptor_fields_are_defined_before_their_uses_not_unrelated_error_returns()
             c.pr.procs[id.0 as usize].name.as_str()
         );
     }
+
     for (name, owned) in [("direct", true), ("mixed", false), ("forward", true)] {
         let id =
             c.pr.procs
@@ -882,6 +972,7 @@ fn descriptor_fields_are_defined_before_their_uses_not_unrelated_error_returns()
                 .position(|p| p.name.as_str() == name)
                 .unwrap();
         let s = &after.procs[&ProcId(id as u32)];
+
         assert_eq!(
             s.returns
                 .get(&0)
@@ -896,10 +987,12 @@ fn descriptor_fields_are_defined_before_their_uses_not_unrelated_error_returns()
 fn direct_temporary_provider_calls_preserve_allocate_mode_without_tainting_caps_or_free() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -919,8 +1012,10 @@ fn direct_temporary_provider_calls_preserve_allocate_mode_without_tainting_caps_
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let before = Summaries::build(&c);
+
     c.release_lowered_code();
     let after = Summaries::build(&c);
+
     for (id, summary) in &before.procs {
         assert_eq!(
             Some(summary),
@@ -929,6 +1024,7 @@ fn direct_temporary_provider_calls_preserve_allocate_mode_without_tainting_caps_
             c.pr.procs[id.0 as usize].name.as_str()
         );
     }
+
     for (name, temporary) in [
         ("direct", true),
         ("wrapper", true),
@@ -942,6 +1038,7 @@ fn direct_temporary_provider_calls_preserve_allocate_mode_without_tainting_caps_
                 .position(|p| p.name.as_str() == name)
                 .unwrap();
         let s = &after.procs[&ProcId(id as u32)];
+
         assert_eq!(
             s.returns
                 .get(&0)
@@ -961,10 +1058,12 @@ fn direct_temporary_provider_calls_preserve_allocate_mode_without_tainting_caps_
 fn aligned_allocations_keep_their_origin_after_integer_round_up_and_ir_release() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -1005,8 +1104,10 @@ fn aligned_allocations_keep_their_origin_after_integer_round_up_and_ir_release()
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let before = Summaries::build(&c);
+
     c.release_lowered_code();
     let after = Summaries::build(&c);
+
     for (id, s) in &before.procs {
         assert_eq!(
             Some(s),
@@ -1015,17 +1116,20 @@ fn aligned_allocations_keep_their_origin_after_integer_round_up_and_ir_release()
             c.pr.procs[id.0 as usize].name.as_str()
         );
     }
+
     let temporary =
         c.pr.procs
             .iter()
             .position(|p| p.name.as_str() == "temporary_aligned")
             .unwrap();
+
     assert!(
         after.procs[&ProcId(temporary as u32)]
             .returns
             .get(&0)
             .is_some_and(|(p, _)| p.root == Root::Temporary)
     );
+
     for (name, owned) in [
         ("aligned", true),
         ("not_an_address", false),
@@ -1038,6 +1142,7 @@ fn aligned_allocations_keep_their_origin_after_integer_round_up_and_ir_release()
                 .position(|p| p.name.as_str() == name)
                 .unwrap();
         let s = &after.procs[&ProcId(id as u32)];
+
         assert_eq!(
             s.returns
                 .get(&0)
@@ -1052,10 +1157,12 @@ fn aligned_allocations_keep_their_origin_after_integer_round_up_and_ir_release()
 fn temporary_descriptor_contents_do_not_replace_their_storage_origin() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -1075,8 +1182,10 @@ fn temporary_descriptor_contents_do_not_replace_their_storage_origin() {
     assert!(c.ide_check_all().is_empty());
     without_body_notes(&mut c);
     let before = Summaries::build(&c);
+
     c.release_lowered_code();
     let summaries = Summaries::build(&c);
+
     assert_eq!(before.procs, summaries.procs);
     let id = ProcId(
         c.pr.procs
@@ -1085,6 +1194,7 @@ fn temporary_descriptor_contents_do_not_replace_their_storage_origin() {
             .unwrap() as u32,
     );
     let summary = &summaries.procs[&id];
+
     assert!(
         summary
             .returns

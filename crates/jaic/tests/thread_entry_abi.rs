@@ -11,6 +11,7 @@ fn posix_start_routines_require_one_pointer_argument_and_result_with_c_abi() {
         "worker :: (argument:*void)->*void {return null;}",
     ] {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
         let source = format!(
@@ -23,6 +24,7 @@ pthread_create :: (thread:*u64,attributes:*void,entry:*void,data:*void)->s32 #fo
         let error = compiler
             .compile_sources(&[ProgramSource::String(source)])
             .expect_err("an invalid start routine must not become a zero-result worker");
+
         assert!(
             error.message.contains("thread entry ABI"),
             "{}",
@@ -35,6 +37,7 @@ pthread_create :: (thread:*u64,attributes:*void,entry:*void,data:*void)->s32 #fo
 #[test]
 fn typed_pointer_callbacks_return_the_actual_pointer_and_mutation_to_joiners() {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     let source = r"
@@ -49,6 +52,7 @@ check :: ()->bool #no_context {
 }
 #assert check();
 ";
+
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", error.render(&compiler.src.sources));
     }

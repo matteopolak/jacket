@@ -160,6 +160,7 @@ fn is_quiet(symbol: &str) -> bool {
         "clock_nanosleep",
         "sched_yield",
     ];
+
     symbol != "write"
         && (KEEPS_MEMORY_SYMBOLS.contains(&symbol)
             || UNOBSERVABLE_SYMBOLS.contains(&symbol)
@@ -175,6 +176,7 @@ impl Interp {
         if self.libraries_loaded == program.libraries.len() {
             return Ok(());
         }
+
         self.open_required_libraries(program)
     }
 
@@ -183,10 +185,12 @@ impl Interp {
         if !self.host.native_linking() || (self.compile_time && program.cross_target) {
             return Ok(());
         }
+
         for (index, info) in program.libraries.iter().enumerate() {
             if !info.link_always || info.no_dll {
                 continue;
             }
+
             let mut failure = None;
             let library =
                 self.libraries
@@ -201,6 +205,7 @@ impl Interp {
                             }
                         }
                     });
+
             if library.is_none() {
                 return self.trap(format!(
                     "required native library `{}` could not be loaded{}",
@@ -211,6 +216,7 @@ impl Interp {
                 ));
             }
         }
+
         self.libraries_loaded = program.libraries.len();
         Ok(())
     }
@@ -219,15 +225,18 @@ impl Interp {
         // A required library may register classes/constructors without supplying
         // the symbol being requested. Include libraries added since an earlier lookup.
         self.load_required_libraries(program)?;
+
         if let Some(&a) = self.foreign_addrs.get(id.0 as usize)
             && a != 0
         {
             return Ok(a);
         }
+
         let foreign = &program.foreigns[id.0 as usize];
         // Checked where the address is resolved, so a call through a procedure pointer (a
         // variadic `..Any` foreign procedure, say) is refused as a direct call is.
         let mut symbol = foreign.symbol.as_str();
+
         if self.compile_time && self.host.native_linking() {
             match reach(program, foreign) {
                 Some(Reach::Refused) => return self.foreign_c_library_trap(program, id),
@@ -236,16 +245,20 @@ impl Interp {
                 #[cfg(unix)]
                 Some(Reach::Answered(_)) => {
                     let tag = proc_addr::foreign_word(self.proc_width(), id);
+
                     if self.foreign_addrs.len() <= id.0 as usize {
                         self.foreign_addrs.resize(id.0 as usize + 1, 0);
                     }
+
                     self.foreign_addrs[id.0 as usize] = tag;
+
                     return Ok(tag);
                 }
                 Some(Reach::Renamed(name)) => symbol = name,
                 Some(Reach::Native) | None => {}
             }
         }
+
         let counted = (self.host.native_linking() && !foreign.is_data)
             .then(|| crate::memory_limit::foreign_override(symbol))
             .flatten();
@@ -255,12 +268,14 @@ impl Interp {
             let lib = match foreign.library {
                 Some(l) => {
                     let lib_info = &program.libraries[l];
+
                     if lib_info.no_dll {
                         return self.trap(format!(
                             "`{}` cannot be called while compiling: library `{}` has no dynamic library (`,no_dll`)",
                             foreign.symbol, lib_info.name
                         ));
                     }
+
                     #[cfg(windows)]
                     let mut failure = None;
                     let library = self
@@ -291,6 +306,7 @@ impl Interp {
                             }
                         })
                         .clone();
+
                     #[cfg(not(windows))]
                     if library.is_none()
                         && let Some(note) = native::missing_library(&lib_info.name)
@@ -300,6 +316,7 @@ impl Interp {
                             lib_info.name
                         ));
                     }
+
                     #[cfg(windows)]
                     if library.is_none() {
                         return self.trap(format!(
@@ -308,10 +325,12 @@ impl Interp {
                             failure.unwrap_or_else(|| "an earlier load attempt failed".into())
                         ));
                     }
+
                     library
                 }
                 None => None,
             };
+
             match native::lookup_checked(lib.as_ref(), symbol) {
                 Ok(address) => address,
                 Err(error) => return self.trap(error),
@@ -326,12 +345,15 @@ impl Interp {
                 let data = sandbox::guest::with_memory(addresses, layout, || {
                     self.host.foreign_data(&foreign.symbol)
                 });
+
                 if let Some(addr) = data {
                     self.foreign_addrs
                         .resize(self.foreign_addrs.len().max(id.0 as usize + 1), 0);
                     self.foreign_addrs[id.0 as usize] = addr;
+
                     return Ok(addr);
                 }
+
                 return self.trap(format!(
                     "foreign variable `{}` is not available",
                     foreign.symbol
@@ -339,9 +361,11 @@ impl Interp {
             }
             None => proc_addr::foreign_word(self.proc_width(), id),
         };
+
         if self.foreign_addrs.len() <= id.0 as usize {
             self.foreign_addrs.resize(id.0 as usize + 1, 0);
         }
+
         self.foreign_addrs[id.0 as usize] = addr;
         Ok(addr)
     }
@@ -360,21 +384,27 @@ impl Interp {
     fn classify_foreign(&mut self, program: &Program, id: ForeignId) -> u8 {
         let symbol = program.foreigns[id.0 as usize].symbol.as_str();
         let mut flags = CLASSIFIED;
+
         if KEEPS_MEMORY_SYMBOLS.contains(&symbol) {
             flags |= KEEPS_MEMORY;
         }
+
         if !UNOBSERVABLE_SYMBOLS.contains(&symbol) {
             flags |= OBSERVABLE;
         }
+
         if !is_quiet(symbol) {
             flags |= WRITES_OUTPUT;
         }
+
         if is_special(symbol) {
             flags |= SPECIAL;
         }
+
         if matches!(symbol, "fork" | "vfork") {
             flags |= FORKS;
         }
+
         #[cfg(unix)]
         if other_posix_library(program).is_some() {
             match reach(program, &program.foreigns[id.0 as usize]) {
@@ -383,9 +413,11 @@ impl Interp {
                 _ => {}
             }
         }
+
         if self.foreign_flags.len() <= id.0 as usize {
             self.foreign_flags.resize(id.0 as usize + 1, 0);
         }
+
         self.foreign_flags[id.0 as usize] = flags;
         flags
     }
@@ -399,20 +431,25 @@ impl Interp {
     ) -> Res<Rets> {
         let symbol = program.foreigns[id.0 as usize].symbol.as_str();
         let effects = self.foreign_effects(program, id);
+
         // Foreign code may release memory the compiler has found readable.
         if effects & KEEPS_MEMORY == 0 && !keeps_memory_syscall(symbol, args) {
             probe::invalidate();
         }
+
         if effects & OBSERVABLE != 0 {
             self.effects += 1;
         }
+
         if effects & WRITES_OUTPUT != 0 {
             crate::progress::before_output();
         }
+
         if effects & SPECIAL != 0 {
             if let Some(result) = self.executable_path_foreign(symbol, args) {
                 return result.map(Rets::from);
             }
+
             if self.host.cooperative_threads() {
                 if let Some(result) = self.inline_thread_foreign(program, symbol, args) {
                     return result.map(Rets::from);
@@ -423,22 +460,27 @@ impl Interp {
                     return result.map(Rets::from);
                 }
             }
+
             // The process ends in this call: what ran must be written before it does.
             if matches!(symbol, "exit" | "_exit") && self.lines.is_some() {
                 self.flush_profile();
                 super::line_cover::write();
             }
+
             #[cfg(not(target_arch = "wasm32"))]
             if symbol == "abort" {
                 crash::skip_core_dump();
             }
         }
+
         if self.host.answers_foreign() {
             let (addresses, layout) = (self.addresses, self.layout);
+
             if let Some(result) = sandbox::guest::with_memory(addresses, layout, || {
                 self.host.foreign(symbol, args, sig)
             }) {
                 let exits = matches!(symbol, "exit" | "_exit");
+
                 return result.map(Rets::from).map_err(|m| {
                     Trap::new(m).at(self.loc).of_kind(
                         exits.then(|| TrapKind::Exit(args.first().copied().unwrap_or(0) as i32)),
@@ -446,6 +488,7 @@ impl Interp {
                 });
             }
         }
+
         // Sandbox hosts answer above; only trusted native compile-time evaluation uses
         // real host files. Runtime and native Windows calls retain their normal dispatch.
         if self.compile_time
@@ -458,6 +501,7 @@ impl Interp {
         {
             return Ok(Rets::from(vec![result]));
         }
+
         // Compile-time code built for another POSIX OS: what its C library does differently
         // is answered in its ABI, and `errno` passes through its own cell.
         #[cfg(unix)]
@@ -470,11 +514,13 @@ impl Interp {
                 if effects & ANSWERED != 0 {
                     return self.answer_other_posix(program, id, libraries, args);
                 }
+
                 Some(libraries)
             }
             _ => None,
         };
         let addr = self.foreign_addr(program, id)?;
+
         if matches!(
             proc_addr::proc_of(self.proc_width(), addr),
             Some(proc_addr::Proc::Foreign(_))
@@ -489,6 +535,7 @@ impl Interp {
                         .iter()
                         .map(|dir| dir.display().to_string())
                         .collect::<Vec<_>>();
+
                     format!(
                         " (library `{}` was not found or does not define it; looked beside `{}` and in {}){}",
                         library.name,
@@ -511,17 +558,22 @@ impl Interp {
                     "foreign procedure `{symbol}` is not available here{from}"
                 ))
                 .unwrap_err();
+
             trap.kind = Some(TrapKind::Unavailable);
+
             return Err(trap);
         }
+
         // The child of a fork has only the forking thread: it must not wait for the others.
         let forks = effects & FORKS != 0;
         let plan = self.foreign_plan(program, id, addr, sig, forks);
         let scheduling = plan.scheduling;
+
         #[cfg(unix)]
         if let Some(libraries) = translated {
             self.hand_errno_to_host(libraries);
         }
+
         #[cfg(target_os = "macos")]
         let result = if forks {
             native::main_thread::direct(|| {
@@ -556,16 +608,20 @@ impl Interp {
             scheduling,
             Some(&plan.native),
         );
+
         #[cfg(unix)]
         if let Some(libraries) = translated {
             self.take_errno_from_host(libraries);
         }
+
         let result = result?;
+
         if effects & FORKS != 0 && symbol == "fork" && result.first() == Some(&0) {
             self.forked_child = true;
             #[cfg(target_os = "macos")]
             native::main_thread::disable();
         }
+
         Ok(result)
     }
 
@@ -590,6 +646,7 @@ impl Interp {
             name(crate::sema::compiler_host().0),
         );
         let mut trap = self.trap::<()>(message).unwrap_err();
+
         trap.kind = Some(TrapKind::Unavailable);
         Err(trap)
     }
@@ -608,10 +665,12 @@ impl Interp {
         let symbol = program.foreigns[id.0 as usize].symbol.as_str();
         let answer = posix::native::PosixFn::from_name(symbol).and_then(|fun| {
             let window = self.window.clone();
+
             sandbox::guest::with_memory(self.addresses, self.layout, || {
                 self.posix.foreign(libraries, window.as_ref(), fun, args)
             })
         });
+
         match answer {
             Some(value) => Ok(Rets::from(vec![value])),
             None => self
@@ -627,6 +686,7 @@ impl Interp {
         let code = sandbox::guest::with_memory(self.addresses, self.layout, || {
             self.posix.host_errno(libraries, window.as_ref())
         });
+
         super::last_error::translate_next(code);
     }
 
@@ -652,6 +712,7 @@ impl Interp {
         if let Some(Some(plan)) = self.foreign_plans.get(id.0 as usize) {
             return plan.clone();
         }
+
         let foreign = &program.foreigns[id.0 as usize];
         let scheduling = if forks {
             NativeScheduling::Exclusive
@@ -668,9 +729,11 @@ impl Interp {
             scheduling,
             native: native::Plan::new(sig),
         });
+
         if self.foreign_plans.len() <= id.0 as usize {
             self.foreign_plans.resize(id.0 as usize + 1, None);
         }
+
         self.foreign_plans[id.0 as usize] = Some(plan.clone());
         plan
     }
@@ -702,11 +765,13 @@ impl Interp {
         plan: Option<&native::Plan>,
     ) -> Res<Rets> {
         self.read_only.seal();
+
         // Native code reached through a procedure pointer may release memory; a named foreign
         // procedure was classified by `call_foreign`.
         if symbol.is_none() {
             probe::invalidate();
         }
+
         // A `#c_call` procedure handed to C is a native thunk already (`proc_value`), unless C
         // cannot call it: that stayed tagged, and asking for its thunk again says why.
         let mut thunked: Vec<u64>;
@@ -717,6 +782,7 @@ impl Interp {
         };
         let argv = if args.iter().any(|&v| func_of(v).is_some()) {
             thunked = args.to_vec();
+
             for v in &mut thunked {
                 let Some(id) = func_of(*v) else {
                     continue;
@@ -725,14 +791,17 @@ impl Interp {
                     continue;
                 };
                 let sig = sig.clone();
+
                 *v = self
                     .thunk(program, id, &sig)
                     .map_err(|m| Trap::new(m).at(self.loc))?;
             }
+
             thunked.as_slice()
         } else {
             args
         };
+
         #[cfg(not(target_arch = "wasm32"))]
         self.hand_thunks_to_c(program, argv)?;
         let mine = self.take_exec_state();
@@ -744,6 +813,7 @@ impl Interp {
         #[cfg(target_arch = "wasm32")]
         let _ = symbol;
         let result = self.call_unlocked(addr, argv, sig, scheduling, plan);
+
         #[cfg(not(target_arch = "wasm32"))]
         drop(crash_report);
         self.put_exec_state(mine);
@@ -768,6 +838,7 @@ impl Interp {
                 Some(plan) => native::call_planned(addr, argv, sig, plan),
                 None => native::call(addr, argv, sig),
             };
+
             super::last_error::save_program();
             result
         };
@@ -777,7 +848,9 @@ impl Interp {
             .filter(|_| scheduling != NativeScheduling::Exclusive)
         else {
             let result = call();
+
             super::last_error::restore_program();
+
             return result;
         };
         let me = shared.enter_native(
@@ -785,6 +858,7 @@ impl Interp {
             scheduling == NativeScheduling::Blocking,
         );
         let result = native::calling_out((shared.key(), me), call);
+
         shared.leave_native(me);
         super::last_error::restore_program();
         result
@@ -809,11 +883,13 @@ impl Interp {
     /// id. A procedure keeps one value for the interpreter's lifetime.
     pub(super) fn proc_value(&mut self, program: &Program, id: FuncId) -> u64 {
         let i = id.0 as usize;
+
         if let Some(&v) = self.proc_values.get(i)
             && v != 0
         {
             return v;
         }
+
         let tagged = proc_addr::func_word(self.proc_width(), id);
         // The signature is known from the moment the procedure is reserved, so the value is
         // the same whether it is taken before or after the body is lowered.
@@ -826,9 +902,11 @@ impl Interp {
             }
             _ => tagged,
         };
+
         if self.proc_values.len() <= i {
             self.proc_values.resize(i + 1, 0);
         }
+
         self.proc_values[i] = value;
         value
     }
@@ -843,10 +921,12 @@ impl Interp {
             id,
             sig,
         )?;
+
         if self.thunk_funcs.insert(addr, id).is_none() {
             self.unseen_thunks.push(addr);
             self.thunk_list.push(id);
         }
+
         Ok(addr)
     }
 
@@ -862,19 +942,23 @@ impl Interp {
                 self.require_callable(program, function)?;
             }
         }
+
         // Exposure bookkeeping can be cleared after a C call, but unresolved
         // readiness must survive until source addition permits another probe.
         // Only a compile-time run that defers missing bodies inspects anything.
         if self.compile_time && self.defer_missing_bodies {
             for i in 0..self.thunk_list.len() {
                 let function = self.thunk_list[i];
+
                 self.inspect_callable(program, function)?;
             }
         }
+
         if !self.unseen_thunks.is_empty() {
             self.unseen_thunks.clear();
             self.shared().callbacks_possible();
         }
+
         Ok(())
     }
 
@@ -889,6 +973,7 @@ impl Interp {
         if let Some(proc_addr::Proc::Func(id)) = proc_addr::proc_of(self.proc_width(), value) {
             return Some(id);
         }
+
         self.thunk_funcs.get(&value).copied()
     }
 }
@@ -924,6 +1009,7 @@ mod native_handoff_tests {
         // SAFETY: this test passes one live, naturally aligned stack word.
         unsafe {
             let previous = *word;
+
             *word = previous + 1;
             previous
         }
@@ -932,6 +1018,7 @@ mod native_handoff_tests {
     #[test]
     fn a_blocking_call_keeps_parked_arguments_and_execution_state_alive() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+
         interp.stack = ValueStack::heap(4);
         interp.stack[2] = 41;
         interp.sp = 3;
@@ -948,6 +1035,7 @@ mod native_handoff_tests {
                 NativeScheduling::Blocking,
             )
             .unwrap();
+
         assert_eq!(result.first(), Some(&41));
         assert_eq!(interp.stack[2], 42);
         assert_eq!(interp.sp, 3);
@@ -957,6 +1045,7 @@ mod native_handoff_tests {
     #[test]
     fn a_native_argument_error_still_reacquires_and_restores_the_stack() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+
         interp.stack = ValueStack::heap(1);
         interp.stack[0] = 77;
         interp.shared();
@@ -969,6 +1058,7 @@ mod native_handoff_tests {
             Some("oversized_argument_test"),
             NativeScheduling::Blocking,
         );
+
         assert!(result.unwrap_err().message.contains("too many"));
         assert_eq!(interp.stack[0], 77);
         assert!(interp.holds_baton());
@@ -1005,6 +1095,7 @@ mod native_handoff_tests {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
         let failed = &signature(vec![ir::Ty::I32], vec![ir::Ty::I32]);
         let read = &signature(vec![], vec![ir::Ty::I32]);
+
         for scheduling in [NativeScheduling::Short, NativeScheduling::Exclusive] {
             interp
                 .call_native(
@@ -1029,6 +1120,7 @@ mod native_handoff_tests {
                     scheduling,
                 )
                 .unwrap();
+
             assert_eq!(seen.first().copied().unwrap() as i32, 0, "{scheduling:?}");
         }
     }
@@ -1059,6 +1151,7 @@ mod native_handoff_tests {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
         let failed = &signature(vec![ir::Ty::I32], vec![ir::Ty::I32]);
         let read = &signature(vec![], vec![ir::Ty::I32]);
+
         for scheduling in [NativeScheduling::Short, NativeScheduling::Exclusive] {
             interp
                 .call_native(
@@ -1084,6 +1177,7 @@ mod native_handoff_tests {
                     scheduling,
                 )
                 .unwrap();
+
             assert_eq!(seen.first().copied().unwrap(), 18, "{scheduling:?}");
         }
     }
@@ -1092,7 +1186,9 @@ mod native_handoff_tests {
     #[test]
     fn interrupted_and_timed_out_returns_preserve_errno_after_reacquiring() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+
         interp.shared();
+
         for error in [4, crate::interp::errno::ETIMEDOUT_HOST as i32] {
             let result = interp
                 .call_native(
@@ -1104,6 +1200,7 @@ mod native_handoff_tests {
                     NativeScheduling::Blocking,
                 )
                 .unwrap();
+
             assert_eq!(result.first().copied().unwrap() as i32, -1);
             assert_eq!(std::io::Error::last_os_error().raw_os_error(), Some(error));
             assert!(interp.holds_baton());
@@ -1129,6 +1226,7 @@ mod tests {
         ] {
             assert!(is_special(symbol), "{symbol}");
         }
+
         for symbol in ["labs", "malloc", "write", "sqrt", "fork", "dlopen"] {
             assert!(!is_special(symbol), "{symbol}");
         }

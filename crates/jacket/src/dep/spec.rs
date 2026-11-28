@@ -14,12 +14,15 @@ pub struct RepoUrl(String);
 impl Source {
     pub fn parse(text: &str) -> Result<Self, String> {
         let text = text.trim();
+
         if text.is_empty() {
             return Err("a repository is empty".into());
         }
+
         if text.starts_with('-') || text.chars().any(|c| c.is_control() || c.is_whitespace()) {
             return Err(format!("`{text}` is not a repository address"));
         }
+
         Ok(Self(text.to_string()))
     }
 
@@ -27,13 +30,17 @@ impl Source {
     /// as written.
     pub fn url(&self) -> RepoUrl {
         let git = self.0.as_str();
+
         if git.contains("://") || git.starts_with("git@") || RepoUrl(git.to_string()).is_local() {
             return RepoUrl(git.to_string());
         }
+
         let first = git.split('/').next().unwrap_or("");
+
         if first.contains('.') && git.contains('/') {
             return RepoUrl(format!("https://{git}"));
         }
+
         RepoUrl(format!("https://github.com/{git}"))
     }
 
@@ -44,6 +51,7 @@ impl Source {
     pub fn resolved(&self, base: &std::path::Path) -> Self {
         if self.0.starts_with("./") || self.0.starts_with("../") {
             let mut path = base.to_path_buf();
+
             for part in std::path::Path::new(&self.0).components() {
                 match part {
                     std::path::Component::ParentDir => {
@@ -53,6 +61,7 @@ impl Source {
                     other => path.push(other),
                 }
             }
+
             Self(path.display().to_string())
         } else {
             self.clone()
@@ -63,12 +72,14 @@ impl Source {
     pub fn name(&self) -> String {
         let trimmed = self.0.trim_end_matches('/');
         let last = trimmed.rsplit(['/', ':']).next().unwrap_or(trimmed);
+
         last.strip_suffix(".git").unwrap_or(last).to_string()
     }
 
     /// Whether two spellings name one repository.
     pub fn same_repo(&self, other: &Self) -> bool {
         let (a, b) = (self.url(), other.url());
+
         match (a.host_and_repo(), b.host_and_repo()) {
             (Some(x), Some(y)) => x == y,
             _ => a.0.trim_end_matches('/') == b.0.trim_end_matches('/'),
@@ -90,6 +101,7 @@ impl RepoUrl {
     /// Whether the URL names a folder on this machine.
     pub fn is_local(&self) -> bool {
         let url = self.0.as_str();
+
         url.starts_with('/')
             || url.starts_with("./")
             || url.starts_with("../")
@@ -111,6 +123,7 @@ impl RepoUrl {
         let (host, path) = rest.split_once(['/', ':'])?;
         let path = path.trim_matches('/');
         let path = path.strip_suffix(".git").unwrap_or(path);
+
         (!path.is_empty()).then(|| (host.to_ascii_lowercase(), path.to_string()))
     }
 }
@@ -129,9 +142,11 @@ pub struct At(String);
 impl At {
     pub fn parse(text: &str) -> Result<Self, String> {
         let text = text.trim();
+
         if text.is_empty() || text.starts_with('-') || text.chars().any(char::is_control) {
             return Err(format!("`{text}` is not a tag, version, range or commit"));
         }
+
         Ok(Self(text.to_string()))
     }
 
@@ -168,6 +183,7 @@ pub fn parse(spec: &str) -> Result<Spec, String> {
         ),
         None => (spec, None),
     };
+
     Ok(Spec {
         git: Source::parse(git)?,
         at: at.map(At::parse).transpose()?,
@@ -201,6 +217,7 @@ mod tests {
                 Some(">=1, <2"),
             ),
         ];
+
         for (spec, git, at) in table {
             assert_eq!(
                 parse(spec).unwrap(),
@@ -221,8 +238,10 @@ mod tests {
     fn relative_local_paths_are_made_absolute_once() {
         let base = std::path::Path::new("/work/project");
         let own = |text: &str| Source::parse(text).unwrap().resolved(base);
+
         assert_eq!(own("../lib").to_string(), "/work/lib");
         assert_eq!(own("./lib").to_string(), "/work/project/lib");
+
         for same in ["/abs/lib", "a/b", "https://h/a/b", "git@h:a/b.git"] {
             assert_eq!(own(same).to_string(), same);
         }
@@ -258,6 +277,7 @@ mod tests {
         for bad in ["", "  ", "--upload-pack=x", "a b", "a\nb"] {
             assert!(Source::parse(bad).is_err(), "{bad:?}");
         }
+
         assert!(parse("--x@v1").is_err());
     }
 }

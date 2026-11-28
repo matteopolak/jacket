@@ -12,11 +12,14 @@ pub const SEEDS: &[u64] = &[1, 2, 3];
 
 fn run(jaic: &Path, program: &Path, args: &[&str], seed: Option<u64>) -> Output {
     let mut command = Command::new(jaic);
+
     command.arg(program).args(args).arg("-serial_parse");
+
     match seed {
         Some(seed) => command.env("JAIC_SYM_SCRAMBLE", seed.to_string()),
         None => command.env_remove("JAIC_SYM_SCRAMBLE"),
     };
+
     command
         .output()
         .unwrap_or_else(|error| panic!("cannot run {command:?}: {error}"))
@@ -35,8 +38,10 @@ pub fn assert_stable(jaic: &Path, program: &Path, args: &[&str]) -> Output {
             .collect();
         let base = run(jaic, program, args, None);
         let others: Vec<_> = runs.into_iter().map(|run| run.join().unwrap()).collect();
+
         (base, others)
     });
+
     for (seed, other) in others {
         assert!(
             base.status.code() == other.status.code()
@@ -48,5 +53,6 @@ pub fn assert_stable(jaic: &Path, program: &Path, args: &[&str]) -> Output {
             super::process::describe(&other),
         );
     }
+
     base
 }

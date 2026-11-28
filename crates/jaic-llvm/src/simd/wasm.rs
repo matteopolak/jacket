@@ -14,6 +14,7 @@ pub fn byte_lookup<'ctx>(
     if cx.target.family != Family::Wasm || !cx.target.has(Feature::Simd128) {
         return Ok(false);
     }
+
     // swizzle also gives 0 for an index of 16 or more.
     cx.map_blocks(width, 16, idx, dst, |indices| {
         cx.call("llvm.wasm.swizzle", &[], &[table.into(), indices.into()])

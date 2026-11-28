@@ -22,6 +22,7 @@ fn anonymous_loaded_import_runs_in_interpreter_and_compile_time() {
             .args(args)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{name}: {}",
@@ -45,8 +46,10 @@ fn named_aliases_constants_and_absent_imports_stay_private_or_unknown() {
             .arg("-check")
             .output()
             .unwrap();
+
         assert!(!output.status.success(), "{name} unexpectedly succeeded");
         let error = String::from_utf8_lossy(&output.stderr);
+
         assert!(
             error.contains(&format!("unknown identifier `{identifier}`")),
             "{name}: {error}"
@@ -62,7 +65,9 @@ fn anonymous_loaded_import_executes_native_o0_and_o2() {
         .parent()
         .unwrap()
         .join(format!("loaded-import-scope-{}", std::process::id()));
+
     std::fs::create_dir_all(&scratch).unwrap();
+
     for optimization in ["-O0", "-O2"] {
         let executable = scratch.join(format!("anonymous{optimization}"));
         let output = Command::new(&compiler)
@@ -71,6 +76,7 @@ fn anonymous_loaded_import_executes_native_o0_and_o2() {
             .arg(&executable)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -79,6 +85,7 @@ fn anonymous_loaded_import_executes_native_o0_and_o2() {
         assert_eq!(output.stdout, [] as [u8; 0]);
         assert_eq!(output.stderr, [] as [u8; 0]);
         let output = Command::new(&executable).output().unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -87,5 +94,6 @@ fn anonymous_loaded_import_executes_native_o0_and_o2() {
         assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
         assert_eq!(output.stderr, [] as [u8; 0]);
     }
+
     std::fs::remove_dir_all(scratch).unwrap();
 }

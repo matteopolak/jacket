@@ -50,6 +50,7 @@ pub fn request(stop: bool) {
 #[inline]
 pub fn should_stop() -> bool {
     let state = STATE.load(Relaxed);
+
     if state & (ARMED | REQUESTED) != (ARMED | REQUESTED) && state & FIRED == 0 {
         // Only an armed check counts down, so the unarmed path stays one load.
         if state & ARMED == 0
@@ -59,6 +60,7 @@ pub fn should_stop() -> bool {
             return false;
         }
     }
+
     STATE.fetch_or(FIRED, Relaxed);
     true
 }

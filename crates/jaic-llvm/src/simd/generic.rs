@@ -22,8 +22,10 @@ pub fn byte_lookup<'ctx>(
     let i8t = cx.ctx.i8_type();
     let i32t = cx.ctx.i32_type();
     let zero = i8t.const_zero();
+
     cx.map_blocks(width, 16, idx, dst, |indices| {
         let mut out = i8t.vec_type(16).get_undef();
+
         for lane in 0..16u64 {
             let at = i32t.const_int(lane, false);
             let i = b.build_extract_element(indices, at, "")?.into_int_value();
@@ -33,8 +35,10 @@ pub fn byte_lookup<'ctx>(
             let sel = b.build_int_z_extend(sel, i32t, "")?;
             let v = b.build_extract_element(table, sel, "")?.into_int_value();
             let v = b.build_select(in_range, v, zero, "")?.into_int_value();
+
             out = b.build_insert_element(out, v, at, "")?;
         }
+
         Ok(BasicValueEnum::from(out))
     })?;
     Ok(true)
@@ -50,6 +54,7 @@ pub fn sign_mask<'ctx>(cx: &Cx<'_, 'ctx>, width: u8, src: PointerValue<'ctx>) ->
         .ctx
         .custom_width_int_type(std::num::NonZeroU32::new(u32::from(width)).ok_or("zero width")?)?;
     let packed = b.build_bit_cast(neg, bits, "")?.into_int_value();
+
     Ok(b.build_int_z_extend_or_bit_cast(packed, cx.ctx.i64_type(), "")?)
 }
 
@@ -91,6 +96,7 @@ pub fn string_compare<'ctx>(
             .build_extract_value(result, i, "")?
             .into_int_value())
     };
+
     Ok([field(0)?, field(1)?, field(2)?])
 }
 
@@ -110,11 +116,15 @@ fn string_compare_helper<'ctx>(
         ret.fn_type(&[ptr.into(), ptr.into(), i32t.into(), i32t.into()], false),
         Some(Linkage::Internal),
     );
+
     for attr in ["nounwind", "willreturn"] {
         let kind = Attribute::get_named_enum_kind_id(attr);
+
         f.add_attribute(AttributeLoc::Function, ctx.create_enum_attribute(kind, 0));
     }
+
     let builder = ctx.create_builder();
+
     builder.position_at_end(ctx.append_basic_block(f, "entry"));
     let cx = Cx {
         builder: &builder,
@@ -157,6 +167,7 @@ fn string_compare_helper<'ctx>(
                     .build_select(short, abs, k(u64::from(n)), "")?
                     .into_int_value();
                 let top = b.build_left_shift(k(1), count, "")?;
+
                 b.build_int_sub(top, k(1), "")?
             } else {
                 // Below the lowest zero element (or all of them): (lowest set bit of zeros) - 1.
@@ -166,10 +177,12 @@ fn string_compare_helper<'ctx>(
                 let guarded = b.build_or(zeros, k(1 << n), "")?;
                 let negated = b.build_int_sub(k(0), guarded, "")?;
                 let lowest = b.build_and(guarded, negated, "")?;
+
                 b.build_int_sub(lowest, k(1), "")?
             };
             let narrow = b.build_int_truncate(mask, bits_ty, "")?;
             let vector = b.build_bit_cast(narrow, bools, "")?.into_vector_value();
+
             Ok((mask, vector))
         };
     let (ma, valid_a) = valid(va_, param(2)?.into_int_value())?;
@@ -188,13 +201,16 @@ fn string_compare_helper<'ctx>(
         // Equal any: some valid element of `a` equals this element of `b`.
         0 => {
             let mut acc = none;
+
             for j in 0..n {
                 let eq = b.build_int_compare(IntPredicate::EQ, vb_, splat(va_, j)?, "")?;
                 let hit = b
                     .build_select(lane_valid(j)?, eq, none, "")?
                     .into_vector_value();
+
                 acc = b.build_or(acc, hit, "")?;
             }
+
             b.build_and(acc, valid_b, "")?
         }
         // Ranges: `a` holds (low, high) pairs; this element of `b` lies in one of them.
@@ -205,14 +221,17 @@ fn string_compare_helper<'ctx>(
                 (IntPredicate::UGE, IntPredicate::ULE)
             };
             let mut acc = none;
+
             for p in 0..n / 2 {
                 let above = b.build_int_compare(ge, vb_, splat(va_, 2 * p)?, "")?;
                 let below = b.build_int_compare(le, vb_, splat(va_, 2 * p + 1)?, "")?;
                 let inside = b.build_and(above, below, "")?;
                 let pair = b.build_and(lane_valid(2 * p)?, lane_valid(2 * p + 1)?, "")?;
                 let hit = b.build_select(pair, inside, none, "")?.into_vector_value();
+
                 acc = b.build_or(acc, hit, "")?;
             }
+
             b.build_and(acc, valid_b, "")?
         }
         // Equal each: pairwise; two missing elements match, one missing does not.
@@ -222,12 +241,14 @@ fn string_compare_helper<'ctx>(
             let hit = b.build_and(eq, both, "")?;
             let either = b.build_or(valid_a, valid_b, "")?;
             let neither = b.build_xor(either, every, "")?;
+
             b.build_or(hit, neither, "")?
         }
         // Equal ordered: `a` occurs in `b` starting at this element (a missing `a` element
         // matches). Term j compares element j of `a` with element i + j of `b`.
         _ => {
             let mut acc = every;
+
             for j in 0..n {
                 let shift: Vec<IntValue> = (0..n)
                     .map(|i| {
@@ -251,8 +272,10 @@ fn string_compare_helper<'ctx>(
                     .map(|i| ctx.bool_type().const_int(u64::from(i + j >= n), false))
                     .collect();
                 let term = b.build_or(term, VectorType::const_vector(&past), "")?;
+
                 acc = b.build_and(acc, term, "")?;
             }
+
             acc
         }
     };
@@ -267,15 +290,18 @@ fn string_compare_helper<'ctx>(
     let ends = |mask: IntValue<'ctx>| -> R<IntValue<'ctx>> {
         let last = b.build_and(mask, k(1 << (n - 1)), "")?;
         let ended = b.build_int_compare(IntPredicate::EQ, last, k(0), "")?;
+
         Ok(b.build_int_z_extend(ended, i8t, "")?)
     };
     let (b_ends, a_ends) = (ends(mb)?, ends(ma)?);
     let mut out = ret.get_undef();
+
     for (i, v) in [result, b_ends, a_ends].into_iter().enumerate() {
         out = b
             .build_insert_value(out, v, i as u32, "")?
             .into_struct_value();
     }
+
     b.build_return(Some(&out))?;
     Ok(f)
 }

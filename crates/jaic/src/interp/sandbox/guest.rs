@@ -46,6 +46,7 @@ pub(in crate::interp) fn with_memory<R>(
         layout,
     }));
     let result = f();
+
     MEMORY.set(outer);
     result
 }
@@ -75,6 +76,7 @@ fn host(addr: u64) -> u64 {
 pub(in crate::interp) fn read_uint(addr: u64, width: u8) -> u64 {
     let mut bytes = [0u8; 8];
     let width = usize::from(width);
+
     // SAFETY: see the module documentation; `bytes` is host memory, so it cannot overlap.
     unsafe {
         std::ptr::copy_nonoverlapping(host(addr) as *const u8, bytes.as_mut_ptr(), width);
@@ -86,6 +88,7 @@ pub(in crate::interp) fn read_uint(addr: u64, width: u8) -> u64 {
 pub(in crate::interp) fn write_uint(addr: u64, width: u8, value: u64) {
     let mut bytes = [0u8; 8];
     let width = usize::from(width);
+
     layout().write_uint(&mut bytes[..width], value);
     write_bytes(addr, &bytes[..width]);
 }
@@ -138,6 +141,7 @@ pub(in crate::interp) fn read_bytes(addr: u64, len: usize) -> Vec<u8> {
         // A zero-length read may pass a null address, which a slice must not hold.
         return Vec::new();
     }
+
     // SAFETY: see the module documentation.
     unsafe { std::slice::from_raw_parts(host(addr) as *const u8, len) }.to_vec()
 }
@@ -209,6 +213,7 @@ mod tests {
         use_host_memory();
         let mut buffer = [0u8; 8];
         let at = buffer.as_mut_ptr() as u64 + 1;
+
         write_units(at, &[0x0201u16, 0x0403]);
         assert_eq!(buffer[1..5], [1, 2, 3, 4]);
     }

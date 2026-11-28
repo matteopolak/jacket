@@ -38,6 +38,7 @@ impl RuleInfo {
         if let Some(text) = lifetime_help::explain(self.name) {
             return text.to_owned();
         }
+
         let (source, example) =
             explanation_source(self.name).expect("registered rule has an example");
         let prose = source
@@ -49,6 +50,7 @@ impl RuleInfo {
             })
             .collect::<Vec<_>>()
             .join("\n");
+
         format!(
             "{}\n\nDefault: {} ({})\n\n{}\n\n{prose}\n\nExample:\n```jai\n{example}```\n",
             self.name,
@@ -212,8 +214,10 @@ pub(crate) enum PlaceUse {
 pub(crate) fn place_use(node: &Expr, chain: &[Node<'_>]) -> PlaceUse {
     let mut cur = node;
     let mut i = chain.len();
+
     while i > 0 {
         i -= 1;
+
         match chain[i] {
             Node::Expr(p) => match &p.kind {
                 E::Member(base, _) if base.span == cur.span => cur = p,
@@ -239,6 +243,7 @@ pub(crate) fn place_use(node: &Expr, chain: &[Node<'_>]) -> PlaceUse {
             }
         }
     }
+
     PlaceUse::Read
 }
 
@@ -308,10 +313,12 @@ pub(crate) fn calls_noted(cx: &Cx, callee: &Expr, name: &str) -> bool {
         E::Member(_, name) => name.span,
         _ => callee.span,
     };
+
     // Of an overload set, the one this call chose says what the call means.
     if let Some(chosen) = cx.compiler.ide_resolved_overload(span, &procs) {
         return has_note(cx, chosen, name);
     }
+
     !procs.is_empty() && procs.iter().all(|&p| has_note(cx, p, name))
 }
 
@@ -319,6 +326,7 @@ pub(crate) fn calls_noted(cx: &Cx, callee: &Expr, name: &str) -> bool {
 pub(crate) fn any_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Stmt) -> bool) -> bool {
     let mut found = false;
     let mut stack = Vec::new();
+
     jaic::ast::walk::walk_node(Node::Stmt(stmt), &mut stack, &mut |n, _| {
         if !found
             && let Node::Stmt(s) = n
@@ -326,6 +334,7 @@ pub(crate) fn any_stmt(stmt: &Stmt, f: &mut dyn FnMut(&Stmt) -> bool) -> bool {
         {
             found = true;
         }
+
         !found
     });
     found
@@ -343,6 +352,7 @@ pub(crate) fn statement_lists<'a>(body: &'a [Stmt], f: &mut dyn FnMut(&'a [Stmt]
                     let jaic::ast::SwitchStmt {
                         cases, ..
                     } = &**boxed;
+
                     for c in cases {
                         f(&c.body);
                     }
@@ -353,12 +363,14 @@ pub(crate) fn statement_lists<'a>(body: &'a [Stmt], f: &mut dyn FnMut(&'a [Stmt]
                         else_branch,
                         ..
                     } = &**boxed;
+
                     f(then_branch);
                     f(else_branch);
                 }
                 _ => {}
             }
         }
+
         true
     });
 }
@@ -370,10 +382,12 @@ pub(crate) fn walk_code<'a>(cx: &Cx<'a>, visit: &mut dyn FnMut(Node<'a>, &[Node<
     if cx.generated() {
         return;
     }
+
     jaic::ast::walk::walk(cx.stmts, &mut |n, up| {
         visit(n, up);
         true
     });
+
     for p in cx.procs.iter().filter(|p| !p.is_macro) {
         jaic::ast::walk::walk(&p.body.stmts, &mut |n, up| {
             visit(n, up);
@@ -394,10 +408,12 @@ fn calls_in_module(
     if cx.generated() || !cx.in_module() {
         return;
     }
+
     walk_code(cx, &mut |n, _| {
         let Node::Expr(e) = n else {
             return;
         };
+
         if let E::Call {
             callee, ..
         } = &e.kind
@@ -442,9 +458,11 @@ pub(crate) fn statement_range(cx: &Cx, span: Span) -> (usize, usize) {
     let mut end = span.end as usize;
     let rest = &cx.text[end..];
     let trimmed = rest.trim_start_matches([' ', '\t']);
+
     if trimmed.starts_with(';') && !cx.text[..end].ends_with(';') {
         end += rest.len() - trimmed.len() + 1;
     }
+
     (start, end)
 }
 
@@ -531,6 +549,7 @@ mod tests {
     #[test]
     fn each_rule_is_named_after_its_module() {
         let names: Vec<_> = super::RULES.iter().map(|r| r.name).collect();
+
         assert_eq!(names, super::RULE_MODULES);
     }
 }

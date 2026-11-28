@@ -26,6 +26,7 @@ pub(super) fn inspect(
 ) -> Result<Inspected> {
     let checkout = path.under(&project.dir);
     let manifest = package::read(&checkout).unwrap_or_default();
+
     package::check_jacket_version(&manifest.package, env!("CARGO_PKG_VERSION"))
         .map_err(|why| DepError::new(format!("{name}: {why}")))?;
     let module = package::find_module(&checkout, &manifest, asked_module).map_err(|why| {
@@ -33,8 +34,10 @@ pub(super) fn inspect(
             .note("pass the folder holding module.jai with --module <path>")
     })?;
     let imported = package::import_name(&module, name);
+
     if let Some(declared) = &manifest.package.name {
         let clash = !module.is_empty() && *declared != imported;
+
         if clash {
             return Err(DepError::new(format!(
                 "{name}: [package] name is {declared}, but its module folder is called {imported}"
@@ -42,11 +45,14 @@ pub(super) fn inspect(
             .note("a module is imported by its folder's name; the package must use that name"));
         }
     }
+
     if let Some(note) = package::platform_note(&manifest.package, std::env::consts::OS) {
         let _ = writeln!(ctx.err, "warning: {name}: {note}");
     }
+
     if let (Some(version), Some(tag)) = (&manifest.package.version, tag) {
         let reading = Reading::default();
+
         if let (Some(declared), Some(tagged)) = (reading.parse(version), reading.parse(tag))
             && declared != tagged
         {
@@ -56,6 +62,7 @@ pub(super) fn inspect(
             );
         }
     }
+
     let record = (!module.is_empty()
         && manifest
             .package
@@ -69,22 +76,26 @@ pub(super) fn inspect(
         path: path.clone(),
         module: record,
     };
+
     // A root module is imported by its folder, which a package may name itself.
     if let (false, true, Some(declared)) = (explicit, module.is_empty(), &manifest.package.name)
         && declared != name
     {
         let to = SubPath::parse(&format!("modules/{declared}"))
             .map_err(|e| DepError::new(format!("{name}: {e}")))?;
+
         if to.under(&project.dir).exists() || project.config.dependencies.contains_key(declared) {
             return Err(DepError::new(format!(
                 "{name}: the package calls itself {declared}, but {to} is taken"
             ))
             .note(format!("pass --name {name} to keep this name")));
         }
+
         ctx.git.rename(&project.dir, path, &to)?;
         found.name.clone_from(declared);
         found.path = to;
     }
+
     Ok(found)
 }
 
@@ -96,16 +107,20 @@ pub(super) fn requirements(
     known: &[Submodule],
 ) -> Result<Vec<String>> {
     let mut lines = Vec::new();
+
     for (name, entry) in &project.config.dependencies {
         let path = path_of(name, entry)?;
+
         if !known.iter().any(|s| s.path == path) || !ctx.git.initialised(&project.dir, &path)? {
             continue;
         }
+
         let dir = path.under(&project.dir);
         let Some(manifest) = package::read(&dir) else {
             continue;
         };
         let nested = ctx.git.submodules(&dir)?;
+
         for (inner, wanted) in &manifest.dependencies {
             let inner_path = path_of(inner, wanted)?;
             let asked = asked(wanted);
@@ -115,6 +130,7 @@ pub(super) fn requirements(
                 .and_then(|sub| {
                     let tags = ctx.git.tags_at(&dir, &inner_path, &sub.commit).ok()?;
                     let reading = Reading::of(wanted).ok()?;
+
                     resolve::resolved(&reading, &tags).map(ToString::to_string)
                 });
             let verdict = match (&have, &wanted.version) {
@@ -126,6 +142,7 @@ pub(super) fn requirements(
                             .zip(r.parse(tag))
                             .is_some_and(|(range, v)| range.matches(&v))
                     });
+
                     if ok {
                         format!("pinned at {tag}")
                     } else {
@@ -135,8 +152,10 @@ pub(super) fn requirements(
                 (Some(tag), None) => format!("pinned at {tag}"),
                 (None, _) => "not checked out".to_string(),
             };
+
             lines.push(format!("{name} needs {inner} {asked}: {verdict}"));
         }
     }
+
     Ok(lines)
 }

@@ -25,6 +25,7 @@ pub fn read_text(text: &str) -> Option<Manifest> {
         .get("dependencies")
         .and_then(|v| v.clone().try_into().ok())
         .unwrap_or_default();
+
     Some(Manifest {
         package,
         dependencies,
@@ -44,8 +45,10 @@ pub fn find_module(
 ) -> Result<String, String> {
     let has = |dir: &str| checkout.join(dir).join("module.jai").is_file();
     let tidy = |dir: &str| dir.trim_matches('/').trim_start_matches("./").to_string();
+
     if let Some(dir) = asked.or(manifest.package.module.as_deref()) {
         let dir = tidy(dir);
+
         return if has(&dir) {
             Ok(dir)
         } else {
@@ -59,9 +62,11 @@ pub fn find_module(
             ))
         };
     }
+
     if has("") {
         return Ok(String::new());
     }
+
     let mut found: Vec<String> = std::fs::read_dir(checkout.join("modules"))
         .into_iter()
         .flatten()
@@ -69,7 +74,9 @@ pub fn find_module(
         .filter(|e| e.path().join("module.jai").is_file())
         .map(|e| format!("modules/{}", e.file_name().to_string_lossy()))
         .collect();
+
     found.sort();
+
     match found.as_slice() {
         [one] => Ok(one.clone()),
         [] => Err("it has no module.jai at its root and no modules/<Name>/module.jai".into()),
@@ -101,6 +108,7 @@ pub fn check_jacket_version(package: &Package, jacket: &str) -> Result<(), Strin
     let have = semver::Version::parse(jacket).map_err(|e| e.to_string())?;
     // A prerelease build of jacket counts as its release for this check.
     let release = semver::Version::new(have.major, have.minor, have.patch);
+
     if req.matches(&release) {
         Ok(())
     } else {
@@ -132,6 +140,7 @@ mod tests {
              [project]\nentry = [\"evil.jai\"]\nimport-path = [\"vendor\"]\n[target.pico]\ntriple = \"t\"\n[lint]\nmax-nesting = 1\n",
         )
         .unwrap();
+
         assert_eq!(manifest.package.name.as_deref(), Some("my_lib"));
         assert_eq!(manifest.package.module.as_deref(), Some("src/My_Lib"));
         assert_eq!(
@@ -148,9 +157,11 @@ mod tests {
             jacket_version: Some(req.into()),
             ..Package::default()
         };
+
         assert!(check_jacket_version(&package(">=0.40"), "0.41.0").is_ok());
         assert!(check_jacket_version(&package(">=0.40"), "0.41.0-rc.1").is_ok());
         let error = check_jacket_version(&package(">=0.40"), "0.39.0").unwrap_err();
+
         assert!(
             error.contains(">=0.40") && error.contains("0.39.0"),
             "{error}"
@@ -161,6 +172,7 @@ mod tests {
             platforms: vec!["linux".into()],
             ..Package::default()
         };
+
         assert!(platform_note(&linux, "macos").unwrap().contains("linux"));
         assert!(platform_note(&linux, "linux").is_none());
         assert!(platform_note(&Package::default(), "macos").is_none());
@@ -170,11 +182,13 @@ mod tests {
     fn modules_are_found_at_the_root_in_a_single_folder_or_where_told() {
         let dir = test_support::TempDir::new("dep-package");
         let none = Manifest::default();
+
         assert!(find_module(&dir, &none, None).is_err());
         dir.write("modules/Only/module.jai", "");
         assert_eq!(find_module(&dir, &none, None).unwrap(), "modules/Only");
         dir.write("modules/Other/module.jai", "");
         let error = find_module(&dir, &none, None).unwrap_err();
+
         assert!(
             error.contains("modules/Only") && error.contains("modules/Other"),
             "{error}"
@@ -193,6 +207,7 @@ mod tests {
             },
             ..Manifest::default()
         };
+
         assert_eq!(find_module(&dir, &named, None).unwrap(), "modules/Only");
     }
 

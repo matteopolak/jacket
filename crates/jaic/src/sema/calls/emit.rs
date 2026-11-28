@@ -29,6 +29,7 @@ impl Compiler {
         // of exactly the base type is cast back up to the variant.
         let variant = args.iter().find_map(|a| {
             let ty = a.op.as_ref()?.ty();
+
             match self.ty.types.kind(ty) {
                 TypeKind::Distinct(d) if self.ty.types.distincts[d.0 as usize].isa => {
                     Some((ty, self.ty.types.distincts[d.0 as usize].base))
@@ -38,15 +39,18 @@ impl Compiler {
         });
         let is_macro = self.proc(proc).is_macro;
         let lifetime_call = !f.type_only && f.lifetimes.is_some();
+
         if lifetime_call && let Some(record) = &mut f.lifetimes {
             use crate::ide::lifetimes::{LifetimeArgument, LifetimeOperand};
             let mut mapped = Vec::new();
+
             for (formal, slot) in c.slots.iter().enumerate() {
                 let indices: &[usize] = match slot {
                     Slot::Arg(i) | Slot::Spread(i) => std::slice::from_ref(i),
                     Slot::Variadic(list) => list,
                     Slot::Default => &[],
                 };
+
                 for &i in indices {
                     mapped.push(LifetimeArgument {
                         formal,
@@ -62,6 +66,7 @@ impl Compiler {
                     });
                 }
             }
+
             record
                 .calls
                 .push(crate::ide::lifetimes::LifetimeCallRecording {
@@ -70,13 +75,16 @@ impl Compiler {
                     parameter_spans: header.params.iter().map(|p| p.span).collect(),
                 });
         }
+
         let grows = lifetime_call && self.proc_has_note(proc, crate::sema::GROWS_ARRAY_NOTE);
         let result = self.emit_call_inner(f, scope, c, args, span);
+
         if lifetime_call && let Some(record) = &mut f.lifetimes {
             use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
             let call = record.calls.pop().expect("selected call frame");
             let memory = call.memory;
             let args = call.args;
+
             if result.is_ok() {
                 if grows
                     && let Some(arg) = args.iter().find(|a| a.formal == 0)
@@ -92,6 +100,7 @@ impl Compiler {
                         },
                     );
                 }
+
                 record.push(
                     f.b.current,
                     LifetimeEvent::Call {
@@ -117,6 +126,7 @@ impl Compiler {
                 );
             }
         }
+
         let result = match (result, variant) {
             (
                 Ok(Operand::Value {
@@ -130,6 +140,7 @@ impl Compiler {
             }),
             (result, _) => result,
         };
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::PrLastCallMust);
         self.pr.last_call_must = must.iter().any(|&m| m).then_some((span, name, must));
         result
@@ -144,11 +155,14 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let proc = c.proc;
+
         if self.proc(proc).is_macro {
             return self.expand_macro(f, scope, proc, &c.slots, args, span);
         }
+
         let header = self.proc(proc).lit.header.clone();
         let sig = self.signature(proc, span)?;
+
         // Intrinsics expand inline.
         if header.flags.intrinsic()
             && self.proc(proc).lit.body.is_none()
@@ -156,7 +170,9 @@ impl Compiler {
         {
             return self.emit_intrinsic(f, proc, (&sig, &header), &c.slots, args, span);
         }
+
         let mut values = Vec::new();
+
         if sig.has_context {
             let Some(ctx) = f.current_context() else {
                 return err(
@@ -168,19 +184,25 @@ impl Compiler {
                     ),
                 );
             };
+
             values.push(ctx);
         }
+
         let mut k = 0;
         let mut c_vararg_values = Vec::new();
         // The aggregate layout of each variadic argument that travels as one (a struct, or a wide
         // `Long_Double`).
         let mut c_vararg_layouts: Vec<Option<ir::AggLayout>> = Vec::new();
+
         for (i, slot) in c.slots.iter().enumerate() {
             if header.params[i].baked {
                 continue;
             }
+
             let param = sig.params[k].clone();
+
             k += 1;
+
             if sig.c_varargs && param.variadic {
                 if let Slot::Variadic(list) = slot {
                     for &a in list {
@@ -197,38 +219,49 @@ impl Compiler {
                             None
                         };
                         let (_, v) = self.rvalue(f, op, span)?;
+
                         c_vararg_values.push(v);
                         c_vararg_layouts.push(layout);
                     }
                 }
+
                 continue;
             }
+
             let v = self.param_value(f, &sig, &param, slot, &args, span)?;
+
             values.push(v);
         }
+
         // Out-pointers for memory-class results, before any variadic argument.
         let mut outs = Vec::new();
+
         for &rt in &sig.returns {
             if self.is_memory_type(rt) {
                 let size = self.size_of(rt, span)?;
                 let align = self.align_of(rt, span)?;
                 let out = f.b.alloca(size, align);
+
                 values.push(out);
                 outs.push(Some(out));
             } else {
                 outs.push(None);
             }
         }
+
         values.extend(c_vararg_values.iter().copied());
         let target = self.proc_func_in_code(proc, span)?;
         let mut ir_sig = self.ir_sig(sig.ty, span)?;
+
         if c_vararg_layouts.iter().any(Option::is_some) {
             // The variadic arguments follow the fixed ones in `c_abi.params`, as in the signature.
             let fixed = ir_sig.params.len();
             let abi = ir_sig.c_abi.get_or_insert_with(Default::default);
+
             abi.params.resize(fixed, None);
             abi.params.extend(c_vararg_layouts.iter().cloned());
         }
+
         let callee = match target {
             ProcTarget::Func(id) => ir::Callee::Func(id),
             ProcTarget::Foreign(id) => {
@@ -242,9 +275,11 @@ impl Compiler {
                 }
             }
         };
+
         if sig.c_varargs && !matches!(callee, ir::Callee::Indirect(..)) {
             record_vararg_types(f, &mut ir_sig, &c_vararg_values);
         }
+
         let results = f.b.call(callee, values, &ir_sig.returns.clone());
         Ok(self.call_results(f, &sig.returns, results, outs, &sig.return_callables))
     }
@@ -259,6 +294,7 @@ impl Compiler {
     ) -> Operand {
         let mut values = Vec::new();
         let mut regs = results.into_iter();
+
         for (i, &rt) in returns.iter().enumerate() {
             let v = match outs[i] {
                 Some(out) => out,
@@ -266,6 +302,7 @@ impl Compiler {
                 None if rt == TypeId::VOID => f.b.alloca(1, 1),
                 None => regs.next().unwrap(),
             };
+
             values.push(
                 Operand::Value {
                     ty: rt,
@@ -274,6 +311,7 @@ impl Compiler {
                 .with_callable(callables.get(i).cloned().flatten()),
             );
         }
+
         match values.len() {
             0 => Operand::Void,
             1 => values.remove(0),
@@ -313,6 +351,7 @@ impl Compiler {
         let one = f.b.iconst(Ty::I64, 1);
         let mut count = f.b.iconst(Ty::I64, 0);
         let mut segments = Vec::new();
+
         for &a in list {
             let target = if args[a].spread {
                 param_ty
@@ -325,6 +364,7 @@ impl Compiler {
             let (n, source) = if args[a].spread {
                 let n = f.b.load(Ty::I64, value);
                 let field = self.view_data_at(f, value);
+
                 (n, f.b.load(Ty::Ptr, field))
             } else {
                 (one, value)
@@ -333,6 +373,7 @@ impl Compiler {
             let bad = f.b.cmp(ir::CmpOp::UGt, Ty::I64, n, remaining);
             let fail = f.b.new_block();
             let ready = f.b.new_block();
+
             f.b.branch(bad, fail, ready);
             f.b.switch_to(fail);
             self.emit_stopping_check(f, ir::CheckReason::VariadicSize, n, remaining, span)?;
@@ -340,17 +381,21 @@ impl Compiler {
             count = f.b.bin(ir::BinOp::Add, Ty::I64, count, n);
             segments.push((args[a].spread, n, source));
         }
+
         let width = f.b.iconst(Ty::I64, size);
         let bytes = f.b.bin(ir::BinOp::Mul, Ty::I64, count, width);
         let base = f.b.new_val(Ty::Ptr);
+
         f.b.push(ir::Inst::StackAlloc {
             dst: base,
             size: bytes,
             align,
         });
         let mut cursor = base;
+
         for (spread, n, source) in segments {
             let bytes = f.b.bin(ir::BinOp::Mul, Ty::I64, n, width);
+
             if spread {
                 f.b.intrinsic(ir::Intrinsic::Memcpy, vec![cursor, source, bytes], &[]);
             } else {
@@ -359,13 +404,18 @@ impl Compiler {
                 {
                     record.stack_subplaces.push(cursor);
                 }
+
                 self.store_value(f, elem, cursor, source, span)?;
             }
+
             cursor = f.b.ptr_add(cursor, bytes);
         }
+
         let view = self.view_slot(f);
+
         f.b.store(Ty::I64, view, count);
         let data = self.view_data_at(f, view);
+
         f.b.store(Ty::Ptr, data, base);
         Ok(view)
     }
@@ -380,6 +430,7 @@ impl Compiler {
         span: Span,
     ) -> Result<ir::Val> {
         let value = self.param_value_inner(f, sig, param, slot, args, span)?;
+
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
             && let Some(call) = record.calls.last_mut()
@@ -396,11 +447,13 @@ impl Compiler {
                     spread: false,
                 });
             }
+
             for arg in call.args.iter_mut().filter(|a| a.formal == formal) {
                 arg.operand = crate::ide::lifetimes::LifetimeOperand::Value(value);
                 arg.ty = param.ty;
             }
         }
+
         Ok(value)
     }
 
@@ -417,17 +470,20 @@ impl Compiler {
             // `#discard`: the argument (or default) is typechecked, never evaluated.
             return self.zero_param(f, param.ty, span);
         }
+
         let op = match slot {
             Slot::Arg(a) if param.ty == TypeId::CODE && args[*a].op.is_none() => {
                 // An expression for a `Code` parameter is passed as code unless it is a Code.
                 let arg = &args[*a];
                 let expr = arg.expr.as_ref().unwrap();
+
                 match self.check_expr_no_emit(arg.scope, expr) {
                     Ok(op) if op.ty() == TypeId::CODE => {
                         self.arg_operand(f, arg, Some(param.ty))?
                     }
                     _ => {
                         let body = Arc::new(ast::CodeBody::Expr(expr.clone()));
+
                         Operand::Const {
                             ty: TypeId::CODE,
                             value: Value::Code(self.add_code(body, arg.scope)),
@@ -439,8 +495,10 @@ impl Compiler {
             }
             Slot::Arg(a) | Slot::Spread(a) => {
                 let op = self.arg_operand(f, &args[*a], Some(param.ty))?;
+
                 if self.ty.auto_deref_arg(op.ty(), param.ty) {
                     let (_, p) = self.rvalue(f, op, args[*a].span)?;
+
                     Operand::Place {
                         ty: param.ty,
                         addr: p,
@@ -454,6 +512,7 @@ impl Compiler {
                     // Empty variadic: a zero view.
                     return Ok(self.empty_view(f));
                 }
+
                 let d = param.default.clone().unwrap();
                 let op = match &d.kind {
                     E::CallerLocation => {
@@ -463,6 +522,7 @@ impl Compiler {
                             let (line, col) = self.src.sources.get(span.file).line_col(span.start);
                             let key = (span.file.0, line, col);
                             let first = first.expr.as_ref().map_or(first.span, ast::Expr::extent);
+
                             // Only a trap report reads it, so a speculative body can leave it.
                             if !crate::sema::speculative::defer(move |c, _| {
                                 c.pr.first_arguments.insert(key, first);
@@ -470,14 +530,17 @@ impl Compiler {
                                 self.pr.first_arguments.insert(key, first);
                             }
                         }
+
                         self.location_operand(f, span)?
                     }
                     _ => self.check_expr(f, sig.scope, &d, Some(param.ty))?,
                 };
+
                 self.convert(f, op, param.ty, &d)?
             }
             Slot::Variadic(list) => return self.variadic_pack(f, param.ty, args, list, span),
         };
+
         if self.is_memory_type(param.ty) {
             let (_, addr) = self.address_of(f, op, span)?;
             Ok(addr)
@@ -501,27 +564,34 @@ impl Compiler {
             self.warn_spread_with_other_arguments(args[a].scope, args[a].span);
             return self.mixed_variadic_value(f, param_ty, args, list, span);
         }
+
         let elem = self.ty.jai_variadic_element(param_ty, span)?;
         let size = self.size_of(elem, span)?;
         let align = self.align_of(elem, span)?;
         let n = list.len() as u64;
         let base = f.b.alloca((size * n).max(1), align);
+
         for (i, &a) in list.iter().enumerate() {
             let op = self.arg_operand(f, &args[a], Some(elem))?;
             let op = self.convert(f, op, elem, args[a].site())?;
             let (_, v) = self.rvalue(f, op, span)?;
             let at = f.b.ptr_offset(base, size * i as u64);
+
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
             {
                 record.stack_subplaces.push(at);
             }
+
             self.store_value(f, elem, at, v, span)?;
         }
+
         let view = self.view_slot(f);
         let count = f.b.iconst(Ty::I64, n);
+
         f.b.store(Ty::I64, view, count);
         let dp = self.view_data_at(f, view);
+
         f.b.store(Ty::Ptr, dp, base);
         Ok(view)
     }
@@ -532,12 +602,16 @@ impl Compiler {
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
             let slot = f.b.alloca(size.max(1), align);
+
             f.b.zero(slot, size);
+
             return Ok(slot);
         }
+
         // Memory types returned above; only `void` is left without a scalar type, and a discarded
         // `void` parameter is a word of zero.
         let t = self.ir_ty(ty).unwrap_or(Ty::I64);
+
         Ok(if t.is_float() {
             f.b.fconst(t, 0.0)
         } else {
@@ -567,6 +641,7 @@ impl Compiler {
                 span: None,
             })
             .collect();
+
         if pt.c_varargs {
             params.push(SlotParam {
                 name: None,
@@ -574,6 +649,7 @@ impl Compiler {
                 span: None,
             });
         }
+
         assign_slots(&params, args, &[], span)
     }
 
@@ -587,6 +663,7 @@ impl Compiler {
     ) -> Result<ir::Val> {
         let op = self.arg_operand(f, arg, Some(param_ty))?;
         let op = self.convert(f, op, param_ty, arg.site())?;
+
         Ok(if self.is_memory_type(param_ty) {
             self.address_of(f, op, span)?.1
         } else {
@@ -615,6 +692,7 @@ impl Compiler {
             .as_ref()
             .map(|info| info.returns.clone())
             .unwrap_or_default();
+
         if parameters.is_none() && args.iter().any(|arg| arg.name.is_some()) {
             return err(
                 Code::CallNamedArguments,
@@ -622,11 +700,14 @@ impl Compiler {
                 "named arguments require a known callable declaration",
             );
         }
+
         let slots = Self::indirect_slots(&pt, parameters.as_deref(), &args, span)
             .map_err(|d| self.with_type_note(*d, ty))?;
+
         if let Some(info) = &parameters {
             self.ide_note_value_named_args(&info.names, &pt.params, &slots, &args);
         }
+
         let mut mapped = Vec::new();
         let allocator = f.lifetimes.is_some()
             && !f.type_only
@@ -640,15 +721,19 @@ impl Compiler {
                     })
                 });
         let mut values = Vec::new();
+
         if !pt.no_context {
             // Without a context (e.g. inside #c_call code) the callee receives null.
             let ctx = match f.current_context() {
                 Some(c) => c,
                 None => f.b.iconst(Ty::Ptr, 0),
             };
+
             values.push(ctx);
         }
+
         let last = pt.params.len().checked_sub(1);
+
         for (i, &param_ty) in pt.params.iter().enumerate() {
             let pack = pt.variadic && Some(i) == last;
             let (value, anchor) = match &slots[i] {
@@ -686,18 +771,22 @@ impl Compiler {
                                 span,
                                 format!("missing argument {}", i + 1),
                             );
+
                             if let Some(name) = parameters
                                 .as_ref()
                                 .and_then(|info| info.names[i].map(|n| n.name))
                             {
                                 d = d.with_label(format!("no value for parameter `{name}`"));
                             }
+
                             return Err(self.with_type_note(d, ty));
                         }
                     }
                 }
             };
+
             values.push(value);
+
             if f.lifetimes.is_some() && !f.type_only {
                 mapped.push(crate::ide::lifetimes::LifetimeArgument {
                     formal: i,
@@ -710,32 +799,39 @@ impl Compiler {
                 });
             }
         }
+
         let mut sig = self.ir_sig(ty, span)?;
         let ellipsis = match slots.get(pt.params.len()) {
             Some(Slot::Variadic(list)) => list.clone(),
             Some(Slot::Arg(a) | Slot::Spread(a)) => vec![*a],
             _ => Vec::new(),
         };
+
         for arg in ellipsis.iter().map(|&a| &args[a]) {
             let op = self.arg_operand(f, arg, None)?;
             let op = self.settle_untyped(op, None);
             let op = c_vararg_promote(self, f, op, span)?;
             let (_, v) = self.rvalue(f, op, span)?;
+
             sig.params.push(f.b.val_ty(v));
             values.push(v);
         }
+
         let mut outs = Vec::new();
+
         for &rt in &pt.returns {
             if self.is_memory_type(rt) {
                 let size = self.size_of(rt, span)?;
                 let align = self.align_of(rt, span)?;
                 let out = f.b.alloca(size, align);
+
                 values.push(out);
                 outs.push(Some(out));
             } else {
                 outs.push(None);
             }
         }
+
         let returns = sig.returns.clone();
         let results = f.b.call(
             ir::Callee::Indirect(callee, Box::new(sig)),
@@ -743,6 +839,7 @@ impl Compiler {
             &returns,
         );
         let result = self.call_results(f, &pt.returns, results, outs, &result_parameters);
+
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
         {
@@ -758,6 +855,7 @@ impl Compiler {
                     .map(|(v, t)| vec![(0, v, t)])
                     .unwrap_or_default(),
             };
+
             if let Some(declaration) = declaration
                 && !declaration.notes.is_empty()
             {
@@ -769,6 +867,7 @@ impl Compiler {
                     },
                 );
             }
+
             record.push(
                 f.b.current,
                 crate::ide::lifetimes::LifetimeEvent::IndirectCall {
@@ -781,6 +880,7 @@ impl Compiler {
                 },
             );
         }
+
         Ok(result)
     }
 }
@@ -810,23 +910,28 @@ impl Compiler {
         let Some((span, name, must)) = self.pr.last_call_must.take() else {
             return Ok(());
         };
+
         if span != call_span {
             return Ok(());
         }
+
         if !must.iter().skip(used).any(|&m| m) {
             return Ok(());
         }
+
         let mut d = Diagnostic::new(
             Code::CallResultMarked,
             call_span,
             format!("the result of `{name}` is marked #must and cannot be discarded"),
         );
+
         if used > 0 {
             return Err(Box::new(d.with_help(format!(
                 "`{name}` returns {} results: take all of them, using `_` for the ones you do not need",
                 must.len()
             ))));
         }
+
         d = d.with_help(format!("or use the result: `result := {name}(...);`"));
         // `_ := f();` (`_, _ :=` for several results) is the way to drop a result on purpose,
         // written in front of a call that starts its statement.
@@ -838,8 +943,10 @@ impl Compiler {
         let before = text
             .get(line_start..call_span.start as usize)
             .unwrap_or("x");
+
         if before.trim().is_empty() && !self.src.sources.snippet(call_span).is_empty() {
             let discard = vec!["_"; must.len()].join(", ");
+
             d = d.with_suggestion(
                 Suggestion::insert(
                     format!("discard the result on purpose with `{discard} := ...`"),
@@ -850,6 +957,7 @@ impl Compiler {
                 .with_action("Discard the result with `_`"),
             );
         }
+
         Err(Box::new(d))
     }
 }

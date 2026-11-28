@@ -22,18 +22,23 @@ impl Compiler {
                 "contextual type inference requires compile-time execution",
             );
         }
+
         let mut options = self.options.clone();
         let host = options.host;
+
         (options.os, options.cpu, options.long_double) = (host.os, host.cpu, host.long_double);
         options.msvc = host.msvc;
         options.layout = host.layout;
         let layout = options.layout;
         let mut host = Compiler::new(options.clone(), self.src.fs.clone());
+
         host.src.sources = self.src.sources.clone().into();
         let source_count = self.src.sources.len();
+
         if let Some(parent) = &self.ct.interp.workspaces {
             let (shared, provider) =
                 crate::build::isolated_host_environment(parent, options, self.src.fs.clone());
+
             host.ct.interp = crate::interp::Interp::new(provider, layout).into();
             host.ct.interp.workspaces = Some(shared);
         } else {
@@ -44,9 +49,12 @@ impl Compiler {
                     "this compiler host does not provide isolated #run,host execution",
                 ))
             })?;
+
             host.ct.interp = crate::interp::Interp::new(provider, layout).into();
         }
+
         let nested = self.meta.perf.running();
+
         self.ct.interp.lend_budget(&mut host.ct.interp, nested);
         let result = (|| {
             host.begin_sources(&[])?;
@@ -58,6 +66,7 @@ impl Compiler {
                 module,
                 Some(span.file),
             );
+
             if let ast::RunBody::Expr(ast::Expr {
                 kind:
                     ast::ExprKind::Call {
@@ -76,11 +85,14 @@ impl Compiler {
                     "an isolated #run,host procedure must take no arguments",
                 );
             }
+
             let result = host.check_run_inner_all(scope, body, None, span)?;
+
             if let Some(shared) = host.ct.interp.workspaces.clone() {
                 crate::build::finish_all(&shared, &mut host.ct.interp.block_budget).map_err(
                     |message| Box::new(Diagnostic::new(Code::CompileTimeTrap, span, message)),
                 )?;
+
                 if shared.borrow().any_failed() {
                     return err(
                         Code::RunHostUnsupported,
@@ -89,8 +101,10 @@ impl Compiler {
                     );
                 }
             }
+
             Ok(result)
         })();
+
         self.ct.interp.take_back_budget(&host.ct.interp);
         // The host compiler is dropped below: its runs are costs of this program's check.
         self.meta.perf.runs.append(&mut host.meta.perf.runs);
@@ -99,12 +113,16 @@ impl Compiler {
         // target binding is incorrectly classified as an unstarted attempt.
         self.ct.executions += host.ct.executions;
         self.ct.traps += host.ct.traps;
+
         // Errors from newly loaded host files retain real source locations.
         for index in source_count..host.src.sources.len() {
             let file = host.src.sources.get(FileId(index as u32));
+
             self.src.sources.add(file.path.clone(), file.text.clone());
         }
+
         let mut globals = HashMap::default();
+
         result?
             .into_iter()
             .map(|op| {
@@ -125,6 +143,7 @@ impl Compiler {
                 let value = match value {
                     Value::Bytes(image) => {
                         let mut image = (*image).clone();
+
                         for relocation in &mut image.relocs {
                             relocation.target = self.import_host_data(
                                 &host,
@@ -133,6 +152,7 @@ impl Compiler {
                                 span,
                             )?;
                         }
+
                         Value::Bytes(Arc::new(image))
                     }
                     Value::Int(_) | Value::Float(..) | Value::Bool(_) | Value::String(_) => value,
@@ -144,6 +164,7 @@ impl Compiler {
                         );
                     }
                 };
+
                 Ok(Operand::Const {
                     ty,
                     value,
@@ -161,6 +182,7 @@ impl Compiler {
         span: Span,
     ) -> Result<TypeId> {
         let kind = host.ty.types.kind(ty).clone();
+
         match kind {
             TypeKind::Bool
             | TypeKind::Int {
@@ -203,17 +225,23 @@ impl Compiler {
                 "#run,host cannot transfer a procedure or foreign storage address",
             );
         };
+
         if let Some(&copied) = globals.get(&old) {
             return Ok(ir::RelocTarget::Global(copied));
         }
+
         let mut global = host.out.program.globals[old.0 as usize].clone();
+
         global.name = "host.run.data".into();
         global.export = None;
         let copied = self.out.program.add_global(global.clone());
+
         globals.insert(old, copied);
+
         for relocation in &mut global.relocs {
             relocation.target = self.import_host_data(host, relocation.target, globals, span)?;
         }
+
         self.out.program.globals[copied.0 as usize] = global;
         Ok(ir::RelocTarget::Global(copied))
     }

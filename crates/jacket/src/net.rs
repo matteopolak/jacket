@@ -117,31 +117,41 @@ impl<'a> Curl<'a> {
     /// The arguments before the URL, and what goes to `curl`'s standard input.
     fn arguments(&self) -> Result<(Vec<String>, Option<String>), String> {
         let url = self.url;
+
         if self.https_only && !url.starts_with("https://") {
             return Err(format!("refusing to fetch {url}: only https URLs are used"));
         }
+
         let mut args: Vec<String> = ["--silent", "--show-error"].map(String::from).to_vec();
+
         if self.https_only {
             args.extend(["--proto", "=https", "--tlsv1.2"].map(String::from));
         }
+
         if self.include {
             args.push("--include".into());
         } else {
             args.push("--fail".into());
         }
+
         if self.follow {
             args.push("--location".into());
         }
+
         if self.retries > 0 {
             args.extend(["--retry".into(), self.retries.to_string()]);
         }
+
         if let Some(seconds) = self.max_time {
             args.extend(["--max-time".into(), seconds.to_string()]);
         }
+
         args.extend(["--user-agent".into(), USER_AGENT.into()]);
+
         for header in &self.headers {
             args.extend(["--header".into(), header.clone()]);
         }
+
         if let Some(body) = self.json {
             args.extend([
                 "--header".into(),
@@ -150,9 +160,11 @@ impl<'a> Curl<'a> {
                 body.into(),
             ]);
         }
+
         if let Some(path) = self.output {
             args.extend(["--output".into(), path.to_string_lossy().into_owned()]);
         }
+
         let config = match self.secret {
             Some((name, value)) => {
                 if value.contains(['"', '\\', '\n', '\r']) {
@@ -160,6 +172,7 @@ impl<'a> Curl<'a> {
                         "the {name} header has characters a token never has"
                     ));
                 }
+
                 args.extend(["--config".into(), "-".into()]);
                 Some(format!("header = \"{name}: {value}\"\n"))
             }
@@ -184,14 +197,17 @@ impl<'a> Curl<'a> {
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| spawn_error(&e, &Need::Curl, "curl", self.command))?;
+
         if let (Some(config), Some(mut stdin)) = (config, child.stdin.take()) {
             stdin
                 .write_all(config.as_bytes())
                 .map_err(|e| format!("could not give curl its settings: {e}"))?;
         }
+
         let output = child
             .wait_with_output()
             .map_err(|e| format!("curl failed: {e}"))?;
+
         if output.status.success() {
             Ok(output.stdout)
         } else {
@@ -210,20 +226,24 @@ pub type Response = (u16, Vec<(String, String)>, String);
 /// The status, headers and body of a [`Curl::include`] answer, after any interim `1xx` heads.
 pub fn parse_response(text: &str) -> Option<Response> {
     let mut rest = text;
+
     loop {
         let (head, body) = rest
             .split_once("\r\n\r\n")
             .or_else(|| rest.split_once("\n\n"))?;
         let mut lines = head.lines();
         let status: u16 = lines.next()?.split_whitespace().nth(1)?.parse().ok()?;
+
         if (100..200).contains(&status) {
             rest = body;
             continue;
         }
+
         let headers = lines
             .filter_map(|l| l.split_once(':'))
             .map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_string()))
             .collect();
+
         return Some((status, headers, body.to_string()));
     }
 }
@@ -235,6 +255,7 @@ fn tar_program() -> Result<PathBuf, String> {
     if !cfg!(windows) {
         return Ok("tar".into());
     }
+
     system_tar(
         jacket_config::env::SYSTEM_ROOT
             .os()
@@ -262,6 +283,7 @@ pub fn untar(archive: &Path, dest: &Path, command: &str) -> Result<(), String> {
         .arg(dest)
         .output()
         .map_err(|e| spawn_error(&e, &Need::Tar, "tar", command))?;
+
     if output.status.success() {
         Ok(())
     } else {
@@ -286,13 +308,16 @@ mod tests {
         let error = Curl::get("http://example.com/a", "jacket test")
             .run()
             .unwrap_err();
+
         assert_eq!(
             error,
             "refusing to fetch http://example.com/a: only https URLs are used"
         );
         let plain = args(&Curl::get("http://127.0.0.1:1/a", "jacket test").allow_http());
+
         assert!(!plain.contains(&"--proto".to_string()), "{plain:?}");
         let secure = args(&Curl::get("https://example.com/a", "jacket test"));
+
         assert!(
             secure.windows(2).any(|w| w == ["--proto", "=https"]),
             "{secure:?}"
@@ -306,6 +331,7 @@ mod tests {
         let curl = Curl::get("https://example.com/a", "jacket test")
             .secret_header("Authorization", "Bearer abc");
         let (args, config) = curl.arguments().unwrap();
+
         assert!(args.iter().all(|arg| !arg.contains("abc")), "{args:?}");
         assert!(args.windows(2).any(|w| w == ["--config", "-"]));
         assert_eq!(
@@ -314,6 +340,7 @@ mod tests {
         );
         let bad = Curl::get("https://example.com/a", "jacket test")
             .secret_header("Authorization", "a\"b");
+
         assert!(bad.arguments().is_err());
     }
 
@@ -328,6 +355,7 @@ mod tests {
             .post_json("{}")
             .output(path);
         let args = args(&curl);
+
         for pair in [
             ["--retry", "3"],
             ["--max-time", "30"],
@@ -338,6 +366,7 @@ mod tests {
         ] {
             assert!(args.windows(2).any(|w| w == pair), "{pair:?} in {args:?}");
         }
+
         assert!(args.contains(&"--include".to_string()));
         assert!(!args.contains(&"--fail".to_string()));
         assert!(!args.contains(&"--location".to_string()));
@@ -347,6 +376,7 @@ mod tests {
     fn curl_output_loses_its_interim_headers() {
         let text = "HTTP/1.1 100 Continue\r\n\r\nHTTP/2 304\r\nETag: \"x\"\r\n\r\n";
         let (status, headers, body) = parse_response(text).unwrap();
+
         assert_eq!(status, 304);
         assert_eq!(headers, [("etag".to_string(), "\"x\"".to_string())]);
         assert!(body.is_empty());
@@ -355,6 +385,7 @@ mod tests {
     #[test]
     fn the_windows_tar_comes_from_system_root_never_a_guess() {
         let error = system_tar(None).unwrap_err();
+
         assert!(error.starts_with("SystemRoot is not set"), "{error}");
         assert_eq!(
             system_tar(Some("/win".into())).unwrap(),

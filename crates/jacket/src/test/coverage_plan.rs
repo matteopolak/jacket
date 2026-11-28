@@ -25,15 +25,19 @@ pub(super) fn coverage_for(
     if !args.coverage {
         return Ok(None);
     }
+
     let (flags, jaic) = (&toolchain.flags, &toolchain.jaic);
+
     if cross {
         return Err("`--coverage` records programs that run on this machine; it does not work with another `-os` or `-cpu`".into());
     }
+
     let out = args.coverage_out.clone().unwrap_or_else(|| {
         let name = match args.coverage_format {
             CoverageFormat::Lcov => "lcov.info",
             CoverageFormat::Html => "coverage.html",
         };
+
         report_dir(
             project_dir,
             &toolchain.stdlib,
@@ -48,6 +52,7 @@ pub(super) fn coverage_for(
         .chain(discover::import_folders(flags))
         .chain(args.coverage_include.iter().map(|dir| canonical(dir)));
     let exclude = roots.iter().map(|r| canonical(&r.dir.join("tests")));
+
     coverage::Coverage::new(coverage::Config {
         output: coverage::Output {
             out,
@@ -78,6 +83,7 @@ mod tests {
     fn a_relative_output_dir_puts_the_coverage_report_below_the_checkout() {
         let (project, stdlib) = (Path::new("/work/app"), Path::new("/opt/jacket/stdlib"));
         let dir = |over: Option<&str>| report_dir(project, stdlib, over.map(Into::into));
+
         assert_eq!(dir(None), Path::new("/work/app/target"));
         assert_eq!(dir(Some("out")), Path::new("/opt/jacket/out"));
         assert_eq!(dir(Some("/elsewhere")), Path::new("/elsewhere"));

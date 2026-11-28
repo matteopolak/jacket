@@ -91,6 +91,7 @@ impl Path {
         if self.steps.len() + steps.len() > MAX_PATH {
             return None;
         }
+
         self.steps.extend_from_slice(steps);
         Some(self)
     }
@@ -222,6 +223,7 @@ impl Resolver<'_> {
         {
             return None;
         }
+
         self.trace(v, summaries, &mut HashSet::default(), 0)
     }
 
@@ -229,18 +231,23 @@ impl Resolver<'_> {
         fn place(r: &Resolver<'_>, p: usize, seen: &mut HashSet<Val>, out: &mut HashSet<usize>) {
             let (root, _) = &r.places.paths[p];
             let id = r.places.root_of(p);
+
             if let Some((formal, _)) = r.params.get(&id) {
                 out.insert(*formal);
             }
+
             for &value in r.writes.get(&id).into_iter().flatten() {
                 walk(r, value, seen, out);
             }
+
             walk(r, root.0, seen, out);
         }
+
         fn walk(r: &Resolver<'_>, value_: Val, seen: &mut HashSet<Val>, out: &mut HashSet<usize>) {
             if !seen.insert(value_) {
                 return;
             }
+
             for def in r.values.get(&value_).into_iter().flatten() {
                 match def {
                     Def::Parameter(formal) => {
@@ -248,6 +255,7 @@ impl Resolver<'_> {
                     }
                     Def::Load(p, _) => {
                         place(r, *p, seen, out);
+
                         for &v in r.writes.get(p).into_iter().flatten() {
                             walk(r, v, seen, out);
                         }
@@ -269,7 +277,9 @@ impl Resolver<'_> {
                 }
             }
         }
+
         let mut out = HashSet::default();
+
         walk(self, input, &mut HashSet::default(), &mut out);
         out
     }
@@ -284,6 +294,7 @@ impl Resolver<'_> {
         if depth > 24 {
             return None;
         }
+
         let (root, projections) = &self.places.paths[p];
         let root_id = self.places.root_of(p);
         let parameter = self.params.contains_key(&root_id)
@@ -291,6 +302,7 @@ impl Resolver<'_> {
                 .values
                 .get(&root.0)
                 .is_some_and(|defs| defs.iter().any(|d| matches!(d, Def::Parameter(_))));
+
         if !parameter
             && self.compiler.ir_ty(root.1).is_none()
             && self.values.get(&root.0).is_some_and(|defs| defs.iter().any(|d| matches!(d, Def::Load(_, ty) if self.compiler.ty.types.pointee(*ty) == Some(TypeId::VOID))))
@@ -312,6 +324,7 @@ impl Resolver<'_> {
                 .collect::<Option<Vec<_>>>()?;
             return path.append(&steps);
         }
+
         if !parameter
             && self.compiler.ir_ty(root.1).is_none()
             && !projections.is_empty()
@@ -320,8 +333,10 @@ impl Resolver<'_> {
         {
             return Some(path);
         }
+
         let mut path;
         let mut rest = projections.as_slice();
+
         if rest.first() == Some(&Projection::Deref) {
             // A descriptor element Borrow uses this synthetic projection to mean storage.
             if matches!(
@@ -337,11 +352,13 @@ impl Resolver<'_> {
             } else {
                 path = self.trace(root.0, summaries, visiting, depth + 1)?;
             }
+
             rest = &rest[1..];
         } else if let Some((formal, ty)) = self.params.get(&root_id) {
             if self.compiler.ty.types.is_pointer(*ty) && !self.places.indirect.contains(&root_id) {
                 return None;
             }
+
             path = Path {
                 root: Root::Parameter(*formal),
                 steps: Vec::new(),
@@ -351,6 +368,7 @@ impl Resolver<'_> {
                 root: Root::Local(root_id),
                 steps: Vec::new(),
             };
+
             if self.compiler.ir_ty(root.1).is_none()
                 && let Some(source) = self.return_source(root_id)
                 && source != root.0
@@ -374,6 +392,7 @@ impl Resolver<'_> {
             {
                 path = from;
             }
+
             for def in self.values.get(&root.0).into_iter().flatten() {
                 match def {
                     Def::Copy(source) => {
@@ -388,6 +407,7 @@ impl Resolver<'_> {
                     }
                     _ => {}
                 }
+
                 if let Def::Load(place, ty) = def
                     && self.compiler.ty.types.pointee(*ty) == Some(root.1)
                     && let Some([source]) = self.writes.get(place).map(Vec::as_slice)
@@ -397,6 +417,7 @@ impl Resolver<'_> {
                 }
             }
         }
+
         for projection in rest {
             path = path.append(&[match projection {
                 Projection::Field(n) => Step::Field(*n),
@@ -405,6 +426,7 @@ impl Resolver<'_> {
                 Projection::Deref => Step::Deref,
             }])?;
         }
+
         Some(path)
     }
 
@@ -416,6 +438,7 @@ impl Resolver<'_> {
         depth: usize,
     ) -> Option<Path> {
         let v = value(arg)?;
+
         // Offset-zero aggregate fields share the base pointer's SSA value. The typed
         // place identifies the descriptor being passed, rather than its containing object.
         if self.compiler.ir_ty(arg.ty).is_none()
@@ -424,26 +447,33 @@ impl Resolver<'_> {
         {
             return self.location(p, all, visiting, depth + 1);
         }
+
         if let Some(p) = self.stored_address(v, &mut HashSet::default()) {
             return self.location(p, all, visiting, depth + 1);
         }
+
         if let Some(target) = self.compiler.ty.types.pointee(arg.ty) {
             let mut selected = None;
+
             for def in self.values.get(&v).into_iter().flatten() {
                 if let Def::Address(p) = def
                     && self.places.types.get(p) == Some(&target)
                 {
                     let path = self.location(*p, all, visiting, depth + 1)?;
+
                     if selected.as_ref().is_some_and(|old| old != &path) {
                         return None;
                     }
+
                     selected = Some(path);
                 }
             }
+
             if selected.is_some() {
                 return selected;
             }
         }
+
         self.trace(v, all, visiting, depth + 1)
     }
 
@@ -470,11 +500,13 @@ impl Resolver<'_> {
         };
         let arg = args.iter().find(|a| a.formal == formal)?;
         let mut steps = path.steps.clone();
+
         if steps.iter().any(|s| matches!(s, Step::Field(_)))
             && let Some((viewed, held)) = self.reinterpreted(arg)
         {
             steps = self.same_bytes(&steps, viewed, held)?;
         }
+
         self.argument_trace(arg, summaries, visiting, depth + 1)?
             .append(&steps)
     }
@@ -503,6 +535,7 @@ impl Resolver<'_> {
             return None;
         };
         let mut steps = steps.to_vec();
+
         steps[0] = Step::Field(twin.name?);
         Some(steps)
     }
@@ -522,6 +555,7 @@ impl Resolver<'_> {
                 .is_empty()
                 .then_some(self.places.paths[p].0.1)
         })?;
+
         (held != viewed
             && matches!(types.kind(held), TypeKind::Struct(_))
             && matches!(types.kind(viewed), TypeKind::Struct(_)))
@@ -538,6 +572,7 @@ impl Resolver<'_> {
         if reads::address_query(self.compiler, callee, args) {
             return Vec::new();
         }
+
         let Some(summary) = all.get(&callee) else {
             return Vec::new();
         };
@@ -560,8 +595,10 @@ impl Resolver<'_> {
             .iter()
             .filter_map(|(effect, chain)| {
                 let mut guard = None;
+
                 if let Some((formal, constant)) = effect.guard {
                     let arg = args.iter().find(|a| a.formal == formal)?;
+
                     if let Some(actual) = arg.constant {
                         if actual != constant {
                             return None;
@@ -571,14 +608,18 @@ impl Resolver<'_> {
                         let Root::Parameter(formal) = path.root else {
                             return None;
                         };
+
                         if !path.steps.is_empty() {
                             return None;
                         }
+
                         guard = Some((formal, constant));
                     }
                 }
+
                 let mut target =
                     self.substitute(&effect.target, args, all, &mut HashSet::default(), 0)?;
+
                 if effect.kind == Kind::Free
                     && effect.target.steps.is_empty()
                     && let Root::Parameter(formal) = effect.target.root
@@ -587,6 +628,7 @@ impl Resolver<'_> {
                 {
                     target = target.append(&[Step::Storage])?;
                 }
+
                 Some((
                     Effect {
                         target,
@@ -594,6 +636,7 @@ impl Resolver<'_> {
                         kind: match effect.kind {
                             Kind::Mutation(mut m) => {
                                 let rebase = |s| self.selector_actual(s, args, all);
+
                                 m.first = rebase(m.first);
                                 m.second = rebase(m.second);
                                 Kind::Mutation(m)
@@ -605,9 +648,11 @@ impl Resolver<'_> {
                 ))
             })
             .collect();
+
         if !guaranteed {
             result.extend(self.possible_effects(summary, args, all));
         }
+
         result
     }
 
@@ -615,6 +660,7 @@ impl Resolver<'_> {
         let Some(mode) = args.first() else {
             return Vec::new();
         };
+
         [(1, Kind::Resize, 3), (2, Kind::Free, 3), (8, Kind::Free, 4)]
             .into_iter()
             .filter_map(|(constant, kind, memory)| {
@@ -622,21 +668,25 @@ impl Resolver<'_> {
                     if actual != constant {
                         return None;
                     }
+
                     None
                 } else {
                     let path = self.value(value(mode)?, all)?;
                     let Root::Parameter(formal) = path.root else {
                         return None;
                     };
+
                     if !path.steps.is_empty() {
                         return None;
                     }
+
                     Some((formal, constant))
                 };
                 let memory = args
                     .get(memory)
                     .and_then(value)
                     .and_then(|v| self.value(v, all))?;
+
                 Some(Effect {
                     target: memory.clone(),
                     kind,
@@ -659,6 +709,7 @@ impl Resolver<'_> {
             Root::Local(p) => p,
             Root::Parameter(formal) => {
                 let (&place, &(_, ty)) = self.params.iter().find(|(_, (n, _))| *n == formal)?;
+
                 if let Some(target) = self.compiler.ty.types.pointee(ty) {
                     let incoming = self.values.iter().find_map(|(v, defs)| {
                         defs.iter()
@@ -667,6 +718,7 @@ impl Resolver<'_> {
                     })?;
                     let root = self.places.place(incoming, ty);
                     let p = self.places.project(root, Projection::Deref);
+
                     self.places.types.insert(p, target);
                     p
                 } else {
@@ -676,6 +728,7 @@ impl Resolver<'_> {
             _ => return None,
         };
         let mut owner = None;
+
         for step in &path.steps {
             match step {
                 Step::Storage => {
@@ -689,8 +742,10 @@ impl Resolver<'_> {
                             _ => None,
                         }
                     });
+
                     if contents {
                         p = self.places.project(p, Projection::Deref);
+
                         if let Some(ty) = element {
                             self.places.types.insert(p, ty);
                         }
@@ -705,8 +760,11 @@ impl Resolver<'_> {
                         // A field beyond a dereference owns its own resource value.
                         owner = None;
                     }
+
                     let parent = p;
+
                     p = self.places.project(p, Projection::Field(*name));
+
                     if let Some(&ty) = self.places.types.get(&parent) {
                         let field_ty = match self.compiler.ty.types.kind(ty) {
                             TypeKind::Struct(st) => self
@@ -720,9 +778,11 @@ impl Resolver<'_> {
                                 .map(|f| f.ty),
                             _ => None,
                         };
+
                         if let Some(ty) = field_ty {
                             self.places.types.insert(p, ty);
                         }
+
                         if name.as_str() == "data"
                             && matches!(
                                 self.compiler.ty.types.kind(ty),
@@ -742,6 +802,7 @@ impl Resolver<'_> {
                 }
             }
         }
+
         owner.or(Some(p))
     }
 }
@@ -765,29 +826,38 @@ fn insert(map: &mut HashMap<Effect, Vec<Span>>, effect: Effect, chain: Vec<Span>
             && a.target.root == b.target.root
             && b.target.steps.starts_with(&a.target.steps)
     };
+
     if matches!(effect.kind, Kind::Unknown | Kind::Write) {
         if map.keys().any(|old| *old != effect && covers(old, &effect)) {
             return false;
         }
+
         map.retain(|old, _| *old == effect || !covers(&effect, old));
     }
+
     let prefer = map.get(&effect).is_none_or(|old| chain.len() < old.len());
+
     if prefer {
         map.insert(effect, chain);
     }
+
     prefer
 }
 
 fn chain(site: Span, rest: &[Span]) -> Vec<Span> {
     let mut result = vec![site];
+
     result.extend(rest.iter().copied().filter(|span| *span != site));
+
     if result.len() > MAX_CHAIN {
         // Preserve both ends, truncating only the middle of a long inferred chain.
         let tail = result.split_off(result.len() - 3);
+
         result.truncate(3);
         result.push(Span::NONE);
         result.extend(tail);
     }
+
     result
 }
 
@@ -845,6 +915,7 @@ impl Summaries {
             .iter()
             .filter(|(id, body)| {
                 let proc = &compiler.pr.procs[id.0 as usize];
+
                 proc.body_state == BodyState::Done
                     && std::sync::Arc::ptr_eq(&proc.lit, &body.syntax)
             })
@@ -853,6 +924,7 @@ impl Summaries {
         let allocators = allocators::Allocators::build(compiler, &valid);
         let needed = selected::retain(compiler, &mut valid, files);
         let mut all = contracts::seed(compiler, &valid, needed.as_ref());
+
         all.call_sites = valid
             .values()
             .flat_map(|body| &body.blocks)
@@ -873,6 +945,7 @@ impl Summaries {
             execution::compile_time_only(compiler, &all.targets, entry_module);
         // Tarjan's pop order is bottom-up for caller -> callee edges.
         let mut ids: Vec<_> = valid.keys().copied().collect();
+
         ids.sort_by_key(|id| id.0);
         let graph: HashMap<_, Vec<_>> = ids
             .iter()
@@ -891,12 +964,16 @@ impl Summaries {
             .collect();
         let mut cache = prepared::Cache::default();
         let components = sccs(&ids, &graph);
+
         all.sccs = components.len();
+
         for component in &components {
             if jaic::interrupt::should_stop() {
                 return Self::default();
             }
+
             let once = acyclic(component, &graph);
+
             if jacket_config::env::LIFETIME_STATS.is_set()
                 && (component.len() > 1 || graph[&component[0]].contains(&component[0]))
             {
@@ -908,14 +985,17 @@ impl Summaries {
                         .collect::<Vec<_>>()
                 );
             }
+
             // Least fixed point for normal-return reachability, before guarantees. A
             // recursive cycle with no returning base must not make later caller uses live.
             loop {
                 let mut changed = false;
+
                 for id in component {
                     if jaic::interrupt::should_stop() {
                         return Self::default();
                     }
+
                     if all.procs[id].normal_return == Some(false)
                         && !returning_blocks(valid[id], &all.procs, &all.targets).is_empty()
                     {
@@ -923,18 +1003,23 @@ impl Summaries {
                         changed = true;
                     }
                 }
+
                 if !changed || once {
                     break;
                 }
             }
+
             // Body definitions are fixed once normal-return reachability settles.
             let mut resolvers = HashMap::default();
+
             loop {
                 let mut changed = false;
+
                 for id in component {
                     if jaic::interrupt::should_stop() {
                         return Self::default();
                     }
+
                     all.iterations += 1;
                     let resolver = resolvers.entry(*id).or_insert_with(|| {
                         Resolver::cached(
@@ -948,29 +1033,37 @@ impl Summaries {
                         )
                     });
                     let next = resolver.infer(&all.procs[id], &all.procs);
+
                     if next != all.procs[id] {
                         all.procs.insert(*id, next);
                         changed = true;
                     }
                 }
+
                 if !changed || once {
                     break;
                 }
             }
         }
+
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-begin bodies={}", valid.len());
         }
+
         all.propagate_writes(&mut cache, compiler, &valid, &components, &graph);
+
         if jaic::interrupt::fired() {
             return Self::default();
         }
+
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!("lifetime-summary-writes-end");
         }
+
         reads::foreground::solve(&mut cache, compiler, &valid, &graph, &mut all);
         reads::solve_queries(&mut cache, compiler, &valid, &graph, &mut all);
         let read_summaries = reads::solve(&mut cache, compiler, &valid, &graph, &mut all);
+
         if jacket_config::env::LIFETIME_STATS.is_set() {
             eprintln!(
                 "lifetime-summary-stats bodies={} sccs={} iterations={} may={} guaranteed={} read_summaries={} wall_ms={:.3}",
@@ -986,6 +1079,7 @@ impl Summaries {
                 started.elapsed().as_secs_f64() * 1000.0
             );
         }
+
         all
     }
 }

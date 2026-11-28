@@ -29,21 +29,25 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for t in cx.tokens {
         let Tok::Directive(d) = &t.tok else {
             continue;
         };
         let name = d.as_str();
+
         if !matches!(name, directive::NO_ABC | directive::NO_AOC | directive::ASM)
             || explained(cx, t.span)
         {
             continue;
         }
+
         let help = if name == directive::ASM {
             "add a `//` comment on this line or the line above: what the assembly does that Jai cannot"
         } else {
             "add a `//` comment on this line or the line above: why the checks are not needed here"
         };
+
         out.push(finding(
             t.span,
             format!("`#{name}` has no comment saying why it is needed"),
@@ -57,12 +61,15 @@ fn explained(cx: &Cx, at: Span) -> bool {
     let text = cx.text;
     let (line, _) = cx.line_start(at.start as usize);
     let line_end = text[line..].find('\n').map_or(text.len(), |n| line + n);
+
     if cx.has_comment_between(line, line_end) {
         return true;
     }
+
     if line == 0 {
         return false;
     }
+
     let (above, _) = cx.line_start(line - 1);
     cx.has_comment_between(above, line - 1)
 }

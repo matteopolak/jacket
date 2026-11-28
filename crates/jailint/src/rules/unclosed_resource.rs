@@ -57,7 +57,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
+
         let mut opened: Vec<Opened> = Vec::new();
+
         walk(&p.body.stmts, &mut |n, _| {
             if let Some(s) = n.stmt() {
                 match &s.kind {
@@ -100,8 +102,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     _ => {}
                 }
             }
+
             true
         });
+
         for o in opened {
             if left_open(cx, p.body, &o) {
                 let callee = match &o.call.kind {
@@ -110,6 +114,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     } => cx.whole_src(callee).trim(),
                     _ => "",
                 };
+
                 out.push(finding(
                     o.call.span,
                     format!(
@@ -136,6 +141,7 @@ fn single(list: &[EntityId]) -> Option<EntityId> {
 /// The entity is a local variable whose declaration lies inside `body`.
 fn declared_in(cx: &Cx, var: EntityId, body: &Block) -> bool {
     let e = cx.compiler.entity(var);
+
     matches!(e.kind, EntityKind::Local { .. })
         && e.span.file == body.span.file
         && body.span.start <= e.span.start
@@ -145,12 +151,14 @@ fn declared_in(cx: &Cx, var: EntityId, body: &Block) -> bool {
 /// The expression is a call of an `@Opens` procedure, possibly cast: that call.
 fn opening<'a>(cx: &Cx, e: &'a Expr) -> Option<&'a Expr> {
     let mut cur = e;
+
     while let E::Cast {
         value, ..
     } = &cur.kind
     {
         cur = value;
     }
+
     match &cur.kind {
         E::Call {
             callee, ..
@@ -163,19 +171,24 @@ fn opening<'a>(cx: &Cx, e: &'a Expr) -> Option<&'a Expr> {
 fn left_open(cx: &Cx, body: &Block, o: &Opened) -> bool {
     let mut handled = false;
     let mut seen = 0usize;
+
     walk(&body.stmts, &mut |n, chain| {
         if handled {
             return false;
         }
+
         let Node::Expr(e) = n else {
             return true;
         };
+
         if matches!(e.kind, E::Ident(sym) if sym == o.name) && e.span.start >= o.after {
             seen += 1;
+
             if cx.entities(e.span).contains(&o.var) && !quiet(cx, e, chain) {
                 handled = true;
             }
         }
+
         true
     });
     let written = cx
@@ -189,18 +202,22 @@ fn quiet(cx: &Cx, e: &Expr, chain: &[Node<'_>]) -> bool {
     let mut cur = e;
     let mut i = chain.len();
     let mut projected = false;
+
     while i > 0 {
         let Node::Expr(p) = chain[i - 1] else {
             break;
         };
+
         match &p.kind {
             E::Member(base, _) | E::Index(base, _) if base.span == cur.span => projected = true,
             E::Unary(UnOp::Deref | UnOp::Star, inner) if inner.span == cur.span => {}
             _ => break,
         }
+
         cur = p;
         i -= 1;
     }
+
     match i.checked_sub(1).map(|k| chain[k]) {
         Some(Node::Stmt(s)) => match &s.kind {
             S::Assign {
@@ -232,6 +249,7 @@ fn quiet(cx: &Cx, e: &Expr, chain: &[Node<'_>]) -> bool {
 /// The expression is a number, bool or enum: reading it keeps nothing alive.
 fn scalar(cx: &Cx, e: &Expr) -> bool {
     let types = &cx.compiler.ty.types;
+
     cx.ty(e).is_some_and(|t| {
         matches!(
             types.kind(types.repr(t)),

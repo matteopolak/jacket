@@ -11,11 +11,15 @@ use std::path::Path;
 impl Site {
     pub fn unlinked_types(&self) -> Vec<String> {
         let mut reports = BTreeSet::new();
+
         for (mi, module) in self.modules.iter().enumerate() {
             let module_scope: Vec<_> = module.parameters.iter().map(|p| p.name.clone()).collect();
+
             for p in &module.parameters {
                 let mut scope = module_scope.clone();
+
                 scope.extend(poly_names(&p.ty));
+
                 for (text, is_type) in [(&p.ty, true), (&p.default, false)] {
                     for name in self.missing_names(text, &p.refs, is_type, &scope, mi) {
                         reports.insert(format!(
@@ -26,8 +30,10 @@ impl Site {
                     }
                 }
             }
+
             for item in module.items.iter().chain(&module.private) {
                 let mut scope = module_scope.clone();
+
                 scope.extend(item.scope.iter().cloned());
                 let mut check = |text: &str, refs: &[TypeRef], is_type: bool, locals: &[String]| {
                     for name in self.missing_names(text, refs, is_type, locals, mi) {
@@ -38,8 +44,10 @@ impl Site {
                         ));
                     }
                 };
+
                 for overload in &item.overloads {
                     let mut locals = scope.clone();
+
                     // Procedure parameters are local bindings, including baked value parameters.
                     locals.extend(
                         overload
@@ -47,17 +55,21 @@ impl Site {
                             .iter()
                             .map(|p| p.name.trim_start_matches('$').to_owned()),
                     );
+
                     for p in overload.params.iter().chain(&overload.returns) {
                         locals.extend(poly_names(&p.ty));
                     }
+
                     for p in overload.params.iter().chain(&overload.returns) {
                         check(&p.ty, &p.refs, true, &locals);
                         check(&p.default, &p.refs, false, &locals);
                     }
                 }
+
                 for member in &item.members {
                     let is_type = matches!(item.kind, Kind::Struct | Kind::Union)
                         && !member.ty.starts_with(":=");
+
                     check(
                         member.ty.trim_start_matches(":="),
                         &member.refs,
@@ -65,9 +77,11 @@ impl Site {
                         &scope,
                     );
                 }
+
                 check(&item.value, &item.refs, item.kind == Kind::Type, &scope);
             }
         }
+
         reports.into_iter().collect()
     }
 
@@ -80,6 +94,7 @@ impl Site {
         mi: usize,
     ) -> Vec<String> {
         let mut required = names(text, is_type, locals);
+
         // Resolved names in value expressions (including enum values and arrays
         // of types) must use their links too. Unresolved ordinary value operands
         // are not type positions; casts and typed literals are checked by the AST.
@@ -98,11 +113,13 @@ impl Site {
                 if self.type_is_linked(name, refs, mi) {
                     return false;
                 }
+
                 // Only declarations proven private, internal, or supplied by the prelude can
                 // lack a page, and so can those of a module that is not documented here: a
                 // library documented alone cannot link what it imports from another one.
                 let named =
                     |r: &&TypeRef| r.path == *name || name.starts_with(&format!("{}.", r.path));
+
                 !refs
                     .iter()
                     .filter(named)
@@ -134,6 +151,7 @@ fn parsed(text: &str) -> jaic::parser::IdeParse {
 fn poly_names(text: &str) -> Vec<String> {
     let parse = parsed(&format!("check :: {};", text.trim_start_matches("..")));
     let mut names = Vec::new();
+
     if let Some(jaic::ast::Stmt {
         kind: StmtKind::Decl(decl),
         ..
@@ -146,6 +164,7 @@ fn poly_names(text: &str) -> Vec<String> {
                 .map(|n| n.name.as_str().to_owned()),
         );
     }
+
     walk::walk(&parse.file.stmts, &mut |node, _| {
         if let Some(Expr {
             kind:
@@ -160,6 +179,7 @@ fn poly_names(text: &str) -> Vec<String> {
         {
             names.push(name.as_str().to_owned());
         }
+
         true
     });
     names
@@ -170,6 +190,7 @@ fn names(text: &str, is_type: bool, scope: &[String]) -> BTreeSet<String> {
     let parse = parsed(&source);
     let mut names = BTreeSet::new();
     let mut scope = scope.to_vec();
+
     scope.extend(poly_names(text));
     let Some(jaic::ast::Stmt {
         kind: StmtKind::Decl(decl),
@@ -178,9 +199,11 @@ fn names(text: &str, is_type: bool, scope: &[String]) -> BTreeSet<String> {
     else {
         return names;
     };
+
     if let Some(value) = &decl.value {
         collect(value, is_type, &source, &mut scope, &mut names);
     }
+
     names
 }
 
@@ -195,6 +218,7 @@ fn collect(
         ExprKind::Ident(_) | ExprKind::Member(..) if is_type => {
             let name = source[expr.span.start as usize..expr.span.end as usize].trim();
             let root = name.split('.').next().unwrap_or(name);
+
             // Language-provided types have no declaration; polymorphic and struct/module
             // parameters are local bindings with no page. Never exempt an unknown name.
             if !BUILTIN_TYPES.contains(&name) && !scope.iter().any(|n| n == root) {
@@ -223,6 +247,7 @@ fn collect(
                     .chain(header.returns.iter().filter_map(|p| p.name.as_ref()))
                     .map(|n| n.name.as_str().to_owned()),
             );
+
             for (ty, default) in header
                 .params
                 .iter()
@@ -232,6 +257,7 @@ fn collect(
                 if let Some(ty) = ty {
                     collect(ty, true, source, scope, out);
                 }
+
                 if let Some(default) = default {
                     collect(default, false, source, scope, out);
                 }
@@ -245,6 +271,7 @@ fn collect(
             if let Some(ty) = ty {
                 collect(ty, true, source, scope, out);
             }
+
             collect(value, false, source, scope, out);
         }
         ExprKind::StructLit {
@@ -254,6 +281,7 @@ fn collect(
             if let Some(ty) = ty {
                 collect(ty, true, source, scope, out);
             }
+
             for field in fields {
                 collect(&field.value, false, source, scope, out);
             }
@@ -265,6 +293,7 @@ fn collect(
             if let Some(ty) = ty {
                 collect(ty, true, source, scope, out);
             }
+
             for elem in elems {
                 collect(elem, false, source, scope, out);
             }
@@ -286,6 +315,7 @@ fn collect(
             ..
         } if is_type => {
             collect(callee, true, source, scope, out);
+
             for arg in args {
                 collect(&arg.value, true, source, scope, out);
             }
@@ -345,6 +375,7 @@ mod tests {
             }],
             ..Item::default()
         }]);
+
         assert_eq!(
             site.unlinked_types(),
             [
@@ -394,6 +425,7 @@ mod tests {
             }],
             ..Item::default()
         }]);
+
         assert!(
             site.unlinked_types().is_empty(),
             "{:?}",
@@ -440,6 +472,7 @@ mod tests {
                 private: false,
             },
         ];
+
         assert!(
             site.type_html("Alias", &refs, 0)
                 .contains("/api/Test/Color")
@@ -458,6 +491,7 @@ mod tests {
             line: 4,
             private: false,
         }];
+
         assert!(site.type_is_linked("Vector", &branch, 0));
     }
 
@@ -502,9 +536,11 @@ mod tests {
             },
         ]);
         let reports = site.unlinked_types().join("\n");
+
         for name in ["Missing", "Field_Type", "Enum_Type", "Arg", "Result"] {
             assert!(reports.contains(name), "{reports}");
         }
+
         assert!(!reports.contains("Not_A_Type"));
     }
 }

@@ -26,10 +26,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let spelled = declared_types(cx);
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             match n {
                 Node::Expr(e) => {
@@ -50,6 +52,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             .trim_start()
                             .trim_start_matches(')')
                             .trim_start();
+
                         report(cx, e, cx.src(t.span), after, out);
                     }
                 }
@@ -71,10 +74,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     {
                         let after =
                             cx.text[v.span.start as usize + 2..v.span.end as usize].trim_start();
+
                         report(cx, v, cx.src(t.span), after, out);
                     }
                 }
             }
+
             true
         });
     }
@@ -82,6 +87,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 
 fn report(cx: &Cx, cast: &Expr, ty: &str, rest: &str, out: &mut Vec<Finding>) {
     let help = "remove the cast".to_string();
+
     out.push(Finding {
         secondary: Vec::new(),
         start: cast.span.start as usize,
@@ -118,6 +124,7 @@ fn value_of(cast: &Expr) -> &Expr {
 fn same(a: &str, b: &str) -> bool {
     let norm = |t: &str| {
         let t: String = t.split_whitespace().collect();
+
         match t.as_str() {
             "int" => "s64".to_string(),
             "float" => "float32".to_string(),
@@ -134,10 +141,12 @@ fn spelling(cx: &Cx, value: &Expr, spelled: &HashMap<Span, String>) -> Option<St
             let ents = cx.entities(value.span);
             let first = *ents.first()?;
             let span = cx.compiler.entity(first).span;
+
             // Every entity (one per instance) must come from the same declaration.
             if ents.iter().any(|&e| cx.compiler.entity(e).span != span) {
                 return None;
             }
+
             spelled.get(&span).cloned()
         }
         E::Cast {
@@ -152,6 +161,7 @@ fn spelling(cx: &Cx, value: &Expr, spelled: &HashMap<Span, String>) -> Option<St
 /// Declared types of the file's locals (by name span) and parameters (by declaration span).
 fn declared_types(cx: &Cx) -> HashMap<Span, String> {
     let mut out = HashMap::default();
+
     for p in &cx.procs {
         for param in &p.header.params {
             if let Some(t) = &param.ty
@@ -160,6 +170,7 @@ fn declared_types(cx: &Cx) -> HashMap<Span, String> {
                 out.insert(param.span, cx.src(t.span).to_string());
             }
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             if let Some(s) = n.stmt()
                 && let S::Decl(d) = &s.kind
@@ -169,8 +180,10 @@ fn declared_types(cx: &Cx) -> HashMap<Span, String> {
                     out.insert(name.span, cx.src(t.span).to_string());
                 }
             }
+
             true
         });
     }
+
     out
 }

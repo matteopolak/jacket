@@ -13,14 +13,17 @@ impl<'ctx> Backend<'ctx, '_> {
     pub(super) fn define_function(&self, func: &Func, function: FunctionValue<'ctx>) -> R<()> {
         let alloca_block = self.ctx.append_basic_block(function, "allocas");
         let allocas = self.ctx.create_builder();
+
         allocas.position_at_end(alloca_block);
 
         // Reachable blocks in reverse post-order, so definitions precede uses.
         let order = reverse_post_order(func);
         let mut blocks = vec![None; func.blocks.len()];
+
         for &b in &order {
             blocks[b] = Some(self.ctx.append_basic_block(function, &format!("b{b}")));
         }
+
         let mut st = FnState {
             function,
             vals: vec![None; func.vals.len()],
@@ -35,45 +38,62 @@ impl<'ctx> Backend<'ctx, '_> {
             facts: NullFacts::default(),
             flags: vec![None; func.vals.len()],
         };
+
         for v in &func.trusted {
             st.nonnull[v.0 as usize] = true;
         }
+
         if st.null_checks {
             st.facts = NullFacts::new(func);
         }
+
         if let Some(debug) = &self.debug {
             let local = func.linkage == IrLinkage::Internal;
+
             st.dbg = Some(debug.begin_function(func, function, local, &self.builder, &st.allocas));
         }
+
         self.bind_params(&mut st, func, alloca_block)?;
+
         for slot in &func.slots {
             let p = self.entry_alloca(&st, slot.size, slot.align)?;
+
             st.slots.push(p);
         }
+
         if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
             dbg.declare_vars(debug, func, &st.slots, &st.vals, &st.allocas, alloca_block);
         }
+
         for &b in &order {
             let block = &func.blocks[b];
+
             self.builder
                 .position_at_end(st.blocks[b].expect("reachable block"));
             st.facts.enter_block();
+
             if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
                 dbg.enter_block(debug, func, &self.builder, b);
             }
+
             for inst in &block.insts {
                 self.inst(&mut st, func, inst)?;
             }
+
             self.term(&st, func, &block.term)?;
+
             if let Some(dbg) = &mut st.dbg {
                 dbg.leave_block(&block.term);
             }
         }
+
         let entry = st.blocks[0].expect("entry block is reachable");
+
         if let Some(dbg) = &st.dbg {
             dbg.finish_entry(&st.allocas);
             self.builder.unset_current_debug_location();
         }
+
         st.allocas.build_unconditional_branch(entry)?;
         Ok(())
     }
@@ -86,11 +106,14 @@ impl<'ctx> Backend<'ctx, '_> {
         let lowered = self.lower_sig(&func.sig);
         let params: Vec<BasicValueEnum<'ctx>> = st.function.get_param_iter().collect();
         let mut k = 0;
+
         self.builder.position_at_end(entry);
+
         for (i, plan) in lowered.params.iter().enumerate() {
             if lowered.is_sret(k) {
                 k += 1;
             }
+
             let value: BasicValueEnum<'ctx> = match plan {
                 ParamPlan::Scalar(_) => {
                     k += 1;
@@ -98,13 +121,17 @@ impl<'ctx> Backend<'ctx, '_> {
                 }
                 ParamPlan::AggArray(layout, pieces) => {
                     let array = params[k].into_array_value();
+
                     k += 1;
                     let tmp = self.call_temp(st, layout.size, layout.align)?;
+
                     for (n, p) in pieces.iter().enumerate() {
                         let piece = self.builder.build_extract_value(array, n as u32, "")?;
+
                         self.builder
                             .build_store(self.gep_const(tmp, p.offset)?, piece)?;
                     }
+
                     tmp.into()
                 }
                 ParamPlan::Agg(layout, passing) => match passing {
@@ -114,11 +141,13 @@ impl<'ctx> Backend<'ctx, '_> {
                     }
                     Passing::Registers(pieces) => {
                         let tmp = self.call_temp(st, layout.size, layout.align)?;
+
                         for p in pieces {
                             self.builder
                                 .build_store(self.gep_const(tmp, p.offset)?, params[k])?;
                             k += 1;
                         }
+
                         tmp.into()
                     }
                 },
@@ -126,6 +155,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     RetPlan::Sret => params[lowered.sret_at as usize],
                     RetPlan::Registers(layout, pieces) => {
                         let tmp = self.call_temp(st, layout.size, layout.align)?;
+
                         st.reg_ret = Some((pieces.clone(), tmp));
                         tmp.into()
                     }
@@ -134,8 +164,10 @@ impl<'ctx> Backend<'ctx, '_> {
                     }
                 },
             };
+
             st.vals[i] = Some(value);
         }
+
         Ok(())
     }
 
@@ -156,10 +188,12 @@ impl<'ctx> Backend<'ctx, '_> {
         } else {
             align
         };
+
         if let Some(inst) = ptr.as_instruction() {
             inst.set_alignment(align.clamp(1, 1 << 16).next_power_of_two() as u32)
                 .map_err(|e| Error(e.to_string()))?;
         }
+
         Ok(ptr)
     }
 
@@ -167,6 +201,7 @@ impl<'ctx> Backend<'ctx, '_> {
         if let Some(value) = st.vals[v.0 as usize] {
             return Ok(value);
         }
+
         // A comparison's byte is widened where it is used, if it is: a branch on it uses the
         // `i1` and leaves the compare with one user, which is what lets instruction selection
         // fuse the compare into the branch.
@@ -181,6 +216,7 @@ impl<'ctx> Backend<'ctx, '_> {
 
     pub(super) fn set(&self, st: &mut FnState<'ctx>, v: Val, value: BasicValueEnum<'ctx>) {
         st.vals[v.0 as usize] = Some(value);
+
         // A variable whose address is computed here: copy it where its debug info looks.
         if let Some(slot) = st.dbg.as_ref().and_then(|d| d.watched(v)) {
             let _ = self.builder.build_store(slot, value);
@@ -244,9 +280,11 @@ impl<'ctx> Backend<'ctx, '_> {
 
     pub(super) fn coerce(&self, v: BasicValueEnum<'ctx>, ty: Ty) -> R<BasicValueEnum<'ctx>> {
         let want = self.ll(ty);
+
         if v.get_type() == want {
             return Ok(v);
         }
+
         Ok(match (v, want) {
             (BasicValueEnum::PointerValue(p), BasicTypeEnum::IntType(t)) => {
                 self.builder.build_ptr_to_int(p, t, "")?.into()
@@ -287,6 +325,7 @@ impl<'ctx> Backend<'ctx, '_> {
         if offset == 0 {
             return Ok(base);
         }
+
         self.gep(base, self.ctx.i64_type().const_int(offset, false))
     }
 
@@ -319,18 +358,24 @@ fn reverse_post_order(func: &Func) -> Vec<usize> {
             Term::Ret(_) | Term::Unreachable => Vec::new(),
         }
     }
+
     let mut visited = vec![false; func.blocks.len()];
     let mut post = Vec::new();
     // Iterative DFS: (block, successors visited so far). Successors are taken last to first, so
     // that in the reversed order the first one (a branch's `then`, a loop's body) follows its
     // block and unoptimised code (no block placement) falls through into it.
     let mut stack = vec![(0usize, 0usize)];
+
     visited[0] = true;
+
     while let Some(&mut (block, ref mut next)) = stack.last_mut() {
         let s = succs(&func.blocks[block].term);
+
         if *next < s.len() {
             let t = s[s.len() - 1 - *next];
+
             *next += 1;
+
             if !visited[t] {
                 visited[t] = true;
                 stack.push((t, 0));
@@ -340,6 +385,7 @@ fn reverse_post_order(func: &Func) -> Vec<usize> {
             stack.pop();
         }
     }
+
     post.reverse();
     post
 }

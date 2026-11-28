@@ -55,14 +55,19 @@ impl NoteWatch {
         if len == 0 {
             return;
         }
+
         let end = start + len;
         let at = self.ranges.partition_point(|r| r.0 < start);
+
         if self.ranges.get(at).is_some_and(|r| r.0 == start) {
             return;
         }
+
         let index = self.places.len() as u32;
+
         self.places.push(place);
         self.ranges.insert(at, (start, end, index));
+
         if self.ranges.len() == 1 {
             (self.lo, self.hi) = (start, end);
         } else {
@@ -83,6 +88,7 @@ impl NoteWatch {
         // The first range that ends after `addr`: ranges are disjoint and sorted, so their
         // ends are sorted too.
         let from = self.ranges.partition_point(|r| r.1 <= addr);
+
         self.ranges[from..]
             .iter()
             .take_while(move |r| r.0 < end)
@@ -92,6 +98,7 @@ impl NoteWatch {
     /// Code running at `stack` (innermost first) read `addr..addr + len`.
     pub(super) fn read(&mut self, addr: u64, len: u64, stack: &[Loc]) {
         let notes: Vec<u32> = self.touched(addr, len).collect();
+
         for note in notes {
             if self.seen.insert((note, stack.first().copied())) {
                 self.reads.push(NoteRead {
@@ -123,6 +130,7 @@ mod tests {
     #[test]
     fn an_access_reads_the_notes_it_overlaps_once_per_site() {
         let mut w = NoteWatch::default();
+
         w.add(200, 4, place(2));
         w.add(100, 4, place(1));
         assert!(!w.near(50, 10) && !w.near(204, 1) && w.near(103, 1));
@@ -130,6 +138,7 @@ mod tests {
         w.read(101, 1, &[(0, 9, 1)]);
         w.read(150, 4, &[(0, 9, 1)]);
         let lines: Vec<u32> = w.take().iter().map(|r| r.note.start.0).collect();
+
         assert_eq!(lines, [1, 2]);
         w.read(200, 1, &[(0, 10, 1)]);
         assert_eq!(w.take().len(), 1);

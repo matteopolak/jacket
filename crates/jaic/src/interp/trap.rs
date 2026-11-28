@@ -176,18 +176,23 @@ impl Trap {
             None => format!("line {line}, column {col}"),
         };
         let mut out = self.message.clone();
+
         if let Some(loc) = self.loc {
             out += &format!(" (at {})", at(loc));
         }
+
         for frame in &self.frames {
             out += &format!("\n    in `{}`", frame.name);
+
             if let Some(loc) = frame.loc {
                 out += &format!(" at {}", at(loc));
             }
         }
+
         if self.omitted_frames > 0 {
             out += &format!("\n    ... {} more", self.omitted_frames);
         }
+
         out
     }
 
@@ -195,6 +200,7 @@ impl Trap {
         if func.debug_hidden {
             return;
         }
+
         if self.frames.len() < MAX_TRAP_FRAMES {
             self.frames.push(TrapFrame {
                 name: func.name.clone(),
@@ -225,6 +231,7 @@ impl Interp {
         b: u64,
     ) -> Res<T> {
         let reason = reason.into();
+
         self.trap_of(
             TrapKind::Check {
                 reason,

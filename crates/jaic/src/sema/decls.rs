@@ -25,9 +25,11 @@ impl Compiler {
         self.out.begin_runtime_storage_dependencies();
         let result = self.resolve_entity_with_runtime_dependencies(id);
         let values = self.out.end_runtime_storage_dependencies()?;
+
         if result.is_ok() {
             self.finish_runtime_storage_entity(id, &values);
         }
+
         result
     }
 
@@ -36,7 +38,9 @@ impl Compiler {
             if definitions.len() == 1 {
                 return self.resolve_entity(definitions[0]);
             }
+
             let mut procedures = Vec::new();
+
             for definition in definitions {
                 match self.resolve_entity(definition)? {
                     Resolved::Proc(procedure)
@@ -54,14 +58,17 @@ impl Compiler {
                     }
                 }
             }
+
             return Ok(Resolved::ProcSet(procedures));
         }
+
         match &self.entity(id).state {
             EntityState::Done(r) => return Ok(r.clone()),
             EntityState::Resolving => {
                 crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsInProgressMisses);
                 self.epochs.in_progress_misses += 1;
                 let e = self.entity(id);
+
                 return err(
                     Code::CircularDependency,
                     e.span,
@@ -71,15 +78,20 @@ impl Compiler {
             EntityState::Failed(e) => return Err(e.clone()),
             EntityState::Unresolved => {}
         }
+
         super::body_probe::bump(super::body_probe::C::EntResolve);
         let globals_before = super::speculative::local_globals_len();
+
         self.set_entity_state(id, EntityState::Resolving, globals_before);
         let traps = self.ct.traps;
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsResolvingDepth);
         self.epochs.resolving_depth += 1;
         let result = self.first_use(FirstUse::Entity(id), |c| c.resolve_entity_inner(id));
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsResolvingDepth);
         self.epochs.resolving_depth -= 1;
+
         match &result {
             Ok(r) => self.set_entity_state(id, EntityState::Done(r.clone()), globals_before),
             Err(e) if self.ct.traps != traps => {
@@ -87,12 +99,14 @@ impl Compiler {
             }
             Err(_) => self.set_entity_state(id, EntityState::Unresolved, globals_before),
         }
+
         result
     }
 
     fn resolve_entity_inner(&mut self, id: EntityId) -> Result<Resolved> {
         let entity = self.entity(id);
         let (name, span, scope) = (entity.name, entity.span, entity.home);
+
         match entity.kind.clone() {
             EntityKind::UnboundGenericParameter => Err(Box::new(Diagnostic::new(
                 Code::UnboundGenericParameter,
@@ -106,11 +120,13 @@ impl Compiler {
                 if ty == TypeId::VOID {
                     // Module parameter provided by an import: type from its value.
                     let ty = self.type_of_value(&value);
+
                     return Ok(Resolved::Const {
                         value,
                         ty,
                     });
                 }
+
                 Ok(Resolved::Const {
                     value,
                     ty,
@@ -264,6 +280,7 @@ impl Compiler {
                 format!("{enum_name} has no member {member}"),
             );
         };
+
         Ok(Resolved::Const {
             value: Value::Int(value),
             ty,
@@ -314,6 +331,7 @@ impl Compiler {
             _ if listed != decl.names.len() => {
                 let written: Vec<&ast::Expr> =
                     std::iter::once(value).chain(decl.extra_values()).collect();
+
                 return Err(self.count_mismatch(
                     decl.span,
                     (decl.names.len(), "names"),
@@ -325,14 +343,17 @@ impl Compiler {
             i => &decl.extra_values()[i - 1],
         };
         let multiple = decl.names.len() > 1 && listed == 1;
+
         match &value.kind {
             // `a, b :: #run f();` takes one value each (below).
             _ if multiple => {}
             ast::ExprKind::Proc(lit) => {
                 let proc = self.new_proc(name, lit.clone(), scope, value.span);
+
                 if !decl.notes.is_empty() {
                     self.pr.proc_decl_notes.insert(proc, decl.notes.to_vec());
                 }
+
                 return Ok(Resolved::Proc(proc));
             }
             ast::ExprKind::Lambda {
@@ -355,7 +376,9 @@ impl Compiler {
                     );
                 };
                 let ty = self.poly_header_type(scope, header);
+
                 self.ty.poly_aliases.insert(ty);
+
                 return Ok(Resolved::Const {
                     value: Value::Type(ty),
                     ty: TypeId::TYPE,
@@ -382,8 +405,10 @@ impl Compiler {
                         scope,
                     )));
                 }
+
                 self.check_struct_modify(name, lit)?;
                 let ty = self.new_struct_type(name, lit.clone(), scope, Vec::new(), None);
+
                 return Ok(Resolved::Const {
                     value: Value::Type(ty),
                     ty: TypeId::TYPE,
@@ -391,6 +416,7 @@ impl Compiler {
             }
             ast::ExprKind::Enum(lit) => {
                 let ty = self.new_enum_type(name, lit, scope)?;
+
                 return Ok(Resolved::Const {
                     value: Value::Type(ty),
                     ty: TypeId::TYPE,
@@ -407,7 +433,9 @@ impl Compiler {
                     base,
                     isa,
                 });
+
                 self.ty.nominal_origins.insert(ty, (value.span, scope));
+
                 return Ok(Resolved::Const {
                     value: Value::Type(ty),
                     ty: TypeId::TYPE,
@@ -420,6 +448,7 @@ impl Compiler {
                     operand,
                     ..
                 } = &**boxed;
+
                 if let crate::ast::DirectiveKind::Library {
                     system,
                 } = *kind
@@ -431,6 +460,7 @@ impl Compiler {
             }
             _ => {}
         }
+
         let expected = match &decl.ty {
             Some(t) => Some(self.eval_type(scope, t)?),
             None => None,
@@ -442,11 +472,13 @@ impl Compiler {
                 values.clone()
             } else {
                 let values = self.eval_const_all(scope, value)?;
+
                 self.pr
                     .multi_consts
                     .insert((decl.id, scope), values.clone());
                 values
             };
+
             match values.get(index) {
                 Some(op) => op.clone(),
                 None => {
@@ -463,6 +495,7 @@ impl Compiler {
             self.eval_const_as(scope, value, expected, Some(what))?
         };
         let value_span = value.span;
+
         match op.without_callable() {
             Operand::Type(t) => Ok(Resolved::Const {
                 value: Value::Type(t),
@@ -514,6 +547,7 @@ impl Compiler {
                 } else {
                     value
                 };
+
                 Ok(Resolved::Const {
                     value,
                     ty,
@@ -545,9 +579,11 @@ impl Compiler {
     pub fn scope_file(&self, mut scope: ScopeId) -> FileId {
         loop {
             let s = self.scope(scope);
+
             if let Some(f) = s.file {
                 return f;
             }
+
             match s.parent {
                 Some(p) => scope = p,
                 None => return FileId(0),
@@ -574,6 +610,7 @@ impl Compiler {
             (Some(t), _) => *t,
             (None, Some(v)) => {
                 let op = self.eval_const_or_run(scope, v, None)?;
+
                 match &op {
                     Operand::Const {
                         ty,
@@ -602,17 +639,23 @@ impl Compiler {
                 );
             }
         };
+
         self.ensure_storage_type(ty, span)?;
+
         if let Some(foreign) = &decl.foreign() {
             return self.foreign_global(scope, name, foreign, ty, span);
         }
+
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
         let mut align = align;
+
         if let Some(a) = &decl.align() {
             let a = self.eval_int(scope, a)?;
+
             align = align.max(a as u64);
         }
+
         let global = self.out.program.add_global(ir::Global {
             name: name.to_string(),
             size,
@@ -627,15 +670,19 @@ impl Compiler {
                 .find_map(|n| n.string_argument(SECTION_NOTE))
                 .map(str::to_string),
         });
+
         self.debug_global(global, name, ty, span);
+
         if self.meta.twin {
             self.out.declared_globals.insert(global, (name, span));
         }
+
         if decl.flags().iter().any(|f| f.name.as_str() == "no_reset") {
             self.out.no_reset_globals.push((global, ty));
         } else {
             self.out.program.reset_globals.push(global);
         }
+
         // Mark resolved before evaluating the initializer so self-references work.
         // The entity state is set by resolve_entity on return; initializers that
         // reference this global's address see it through `pending_globals`.
@@ -644,17 +691,21 @@ impl Compiler {
             Some(_) if evaluated.is_some() => {
                 let size = self.size_of(ty, span)?;
                 let mut agg = super::value::Aggregate::zeroed(size, span)?;
+
                 self.write_value(&mut agg, 0, evaluated.as_ref().unwrap(), ty, span)?;
                 Some(Arc::new(agg))
             }
             Some(v) => Some(self.global_initializer(scope, v, ty)?),
             None => self.default_initializer(ty, span)?,
         };
+
         if let Some(agg) = init {
             let g = &mut self.out.program.globals[global.0 as usize];
+
             g.init.clone_from(&agg.bytes);
             g.relocs.clone_from(&agg.relocs);
         }
+
         Ok(Resolved::Global {
             storage: ir::Storage::Data(global),
             ty,
@@ -675,18 +726,22 @@ impl Compiler {
     ) -> Result<Resolved> {
         if foreign.library.is_none() && name.as_str() == super::private_names::BUILD_DIRECTORY {
             let global = self.build_directory_global();
+
             return Ok(Resolved::Global {
                 storage: ir::Storage::Data(global),
                 ty,
             });
         }
+
         if foreign.library.is_none() && name.as_str() == super::runtime_info::RUNTIME_INFO {
             let global = self.runtime_info_global(span)?;
+
             return Ok(Resolved::Global {
                 storage: ir::Storage::Data(global),
                 ty,
             });
         }
+
         let library = match &foreign.library {
             Some(lib) => self.resolve_library(scope, lib)?,
             None => None,
@@ -708,6 +763,7 @@ impl Compiler {
             },
             is_data: true,
         });
+
         Ok(Resolved::Global {
             storage: ir::Storage::Foreign(foreign),
             ty,
@@ -817,6 +873,7 @@ impl Compiler {
         expr: &ast::Expr,
     ) -> Result<(Value, TypeId, bool)> {
         let op = self.eval_const_or_run(scope, expr, None)?;
+
         match op {
             Operand::Type(t) => Ok((Value::Type(t), TypeId::VOID, false)),
             Operand::Const {
@@ -848,11 +905,13 @@ impl Compiler {
         what: Option<&'static str>,
     ) -> Result<bool> {
         let holds = self.static_condition(scope, expr, what);
+
         if self.ed.is_live()
             && let Ok(holds) = holds
         {
             self.ide_note_condition(expr, holds);
         }
+
         holds
     }
 
@@ -941,6 +1000,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let file = self.scope_file(scope);
         let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
+
         f.expression_scope = Some(scope);
         f.constant_only = what;
         // Runtime locals of the enclosing procedure are not visible to constants.
@@ -952,6 +1012,7 @@ impl Compiler {
             } => operand.as_ref(),
             other => other,
         };
+
         match value {
             Operand::Value {
                 ..
@@ -992,6 +1053,7 @@ impl Compiler {
         {
             return self.check_isolated_host_run_all(body, expr.span);
         }
+
         if let ast::ExprKind::Run {
             body,
             flags,
@@ -1000,6 +1062,7 @@ impl Compiler {
         {
             return Ok(results);
         }
+
         if self.meta.twin
             && let ast::ExprKind::Run {
                 body, ..
@@ -1009,6 +1072,7 @@ impl Compiler {
                 c.eval_const_values(scope, expr, expected)
             });
         }
+
         self.eval_const_values(scope, expr, expected)
     }
 
@@ -1031,6 +1095,7 @@ impl Compiler {
         };
         let file = self.scope_file(scope);
         let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
+
         f.expression_scope = Some(scope);
         f.constant_only = Some("constant declaration needs a constant value");
         let scope = self.thunk_scope(scope);
@@ -1041,6 +1106,7 @@ impl Compiler {
             } => operand.as_ref(),
             other => other,
         };
+
         match value {
             Operand::Value {
                 ..
@@ -1098,6 +1164,7 @@ impl Compiler {
         let no_dll = flag("no_dll");
         let base_dir = self.file_dir(self.scope_file(scope)).display().to_string();
         let ir = self.out.program.libraries.len();
+
         self.out.program.libraries.push(ir::Library {
             name: lib_name.clone(),
             system,

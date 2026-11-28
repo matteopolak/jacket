@@ -68,32 +68,41 @@ pub fn parse(text: &str, target: &str) -> Result<Manifest, String> {
         entries: Vec::new(),
     };
     let mut active = false;
+
     for (number, raw) in text.lines().enumerate() {
         let line = raw.trim();
         let error = |what: &str| format!("manifest line {}: {what}: {raw}", number + 1);
+
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
+
         if let Some(section) = line.strip_prefix('[') {
             let section = section
                 .strip_suffix(']')
                 .ok_or_else(|| error("unclosed section"))?;
+
             active = section
                 .split_whitespace()
                 .any(|name| name == os || name == target);
+
             continue;
         }
+
         if !active {
             continue;
         }
+
         if let Some(text) = line.strip_prefix("c:") {
             manifest.c_prelude.push(text.trim().to_string());
             continue;
         }
+
         if let Some(text) = line.strip_prefix("jai:") {
             manifest.jai_prelude.push(text.trim().to_string());
             continue;
         }
+
         let (keyword, rest) = line.split_once(' ').ok_or_else(|| error("no item"))?;
         let packed = keyword == "packed";
         let (keyword, rest) = if packed {
@@ -101,9 +110,11 @@ pub fn parse(text: &str, target: &str) -> Result<Manifest, String> {
         } else {
             (keyword, rest)
         };
+
         if packed && keyword != "struct" {
             return Err(error("only `struct` can be `packed`"));
         }
+
         let kind = match keyword {
             "struct" => Kind::Struct,
             "type" => Kind::Type,
@@ -111,9 +122,11 @@ pub fn parse(text: &str, target: &str) -> Result<Manifest, String> {
             "const" => Kind::Const,
             _ => return Err(error("unknown keyword")),
         };
+
         if kind == Kind::Const {
             for item in rest.split_whitespace() {
                 let (jai, c) = split_rename(item);
+
                 manifest.entries.push(Entry {
                     kind,
                     jai,
@@ -122,19 +135,24 @@ pub fn parse(text: &str, target: &str) -> Result<Manifest, String> {
                     packed,
                 });
             }
+
             continue;
         }
+
         let (names, fields) = match rest.split_once(" : ") {
             Some((names, fields)) => (names, fields),
             None => (rest, ""),
         };
+
         if kind != Kind::Struct && !fields.is_empty() {
             return Err(error("only `struct` lists fields"));
         }
+
         let (jai, c) = match names.split_once('=') {
             Some((jai, c)) => (jai.trim().to_string(), c.trim().to_string()),
             None => (names.trim().to_string(), names.trim().to_string()),
         };
+
         manifest.entries.push(Entry {
             kind,
             jai,
@@ -143,9 +161,11 @@ pub fn parse(text: &str, target: &str) -> Result<Manifest, String> {
             packed,
         });
     }
+
     if manifest.entries.is_empty() {
         return Err(format!("the manifest has no entries for {target}"));
     }
+
     Ok(manifest)
 }
 
@@ -158,8 +178,10 @@ fn checks(manifest: &Manifest) -> Vec<Check> {
             jai_expr,
         });
     };
+
     for e in &manifest.entries {
         let (jai, c) = (&e.jai, &e.c);
+
         match e.kind {
             Kind::Const => add(
                 format!("const {jai}"),
@@ -184,6 +206,7 @@ fn checks(manifest: &Manifest) -> Vec<Check> {
                     format!("(long long)sizeof({c})"),
                     format!("size_of({jai})"),
                 );
+
                 if !e.packed {
                     add(
                         format!("align {jai}"),
@@ -191,16 +214,19 @@ fn checks(manifest: &Manifest) -> Vec<Check> {
                         format!("align_of({jai})"),
                     );
                 }
+
                 for (jai_field, c_field) in &e.fields {
                     // `name[]`: a C flexible array member, which has an offset but no size.
                     let flexible = c_field.ends_with("[]");
                     let jai_field = jai_field.trim_end_matches("[]");
                     let c_field = c_field.trim_end_matches("[]");
+
                     add(
                         format!("offset {jai}.{jai_field}"),
                         format!("(long long)offsetof({c}, {c_field})"),
                         format!("abi_field(type_info({jai}), \"{jai_field}\", false)"),
                     );
+
                     if !flexible {
                         add(
                             format!("fieldsize {jai}.{jai_field}"),
@@ -212,24 +238,31 @@ fn checks(manifest: &Manifest) -> Vec<Check> {
             }
         }
     }
+
     out
 }
 
 /// A C file printing every check (`printf`), or defining them as an array for the IR reader.
 fn c_source(manifest: &Manifest, checks: &[Check], as_array: bool) -> String {
     let mut s = String::new();
+
     for line in &manifest.c_prelude {
         writeln!(s, "{line}").unwrap();
     }
+
     s.push_str("#include <stddef.h>\n#include <stdio.h>\n");
+
     if as_array {
         s.push_str("long long abi_values[] = {\n");
+
         for check in checks {
             writeln!(s, "    {},", check.c_expr).unwrap();
         }
+
         s.push_str("};\n");
     } else {
         s.push_str("int main(void) {\n");
+
         for check in checks {
             writeln!(
                 s,
@@ -238,8 +271,10 @@ fn c_source(manifest: &Manifest, checks: &[Check], as_array: bool) -> String {
             )
             .unwrap();
         }
+
         s.push_str("    return 0;\n}\n");
     }
+
     s
 }
 
@@ -247,11 +282,14 @@ fn c_source(manifest: &Manifest, checks: &[Check], as_array: bool) -> String {
 /// from a `#run` (cross check under `jaic -check`).
 fn jai_source(manifest: &Manifest, checks: &[Check], at_compile_time: bool) -> String {
     let mut s = String::from("#import \"Basic\";\n");
+
     for line in &manifest.jai_prelude {
         writeln!(s, "{line}").unwrap();
     }
+
     s.push_str(JAI_HELPERS);
     s.push_str("abi_report :: () {\n");
+
     for check in checks {
         writeln!(
             s,
@@ -260,12 +298,15 @@ fn jai_source(manifest: &Manifest, checks: &[Check], at_compile_time: bool) -> S
         )
         .unwrap();
     }
+
     s.push_str("}\n");
+
     if at_compile_time {
         s.push_str("#run abi_report();\nmain :: () {}\n");
     } else {
         s.push_str("main :: () { abi_report(); }\n");
     }
+
     s
 }
 
@@ -334,12 +375,14 @@ fn describe(target: &str, key: &str, c: i64, jai: Option<i64>) -> String {
             } else {
                 "size"
             };
+
             return format!("[{target}] struct {ty} field {field}: {what} C={c} Jai={jai}");
         }
         "const" => format!("constant {name}"),
         "signed" => format!("type {name}: signedness"),
         _ => format!("type {name}: {what}"),
     };
+
     format!("[{target}] {subject} C={c} Jai={jai}")
 }
 
@@ -347,6 +390,7 @@ fn describe(target: &str, key: &str, c: i64, jai: Option<i64>) -> String {
 /// through an unsigned type (`(DWORD)-10`) where the binding uses the signed value.
 fn same_bits(key: &str, c: i64, jai: i64) -> bool {
     let is_32_bit = |v: i64| (i64::from(i32::MIN)..=i64::from(u32::MAX)).contains(&v);
+
     c == jai
         || key.starts_with("const ") && is_32_bit(c) && is_32_bit(jai) && c as u32 == jai as u32
 }
@@ -354,6 +398,7 @@ fn same_bits(key: &str, c: i64, jai: i64) -> bool {
 /// Every check whose values differ, described for a person.
 fn compare(target: &str, checks: &[Check], c: &str, jai: &str) -> Vec<String> {
     let (c, jai) = (parse_values(c), parse_values(jai));
+
     checks
         .iter()
         .filter_map(|check| {
@@ -362,6 +407,7 @@ fn compare(target: &str, checks: &[Check], c: &str, jai: &str) -> Vec<String> {
             };
             let jai_value = jai.get(&check.key).copied();
             let same = jai_value.is_some_and(|j| same_bits(&check.key, c_value, j));
+
             (!same).then(|| describe(target, &check.key, c_value, jai_value))
         })
         .collect()
@@ -371,6 +417,7 @@ fn run(command: &mut Command, what: &str) -> Result<String, String> {
     let output = command
         .output()
         .map_err(|e| format!("{what}: cannot start {command:?}: {e}"))?;
+
     if !output.status.success() {
         return Err(format!(
             "{what} failed ({}):\n{}{}",
@@ -379,6 +426,7 @@ fn run(command: &mut Command, what: &str) -> Result<String, String> {
             String::from_utf8_lossy(&output.stderr)
         ));
     }
+
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
@@ -391,6 +439,7 @@ pub fn check_host(
 ) -> Result<Vec<String>, String> {
     let checks = checks(manifest);
     let exe = |name: &str| dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+
     std::fs::write(dir.join("abi.c"), c_source(manifest, &checks, false)).unwrap();
     std::fs::write(dir.join("abi.jai"), jai_source(manifest, &checks, false)).unwrap();
     run(
@@ -410,6 +459,7 @@ pub fn check_host(
     )?;
     let c = run(&mut Command::new(exe("abi_c")), "running the C side")?;
     let jai = run(&mut Command::new(exe("abi_jai")), "running the Jai side")?;
+
     Ok(compare(target, &checks, &c, &jai))
 }
 
@@ -447,17 +497,21 @@ pub fn cross_target(spec: &str) -> Result<CrossTarget, String> {
         _ => return Err(format!("unknown os `{os}` (linux, macos, windows)")),
     };
     let mut clang_args = vec!["-target".to_string(), clang_triple];
+
     clang_args.extend(extra.split_whitespace().map(String::from));
+
     // One macOS SDK serves both CPUs; a clang outside Xcode needs to be told where it is.
     if os == "macos"
         && !extra.contains("sysroot")
         && let Ok(sdk) = Command::new("xcrun").arg("--show-sdk-path").output()
     {
         let sdk = String::from_utf8_lossy(&sdk.stdout).trim().to_string();
+
         if !sdk.is_empty() {
             clang_args.extend(["-isysroot".to_string(), sdk]);
         }
     }
+
     Ok(CrossTarget {
         name: name.to_string(),
         jaic_triple,
@@ -472,6 +526,7 @@ fn values_from_ir(ir: &str) -> Result<Vec<i64>, String> {
         .find(|l| l.starts_with("@abi_values ="))
         .ok_or("no @abi_values in the IR")?;
     let start = line.rfind("[i64").ok_or("unexpected @abi_values form")?;
+
     Ok(line[start..]
         .split("i64 ")
         .skip(1)
@@ -488,6 +543,7 @@ pub fn check_cross(
     dir: &Path,
 ) -> Result<Vec<String>, String> {
     let checks = checks(manifest);
+
     std::fs::write(dir.join("abi.c"), c_source(manifest, &checks, true)).unwrap();
     std::fs::write(dir.join("abi.jai"), jai_source(manifest, &checks, true)).unwrap();
     let ir = run(
@@ -498,6 +554,7 @@ pub fn check_cross(
         "compiling the C side",
     )?;
     let values = values_from_ir(&ir)?;
+
     if values.len() != checks.len() {
         return Err(format!(
             "read {} values from the IR, expected {}",
@@ -505,6 +562,7 @@ pub fn check_cross(
             checks.len()
         ));
     }
+
     let c: String = checks
         .iter()
         .zip(values)
@@ -519,5 +577,6 @@ pub fn check_cross(
             .current_dir(dir),
         "checking the Jai side",
     )?;
+
     Ok(compare(&target.name, &checks, &c, &jai))
 }

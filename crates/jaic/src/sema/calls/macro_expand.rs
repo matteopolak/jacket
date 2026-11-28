@@ -35,20 +35,27 @@ impl Compiler {
         let Some(name) = param.name else {
             return Ok(());
         };
+
         if param.discard {
             let e = self.add_const(mscope, name, param.span, Value::Int(0), TypeId::S64);
+
             self.set_discard_param(e);
+
             return Ok(());
         }
+
         if self.is_register_operand_type(param.ty, param.span) {
             return self.bind_register_macro_param(call, slot, name, &param);
         }
+
         if param.ty == TypeId::CODE {
             return self.bind_code_macro_param(f, call, slot, name, &param);
         }
+
         if self.bind_literal_macro_param(call, i, slot, name, &param)? {
             return Ok(());
         }
+
         self.bind_value_macro_param(f, call, i, slot, name, param)
     }
 
@@ -105,6 +112,7 @@ impl Compiler {
             },
             false,
         );
+
         self.pr.asm_regs.insert(entity, kind);
         Ok(())
     }
@@ -163,12 +171,14 @@ impl Compiler {
                     }
                     _ => None,
                 };
+
                 match named {
                     Some(code) => code,
                     None if runtime_code => {
                         let v = self.param_value(f, sig, param, slot, args, span)?;
                         let addr = self.spill(f, param.ty, v, span)?;
                         let depth = self.scope(mscope).proc_depth;
+
                         self.add_entity(
                             mscope,
                             name,
@@ -180,6 +190,7 @@ impl Compiler {
                             },
                             false,
                         );
+
                         return Ok(());
                     }
                     None => {
@@ -198,6 +209,7 @@ impl Compiler {
                     .is_some_and(|d| matches!(d.kind, E::CallerCode)) =>
             {
                 let d = param.default.as_ref().unwrap();
+
                 match self.check_expr(f, sig.scope, d, Some(TypeId::CODE))? {
                     Operand::Const {
                         value: Value::Code(code),
@@ -220,6 +232,7 @@ impl Compiler {
                 );
             }
         };
+
         self.add_const(mscope, name, param.span, Value::Code(code), TypeId::CODE);
         Ok(())
     }
@@ -241,6 +254,7 @@ impl Compiler {
             span,
             ..
         } = *call;
+
         // A for_expansion's `flags` is a compile-time constant (`#assert(flags == 0)`).
         if let Slot::Arg(a) = slot
             && let Some(Operand::Const {
@@ -252,6 +266,7 @@ impl Compiler {
             self.add_const(mscope, name, param.span, value.clone(), param.ty);
             return Ok(true);
         }
+
         // `v: $T` given an untyped literal stays a literal inside the macro, so
         // `` `return ERR, v `` adapts `0` to the caller's (e.g. distinct) result type.
         if let Slot::Arg(a) = slot
@@ -266,9 +281,12 @@ impl Compiler {
             )
         {
             let e = self.add_const(mscope, name, param.span, value.clone(), param.ty);
+
             self.entity_mut(e).untyped_const = true;
+
             return Ok(true);
         }
+
         Ok(false)
     }
 
@@ -311,9 +329,11 @@ impl Compiler {
             },
             false,
         );
+
         if let Some(info) = &param.callable {
             self.set_callable_entity(e, info.clone());
         }
+
         // The argument's value when it is a constant: a literal or constant given, a
         // procedure, or a literal default (`var_name := "var"`).
         let constant = match slot {
@@ -336,6 +356,7 @@ impl Compiler {
             Slot::Default => match &header.params[i].default {
                 Some(d) if matches!(d.kind, E::Str(_) | E::Int(..) | E::Float(..) | E::Bool(_)) => {
                     let pscope = self.proc(proc).scope;
+
                     match self.eval_const(pscope, d, Some(param.ty)) {
                         Ok(Operand::Const {
                             value,
@@ -350,6 +371,7 @@ impl Compiler {
             },
             _ => None,
         };
+
         if let Some((value, ty, untyped)) = constant
             && (ty == param.ty
                 || (untyped
@@ -357,6 +379,7 @@ impl Compiler {
                     && self.ty.types.is_integer(param.ty)))
         {
             self.set_local_const(e, value.clone(), param.ty);
+
             // A constant argument the body never writes stays a constant.
             if matches!(
                 value,
@@ -371,16 +394,20 @@ impl Compiler {
                 self.set_const_macro_param(e, value, param.ty);
             }
         }
+
         if param.using {
             let mut entry = scope::UsingEntry::Place {
                 ty: param.ty,
                 entity: e,
             };
+
             if let Some(filter) = &param.using_filter {
                 entry = self.filter_using_entry(mscope, entry, filter, param.span)?;
             }
+
             self.push_using(mscope, entry);
         }
+
         Ok(())
     }
 
@@ -392,14 +419,17 @@ impl Compiler {
             && error.span.start >= body.start
             && error.span.end <= body.end
             && call != Span::NONE;
+
         if !inside {
             return;
         }
+
         let name = self.proc(proc).name;
         let note = match error.label.take() {
             Some(label) => format!("in the expansion of `{name}`: {label}"),
             None => format!("in the expansion of `{name}`"),
         };
+
         if matches!(
             error.code,
             Code::MissingReturnValue | Code::MissingReturnValue2
@@ -408,6 +438,7 @@ impl Compiler {
                 "`{name}` expands to a `return` from the procedure that calls it, and that procedure must return a value"
             ));
         }
+
         error.notes.insert(0, (error.span, note));
         error.span = call;
     }
@@ -427,7 +458,9 @@ impl Compiler {
         let Some(body) = self.proc(proc).lit.body.clone() else {
             return err(Code::CallMacroNoBody, span, "macro has no body");
         };
+
         self.ed.macro_expanded(proc);
+
         if f.macros.len() > 64 || (f.macro_overflow && !f.macros.is_empty()) {
             f.macro_overflow = true;
             return err(
@@ -436,12 +469,15 @@ impl Compiler {
                 "macro expansion is too deeply nested",
             );
         }
+
         f.macro_overflow = false;
         let module = self.scope(sig.scope).module;
         let mscope = self.new_scope(ScopeKind::Macro, Some(sig.scope), module, None);
+
         if let Some(record) = &mut f.lifetimes {
             record.macro_owners.push((mscope, caller));
         }
+
         // Locals of the macro belong to the caller's procedure.
         self.ns.scopes[mscope.0 as usize].proc_depth = self.scope(caller).proc_depth;
         let call = MacroCall {
@@ -455,26 +491,35 @@ impl Compiler {
             span,
         };
         let mut k = 0;
+
         for (i, slot) in slots.iter().enumerate() {
             if header.params[i].baked {
                 continue;
             }
+
             let param = sig.params[k].clone();
+
             k += 1;
             self.bind_macro_param(f, &call, i, slot, param)?;
         }
+
         if self.ed.is_live() {
             self.ide_note_macro(proc, slots, &args, &body, span);
         }
+
         let exit = f.b.new_block();
         let mut result_slots = Vec::new();
+
         for &rt in &sig.returns {
             let size = self.size_of(rt, span)?;
             let align = self.align_of(rt, span)?;
+
             result_slots.push((rt, f.b.alloca(size.max(1), align)));
         }
+
         let caller_cleanup_serial = f.current_cleanup_serial();
         let defer_depth = f.mark_defers();
+
         f.macros.push(MacroFrame {
             caller_scope: caller,
             caller_cleanup_serial,
@@ -489,26 +534,33 @@ impl Compiler {
         let saved_backtick = f.backtick_scope.take();
         let previous_lifetime_site = f.lifetime_enter_site(Some(span));
         let result = self.check_block_stmts(f, mscope, &body.stmts);
+
         f.lifetime_restore_site(previous_lifetime_site);
         f.backtick_scope = saved_backtick;
         let frame = f.macros.pop().unwrap();
+
         if let Err(mut error) = result {
             self.at_macro_call(&mut error, proc, body.span, span);
             return Err(error);
         }
+
         self.ide_require_parsed_body(body.span)?;
+
         if !f.b.is_terminated() {
             self.emit_defers(f, frame.defer_depth.position(), span)?;
             f.b.jump(exit);
         }
+
         f.truncate_defers(frame.defer_depth.position());
         f.b.switch_to(exit);
         f.lifetime_scope_end(mscope, span);
         let mut values = Vec::new();
+
         for (i, (rt, addr)) in result_slots.into_iter().enumerate() {
             let v = match self.ir_ty(rt) {
                 Some(t) => {
                     let v = f.b.load(t, addr);
+
                     if !f.type_only
                         && let Some(record) = &mut f.lifetimes
                     {
@@ -522,10 +574,12 @@ impl Compiler {
                             },
                         );
                     }
+
                     v
                 }
                 None => addr,
             };
+
             values.push(
                 Operand::Value {
                     ty: rt,
@@ -534,6 +588,7 @@ impl Compiler {
                 .with_callable(sig.return_callables.get(i).cloned().flatten()),
             );
         }
+
         Ok(match values.len() {
             0 => Operand::Void,
             1 => values.remove(0),
@@ -549,21 +604,25 @@ impl SourceState {
     pub(super) fn text_may_write(&self, body: &ast::Block, name: Sym) -> bool {
         let text = &self.sources.get(body.span.file).text;
         let text = &text.as_bytes()[body.span.start as usize..body.span.end as usize];
+
         // `#asm` operands may write any name they mention.
         if text.windows(4).any(|w| w == b"#asm") {
             return true;
         }
+
         let name = name.as_str();
         let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
         let skip_ws = |mut i: usize| {
             while i < text.len() && text[i].is_ascii_whitespace() {
                 i += 1;
             }
+
             i
         };
         let assigns = |i: usize| {
             let i = skip_ws(i);
             let rest = &text[i.min(text.len())..];
+
             match rest {
                 [b'=', b'=', ..] => false,
                 [b'=', ..] => true,
@@ -573,38 +632,50 @@ impl SourceState {
             }
         };
         let mut from = 0;
+
         while let Some(pos) = text[from..]
             .windows(name.len())
             .position(|w| w == name.as_bytes())
         {
             let start = from + pos;
             let end = start + name.len();
+
             from = end;
+
             if (start > 0 && word(text[start - 1])) || (end < text.len() && word(text[end])) {
                 continue;
             }
+
             let mut before = start;
+
             while before > 0 && text[before - 1].is_ascii_whitespace() {
                 before -= 1;
             }
+
             if before > 0 && text[before - 1] == b'*' {
                 return true;
             }
+
             if assigns(end) {
                 return true;
             }
+
             // `name.field = ...`
             let mut i = skip_ws(end);
+
             if i < text.len() && text[i] == b'.' {
                 i = skip_ws(i + 1);
+
                 while i < text.len() && word(text[i]) {
                     i += 1;
                 }
+
                 if assigns(i) {
                     return true;
                 }
             }
         }
+
         false
     }
 }

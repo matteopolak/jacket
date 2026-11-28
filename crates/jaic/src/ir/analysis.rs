@@ -9,13 +9,16 @@ impl Func {
     pub fn block_reachable(&self, target: BlockId) -> bool {
         let mut seen = vec![false; self.blocks.len()];
         let mut work = vec![BlockId(0)];
+
         while let Some(b) = work.pop() {
             if std::mem::replace(&mut seen[b.0 as usize], true) {
                 continue;
             }
+
             if b == target {
                 return true;
             }
+
             match &self.blocks[b.0 as usize].term {
                 Term::Jump(to) => work.push(*to),
                 Term::Branch {
@@ -34,6 +37,7 @@ impl Func {
                 Term::Ret(_) | Term::Unreachable => {}
             }
         }
+
         false
     }
 }
@@ -45,16 +49,21 @@ impl fmt::Display for Func {
             "func {} {:?} -> {:?}",
             self.name, self.sig.params, self.sig.returns
         )?;
+
         for (i, slot) in self.slots.iter().enumerate() {
             writeln!(f, "  slot{i}: {} align {}", slot.size, slot.align)?;
         }
+
         for (i, block) in self.blocks.iter().enumerate() {
             writeln!(f, " b{i}:")?;
+
             for inst in &block.insts {
                 writeln!(f, "    {inst:?}")?;
             }
+
             writeln!(f, "    {:?}", block.term)?;
         }
+
         Ok(())
     }
 }
@@ -161,6 +170,7 @@ pub fn inst_vals(inst: &Inst, def: &mut impl FnMut(Val), use_: &mut impl FnMut(V
             if let Callee::Indirect(target, _) = &call.callee {
                 use_(*target);
             }
+
             call.args.iter().copied().for_each(&mut *use_);
             call.results.iter().copied().for_each(def);
         }

@@ -57,6 +57,7 @@ const EVERY_OS: u8 = 127;
 /// constant), which counts as possible.
 fn holds_on(expr: &Expr, os: &str) -> Option<bool> {
     let is_os = |e: &Expr| matches!(&e.kind, ExprKind::Ident(n) if n.as_str() == "OS");
+
     match &expr.kind {
         ExprKind::Binary(op @ (BinOp::Eq | BinOp::Ne), left, right) if is_os(left) => {
             let ExprKind::InferredMember(target) = &right.kind else {
@@ -118,7 +119,9 @@ fn limits(file: &File) -> HashMap<u32, u8> {
             }
         }
     }
+
     let mut out = HashMap::default();
+
     walk(&file.stmts, EVERY_OS, &mut out);
     out
 }
@@ -128,6 +131,7 @@ fn os_mask(names: &[String]) -> u8 {
     if names.is_empty() {
         return EVERY_OS;
     }
+
     OSES.iter()
         .filter(|(name, _)| names.iter().any(|n| n == name))
         .fold(0, |acc, (_, bit)| acc | bit)
@@ -139,6 +143,7 @@ fn asserted_systems(assert: &crate::ast::AssertStmt) -> Vec<String> {
     let only_os = OSES
         .iter()
         .all(|(name, _)| holds_on(&assert.cond, name).is_some());
+
     ide_facts::asserted_targets(assert)
         .filter(|_| only_os)
         .map(|targets| targets.iter().map(|t| t.as_str().to_owned()).collect())
@@ -154,6 +159,7 @@ pub fn module_platforms(file: &Path) -> Vec<String> {
     };
     let parse = parse_file_ide(FileId(0), &text);
     let mut out: Vec<String> = Vec::new();
+
     for top in ide_facts::top_level(&parse.file) {
         if let TopLevelKind::Assert(assert) = top.kind {
             for t in asserted_systems(assert) {
@@ -163,6 +169,7 @@ pub fn module_platforms(file: &Path) -> Vec<String> {
             }
         }
     }
+
     out
 }
 
@@ -171,6 +178,7 @@ fn os_names(mask: u8) -> Vec<String> {
     if mask == EVERY_OS {
         return Vec::new();
     }
+
     OSES.iter()
         .filter(|(_, bit)| mask & bit != 0)
         .map(|(name, _)| (*name).to_owned())
@@ -361,22 +369,29 @@ impl Reader<'_> {
         queue: &mut Vec<PathBuf>,
     ) {
         let nested = file.to_string_lossy().matches(GENERATED).count();
+
         for (span, visibility) in ide_facts::top_level_inserts(&parsed.parse.file) {
             if visibility != Visibility::Export {
                 continue;
             }
+
             let line = self.line_of(&parsed.text, span.start as usize);
+
             if nested >= MAX_NESTED_INSERTS {
                 let reason = format!(
                     "#insert is nested more than {MAX_NESTED_INSERTS} deep in generated text; it may insert itself"
                 );
+
                 out.unexpanded.push((file.to_path_buf(), line, reason));
+
                 continue;
             }
+
             match expand(file, line) {
                 Ok(inserted) if inserted.trim().is_empty() => {}
                 Ok(inserted) => {
                     let made = generated_path(file, line);
+
                     self.files.add_generated(&made, inserted.into(), file);
                     queue.push(made);
                 }
@@ -391,8 +406,10 @@ impl Reader<'_> {
         if let Some(found) = self.parsed.get(file) {
             return found.clone();
         }
+
         let loaded = self.files.text(&file.to_path_buf()).map(|text| {
             let parse = parse_file_ide(FileId(0), &text);
+
             Rc::new(Parsed {
                 private: ide_facts::top_level(&parse.file)
                     .iter()
@@ -409,6 +426,7 @@ impl Reader<'_> {
                 parse,
             })
         });
+
         self.parsed.insert(file.to_path_buf(), loaded.clone());
         loaded
     }
@@ -432,6 +450,7 @@ fn class_kind(decl: &Decl) -> &'static str {
     ) {
         return "type";
     }
+
     match ide_facts::decl_class(decl) {
         DeclClass::Procedure => "procedure",
         DeclClass::Struct => match decl.value.as_ref().map(|v| &v.kind) {
@@ -450,9 +469,11 @@ fn class_kind(decl: &Decl) -> &'static str {
 fn clip(mut value: String) -> String {
     if value.len() > MAX_VALUE {
         let cut = value.floor_char_boundary(MAX_VALUE);
+
         value.truncate(cut);
         value.push_str(" ...");
     }
+
     value
 }
 
@@ -467,12 +488,14 @@ fn describe(
     let mut documented = docs::header_open(text, at)
         .map(|open| docs::parameters(text, open))
         .unwrap_or_default();
+
     // The list in the docs above the header can also name results.
     for (name, item) in docs::list_parameters(doc) {
         if !documented.iter().any(|(n, _)| *n == name) {
             documented.push((name, item));
         }
     }
+
     let doc_of = |name: &str| {
         documented
             .iter()
@@ -491,9 +514,11 @@ fn describe(
             let mut ty =
                 p.ty.as_ref()
                     .map_or(String::new(), |t| slice(text, t.span.start, t.span.end));
+
             if p.variadic {
                 ty.insert_str(0, "..");
             }
+
             Param {
                 refs: Vec::new(),
                 doc: doc_of(&name),
@@ -518,6 +543,7 @@ fn describe(
                 .name
                 .as_ref()
                 .map_or(String::new(), |n| n.name.as_str().to_owned());
+
             Param {
                 refs: Vec::new(),
                 doc: if name.is_empty() {
@@ -544,17 +570,21 @@ fn describe(
         .map(|p| p.name.trim_start_matches('$'))
         .collect();
     let rest = docs::without_items(doc, &used);
+
     (params, returns, rest)
 }
 
 fn flags_of(header: &ProcHeader) -> Vec<&'static str> {
     let mut out = Vec::new();
+
     if header.flags.c_call() {
         out.push("#c_call");
     }
+
     if header.foreign.is_some() {
         out.push("#foreign");
     }
+
     out
 }
 
@@ -569,14 +599,17 @@ fn overload(
     let at = name.span.start as usize;
     let doc = docs::declaration(text, at).unwrap_or_default();
     let (mut params, mut returns, docs_text) = describe(header, text, at, &doc);
+
     for p in params.iter_mut().chain(returns.iter_mut()) {
         p.refs = reader.type_refs(file, &format!("{} {}", p.ty, p.default));
     }
+
     let docs_line = docs::located_above(text, at).map_or(0, |d| d.line);
     let limit = reader
         .parsed(file)
         .and_then(|parsed| parsed.limits.get(&name.span.start).copied())
         .unwrap_or(EVERY_OS);
+
     Overload {
         file: file.to_path_buf(),
         line: reader.line_of(text, at),
@@ -592,6 +625,7 @@ fn overload(
 
 fn members(decl: &Decl, text: &str) -> Vec<Member> {
     let mut out = Vec::new();
+
     match decl.value.as_ref().map(|v| &v.kind) {
         Some(ExprKind::Struct(lit)) => {
             // Both branches of an `#if` are listed: a field is documented wherever it is declared.
@@ -610,6 +644,7 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
                                 }
                                 (None, None) => String::new(),
                             };
+
                             for name in &field.names {
                                 out.push(Member {
                                     refs: Vec::new(),
@@ -626,6 +661,7 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
                     }
                 }
             }
+
             walk(&lit.body, text, &mut out);
         }
         Some(ExprKind::Enum(lit)) => {
@@ -656,10 +692,12 @@ fn members(decl: &Decl, text: &str) -> Vec<Member> {
                     }
                 }
             }
+
             walk(&lit.items, text, &mut out);
         }
         _ => {}
     }
+
     out
 }
 
@@ -698,17 +736,22 @@ impl<'a> TopIndex<'a> {
         let tops = ide_facts::top_level(&parsed.parse.file);
         let mut at: HashMap<usize, &'a Decl> = HashMap::default();
         let mut named: HashMap<&'a str, Vec<(&'a Decl, Visibility)>> = HashMap::default();
+
         for t in &tops {
             let TopLevelKind::Decl(d) = t.kind else {
                 continue;
             };
+
             for n in &d.names {
                 at.entry(n.span.start as usize).or_insert(d);
             }
+
             if d.kind == DeclKind::Const {
                 let mut seen: Vec<&str> = Vec::new();
+
                 for n in &d.names {
                     let name = n.name.as_str();
+
                     if !seen.contains(&name) {
                         seen.push(name);
                         named.entry(name).or_default().push((d, t.visibility));
@@ -716,6 +759,7 @@ impl<'a> TopIndex<'a> {
                 }
             }
         }
+
         Self {
             tops,
             at,
@@ -737,6 +781,7 @@ fn struct_params(decl: &Decl) -> Vec<String> {
     else {
         return Vec::new();
     };
+
     lit.params
         .iter()
         .filter_map(|p| p.name.as_ref())
@@ -765,6 +810,7 @@ pub fn generated_path(origin: &Path, line: usize) -> PathBuf {
 pub fn generated_origin(path: &str) -> Option<(&str, usize)> {
     let (file, rest) = path.split_once(GENERATED)?;
     let line = rest.split(GENERATED).next()?;
+
     Some((file, line.parse().ok()?))
 }
 
@@ -789,6 +835,7 @@ pub fn module_expanding(
     expand: Expander,
 ) -> Module {
     let mut own = Vec::new();
+
     super::own_files(dir, true, &mut own);
     let module_file = super::canonical(&crate::paths::module_entry(dir));
     let mut reader = Reader {
@@ -800,9 +847,11 @@ pub fn module_expanding(
         refs: HashMap::default(),
         lines: HashMap::default(),
     };
+
     // The module's own file first, so items come in the order it lists them.
     own.sort_by_key(|f| super::canonical(f) != module_file);
     let mut queue: Vec<PathBuf> = own;
+
     queue.reverse();
     let mut seen = BTreeSet::new();
     let mut out = Module {
@@ -813,12 +862,15 @@ pub fn module_expanding(
     let mut names: Vec<String> = Vec::new();
     let mut binding_files: HashMap<PathBuf, bool> = HashMap::default();
     let internal = super::canonical(&stdlib.join("internal"));
+
     // (item index, alias comment) to resolve links once every name is known.
     while let Some(file) = queue.pop() {
         let file = super::canonical(&file);
+
         if !seen.insert(file.clone()) {
             continue;
         }
+
         let Some(parsed) = reader.parsed(&file) else {
             continue;
         };
@@ -827,9 +879,12 @@ pub fn module_expanding(
         let mut first_statement = None;
         let mut loads = Vec::new();
         let index = TopIndex::new(&parsed);
+
         reader.expand_inserts(&file, &parsed, expand, &mut out, &mut queue);
+
         for item in &index.tops {
             first_statement.get_or_insert(item.span.start as usize);
+
             match item.kind {
                 TopLevelKind::Load(path, _) => loads.push(base.join(path)),
                 TopLevelKind::Assert(assert) if file == module_file => {
@@ -848,6 +903,7 @@ pub fn module_expanding(
                         let ty = p.ty.as_ref().map(written).unwrap_or_default();
                         let default = p.default.as_ref().map(written).unwrap_or_default();
                         let refs = reader.type_refs(&file, &format!("{ty} {default}"));
+
                         out.parameters.push(Parameter {
                             name: name.name.as_str().to_owned(),
                             ty,
@@ -862,6 +918,7 @@ pub fn module_expanding(
                     if item.visibility != Visibility::Export {
                         continue;
                     }
+
                     let Some(name) = decl.names.first() else {
                         continue;
                     };
@@ -892,6 +949,7 @@ pub fn module_expanding(
                             .value
                             .as_ref()
                             .map_or(String::new(), |v| slice(&text, v.span.start, v.span.end));
+
                         add(
                             &mut out,
                             &mut names,
@@ -908,6 +966,7 @@ pub fn module_expanding(
                                 ..Item::default()
                             },
                         );
+
                         continue;
                     };
                     let mut kind = class_kind(tdecl);
@@ -920,6 +979,7 @@ pub fn module_expanding(
                     let alias_type = (tfile != file || tat != at)
                         && target_is_type
                         && name.name != tdecl.names[0].name;
+
                     if alias_type
                         || (kind == "constant"
                             && decl
@@ -929,6 +989,7 @@ pub fn module_expanding(
                     {
                         kind = "type";
                     }
+
                     let alias_limit = parsed.os(name.span.start);
                     // A name declared in each branch of an `#if` is available wherever one is.
                     let target_limit = tindex
@@ -948,12 +1009,15 @@ pub fn module_expanding(
                             || (binding && ide_facts::decl_class(tdecl) != DeclClass::Procedure),
                         ..Item::default()
                     };
+
                     if !alias_type && (tfile != file || tat != at) {
                         // A thin re-export represents both declaration identities. This also
                         // lets references written in the provider's files find its public page.
                         found.also.push((file.clone(), reader.line_of(&text, at)));
                     }
+
                     found.scope = struct_params(tdecl);
+
                     if alias_type {
                         found.file.clone_from(&file);
                         found.line = reader.line_of(&text, at);
@@ -963,6 +1027,7 @@ pub fn module_expanding(
                                 .map_or(String::new(), |v| slice(&text, v.span.start, v.span.end)),
                         );
                         found.refs = reader.type_refs(&file, &found.value);
+
                         if found.docs.is_empty() {
                             found.docs = docs::declaration(&target.text, tat).unwrap_or_default();
                         }
@@ -972,24 +1037,30 @@ pub fn module_expanding(
                         if tfile == file && tat == at {
                             found.docs.clear();
                         }
+
                         // Every declaration of the name in the target's file is an overload.
                         for &(d, visibility) in tindex.constants(tdecl.names[0].name.as_str()) {
                             if visibility == Visibility::File {
                                 continue;
                             }
+
                             if let Some(header) = ide_facts::decl_header(d) {
                                 let o = overload(&mut reader, &tfile, &target.text, d, header);
+
                                 found.overloads.push(o);
                             }
                         }
                     } else {
                         reader.item_members(&tfile, &target.text, tdecl, &mut found);
+
                         if matches!(kind, "struct" | "union" | "enum" | "enum_flags") {
                             reader.item_declaration(&tfile, &target.text, tdecl, &mut found);
                         }
+
                         if found.docs.is_empty() {
                             found.docs = docs::declaration(&target.text, tat).unwrap_or_default();
                         }
+
                         if kind == "constant" || kind == "type" {
                             found.value = clip(tdecl.value.as_ref().map_or(String::new(), |v| {
                                 slice(&target.text, v.span.start, v.span.end)
@@ -997,11 +1068,13 @@ pub fn module_expanding(
                             found.refs = reader.type_refs(&tfile, &found.value);
                         }
                     }
+
                     let own_limit = if alias_type {
                         alias_limit
                     } else {
                         target.os(tdecl.names[0].span.start) & alias_limit
                     };
+
                     found.defined_on = os_names(own_limit);
                     found.platforms = os_names(if kind == "procedure" {
                         found
@@ -1017,29 +1090,37 @@ pub fn module_expanding(
                 _ => {}
             }
         }
+
         queue.extend(loads.into_iter().rev());
+
         if file == module_file {
             let opening = docs::opening(&text).filter(|o| {
                 first_statement
                     .and_then(|at| docs::located_above(&text, at))
                     .is_none_or(|first| first.line != o.line)
             });
+
             if let Some(o) = opening {
                 out.docs = o.text;
                 out.docs_line = o.line;
             }
         }
     }
+
     reader.add_private_types(&mut out, &mut names);
+
     for item in &mut out.items {
         item.generated = generated_origin(&item.file.to_string_lossy()).is_some();
+
         for variant in &mut item.variants {
             variant.generated = generated_origin(&variant.file.to_string_lossy()).is_some();
         }
     }
+
     for item in &mut out.items {
         overloads::merge_alternatives(&mut item.overloads);
     }
+
     take_experimental(&mut out);
     out
 }
@@ -1047,14 +1128,19 @@ pub fn module_expanding(
 /// Moves the `@experimental` tag lines out of the docs and into the flags.
 fn take_experimental(module: &mut Module) {
     (module.docs, module.experimental) = docs::strip_experimental(&module.docs);
+
     for item in &mut module.items {
         let (text, mut tagged) = docs::strip_experimental(&item.docs);
+
         item.docs = text;
+
         for o in &mut item.overloads {
             let (text, t) = docs::strip_experimental(&o.docs);
+
             o.docs = text;
             tagged |= t;
         }
+
         item.experimental = tagged;
     }
 }
@@ -1067,6 +1153,7 @@ fn same_definition(a: &Item, b: &Item) -> bool {
             .map(|m| (m.name.clone(), m.ty.clone(), m.doc.clone()))
             .collect()
     };
+
     a.kind == b.kind
         && a.docs == b.docs
         && a.value == b.value
@@ -1077,9 +1164,12 @@ fn same_definition(a: &Item, b: &Item) -> bool {
 fn add(out: &mut Module, names: &mut Vec<String>, mut item: Item) {
     if let Some(i) = names.iter().position(|n| *n == item.name) {
         let have = &mut out.items[i];
+
         have.platforms = os_names(os_mask(&have.platforms) | os_mask(&item.platforms));
+
         if have.kind != "procedure" && (&have.file, have.line) != (&item.file, item.line) {
             have.also.push((item.file.clone(), item.line));
+
             if same_definition(have, &item) {
                 have.defined_on = os_names(os_mask(&have.defined_on) | os_mask(&item.defined_on));
             } else if let Some(same) = have.variants.iter_mut().find(|v| same_definition(v, &item))
@@ -1088,10 +1178,13 @@ fn add(out: &mut Module, names: &mut Vec<String>, mut item: Item) {
             } else {
                 item.platforms.clone_from(&item.defined_on);
                 have.variants.push(item);
+
                 return;
             }
         }
+
         have.also.extend(item.also);
+
         if have.kind == "procedure" && item.kind == "procedure" {
             for o in item.overloads {
                 if !have
@@ -1103,8 +1196,10 @@ fn add(out: &mut Module, names: &mut Vec<String>, mut item: Item) {
                 }
             }
         }
+
         return;
     }
+
     names.push(item.name.clone());
     out.items.push(item);
 }
@@ -1124,6 +1219,7 @@ pub fn print_expanding(
     let key = {
         let canonical = super::canonical(dir);
         let root = super::canonical(stdlib);
+
         canonical.strip_prefix(&root).map_or_else(
             |_| {
                 canonical
@@ -1141,13 +1237,16 @@ pub fn print_expanding(
         .collect();
     let resolve = |names: &[String]| -> Option<String> {
         let first = names.first()?;
+
         if own.contains(first.as_str()) {
             return Some(match names.get(1) {
                 Some(member) => format!("jaidoc:{key}/{first}#{member}"),
                 None => format!("jaidoc:{key}/{first}"),
             });
         }
+
         let other = names.get(1)?;
+
         // Another library's module is named by its folder alone, as the compiler finds it.
         if import_dirs
             .iter()
@@ -1155,16 +1254,21 @@ pub fn print_expanding(
         {
             return Some(format!("jaidoc:{first}/{other}"));
         }
+
         let module_dir = stdlib.join(first);
         let ext_dir = stdlib.join("Extensions").join(first);
+
         if crate::paths::module_entry(&module_dir).is_file() {
             return Some(format!("jaidoc:{first}/{other}"));
         }
+
         if crate::paths::module_entry(&ext_dir).is_file() {
             return Some(format!("jaidoc:Extensions/{first}/{other}"));
         }
+
         None
     };
+
     to_json(&model, &resolve)
 }
 

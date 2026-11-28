@@ -20,6 +20,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let at = at.into();
         let result = self.convert_inner(f, op, to, at);
+
         // Boxing into `Any` wraps the value; the expression keeps the type it checked to.
         if at.expression
             && to != TypeId::ANY
@@ -27,6 +28,7 @@ impl Compiler {
         {
             self.record_expression_type(f, at.span, op.ty(), true);
         }
+
         result
     }
 
@@ -38,19 +40,23 @@ impl Compiler {
         at: Site,
     ) -> Result<Operand> {
         let span = at.span;
+
         if let Operand::Callable {
             operand,
             parameters,
         } = op
         {
             let converted = self.convert(f, *operand, to, at)?;
+
             return Ok(if matches!(self.ty.types.kind(to), TypeKind::Proc(_)) {
                 converted.with_callable(Some(parameters))
             } else {
                 converted
             });
         }
+
         let from = op.ty();
+
         if from == to
             && !matches!(
                 op,
@@ -62,9 +68,11 @@ impl Compiler {
         {
             return Ok(op);
         }
+
         if self.is_stand_in(from) || self.is_stand_in(to) {
             return Ok(self.ide_sketch_value(f, to, span));
         }
+
         // A one-character string constant is a `u8` (`case "'";` on a byte).
         if to == TypeId::U8
             && let Operand::Const {
@@ -75,6 +83,7 @@ impl Compiler {
         {
             return Ok(Operand::int(s[0] as i128, TypeId::U8));
         }
+
         match op {
             Operand::PolyStruct(ps) if to == TypeId::TYPE || to == TypeId::ANY => {
                 let t = self.ty.poly_struct_type(ps);
@@ -87,24 +96,31 @@ impl Compiler {
             Operand::Procs(ref procs) => {
                 if let TypeKind::Proc(_) = self.ty.types.kind(to) {
                     let mut matching: Vec<ProcId> = Vec::new();
+
                     for &p in procs {
                         if self.proc(p).is_poly {
                             if let Some(inst) = self.instantiate_for_proc_type(p, to, span) {
                                 matching.push(inst);
                             }
+
                             continue;
                         }
+
                         let pt = self.proc_type(p, span)?;
+
                         if pt == to || self.ty.proc_types_compatible(pt, to) {
                             matching.push(p);
                         }
                     }
+
                     let mut unique: Vec<ProcId> = Vec::new();
+
                     for p in matching {
                         if !unique.contains(&p) {
                             unique.push(p);
                         }
                     }
+
                     let matching = unique;
                     // A procedure declared inside a procedure hides module-level ones of its name.
                     let depth = |c: &Self, p: ProcId| c.scope(c.proc(p).scope).proc_depth;
@@ -119,6 +135,7 @@ impl Compiler {
                     } else {
                         matching
                     };
+
                     return match matching.as_slice() {
                         [one] => Ok(Operand::Procs(vec![*one])),
                         [] => err(
@@ -141,22 +158,27 @@ impl Compiler {
                             )
                             .with_label("it is not clear which one is meant")
                             .with_note(self.proc(*first).span, "this one fits");
+
                             for &other in rest {
                                 d = d.with_note(self.proc(other).span, "and so does this one");
                             }
+
                             Err(Box::new(d.with_help(
                                 "name the overload you mean: give it its own name and use that, or cast the call you need into a procedure of its own",
                             )))
                         }
                     };
                 }
+
                 if to == TypeId::VOID_PTR || (self.ty.types.is_pointer(to) && procs.len() == 1) {
                     let (_, v) = self.rvalue(f, op, span)?;
+
                     return Ok(Operand::Value {
                         ty: to,
                         val: v,
                     });
                 }
+
                 if to == TypeId::ANY {
                     return self.box_any(f, op, span);
                 }
@@ -168,6 +190,7 @@ impl Compiler {
                 // String literals are NUL-terminated: their data pointer is a C string.
                 let global = self.out.string_global(bytes);
                 let val = f.b.global_addr(global);
+
                 return Ok(Operand::Value {
                     ty: to,
                     val,
@@ -186,6 +209,7 @@ impl Compiler {
             }
             _ => {}
         }
+
         let untyped = matches!(
             op,
             Operand::Const {
@@ -193,6 +217,7 @@ impl Compiler {
                 ..
             }
         );
+
         if self.implicit_cost(from, untyped, to).is_none() {
             let mut d = Diagnostic::new(
                 Code::TypeMismatch,
@@ -203,6 +228,7 @@ impl Compiler {
                     self.mismatch_name(from, to)
                 ),
             );
+
             if to == TypeId::U8
                 && let Operand::Const {
                     value: Value::String(s),
@@ -216,8 +242,10 @@ impl Compiler {
             } else {
                 d = self.with_conversion_hint(d, from, to, at);
             }
+
             return Err(Box::new(d));
         }
+
         self.coerce(f, op, to, span)
     }
 
@@ -229,6 +257,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Operand>> {
         let tr = self.ty.types.repr(to);
+
         if let Some(fmt) = self.ty.types.wide_float(to) {
             if self.ty.types.wide_float(ty).is_none()
                 && (untyped || self.implicit_cost(ty, false, to).is_some())
@@ -241,14 +270,17 @@ impl Compiler {
                     origin: Origin::Computed,
                 }));
             }
+
             return Ok(None);
         }
+
         let result = match value {
             Value::Int(i)
                 if self.ty.types.is_integer(tr)
                     && (untyped || self.implicit_cost(ty, false, to).is_some()) =>
             {
                 let (bits, signed) = self.ty.types.int_info(tr).unwrap();
+
                 if untyped && !int_constant_fits(*i, bits, signed, origin.bit_pattern()) {
                     return err(
                         Code::ConstantOutOfRange,
@@ -256,9 +288,11 @@ impl Compiler {
                         format!("constant {i} does not fit in {}", self.ty.types.name(to)),
                     );
                 }
+
                 if matches!(self.ty.types.kind(to), TypeKind::Enum(_)) && untyped {
                     return Ok(None);
                 }
+
                 Value::Int(*i)
             }
             Value::Int(i) if self.ty.types.is_float(tr) && untyped => {
@@ -276,9 +310,11 @@ impl Compiler {
                             "this floating literal requires float64 precision (use an explicit cast to round it)",
                         );
                     }
+
                     // A literal outside float32's normal range would become infinity or lose
                     // its precision: it needs an explicit cast.
                     let magnitude = x.abs();
+
                     if untyped
                         && magnitude.is_finite()
                         && magnitude != 0.0
@@ -294,9 +330,11 @@ impl Compiler {
                             ),
                         );
                     }
+
                     if untyped {
                         self.warn_float32_rounding(*x, origin, span);
                     }
+
                     Value::float(*x as f32 as f64)
                 } else {
                     Value::float(*x)
@@ -316,6 +354,7 @@ impl Compiler {
             Value::Proc(p) if self.implicit_cost(ty, false, to).is_some() => Value::Proc(*p),
             _ => return Ok(None),
         };
+
         Ok(Some(Operand::Const {
             ty: to,
             value: result,
@@ -347,13 +386,16 @@ impl Compiler {
         span: Span,
     ) {
         let rounded = value as f32;
+
         if !origin.decimal_fraction()
             || !rounded.is_finite()
             || rounded.to_string().parse::<f64>() == Ok(value)
         {
             return;
         }
+
         let spelled = format!("{rounded:?}");
+
         self.warn(
             Diagnostic::new(
                 Code::ConvertLiteralFloat32,
@@ -378,13 +420,17 @@ impl Compiler {
     /// struct is followed by `in` and its module instance, e.g. `*Generator in Bindings_Generator(TARGET_OS = .LINUX)`.
     fn mismatch_name(&self, ty: TypeId, other: TypeId) -> String {
         let name = self.ty.types.name(ty);
+
         if name != self.ty.types.name(other) {
             return name;
         }
+
         let (mut a, mut b) = (ty, other);
+
         while let (Some(x), Some(y)) = (self.ty.types.pointee(a), self.ty.types.pointee(b)) {
             (a, b) = (x, y);
         }
+
         match self.struct_instance(a) {
             Some(instance) => format!("{name} in {instance}"),
             None => name,
@@ -399,6 +445,7 @@ impl Compiler {
         let source = self.ty.struct_asts.get(id)?;
         let module = &self.ns.modules[self.scope(source.scope).module.0 as usize];
         let mut text = module.name.clone();
+
         if !module.params.is_empty() {
             let args: Vec<String> = module
                 .params
@@ -411,14 +458,17 @@ impl Compiler {
                             .and_then(|t| t.strip_prefix(INFERRED_PARAM)),
                         _ => None,
                     };
+
                     match bare {
                         Some(member) => format!("{name} = .{member}"),
                         None => format!("{name} = {}", value.render(&self.ty.types, true)),
                     }
                 })
                 .collect();
+
             text.push_str(&format!("({})", args.join(", ")));
         }
+
         Some(text)
     }
 }

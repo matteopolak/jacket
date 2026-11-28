@@ -13,13 +13,16 @@ pub enum QuoteMode {
 /// `text` as a Jai string literal with the same value. Non-ASCII text is kept as written.
 pub fn quote(text: &str, mode: QuoteMode) -> String {
     let mut out = String::with_capacity(text.len() + 2);
+
     out.push('"');
+
     for c in text.chars() {
         match u8::try_from(c) {
             Ok(byte) if c.is_ascii() => escape_ascii(byte, mode, &mut out),
             _ => out.push(c),
         }
     }
+
     out.push('"');
     out
 }
@@ -28,7 +31,9 @@ pub fn quote(text: &str, mode: QuoteMode) -> String {
 /// written as `\xNN`, so the result is ASCII whatever the bytes hold.
 pub fn quote_bytes(value: &[u8], mode: QuoteMode) -> String {
     let mut out = String::with_capacity(value.len() + 2);
+
     out.push('"');
+
     for &byte in value {
         if byte.is_ascii() {
             escape_ascii(byte, mode, &mut out);
@@ -36,6 +41,7 @@ pub fn quote_bytes(value: &[u8], mode: QuoteMode) -> String {
             out.push_str(&format!("\\x{byte:02x}"));
         }
     }
+
     out.push('"');
     out
 }
@@ -63,6 +69,7 @@ mod tests {
     /// The value the lexer reads back from `literal`.
     fn lexed(literal: &str) -> Vec<u8> {
         let tokens = lex(FileId(0), literal).expect("the literal lexes");
+
         match tokens.first().map(|t| &t.tok) {
             Some(Tok::Str(value)) => value.to_vec(),
             other => panic!("expected one string token, got {other:?}"),
@@ -103,6 +110,7 @@ mod tests {
     #[test]
     fn quoted_text_lexes_back_to_the_same_string() {
         let everything: String = (0u32..0x250).filter_map(char::from_u32).collect();
+
         for text in [
             "",
             "plain",
@@ -120,6 +128,7 @@ mod tests {
     #[test]
     fn quoted_bytes_lex_back_to_the_same_bytes() {
         let all: Vec<u8> = (0..=255).collect();
+
         assert_eq!(lexed(&quote_bytes(&all, QuoteMode::Plain)), all);
     }
 

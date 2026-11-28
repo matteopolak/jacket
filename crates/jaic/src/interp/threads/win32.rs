@@ -84,6 +84,7 @@ impl Object {
                 if *set || real == 0 || !real_event_signaled(real) {
                     return *set;
                 }
+
                 // An auto-reset kernel event is consumed by this poll, so the flag keeps it. A
                 // manual-reset one stays signaled in the kernel, which clears it itself when the
                 // next overlapped operation starts, so no flag is kept.
@@ -106,6 +107,7 @@ impl Object {
                 real,
             } => {
                 *set &= *manual;
+
                 if *real != 0 && !*set {
                     real_event_call(*real, false);
                 }
@@ -168,20 +170,25 @@ unsafe extern "system" {
 #[cfg(windows)]
 pub(in crate::interp) fn release_own_windows() {
     const GWLP_WNDPROC: i32 = -4;
+
     unsafe extern "system" fn collect(window: usize, windows: isize) -> i32 {
         // SAFETY: `windows` is the address of the vector `release_own_windows` passes below.
         unsafe { &mut *(windows as *mut Vec<usize>) }.push(window);
         1
     }
+
     let mut windows: Vec<usize> = Vec::new();
+
     // SAFETY: the callbacks only push onto the vector, which outlives the enumeration.
     unsafe {
         EnumThreadWindows(GetCurrentThreadId(), collect, (&raw mut windows) as isize);
         let tops = windows.clone();
+
         for top in tops {
             EnumChildWindows(top, collect, (&raw mut windows) as isize);
         }
     }
+
     for window in windows {
         // SAFETY: a stale handle or a window of another thread only makes the call fail.
         unsafe { SetWindowLongPtrW(window, GWLP_WNDPROC, DefWindowProcW as *const () as isize) };
@@ -218,12 +225,15 @@ fn compare_handles_api() -> Option<CompareHandles> {
     *API.get_or_init(|| {
         let name: Vec<u16> = "kernelbase.dll".encode_utf16().chain(Some(0)).collect();
         let mut module = std::ptr::null_mut();
+
         // SAFETY: name is terminated and module is writable. Flag 1 pins until process exit.
         if unsafe { GetModuleHandleExW(1, name.as_ptr(), &raw mut module) } == 0 {
             return None;
         }
+
         // SAFETY: module is pinned; the name identifies the documented exact API signature.
         let address = unsafe { GetProcAddress(module, c"CompareObjectHandles".as_ptr().cast()) };
+
         if address.is_null() {
             None
         } else {
@@ -312,21 +322,25 @@ pub(super) fn spawn_worker(
             &raw mut native_id,
         )
     };
+
     if handle == 0 {
         let mut error = 0;
         // Capture the CRT error before cleanup can change native error state.
         // SAFETY: _get_doserrno writes one unsigned long into our local.
         let status = unsafe { _get_doserrno(&raw mut error) };
+
         // SAFETY: the thread was not created, so its context remains solely owned here.
         unsafe {
             drop(Box::from_raw(argument.cast::<WorkerStart>()));
         }
+
         return Err(if status == 0 && error != 0 {
             std::io::Error::from_raw_os_error(error as i32)
         } else {
             std::io::Error::other("CRT could not create an interpreter thread")
         });
     }
+
     scheduler.lock().threads[id].native_id = native_id;
     scheduler.cv.notify_all();
     // SAFETY: _beginthreadex returns an owned kernel thread handle on success.
@@ -345,6 +359,7 @@ pub(super) fn join_worker(worker: Worker) {
     use std::os::windows::io::AsRawHandle;
     // SAFETY: the private handle cannot be closed/protected by interpreted callers.
     let result = unsafe { WaitForSingleObject(worker.as_raw_handle() as usize, INFINITE) };
+
     if result != WAIT_OBJECT_0 as u32 {
         eprintln!("error: cannot join interpreter OS thread (wait result {result})");
         std::process::abort();
@@ -356,6 +371,7 @@ pub(super) fn native_exit_code(handle: u64) -> Result<(u64, u32), u32> {
     let mut code = 0;
     // SAFETY: Windows validates the handle and writes to one local DWORD.
     let success = unsafe { GetExitCodeThread(handle as usize, &raw mut code) };
+
     if success != 0 {
         Ok((success as u32 as u64, code))
     } else {
@@ -383,6 +399,7 @@ fn thread_signaled(thread: &GThread) -> bool {
 #[cfg(windows)]
 pub(super) fn release_thread_handle(handle: std::os::windows::io::OwnedHandle) {
     use std::os::windows::io::AsRawHandle;
+
     // Interpreter teardown ends the private ownership scope. A caller's native protection
     // flag must not leak the owned kernel reference after all interpreted code has stopped.
     // Explicit user CloseHandle instead preserves that flag and reports native failure.
@@ -392,6 +409,7 @@ pub(super) fn release_thread_handle(handle: std::os::windows::io::OwnedHandle) {
             "warning: could not clear interpreter-owned thread handle protection at teardown"
         );
     }
+
     drop(handle);
 }
 
@@ -514,6 +532,7 @@ impl Interp {
         args: &[u64],
     ) -> Option<Res<Vec<u64>>> {
         let symbol = Win32Fn::from_name(symbol)?;
+
         self.win32_thread_foreign(program, symbol, args)
             .or_else(|| self.win32_sync_foreign(symbol, args))
     }
@@ -532,23 +551,28 @@ impl Interp {
                 if arg(0) != 0 {
                     return Some(self.trap("custom thread security attributes are unsupported by the managed interpreter"));
                 }
+
                 if arg(1) != 0 {
                     return Some(self.trap(
                         "custom thread stack sizes are unsupported by the managed interpreter",
                     ));
                 }
+
                 if arg(4) & !(4 | 0x10000) != 0 {
                     return Some(self.trap("unsupported managed thread creation flags"));
                 }
+
                 self.create_thread(program, arg(2), arg(3), arg(4), arg(5))
             }
             Win32Fn::ExitThread | Win32Fn::Endthreadex => {
                 let me = self.me();
+
                 if !started || me == 0 || self.with_sched(|s| s.threads[me].adopted) {
                     return Some(self.trap(
                         "terminating the interpreter's entry thread through a native thread API is unsupported",
                     ));
                 }
+
                 return Some(Err(Trap::new("managed thread exited")
                     .of_kind(Some(TrapKind::ThreadExit(arg(0) as u32)))));
             }
@@ -557,6 +581,7 @@ impl Interp {
                     Some(&Object::Thread(id)) => Some(s.threads[id].native_id),
                     _ => None,
                 });
+
                 if let Some(id) = id {
                     Ok(id as u64)
                 } else {
@@ -571,12 +596,16 @@ impl Interp {
                     };
                     let thread = &mut s.threads[id];
                     let previous = thread.suspend_count;
+
                     thread.suspend_count = previous.saturating_sub(1);
+
                     if previous == 1 {
                         s.woke = true;
                     }
+
                     Some(previous)
                 });
+
                 if let Some(count) = previous {
                     Ok(count as u64)
                 } else {
@@ -589,17 +618,23 @@ impl Interp {
                     let Some(&Object::Thread(id)) = s.objects.get(&arg(0)) else {
                         return Ok(None);
                     };
+
                     if s.threads[id].block == Block::Native {
                         return Err(());
                     }
+
                     let thread = &mut s.threads[id];
+
                     if thread.finished || thread.suspend_count == 127 {
                         return Ok(None);
                     }
+
                     let previous = thread.suspend_count;
+
                     thread.suspend_count += 1;
                     Ok(Some((previous, s.current == Some(id))))
                 });
+
                 match previous {
                     Ok(Some((count, current))) => {
                         if current {
@@ -608,6 +643,7 @@ impl Interp {
                                 return Some(Err(trap));
                             }
                         }
+
                         Ok(count as u64)
                     }
                     Ok(None) => {
@@ -638,32 +674,39 @@ impl Interp {
             }
             Win32Fn::WaitForMultipleObjects | Win32Fn::WaitForMultipleObjectsEx => {
                 let count = arg(0) as u32 as u64;
+
                 if count == 0 || count > MAXIMUM_WAIT_OBJECTS {
                     return None;
                 }
+
                 let handles: Res<Vec<u64>> =
                     (0..count).map(|i| self.fetch_u64(arg(1) + i * 8)).collect();
                 let handles = match handles {
                     Ok(handles) => handles,
                     Err(trap) => return Some(Err(trap)),
                 };
+
                 if !handles.iter().all(|&h| self.owns(h) || self.was_closed(h)) {
                     return None;
                 }
+
                 self.wait_objects(&handles, arg(2) as u32 != 0, arg(3) as u32)
             }
             #[cfg(windows)]
             Win32Fn::GetExitCodeThread if self.owns(arg(0)) => {
                 let is_thread =
                     self.with_sched(|s| matches!(s.objects.get(&arg(0)), Some(Object::Thread(_))));
+
                 if !is_thread {
                     return None;
                 }
+
                 match native_exit_code(arg(0)) {
                     Ok((success, code)) => {
                         if let Err(trap) = self.put(arg(1), &code.to_le_bytes()) {
                             return Some(Err(trap));
                         }
+
                         return Some(Ok(vec![success]));
                     }
                     Err(error) => {
@@ -685,11 +728,13 @@ impl Interp {
                     set_last_error(ERROR_INVALID_PARAMETER);
                     return Some(Ok(vec![0]));
                 };
+
                 if arg(1) != 0
                     && let Err(trap) = self.put(arg(1), &code.to_le_bytes())
                 {
                     return Some(Err(trap));
                 }
+
                 Ok(1)
             }
             // Closed already: fail as Windows does for an invalid handle, instead of asking the
@@ -711,6 +756,7 @@ impl Interp {
                     let raw = owned.into_raw_handle();
                     // SAFETY: raw was just transferred from the owned kernel thread handle.
                     let success = unsafe { CloseHandle(raw as usize) };
+
                     if success == 0 {
                         // SAFETY: GetLastError has no preconditions; capture before locking.
                         let error = unsafe { GetLastError() };
@@ -718,6 +764,7 @@ impl Interp {
                         // ownership, scheduler identity and the OS error in that case.
                         // SAFETY: failed CloseHandle leaves raw live and solely owned here.
                         let owned = unsafe { OwnedHandle::from_raw_handle(raw) };
+
                         self.with_sched(|s| s.threads[id].native_handle = Some(owned));
                         set_last_error(error);
                     } else {
@@ -725,10 +772,13 @@ impl Interp {
                             s.objects.remove(&arg(0));
                             s.release_handle(id)
                         });
+
                         join_ended_worker(worker);
                     }
+
                     return Some(Ok(vec![success as u64]));
                 }
+
                 let (removed, worker) = self.with_sched(|s| {
                     let removed = s.objects.remove(&arg(0));
                     // The last handle to a thread frees its slot once the thread has ended.
@@ -736,9 +786,12 @@ impl Interp {
                         Some(Object::Thread(id)) => s.release_handle(id),
                         _ => None,
                     };
+
                     (removed, worker)
                 });
+
                 join_ended_worker(worker);
+
                 if let Some(Object::Event {
                     real, ..
                 }) = removed
@@ -747,11 +800,13 @@ impl Interp {
                     real_event_close(real);
                     return Some(Ok(vec![1]));
                 }
+
                 Ok(1)
             }
 
             _ => return None,
         };
+
         Some(result.map(|v| vec![v]))
     }
 
@@ -798,6 +853,7 @@ impl Interp {
             }
             Win32Fn::SleepConditionVariableCS | Win32Fn::SleepConditionVariableSRW => {
                 let deadline = deadline_after(arg(2) as u32);
+
                 match self.cond_wait(arg(0), arg(1), deadline) {
                     Ok(ETIMEDOUT) => {
                         set_last_error(ERROR_TIMEOUT);
@@ -814,6 +870,7 @@ impl Interp {
             | Win32Fn::CreateSemaphoreExA
             | Win32Fn::CreateSemaphoreExW => {
                 let (initial, max) = (arg(1) as u32 as i32, arg(2) as u32 as i32);
+
                 if max <= 0 || initial < 0 || initial > max {
                     set_last_error(ERROR_INVALID_PARAMETER);
                     Ok(0)
@@ -835,9 +892,11 @@ impl Interp {
                         return Err(ERROR_INVALID_PARAMETER);
                     };
                     let previous = *count;
+
                     if release <= 0 || (*max - previous) < release as u32 {
                         return Err(ERROR_TOO_MANY_POSTS);
                     }
+
                     *count += release as u32;
                     s.wake_object_waiters();
                     Ok(previous)
@@ -849,16 +908,19 @@ impl Interp {
                         return Some(Ok(vec![0]));
                     }
                 };
+
                 if arg(2) != 0
                     && let Err(trap) = self.put(arg(2), &previous.to_le_bytes())
                 {
                     return Some(Err(trap));
                 }
+
                 Ok(1)
             }
             Win32Fn::CreateEventA | Win32Fn::CreateEventW => {
                 let (manual, set) = (arg(1) as u32 != 0, arg(2) as u32 != 0);
                 let real = real_event_new(manual, set);
+
                 Ok(self.new_object_at(
                     real,
                     Object::Event {
@@ -879,19 +941,25 @@ impl Interp {
                     else {
                         return false;
                     };
+
                     *set = now_set;
+
                     if *real != 0 {
                         real_event_call(*real, now_set);
                     }
+
                     if now_set {
                         s.wake_object_waiters();
                     }
+
                     true
                 });
+
                 if !found {
                     set_last_error(ERROR_INVALID_PARAMETER);
                     return Some(Ok(vec![0]));
                 }
+
                 Ok(1)
             }
 
@@ -904,6 +972,7 @@ impl Interp {
             Win32Fn::SwitchToThread if started => self.yield_now().map(|()| 1),
             _ => return None,
         };
+
         Some(result.map(|v| vec![v]))
     }
 
@@ -926,6 +995,7 @@ impl Interp {
         };
         let s = shared.lock();
         let issued = HANDLE_BASE..HANDLE_BASE + s.next_object * 4;
+
         issued.contains(&handle) && handle.is_multiple_of(4) && !s.objects.contains_key(&handle)
     }
 
@@ -934,6 +1004,7 @@ impl Interp {
         let Some(shared) = &self.shared else {
             return Ok(false);
         };
+
         use std::os::windows::io::AsRawHandle;
         let scheduler = shared.lock();
         // SAFETY: thread-local SDK calls have no preconditions. Preserve the foreign caller's
@@ -946,18 +1017,22 @@ impl Interp {
                 .filter(|thread| !thread_signaled(thread))
                 .filter_map(|thread| thread.worker.as_ref())
                 .peekable();
+
             if workers.peek().is_none() {
                 return Ok(false);
             }
+
             let compare = compare_handles_api().ok_or(
                 "native thread alias detection requires CompareObjectHandles (Windows 10 / Windows Server 2016 or later)",
             )?;
+
             Ok(workers.any(|worker| {
                 // SAFETY: Windows validates handle; the mutex keeps the private handle live.
                 // No query rights are required, including for suspend-only duplicates.
                 unsafe { compare(handle as usize, worker.as_raw_handle() as usize) != 0 }
             }))
         })();
+
         // SAFETY: restore the calling OS thread's error value.
         unsafe { SetLastError(saved_error) };
         result
@@ -969,6 +1044,7 @@ impl Interp {
         if handle == 0 {
             return self.new_object(object);
         }
+
         self.with_sched(|s| s.objects.insert(handle, object));
         handle
     }
@@ -976,6 +1052,7 @@ impl Interp {
     fn new_object(&mut self, object: Object) -> u64 {
         self.with_sched(|s| {
             let handle = HANDLE_BASE + s.next_object * 4;
+
             s.next_object += 1;
             s.objects.insert(handle, object);
             handle
@@ -994,9 +1071,11 @@ impl Interp {
     ) -> Res<u64> {
         const CREATE_SUSPENDED: u64 = 4;
         let valid_entry = self.thread_entry_abi(program, start, Ty::I32);
+
         if !valid_entry {
             return self.trap("Win32 thread entry ABI requires one pointer argument and one 32-bit result with C convention");
         }
+
         let Some(id) =
             self.spawn_gated_thread(program, start, parameter, flags & CREATE_SUSPENDED != 0)?
         else {
@@ -1005,17 +1084,21 @@ impl Interp {
         let shared = self.shared();
         let native_id = {
             let mut s = shared.lock();
+
             while s.threads[id].native_id == 0 {
                 s = shared
                     .cv
                     .wait(s)
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
             }
+
             s.threads[id].native_id
         };
+
         if id_out != 0 {
             self.put(id_out, &native_id.to_le_bytes())?;
         }
+
         #[cfg(windows)]
         {
             use std::os::windows::io::AsRawHandle;
@@ -1037,39 +1120,48 @@ impl Interp {
     /// `WaitForSingleObject` / `WaitForMultipleObjects` on handles the scheduler owns.
     fn wait_objects(&mut self, handles: &[u64], all: bool, milliseconds: u32) -> Res<u64> {
         let deadline = deadline_after(milliseconds);
+
         loop {
             let done = self.with_sched(|s| {
                 let mut ready = Vec::new();
+
                 for (i, h) in handles.iter().enumerate() {
                     let object = s.objects.get_mut(h)?;
+
                     if object.signaled(&s.threads) {
                         ready.push(i);
                     }
                 }
+
                 let done = if all {
                     ready.len() == handles.len()
                 } else {
                     !ready.is_empty()
                 };
+
                 if !done {
                     return Some(None);
                 }
+
                 let taken = if all {
                     &ready[..]
                 } else {
                     &ready[..1]
                 };
+
                 for &i in taken {
                     if let Some(object) = s.objects.get_mut(&handles[i]) {
                         object.consume();
                     }
                 }
+
                 Some(Some(if all {
                     WAIT_OBJECT_0
                 } else {
                     WAIT_OBJECT_0 + ready[0] as u64
                 }))
             });
+
             match done {
                 None => {
                     set_last_error(ERROR_INVALID_PARAMETER);
@@ -1078,9 +1170,11 @@ impl Interp {
                 Some(Some(result)) => return Ok(result),
                 Some(None) => {}
             }
+
             if milliseconds == 0 || deadline.is_some_and(|d| d <= Instant::now()) {
                 return Ok(WAIT_TIMEOUT);
             }
+
             // Kernel events and actual OS thread termination need a native poll.
             // A Jai return wakes waiters just before its CRT/OS entry has returned.
             let poll = self.with_sched(|s| {
@@ -1099,6 +1193,7 @@ impl Interp {
             } else {
                 deadline
             };
+
             self.block(Block::Object(wake))?;
         }
     }

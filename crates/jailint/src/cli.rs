@@ -125,9 +125,11 @@ struct Own {
 /// The help text after the options: the flags shared with `jaic`, and the exit status.
 fn trailer() -> String {
     let mut text = String::from("Options shared with jaic:\n");
+
     for flag in flags::ALL {
         text.push_str(&format!("  {:<30}{}\n", flag.synopsis, flag.help));
     }
+
     text.push_str(
         "\nExit status: 0 when nothing at level `deny` was found, 1 when something was, 2 on a\n\
          usage or configuration error.",
@@ -150,6 +152,7 @@ fn command() -> clap::Command {
 /// one belongs to it, even when it is spelt like a shared flag.
 fn value_flags(command: &clap::Command) -> Vec<String> {
     let mut spellings = Vec::new();
+
     for arg in command
         .get_arguments()
         .filter(|a| a.get_action().takes_values())
@@ -157,6 +160,7 @@ fn value_flags(command: &clap::Command) -> Vec<String> {
         spellings.extend(arg.get_short().map(|c| format!("-{c}")));
         spellings.extend(arg.get_long().map(|l| format!("--{l}")));
     }
+
     spellings
 }
 
@@ -169,6 +173,7 @@ fn take_shared(
     let mut rest = Vec::new();
     let mut it = argv.into_iter();
     let mut value_next = false;
+
     while let Some(a) = it.next() {
         if std::mem::take(&mut value_next) {
             rest.push(a);
@@ -179,12 +184,14 @@ fn take_shared(
             let shared: Shared = flag
                 .take(&a, inline, || it.next())
                 .map_err(FlagError::into_text)?;
+
             common.take(shared);
         } else {
             value_next = value_flags.contains(&a);
             rest.push(a);
         }
     }
+
     Ok((common, rest))
 }
 
@@ -192,6 +199,7 @@ fn unknown(flag: &str, command: &clap::Command) -> FlagError {
     let own = command.get_arguments().flat_map(|a| {
         let short = a.get_short().map(|c| format!("-{c}"));
         let long = a.get_long().map(|l| format!("--{l}"));
+
         short.into_iter().chain(long)
     });
     let known: Vec<String> = own
@@ -201,6 +209,7 @@ fn unknown(flag: &str, command: &clap::Command) -> FlagError {
         Some(near) => format!("did you mean `{near}`? `jailint --help` lists the options"),
         None => "`jailint --help` lists the options".to_string(),
     };
+
     FlagError::new(format!("unknown option `{flag}`")).help(help)
 }
 
@@ -210,11 +219,13 @@ fn describe(error: &clap::Error, command: &clap::Command) -> String {
         Some(ContextValue::String(arg)) => Some(arg.clone()),
         _ => None,
     };
+
     if error.kind() == ErrorKind::ValueValidation
         && let Some(reason) = std::error::Error::source(error)
     {
         return reason.to_string();
     }
+
     match (error.kind(), argument) {
         (ErrorKind::UnknownArgument, Some(arg)) => return unknown(&arg, command).into_text(),
         (ErrorKind::InvalidValue, Some(arg))
@@ -227,13 +238,16 @@ fn describe(error: &clap::Error, command: &clap::Command) -> String {
                 "seconds" => "a number of seconds",
                 other => &format!("a {other}"),
             };
+
             return format!("`{flag}` needs {what}");
         }
         _ => {}
     }
+
     let text = error.render().to_string();
     let first = text.lines().next().unwrap_or("");
     let message = first.strip_prefix("error: ").unwrap_or(first);
+
     format!("{message}\nhelp: `jailint --help` lists the options")
 }
 
@@ -241,6 +255,7 @@ fn describe(error: &clap::Error, command: &clap::Command) -> String {
 /// wins).
 fn levels(matches: &ArgMatches) -> Vec<(String, Level)> {
     let mut found = Vec::new();
+
     for (id, level) in [
         ("allow", Level::Allow),
         ("warn", Level::Warn),
@@ -248,10 +263,12 @@ fn levels(matches: &ArgMatches) -> Vec<(String, Level)> {
     ] {
         let rules = matches.get_many::<String>(id).into_iter().flatten();
         let positions = matches.indices_of(id).into_iter().flatten();
+
         for (position, rule) in positions.zip(rules) {
             found.push((position, rule.clone(), level));
         }
     }
+
     found.sort_by_key(|(position, ..)| *position);
     found
         .into_iter()
@@ -274,6 +291,7 @@ pub fn parse(argv: impl IntoIterator<Item = String>) -> Result<Option<Args>, Str
         }
     };
     let own = Own::from_arg_matches(&matches).map_err(|e| describe(&e, &command))?;
+
     if own.list {
         for r in RULES {
             println!(
@@ -284,13 +302,17 @@ pub fn parse(argv: impl IntoIterator<Item = String>) -> Result<Option<Args>, Str
                 r.summary
             );
         }
+
         return Ok(None);
     }
+
     let default_project = own.paths.is_empty() && own.context.is_none();
     let mut paths = own.paths;
+
     if paths.is_empty() {
         paths.push(".".into());
     }
+
     Ok(Some(Args {
         default_project,
         context: own.context,
@@ -321,6 +343,7 @@ mod tests {
     #[test]
     fn lifetime_mode_is_validated() {
         let args = parse_all(&["--lifetime-mode", "strict"]).unwrap().unwrap();
+
         assert_eq!(
             args.lifetime_mode,
             Some(jacket_config::LifetimeMode::Strict)
@@ -345,6 +368,7 @@ mod tests {
         ])
         .unwrap()
         .unwrap();
+
         assert_eq!(args.common.target.os, Some(jaic::target::TargetOs::Linux));
         assert_eq!(args.common.jobs, Some(3));
         assert_eq!(args.common.color, Some(jaic::render::ColorChoice::Never));
@@ -357,10 +381,13 @@ mod tests {
     #[test]
     fn a_missing_value_and_a_mistyped_flag_are_reported() {
         let error = parse_all(&["-os"]).err().unwrap();
+
         assert!(error.contains("needs an OS name"), "{error}");
         let error = parse_all(&["--contxt", "x"]).err().unwrap();
+
         assert!(error.contains("did you mean `--context`"), "{error}");
         let error = parse_all(&["--manifest"]).err().unwrap();
+
         assert!(error.contains("`--manifest` needs a file"), "{error}");
     }
 
@@ -369,6 +396,7 @@ mod tests {
         let args = parse_all(&["-D", "warnings", "-A", "magic_number", "-Wpedantic"])
             .unwrap()
             .unwrap();
+
         assert_eq!(
             args.levels,
             [
@@ -382,6 +410,7 @@ mod tests {
     #[test]
     fn a_value_that_looks_like_a_shared_flag_belongs_to_its_flag() {
         let args = parse_all(&["--config", "-j", "a.jai"]).unwrap().unwrap();
+
         assert_eq!(args.config, Some(PathBuf::from("-j")));
         assert_eq!(args.common.jobs, None);
     }
@@ -389,21 +418,26 @@ mod tests {
     #[test]
     fn a_lint_run_has_no_wall_clock_limit_unless_asked() {
         let args = parse_all(&["a.jai"]).unwrap().unwrap();
+
         if jacket_config::env::CHECK_TIME_LIMIT.get().is_none() {
             assert_eq!(args.limits().seconds, None);
         }
+
         let args = parse_all(&["--check-time-limit", "3", "a.jai"])
             .unwrap()
             .unwrap();
+
         assert_eq!(args.limits().seconds, Some(3.0));
     }
 
     #[test]
     fn the_help_lists_the_shared_flags() {
         let text = command().render_long_help().to_string();
+
         for flag in flags::ALL {
             assert!(text.contains(flag.synopsis), "{}", flag.synopsis);
         }
+
         assert!(text.contains("--compile-time-budget"), "{text}");
     }
 }

@@ -53,8 +53,10 @@ fn skip_string(src: &[u8], mut at: usize) -> usize {
         if src[at] == b'\\' {
             at += 1;
         }
+
         at += 1;
     }
+
     at
 }
 
@@ -63,11 +65,14 @@ fn skip_string(src: &[u8], mut at: usize) -> usize {
 static IDENT_CHAR: [bool; 256] = {
     let mut table = [false; 256];
     let mut c = 0;
+
     while c < 256 {
         let b = c as u8;
+
         table[c] = b.is_ascii_alphanumeric() || b == b'_' || b >= 0x80;
         c += 1;
     }
+
     table
 };
 
@@ -112,6 +117,7 @@ impl<'a> Lexer<'a> {
     #[cold]
     fn poll_stop(&mut self) {
         self.countdown = STOP_POLL_TOKENS;
+
         if let Some(stop) = self.stop.as_mut()
             && stop()
         {
@@ -126,14 +132,19 @@ impl<'a> Lexer<'a> {
     #[cold]
     fn pay_scan(&mut self, mark: &mut usize) -> bool {
         let bytes = self.at - *mark;
+
         *mark = self.at;
+
         if self.stop.is_none() {
             return false;
         }
+
         self.countdown = self.countdown.saturating_sub((bytes / SCAN_UNIT) as u32);
+
         if self.countdown == 0 {
             self.poll_stop();
         }
+
         self.stopped
     }
 
@@ -153,12 +164,15 @@ impl<'a> Lexer<'a> {
     pub(super) fn recover(&mut self) -> Vec<Diagnostic> {
         let text = self.text;
         let mut errors = Vec::new();
+
         while let Err(mut error) = self.run() {
             let start = error.span.start as usize;
             let end = text[start..].find('\n').map_or(text.len(), |i| start + i);
+
             error.span.end = end as u32;
             // An unclosed comment/here-string has no trustworthy internal token boundaries.
             let opaque = std::mem::take(&mut self.unclosed);
+
             errors.push(error);
             self.at = if opaque {
                 text.len()
@@ -167,6 +181,7 @@ impl<'a> Lexer<'a> {
             };
             self.newline = true;
         }
+
         errors
     }
 
@@ -177,10 +192,12 @@ impl<'a> Lexer<'a> {
 
     fn err(&self, code: Code, start: usize, msg: &str) -> Diagnostic {
         let mut end = self.at.max(start + 1).min(self.src.len().max(start + 1));
+
         // A span covers whole characters: the renderer slices the text with it.
         while end < self.text.len() && !self.text.is_char_boundary(end) {
             end += 1;
         }
+
         Diagnostic::new(code, Span::new(self.file, start, end), msg)
     }
 
@@ -194,6 +211,7 @@ impl<'a> Lexer<'a> {
         {
             regions.push(Span::new(self.file, start, self.at));
         }
+
         self.out.push(Token {
             tok,
             span: Span::new(self.file, start, self.at),
@@ -201,6 +219,7 @@ impl<'a> Lexer<'a> {
         });
         self.newline = false;
         self.countdown -= 1;
+
         if self.countdown == 0 {
             self.poll_stop();
         }
@@ -211,6 +230,7 @@ impl<'a> Lexer<'a> {
         if self.at == 0 && self.src.starts_with(&[0xEF, 0xBB, 0xBF]) {
             self.at = 3;
         }
+
         // A `#!` line at the very start (`#!/usr/bin/env jai`) is ignored, so a script can be run
         // directly.
         if self.src[self.at..].starts_with(b"#!") {
@@ -218,43 +238,59 @@ impl<'a> Lexer<'a> {
                 self.at += 1;
             }
         }
+
         loop {
             self.skip_trivia()?;
+
             if self.at >= self.src.len() {
                 let at = self.at;
+
                 self.push(Tok::Eof, at);
+
                 return Ok(());
             }
+
             let start = self.at;
             let c = self.src[self.at];
+
             if is_ident_start(c) {
                 let sym = self.ident_with_separators();
+
                 self.push(Tok::Ident(sym), start);
             } else if c.is_ascii_digit() || self.at_leading_dot_float() {
                 let tok = self.number(start)?;
+
                 self.push(tok, start);
             } else if c == b'"' {
                 self.at += 1;
                 let s = self.string_body(start)?;
+
                 self.push(Tok::Str(s.into()), start);
             } else if c == b'#' && {
                 let mut skip = 1;
+
                 while matches!(self.peek(skip), b' ' | b'\t') {
                     skip += 1;
                 }
+
                 is_ident_start(self.peek(skip))
             } {
                 // `# import` (with spaces) is accepted as `#import`.
                 self.at += 1;
+
                 while matches!(self.peek(0), b' ' | b'\t') {
                     self.at += 1;
                 }
+
                 let name = self.ident();
+
                 if name == "string" {
                     let s = self.here_string(start)?;
+
                     self.push(Tok::Str(s.into()), start);
                 } else {
                     let sym = Sym::intern(name);
+
                     self.push(Tok::Directive(sym), start);
                 }
             } else if c == b'@' {
@@ -262,15 +298,19 @@ impl<'a> Lexer<'a> {
                 // A note is every character up to the next whitespace, whatever it is
                 // (`@range(1,64)`, `@short=j`; also a `;` or `{` that follows it directly).
                 let from = self.at;
+
                 // The corpus's working programs write help text as `@"?If set ..."` (Argparse
                 // style), so a note that starts with a quote is read as a string.
                 if self.peek(0) == b'"' {
                     self.at += 1;
                     let s = self.string_body(start)?;
                     let note: Arc<str> = String::from_utf8_lossy(&s).into();
+
                     self.push(Tok::Note(note), start);
+
                     continue;
                 }
+
                 while self.at < self.src.len() && !self.src[self.at].is_ascii_whitespace() {
                     if self.src[self.at] == b'(' {
                         // A call-style note reads to its matching `)`, spaces and all.
@@ -279,6 +319,7 @@ impl<'a> Lexer<'a> {
                         self.at += 1;
                     }
                 }
+
                 let text = &self.src[from..self.at];
                 // `@help"two words"`: the note stops at the space, and the leftover quote
                 // would start a string.
@@ -287,6 +328,7 @@ impl<'a> Lexer<'a> {
                     reason = "the text is one short word; a bytecount dependency is not worth it"
                 )]
                 let odd_quotes = text.iter().filter(|&&b| b == b'"').count() % 2 == 1;
+
                 if odd_quotes {
                     return Err(self
                         .err(
@@ -296,7 +338,9 @@ impl<'a> Lexer<'a> {
                         )
                         .with_help("put the text in parentheses, such as `@help(\"two words\")`"));
                 }
+
                 let note: Arc<str> = String::from_utf8_lossy(text).into();
+
                 self.push(Tok::Note(note), start);
             } else {
                 let Some((len, p)) = match_punct(&self.src[self.at..]) else {
@@ -307,8 +351,10 @@ impl<'a> Lexer<'a> {
                         &format!("unexpected character `{}`", c as char),
                     ));
                 };
+
                 self.at += len;
                 self.push(Tok::Punct(p), start);
+
                 if self.platform.is_some() {
                     self.track_brace(p);
                 }
@@ -320,11 +366,13 @@ impl<'a> Lexer<'a> {
     /// parentheses count and a string literal inside is skipped whole. It must close on its line.
     fn note_parens(&mut self, start: usize) -> Result<(), Diagnostic> {
         let mut depth = 0usize;
+
         while self.at < self.src.len() && self.src[self.at] != b'\n' {
             match self.src[self.at] {
                 b'(' => depth += 1,
                 b')' => {
                     depth -= 1;
+
                     if depth == 0 {
                         self.at += 1;
                         return Ok(());
@@ -333,8 +381,10 @@ impl<'a> Lexer<'a> {
                 b'"' => self.at = skip_string(self.src, self.at + 1).min(self.src.len() - 1),
                 _ => {}
             }
+
             self.at += 1;
         }
+
         Err(self
             .err(
                 Code::LexUnterminatedNote,
@@ -364,6 +414,7 @@ impl<'a> Lexer<'a> {
                 } else {
                     None
                 };
+
                 match decided {
                     Some(false) if self.skip_block() => {}
                     Some(true) => self.braces.push(true),
@@ -388,6 +439,7 @@ impl<'a> Lexer<'a> {
         let cond = &self.out[start + 1..brace];
         let mut at = 0;
         let value = fold_or(cond, &mut at, target)?;
+
         (at == cond.len()).then_some(value)
     }
 
@@ -399,15 +451,18 @@ impl<'a> Lexer<'a> {
         let mut at = self.at;
         let mut depth = 1usize;
         let mut newline = false;
+
         while at < src.len() {
             match src[at] {
                 b'{' => depth += 1,
                 b'}' => {
                     depth -= 1;
+
                     if depth == 0 {
                         self.at = at + 1;
                         self.newline = newline;
                         self.push(Tok::Punct(P::RBrace), at);
+
                         return true;
                     }
                 }
@@ -427,11 +482,13 @@ impl<'a> Lexer<'a> {
                     while at < src.len() && src[at] != b'\n' {
                         at += 1;
                     }
+
                     continue;
                 }
                 b'/' if src.get(at + 1) == Some(&b'*') => {
                     at += 2;
                     let mut nesting = 1;
+
                     while nesting > 0 && at < src.len() {
                         if src[at] == b'/' && src.get(at + 1) == Some(&b'*') {
                             nesting += 1;
@@ -443,24 +500,30 @@ impl<'a> Lexer<'a> {
                             if src[at] == b'\n' {
                                 newline = true;
                             }
+
                             at += 1;
                         }
                     }
+
                     continue;
                 }
                 b'#' => {
                     let mut name = at + 1;
+
                     while matches!(src.get(name), Some(b' ' | b'\t')) {
                         name += 1;
                     }
+
                     if src[name.min(src.len())..].starts_with(b"string") {
                         return false;
                     }
                 }
                 _ => {}
             }
+
             at += 1;
         }
+
         false
     }
 
@@ -470,8 +533,10 @@ impl<'a> Lexer<'a> {
         if self.peek(0) != b'.' || !self.peek(1).is_ascii_digit() {
             return false;
         }
+
         let after_operand = self.at > 0 && {
             let prev = self.src[self.at - 1];
+
             is_ident_char(prev)
                 || matches!(prev, b']' | b'.' | b'"')
                 || (prev == b')' && !self.closes_cast(self.at - 1))
@@ -483,26 +548,33 @@ impl<'a> Lexer<'a> {
     fn closes_cast(&self, close: usize) -> bool {
         let mut depth = 0usize;
         let mut at = close;
+
         loop {
             match self.src[at] {
                 b')' => depth += 1,
                 b'(' => {
                     depth -= 1;
+
                     if depth == 0 {
                         break;
                     }
                 }
                 _ => {}
             }
+
             if at == 0 {
                 return false;
             }
+
             at -= 1;
         }
+
         let mut end = at;
+
         while end > 0 && matches!(self.src[end - 1], b' ' | b'\t') {
             end -= 1;
         }
+
         end >= 4
             && &self.src[end - 4..end] == b"cast"
             && (end == 4 || !is_ident_char(self.src[end - 5]))
@@ -511,6 +583,7 @@ impl<'a> Lexer<'a> {
     fn ident(&mut self) -> &'a str {
         let s = self.at;
         let rest = &self.src[s..];
+
         self.at += rest
             .iter()
             .position(|&c| !is_ident_char(c))
@@ -524,26 +597,35 @@ impl<'a> Lexer<'a> {
     /// `arrow.from, x`) and is dropped too.
     fn ident_with_separators(&mut self) -> Sym {
         let first = self.ident();
+
         if self.peek(0) != b'\\' {
             return Sym::intern(first);
         }
+
         let mut name = String::from(first);
+
         while self.peek(0) == b'\\' {
             let mut skip = 1;
+
             while matches!(self.peek(skip), b' ' | b'\t') {
                 skip += 1;
             }
+
             self.at += skip;
+
             if !is_ident_char(self.peek(0)) {
                 break;
             }
+
             name.push_str(self.ident());
         }
+
         Sym::intern(&name)
     }
 
     fn note_comment(&mut self, start: usize, kind: CommentKind, terminated: bool) {
         let span = Span::new(self.file, start, self.at);
+
         if let Some(comments) = self.comments.as_mut() {
             comments.push(Comment {
                 span,
@@ -558,50 +640,66 @@ impl<'a> Lexer<'a> {
             // Blanks and newlines are nearly all of the trivia: step over a run in one loop.
             let rest = &self.src[self.at..];
             let mut run = 0;
+
             while let Some(&c) = rest.get(run) {
                 match c {
                     b'\n' => self.newline = true,
                     b' ' | b'\t' | b'\r' | 0x0c | 0x0b => {}
                     _ => break,
                 }
+
                 run += 1;
             }
+
             self.at += run;
+
             if run >= SCAN_CHUNK && self.pay_scan(&mut (self.at - run)) {
                 return Ok(());
             }
+
             let c = self.peek(0);
+
             if c == 0xc2 && self.peek(1) == 0xa0 {
                 // U+00A0 (no-break space) separates tokens like a space.
                 self.at += 2;
             } else if c == b'/' && self.peek(1) == b'/' {
                 let start = self.at;
                 let rest = &self.src[start..];
+
                 self.at += rest.iter().position(|&c| c == b'\n').unwrap_or(rest.len());
+
                 if let Some(regions) = self.regions.as_mut() {
                     regions.push(Span::new(self.file, start, self.at));
                 }
+
                 self.note_comment(start, CommentKind::Line, true);
             } else if c == b'/' && self.peek(1) == b'*' {
                 let start = self.at;
+
                 self.at += 2;
                 let mut depth = 1;
                 let mut mark = start;
+
                 while depth > 0 {
                     if self.scan_due(mark) && self.pay_scan(&mut mark) {
                         return Ok(());
                     }
+
                     // Step over the bytes that can neither open, close nor count a line, a
                     // chunk at a time so the scan can be asked about.
                     let rest = self.window();
                     let special = rest.iter().position(|&c| matches!(c, b'/' | b'*' | b'\n'));
+
                     self.at += special.unwrap_or(rest.len());
+
                     if special.is_none() && self.at < self.src.len() {
                         continue;
                     }
+
                     if self.at >= self.src.len() {
                         self.note_comment(start, CommentKind::Block, false);
                         let end = Span::new(self.file, self.src.len(), self.src.len());
+
                         return Err(self
                             .unclosed_err(
                                 Code::LexUnterminatedBlockComment,
@@ -618,6 +716,7 @@ impl<'a> Lexer<'a> {
                                 .with_action("Insert `*/`"),
                             ));
                     }
+
                     if self.peek(0) == b'/' && self.peek(1) == b'*' {
                         depth += 1;
                         self.at += 2;
@@ -628,12 +727,15 @@ impl<'a> Lexer<'a> {
                         if self.peek(0) == b'\n' {
                             self.newline = true;
                         }
+
                         self.at += 1;
                     }
                 }
+
                 if let Some(regions) = self.regions.as_mut() {
                     regions.push(Span::new(self.file, start, self.at));
                 }
+
                 self.note_comment(start, CommentKind::Block, true);
             } else {
                 return Ok(());
@@ -648,6 +750,7 @@ impl<'a> Lexer<'a> {
             b'h' | b'H' => Some(0), // hex float bit pattern
             _ => None,
         };
+
         if self.peek(0) == b'0'
             && let Some(radix) = radix_prefix(self.peek(1))
         {
@@ -660,22 +763,28 @@ impl<'a> Lexer<'a> {
             };
             let mut value: u128 = 0;
             let mut too_big = false;
+
             while self.at < self.src.len() {
                 let ch = self.src[self.at];
+
                 if ch == b'_' {
                     self.at += 1;
                     continue;
                 }
+
                 let Some(d) = (ch as char).to_digit(base) else {
                     break;
                 };
+
                 value = value.wrapping_mul(base as u128).wrapping_add(d as u128);
                 too_big |= value > u64::MAX as u128;
                 self.at += 1;
             }
+
             if too_big {
                 return Err(self.err(Code::LexIntegerTooBig, start, INTEGER_TOO_BIG));
             }
+
             if self.at == digits_start {
                 return Err(self.err(
                     Code::LexExpectedDigits,
@@ -683,11 +792,13 @@ impl<'a> Lexer<'a> {
                     "expected digits after numeric prefix",
                 ));
             }
+
             if radix == 0 {
                 let ndigits = self.src[digits_start..self.at]
                     .iter()
                     .filter(|&&c| c != b'_')
                     .count();
+
                 if !matches!(ndigits, 4 | 8 | 16) {
                     return Err(self.err(
                         Code::LexHexFloatBit,
@@ -695,18 +806,23 @@ impl<'a> Lexer<'a> {
                         "a hex float bit pattern requires 4, 8 or 16 hex digits",
                     ));
                 }
+
                 return Ok(if ndigits <= 8 {
                     Tok::Float(f32::from_bits(value as u32) as f64)
                 } else {
                     Tok::Float(f64::from_bits(value as u64))
                 });
             }
+
             return Ok(Tok::Int(value as u64));
         }
+
         let mut text = String::new();
         let mut is_float = false;
+
         while self.at < self.src.len() {
             let ch = self.src[self.at];
+
             if ch.is_ascii_digit() {
                 text.push(ch as char);
             } else if ch == b'_' {
@@ -733,8 +849,10 @@ impl<'a> Lexer<'a> {
             } else {
                 break;
             }
+
             self.at += 1;
         }
+
         if is_float {
             text.parse::<f64>()
                 .map(Tok::Float)
@@ -750,15 +868,18 @@ impl<'a> Lexer<'a> {
     fn string_body(&mut self, start: usize) -> Result<Vec<u8>, Diagnostic> {
         let mut out = Vec::new();
         let mut mark = self.at;
+
         loop {
             if self.scan_due(mark) && self.pay_scan(&mut mark) {
                 return Ok(out);
             }
+
             // Copy the plain run in one go.
             let rest = self.window();
             let Some(run) = rest.iter().position(|&c| c == b'"' || c == b'\\') else {
                 out.extend_from_slice(rest);
                 self.at += rest.len();
+
                 if self.at >= self.src.len() {
                     return Err(self.err(
                         Code::LexUnterminatedStringLiteral,
@@ -766,8 +887,10 @@ impl<'a> Lexer<'a> {
                         "unterminated string literal",
                     ));
                 }
+
                 continue;
             };
+
             out.extend_from_slice(&rest[..run]);
             self.at += run;
             let Some(&c) = self.src.get(self.at) else {
@@ -777,7 +900,9 @@ impl<'a> Lexer<'a> {
                     "unterminated string literal",
                 ));
             };
+
             self.at += 1;
+
             match c {
                 b'"' => return Ok(out),
                 b'\\' => {
@@ -788,7 +913,9 @@ impl<'a> Lexer<'a> {
                             "unterminated string literal",
                         ));
                     };
+
                     self.at += 1;
+
                     match e {
                         b'n' => out.push(b'\n'),
                         b'r' => out.push(b'\r'),
@@ -804,12 +931,15 @@ impl<'a> Lexer<'a> {
                         b'\n' => {}
                         b'x' => {
                             let v = self.hex_digits(2, start)?;
+
                             out.push(v as u8);
                         }
                         b'd' => {
                             let mut v = 0u32;
+
                             for _ in 0..3 {
                                 let d = self.peek(0);
+
                                 if !d.is_ascii_digit() {
                                     return Err(self.err(
                                         Code::LexExpectedThreeDecimal,
@@ -817,9 +947,11 @@ impl<'a> Lexer<'a> {
                                         "expected three decimal digits after \\d",
                                     ));
                                 }
+
                                 v = v * 10 + (d - b'0') as u32;
                                 self.at += 1;
                             }
+
                             out.push(v as u8);
                         }
                         b'u' | b'U' => {
@@ -837,14 +969,17 @@ impl<'a> Lexer<'a> {
                                 )
                             })?;
                             let mut buf = [0; 4];
+
                             out.extend_from_slice(ch.encode_utf8(&mut buf).as_bytes());
                         }
                         _ => {
                             // The escaped character may be several bytes long.
                             let ch = self.text[self.at - 1..].chars().next().unwrap_or('?');
+
                             self.at += ch.len_utf8() - 1;
                             let backslash = self.at - 1 - ch.len_utf8();
                             let escape = Span::new(self.file, backslash, self.at);
+
                             return Err(self
                                 .err(
                                     Code::LexUnknownEscapeSequence,
@@ -874,6 +1009,7 @@ impl<'a> Lexer<'a> {
 
     fn hex_digits(&mut self, n: usize, start: usize) -> Result<u32, Diagnostic> {
         let mut v = 0u32;
+
         for _ in 0..n {
             let d = (self.peek(0) as char).to_digit(16).ok_or_else(|| {
                 self.err(
@@ -882,16 +1018,20 @@ impl<'a> Lexer<'a> {
                     "expected hex digits in escape",
                 )
             })?;
+
             v = v * 16 + d;
             self.at += 1;
         }
+
         Ok(v)
     }
 
     /// `#string TERMINATOR` (optionally `#string,cr TERM` or `#string,\% TERM`).
     fn here_string(&mut self, start: usize) -> Result<Vec<u8>, Diagnostic> {
         let header = super::here::header(self.src, self.at);
+
         self.at = header.end;
+
         if header.tag.is_empty() {
             return Err(self.unclosed_err(
                 Code::LexExpectedStringTerminator,
@@ -899,29 +1039,37 @@ impl<'a> Lexer<'a> {
                 "expected here-string terminator",
             ));
         }
+
         let (escape_percent, cr) = (header.escape_percent, header.cr);
         let src = self.src;
         let tag = &src[header.tag];
+
         // Body starts on the next line; only whitespace may follow the name.
         while matches!(self.src.get(self.at), Some(b' ' | b'\t' | b'\r')) {
             self.at += 1;
         }
+
         if self.at < self.src.len() && self.src[self.at] != b'\n' {
             let junk = self.at;
+
             self.at += 1;
+
             return Err(self.err(
                 Code::LexTextAfterStringTerminator,
                 junk,
                 "a here-string's terminator name must end its line",
             ));
         }
+
         self.at += 1;
         let body_start = self.at.min(self.src.len());
         let mut mark = body_start;
+
         while self.at < self.src.len() {
             if self.scan_due(mark) && self.pay_scan(&mut mark) {
                 return Ok(Vec::new());
             }
+
             let line_end = self.src[self.at..]
                 .iter()
                 .position(|&c| c == b'\n')
@@ -932,11 +1080,13 @@ impl<'a> Lexer<'a> {
                 .take_while(|&&c| c == b' ' || c == b'\t')
                 .count();
             let trimmed = &line[indent..];
+
             if trimmed.starts_with(tag) && trimmed.get(tag.len()).is_none_or(|&c| !is_ident_char(c))
             {
                 // Every line ending, including the one before the terminator line, is part of
                 // the string, normalized to `\n` (`\r\n` with `#string,cr`).
                 let mut body = Vec::with_capacity(self.at - body_start);
+
                 for &c in &self.src[body_start..self.at] {
                     match c {
                         b'\r' => {}
@@ -944,9 +1094,11 @@ impl<'a> Lexer<'a> {
                         c => body.push(c),
                     }
                 }
+
                 if escape_percent {
                     let mut out = Vec::with_capacity(body.len());
                     let mut i = 0;
+
                     while i < body.len() {
                         if body[i] == b'\\' && body.get(i + 1) == Some(&b'%') {
                             out.push(0x1f);
@@ -956,14 +1108,19 @@ impl<'a> Lexer<'a> {
                             i += 1;
                         }
                     }
+
                     body = out;
                 }
+
                 self.at += indent + tag.len();
                 self.newline = true;
+
                 return Ok(body);
             }
+
             self.at = line_end + 1;
         }
+
         self.at = self.src.len();
         let end = Span::new(self.file, self.src.len(), self.src.len());
         let terminator = String::from_utf8_lossy(tag);
@@ -972,6 +1129,7 @@ impl<'a> Lexer<'a> {
         } else {
             format!("\n{terminator}\n")
         };
+
         Err(self
             .unclosed_err(
                 Code::LexUnterminatedString,

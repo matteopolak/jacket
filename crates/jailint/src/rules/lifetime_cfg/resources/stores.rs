@@ -24,16 +24,19 @@ impl Builder<'_> {
         };
         let mut ops = Vec::new();
         let p = places.place(*place, *ty);
+
         if places.unresolved(p)
             && let Some(local) = resolver.local_destination(*place, *ty, &self.summaries.procs)
         {
             let local = places.import(&resolver.places, local);
+
             if !self.long_lived(places, local)
                 && self.local_store_survives(places, local, resolver, *value)
             {
                 return ops;
             }
         }
+
         if self.long_lived(places, p) {
             let pointer = places.unresolved(p);
             let parameter_target = self.defers_temporary(event, resolver);
@@ -48,10 +51,12 @@ impl Builder<'_> {
                 value_cell(self.cx, places, cells, *value, *ty),
                 cells.id(Cell::Place(p)),
             )];
+
             // Pointer outputs are replayed at their callers. Concrete value sinks
             // need separate observations for each stored aggregate field.
             if !pointer && self.cx.compiler.ir_ty(*ty).is_none() {
                 let source = places.place(*value, *ty);
+
                 escaping.extend(
                     places
                         .copied_fields(p, source)
@@ -59,6 +64,7 @@ impl Builder<'_> {
                         .map(|(dst, src)| (cells.id(Cell::Place(src)), cells.id(Cell::Place(dst)))),
                 );
             }
+
             for (cell, target) in escaping {
                 ops.push(Op::Escape {
                     cell,
@@ -71,6 +77,7 @@ impl Builder<'_> {
                 });
             }
         }
+
         ops
     }
 
@@ -117,6 +124,7 @@ impl Builder<'_> {
         let Some(&source_scope) = self.locals.get(&resolver.places.paths[source].0.0) else {
             return true;
         };
+
         inside(self.cx, target_scope, source_scope)
     }
 }

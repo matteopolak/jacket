@@ -34,16 +34,19 @@ pub struct FormatCall {
 /// Calls in `text` with a literal format string among their first two arguments.
 pub fn calls(tokens: &[Token], text: &str) -> Vec<FormatCall> {
     let mut out = Vec::new();
+
     for (i, token) in tokens.iter().enumerate() {
         let Tok::Ident(name) = &token.tok else {
             continue;
         };
+
         if !matches!(
             tokens.get(i + 1).map(|t| &t.tok),
             Some(Tok::Punct(P::LParen))
         ) {
             continue;
         }
+
         let args = arguments(tokens, i + 2);
         // The format string: a lone string literal among the first two arguments.
         let Some(at) = args.iter().take(2).position(|a| {
@@ -56,6 +59,7 @@ pub fn calls(tokens: &[Token], text: &str) -> Vec<FormatCall> {
         };
         let string = span(&tokens[args[at].tokens.start]);
         let rest = &args[at + 1..];
+
         out.push(FormatCall {
             callee: name.as_str().to_string(),
             string,
@@ -68,6 +72,7 @@ pub fn calls(tokens: &[Token], text: &str) -> Vec<FormatCall> {
             spread: rest.iter().any(|a| a.spread),
         });
     }
+
     out
 }
 
@@ -93,10 +98,12 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
         if start >= end {
             return false;
         }
+
         let named = match (&tokens[start].tok, tokens.get(start + 1).map(|t| &t.tok)) {
             (Tok::Ident(n), Some(Tok::Punct(P::Eq))) => Some(n.as_str().to_string()),
             _ => None,
         };
+
         out.push(Argument {
             tokens: start..end,
             span: Span::new(
@@ -111,18 +118,22 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
     // `cast,trunc(u8) x` and `xx,no_check x`: the commas after `cast`/`xx` and between its
     // modifiers do not separate arguments. 1: after `cast`/`xx` or a modifier, 2: after such a comma.
     let mut cast_modifiers = 0u8;
+
     while i < tokens.len() {
         let modifier_comma = cast_modifiers == 1 && matches!(tokens[i].tok, Tok::Punct(P::Comma));
+
         cast_modifiers = match &tokens[i].tok {
             Tok::Ident(name) if matches!(name.as_str(), "cast" | "xx") => 1,
             Tok::Punct(P::Comma) if modifier_comma => 2,
             Tok::Ident(_) if cast_modifiers == 2 => 1,
             _ => 0,
         };
+
         if modifier_comma {
             i += 1;
             continue;
         }
+
         match &tokens[i].tok {
             Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
                 depth += 1;
@@ -132,6 +143,7 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
                     push(start, i, &mut out);
                     return out;
                 }
+
                 depth -= 1;
             }
             Tok::Punct(P::Comma) if depth == 0 => {
@@ -139,6 +151,7 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
                     // `,,`: context overrides follow.
                     return out;
                 }
+
                 start = i + 1;
             }
             // A statement ended: the call is unfinished.
@@ -146,8 +159,10 @@ fn arguments(tokens: &[Token], from: usize) -> Vec<Argument> {
             Tok::Eof => return out,
             _ => {}
         }
+
         i += 1;
     }
+
     out
 }
 
@@ -168,6 +183,7 @@ mod tests {
 
     fn indices(source: &str) -> Vec<Option<usize>> {
         let text = format!("\"{source}\"");
+
         specs(&text, Span::new(0, text.len()))
             .into_iter()
             .map(|s| s.index)
@@ -189,12 +205,14 @@ mod tests {
             "f :: () { print(\"% % % %\", cast,trunc(u8) a, xx,no_check b, cast(u8) c, xx d); }";
         let tokens = jaic::lexer::lex(jaic::source::FileId(0), text).unwrap();
         let calls = calls(&tokens, text);
+
         assert_eq!(calls.len(), 1);
         let args: Vec<&str> = calls[0]
             .args
             .iter()
             .map(|a| &text[a.start..a.end])
             .collect();
+
         assert_eq!(
             args,
             ["cast,trunc(u8) a", "xx,no_check b", "cast(u8) c", "xx d"]

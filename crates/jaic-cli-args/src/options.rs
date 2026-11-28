@@ -115,6 +115,7 @@ pub fn set_color(cli: &mut Cli, name: &str, text: &str) -> Result<(), Error> {
         Shared::Color(choice) => cli.no_color = choice == jaic::render::ColorChoice::Never,
         _ => unreachable!("`--color` reads a choice"),
     }
+
     Ok(())
 }
 
@@ -135,6 +136,7 @@ pub fn store_level(cli: &mut Cli, option: &str, code: &str) -> Result<(), Error>
         "-W" => jaic::diagnostics::Level::Warn,
         _ => jaic::diagnostics::Level::Deny,
     };
+
     cli.level_flags.push((code.to_string(), level));
     Ok(())
 }
@@ -150,6 +152,7 @@ pub fn add_sanitizer(cli: &mut Cli, option: &str, list: &str) -> Result<(), Erro
                 .help("use address, undefined, fuzzer or a list: `-sanitize address,fuzzer`"),
         );
     }
+
     cli.sanitize.push(list.to_string());
     Ok(())
 }

@@ -82,6 +82,7 @@ fn read_run_budget(name: &str, text: &str) -> Result<u64, Error> {
 /// The process-wide switches these flags set.
 pub fn knobs(cli: &Cli) -> jaic::knobs::Knobs {
     let t = &cli.tuning;
+
     jaic::knobs::Knobs {
         threads: t.threads,
         parse_threads: t.parse_threads,

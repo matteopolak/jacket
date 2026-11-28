@@ -55,6 +55,7 @@ pub(super) fn take_translated() -> Option<u32> {
 pub(super) fn save_program() {
     #[cfg(windows)]
     PROGRAM.with(|program| program.set(Some(get())));
+
     #[cfg(unix)]
     if TRANSLATED.get().is_some() {
         TRANSLATED.set(Some(get()));
@@ -70,6 +71,7 @@ pub(super) fn restore_program() {
     if let Some(code) = PROGRAM.with(std::cell::Cell::get) {
         set(code);
     }
+
     #[cfg(unix)]
     if let Some(code) = TRANSLATED.get() {
         set(code);
@@ -181,6 +183,7 @@ mod tests {
             let _ = jacket_config::env::for_program("LAST_ERROR_TEST_UNSET");
             get()
         });
+
         assert_ne!(
             seen, 2,
             "the work must be able to overwrite it for this to test anything"

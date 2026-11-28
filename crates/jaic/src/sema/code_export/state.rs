@@ -110,8 +110,10 @@ impl ExpressionTypes {
     /// `Some(None)`: completed checks at this span have incompatible contextual types.
     pub(in crate::sema) fn get(&self, span: Span) -> Option<Option<TypeId>> {
         let mut table = self.table.borrow_mut();
+
         if table.0 != self.log.len() {
             let (done, map) = &mut *table;
+
             for &(span, ty, refine) in &self.log[*done..] {
                 if refine {
                     if let Some(history) = map.get_mut(&span) {
@@ -132,8 +134,10 @@ impl ExpressionTypes {
                         });
                 }
             }
+
             *done = self.log.len();
         }
+
         table.1.get(&span).map(|history| {
             (!history.ambiguous && history.previous.is_none_or(|t| t == history.current))
                 .then_some(history.current)
@@ -192,12 +196,16 @@ impl crate::sema::Compiler {
         {
             return;
         }
+
         let mut procedure = f.proc;
         let mut owner = f.expression_scope;
+
         if procedure.is_none() {
             while let Some(scope) = owner {
                 let info = self.scope(scope);
+
                 use crate::sema::scope::ScopeKind;
+
                 match info.kind {
                     ScopeKind::Struct(_)
                     | ScopeKind::StructParams
@@ -212,6 +220,7 @@ impl crate::sema::Compiler {
                 }
             }
         }
+
         let owner = if let Some(code) = f.expression_code {
             ExpressionOwner::Code(code)
         } else if let Some(procedure) = procedure {
@@ -221,10 +230,13 @@ impl crate::sema::Compiler {
         } else {
             return;
         };
+
         if crate::sema::speculative::log_expression(owner, span, ty, refine) {
             return;
         }
+
         let types = self.meta.export.expression_types_mut(owner);
+
         if refine {
             types.refine(span, ty);
         } else {
@@ -241,6 +253,7 @@ mod tests {
     fn contextual_refinements_preserve_expansion_ambiguity_across_reads() {
         let mut types = ExpressionTypes::default();
         let at = Span::NONE;
+
         types.record(at, TypeId::S64);
         types.refine(at, TypeId::U8);
         assert_eq!(types.get(at), Some(Some(TypeId::U8)));

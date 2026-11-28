@@ -23,6 +23,7 @@ fn compile_for(os: TargetOs, cpu: Option<TargetCpu>, head: &str, body: &str) -> 
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
     let cpu = cpu.unwrap_or(options.cpu);
+
     jaic::target::select_os_cpu(&mut options, Some(os), Some(cpu));
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
@@ -41,6 +42,7 @@ fn compile_for(os: TargetOs, cpu: Option<TargetCpu>, head: &str, body: &str) -> 
         main :: () {{}}
     "#
     );
+
     compiler
         .compile_sources(&[ProgramSource::String(source)])
         .map_err(|error| error.render(&compiler.src.sources))
@@ -50,6 +52,7 @@ fn compile_for(os: TargetOs, cpu: Option<TargetCpu>, head: &str, body: &str) -> 
 fn scratch(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("jaic-foreign-c-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
+
     std::fs::create_dir_all(&dir).unwrap();
     dir
 }
@@ -109,6 +112,7 @@ fn file_calls_of_another_c_library_are_answered_in_its_abi() {
     } else {
         &[None]
     };
+
     for &cpu in cpus {
         let dir = scratch(&format!("{cpu:?}"));
         let result = compile_for(
@@ -118,6 +122,7 @@ fn file_calls_of_another_c_library_are_answered_in_its_abi() {
             &format!(r#"check_target_c_library("{}");"#, dir.display()),
         );
         let _ = std::fs::remove_dir_all(&dir);
+
         result.unwrap_or_else(|error| panic!("{cpu:?}: {error}"));
     }
 }
@@ -132,6 +137,7 @@ fn a_target_c_library_call_with_no_answer_on_another_host_is_refused() {
         "name: utsname; uname(*name);",
     )
     .unwrap_err();
+
     assert!(
         error.contains("which the C library of this") && error.contains("does not provide"),
         "{error}"
@@ -143,6 +149,7 @@ fn a_windows_c_runtime_call_on_another_host_is_refused_unless_identical() {
     if cfg!(windows) {
         return;
     }
+
     let head = r#"
         crt :: #system_library "libc";
         c_fopen :: (path: *u8, mode: *u8) -> *void #foreign crt "fopen";
@@ -157,6 +164,7 @@ fn a_windows_c_runtime_call_on_another_host_is_refused_unless_identical() {
         &format!(r#"c_fopen("{file}/Cargo.toml", "r");"#),
     )
     .unwrap_err();
+
     assert!(
         error.contains("built for Windows calls `fopen`") && error.contains("does not provide"),
         "{error}"

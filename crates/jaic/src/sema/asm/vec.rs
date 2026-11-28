@@ -231,6 +231,7 @@ pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
             _ => return None,
         })
     };
+
     Some(match name {
         "movups" | "movaps" | "movupd" | "movapd" | "movdqu" | "movdqa" | "movdqu8"
         | "movdqu16" | "movdqu32" | "movdqu64" | "movdqa32" | "movdqa64" | "lddqu" | "movntdq"
@@ -294,12 +295,14 @@ pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
                     "sd" => (Ty::F64, true),
                     _ => continue,
                 };
+
                 return Some(if op == "sqrt" {
                     VOp::Sqrt(ty, scalar)
                 } else {
                     VOp::Lanes(lane, ty, scalar)
                 });
             }
+
             // Integer lanes: p<op><b|w|d|q>.
             for (op, lane) in [
                 ("padd", Some(Lane::Add)),
@@ -315,11 +318,13 @@ pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
                 let Some(ty) = name.strip_prefix(op).and_then(int_lane) else {
                     continue;
                 };
+
                 return Some(match lane {
                     Some(lane) => VOp::Lanes(lane, ty, false),
                     None => VOp::Abs(ty),
                 });
             }
+
             for (op, kind) in [
                 ("psll", Shift::Left),
                 ("psrl", Shift::Logical),
@@ -331,6 +336,7 @@ pub(super) fn lookup_vec(name: &str) -> Option<VOp> {
                     return Some(VOp::Shift(kind, ty));
                 }
             }
+
             return simd::lookup_simd(name);
         }
     })
@@ -361,6 +367,7 @@ pub(super) fn load_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty) -> Val {
 
 pub(super) fn store_lane(f: &mut FnCtx, base: Val, i: u64, ty: Ty, v: Val) {
     let p = lane_addr(f, base, i * ty.numeric_size());
+
     f.b.store(ty, p, v);
 }
 
@@ -374,12 +381,14 @@ pub(super) fn fselect(f: &mut FnCtx, ty: Ty, cond: Val, a: Val, b: Val) -> Val {
     let a = bitcast(f, ty, it, a);
     let b = bitcast(f, ty, it, b);
     let r = select(f, it, cond, a, b);
+
     bitcast(f, it, ty, r)
 }
 
 pub(super) fn all_ones_if(f: &mut FnCtx, ty: Ty, cond: Val) -> Val {
     let ones = konst(f, ty, u64::MAX);
     let zero = konst(f, ty, 0);
+
     select(f, ty, cond, ones, zero)
 }
 
@@ -391,6 +400,7 @@ pub(super) fn float_unary(f: &mut FnCtx, op: Intrinsic, ty: Ty, x: Val) -> Val {
         x
     };
     let r = f.b.intrinsic(op, vec![wide], &[Ty::F64])[0];
+
     if ty == Ty::F32 {
         f.b.conv(ConvOp::FTrunc, Ty::F64, Ty::F32, r)
     } else {
@@ -426,6 +436,7 @@ pub(super) fn lane_op(f: &mut FnCtx, op: Lane, ty: Ty, a: Val, b: Val) -> Val {
                 _ => CmpOp::UGt,
             };
             let c = cmp(f, op, ty, a, b);
+
             select(f, ty, c, a, b)
         }
         Lane::FAdd => bin(f, BinOp::FAdd, ty, a, b),
@@ -475,6 +486,7 @@ pub(super) fn float_to_s32(f: &mut FnCtx, x: Val, mode: char) -> Val {
         let down = f.b.fconst(Ty::F64, -1.0);
         let step = fselect(f, Ty::F64, neg, down, up);
         let stepped = bin(f, BinOp::FSub, Ty::F64, away, step);
+
         fselect(f, Ty::F64, fix, stepped, away)
     };
     let lo = f.b.fconst(Ty::F64, -2_147_483_648.0);
@@ -487,6 +499,7 @@ pub(super) fn float_to_s32(f: &mut FnCtx, x: Val, mode: char) -> Val {
     let safe = fselect(f, Ty::F64, ok, r, zero);
     let v = f.b.conv(ConvOp::FToS, Ty::F64, Ty::I32, safe);
     let min = konst(f, Ty::I32, 0x8000_0000);
+
     select(f, Ty::I32, ok, v, min)
 }
 
@@ -508,6 +521,7 @@ impl VecCall<'_> {
     /// Checks the operand count against `lo..=hi`.
     fn want(&self, lo: usize, hi: usize) -> Result<()> {
         let n = self.ops.len();
+
         if n < lo || n > hi {
             return err(
                 Code::AsmOperandCount,
@@ -515,6 +529,7 @@ impl VecCall<'_> {
                 format!("`{}` takes {lo} to {hi} operands, found {n}", self.name),
             );
         }
+
         Ok(())
     }
 }
@@ -532,9 +547,11 @@ impl Compiler {
         cx.float_vars.clear();
         cx.float_dst = None;
         let done = self.asm_vec_inst(f, cx, inst, base)?;
+
         if let Some((reg, addr, size)) = cx.float_dst.take() {
             f.b.copy(addr, reg, size);
         }
+
         cx.float_vars.clear();
         Ok(done)
     }
@@ -584,6 +601,7 @@ impl Compiler {
         // when the instruction produces one (always for 512-bit compares).
         let dst_class = dst_class(op, width);
         let mut ops: Vec<VOpd> = Vec::with_capacity(n);
+
         for (i, o) in inst.operands.iter().enumerate() {
             let class = if i == 0 {
                 dst_class
@@ -591,11 +609,14 @@ impl Compiler {
                 "vec"
             };
             let before = cx.float_vars.len();
+
             ops.push(self.vec_operand_class(f, cx, o, class)?);
+
             if i == 0 && cx.float_vars.len() > before {
                 cx.float_dst = cx.float_vars.last().copied();
             }
         }
+
         let op = match (op, ops.first()) {
             (VOp::Lanes(lane @ (Lane::CmpEq | Lane::CmpGt), ty, false), Some(VOpd::Mask(_))) => {
                 VOp::IntCmp(
@@ -611,6 +632,7 @@ impl Compiler {
             _ => op,
         };
         let es = elem_size(op);
+
         for (i, o) in inst.operands.iter().enumerate() {
             if let AsmOperand::Mem(m) = o
                 && m.broadcast
@@ -623,13 +645,17 @@ impl Compiler {
                     VOp::Gf(GfOp::Affine(_)) => 8,
                     _ => es,
                 };
+
                 for k in 0..64 / bs {
                     let p = lane_addr(f, buf, k * bs);
+
                     f.b.copy(p, src, bs);
                 }
+
                 ops[i] = VOpd::Reg(buf);
             }
         }
+
         // `{k}` masking: remember the destination, then merge or zero the masked-off lanes.
         // Instructions that write a mask register AND their result with it instead.
         let writemask = match &inst.evex.mask {
@@ -639,6 +665,7 @@ impl Compiler {
                     VOpd::Gpr(opd) => (self.asm_read(f, opd, Ty::I64, span)?, None),
                     _ => return err(Code::AsmMaskOperand, span, "expected a mask register"),
                 };
+
                 Some(simd::WriteMask {
                     bits,
                     zeroing: *zeroing,
@@ -663,6 +690,7 @@ impl Compiler {
             ) => {
                 let dst = self.vec_ptr(f, ops[0], span)?;
                 let old = f.b.alloca(64, 16);
+
                 f.b.copy(old, dst, width);
                 Some((mask, zeroing, dst, old))
             }
@@ -677,6 +705,7 @@ impl Compiler {
             _ => None,
         };
         let tmp = f.b.alloca(64, 16);
+
         Ok(VecCall {
             op,
             span,
@@ -706,6 +735,7 @@ impl Compiler {
         };
         let c = self.vec_call(f, cx, inst, op)?;
         let op = c.op;
+
         match op {
             VOp::Move
             | VOp::MovScalarInt(..)
@@ -720,10 +750,12 @@ impl Compiler {
             VOp::Nop => c.want(0, 0)?,
             _ => self.asm_simd(f, cx, inst, &c)?,
         }
+
         if let Some((mask, zeroing, dst, old)) = c.masked {
             let (es, width) = (c.es, c.width);
             let one = konst(f, Ty::I64, 1);
             let ity = Ty::int(es);
+
             for k in 0..width / es {
                 let at = konst(f, Ty::I64, k);
                 let bit = bin(f, BinOp::LShr, Ty::I64, mask, at);
@@ -737,9 +769,11 @@ impl Compiler {
                     load_lane(f, old, k, ity)
                 };
                 let r = select(f, ity, on, new, prev);
+
                 store_lane(f, dst, k, ity, r);
             }
         }
+
         Ok(true)
     }
 
@@ -801,14 +835,18 @@ impl Compiler {
         match dst {
             VOpd::Reg(p) => {
                 f.b.copy(p, src, size);
+
                 if cx.vex && size < 64 {
                     let rest = lane_addr(f, p, size);
+
                     f.b.zero(rest, 64 - size);
                 }
+
                 Ok(())
             }
             VOpd::Mem(addr) => {
                 let p = ptr_of(f, addr);
+
                 f.b.copy(p, src, size);
                 Ok(())
             }
@@ -854,6 +892,7 @@ impl Compiler {
             VOpd::Gpr(opd) => self.asm_write(f, opd, ty, v, span),
             VOpd::Mem(addr) => {
                 let p = ptr_of(f, addr);
+
                 f.b.store(ty, p, v);
                 Ok(())
             }
@@ -876,6 +915,7 @@ impl Compiler {
         match o {
             AsmOperand::Decl(d) if d.colon => {
                 let (kind, addr) = self.asm_declare(f, cx, d, class)?;
+
                 match kind {
                     AsmReg::Vec => Ok(VOpd::Reg(addr)),
                     AsmReg::Mask => Ok(VOpd::Mask(addr)),
@@ -896,7 +936,9 @@ impl Compiler {
                         AsmReg::Gpr => Ok(VOpd::Gpr(self.asm_value(f, cx.scope, e, 0)?)),
                     };
                 }
+
                 let op = self.check_expr(f, cx.scope, e, None)?;
+
                 match op {
                     // A Jai variable: integers act as general-purpose registers, floats as
                     // vector registers (their low bytes), anything else (arrays, vectors) is
@@ -911,6 +953,7 @@ impl Compiler {
                         Some(t) => {
                             let size = t.numeric_size();
                             let reg = f.b.alloca(64, 16);
+
                             f.b.zero(reg, 64);
                             f.b.copy(reg, addr, size);
                             cx.float_vars.push((reg, addr, size));
@@ -944,6 +987,7 @@ impl Compiler {
         {
             return Ok(Some((kind, addr)));
         }
+
         Ok(None)
     }
 
@@ -951,6 +995,7 @@ impl Compiler {
     fn vec_mem(&mut self, f: &mut FnCtx, cx: &AsmCtx, m: &AsmMem) -> Result<VOpd> {
         let mut vindex = None;
         let mut rest: Vec<AsmMemTerm> = Vec::new();
+
         for term in &m.terms {
             if let Some((AsmReg::Vec, addr)) = self.asm_reg_named(cx.scope, &term.value)? {
                 let scale = match &term.scale {
@@ -966,6 +1011,7 @@ impl Compiler {
                     },
                     None => 1,
                 };
+
                 if term.negate || vindex.is_some() {
                     return err(
                         Code::AsmVectorOperand,
@@ -973,16 +1019,19 @@ impl Compiler {
                         "a memory operand takes one vector index",
                     );
                 }
+
                 vindex = Some((addr, scale));
             } else {
                 rest.push(term.clone());
             }
         }
+
         let base_mem = AsmMem {
             terms: rest,
             ..m.clone()
         };
         let base = self.asm_mem(f, cx.scope, &base_mem)?;
+
         Ok(match vindex {
             Some((index, scale)) => VOpd::Vsib {
                 base,

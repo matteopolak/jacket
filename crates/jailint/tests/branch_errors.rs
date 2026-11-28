@@ -10,8 +10,10 @@ use test_support::TempDir;
 /// The unknown names the driver reports as errors for `source`.
 fn unknown_names(name: &str, source: &str) -> Vec<String> {
     let dir = TempDir::new(name);
+
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("main.jai");
+
     std::fs::write(&file, source).unwrap();
     let file = std::fs::canonicalize(file).unwrap();
     let found = run(&Options {
@@ -33,6 +35,7 @@ fn unknown_names(name: &str, source: &str) -> Vec<String> {
         .filter(|e| e.code == "unknown-identifier")
         .map(|e| e.message.clone())
         .collect();
+
     names.sort();
     names
 }
@@ -43,6 +46,7 @@ fn a_plain_unknown_name_is_reported() {
         "branch-errors-control",
         "main :: () {\n    a := plain_missing;\n}\n",
     );
+
     assert_eq!(names, ["unknown identifier `plain_missing`"]);
 }
 
@@ -52,6 +56,7 @@ fn an_error_in_either_ifx_branch_is_reported() {
         "branch-errors-ifx",
         "main :: () {\n    n := 3;\n    a := ifx n > 1 then 1 else missing_else;\n    b := ifx n > 1 then missing_then else 2;\n}\n",
     );
+
     assert_eq!(
         names,
         [
@@ -67,5 +72,6 @@ fn an_error_in_an_ifx_else_branch_is_reported_when_the_value_is_unused() {
         "branch-errors-ifx-unused",
         "f :: (n: int) -> int {\n    return ifx n > 1 then n else missing_else;\n}\nmain :: () {}\n",
     );
+
     assert_eq!(names, ["unknown identifier `missing_else`"]);
 }

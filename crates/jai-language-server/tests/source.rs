@@ -24,6 +24,7 @@ fn utf16_crlf_surrogates_and_versioned_edits_are_atomic() {
     let mut session = Session::new(Limits::default());
     let name = uri("main.jai");
     let original = "// 🦀\r\nvalue :: 1;\r\nmain :: () -> int {return value;}";
+
     session.open(name.clone(), 1, original.into()).unwrap();
     let pinned = session.source_snapshot();
     let invalid = edit(
@@ -37,6 +38,7 @@ fn utf16_crlf_surrogates_and_versioned_edits_are_atomic() {
         },
         "x",
     );
+
     assert!(matches!(
         session.change(&name, 2, &[invalid]),
         Err(Error::InvalidEdit(_))
@@ -57,6 +59,7 @@ fn utf16_crlf_surrogates_and_versioned_edits_are_atomic() {
         range_length: Some(2),
         text: "é".into(),
     };
+
     session.change(&name, 2, &[change]).unwrap();
     assert!(
         session
@@ -78,6 +81,7 @@ fn a_late_invalid_edit_rolls_back_the_entire_change_batch() {
     let mut session = Session::new(Limits::default());
     let name = uri("main.jai");
     let text = "value :: 1;";
+
     session.open(name.clone(), 1, text.into()).unwrap();
     let changes = [
         edit(
@@ -103,6 +107,7 @@ fn a_late_invalid_edit_rolls_back_the_entire_change_batch() {
             "x",
         ),
     ];
+
     assert!(session.change(&name, 2, &changes).is_err());
     assert_eq!(session.document_text(&name).unwrap(), text);
     assert_eq!(session.version(&name).unwrap(), 1);
@@ -119,26 +124,32 @@ fn position(line: u32, character: u32) -> Position {
 fn edits_clamp_positions_like_requests() {
     let mut session = Session::new(Limits::default());
     let name = uri("main.jai");
+
     session
         .open(name.clone(), 1, "ab\n// 🦀 c\nz".into())
         .unwrap();
     // Past the end of a line: the end of that line.
     let past_column = edit(position(0, 99), position(0, 99), "!");
+
     session.change(&name, 2, &[past_column]).unwrap();
     assert_eq!(session.document_text(&name).unwrap(), "ab!\n// 🦀 c\nz");
     // Inside a surrogate pair: the start of the character, so the crab is replaced whole.
     let inside_pair = edit(position(1, 4), position(1, 5), "x");
+
     session.change(&name, 3, &[inside_pair]).unwrap();
     assert_eq!(session.document_text(&name).unwrap(), "ab!\n// x c\nz");
     // Past the last line: the end of the document.
     let past_line = edit(position(99, 0), position(99, 7), "?");
+
     session.change(&name, 4, &[past_line]).unwrap();
     assert_eq!(session.document_text(&name).unwrap(), "ab!\n// x c\nz?");
     // A whole-document replacement and a later edit still agree about the lines.
     let again = edit(position(2, 1), position(2, 99), "\nw");
+
     session.change(&name, 5, &[again]).unwrap();
     assert_eq!(session.document_text(&name).unwrap(), "ab!\n// x c\nz\nw");
     let last = edit(position(3, 99), position(99, 99), "v");
+
     session.change(&name, 6, &[last]).unwrap();
     assert_eq!(session.document_text(&name).unwrap(), "ab!\n// x c\nz\nwv");
 }
@@ -148,10 +159,13 @@ fn requests_clamp_positions_instead_of_failing() {
     let mut session = Session::new(Limits::default());
     let name = uri("main.jai");
     let text = "value :: 1;\nmain :: () -> int {return value;}";
+
     session.open(name.clone(), 1, text.into()).unwrap();
+
     for at in [position(0, 4000), position(99, 0), position(99, 99)] {
         assert!(session.definition(&name, at).is_ok(), "{at:?}");
     }
+
     // The same position, named by line and by a column past the end, finds the same thing.
     assert_eq!(
         session.definition(&name, position(1, 4000)).unwrap(),
@@ -167,6 +181,7 @@ fn authentic_load_declarations_drive_multifile_navigation() {
     let main = uri("main.jai");
     let helper = uri("lib/answer.jai");
     let text = "#load \"lib/answer.jai\";\nmain :: () -> int {return answer();}";
+
     session.open(main.clone(), 1, text.into()).unwrap();
     assert!(
         session
@@ -183,6 +198,7 @@ fn authentic_load_declarations_drive_multifile_navigation() {
         [] as [jai_language_server::Diagnostic; 0]
     );
     let defs = session.definition(&main, at_last(text, "answer")).unwrap();
+
     assert_eq!(defs.len(), 1);
     assert_eq!(defs[0].uri, helper.as_str());
     assert_eq!(
@@ -221,14 +237,17 @@ fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
     let mut session = Session::new(Limits::default());
     let main = uri("main.jai");
     let text = "value :: 1; main :: () -> int {value := 2; return value;}";
+
     session.open(main.clone(), 1, text.into()).unwrap();
     let defs = session.definition(&main, at_last(text, "value")).unwrap();
+
     assert_eq!(defs.len(), 1);
     assert!(defs[0].range.start.character > 10);
     session
         .open(uri("unrelated.jai"), 1, "other :: 7;".into())
         .unwrap();
     let updated = "value :: 1; main :: () -> int {return other;}";
+
     session
         .change(
             &main,
@@ -247,6 +266,7 @@ fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
         [] as [jai_language_server::Location; 0]
     );
     let member = "value :: 1; main :: () -> int {return object.value;}";
+
     session
         .change(
             &main,
@@ -268,6 +288,7 @@ fn local_shadowing_and_closed_lookup_do_not_guess_global_or_member_types() {
 fn incomplete_source_keeps_real_diagnostics_and_tokens_without_running_code() {
     let mut session = Session::new(Limits::default());
     let name = uri("main.jai");
+
     session.open(name.clone(), 1, "main :: (".into()).unwrap();
     assert_ne!(
         session.diagnostics(&name).unwrap(),
@@ -282,6 +303,7 @@ fn incomplete_source_keeps_real_diagnostics_and_tokens_without_running_code() {
         [] as [jai_language_server::DocumentSymbol; 0]
     );
     let never_execute = "#run {while true {}} main :: () -> int {return 42;}";
+
     session
         .change(
             &name,
@@ -298,6 +320,7 @@ fn incomplete_source_keeps_real_diagnostics_and_tokens_without_running_code() {
         [] as [jai_language_server::Diagnostic; 0]
     );
     let symbols = session.document_symbols(&name).unwrap();
+
     assert!(symbols.iter().any(|s| s.name == "main"), "{symbols:?}");
 }
 
@@ -310,8 +333,10 @@ fn resource_admission_and_source_symbol_ranges_are_bounded() {
     });
     let name = uri("main.jai");
     let text = "Thing :: struct {field: int;}; value :: \"🦀\";";
+
     session.open(name.clone(), 1, text.into()).unwrap();
     let rows = session.document_symbols(&name).unwrap();
+
     assert_eq!(rows[0].name, "Thing");
     assert_eq!(rows[0].kind, SymbolKind::Struct);
     assert_eq!(rows[0].children[0].name, "field");
@@ -333,6 +358,7 @@ fn resource_admission_and_source_symbol_ranges_are_bounded() {
         Err(Error::Limit(_))
     ));
     let data = session.semantic_tokens(&name).unwrap();
+
     assert!(
         data.iter()
             .any(|entry| entry.kind == SemanticTokenKind::String && entry.length == 4),
@@ -354,6 +380,7 @@ fn jaic_declaration_kinds_scopes_and_file_privacy_are_published() {
         "Lib :: #import \"Basic\";\n",
         "main :: () -> int { for i: 0..3 { } return shared(); }",
     );
+
     session.open(main.clone(), 1, text.into()).unwrap();
     session
         .open(
@@ -369,6 +396,7 @@ fn jaic_declaration_kinds_scopes_and_file_privacy_are_published() {
     );
     let symbols = session.document_symbols(&main).unwrap();
     let color = symbols.iter().find(|s| s.name == "Color").unwrap();
+
     assert_eq!(color.kind, SymbolKind::Enum);
     assert_eq!(color.children.len(), 2);
     assert_eq!(color.children[0].kind, SymbolKind::EnumMember);
@@ -384,6 +412,7 @@ fn jaic_declaration_kinds_scopes_and_file_privacy_are_published() {
         .completion(&main, at_last(text, "shared"))
         .unwrap()
         .items;
+
     assert!(items.iter().any(|item| item.label == "shared"));
     let all = session
         .completion(
@@ -395,6 +424,7 @@ fn jaic_declaration_kinds_scopes_and_file_privacy_are_published() {
         )
         .unwrap()
         .items;
+
     assert!(
         !all.iter().any(|item| item.label == "hidden"),
         "#scope_file names stay private"
@@ -407,8 +437,10 @@ fn asm_completion_and_hover_work_without_a_type_checker() {
     let mut session = Session::new(Limits::default());
     let main = uri("main.jai");
     let text = "main :: () {\n    count: s64 = 0;\n    #asm {\n        r: gpr;\n        popcnt r, co\n    }\n}\n";
+
     session.open(main.clone(), 1, text.into()).unwrap();
     let mut typed = at_last(text, ", co");
+
     typed.character += 4;
     let labels: Vec<String> = session
         .completion(&main, typed)
@@ -417,8 +449,10 @@ fn asm_completion_and_hover_work_without_a_type_checker() {
         .into_iter()
         .map(|i| i.label)
         .collect();
+
     assert_eq!(labels, ["count"]);
     let mut operand = at_last(text, ", co");
+
     operand.character += 2;
     let labels: Vec<String> = session
         .completion(&main, operand)
@@ -427,10 +461,13 @@ fn asm_completion_and_hover_work_without_a_type_checker() {
         .into_iter()
         .map(|i| i.label)
         .collect();
+
     assert!(labels.contains(&"r".to_string()), "{labels:?}");
     let mut mnemonic = at_last(text, "popcnt");
+
     mnemonic.character += 3;
     let hover = session.hover(&main, mnemonic).unwrap().expect("hover");
+
     assert!(
         hover.contents.value.contains("POPCNT"),
         "{}",

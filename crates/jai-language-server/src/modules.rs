@@ -41,12 +41,15 @@ impl Sources<'_> {
             folders: folders.clone(),
             config: config.as_ref().map(|(dir, _)| dir.clone()),
         };
+
         // Cached until a file it was read from changes: every semantic request asks, and
         // finding the folders lexes the root file (a large one is megabytes of tokens).
         if let Some((dirs, deps)) = index.import_dirs.get(&key) {
             return (dirs.clone(), deps.clone());
         }
+
         let found = self.find_import_dirs(index, root, &folders, config);
+
         index.import_dirs.insert(key, found.clone());
         found
     }
@@ -64,13 +67,17 @@ impl Sources<'_> {
         let mut deps: Vec<PathBuf> = Vec::new();
         // 1. `modules/` here and in the folders above, up to the base.
         let mut dir = root.parent();
+
         while let Some(d) = dir {
             dirs.push(d.join("modules"));
+
             if base.as_deref().is_none_or(|b| b == d) {
                 break;
             }
+
             dir = d.parent();
         }
+
         // 2. `[project] import_path`.
         if let Some((folder, config)) = &config {
             deps.push(folder.join(jacket_config::FILE_NAME));
@@ -80,6 +87,7 @@ impl Sources<'_> {
                     .iter()
                     .map(|p| project::normalize(p)),
             );
+
             // A module below a dependency's repository root is found through its parent. A
             // broken file adds nothing: its problems are its own diagnostics, and Jai diagnostics
             // wait until it is fixed.
@@ -89,6 +97,7 @@ impl Sources<'_> {
                         .into_iter()
                         .map(|(_, dir)| dir.join(jacket_config::FILE_NAME)),
                 );
+
                 // A dependency's `jacket.toml` that does not read is reported to the client,
                 // and the compile that follows sees the same error.
                 match jacket_config::packages::dependency_roots(self, folder, &loaded.config) {
@@ -97,6 +106,7 @@ impl Sources<'_> {
                 }
             }
         }
+
         // A test program of a library imports it by name, as `jacket test` lets it.
         if let Some(library) = jaic::test_notes::test_program_root(root, |p| self.is_file(p))
             .filter(|dir| self.is_file(&dir.join("module.jai")))
@@ -104,13 +114,17 @@ impl Sources<'_> {
             deps.push(library.join("module.jai"));
             dirs.extend(library.parent().map(Path::to_path_buf));
         }
+
         // 3. What the build metaprogram adds.
         let mut entries: Vec<PathBuf> = Vec::new();
+
         if let Some(base) = &base {
             entries.extend(project::entry_files(base, config.as_ref().map(|(_, c)| c)).paths);
         }
+
         entries.push(root.to_path_buf());
         let mut seen = BTreeSet::new();
+
         for entry in entries
             .into_iter()
             .filter(|e| seen.insert(e.clone()))
@@ -119,7 +133,9 @@ impl Sources<'_> {
             if self.read(&entry).is_none() {
                 continue;
             }
+
             deps.push(entry.clone());
+
             // A metaprogram that ran: the folders its build options really had.
             if let Some(facts) = index.builds.get(&self.key(&entry)) {
                 dirs.extend(
@@ -130,20 +146,27 @@ impl Sources<'_> {
                 );
                 continue;
             }
+
             let here = entry.parent().unwrap_or(Path::new("/")).to_path_buf();
+
             for path in &self.scan(index, &entry).import_paths {
                 let path = Path::new(&path);
+
                 if path.is_absolute() {
                     dirs.push(project::normalize(path));
                     continue;
                 }
+
                 dirs.push(project::normalize(&here.join(path)));
+
                 if let Some(base) = &base {
                     dirs.push(project::normalize(&base.join(path)));
                 }
             }
         }
+
         let mut seen = BTreeSet::new();
+
         dirs = dirs.iter().map(|dir| self.key(dir)).collect();
         deps = deps.iter().map(|file| self.key(file)).collect();
         dirs.retain(|d| seen.insert(d.clone()) && self.is_dir(d));
@@ -160,6 +183,7 @@ impl crate::Session {
         };
         let mut index = self.index.borrow_mut();
         let sources = self.sources(env);
+
         sources
             .import_dirs(&mut index, root, &self.workspace_folders)
             .0
@@ -170,6 +194,7 @@ impl crate::Session {
     pub(crate) fn options_for(&self, root: &Path) -> Option<jaic::sema::Options> {
         let env = self.environment.as_ref()?;
         let mut options = (env.options)(root);
+
         project::add_import_dirs(&mut options.import_paths, &self.import_dirs(root));
         Some(options)
     }
@@ -187,6 +212,7 @@ mod tests {
             log("import_path is %", import_path);
             other(".");
         "#;
+
         assert_eq!(
             crate::exports::scan(text).import_paths,
             ["vendor", "modules"]

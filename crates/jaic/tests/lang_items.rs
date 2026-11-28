@@ -8,10 +8,12 @@ use std::rc::Rc;
 fn compiler_with_real_prelude() -> Compiler {
     let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some(stdlib.join("prelude/module.jai"));
     options.import_paths = vec![stdlib];
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+
     compiler
         .compile_sources(&[ProgramSource::String(String::new())])
         .expect("the prelude loads");
@@ -21,6 +23,7 @@ fn compiler_with_real_prelude() -> Compiler {
 #[test]
 fn every_prelude_type_resolves_in_the_real_prelude() {
     let mut compiler = compiler_with_real_prelude();
+
     for ty in PreludeType::ALL {
         assert!(
             compiler.preload_type(*ty, Span::NONE).is_ok(),
@@ -36,6 +39,7 @@ fn the_builtin_layouts_match_the_prelude() {
     let allocator = compiler
         .preload_type(PreludeType::Allocator, Span::NONE)
         .expect("Allocator");
+
     assert_eq!(
         compiler.size_of(allocator, Span::NONE).unwrap(),
         compiler.ty.types.builtins().allocator.size
@@ -44,6 +48,7 @@ fn the_builtin_layouts_match_the_prelude() {
         .preload_type(PreludeType::TypeInfo, Span::NONE)
         .expect("Type_Info");
     let pointer = compiler.ty.types.pointer(info);
+
     assert_eq!(
         compiler.size_of(pointer, Span::NONE).unwrap(),
         compiler.options.layout.ptr_bytes()

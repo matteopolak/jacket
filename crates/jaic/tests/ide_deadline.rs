@@ -36,13 +36,16 @@ fn run(
     configure: impl FnOnce(&mut SandboxHost),
 ) -> (String, bool, u64) {
     let mut fs = VirtualFs::default();
+
     fs.insert("/main.jai", source.as_bytes());
     fs.insert("/prelude/module.jai", PRELUDE.as_bytes());
     let fs = Rc::new(fs);
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/prelude/module.jai".into());
     let host = Rc::new(RefCell::new(SandboxHost::default()));
+
     configure(&mut host.borrow_mut());
     let mut lint = LintCompile::start(LintSetup {
         fs,
@@ -55,6 +58,7 @@ fn run(
     let result = lint.compile(LintRoot::Program(Path::new("/main.jai")), &[]);
     let error = result.err().map(|e| e.render(&lint.compiler.src.sources));
     let polls = host.borrow().polls();
+
     (error.unwrap_or_default(), lint.stopped(), polls)
 }
 
@@ -66,6 +70,7 @@ nest :: (x: $T, n: int) { if n > 0 nest(*x, n - 1); }
 main :: () { v := 1; nest(v, 3); }
 ";
     let (error, stopped) = check(source);
+
     assert!(error.contains("checking stopped"), "{error}");
     assert!(stopped);
 }
@@ -73,15 +78,20 @@ main :: () { v := 1; nest(v, 3); }
 #[test]
 fn queued_bodies_stop_at_the_limit() {
     let mut source = String::new();
+
     for i in 0..50 {
         source += &format!("f{i} :: () {{ x := {i}; }}\n");
     }
+
     source += "main :: () {";
+
     for i in 0..50 {
         source += &format!(" f{i}();");
     }
+
     source += " }\n";
     let (error, stopped) = check(&source);
+
     assert!(error.contains("checking stopped"), "{error}");
     assert!(stopped);
 }
@@ -94,6 +104,7 @@ Box :: struct ($T: Type) { v: T; }
 main :: () { x := 0; twice(#code { x += 1; }); b: Box(int); }
 ";
     let (error, stopped) = check(source);
+
     assert!(error.contains("checking stopped"), "{error}");
     assert!(stopped);
 }
@@ -102,11 +113,14 @@ main :: () { x := 0; twice(#code { x += 1; }); b: Box(int); }
 fn many_inserted_strings_stop_at_the_limit() {
     // One body, so no unit of work starts between the inserts: each insert must ask.
     let mut source = String::from("main :: () { x := 0;\n");
+
     for _ in 0..100_000 {
         source += "#insert \"x += 1;\";\n";
     }
+
     source += "}\n";
     let (error, stopped) = check_within(&source, 0.05);
+
     assert!(error.contains("checking stopped"), "{error}");
     assert!(stopped);
 }
@@ -116,12 +130,14 @@ fn a_long_inserted_string_stops_in_the_parser() {
     let program = |text: &str| format!("main :: () {{ x := 0; #insert \"{text}\"; }}\n");
     // The questions a whole compile asks when there is nothing to parse.
     let (error, stopped, base) = check_polls(&program(""), u64::MAX);
+
     assert!(!stopped, "{error}");
     // A few more than that are all the answer there is room for before the end of the check,
     // and only the parser, asking every 256 statements, gets to use them: it is told to stop
     // before the inserted statements are checked. The stop is reported at the `#insert`, not at
     // a statement of the inserted text.
     let (error, stopped, _) = check_polls(&program(&"x += 1;".repeat(100_000)), base + 5);
+
     assert!(error.contains("checking stopped"), "{error}");
     assert!(error.contains("main.jai"), "{error}");
     assert!(!error.contains("#insert at"), "{error}");
@@ -137,8 +153,10 @@ fn a_long_inserted_string_stops_in_the_lexer() {
         format!("main :: () {{ #insert \"a := int.[{list}];\"; }}\n")
     };
     let (error, stopped, base) = check_polls(&program(1), u64::MAX);
+
     assert!(!stopped, "{error}");
     let (error, stopped, _) = check_polls(&program(200_000), base + 5);
+
     assert!(error.contains("checking stopped"), "{error}");
     assert!(error.contains("main.jai"), "{error}");
     assert!(!error.contains("#insert at"), "{error}");
@@ -152,9 +170,11 @@ fn a_very_wide_expression_stops_at_the_limit() {
         format!("main :: () {{ a := int.[{list}]; }}\n")
     };
     let (error, stopped, base) = check_polls(&program(1), u64::MAX);
+
     assert!(!stopped, "{error}");
     // Only the elements grow: the compile ends before them unless checking them asks too.
     let (error, stopped, _) = check_polls(&program(5_000), base + 5);
+
     assert!(error.contains("checking stopped"), "{error}");
     assert!(stopped);
 }
@@ -172,6 +192,7 @@ main :: () {}
 ";
     let start = Instant::now();
     let (error, stopped) = check_within(source, 0.5);
+
     assert!(error.contains("checking stopped"), "{error}");
     assert!(stopped);
     assert!(

@@ -19,7 +19,9 @@ impl Session {
         if self.config_document(uri).is_some() {
             return self.manifest_inlay_hints(uri, range);
         }
+
         let mut hints = self.typed_hints(uri, range)?;
+
         hints.extend(self.closing_brace_hints(uri, range)?);
         hints.sort_by_key(|h| (h.position.line, h.position.character));
         Ok(hints)
@@ -33,9 +35,11 @@ impl Session {
         if self.closing_brace_min_lines == 0 {
             return Ok(Vec::new());
         }
+
         let doc = self.document(uri)?;
         let mut hints = Vec::new();
         let mut pending = self.document_symbols(uri)?;
+
         while let Some(symbol) = pending.pop() {
             pending.extend(symbol.children.iter().cloned());
             let DocumentSymbol {
@@ -45,6 +49,7 @@ impl Session {
                 ..
             } = symbol;
             let lines = (whole.end.line - whole.start.line) as usize + 1;
+
             if !matches!(
                 kind,
                 SymbolKind::Function | SymbolKind::Struct | SymbolKind::Enum
@@ -52,18 +57,23 @@ impl Session {
             {
                 continue;
             }
+
             let end = doc.index.byte(&doc.text, whole.end);
             // The declaration may end in `;` or trail whitespace after its brace.
             let trimmed = doc.text[..end].trim_end().trim_end_matches(';').trim_end();
+
             if !trimmed.ends_with('}') {
                 continue;
             }
+
             let Ok(position) = doc.index.position(&doc.text, trimmed.len()) else {
                 continue;
             };
+
             if position.line < range.start.line || position.line > range.end.line {
                 continue;
             }
+
             hints.push(InlayHint {
                 position,
                 label: format!("// {name}"),
@@ -73,6 +83,7 @@ impl Session {
                 tooltip: None,
             });
         }
+
         Ok(hints)
     }
 }

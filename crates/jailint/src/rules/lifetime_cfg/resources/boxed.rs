@@ -9,6 +9,7 @@ pub(super) fn holders(
     locals: &HashMap<Val, ScopeId>,
 ) -> HashMap<Val, ScopeId> {
     let mut holders = HashMap::default();
+
     for event in body.blocks.iter().flat_map(|b| &b.events) {
         let Event::Store {
             place,
@@ -23,6 +24,7 @@ pub(super) fn holders(
             if places.unresolved(p) {
                 continue;
             }
+
             places.paths[p].0.0
         } else {
             place
@@ -30,15 +32,18 @@ pub(super) fn holders(
         let Some(&scope) = locals.get(&root) else {
             continue;
         };
+
         holders
             .entry(value)
             .and_modify(|old: &mut ScopeId| {
                 let mut ancestor = Some(scope);
+
                 while let Some(parent) = ancestor {
                     if inside(cx, *old, parent) {
                         *old = parent;
                         break;
                     }
+
                     ancestor = cx
                         .compiler
                         .ns
@@ -49,6 +54,7 @@ pub(super) fn holders(
             })
             .or_insert(scope);
     }
+
     holders
 }
 
@@ -62,6 +68,7 @@ pub(super) fn origin(
     span: super::Span,
 ) -> Option<super::Origin> {
     let p = places.place(place, ty);
+
     if temporary {
         Some(
             builder

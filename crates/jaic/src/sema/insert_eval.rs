@@ -23,15 +23,20 @@ impl Compiler {
                 parens: None,
             };
             let op = self.check_run_inner(scope, &ast::RunBody::Expr(call), None, value.span)?;
+
             if self.ed.is_live() {
                 self.ide_note_insert(value, &op);
             }
+
             return Ok(op);
         }
+
         let op = self.eval_const(scope, value, None)?;
+
         if self.ed.is_live() {
             self.ide_note_insert(value, &op);
         }
+
         Ok(op)
     }
 
@@ -85,6 +90,7 @@ impl Compiler {
         value: &ast::Expr,
     ) -> Result<(ast::Expr, ScopeId)> {
         let op = self.eval_insert_operand(scope, value)?;
+
         if let Operand::Const {
             value: Value::Code(code),
             ..
@@ -93,6 +99,7 @@ impl Compiler {
             let code_scope = self.code_scope_at(*code, scope);
             return Ok((self.insert_expr_of(op, value)?, code_scope));
         }
+
         Ok((self.insert_expr_of(op, value)?, scope))
     }
 
@@ -131,6 +138,7 @@ impl Compiler {
                 let source = source.trim_end().trim_end_matches(';');
                 let text = format!("__jaic_insert :: ({source});");
                 let ast = self.parse_inserted(value.span, text.into())?;
+
                 match ast.stmts.first().map(|s| &s.kind) {
                     Some(ast::StmtKind::Decl(d)) if d.value.is_some() => {
                         Ok(d.value.clone().unwrap())

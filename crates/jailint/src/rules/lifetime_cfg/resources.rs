@@ -120,7 +120,9 @@ pub(crate) fn reports(cx: &Cx) -> Rc<Reports> {
     if let Some(result) = cx.run.resource_reports.borrow().get(&cx.file) {
         return result.clone();
     }
+
     let result = Rc::new(analyze(cx));
+
     cx.run
         .resource_reports
         .borrow_mut()
@@ -192,6 +194,7 @@ impl<'a> Builder<'a> {
         let mut value_spans = HashMap::default();
         let mut store_spans = HashMap::default();
         let mut member_spans = HashMap::default();
+
         for e in body.blocks.iter().flat_map(|b| &b.events) {
             match e {
                 Event::Local {
@@ -246,6 +249,7 @@ impl<'a> Builder<'a> {
                     ..
                 } => {
                     let targets = summaries.targets.get(body.procedure, *callee);
+
                     for e in targets
                         .procedures
                         .iter()
@@ -264,6 +268,7 @@ impl<'a> Builder<'a> {
                 _ => {}
             }
         }
+
         if let Some(syntax) = &body.syntax.body {
             jaic::ast::walk::walk(&syntax.stmts, &mut |node, _| {
                 if let Some(expr) = node.expr()
@@ -271,6 +276,7 @@ impl<'a> Builder<'a> {
                 {
                     member_spans.insert(member.span, base.span);
                 }
+
                 if let Some(stmt) = node.stmt()
                     && let jaic::ast::StmtKind::Assign {
                         lhs,
@@ -282,10 +288,13 @@ impl<'a> Builder<'a> {
                 {
                     store_spans.insert(stmt.span, rhs[0].span);
                 }
+
                 true
             });
         }
+
         let boxed = boxed::holders(cx, body, places, &locals);
+
         Self {
             cx,
             summaries,
@@ -328,6 +337,7 @@ impl<'a> Builder<'a> {
     ) -> Vec<Op> {
         let cx = self.cx;
         let mut ops = Vec::new();
+
         match event {
             Event::Parameter {
                 incoming,
@@ -348,6 +358,7 @@ impl<'a> Builder<'a> {
                 span,
             } => {
                 let p = places.place(*place, *ty);
+
                 if let Some(scope) = self.locals.get(&places.paths[p].0.0).copied() {
                     if !places.unresolved(p) {
                         ops.push(Op::Seed {
@@ -382,6 +393,7 @@ impl<'a> Builder<'a> {
             ) =>
             {
                 let p = places.place(*source, *from);
+
                 if !places.unresolved(p)
                     && let Some(scope) = self.locals.get(&places.paths[p].0.0).copied()
                 {
@@ -400,6 +412,7 @@ impl<'a> Builder<'a> {
                 span,
             } => {
                 let p = places.place(*region, *region_ty);
+
                 if let Some(scope) = self.locals.get(&places.paths[p].0.0).copied()
                     && !places.unresolved(p)
                     && matches!(
@@ -437,6 +450,7 @@ impl<'a> Builder<'a> {
                 ) =>
             {
                 let p = places.place(*base, *base_ty);
+
                 if let Some(scope) = self.locals.get(&places.paths[p].0.0).copied()
                     && !places.unresolved(p)
                 {
@@ -460,6 +474,7 @@ impl<'a> Builder<'a> {
                 span,
             } => {
                 let origin = boxed::origin(self, places, *value, *place, *ty, *temporary, *span);
+
                 if let Some(origin) = origin {
                     ops.push(Op::Seed {
                         possible: false,
@@ -488,8 +503,10 @@ impl<'a> Builder<'a> {
                     span: *span,
                     result: *index,
                 });
+
                 if cx.compiler.ir_ty(*ty).is_none() {
                     let parent = places.place(*value, *ty);
+
                     for child in places.descendants(parent) {
                         ops.push(Op::Return {
                             cell: cells.id(Cell::Place(child)),
@@ -549,6 +566,7 @@ impl<'a> Builder<'a> {
             } => ops.extend(self.allocation(event, places, cells, resolver)),
             _ => {}
         }
+
         ops
     }
 }
@@ -566,6 +584,7 @@ fn analyze(cx: &Cx) -> Reports {
         )
     });
     let mut bodies: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
+
     bodies.sort_by_key(|b| b.procedure.0);
     let mut checked = HashSet::default();
     let contracts = cx
@@ -579,18 +598,23 @@ fn analyze(cx: &Cx) -> Reports {
     let mut bytes = 0;
     let mut rejected = BTreeMap::<&str, usize>::new();
     let mut rejected_candidates = BTreeMap::<&str, usize>::new();
+
     for site in &cx.procs {
         for &id in cx.compiler.ide_procs_with_header(site.header.span).iter() {
             let p = &cx.compiler.pr.procs[id.0 as usize];
+
             if p.is_poly || p.is_macro {
                 continue;
             }
+
             if p.lit.body.is_none() {
                 continue;
             }
+
             if !checked.insert(id) {
                 continue;
             }
+
             if !facts.lifetime_bodies.contains_key(&id) {
                 if jacket_config::env::LIFETIME_STATS.is_set() {
                     eprintln!(
@@ -598,6 +622,7 @@ fn analyze(cx: &Cx) -> Reports {
                         serde_json::json!({"file":cx.compiler.src.sources.get(cx.file).path.to_string(),"name":p.name.as_str(),"start":p.span.start,"end":p.span.end,"state":format!("{:?}",p.body_state),"instance":p.bindings.is_some()})
                     );
                 }
+
                 *rejected
                     .entry(if p.body_state == BodyState::Done {
                         "missing-sidecar"
@@ -610,19 +635,24 @@ fn analyze(cx: &Cx) -> Reports {
             }
         }
     }
+
     checked.extend(bodies.iter().map(|body| body.procedure));
     let checked_bodies = checked.len();
     let mut solved = 0;
+
     for body in bodies {
         let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
+
         if proc.body_state != BodyState::Done || !std::sync::Arc::ptr_eq(&proc.lit, &body.syntax) {
             *rejected.entry("failed-or-obsolete").or_default() += 1;
             continue;
         }
+
         cfgs += 1;
         let trace = jacket_config::env::LIFETIME_STATS.is_set()
             && body.blocks.iter().map(|b| b.events.len()).sum::<usize>() > 5000;
         let started = jaic::platform::Stopwatch::start();
+
         if trace {
             eprintln!(
                 "lifetime-resource-body begin file={} proc={} name={} events={}",
@@ -632,16 +662,20 @@ fn analyze(cx: &Cx) -> Reports {
                 body.blocks.iter().map(|b| b.events.len()).sum::<usize>()
             );
         }
+
         bytes += body.vector_bytes();
         let prepared = Prepared::for_body(cx.compiler, body, summaries);
         let built = build::shared(cx, body, &prepared, summaries);
+
         if jaic::interrupt::fired() {
             return reports;
         }
+
         let mut places = built.places.clone();
         let cells = built.cells.clone();
         let chains = built.chains.clone();
         let blocks = built.blocks.clone();
+
         if trace {
             eprintln!(
                 "lifetime-resource-body cfg proc={} blocks={} cells={} wall_ms={:.3}",
@@ -651,8 +685,10 @@ fn analyze(cx: &Cx) -> Reports {
                 started.elapsed().as_secs_f64() * 1000.0
             );
         }
+
         let forward = super::copy_targets(cells.ids.len(), &blocks);
         let exposed = addresses::exposed(cx, body, &prepared, summaries, &mut places);
+
         if trace {
             eprintln!(
                 "lifetime-resource-body addresses proc={} wall_ms={:.3}",
@@ -660,6 +696,7 @@ fn analyze(cx: &Cx) -> Reports {
                 started.elapsed().as_secs_f64() * 1000.0
             );
         }
+
         let model = Model {
             places,
             cells,
@@ -673,15 +710,19 @@ fn analyze(cx: &Cx) -> Reports {
         let graph = Graph::new(&model.blocks);
         let covered = quiescent::covered_loads(&model);
         let mut traced_candidates = 0;
+
         for (candidate, block) in model.blocks.iter().enumerate() {
             if jaic::interrupt::should_stop() {
                 return reports;
             }
+
             if covered[candidate] {
                 solved += 1;
                 reports.covered_fresh_loads += 1;
+
                 continue;
             }
+
             if matches!(
                 block.op,
                 CfgOp::Resource(Op::Seed { .. })
@@ -703,13 +744,16 @@ fn analyze(cx: &Cx) -> Reports {
                     } else {
                         None
                     };
+
                     if let Some(reason) = reason {
                         *rejected_candidates.entry(reason).or_default() += 1;
                         continue;
                     }
                 }
+
                 if trace {
                     traced_candidates += 1;
+
                     if traced_candidates < 10 || traced_candidates % 100 == 0 {
                         eprintln!(
                             "lifetime-resource-body candidate proc={} candidate={} ordinal={} wall_ms={:.3}",
@@ -720,6 +764,7 @@ fn analyze(cx: &Cx) -> Reports {
                         );
                     }
                 }
+
                 solved += usize::from(solve(
                     cx,
                     body,
@@ -731,6 +776,7 @@ fn analyze(cx: &Cx) -> Reports {
                 ));
             }
         }
+
         if trace {
             eprintln!(
                 "lifetime-resource-body end proc={} candidates={} wall_ms={:.3}",
@@ -740,6 +786,7 @@ fn analyze(cx: &Cx) -> Reports {
             );
         }
     }
+
     for findings in [
         &mut reports.use_after_free,
         &mut reports.double_free,
@@ -749,12 +796,15 @@ fn analyze(cx: &Cx) -> Reports {
         findings.sort_by_key(|f| f.start);
         findings.dedup_by_key(|f| f.start);
     }
+
     if jacket_config::env::LIFETIME_STATS.is_set() {
         let rank = |map: BTreeMap<&'static str, usize>| {
             let mut entries: Vec<_> = map.into_iter().collect();
+
             entries.sort_by_key(|(r, n)| (std::cmp::Reverse(*n), *r));
             entries
         };
+
         eprintln!(
             "lifetime-resource-stats file={} bodies={checked_bodies} contracts={contracts} cfgs={cfgs} candidates={solved} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?} use_after_free={} double_free={} stack_escapes={} temp_escapes={} external_primary={} sweep_blocks={} fast_quiet={} covered_fresh_loads={}",
             cx.compiler.src.sources.get(cx.file).path,
@@ -770,15 +820,18 @@ fn analyze(cx: &Cx) -> Reports {
             reports.covered_fresh_loads
         );
     }
+
     reports
 }
 
 fn inside(cx: &Cx, child: ScopeId, parent: ScopeId) -> bool {
     let mut current = Some(child);
+
     while let Some(scope) = current {
         if scope == parent {
             return true;
         }
+
         current = cx
             .compiler
             .ns
@@ -786,6 +839,7 @@ fn inside(cx: &Cx, child: ScopeId, parent: ScopeId) -> bool {
             .get(scope.0 as usize)
             .and_then(|s| s.parent);
     }
+
     false
 }
 
@@ -823,34 +877,43 @@ fn solve(
     let Some((first, origin_kind, origin, region)) = candidate(&model.blocks[seed]) else {
         return false;
     };
+
     if operations.independent_quiet(origin_kind) {
         out.fast_quiet += 1;
         return true;
     }
+
     let mut relevant = HashMap::default();
     let source = match model.blocks[seed].op {
         CfgOp::PointerLoad(_, source, _, _) => Some(source),
         _ => None,
     };
     let mut queue = VecDeque::from([first]);
+
     queue.extend(source);
+
     if matches!(origin_kind, Origin::Temporary) {
         queue.extend(model.blocks.iter().filter_map(|b| match b.op {
             CfgOp::Resource(Op::Mark(cell)) => Some(cell),
             _ => None,
         }));
     }
+
     while let Some(cell) = queue.pop_front() {
         if relevant.contains_key(&cell) {
             continue;
         }
+
         relevant.insert(cell, relevant.len());
         queue.extend(&model.forward[cell]);
     }
+
     let index = |cell: usize| relevant.get(&cell).copied();
+
     if !operations.used(&relevant) {
         return false;
     }
+
     if quiescent::quiet(
         cx,
         model,
@@ -863,6 +926,7 @@ fn solve(
         out.fast_quiet += 1;
         return true;
     }
+
     let exposed = exposed_cells(model, &relevant);
     let width = relevant.len();
     let born = width * 2;
@@ -879,9 +943,11 @@ fn solve(
         Scope::whole()
     };
     let (mut states, mut queue) = scope.begin(graph, vec![UNKNOWN; born + 1 + tokens.len()]);
+
     while let Some(i) = queue.pop_front() {
         out.sweep_blocks += 1;
         let mut state = states.visited(i).unwrap().clone();
+
         match &model.blocks[i].op {
             CfgOp::Borrow(target, _, _)
             | CfgOp::ElementBorrow(target, ..)
@@ -893,6 +959,7 @@ fn solve(
                     // but do not make old live aliases refer to this fresh allocation.
                     retained::new_generation(&mut state, width);
                 }
+
                 if let Some(target) = index(*target) {
                     state[target] = if i == seed {
                         addresses::seed_state(&model.blocks[seed].op)
@@ -900,6 +967,7 @@ fn solve(
                         UNKNOWN
                     };
                 }
+
                 if i == seed {
                     state[born] = LIVE;
                 }
@@ -911,15 +979,18 @@ fn solve(
                         *source,
                         index(*source).map_or(UNKNOWN, |s| state[s]),
                     );
+
                     state[target] = if i == seed && value == UNKNOWN {
                         LIVE
                     } else {
                         value
                     };
+
                     if i == seed {
                         if let Some(source) = index(*source) {
                             state[source] = state[target];
                         }
+
                         state[born] = LIVE;
                     }
                 }
@@ -936,6 +1007,7 @@ fn solve(
                         ))
                     })
                     .collect();
+
                 for (t, value, mark) in copied {
                     state[t] = value;
                     state[t + width] = mark;
@@ -949,6 +1021,7 @@ fn solve(
                         state[cell] = UNKNOWN;
                     }
                 }
+
                 if region.is_some_and(|r| model.places.contains(*place, r)) {
                     for value in &mut state[..width] {
                         *value = (*value & DEAD)
@@ -991,28 +1064,34 @@ fn solve(
             CfgOp::Task(op) => retained::transfer(cx, op, &tokens, &index, &mut state),
             _ => {}
         }
+
         for &id in &exposed {
             state[id] = UNKNOWN;
         }
+
         for &next in &model.blocks[i].next {
             if !scope.contains(next) {
                 continue;
             }
+
             let changed = if let CfgOp::Decision(_, yes, _, Some(token), _) = model.blocks[i].op
                 && next == yes
                 && let Some(&at) = tokens.get(&token)
             {
                 let mut outgoing = state.clone();
+
                 outgoing[at] = UNKNOWN;
                 states.join(next, &outgoing)
             } else {
                 states.join(next, &state)
             };
+
             if changed {
                 queue.push_back(next);
             }
         }
     }
+
     let proof = Proof {
         cx,
         body,
@@ -1025,6 +1104,7 @@ fn solve(
         states: &states,
         frees: operations.frees(),
     };
+
     emit(proof, out);
     retained::emit(proof, &tokens, out);
     true
@@ -1035,12 +1115,14 @@ fn exposed_cells(model: &Model, relevant: &HashMap<usize, usize>) -> Vec<usize> 
     if model.exposed.is_empty() {
         return Vec::new();
     }
+
     relevant
         .iter()
         .filter_map(|(&id, &dense)| {
             let Cell::Place(p) = model.cells.values[id] else {
                 return None;
             };
+
             model
                 .exposed
                 .iter()
@@ -1062,6 +1144,7 @@ fn allocation_site(model: &Model, operations: &quiescent::Index, seed: usize) ->
     let &[site] = operations.heap_seeds(from) else {
         return None;
     };
+
     Some(site)
 }
 

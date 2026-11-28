@@ -4,10 +4,12 @@ use super::*;
 pub(super) fn summaries(source: &str) -> (Compiler, Summaries) {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(source.into())])
@@ -43,6 +45,7 @@ fn contents(c: &Compiler, all: &Summaries, name: &str) -> Option<(Vec<String>, b
                 .collect()
         })
         .unwrap_or_default();
+
     Some((fields, released.reset))
 }
 
@@ -69,6 +72,7 @@ fn bodies_release_what_their_argument_owns() {
     "#,
     );
     let strings = |names: &[&str]| names.iter().map(ToString::to_string).collect::<Vec<_>>();
+
     assert_eq!(
         contents(&c, &all, "rel_name"),
         Some((strings(&["name.data"]), false))
@@ -99,6 +103,7 @@ fn bodies_release_what_their_argument_owns() {
         Some((strings(&["name.data"]), true))
     );
     let (fields, reset) = contents(&c, &all, "rel_both").unwrap();
+
     assert!(reset && fields.len() == 2, "{fields:?}");
     // Written over on only some paths: the argument may still hold the released storage.
     assert_eq!(
@@ -132,9 +137,11 @@ fn freed(c: &Compiler, all: &Summaries, name: &str) -> Vec<(usize, String)> {
                     _ => ".?".to_string(),
                 })
                 .collect();
+
             Some((formal, steps))
         })
         .collect();
+
     places.sort();
     places.dedup();
     places
@@ -151,6 +158,7 @@ fn a_field_freed_after_a_store_frees_the_stored_value() {
         main :: () {}
     "#,
     );
+
     // The stored value is the second parameter; the old value stays.
     assert_eq!(freed(&c, &all, "replace_then_free"), [(1, String::new())]);
     // The old value is the one freed, and the member is written over afterwards.

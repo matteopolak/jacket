@@ -33,16 +33,20 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
     // The C file and every program (`<stem>.jai`, or `<stem>_N.jai` when a fixture is split
     // to stay under the interpreter's callback thunk limit).
     let mut programs = Vec::new();
+
     for entry in std::fs::read_dir(&fixture).unwrap() {
         let name = entry.unwrap().file_name().to_string_lossy().into_owned();
         let program = name.ends_with(".jai") && name.starts_with(stem);
+
         if program || name == format!("{stem}.c") {
             std::fs::copy(fixture.join(&name), dir.join(&name)).unwrap();
         }
+
         if program {
             programs.push(name);
         }
     }
+
     programs.sort();
     let lib = if cfg!(target_os = "macos") {
         format!("lib{stem}.dylib")
@@ -52,34 +56,41 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
     let mut steps = vec![Command::new(
         toolchain::host_cc().expect("a C compiler is installed"),
     )];
+
     if cfg!(windows) {
         steps[0].args(["-c", &format!("{stem}.c"), "-o", &format!("{stem}.o")]);
         let mut archive = toolchain::command("llvm-ar");
+
         archive.args(["rcs", &format!("lib{stem}.lib"), &format!("{stem}.o")]);
         steps.push(archive);
     } else {
         steps[0].args(["-shared", "-fPIC", "-o", &lib, &format!("{stem}.c")]);
     }
+
     if cfg!(target_os = "macos") {
         steps[0].arg(format!("-Wl,-install_name,@rpath/lib{stem}.dylib"));
     }
+
     for step in &mut steps {
         let Ok(output) = step.current_dir(&dir).output() else {
             eprintln!("skipping: no C compiler");
             return;
         };
+
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
+
     let run_interp = |program: &str| {
         let output = jaic()
             .args(["-interp", program])
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -87,50 +98,63 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
         );
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     for program in &programs {
         if !cfg!(windows) {
             assert_eq!(run_interp(program), "ok\n", "{program} (interpreter)");
         }
+
         let output =
             build_and_run(&dir.join(program), &dir, program.trim_end_matches(".jai")).unwrap();
+
         assert_eq!(
             String::from_utf8_lossy(&output.stdout),
             "ok\n",
             "{program} (native)"
         );
     }
+
     // Windows: the interpreter loads a DLL that exports every function the fixture defines.
     if cfg!(windows) {
         let source = std::fs::read_to_string(dir.join(format!("{stem}.c"))).unwrap();
         let mut link = toolchain::command("clang");
+
         link.args([
             "-shared",
             &format!("{stem}.c"),
             "-o",
             &format!("lib{stem}.dll"),
         ]);
+
         for line in source.lines() {
             let starts_definition = line.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
+
             if !starts_definition || line.starts_with("typedef") {
                 continue;
             }
+
             let Some(head) = line.split('(').next() else {
                 continue;
             };
+
             if let Some(name) = head.split_whitespace().last() {
                 link.arg(format!("-Wl,/EXPORT:{}", name.trim_start_matches('*')));
             }
         }
+
         let output = link.current_dir(&dir).output().unwrap();
+
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
+
         for program in &programs {
             assert_eq!(run_interp(program), "ok\n", "{program} (interpreter)");
         }
     }
+
     // x86-64 System V under Rosetta on Apple silicon: the rules for packed structs and for an
     // aggregate that does not fit the registers left are different there. The library is rebuilt
     // for x86-64, so this runs last.
@@ -139,6 +163,7 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
             .args(["-x86_64", "/usr/bin/true"])
             .status()
             .is_ok_and(|s| s.success());
+
     if rosetta {
         let output = toolchain::command("cc")
             .args(["-arch", "x86_64", "-shared", "-fPIC", "-o", &lib])
@@ -147,11 +172,13 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
+
         for program in &programs {
             let name = program.trim_end_matches(".jai");
             let built = jaic()
@@ -159,6 +186,7 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
                 .current_dir(&dir)
                 .output()
                 .unwrap();
+
             assert!(
                 built.status.success(),
                 "{}",
@@ -169,6 +197,7 @@ fn run_shapes_fixture(fixture_dir: &str, stem: &str) {
                 .current_dir(&dir)
                 .output()
                 .unwrap();
+
             assert_eq!(
                 String::from_utf8_lossy(&run.stdout),
                 "ok\n",
@@ -190,13 +219,16 @@ fn fibers_switch_stacks_like_the_interpreter() {
         .current_dir(source.parent().unwrap())
         .output()
         .unwrap();
+
     assert!(
         interpreted.status.success(),
         "{}",
         String::from_utf8_lossy(&interpreted.stderr)
     );
     let expected = String::from_utf8_lossy(&interpreted.stdout).into_owned();
+
     assert!(expected.ends_with("ok\n"), "{expected}");
+
     for (flag, name) in [("-O0", "switch-o0"), ("-O3", "switch-o3")] {
         let exe = exe_path(&dir, name);
         let build = jaic()
@@ -207,12 +239,14 @@ fn fibers_switch_stacks_like_the_interpreter() {
             .current_dir(source.parent().unwrap())
             .output()
             .unwrap();
+
         assert!(
             build.status.success(),
             "{flag}: {}",
             String::from_utf8_lossy(&build.stderr)
         );
         let run = Command::new(&exe).output().unwrap();
+
         assert!(run.status.success(), "{flag}");
         assert_eq!(String::from_utf8_lossy(&run.stdout), expected, "{flag}");
     }
@@ -226,9 +260,11 @@ fn fibers_switch_stacks_on_i686() {
     let Some(qemu) = toolchain::optional("qemu-i386") else {
         return;
     };
+
     if !toolchain::buildable("i686-unknown-linux-gnu") {
         return;
     }
+
     let dir = TempDir::new("fibers-i686");
     let source = repo_root().join("tests/compiler/native/fibers/switch.jai");
     let exe = dir.join("switch-i686");
@@ -239,14 +275,17 @@ fn fibers_switch_stacks_on_i686() {
         .current_dir(source.parent().unwrap())
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
     let run = Command::new(qemu).arg(&exe).output().unwrap();
+
     assert!(run.status.success());
     let stdout = String::from_utf8_lossy(&run.stdout);
+
     assert!(stdout.ends_with("hops 3\nok\n"), "{stdout}");
     assert!(stdout.starts_with("mismatches 0\n"), "{stdout}");
 }
@@ -258,6 +297,7 @@ fn fiber_stack_overflow_names_the_problem() {
     let dir = TempDir::new("fibers-overflow");
     let source = repo_root().join("tests/compiler/native/fibers/overflow.jai");
     let native = build_and_run(&source, &dir, "overflow").unwrap();
+
     assert!(!native.status.success());
     #[cfg(unix)]
     assert!(
@@ -271,6 +311,7 @@ fn fiber_stack_overflow_names_the_problem() {
         .current_dir(source.parent().unwrap())
         .output()
         .unwrap();
+
     assert!(!interpreted.status.success());
     assert!(
         String::from_utf8_lossy(&interpreted.stderr).contains("stack overflow"),
@@ -291,6 +332,7 @@ fn fibers_are_refused_for_wasm() {
         .current_dir(source.parent().unwrap())
         .output()
         .unwrap();
+
     assert!(!build.status.success());
     assert!(
         String::from_utf8_lossy(&build.stderr).contains("cannot switch stacks"),
@@ -305,6 +347,7 @@ fn fibers_are_refused_for_wasm() {
 fn ordered_atomics_keep_their_memory_orders() {
     let dir = TempDir::new("atomics-ordered");
     let source = dir.join("ordered.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -330,6 +373,7 @@ fn ordered_atomics_keep_their_memory_orders() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         interpreted.status.success(),
         "{}",
@@ -348,12 +392,14 @@ fn ordered_atomics_keep_their_memory_orders() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
     let ir = read_ir_parts(&ir);
+
     for expected in [
         "store atomic i32 1, ptr",
         " release, align 4",
@@ -368,7 +414,9 @@ fn ordered_atomics_keep_their_memory_orders() {
     ] {
         assert!(ir.contains(expected), "missing `{expected}` in:\n{ir}");
     }
+
     let run = Command::new(&exe).output().unwrap();
+
     assert!(run.status.success());
     assert_eq!(run.stdout, interpreted.stdout);
 }
@@ -378,6 +426,7 @@ fn ordered_atomics_keep_their_memory_orders() {
 #[test]
 fn exe_and_output_path_place_the_executable() {
     let dir = TempDir::new("native-exe-output");
+
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(
         dir.join("src/prog.jai"),
@@ -391,12 +440,14 @@ fn exe_and_output_path_place_the_executable() {
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{extra:?}: {}",
             String::from_utf8_lossy(&output.stderr)
         );
     };
+
     build(&[]);
     build(&["-exe", "renamed"]);
     build(&["-exe", "bin/app.out"]);
@@ -411,10 +462,13 @@ fn exe_and_output_path_place_the_executable() {
         exe_path(&dir.join("out2"), "prog"),
         dir.join("out3/sub/deep.bin"),
     ];
+
     for path in &expected {
         assert!(path.is_file(), "{} was not written", path.display());
     }
+
     let run = Command::new(&expected[2]).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&run.stdout), "placed\n");
 }
 
@@ -424,6 +478,7 @@ fn exe_and_output_path_place_the_executable() {
 fn optimization_flavors_build_and_run() {
     let dir = TempDir::new("native-flavors");
     let source = dir.join("flavors.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -435,6 +490,7 @@ fn optimization_flavors_build_and_run() {
          }\n",
     )
     .unwrap();
+
     for flags in [
         &["-o"][..],
         &["-optimized"],
@@ -452,12 +508,14 @@ fn optimization_flavors_build_and_run() {
             .arg(&exe)
             .output()
             .unwrap();
+
         assert!(
             build.status.success(),
             "{flags:?}: {}",
             String::from_utf8_lossy(&build.stderr)
         );
         let run = Command::new(&exe).output().unwrap();
+
         // Index 2 of 3 is in range under every flavor.
         assert!(run.status.success(), "{flags:?}");
         assert_eq!(String::from_utf8_lossy(&run.stdout), "0\n", "{flags:?}");
@@ -470,6 +528,7 @@ fn optimization_flavors_build_and_run() {
 fn add_and_run_strings_in_a_build() {
     let dir = TempDir::new("native-add-run");
     let source = dir.join("added.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\nmain :: () { print(\"%\\n\", added); }\n",
@@ -483,6 +542,7 @@ fn add_and_run_strings_in_a_build() {
         .arg(&exe)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -490,6 +550,7 @@ fn add_and_run_strings_in_a_build() {
     );
     assert_eq!(String::from_utf8_lossy(&build.stdout), "compiled\n");
     let run = Command::new(&exe).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&run.stdout), "42\n");
 }
 
@@ -498,6 +559,7 @@ fn add_and_run_strings_in_a_build() {
 fn compile_time_call_into_a_missing_library_names_it() {
     let dir = TempDir::new("native-missing-library");
     let source = dir.join("missing.jai");
+
     std::fs::write(
         &source,
         "missing :: #foreign_library \"jaic_no_such_library\";\nanswer :: () -> s32 #foreign missing;\n#run answer();\nmain :: () {}\n",
@@ -509,8 +571,10 @@ fn compile_time_call_into_a_missing_library_names_it() {
         .env("JAIC_NATIVE_LIBS", &dir)
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     // Windows reports the library while loading it, other hosts when the call is resolved.
     assert!(
         stderr.contains("library `jaic_no_such_library`"),

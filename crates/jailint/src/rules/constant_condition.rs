@@ -36,10 +36,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let Some(ide) = cx.compiler.ed.facts() else {
         return;
     };
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         // The runs of this body every analysis of it found dead.
         let evals = ide.body_evals.get(&p.body.span).copied();
         let dead: Vec<Span> = ide
@@ -48,19 +50,24 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             .filter(|((body, _), n)| *body == p.body.span && Some(**n) == evals)
             .map(|((_, run), _)| *run)
             .collect();
+
         if dead.is_empty() {
             continue;
         }
+
         let covers =
             |outer: Span, inner: Span| outer.start <= inner.start && inner.end <= outer.end;
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(s) = n.stmt() else {
                 return true;
             };
+
             if dead.iter().any(|&run| covers(run, s.span)) {
                 // Dead already: the report belongs to whatever made it so.
                 return false;
             }
+
             let (cond, then, other) = match &s.kind {
                 S::If {
                     cond,
@@ -70,9 +77,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 S::While(w) => (&w.cond, &*w.body, None),
                 _ => return true,
             };
+
             if constant_part(cx, cond) || decided_by_type(cx, cond) {
                 return true;
             }
+
             let never = |branch: &Stmt| dead.contains(&contents(branch));
             let (value, what) = if never(then) {
                 (false, "the code it guards never runs")
@@ -81,6 +90,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } else {
                 return true;
             };
+
             out.push(finding(
                 cond.span,
                 format!("this condition is always `{value}`"),
@@ -99,6 +109,7 @@ fn constant_part(cx: &Cx, cond: &Expr) -> bool {
     if cx.constant(cond) || matches!(cond.kind, E::Bool(_)) {
         return true;
     }
+
     match &cond.kind {
         E::Binary(jaic::ast::BinOp::And | jaic::ast::BinOp::Or, a, b) => {
             constant_part(cx, a) || constant_part(cx, b)
@@ -147,5 +158,6 @@ fn decided_by_type(cx: &Cx, cond: &Expr) -> bool {
     } else {
         (range, Interval::point(literal))
     };
+
     interval::compare(*op, x, y).is_some()
 }

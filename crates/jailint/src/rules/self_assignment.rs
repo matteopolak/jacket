@@ -38,6 +38,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some(s) = n.stmt() else {
                 return true;
             };
+
             if let S::Assign {
                 op: AssignOp::Assign,
                 lhs,
@@ -59,14 +60,17 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     jaic::source::line_end(cx.text, end),
                 );
                 let blank = |text: &str| text.chars().all(|c| matches!(c, ' ' | '\t'));
+
                 if blank(&cx.text[line_start..start]) && blank(&cx.text[end..line_end]) {
                     (start, end) = (line_start, line_end);
+
                     if cx.text[end..].starts_with("\r\n") {
                         end += 2;
                     } else if cx.text[end..].starts_with(['\r', '\n']) {
                         end += 1;
                     }
                 }
+
                 found.fix = Some(Fix {
                     title: "remove the statement".into(),
                     edits: vec![Edit {
@@ -78,6 +82,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 });
                 out.push(found);
             }
+
             true
         });
     }
@@ -90,6 +95,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// parameter earlier in the procedure is ambiguous, so it is left alone.
 fn same_place(cx: &Cx, from: u32, to: u32, l: &Expr, r: &Expr) -> bool {
     let (a, b) = (resolved(cx, l), resolved(cx, r));
+
     a == b
         && a.iter()
             .all(|(name, ents)| !ents.is_empty() || !declared_before(cx, *name, from, to))
@@ -98,12 +104,14 @@ fn same_place(cx: &Cx, from: u32, to: u32, l: &Expr, r: &Expr) -> bool {
 fn resolved(cx: &Cx, e: &Expr) -> Vec<(Sym, Vec<EntityId>)> {
     let mut out = Vec::new();
     let mut stack = Vec::new();
+
     walk_node(Node::Expr(e), &mut stack, &mut |n, _| {
         if let Some(x) = n.expr()
             && let ExprKind::Ident(name) = x.kind
         {
             out.push((name, cx.entities(x.span).to_vec()));
         }
+
         true
     });
     out

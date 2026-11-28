@@ -69,6 +69,7 @@ impl Index {
             self.clear();
             return;
         }
+
         // A new file can satisfy an import that failed, under a spelling the compile may not
         // have asked about: every summary is stale, though none is dropped.
         for snapshot in self.programs.values_mut() {
@@ -106,6 +107,7 @@ impl Session {
             .iter()
             .map(|(path, bytes)| (jaic::paths::file_identity(&*env.fs, path), text_hash(bytes)))
             .collect();
+
         (buffers, open)
     }
 
@@ -121,16 +123,20 @@ impl Session {
         let Some(snapshot) = index.programs.get_mut(root) else {
             return Need::Now;
         };
+
         if snapshot.dirs != dirs || snapshot.trusted != self.trusted() {
             return Need::Now;
         }
+
         if snapshot.checked_revision == self.semantic_revision() && !snapshot.stale {
             return Need::Current;
         }
+
         if !snapshot.outdated(open) {
             snapshot.checked_revision = self.semantic_revision();
             return Need::Current;
         }
+
         match file {
             Some(file) if !snapshot.reads.concerns(file) => Need::Later,
             _ => Need::Now,
@@ -160,6 +166,7 @@ impl Session {
             else {
                 return;
             };
+
             detached = compiled;
             &detached
         };
@@ -174,8 +181,10 @@ impl Session {
             rows: BTreeMap::new(),
             complete: true,
         };
+
         for (compiler, ok) in analysis.polymorph_compilers() {
             snapshot.complete &= ok;
+
             for row in compiler.ide_polymorph_summaries() {
                 let Some(file) = compiler.src.sources.get(row.span.file).path.as_file() else {
                     continue;
@@ -184,6 +193,7 @@ impl Session {
                     .rows
                     .entry((sources.key(file), row.span.start, row.name))
                     .or_default();
+
                 at.end = row.span.end;
                 at.instances.extend(
                     row.instances
@@ -192,10 +202,12 @@ impl Session {
                 );
             }
         }
+
         self.sync_builds(&cache);
         drop(cache);
         snapshot.dirs = self.import_dirs(root);
         let mut index = self.polymorph_index.borrow_mut();
+
         index.pending.remove(root);
         index.programs.insert(root.to_path_buf(), snapshot);
     }
@@ -214,25 +226,33 @@ impl Session {
             self.polymorph_index.borrow_mut().pending.clear();
             return false;
         }
+
         let (buffers, open) = self.polymorph_buffers();
+
         loop {
             let Some(root) = self.polymorph_index.borrow_mut().pending.pop_first() else {
                 return self.index_workspace().is_some() && !self.indexing_pending();
             };
+
             if !self.polymorph_index.borrow().programs.contains_key(&root) {
                 continue;
             }
+
             let dirs = self.import_dirs(&root);
+
             if let Need::Current = self.polymorph_need(&root, &dirs, &open, None) {
                 continue;
             }
+
             // Stopped by newer input, the summary stays queued for the next quiet moment.
             jaic::interrupt::arm();
             self.summarize(&root, dirs, &buffers);
+
             if jaic::interrupt::disarm() {
                 self.polymorph_index.borrow_mut().pending.insert(root);
                 return false;
             }
+
             return true;
         }
     }
@@ -246,9 +266,11 @@ impl Session {
             return Vec::new();
         };
         let mut roots = self.workspace_entry_set(env).as_ref().clone();
+
         if roots.is_empty() {
             roots.insert(PathBuf::from(uri.path()));
         }
+
         let (buffers, open) = self.polymorph_buffers();
         let path = self.sources(env).key(Path::new(uri.path()));
         let file = jaic::paths::file_identity(&*env.fs, Path::new(uri.path()));
@@ -264,13 +286,17 @@ impl Session {
         // Build metaprograms go first: once one has run, the programs it builds are known and
         // are not compiled on their own.
         let mut ordered: Vec<&PathBuf> = roots.iter().collect();
+
         ordered.sort_by_key(|root| !self.is_build_metaprogram(root));
+
         for root in ordered {
             if built_child(root) {
                 continue;
             }
+
             used.insert(root.clone());
             let dirs = self.import_dirs(root);
+
             match self.polymorph_need(root, &dirs, &open, Some(&file)) {
                 Need::Current => {}
                 Need::Now if self.may_compile() => self.summarize(root, dirs, &buffers),
@@ -286,32 +312,40 @@ impl Session {
                 }
             }
         }
+
         // A metaprogram discovered later in the pass may own a root checked earlier.
         // Merge only after build discovery settles, so that standalone child's errors
         // and instances cannot leak into the workspace result.
         used.retain(|root| !built_child(root));
         let mut combined: BTreeMap<Declaration, Row> = BTreeMap::new();
         let mut index = self.polymorph_index.borrow_mut();
+
         index.programs.retain(|root, _| used.contains(root));
         index.pending.retain(|root| used.contains(root));
+
         for snapshot in index.programs.values() {
             complete &= snapshot.complete;
+
             for (key, row) in &snapshot.rows {
                 if key.0 == path {
                     let at = combined.entry(key.clone()).or_default();
+
                     at.end = row.end;
                     at.instances.extend(row.instances.clone());
                 }
             }
         }
+
         drop(index);
         combined
             .into_iter()
             .map(|((_, start, name), row)| {
                 let mut counts = BTreeMap::<String, usize>::new();
+
                 for (label, _) in row.instances.values() {
                     *counts.entry(label.clone()).or_default() += 1;
                 }
+
                 let mut values: Vec<_> = row
                     .instances
                     .into_values()
@@ -323,6 +357,7 @@ impl Session {
                         }
                     })
                     .collect();
+
                 values.sort();
                 (
                     Span {

@@ -74,6 +74,7 @@ struct FileReport {
 
 pub fn pos_of(text: &str, byte: usize) -> Position {
     let before = &text[..byte];
+
     Position {
         line: before.bytes().filter(|&b| b == b'\n').count() as u32,
         character: before
@@ -85,18 +86,23 @@ pub fn pos_of(text: &str, byte: usize) -> Position {
 
 pub fn byte_of(text: &str, position: Position) -> Option<usize> {
     let mut start = 0;
+
     for _ in 0..position.line {
         start += text[start..].find('\n')? + 1;
     }
+
     let line = &text[start..];
     let line = &line[..line.find('\n').unwrap_or(line.len())];
     let mut units = 0;
+
     for (byte, ch) in line.char_indices() {
         if units == position.character {
             return Some(start + byte);
         }
+
         units += ch.len_utf16() as u32;
     }
+
     (units == position.character).then_some(start + line.len())
 }
 
@@ -120,8 +126,10 @@ fn parse_args() -> Result<Args, String> {
         files: Vec::new(),
     };
     let mut args = std::env::args().skip(1);
+
     while let Some(arg) = args.next() {
         let mut value = || args.next().ok_or_else(|| format!("{arg} needs a value"));
+
         match arg.as_str() {
             "--stdlib" => parsed.stdlib = PathBuf::from(value()?),
             "--jaifmt" => parsed.jaifmt = Some(PathBuf::from(value()?)),
@@ -130,6 +138,7 @@ fn parse_args() -> Result<Args, String> {
             "--probe" => {
                 let v = value()?;
                 let (l, c) = v.split_once(':').ok_or("--probe LINE:COL")?;
+
                 parsed.probe = Some((
                     l.parse().map_err(|_| "--probe LINE:COL")?,
                     c.parse().map_err(|_| "--probe LINE:COL")?,
@@ -137,6 +146,7 @@ fn parse_args() -> Result<Args, String> {
             }
             "--list" => {
                 let list = std::fs::read_to_string(value()?).map_err(|e| e.to_string())?;
+
                 parsed
                     .files
                     .extend(list.lines().filter(|l| !l.is_empty()).map(PathBuf::from));
@@ -148,6 +158,7 @@ fn parse_args() -> Result<Args, String> {
             _ => parsed.files.push(PathBuf::from(arg)),
         }
     }
+
     parsed.stdlib = parsed
         .stdlib
         .canonicalize()
@@ -166,11 +177,14 @@ fn project_settings(path: &Path) -> Option<(PathBuf, String)> {
         .find(|d| d.join("jacket.toml").is_file())
         .unwrap_or(dir);
     let existing = std::fs::read_to_string(base.join("jacket.toml")).unwrap_or_default();
+
     if existing.lines().any(|l| l.trim() == "[project]") {
         return None;
     }
+
     let entry = serde_json::to_string(path.strip_prefix(base).ok()?.to_str()?).ok()?;
     let text = format!("{existing}\n[project]\nentry = [{entry}]\n");
+
     Some((base.join("jacket.toml"), text))
 }
 
@@ -181,10 +195,12 @@ fn open(args: &Args, path: &Path, uri: &DocumentUri, text: &str) -> Option<Sessi
         Limits::default(),
         typing_files::native_environment(args.stdlib.clone()),
     );
+
     // A wall-clock limit on a check would make answers depend on how busy the machine is.
     session.set_check_time_limit(0.0);
     let (location, settings) = project_settings(path)?;
     let config = DocumentUri::from_path(&location).ok()?;
+
     session.open(config, 1, settings).ok()?;
     session.set_auto_import(false);
     session.open(uri.clone(), 1, text.to_owned()).ok()?;
@@ -219,6 +235,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
         Ok(o) => o,
         Err(e) => return skip(report, "compile", e),
     };
+
     report.counts.resolved = oracle.refs.len();
     report.counts.literals = oracle.literals.len();
     report.counts.read_notes = oracle.notes.len();
@@ -228,6 +245,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
     let Some(mut session) = open(args, &path, &uri, &text) else {
         return skip(report, "open", String::new());
     };
+
     if let Some((line, character)) = args.probe {
         let at = Position {
             line: line.saturating_sub(1),
@@ -243,9 +261,12 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
                 .map(|i| i.label)
                 .collect::<Vec<_>>()),
         );
+
         return skip(report, "probe", shown);
     }
+
     let has = |c: char| args.checks.contains(c);
+
     if has('a') {
         checks::diagnostics(
             &session,
@@ -255,6 +276,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
             &mut report.dead,
         );
     }
+
     if has('b') {
         report.counts.probed_resolutions = checks::resolutions(
             &session,
@@ -265,6 +287,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
             &mut report.findings,
         );
     }
+
     if has('d') {
         report.counts.probed_completions = checks::completions(
             &session,
@@ -275,9 +298,11 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
             &mut report.findings,
         );
     }
+
     if has('e') {
         checks::notes(&session, &uri, &text, &oracle, &mut report.findings);
     }
+
     if has('c') {
         let fresh = |t: &str| open(args, &path, &uri, t);
         let cx = metamorphic::Context {
@@ -288,6 +313,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
         };
         let mut version = 1;
         let blank = metamorphic::with_blank_lines(&text);
+
         if metamorphic::compare(
             &cx,
             "c-blank",
@@ -299,6 +325,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
         ) {
             report.counts.variants += 1;
         }
+
         if let Some(formatted) = args
             .jaifmt
             .as_deref()
@@ -306,6 +333,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
             && let Some(mut session) = open(args, &path, &uri, &text)
         {
             let mut version = 1;
+
             if metamorphic::compare(
                 &cx,
                 "c-format",
@@ -319,6 +347,7 @@ fn check_file(args: &Args, path: &Path) -> FileReport {
             }
         }
     }
+
     report.millis = started.elapsed().as_millis();
     report
 }
@@ -332,11 +361,14 @@ fn main() {
         }
     };
     let mut failed = false;
+
     for path in &args.files {
         let report = check_file(&args, path);
+
         failed |= !report.findings.is_empty();
         println!("{}", serde_json::to_string(&report).expect("JSON report"));
     }
+
     std::process::exit(i32::from(failed));
 }
 
@@ -350,12 +382,14 @@ mod tests {
     #[test]
     fn no_blank_line_goes_between_an_export_line_and_its_declaration() {
         let text = "// Docs.\n#program_export \"f\"\nf :: () #c_call {}\n";
+
         assert_eq!(with_blank_lines(text), text);
     }
 
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("lsp-oracle-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(dir.join("driven")).unwrap();
         dir
     }
@@ -363,6 +397,7 @@ mod tests {
     #[test]
     fn the_project_lint_settings_apply_to_the_checked_file() {
         let dir = scratch("settings");
+
         std::fs::write(
             dir.join("jacket.toml"),
             "[lint]\nexclude = [\"driven/**\"]\n",
@@ -370,6 +405,7 @@ mod tests {
         .unwrap();
         let file = dir.join("driven/case.jai");
         let (location, text) = project_settings(&file).unwrap();
+
         assert_eq!(location, dir.join("jacket.toml"));
         assert!(text.contains("exclude = [\"driven/**\"]"), "{text}");
         assert!(text.contains("entry = [\"driven/case.jai\"]"), "{text}");
@@ -380,6 +416,7 @@ mod tests {
     fn a_file_without_a_project_file_is_its_own_entry() {
         let dir = scratch("alone");
         let (location, text) = project_settings(&dir.join("driven/case.jai")).unwrap();
+
         assert_eq!(location, dir.join("driven/jacket.toml"));
         assert_eq!(text, "\n[project]\nentry = [\"case.jai\"]\n");
         std::fs::remove_dir_all(dir).unwrap();
@@ -388,6 +425,7 @@ mod tests {
     #[test]
     fn a_project_table_of_its_own_is_refused() {
         let dir = scratch("table");
+
         std::fs::write(
             dir.join("jacket.toml"),
             "[project]\nentry = [\"main.jai\"]\n",

@@ -80,13 +80,16 @@ impl<'ctx> Backend<'ctx, '_> {
             for i in 0..self.funcs.len() {
                 self.func(i);
             }
+
             for i in 0..self.foreigns.len() {
                 self.foreign(i);
             }
+
             for i in 0..self.globals.len() {
                 self.global(i);
             }
         }
+
         // Intrinsics are declared by name as lowering meets them; a program symbol of the same
         // name has to exist first, or LLVM would rename it.
         for (&symbol, &id) in &self.foreign_ids {
@@ -94,37 +97,48 @@ impl<'ctx> Backend<'ctx, '_> {
                 self.foreign(id);
             }
         }
+
         self.init_globals()?;
+
         // The program's own assembly goes in one module only.
         if self.shard.is_none_or(|s| s.index == 0) {
             for text in &self.program.module_asm {
                 crate::emit::append_module_asm(self.module, text);
             }
         }
+
         self.describe_globals();
+
         if self.arch.is_wasm() && self.shard.is_none_or(|s| s.index == 0) {
             self.define_multi3()?;
         }
+
         for (i, func) in self.program.funcs.iter().enumerate() {
             if let Some(func) = func
                 && self.owns_func(i)
             {
                 let f = self.func(i).expect("declared");
+
                 self.define_function(func, f)
                     .map_err(|e| Error(format!("in '{}': {}", func.name, e.0)))?;
             }
         }
+
         for (i, &import) in self.imported.iter().enumerate() {
             if import && let Some(func) = &self.program.funcs[i] {
                 let f = self.func(i).expect("declared");
+
                 self.define_function(func, f)
                     .map_err(|e| Error(format!("in '{}': {}", func.name, e.0)))?;
             }
         }
+
         self.init_replicated()?;
+
         if let Some(debug) = &self.debug {
             debug.finalize();
         }
+
         Ok(())
     }
 
@@ -135,9 +149,11 @@ impl<'ctx> Backend<'ctx, '_> {
     fn define_multi3(&self) -> R<()> {
         const NAME: &str = "__multi3";
         self.declare_named(NAME);
+
         if self.module.get_function(NAME).is_some() {
             return Ok(());
         }
+
         let i64t = self.ctx.i64_type();
         let ty = self.ctx.void_type().fn_type(
             &[
@@ -150,14 +166,18 @@ impl<'ctx> Backend<'ctx, '_> {
             false,
         );
         let f = self.module.add_function(NAME, ty, Some(Linkage::WeakAny));
+
         for attr in ["noinline", "optnone"] {
             let kind = Attribute::get_named_enum_kind_id(attr);
+
             f.add_attribute(
                 AttributeLoc::Function,
                 self.ctx.create_enum_attribute(kind, 0),
             );
         }
+
         let b = self.ctx.create_builder();
+
         b.position_at_end(self.ctx.append_basic_block(f, "entry"));
         let p = |i: u32| -> R<IntValue<'ctx>> {
             Ok(f.get_nth_param(i)
@@ -206,12 +226,14 @@ impl<'ctx> Backend<'ctx, '_> {
             .get_nth_param(0)
             .ok_or("__multi3 result")?
             .into_pointer_value();
+
         b.build_store(out, low)?;
         // Inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
         #[allow(unsafe_code)]
         let out_high =
             // SAFETY: inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
             unsafe { b.build_gep(self.ctx.i8_type(), out, &[i64t.const_int(8, false)], "")? };
+
         b.build_store(out_high, high)?;
         b.build_return(None)?;
         Ok(())
@@ -222,12 +244,15 @@ impl<'ctx> Backend<'ctx, '_> {
         let Some(debug) = &self.debug else {
             return;
         };
+
         for g in &self.program.debug_globals {
             if !self.owns_global(g.global.0 as usize) {
                 continue;
             }
+
             let gv = self.global(g.global.0 as usize);
             let local = self.program.globals[g.global.0 as usize].export.is_none();
+
             debug.global(gv, &gv.get_name().to_string_lossy(), local, g);
         }
     }

@@ -18,6 +18,7 @@ fn same_file(text: &str) -> String {
 fn check(dir: &Path, file: &str, name_marker: &str, decl_file: &str) {
     let (s, uri, text) = open_file(dir, file);
     let diagnostics = s.diagnostics(&uri).unwrap();
+
     assert!(
         diagnostics
             .iter()
@@ -28,15 +29,18 @@ fn check(dir: &Path, file: &str, name_marker: &str, decl_file: &str) {
     let skip = 5;
     let on = at_offset(&text, name_marker, skip + 2);
     let found = s.definition(&uri, on).unwrap();
+
     assert!(
         found.len() == 1 && found[0].uri.ends_with(decl_file),
         "definition: {found:?}"
     );
     let hover = s.hover(&uri, on).unwrap().expect("hover").contents.value;
+
     assert!(hover.contains("utf8_iter"), "{hover}");
     let refs = s.references(&uri, on, true).unwrap();
     let in_use = refs.iter().filter(|l| l.uri == uri.as_str()).count();
     let declared_here = usize::from(decl_file == file);
+
     assert_eq!(in_use, 2 + declared_here, "uses in this file: {refs:?}");
     assert!(
         refs.iter().any(|l| l.uri.ends_with(decl_file)),
@@ -44,9 +48,11 @@ fn check(dir: &Path, file: &str, name_marker: &str, decl_file: &str) {
     );
     // Rename reaches the declaration and both uses.
     let prepared = s.prepare_rename(&uri, on).unwrap();
+
     assert!(prepared.is_some(), "prepare_rename");
     let edits = s.rename(&uri, on, "chars_of").unwrap().expect("rename");
     let total: usize = edits.iter().map(|(_, e)| e.len()).sum();
+
     assert_eq!(total, 3, "{edits:?}");
     // Semantic tokens: a function with the macro flag.
     let tokens = s.semantic_tokens(&uri).unwrap();
@@ -55,6 +61,7 @@ fn check(dir: &Path, file: &str, name_marker: &str, decl_file: &str) {
         .iter()
         .find(|t| t.position == want)
         .unwrap_or_else(|| panic!("no token at {want:?}: {tokens:?}"));
+
     assert_eq!(token.kind, SemanticTokenKind::Function, "{token:?}");
     assert!(token.expand, "{token:?}");
 }
@@ -63,6 +70,7 @@ fn check(dir: &Path, file: &str, name_marker: &str, decl_file: &str) {
 fn custom_iterator_in_the_same_file() {
     let main = same_file("");
     let dir = project("same", &[("main.jai", &main)]);
+
     check(&dir, "main.jai", "for :utf8_iter LYRICS {\n", "main.jai");
 }
 
@@ -83,6 +91,7 @@ fn custom_iterator_imported_from_a_module() {
             ("modules/Iters/module.jai", ITER),
         ],
     );
+
     check(
         &dir,
         "main.jai",

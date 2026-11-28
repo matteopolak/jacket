@@ -24,13 +24,16 @@ pub(crate) fn load(
         return Ok(None);
     };
     let stamp = crate::auto_import::hash(&files.read(&location.file()).unwrap_or_default());
+
     if let Some((seen, loaded)) = index.configs.get(&location.dir)
         && *seen == stamp
     {
         return loaded.clone().map(Some).ok_or(Broken);
     }
+
     let dir = location.dir.clone();
     let loaded = read(files, index, location);
+
     index.configs.insert(dir, (stamp, loaded.clone()));
     loaded.map(Some).ok_or(Broken)
 }
@@ -44,10 +47,12 @@ fn read(files: &dyn Files, index: &mut Index, location: jacket_config::Location)
             return None;
         }
     };
+
     if let Some(problem) = loaded.problems.first() {
         index.bad_config(&file, problem);
         return None;
     }
+
     index.good_config(&file);
     Some(loaded)
 }
@@ -76,10 +81,12 @@ impl Files for SessionFiles<'_> {
             if let Some(text) = self.0.saved_configs.get(&uri) {
                 return Ok(text.clone());
             }
+
             if let Some(doc) = self.0.documents.get(&uri) {
                 return Ok(doc.text.clone());
             }
         }
+
         self.0.read_config_on_disk(path)
     }
 }

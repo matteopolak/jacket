@@ -34,10 +34,12 @@ pub(crate) fn walk(stmts: &[Stmt], v: &mut impl Scopes) {
 /// `body` in a scope of its own.
 fn scoped(body: &Stmt, v: &mut impl Scopes) {
     v.enter();
+
     match &body.kind {
         S::Block(b) => walk(&b.stmts, v),
         _ => stmt(body, v),
     }
+
     v.leave();
 }
 
@@ -62,6 +64,7 @@ fn stmt(s: &Stmt, v: &mut impl Scopes) {
             ..
         } => {
             scoped(then_branch, v);
+
             if let Some(e) = else_branch {
                 scoped(e, v);
             }
@@ -73,19 +76,23 @@ fn stmt(s: &Stmt, v: &mut impl Scopes) {
         }
         S::While(w) => {
             v.enter();
+
             if w.bind_label
                 && let Some(label) = &w.label
             {
                 v.bound(label);
             }
+
             scoped(&w.body, v);
             v.leave();
         }
         S::For(f) => {
             v.enter();
+
             for name in [&f.it, &f.index].into_iter().flatten() {
                 v.bound(name);
             }
+
             scoped(&f.body, v);
             v.leave();
         }

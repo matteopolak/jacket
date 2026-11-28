@@ -43,6 +43,7 @@ pub(crate) fn package_imports(
     let loaded = jacket_config::load_at(&files, location)?;
     let identity = |path: &Path| jaic::paths::file_identity(fs, path);
     let roots = jacket_config::packages::dependency_roots(&files, loaded.dir(), &loaded.config)?;
+
     Ok(roots
         .packages
         .into_iter()

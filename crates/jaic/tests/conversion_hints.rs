@@ -13,11 +13,14 @@ take :: (n: s32) -> s32 { return n; }
 
 fn compile(source: &str) -> (Result<(), Box<Diagnostic>>, Compiler) {
     let mut fs = VirtualFs::default();
+
     fs.insert("/main.jai", source.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(fs));
     let result = compiler.compile_program(Path::new("/main.jai"));
+
     (result, compiler)
 }
 
@@ -41,11 +44,14 @@ fn applied(source: &str, d: &Diagnostic, index: usize) -> String {
         .replacements()
         .map(|(span, text)| (span.start as usize, span.end as usize, text.to_string()))
         .collect();
+
     edits.sort_by_key(|e| std::cmp::Reverse(e.0));
     let mut out = source.to_string();
+
     for (start, end, text) in edits {
         out.replace_range(start..end, &text);
     }
+
     out
 }
 
@@ -55,13 +61,17 @@ fn applied(source: &str, d: &Diagnostic, index: usize) -> String {
 fn fixes_to(body: &str, message: &str, help: &str, fixed: &str) {
     let source = program(body);
     let d = error_of(&source);
+
     assert!(d.message.starts_with(message), "{}", d.message);
     let suggestion = &d.suggestions()[0];
+
     assert_eq!(suggestion.title, help);
     assert_eq!(suggestion.applicability, Applicability::MaybeIncorrect);
     let result = applied(&source, &d, 0);
+
     assert_eq!(result, program(fixed));
     let (outcome, compiler) = compile(&result);
+
     if let Err(e) = outcome {
         panic!(
             "the fixed program does not compile:\n{}",
@@ -209,11 +219,13 @@ fn an_integer_variable_does_not_compare_with_a_float_variable() {
     );
     // An integer the float represents entirely widens implicitly; any other does not.
     let d = error_of(&program("n: s32 = 1; d: float = 2; c := n >= d;"));
+
     assert_eq!(
         d.message,
         "type mismatch: `s32` and `float32` cannot be combined"
     );
     let d = error_of(&program("d: float64 = 2; c := a >= d;"));
+
     assert_eq!(
         d.message,
         "type mismatch: `s64` and `float64` cannot be combined"
@@ -223,18 +235,21 @@ fn an_integer_variable_does_not_compare_with_a_float_variable() {
 #[test]
 fn an_integer_that_fits_a_float_compares_with_it() {
     let source = program("n: s16 = 1; w: s32 = 1; d: float64 = 2; c := n >= b; e := w < d;");
+
     assert!(compile(&source).0.is_ok());
 }
 
 #[test]
 fn a_literal_compares_with_either_kind_of_number() {
     let source = program("c := a < 2; d := b > 1; e := 3 == b; f := 1.5 > a;");
+
     assert!(compile(&source).0.is_ok());
 }
 
 #[test]
 fn a_binary_operand_with_no_conversion_has_no_cast_suggestion() {
     let d = error_of(&program("s := \"x\"; c := a + s;"));
+
     assert_eq!(
         d.message,
         "type mismatch: `s64` and `string` cannot be combined"
@@ -247,10 +262,12 @@ fn extra_return_values_are_dropped() {
     let source =
         format!("{PRELUDE}two :: () -> s64 {{\n    return 1, 2;\n}}\nmain :: () {{ two(); }}\n");
     let d = error_of(&source);
+
     assert_eq!(d.message, "too many return values (procedure returns 1)");
     assert_eq!(d.help, ["the procedure returns `s64`"]);
     assert_eq!(d.suggestions()[0].title, "return only the first 1 value");
     let fixed = applied(&source, &d, 0);
+
     assert!(fixed.contains("return 1;"), "{fixed}");
     assert!(compile(&fixed).0.is_ok());
 }
@@ -259,10 +276,12 @@ fn extra_return_values_are_dropped() {
 fn a_value_returned_from_a_procedure_without_results_is_dropped() {
     let source = format!("{PRELUDE}none :: () {{\n    return 5;\n}}\nmain :: () {{ none(); }}\n");
     let d = error_of(&source);
+
     assert_eq!(d.message, "too many return values (procedure returns 0)");
     assert_eq!(d.help, ["the procedure returns nothing"]);
     assert_eq!(d.suggestions()[0].title, "return without a value");
     let fixed = applied(&source, &d, 0);
+
     assert!(fixed.contains("return;"), "{fixed}");
     assert!(compile(&fixed).0.is_ok());
 }
@@ -273,6 +292,7 @@ fn a_missing_return_value_names_the_result_types() {
         "{PRELUDE}pair :: () -> s64, string {{\n    return;\n}}\nmain :: () {{ pair(); }}\n"
     );
     let d = error_of(&source);
+
     assert_eq!(d.message, "missing return value");
     assert_eq!(d.help, ["the procedure returns `s64`, `string`"]);
 }
@@ -310,6 +330,7 @@ main :: () {{ for P.{{}} {{ }} }}
 "
     );
     let d = error_of(&source);
+
     assert_eq!(
         d.message,
         "no `for_expansion` is visible for iterating over P"
@@ -326,6 +347,7 @@ main :: () {{ for P.{{}} {{ }} }}
 #[test]
 fn looping_over_a_struct_says_where_to_define_the_expansion() {
     let d = error_of(&program("for P.{} { }"));
+
     assert_eq!(
         d.message,
         "no `for_expansion` is visible for iterating over P"
@@ -368,9 +390,11 @@ fn calling_a_numeric_type_suggests_a_cast() {
 #[test]
 fn indexing_and_conditions_say_what_is_accepted() {
     let d = error_of(&program("c := a[0];"));
+
     assert_eq!(d.message, "cannot index a value of type s64");
     assert_eq!(d.help, ["only arrays, strings and pointers can be indexed"]);
     let d = error_of(&program("if P.{} { }"));
+
     assert_eq!(d.message, "a value of type P cannot be used as a condition");
     assert_eq!(
         d.help,
@@ -384,12 +408,14 @@ fn indexing_and_conditions_say_what_is_accepted() {
 fn a_constant_out_of_range_for_a_cast_suggests_truncation() {
     let source = program("c := cast(u8) 300;");
     let d = error_of(&source);
+
     assert!(d.message.starts_with("constant 300 is out of range for u8"));
     assert_eq!(
         d.suggestions()[0].title,
         "to keep the low bits, write `cast,trunc(u8)`"
     );
     let fixed = applied(&source, &d, 0);
+
     assert!(fixed.contains("c := cast,trunc(u8) 300;"), "{fixed}");
     assert!(compile(&fixed).0.is_ok());
 }
@@ -398,12 +424,14 @@ fn a_constant_out_of_range_for_a_cast_suggests_truncation() {
 fn a_cast_between_aggregates_of_one_size_suggests_force() {
     let source = program("p := P.{}; c := cast(Q) p;");
     let d = error_of(&source);
+
     assert_eq!(d.message, "cannot cast P to Q");
     assert_eq!(
         d.suggestions()[0].title,
         "both have the same size: `cast,force` reinterprets the bytes"
     );
     let fixed = applied(&source, &d, 0);
+
     assert!(fixed.contains("c := cast,force(Q) p;"), "{fixed}");
     assert!(compile(&fixed).0.is_ok());
 }
@@ -411,12 +439,14 @@ fn a_cast_between_aggregates_of_one_size_suggests_force() {
 #[test]
 fn a_cast_with_no_conversion_says_what_to_do_instead() {
     let d = error_of(&program("c := cast(s64) P.{};"));
+
     assert_eq!(d.message, "cannot cast P to s64");
     assert_eq!(
         d.help,
         ["P holds several values: cast one of its members to s64 instead"]
     );
     let d = error_of(&program("c := cast(P) a;"));
+
     assert_eq!(d.message, "cannot cast s64 to P");
     assert_eq!(
         d.help,
@@ -440,6 +470,7 @@ fn one_value_of_a_call_is_not_wrapped() {
         "pair :: () -> s64, s64 { return 1, 2; }\n    x: s32 = 0; y: s32 = 0; x, y = pair();",
     );
     let d = error_of(&source);
+
     assert!(d.message.starts_with("type mismatch"), "{}", d.message);
     // The call gives both values: wrapping it would not convert one.
     assert!(d.suggestions().is_empty(), "{:?}", d.suggestions());

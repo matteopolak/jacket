@@ -74,6 +74,7 @@ impl SandboxFs {
         if let Some(&inode) = self.inodes.get(path) {
             return inode;
         }
+
         // FNV-1a, kept clear of the numbers `link` hands out.
         let hash = path.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {
             (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
@@ -93,12 +94,14 @@ impl SandboxFs {
             .filter(|(p, i)| **i == inode && p.as_str() != path)
             .map(|(p, _)| p.clone())
             .collect();
+
         if let Some(data) = self.files.get(path).cloned() {
             for peer in peers {
                 self.mtimes.insert(peer.clone(), stamp);
                 self.files.insert(peer, data.clone());
             }
         }
+
         self.mtimes.insert(path.to_string(), stamp);
     }
 
@@ -112,6 +115,7 @@ impl SandboxFs {
         if self.files.contains_key(path) {
             return true;
         }
+
         !self.removed.contains(path)
             && self
                 .base
@@ -123,10 +127,13 @@ impl SandboxFs {
         if path == "/" || self.dirs.contains(path) {
             return true;
         }
+
         let prefix = format!("{}/", path.trim_end_matches('/'));
+
         if self.files.keys().any(|k| k.starts_with(&prefix)) {
             return true;
         }
+
         !self.removed.contains(path)
             && self
                 .base
@@ -139,9 +146,11 @@ impl SandboxFs {
         if self.files.contains_key(path) {
             return true;
         }
+
         if self.removed.contains(path) {
             return false;
         }
+
         match self.base.as_ref().and_then(|b| b.read(&host_path(path))) {
             Some(bytes) => {
                 self.files.insert(path.to_string(), bytes);
@@ -165,6 +174,7 @@ impl SandboxFs {
 
     fn list(&self, path: &str) -> Vec<(String, bool)> {
         let mut out: BTreeMap<String, bool> = BTreeMap::new();
+
         if let Some(base) = &self.base {
             for (name, dir) in base.list_dir(&host_path(path)) {
                 if !self.removed.contains(&join(path, &name)) {
@@ -172,7 +182,9 @@ impl SandboxFs {
                 }
             }
         }
+
         let prefix = format!("{}/", path.trim_end_matches('/'));
+
         for key in &self.files {
             if let Some(rest) = key.0.strip_prefix(&prefix) {
                 match rest.split_once('/') {
@@ -185,14 +197,17 @@ impl SandboxFs {
                 }
             }
         }
+
         for dir in &self.dirs {
             if let Some(rest) = dir.strip_prefix(&prefix) {
                 let first = rest.split('/').next().unwrap_or(rest);
+
                 if !first.is_empty() {
                     out.insert(first.to_string(), true);
                 }
             }
         }
+
         out.into_iter().collect()
     }
 }
@@ -220,18 +235,23 @@ fn from_windows(path: &str) -> Option<String> {
     let Some(rest) = path.strip_prefix("//") else {
         return drive_path(&path).then(|| format!("/{path}"));
     };
+
     if let Some(rest) = rest.strip_prefix("?/") {
         if drive_path(rest) {
             return Some(format!("/{rest}"));
         }
+
         if let Some(share) = rest.strip_prefix("UNC/") {
             return Some(format!("/UNC/{share}"));
         }
+
         return Some(format!("/DEVICE/{rest}"));
     }
+
     if let Some(device) = rest.strip_prefix("./") {
         return Some(format!("/DEVICE/{device}"));
     }
+
     Some(format!("/UNC/{rest}"))
 }
 
@@ -239,9 +259,11 @@ fn from_windows(path: &str) -> Option<String> {
 /// reverse of `from_windows`.
 fn to_windows(path: &str) -> Option<String> {
     let rest = path.strip_prefix('/')?;
+
     if drive_path(rest) {
         return Some(rest.to_string());
     }
+
     let share = rest.strip_prefix("UNC/")?;
     Some(format!(r"\\{}", share.replace('/', "\\")))
 }
@@ -253,6 +275,7 @@ fn windows_root(parts: &[&str]) -> usize {
     if !cfg!(windows) {
         return 0;
     }
+
     let root = match parts.first() {
         Some(&"UNC") => 3,
         Some(&"DEVICE") => 2,
@@ -289,16 +312,20 @@ pub(super) fn absolute(cwd: &str, path: &str) -> String {
         .collect();
     let mut parts: Vec<&str> = Vec::new();
     let mut floor = 0;
+
     for part in all {
         if part == ".." {
             if parts.len() > floor {
                 parts.pop();
             }
+
             continue;
         }
+
         parts.push(part);
         floor = floor.max(windows_root(&parts));
     }
+
     format!("/{}", parts.join("/"))
 }
 
@@ -425,14 +452,17 @@ impl SandboxHost {
     /// Whether the limit set by `stop_after` or `stop_after_polls` has passed.
     pub fn has_stopped(&mut self) -> bool {
         self.polls += 1;
+
         if self.poll_limit.is_some_and(|limit| self.polls > limit) {
             self.stopped = true;
         }
+
         if !self.stopped
             && let Some((since, limit)) = self.time_limit
         {
             self.stopped = since.elapsed() >= limit;
         }
+
         self.stopped
     }
 
@@ -447,11 +477,14 @@ impl SandboxHost {
     /// Back the sandbox's file system with `base` (read-only) and start in `cwd`.
     pub fn with_files(base: Rc<dyn FileSystem>, cwd: &str) -> Self {
         let mut host = SandboxHost::default();
+
         host.fs.base = Some(base);
+
         // A Windows host's directory (`D:\a\b`) is named as its other paths are: `/D:/a/b`.
         if !cwd.is_empty() {
             host.cwd = absolute("/", cwd);
         }
+
         // Programs expect a scratch directory.
         host.fs.dirs.insert("/tmp".to_string());
         host
@@ -464,6 +497,7 @@ impl SandboxHost {
             return 0;
         };
         let addr = block.addr();
+
         self.allocations.insert(addr, (block, size));
         addr
     }
@@ -478,6 +512,7 @@ impl SandboxHost {
         if self.errno_cell == 0 {
             self.errno_cell = self.alloc(8);
         }
+
         write_u32(self.errno_cell, self.abi().errno(code) as u32);
         u64::MAX
     }
@@ -495,6 +530,7 @@ impl SandboxHost {
 
     fn open_file(&mut self, path: String, open: Open) -> Result<i64, u64> {
         let (readable, writable) = (open.read, open.write);
+
         if self.fs.is_dir(&path) {
             if writable {
                 return Err(EISDIR);
@@ -503,7 +539,9 @@ impl SandboxHost {
             if open.create && open.exclusive {
                 return Err(EEXIST);
             }
+
             self.fs.load(&path);
+
             if open.truncate && writable {
                 self.fs.files.insert(path.clone(), Vec::new());
                 self.fs.changed(&path);
@@ -512,16 +550,20 @@ impl SandboxHost {
             if !self.parent_exists(&path) {
                 return Err(ENOENT);
             }
+
             self.fs.removed.remove(&path);
             self.fs.files.insert(path.clone(), Vec::new());
             self.fs.changed(&path);
         } else {
             return Err(ENOENT);
         }
+
         if self.next_fd < FIRST_FD {
             self.next_fd = FIRST_FD;
         }
+
         let fd = self.next_fd;
+
         self.next_fd += 1;
         self.fds.insert(
             fd,
@@ -547,42 +589,57 @@ impl SandboxHost {
         if fd == 0 {
             return Some(0);
         }
+
         let file = self.fds.get_mut(&fd)?;
         let data = self.fs.files.get(&file.path)?;
+
         if !file.readable {
             return None;
         }
+
         let available = data.len().saturating_sub(file.pos);
         let n = available.min(count);
+
         if n > 0 {
             write_bytes(out, &data[file.pos..file.pos + n]);
         }
+
         file.pos += n;
+
         if n < count {
             file.eof = true;
         }
+
         Some(n)
     }
 
     fn write_fd(&mut self, fd: i64, bytes: &[u8]) -> Option<usize> {
         let file = self.fds.get_mut(&fd)?;
+
         if !file.writable {
             return None;
         }
+
         let data = self.fs.files.get_mut(&file.path)?;
+
         if file.append {
             file.pos = data.len();
         }
+
         if data.len() < file.pos {
             data.resize(file.pos, 0);
         }
+
         let end = file.pos + bytes.len();
+
         if data.len() < end {
             data.resize(end, 0);
         }
+
         data[file.pos..end].copy_from_slice(bytes);
         file.pos = end;
         let path = file.path.clone();
+
         self.fs.changed(&path);
         Some(bytes.len())
     }
@@ -602,9 +659,11 @@ impl SandboxHost {
             _ => return None,
         };
         let target = base + offset;
+
         if target < 0 {
             return None;
         }
+
         file.pos = target as usize;
         file.eof = false;
         Some(target)
@@ -639,6 +698,7 @@ impl SandboxHost {
             blocks: size.div_ceil(512),
             times: [(mtime, 0); 4],
         };
+
         records::fill_stat(self.abi(), out, &file);
         Ok(())
     }
@@ -657,7 +717,9 @@ fn stat_syscall<'a>(abi: PosixAbi, symbol: &str, args: &'a [u64]) -> Option<(Lib
     if symbol != "syscall" {
         return None;
     }
+
     let rest = args.get(1..).unwrap_or_default();
+
     Some(match abi.stat_syscall(word_or_zero(args, 0))? {
         StatSyscall::Stat => (LibcFn::Stat, rest),
         StatSyscall::Lstat => (LibcFn::Lstat, rest),
@@ -666,12 +728,14 @@ fn stat_syscall<'a>(abi: PosixAbi, symbol: &str, args: &'a [u64]) -> Option<(Lib
             if word_or_zero(rest, 0) as i32 as i64 != abi.at_working_directory() {
                 return None;
             }
+
             let no_follow = word_or_zero(rest, 3) & abi.at_no_follow() != 0;
             let call = if no_follow {
                 LibcFn::Lstat
             } else {
                 LibcFn::Stat
             };
+
             (call, rest.get(1..).unwrap_or_default())
         }
     })
@@ -681,16 +745,21 @@ fn cstr(ptr: u64) -> String {
     if ptr == 0 {
         return String::new();
     }
+
     let mut bytes = Vec::new();
     let mut p = ptr;
+
     loop {
         let b = read_u8(p);
+
         if b == 0 {
             break;
         }
+
         bytes.push(b);
         p += 1;
     }
+
     String::from_utf8_lossy(&bytes).into_owned()
 }
 
@@ -707,11 +776,13 @@ impl Host for SandboxHost {
         if bytes.is_empty() {
             return;
         }
+
         if to_stderr {
             self.stderr.extend_from_slice(bytes);
         } else {
             self.stdout.extend_from_slice(bytes);
         }
+
         match self.order.last_mut() {
             Some((stream, len)) if *stream == to_stderr => *len += bytes.len(),
             _ => self.order.push((to_stderr, bytes.len())),
@@ -751,6 +822,7 @@ impl Host for SandboxHost {
             .or_else(|| self.stream_call(fun, arg))
             .map(Ok)
             .or_else(|| self.process_call(fun, arg))?;
+
         Some(served.map(|value| vec![value]))
     }
 
@@ -785,6 +857,7 @@ impl Host for SandboxHost {
             );
         };
         let base = (!self.cwd.is_empty()).then(|| host_path(&self.cwd));
+
         services.ask(&crate::service::resolve(service, base.as_deref()), request)
     }
 }
@@ -850,6 +923,7 @@ impl Host for SharedHost {
                 "compile-time services are not available here",
             );
         };
+
         services.ask(
             &crate::service::resolve(service, base.as_deref().map(std::path::Path::new)),
             request,

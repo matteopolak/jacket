@@ -31,15 +31,20 @@ operator - :: (a:Hidden,b:Hidden)->Hidden { return .{a.n-b.n}; }
 
 fn compile(main: &str, facade: Option<&str>) -> Result<(), String> {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/Operators/module.jai", OPERATORS.as_bytes());
+
     if let Some(facade) = facade {
         fs.insert("/lib/Facade/module.jai", facade.as_bytes());
     }
+
     fs.insert("/main.jai", main.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec!["/lib".into()];
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     compiler
         .compile_program(Path::new("/main.jai"))
         .map_err(|error| error.render(&compiler.src.sources))
@@ -67,6 +72,7 @@ fn reviewed_public_symbols_select_each_operator_family() {
             check :: ()->bool {{ a:=M.Value.{{12}}; b:=M.Value.{{3}}; {body} }}
             #assert check(); main :: () {{}}"#
         );
+
         compile(&source, None).unwrap_or_else(|error| panic!("{symbol}: {error}"));
     }
 }
@@ -78,9 +84,11 @@ fn internal_spelling_is_not_a_public_filter_alias() {
             r#"M :: #import "Operators"; using,only({filter}) M;
             main :: () {{ a:=M.Value.{{7}}; b:=M.Value.{{2}}; v:=a-b; }}"#
         );
+
         // Not selected by the filter, but found in the type's own module (with a warning).
         compile(&source, None).unwrap();
     }
+
     // An unknown exclusion does not hide the actual public operator symbol.
     compile(
         r#"using,except(.["operator-"]) M :: #import "Operators";
@@ -97,6 +105,7 @@ fn excludes_and_unselected_overloads_stay_hidden() {
             r#"using,{filter} M :: #import "Operators";
             main :: () {{ a:=M.Value.{{7}}; b:=M.Value.{{2}}; v:=a-b; }}"#
         );
+
         // The filter keeps minus out of scope; the type's module still supplies it.
         compile(&source, None).unwrap();
     }
@@ -132,6 +141,7 @@ fn each_reviewed_symbol_can_be_excluded_through_a_filtered_reexport() {
         // Excluded operators stay out of scope: a named call fails. The
         // others are still found in the type's own module (with a warning).
         let hidden = body.contains("operator ");
+
         assert_eq!(
             compile(&source, Some(&facade)).is_err(),
             hidden,
@@ -150,6 +160,7 @@ fn named_and_anonymous_imports_and_filtered_reexports_preserve_identity() {
     ] {
         compile(source, None).unwrap();
     }
+
     compile(
         r#"using #import "Facade";
         #assert (Value.{7}-Value.{2}).n==5; main :: () {}"#,
@@ -172,16 +183,20 @@ fn filters_do_not_bypass_privacy_or_rewrite_ordinary_member_names() {
             r#"using,only(.[{target:?}]) #import "Operators";
             leaked :: {target}; main :: () {{}}"#
         );
+
         compile(&source, None).expect_err("a filter cannot expose private members");
     }
+
     for operation in ["a-b", "operator -(a,b)"] {
         let source = format!(
             r#"M :: #import "Operators"; using,only(.["-"]) M;
             main :: () {{ a:=M.Hidden.{{7}}; b:=M.Hidden.{{2}}; leaked:={operation}; }}"#
         );
+
         compile(&source, None)
             .expect_err("a symbol filter cannot expose a private overload of a public type");
     }
+
     compile(
         r#"using,only(.["operator_count","storage"]) M :: #import "Operators";
         #assert operator_count==37;

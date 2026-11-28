@@ -95,9 +95,11 @@ impl Default for ServiceConfig {
 #[must_use]
 pub fn resolve(service: &str, base: Option<&Path>) -> PathBuf {
     let path = Path::new(service);
+
     if path.is_absolute() {
         return path.to_path_buf();
     }
+
     match base {
         Some(base) => base.join(path),
         None => std::env::current_dir().unwrap_or_default().join(path),
@@ -211,6 +213,7 @@ mod native {
                 .managers
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
+
             // A manager that stopped (idle) dropped its receiver: start a new one.
             if let Some(sender) = managers.get(service) {
                 match sender.send(job) {
@@ -218,22 +221,27 @@ mod native {
                     Err(mpsc::SendError(back)) => job = back,
                 }
             }
+
             let (sender, jobs) = mpsc::channel();
             let _ = sender.send(job);
+
             managers.insert(service.to_path_buf(), sender);
             let manager = Manager::new(service.to_path_buf(), self.config.clone());
             let spawned = std::thread::Builder::new()
                 .name("jaic-service".into())
                 .spawn(move || manager.run(&jobs));
+
             if spawned.is_err() {
                 managers.remove(service);
             }
+
             Ticket(answer)
         }
 
         /// Asks `service` and waits for the answer (a native build).
         pub fn call(&self, service: &Path, request: Vec<u8>) -> ServiceReply {
             let ticket = self.submit(service, request);
+
             // The manager enforces the timeout itself; the slack covers starting the worker.
             ticket
                 .wait(self.config.timeout * 2 + Duration::from_secs(5))
@@ -302,9 +310,12 @@ mod native {
             if request.len() as u64 > MAX_FRAME {
                 return ServiceReply::failed("the request is larger than 256 MiB");
             }
+
             self.restart_if_changed();
+
             if let Some(at) = self.retry_at {
                 let now = Instant::now();
+
                 if now < at {
                     return ServiceReply::failed(format!(
                         "the service failed and is not restarted for {} s: {}",
@@ -313,15 +324,19 @@ mod native {
                     ));
                 }
             }
+
             if self.worker.is_none() {
                 match self.spawn() {
                     Ok(worker) => self.worker = Some(worker),
                     Err(reply) => return reply,
                 }
             }
+
             let worker = self.worker.as_mut().expect("spawned above");
             let mut frame = (request.len() as u64).to_le_bytes().to_vec();
+
             frame.extend_from_slice(&request);
+
             if worker
                 .stdin
                 .write_all(&frame)
@@ -330,6 +345,7 @@ mod native {
             {
                 return self.crashed("the service stopped before reading the request");
             }
+
             match worker.answers.recv_timeout(self.config.timeout) {
                 Ok(Ok(reply)) => {
                     self.backoff = Duration::ZERO;
@@ -348,9 +364,11 @@ mod native {
         /// Stops the worker after a failure and backs off before the next start.
         fn crashed(&mut self, reason: &str) -> ServiceReply {
             let mut message = reason.to_string();
+
             if let Some(mut worker) = self.worker.take() {
                 let _ = worker.child.kill();
                 let status = worker.child.wait().ok();
+
                 if status
                     .and_then(|s| s.code())
                     .is_some_and(|c| c == i32::from(crate::memory_limit::EXIT_CODE))
@@ -360,14 +378,17 @@ mod native {
                         self.config.memory_bytes >> 20
                     );
                 }
+
                 let tail = worker.stderr.lock().map(|b| b.clone()).unwrap_or_default();
                 let tail = String::from_utf8_lossy(&tail);
                 let tail = tail.trim();
+
                 if !tail.is_empty() {
                     message.push_str(":\n");
                     message.push_str(tail);
                 }
             }
+
             self.backoff = if self.backoff.is_zero() {
                 self.config.backoff_min
             } else {
@@ -387,13 +408,16 @@ mod native {
             {
                 return;
             }
+
             self.checked = Some(Instant::now());
             let now = fingerprint(&self.path, self.jaic().as_deref());
+
             if self.fingerprint.is_some_and(|before| before != now) {
                 self.worker = None;
                 self.backoff = Duration::ZERO;
                 self.retry_at = None;
             }
+
             self.fingerprint = Some(now);
         }
 
@@ -410,13 +434,16 @@ mod native {
                     "no `jaic` was found to run the service with (put it on PATH or next to this program)",
                 ));
             };
+
             if !self.path.is_file() {
                 return Err(ServiceReply::failed(format!(
                     "service `{}` does not exist",
                     self.path.display()
                 )));
             }
+
             let mut command = Command::new(&jaic);
+
             command
                 .arg(&self.path)
                 .arg("-interp")
@@ -427,9 +454,11 @@ mod native {
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
                 .stderr(Stdio::piped());
+
             if let Some(dir) = self.path.parent() {
                 command.current_dir(dir);
             }
+
             let mut child = command.spawn().map_err(|error| {
                 ServiceReply::unavailable(format!("could not start `{}`: {error}", jaic.display()))
             })?;
@@ -438,27 +467,35 @@ mod native {
             let mut stderr = child.stderr.take().expect("piped");
             let tail = Arc::new(Mutex::new(Vec::new()));
             let kept = tail.clone();
+
             std::thread::spawn(move || {
                 let mut chunk = [0u8; 4096];
+
                 while let Ok(n) = stderr.read(&mut chunk) {
                     if n == 0 {
                         return;
                     }
+
                     let mut tail = kept
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner);
+
                     tail.extend_from_slice(&chunk[..n]);
+
                     if tail.len() > STDERR_TAIL {
                         let cut = tail.len() - STDERR_TAIL;
+
                         tail.drain(..cut);
                     }
                 }
             });
             let (answers, received) = mpsc::channel();
+
             std::thread::spawn(move || {
                 loop {
                     let answer = read_answer(&mut stdout);
                     let stop = answer.is_err();
+
                     if answers.send(answer).is_err() || stop {
                         return;
                     }
@@ -492,20 +529,25 @@ mod native {
     )]
     fn read_answer(from: &mut impl Read) -> Result<ServiceReply, String> {
         let mut length = [0u8; 8];
+
         from.read_exact(&mut length)
             .map_err(|_| "the service stopped".to_string())?;
         let length = u64::from_le_bytes(length);
+
         if length == 0 || length > MAX_FRAME {
             return Err(format!(
                 "the service sent a malformed answer ({length} bytes)"
             ));
         }
+
         let mut body = vec![0u8; length as usize];
+
         from.read_exact(&mut body)
             .map_err(|_| "the service stopped mid-answer".to_string())?;
         let status = ServiceStatus::from_byte(body[0])
             .filter(|s| *s != ServiceStatus::Pending)
             .ok_or_else(|| format!("the service sent an unknown status {}", body[0]))?;
+
         body.remove(0);
         Ok(ServiceReply {
             status,
@@ -529,23 +571,29 @@ mod native {
                     .hash(hasher);
             }
         };
+
         if let Some(jaic) = jaic {
             stamp(jaic, &mut hasher);
         }
+
         let mut dirs: Vec<(PathBuf, u32)> = service
             .parent()
             .map(|d| vec![(d.to_path_buf(), 0)])
             .unwrap_or_default();
+
         while let Some((dir, depth)) = dirs.pop() {
             let Ok(entries) = std::fs::read_dir(&dir) else {
                 continue;
             };
             let mut entries: Vec<_> = entries.filter_map(Result::ok).map(|e| e.path()).collect();
+
             entries.sort();
+
             for path in entries {
                 let hidden = path
                     .file_name()
                     .is_some_and(|n| n.to_string_lossy().starts_with('.'));
+
                 if path.is_dir() {
                     if depth < 2 && !hidden {
                         dirs.push((path, depth + 1));
@@ -555,6 +603,7 @@ mod native {
                 }
             }
         }
+
         hasher.finish()
     }
 }

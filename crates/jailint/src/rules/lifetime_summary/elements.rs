@@ -13,8 +13,10 @@ impl Resolver<'_> {
         if seen.len() >= 24 || !seen.insert(value) {
             return None;
         }
+
         let defs = self.values.get(&value)?;
         let mut result = None;
+
         for def in defs {
             let p = match def {
                 Def::Address(p) => *p,
@@ -27,11 +29,14 @@ impl Resolver<'_> {
                 }
                 _ => return None,
             };
+
             if result.is_some_and(|old| old != p) {
                 return None;
             }
+
             result = Some(p);
         }
+
         seen.remove(&value);
         result
     }
@@ -51,21 +56,27 @@ impl Resolver<'_> {
         else {
             return None;
         };
+
         if !super::swap::swaps_arguments(self.compiler, *callee) {
             return None;
         }
+
         let position =
             |formal| facts.position(value(args.iter().find(|a| a.formal == formal)?)?, site);
         let a = position(0)?;
         let b = position(1)?;
+
         if a.region != b.region || !a.bounded || !b.bounded {
             return None;
         }
+
         let p = self.places.lookup(&facts.places, a.region)?;
         let mut target = self.location(p, all, &mut HashSet::default(), 0)?;
+
         if !matches!(target.root, Root::Parameter(_)) {
             return None;
         }
+
         target.steps.push(super::Step::Storage);
         Some(super::Effect {
             target,
@@ -95,10 +106,12 @@ impl Resolver<'_> {
             return None;
         };
         let p = self.places.existing(place, ty)?;
+
         if !matches!(self.places.paths[p].1.last(), Some(super::Projection::Field(name)) if name.as_str() == "count")
         {
             return None;
         }
+
         let parent = *self.places.descriptor_fields.get(&p)?;
         let mut target = self.location(parent, all, &mut HashSet::default(), 0)?;
         let Root::Parameter(formal) = target.root else {
@@ -108,9 +121,11 @@ impl Resolver<'_> {
             .params
             .values()
             .any(|(n, ty)| *n == formal && self.compiler.ty.types.is_pointer(*ty));
+
         if !by_pointer && !target.steps.contains(&super::Step::Deref) {
             return None;
         }
+
         target.steps.push(super::Step::Storage);
         Some(super::Effect {
             target,
@@ -136,9 +151,11 @@ impl Resolver<'_> {
                         if let Some(n) = a.constant {
                             return Selector::Constant(n as i64 as i128);
                         }
+
                         let Some(v) = value(a) else {
                             return Selector::Unknown;
                         };
+
                         match self.value(v, all) {
                             Some(Path {
                                 root: Root::Parameter(p),
@@ -166,10 +183,13 @@ impl Resolver<'_> {
         if seen.len() >= 24 || !seen.insert(v) {
             return None;
         }
+
         let defs = self.values.get(&v)?;
+
         match defs.as_slice() {
             [Def::Call(callee, args, index)] => {
                 let (path, key) = all.get(callee)?.elements.get(index)?;
+
                 Some((
                     self.substitute(path, args, all, &mut HashSet::default(), 0)?,
                     self.selector_actual(*key, args, all),

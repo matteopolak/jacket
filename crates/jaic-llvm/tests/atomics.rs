@@ -77,15 +77,20 @@ fn directory(name: &str) -> TempDir {
 
 fn object(dir: &std::path::Path, wasm: bool, optimized: bool) -> PathBuf {
     let mut options = Options::host();
+
     options.runtime_support = false;
+
     if wasm {
         options.os = TargetOs::Wasm;
         options.cpu = TargetCpu::Wasm;
     }
+
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(e) = compiler.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
         panic!("{}", e.render(&compiler.src.sources));
     }
+
     let object = dir.join("atomics.o");
     let options = jaic_llvm::Options {
         target: wasm.then(jaic::target::Target::wasm_module),
@@ -97,8 +102,10 @@ fn object(dir: &std::path::Path, wasm: bool, optimized: bool) -> PathBuf {
         emit_ir: Some(dir.join("atomics.ll")),
         ..Default::default()
     };
+
     emit_object(&compiler.out.program, &options, &object).unwrap();
     let ir = std::fs::read_to_string(dir.join("atomics.ll")).unwrap();
+
     for text in [
         "load atomic",
         "store atomic",
@@ -108,6 +115,7 @@ fn object(dir: &std::path::Path, wasm: bool, optimized: bool) -> PathBuf {
     ] {
         ir::assert_contains(&ir, text);
     }
+
     object
 }
 
@@ -117,6 +125,7 @@ fn native_scalars_alignment_and_real_thread_contention() {
     if !toolchain::require_all(&["clang"]) {
         return;
     }
+
     for optimized in [false, true] {
         let dir = directory(if optimized {
             "native-o2"
@@ -125,6 +134,7 @@ fn native_scalars_alignment_and_real_thread_contention() {
         });
         let object = object(&dir, false, optimized);
         let source = dir.join("driver.c");
+
         std::fs::write(&source, r"
 #include <pthread.h>
 #include <stdint.h>
@@ -175,6 +185,7 @@ int main(int argc, char **argv) {
 }
 ").unwrap();
         let executable = dir.join("driver");
+
         run(toolchain::command("clang")
             .args(["-std=c11", "-pthread"])
             .arg(&source)
@@ -186,6 +197,7 @@ int main(int argc, char **argv) {
             .arg("misaligned")
             .output()
             .unwrap();
+
         assert!(!bad.status.success() && bad.status.code() != Some(98));
     }
 }
@@ -195,9 +207,11 @@ fn wasm64_scalar_operations_execute() {
     if !toolchain::require_all(&["wasm-ld", "node"]) {
         return;
     }
+
     let dir = directory("wasm64");
     let object = object(&dir, true, true);
     let module = dir.join("atomics.wasm");
+
     run(toolchain::command("wasm-ld")
         .args([
             "-mwasm64",
@@ -212,6 +226,7 @@ fn wasm64_scalar_operations_execute() {
     let script = r"const fs=require('fs'); const m=new WebAssembly.Module(fs.readFileSync(process.argv[1]));
 const env={}; for(const i of WebAssembly.Module.imports(m)){if(i.kind!=='function')throw Error('unsupported import');env[i.name]=()=>{throw Error('unexpected runtime failure: '+i.name);};}
 const instance=new WebAssembly.Instance(m,{env}); if(instance.exports.atomic_check()!==0)throw Error('atomic scalar mismatch');";
+
     run(toolchain::command("node").args(["-e", script]).arg(module));
 }
 
@@ -222,17 +237,21 @@ fn a_64_bit_compare_and_swap_compiles_unoptimized_for_i686() {
     let dir = directory("i686");
     let target = jaic::target::Target::parse("i686-unknown-linux-gnu").unwrap();
     let mut options = Options::host();
+
     options.runtime_support = false;
     target.apply(&mut options);
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(e) = compiler.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
         panic!("{}", e.render(&compiler.src.sources));
     }
+
     let options = jaic_llvm::Options {
         target: Some(target),
         opt_level: OptLevel::O0,
         ..Default::default()
     };
+
     emit_object(&compiler.out.program, &options, &dir.join("i686.o")).unwrap();
 }
 
@@ -243,6 +262,7 @@ fn i686_stack_slots_for_64_bit_values_are_8_aligned() {
     let dir = directory("i686-slots");
     let target = jaic::target::Target::parse("i686-unknown-linux-gnu").unwrap();
     let mut options = Options::host();
+
     options.runtime_support = false;
     target.apply(&mut options);
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
@@ -254,17 +274,21 @@ swap_local :: () -> u64 #c_call {
     return atomic_exchange(*x, 2);
 }
 "#;
+
     if let Err(e) = compiler.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&compiler.src.sources));
     }
+
     let options = jaic_llvm::Options {
         target: Some(target),
         opt_level: OptLevel::O0,
         emit_ir: Some(dir.join("slots.ll")),
         ..Default::default()
     };
+
     emit_object(&compiler.out.program, &options, &dir.join("slots.o")).unwrap();
     let text = std::fs::read_to_string(dir.join("slots.ll")).unwrap();
+
     ir::assert_function_contains(&text, "swap_local", "alloca [8 x i8], align 8");
 }
 
@@ -273,12 +297,15 @@ fn wasm_cannot_silently_disable_required_atomics() {
     if !toolchain::require_all(&["wasm-ld"]) {
         return;
     }
+
     let dir = directory("wasm64-disabled");
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.os = TargetOs::Wasm;
     options.cpu = TargetCpu::Wasm;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     compiler
         .compile_sources(&[ProgramSource::String(SOURCE.into())])
         .unwrap();
@@ -289,6 +316,7 @@ fn wasm_cannot_silently_disable_required_atomics() {
     };
     let error = emit_object(&compiler.out.program, &options, &dir.join("disabled.o"))
         .expect_err("explicitly disabled required atomics must fail");
+
     assert!(error.contains("atomics target feature"), "{error}");
 }
 
@@ -297,12 +325,15 @@ fn wasm64_shared_memory_contention() {
     if !toolchain::require_all(&["wasm-ld", "node"]) {
         return;
     }
+
     let dir = directory("wasm64-shared");
     let object = object(&dir, true, true);
     let module = dir.join("primary.wasm");
     let imported = dir.join("worker.wasm");
+
     for (path, import_memory) in [(&module, false), (&imported, true)] {
         let mut linker = toolchain::command("wasm-ld");
+
         linker.args([
             "-mwasm64",
             "--no-entry",
@@ -319,11 +350,14 @@ fn wasm64_shared_memory_contention() {
             "--shared-memory",
             "--max-memory=16777216",
         ]);
+
         if import_memory {
             linker.arg("--import-memory");
         }
+
         run(linker.arg(&object).arg("-o").arg(path));
     }
+
     let script = r"
 const fs=require('fs'),{Worker}=require('worker_threads');
 function env(m,memory){const e={memory};for(const i of WebAssembly.Module.imports(m))if(i.kind==='function')e[i.name]=()=>{throw Error('unexpected runtime failure '+i.name);};return e;}
@@ -362,6 +396,7 @@ for(const producer of [false,true]){
 await Promise.all(pairReady);for(const w of pair)w.postMessage('go');await Promise.all(pairDone);for(const w of pair)await w.terminate();
 })().catch(e=>{console.error(e);process.exit(1);});
 ";
+
     run(toolchain::command("node")
         .args(["-e", script])
         .arg(module)

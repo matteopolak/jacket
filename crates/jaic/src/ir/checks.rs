@@ -60,6 +60,7 @@ pub fn cast_check_is_64_bit_sign_change(code: u64) -> bool {
 /// The integer type a `cast_check_code` names (`u8`, `s32`, ...).
 pub fn cast_check_target(code: u64) -> String {
     let signed = code & 0x100 != 0;
+
     format!(
         "{}{}",
         if signed {
@@ -78,6 +79,7 @@ pub fn check_message(reason: impl Into<Option<CheckReason>>, a: u64, b: u64) -> 
     let Some(reason) = reason.into() else {
         return "runtime check failed".into();
     };
+
     match reason {
         CheckReason::MissingReturn => {
             "reached the end of a procedure that must return a value".into()
@@ -87,6 +89,7 @@ pub fn check_message(reason: impl Into<Option<CheckReason>>, a: u64, b: u64) -> 
         }
         CheckReason::Bounds => {
             let (index, count) = (a as i64, b as i64);
+
             format!(
                 "array bounds check failed: index {index} is outside an array of {count} element{}",
                 if count == 1 {
@@ -112,6 +115,7 @@ pub fn check_message(reason: impl Into<Option<CheckReason>>, a: u64, b: u64) -> 
                 NULL_FILL => "memory fill",
                 _ => "read",
             };
+
             if b == 0 {
                 format!("null pointer dereference: {kind} through a null pointer")
             } else {

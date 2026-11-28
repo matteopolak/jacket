@@ -73,6 +73,7 @@ impl Client {
             hold_refreshes,
             violations: Vec::new(),
         };
+
         client.request(
             "initialize",
             json!({"capabilities": {
@@ -99,17 +100,22 @@ impl Client {
     /// The responses among `out`; everything else is the server talking to its client.
     fn absorb(&mut self, out: Vec<String>) -> Vec<Value> {
         let mut responses = Vec::new();
+
         for text in out {
             let message: Value = serde_json::from_str(&text).unwrap();
+
             match (message.get("method"), message.get("id")) {
                 (Some(method), Some(id)) => {
                     let method = method.as_str().unwrap().to_string();
+
                     if REFRESHES.contains(&method.as_str()) {
                         if self.outstanding.iter().any(|(_, m)| *m == method) {
                             self.violations
                                 .push(format!("`{method}` sent while one was unanswered"));
                         }
+
                         self.outstanding.push((id.clone(), method));
+
                         if !self.hold_refreshes {
                             self.answer_refreshes();
                         }
@@ -117,12 +123,14 @@ impl Client {
                         // `window/workDoneProgress/create` and any other request of ours.
                         let reply = json!({"jsonrpc": "2.0", "id": id, "result": null});
                         let more = self.json.handle_json(&reply.to_string()).unwrap();
+
                         responses.extend(self.absorb(more));
                     }
                 }
                 (Some(method), None) => {
                     if method == "$/progress" {
                         let token = message["params"]["token"].as_str().unwrap().to_string();
+
                         self.progress
                             .entry(token)
                             .or_default()
@@ -132,6 +140,7 @@ impl Client {
                 _ => responses.push(message),
             }
         }
+
         responses
     }
 
@@ -140,6 +149,7 @@ impl Client {
         while let Some((id, _)) = self.outstanding.pop() {
             let reply = json!({"jsonrpc": "2.0", "id": id, "result": null});
             let more = self.json.handle_json(&reply.to_string()).unwrap();
+
             self.absorb(more);
         }
     }
@@ -149,6 +159,7 @@ impl Client {
         let id = self.next_id;
         let responses =
             self.deliver(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}));
+
         responses.into_iter().find(|r| r["id"] == json!(id)).map_or(
             Value::Null,
             |r| json!({"result": r["result"], "error": r["error"]}),
@@ -164,20 +175,26 @@ impl Client {
         for _ in 0..500 {
             let working = self.json.indexing_pending() || self.json.compile_pending();
             let (awaiting, out) = self.json.indexing_progress(working).unwrap();
+
             self.absorb(out);
+
             if awaiting {
                 continue;
             }
+
             if self.json.has_background_work() {
                 let out = self.json.background_work().unwrap();
+
                 self.absorb(out);
             } else if self.json.compile_pending() {
                 let out = self.json.warm_pending().unwrap();
+
                 self.absorb(out);
             } else if !working {
                 return;
             }
         }
+
         panic!("the server did not settle");
     }
 
@@ -185,11 +202,14 @@ impl Client {
     /// all refreshes are answered.
     fn check_protocol(&self) -> Vec<String> {
         let mut problems = self.violations.clone();
+
         for (token, values) in &self.progress {
             let kinds: Vec<&str> = values.iter().map(|v| v["kind"].as_str().unwrap()).collect();
+
             if kinds.first() != Some(&"begin") || kinds.last() != Some(&"end") {
                 problems.push(format!("progress `{token}` is not begin..end: {kinds:?}"));
             }
+
             if kinds.iter().filter(|k| **k == "begin").count() != 1
                 || kinds.iter().filter(|k| **k == "end").count() != 1
             {
@@ -197,20 +217,26 @@ impl Client {
                     "progress `{token}` begins or ends twice: {kinds:?}"
                 ));
             }
+
             let mut last = 0;
+
             for value in values.iter().filter(|v| v["kind"] != "end") {
                 let percentage = value["percentage"].as_u64().unwrap_or(0);
+
                 if percentage < last || percentage > 100 {
                     problems.push(format!(
                         "progress `{token}` went from {last} to {percentage}"
                     ));
                 }
+
                 last = percentage;
             }
         }
+
         if !self.outstanding.is_empty() {
             problems.push(format!("refreshes left unanswered: {:?}", self.outstanding));
         }
+
         problems
     }
 }
@@ -268,21 +294,26 @@ const WORDS: [&str; 8] = [
 /// A random small change to `text`, as an editor or a refactoring might make.
 fn mutate(rng: &mut Rng, name: &str, text: &str, counter: u64) -> String {
     let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
+
     if lines.is_empty() {
         return format!("gen_{counter} :: () -> int {{ return {counter}; }}\n");
     }
+
     let at = rng.below(lines.len());
+
     match rng.below(8) {
         0 => {
             lines.remove(at);
         }
         1 => {
             let copy = lines[at].clone();
+
             lines.insert(at, copy);
         }
         2 => {
             let from = rng.pick(&WORDS);
             let to = rng.pick(&WORDS);
+
             lines[at] = lines[at].replacen(from, to, 1);
         }
         3 => lines.insert(at, format!("// note {counter}")),
@@ -301,6 +332,7 @@ fn mutate(rng: &mut Rng, name: &str, text: &str, counter: u64) -> String {
                 "#load \"{}\";",
                 rng.pick(&["c.jai", "d.jai", "b.jai", "a.jai"])
             );
+
             if let Some(found) = lines.iter().position(|l| *l == load) {
                 lines.remove(found);
             } else {
@@ -309,10 +341,13 @@ fn mutate(rng: &mut Rng, name: &str, text: &str, counter: u64) -> String {
         }
         _ => {
             let word = rng.pick(&WORDS);
+
             lines[at].push_str(&format!(" // {word}"));
         }
     }
+
     let mut out = lines.join("\n");
+
     out.push('\n');
     out
 }
@@ -321,6 +356,7 @@ fn mutate(rng: &mut Rng, name: &str, text: &str, counter: u64) -> String {
 
 fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
     let name = rng.pick(&FILES).to_string();
+
     match rng.below(10) {
         // Edit an open buffer, opening it first when it is closed.
         0..=2 => {
@@ -332,10 +368,13 @@ fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
             else {
                 return;
             };
+
             if !world.open.contains_key(&name) {
                 open(world, client, &name, &text);
             }
+
             let next = mutate(rng, &name, &text, counter);
+
             edit(world, client, &name, next, "edit");
         }
         // Undo the last edit of an open buffer.
@@ -344,9 +383,11 @@ fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
                 return;
             };
             let (version, text, _) = world.open.get_mut(&name).unwrap();
+
             *version += 1;
             text.clone_from(&previous);
             let (version, uri) = (*version, world.uri(&name));
+
             world.log.push(format!("undo {name}"));
             client.notify(
                 "textDocument/didChange",
@@ -359,6 +400,7 @@ fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
             let existed = world.disk(&name);
             let base = existed.clone().unwrap_or_else(|| "\n".to_string());
             let next = mutate(rng, &name, &base, counter);
+
             std::fs::write(world.dir.join(&name), &next).unwrap();
             world.log.push(format!("disk write {name}"));
             watch(
@@ -377,6 +419,7 @@ fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
             if world.disk(&name).is_none() || name == "main.jai" {
                 return;
             }
+
             std::fs::remove_file(world.dir.join(&name)).unwrap();
             world.log.push(format!("disk delete {name}"));
             watch(world, client, &name, 3);
@@ -386,6 +429,7 @@ fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
             if world.open.contains_key(&name) {
                 return;
             }
+
             if let Some(text) = world.disk(&name) {
                 open(world, client, &name, &text);
             }
@@ -395,6 +439,7 @@ fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
             if world.open.remove(&name).is_none() {
                 return;
             }
+
             world.log.push(format!("close {name}"));
             client.notify(
                 "textDocument/didClose",
@@ -404,18 +449,22 @@ fn step(rng: &mut Rng, world: &mut World, client: &mut Client, counter: u64) {
         // Rename a file on disk (closing it first), the way an explorer does.
         _ => {
             let to = rng.pick(&FILES).to_string();
+
             if name == "main.jai" || to == "main.jai" || name == to || world.disk(&to).is_some() {
                 return;
             }
+
             let Some(text) = world.disk(&name) else {
                 return;
             };
+
             if world.open.remove(&name).is_some() {
                 client.notify(
                     "textDocument/didClose",
                     json!({"textDocument": {"uri": world.uri(&name)}}),
                 );
             }
+
             std::fs::rename(world.dir.join(&name), world.dir.join(&to)).unwrap();
             std::fs::write(world.dir.join(&to), text).unwrap();
             world.log.push(format!("rename {name} -> {to}"));
@@ -439,9 +488,11 @@ fn open(world: &mut World, client: &mut Client, name: &str, text: &str) {
 
 fn edit(world: &mut World, client: &mut Client, name: &str, next: String, what: &str) {
     let entry = world.open.get_mut(name).unwrap();
+
     entry.2.push(std::mem::replace(&mut entry.1, next.clone()));
     entry.0 += 1;
     let version = entry.0;
+
     world.log.push(format!("{what} {name}"));
     client.notify(
         "textDocument/didChange",
@@ -465,6 +516,7 @@ fn normalize(value: &mut Value) {
         Value::Object(map) => {
             map.remove("resultId");
             map.remove("version");
+
             for v in map.values_mut() {
                 normalize(v);
             }
@@ -481,44 +533,55 @@ fn normalize(value: &mut Value) {
 /// Byte offsets of up to `limit` identifiers of `text`, spread over the file.
 fn identifiers(text: &str, limit: usize) -> Vec<(u32, u32)> {
     let mut found = Vec::new();
+
     for (line, content) in text.lines().enumerate() {
         let bytes = content.as_bytes();
         let mut i = 0;
+
         while i < bytes.len() {
             if bytes[i].is_ascii_alphabetic() || bytes[i] == b'_' {
                 let start = i;
+
                 while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_') {
                     i += 1;
                 }
+
                 found.push((line as u32, start as u32));
             } else {
                 i += 1;
             }
         }
     }
+
     let stride = (found.len() / limit.max(1)).max(1);
     found.into_iter().step_by(stride).take(limit).collect()
 }
 
 fn snapshot(world: &World, client: &mut Client) -> Value {
     let mut out = BTreeMap::new();
+
     for (name, (_, text, _)) in &world.open {
         let uri = world.uri(name);
         let doc = json!({"uri": uri});
         let mut entry = BTreeMap::new();
         let mut diagnostics =
             client.request("textDocument/diagnostic", json!({"textDocument": doc}));
+
         if let Some(items) = diagnostics["result"]["items"].as_array_mut() {
             items.sort_by_key(Value::to_string);
         }
+
         entry.insert("diagnostics", diagnostics);
+
         for method in [
             "textDocument/documentSymbol",
             "textDocument/semanticTokens/full",
         ] {
             entry.insert(method, client.request(method, json!({"textDocument": doc})));
         }
+
         let lines = text.lines().count() as u32 + 1;
+
         entry.insert(
             "inlay",
             client.request(
@@ -528,28 +591,36 @@ fn snapshot(world: &World, client: &mut Client) -> Value {
             ),
         );
         let mut at = Vec::new();
+
         for (line, character) in identifiers(text, 6) {
             let params =
                 json!({"textDocument": doc, "position": {"line": line, "character": character}});
+
             for method in ["textDocument/hover", "textDocument/definition"] {
                 at.push(json!({"at": [line, character], "method": method,
                     "answer": client.request(method, params.clone())}));
             }
         }
+
         entry.insert("positions", Value::Array(at));
         out.insert(name.clone(), json!(entry));
     }
+
     let mut workspace = client.request("workspace/diagnostic", json!({"previousResultIds": []}));
+
     if let Some(items) = workspace["result"]["items"].as_array_mut() {
         for item in items.iter_mut() {
             if let Some(list) = item["items"].as_array_mut() {
                 list.sort_by_key(Value::to_string);
             }
         }
+
         items.sort_by_key(|item| item["uri"].to_string());
     }
+
     out.insert("workspace".to_string(), workspace);
     let mut value = json!(out);
+
     normalize(&mut value);
     value
 }
@@ -562,10 +633,12 @@ fn first_difference(path: &str, a: &Value, b: &Value) -> Option<String> {
                     x.get(key).unwrap_or(&Value::Null),
                     y.get(key).unwrap_or(&Value::Null),
                 );
+
                 if let Some(found) = first_difference(&format!("{path}/{key}"), left, right) {
                     return Some(found);
                 }
             }
+
             None
         }
         (Value::Array(x), Value::Array(y)) if x.len() == y.len() => x
@@ -589,18 +662,23 @@ fn run(seed: u64, steps: u64) {
     };
     let mut rng = Rng(seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) | 1);
     let mut client = Client::start(&world.dir, true);
+
     client.settle();
+
     for counter in 0..steps {
         // Refreshes held from the last step are answered now, between events and checks.
         step(&mut rng, &mut world, &mut client, counter);
+
         if rng.below(3) == 0 {
             step(&mut rng, &mut world, &mut client, counter + 1000);
         }
+
         client.settle();
         client.answer_refreshes();
         client.settle();
         let incremental = snapshot(&world, &mut client);
         let mut cold_client = Client::start(&world.dir, false);
+
         for (name, (_, text, _)) in &world.open {
             cold_client.notify(
                 "textDocument/didOpen",
@@ -608,8 +686,10 @@ fn run(seed: u64, steps: u64) {
                     "version": 1, "text": text}}),
             );
         }
+
         cold_client.settle();
         let cold = snapshot(&world, &mut cold_client);
+
         if let Some(difference) = first_difference("", &incremental, &cold) {
             panic!(
                 "seed {seed}, step {counter}: incremental and cold servers differ at {difference}\nevents: {:#?}\nproject kept in {}",
@@ -618,9 +698,11 @@ fn run(seed: u64, steps: u64) {
             );
         }
     }
+
     client.answer_refreshes();
     client.settle();
     let problems = client.check_protocol();
+
     assert!(
         problems.is_empty(),
         "seed {seed}: {problems:#?}\nevents: {:#?}",
@@ -631,6 +713,7 @@ fn run(seed: u64, steps: u64) {
 #[test]
 fn incremental_answers_equal_a_cold_servers() {
     let steps = env_number(&jacket_config::env::DIFF_STEPS, 6);
+
     if let Some(seed) = jacket_config::env::DIFF_SEED
         .get()
         .and_then(|s| s.parse().ok())
@@ -638,6 +721,7 @@ fn incremental_answers_equal_a_cold_servers() {
         run(seed, steps);
         return;
     }
+
     for seed in 1..=env_number(&jacket_config::env::DIFF_SEEDS, 2) {
         run(seed, steps);
     }

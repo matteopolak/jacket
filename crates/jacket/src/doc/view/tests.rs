@@ -64,6 +64,7 @@ fn fixture() -> Site {
         String::new(),
         false,
     );
+
     site.categories = vec![categories::Category {
         name: "Extensions".into(),
         badge: "extension".into(),
@@ -86,8 +87,10 @@ fn badges_and_flags_are_resolved_before_rendering() {
     else {
         panic!()
     };
+
     assert!(title.experimental);
     let badge = title.category.as_ref().unwrap();
+
     assert_eq!(
         (&*badge.class, &*badge.label, &*badge.tip),
         ("cat-0", "extension", "Not part of the library")
@@ -99,6 +102,7 @@ fn badges_and_flags_are_resolved_before_rendering() {
             .flat_map(|g| &g.rows)
             .all(|r| r.experimental)
     );
+
     for page in &module.items {
         let Content::Item {
             title, ..
@@ -106,9 +110,11 @@ fn badges_and_flags_are_resolved_before_rendering() {
         else {
             panic!()
         };
+
         assert!(title.experimental);
         assert_eq!(title.category.as_ref().unwrap().class, "cat-0");
     }
+
     let steady = super::module(&site, 1);
     let Content::Module {
         title, ..
@@ -116,9 +122,11 @@ fn badges_and_flags_are_resolved_before_rendering() {
     else {
         panic!()
     };
+
     assert!(!title.experimental);
     assert!(title.category.is_none());
     let shared = super::site(&site);
+
     assert!(
         shared
             .nav
@@ -136,6 +144,7 @@ fn badges_and_flags_are_resolved_before_rendering() {
         .iter()
         .map(|r| r[6].as_u64().unwrap())
         .collect();
+
     assert_eq!(flags, [9, 11, 9, 11, 0, 0]);
     assert_eq!(search["cats"][0][0], "extension");
 }
@@ -151,6 +160,7 @@ fn foreign_rows_follow_own_rows_and_have_item_pages() {
     };
     let constants = sections.iter().find(|s| s.id == "constants").unwrap();
     let rows = &constants.groups[0].rows;
+
     assert_eq!(
         rows.iter().map(|r| r.id.as_str()).collect::<Vec<_>>(),
         ["own", "MAX"]
@@ -170,15 +180,18 @@ fn foreign_rows_follow_own_rows_and_have_item_pages() {
     else {
         panic!()
     };
+
     assert!(title.foreign);
     assert!(!value_html.is_empty());
     let mode = sections.iter().find(|s| s.id == "types").unwrap();
+
     assert_eq!(mode.groups[0].rows[0].members[0].name, "FAST");
 }
 
 #[test]
 fn generated_items_are_tagged_on_rows_pages_and_neighbours() {
     let mut site = fixture();
+
     site.modules[0].items[1].generated = true;
     let bundle = module(&site, 0);
     let Content::Module {
@@ -189,6 +202,7 @@ fn generated_items_are_tagged_on_rows_pages_and_neighbours() {
     };
     let constants = sections.iter().find(|s| s.id == "constants").unwrap();
     let rows = &constants.groups[0].rows;
+
     assert!(rows[0].generated && !rows[1].generated);
     let page = bundle
         .items
@@ -201,6 +215,7 @@ fn generated_items_are_tagged_on_rows_pages_and_neighbours() {
     else {
         panic!()
     };
+
     assert!(title.generated);
     let tagged: Vec<_> = bundle
         .nav
@@ -209,6 +224,7 @@ fn generated_items_are_tagged_on_rows_pages_and_neighbours() {
         .filter(|l| l.generated)
         .map(|l| l.label.as_str())
         .collect();
+
     assert_eq!(tagged, ["own"]);
 }
 
@@ -222,6 +238,7 @@ fn parameters_and_outline_are_data() {
         panic!()
     };
     let p = &parameters[0];
+
     assert_eq!(p.name, "STRICT");
     assert_eq!(p.type_html, "<span class=\"ty\">bool</span>");
     assert_eq!(p.default_html, "<span class=\"k\">false</span>");
@@ -237,6 +254,7 @@ fn parameters_and_outline_are_data() {
     else {
         panic!()
     };
+
     assert!(parameters.is_empty());
 }
 
@@ -250,6 +268,7 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
         .keys()
         .map(String::as_str)
         .collect();
+
     assert_eq!(
         keys,
         [
@@ -279,6 +298,7 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
     assert_eq!(shared["index"]["content"]["kind"], "index");
     assert_eq!(shared["index"]["sidebar"]["kind"], "modules");
     let bundle = serde_json::to_value(module(&site, 0)).unwrap();
+
     assert_eq!(
         bundle
             .as_object()
@@ -289,12 +309,14 @@ fn json_contract_has_tagged_content_and_ordered_segments() {
         ["id", "items", "nav", "page"]
     );
     let content = &bundle["page"]["content"];
+
     assert_eq!(content["kind"], "module");
     assert_eq!(
         content["docs"][0],
         serde_json::json!({"kind":"html","prose_html":"<p class=\"lead\">A module.</p>\n"})
     );
     let example = &content["docs"][1];
+
     assert_eq!(example["kind"], "example");
     assert!(
         example["example"]["code_html"]
@@ -321,6 +343,7 @@ fn grouped_procedures_list_each_item_once() {
         ..Item::default()
     };
     let mut site = fixture();
+
     site.modules[1].items = vec![
         procedure("open", "Window", false),
         procedure("play", "Audio", false),
@@ -339,6 +362,7 @@ fn grouped_procedures_list_each_item_once() {
         .iter()
         .flat_map(|g| g.rows.iter().map(|r| r.id.as_str()))
         .collect();
+
     assert_eq!(rows, ["open", "play", "SDL_Init"]);
 }
 
@@ -349,6 +373,7 @@ fn declared_site() -> Site {
         line,
         private,
     };
+
     Site::new(
         vec![
             Module {
@@ -433,11 +458,14 @@ fn a_declaration_links_private_and_prelude_types_and_not_itself() {
     else {
         panic!()
     };
+
     assert_eq!(sections.len(), 1);
     assert_eq!(sections[0].groups[0].rows.len(), 1);
     let row = &sections[0].groups[0].rows[0];
+
     assert!(row.lines_html.is_empty() && row.members.is_empty());
     let declaration = &row.declaration_html;
+
     assert!(
         declaration.contains("<a href=\"/docs/api/Io/Waiter\">Waiter</a>"),
         "{declaration}"
@@ -463,6 +491,7 @@ fn a_declaration_links_private_and_prelude_types_and_not_itself() {
     else {
         panic!()
     };
+
     assert!(!private && !declaration_html.is_empty());
     assert!(declaration_html.contains(
         "<span class=\"fc\" style=\"--i:4\">// Where it allocates, see <code>Allocator</code>.</span><span class=\"fl\" style=\"--i:4\" id=\"m-allocator\">"
@@ -480,6 +509,7 @@ fn a_declaration_links_private_and_prelude_types_and_not_itself() {
 #[test]
 fn a_page_without_a_fields_table_has_no_fields_entry_in_its_outline() {
     let mut site = declared_site();
+
     site.modules[0].items[0]
         .members
         .retain(|m| m.name != "limit");
@@ -495,6 +525,7 @@ fn a_page_without_a_fields_table_has_no_fields_entry_in_its_outline() {
     else {
         panic!()
     };
+
     assert!(members.is_empty());
     let Sidebar::Item {
         anchors, ..
@@ -502,6 +533,7 @@ fn a_page_without_a_fields_table_has_no_fields_entry_in_its_outline() {
     else {
         panic!()
     };
+
     assert!(anchors.iter().all(|a| a.href != "#members"));
 }
 
@@ -509,8 +541,10 @@ fn a_page_without_a_fields_table_has_no_fields_entry_in_its_outline() {
 fn a_private_type_has_a_page_but_is_in_no_list() {
     let site = declared_site();
     let bundle = module(&site, 0);
+
     assert_eq!(bundle.items.len(), 2);
     let page = &bundle.items[1];
+
     assert_eq!(page.path, "api/Io/Waiter.html");
     let Content::Item {
         private,
@@ -521,6 +555,7 @@ fn a_private_type_has_a_page_but_is_in_no_list() {
     else {
         panic!()
     };
+
     assert!(*private && title.label == "Waiter" && declaration_html.contains("ticket"));
     // Its sidebar has no neighbours to list, and the shared lists hold only the exported type.
     let Sidebar::Item {
@@ -533,6 +568,7 @@ fn a_private_type_has_a_page_but_is_in_no_list() {
     else {
         panic!()
     };
+
     assert!(heading.is_empty() && start == end);
     assert!(bundle.nav[*nav].is_empty());
     let listed: Vec<_> = bundle
@@ -541,10 +577,13 @@ fn a_private_type_has_a_page_but_is_in_no_list() {
         .flatten()
         .map(|l| l.label.as_str())
         .collect();
+
     assert_eq!(listed, ["Channel"]);
     let outline = serde_json::to_string(&bundle.page.outline).unwrap();
+
     assert!(!outline.contains("Waiter"));
     let search = super::super::search::index(&site);
+
     assert!(!search.contains("Waiter"));
     assert!(
         site.unlinked_types().is_empty(),
@@ -566,6 +605,7 @@ fn the_prelude_page_has_nothing_to_import() {
     else {
         panic!()
     };
+
     assert!(*implicit && import.is_empty());
     let io = module(&site, 0);
     let Content::Module {
@@ -574,12 +614,14 @@ fn the_prelude_page_has_nothing_to_import() {
     else {
         panic!()
     };
+
     assert_eq!(import, "Io");
 }
 
 #[test]
 fn documentation_sidebar_sections_precede_library_categories() {
     let mut site = fixture();
+
     site.categories.insert(
         0,
         categories::Category {
@@ -598,6 +640,7 @@ fn documentation_sidebar_sections_precede_library_categories() {
         .collect();
     let nav = super::build::nav(&site, Some(0));
     let labels: Vec<_> = nav.iter().map(|category| category.label.as_str()).collect();
+
     assert_eq!(
         labels,
         [
@@ -666,6 +709,7 @@ fn item_parts(site: &Site) -> (String, Vec<String>) {
                 .collect::<String>()
         })
         .collect();
+
     (summary_html.clone(), cards)
 }
 
@@ -675,7 +719,9 @@ fn overloads_with_different_docs_each_keep_their_whole_text() {
         "Goes one way.\n\nAlso stops.",
         "Goes the other way.\n\nAlso waits.",
     ]));
+
     assert!(summary.is_empty(), "{summary}");
+
     for (card, words) in cards
         .iter()
         .zip([["one way", "stops"], ["other way", "waits"]])
@@ -692,7 +738,9 @@ fn overloads_that_share_a_lead_lift_it_to_the_page() {
         "Goes.\n\nOne way.",
         "Goes.\n\nThe other way.",
     ]));
+
     assert!(summary.contains("Goes."), "{summary}");
+
     for (card, word) in cards.iter().zip(["One way.", "The other way."]) {
         assert!(!card.contains("Goes.") && card.contains(word), "{cards:?}");
     }
@@ -716,6 +764,7 @@ fn a_type_defined_once_per_system_shows_each_definition_under_its_systems() {
         ..Item::default()
     };
     let mut watcher = struct_for("stream", &["MACOS"], "Watches.");
+
     watcher.variants = vec![struct_for(
         "handle",
         &["LINUX", "WINDOWS"],
@@ -745,9 +794,11 @@ fn a_type_defined_once_per_system_shows_each_definition_under_its_systems() {
     else {
         panic!()
     };
+
     assert!(declaration_html.is_empty());
     assert!(summary_html.contains("Watches."), "{summary_html}");
     let labels: Vec<_> = variants.iter().map(|v| v.label.as_str()).collect();
+
     assert_eq!(labels, ["macOS", "Linux and Windows"]);
     assert!(variants[0].declaration_html.contains("stream"));
     assert!(variants[1].declaration_html.contains("handle"));
@@ -768,6 +819,7 @@ fn a_module_row_shows_each_definition_of_a_name_under_its_systems() {
         ..Item::default()
     };
     let mut handle = constant("s32", &["MACOS"]);
+
     handle.variants = vec![constant("*void", &["LINUX", "WINDOWS"])];
     let site = Site::new(
         vec![Module {
@@ -792,6 +844,7 @@ fn a_module_row_shows_each_definition_of_a_name_under_its_systems() {
     let rows = &sections[0].groups[0].rows;
     let variants = &rows[0].variants;
     let labels: Vec<_> = variants.iter().map(|v| v.label.as_str()).collect();
+
     assert_eq!(labels, ["macOS", "Linux and Windows"]);
     assert!(variants[0].lines_html[0].contains("s32"));
     assert!(variants[1].lines_html[0].contains("void"));
@@ -801,6 +854,7 @@ fn a_module_row_shows_each_definition_of_a_name_under_its_systems() {
 #[test]
 fn a_lone_overload_gives_the_page_its_lead_and_keeps_the_rest() {
     let (summary, cards) = item_parts(&procedure_site(&["Goes one way.\n\nAlso stops."]));
+
     assert!(summary.contains("Goes one way."), "{summary}");
     assert!(
         !cards[0].contains("Goes one way.") && cards[0].contains("Also stops."),
@@ -841,6 +895,7 @@ fn importing_site(with_b: bool) -> Site {
         }],
         ..Module::default()
     }];
+
     if with_b {
         modules.push(Module {
             id: "B".into(),
@@ -855,6 +910,7 @@ fn importing_site(with_b: bool) -> Site {
             ..Module::default()
         });
     }
+
     Site::new(
         modules,
         Vec::new(),
@@ -869,6 +925,7 @@ fn importing_site(with_b: bool) -> Site {
 #[test]
 fn a_type_of_an_import_that_is_not_documented_is_not_reported() {
     let unlinked = importing_site(false).unlinked_types();
+
     // `Local` is in the documented folder and has no page: that stays a gap.
     assert_eq!(unlinked.len(), 1, "{unlinked:?}");
     assert!(unlinked[0].ends_with("`Local`"), "{unlinked:?}");
@@ -878,10 +935,12 @@ fn a_type_of_an_import_that_is_not_documented_is_not_reported() {
 fn a_type_of_a_documented_import_links_to_its_page() {
     let site = importing_site(true);
     let unlinked = site.unlinked_types();
+
     assert_eq!(unlinked.len(), 1, "{unlinked:?}");
     assert!(unlinked[0].ends_with("`Local`"), "{unlinked:?}");
     let thing = &site.modules[0].items[0].overloads[0].params[0];
     let html = site.type_html(&thing.ty, &thing.refs, 0);
+
     assert!(
         html.contains("<a ") && html.contains("/docs/api/B/Thing"),
         "{html}"
@@ -891,8 +950,10 @@ fn a_type_of_a_documented_import_links_to_its_page() {
 #[test]
 fn the_playground_is_the_sites_own_page_unless_a_setting_names_another() {
     let mut site = fixture();
+
     assert_eq!(site.playground_href(), "/docs/playground");
     let links = super::site(&site).header_links;
+
     assert_eq!(links.last().unwrap().href, "/docs/playground");
     assert_eq!(links.last().unwrap().label, "Playground");
     // The links on examples need a playground that can run them.
@@ -902,17 +963,20 @@ fn the_playground_is_the_sites_own_page_unless_a_setting_names_another() {
     site.playground = "https://example.com/play".into();
     assert_eq!(site.playground_href(), "https://example.com/play");
     let links = super::site(&site).header_links;
+
     assert_eq!(links.last().unwrap().href, "https://example.com/play");
 }
 
 #[test]
 fn an_example_opens_in_the_sites_own_playground() {
     let mut site = fixture();
+
     site.runtime = true;
     let module = &site.modules[0];
     let shown =
         super::super::example::view(&site, module, ("a.jai", 1), ("jai", "x := 1;\n"), false);
     let link = shown.playground_url.expect("a runnable example has a link");
+
     assert!(link.starts_with("/docs/playground#code="), "{link}");
     assert!(!link.contains("matteopolak.com"), "{link}");
 }
@@ -922,8 +986,10 @@ fn the_playground_page_says_whether_the_site_has_a_compiler() {
     let mut site = fixture();
     let shared = super::site(&site);
     let page = super::super::playground::page(&site, &shared.nav);
+
     assert_eq!(page.path, "playground.html");
     let json = serde_json::to_value(&page).unwrap();
+
     assert_eq!(json["content"]["kind"], "playground");
     assert_eq!(json["content"]["ready"], false);
     assert!(
@@ -935,6 +1001,7 @@ fn the_playground_page_says_whether_the_site_has_a_compiler() {
     assert_eq!(json["content"]["runtime_url"], "/docs/runtime.json");
     site.runtime = true;
     let page = super::super::playground::page(&site, &shared.nav);
+
     assert_eq!(
         serde_json::to_value(&page).unwrap()["content"]["ready"],
         true

@@ -66,6 +66,7 @@ fn examples_dir() -> PathBuf {
 fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).unwrap() {
         let path = entry.unwrap().path();
+
         if path.is_dir() {
             jai_files(&path, out);
         } else if path.extension().is_some_and(|e| e == "jai") {
@@ -78,6 +79,7 @@ fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
 fn loads(file: &Path) -> Vec<PathBuf> {
     let text = std::fs::read_to_string(file).unwrap();
     let dir = file.parent().unwrap();
+
     text.lines()
         .filter_map(|line| line.trim().strip_prefix("#load \"")?.split('"').next())
         .map(|name| dir.join(name).canonicalize().unwrap())
@@ -92,8 +94,10 @@ fn relative(path: &Path) -> String {
 #[test]
 fn every_example_is_a_listed_program_or_loaded_by_one() {
     let mut files = Vec::new();
+
     jai_files(&examples_dir().canonicalize().unwrap(), &mut files);
     let loaded: Vec<PathBuf> = files.iter().flat_map(|f| loads(f)).collect();
+
     for file in &files {
         let name = relative(file);
         let listed = PROGRAMS.iter().any(|(program, ..)| *program == name);
@@ -101,6 +105,7 @@ fn every_example_is_a_listed_program_or_loaded_by_one() {
         let module = file.file_name().is_some_and(|n| n == "module.jai");
         // The files of a `tests/` folder are built together by `jacket test`, not one by one.
         let test = name.split('/').any(|part| part == "tests");
+
         assert!(
             listed || module || test || loaded.contains(file),
             "examples/{name} is neither in PROGRAMS, a module, a test, nor #load-ed by another example"
@@ -110,6 +115,7 @@ fn every_example_is_a_listed_program_or_loaded_by_one() {
             "examples/{name} is #load-ed by another example, so it is not a program of its own"
         );
     }
+
     for (program, oses, reason) in PROGRAMS {
         assert!(
             examples_dir().join(program).is_file(),
@@ -131,6 +137,7 @@ fn every_example_program_checks_on_its_oses() {
         .collect();
     let next = std::sync::atomic::AtomicUsize::new(0);
     let failures = std::sync::Mutex::new(Vec::new());
+
     std::thread::scope(|scope| {
         for _ in 0..3 {
             scope.spawn(|| {
@@ -144,6 +151,7 @@ fn every_example_program_checks_on_its_oses() {
                         .args(["-check", "-quiet", "-os", os])
                         .output()
                         .unwrap();
+
                     if !output.status.success() {
                         failures.lock().unwrap().push(format!(
                             "examples/{program} -os {os}:\n{}",
@@ -155,6 +163,7 @@ fn every_example_program_checks_on_its_oses() {
         }
     });
     let failures = failures.into_inner().unwrap();
+
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
@@ -168,15 +177,19 @@ fn every_example_folder_has_a_corpus_case() {
     .unwrap();
     let cases = corpus["cases"].as_array().unwrap();
     let mut folders = Vec::new();
+
     for entry in std::fs::read_dir(examples_dir()).unwrap() {
         let path = entry.unwrap().path();
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
+
         // Hidden folders (editor and agent state) are not examples.
         if path.is_dir() && !name.starts_with('.') {
             folders.push(name);
         }
     }
+
     assert!(!folders.is_empty());
+
     for folder in &folders {
         let case = cases
             .iter()
@@ -184,12 +197,14 @@ fn every_example_folder_has_a_corpus_case() {
             .unwrap_or_else(|| {
                 panic!("examples/{folder} has no case in tests/corpus/examples.json")
             });
+
         assert_eq!(
             case["id"],
             folder.as_str(),
             "the case of examples/{folder} is named for it"
         );
         let main = case["main"].as_str().unwrap();
+
         assert!(
             PROGRAMS
                 .iter()
@@ -197,8 +212,10 @@ fn every_example_folder_has_a_corpus_case() {
             "examples/{folder}/{main} is not in PROGRAMS"
         );
     }
+
     for case in cases {
         let directory = case["directory"].as_str().unwrap();
+
         assert!(
             folders
                 .iter()

@@ -120,12 +120,15 @@ impl ProcFlags {
     #[must_use]
     pub fn checks_off(&self) -> CheckBits {
         let mut checks = CheckBits::NONE;
+
         if self.no_abc() {
             checks = checks.with(CheckBits::NO_ABC);
         }
+
         if self.no_aoc() {
             checks = checks.with(CheckBits::NO_AOC);
         }
+
         checks
     }
 

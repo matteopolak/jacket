@@ -31,9 +31,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if c.kind != CommentKind::Line {
             continue;
         }
+
         let Some((_, names)) = directive(c.body(cx.text)) else {
             continue;
         };
+
         for name in names {
             if name == "all"
                 || Category::parse(name).is_some()
@@ -41,10 +43,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 continue;
             }
+
             let Some(start) = offset_in(cx.text, name) else {
                 continue;
             };
             let near = closest(name);
+
             out.push(Finding {
                 secondary: Vec::new(),
                 start,
@@ -85,16 +89,21 @@ fn closest(name: &str) -> Option<&'static str> {
 fn distance(a: &str, b: &str) -> usize {
     let b: Vec<char> = b.chars().collect();
     let mut row: Vec<usize> = (0..=b.len()).collect();
+
     for (i, ca) in a.chars().enumerate() {
         let mut diagonal = row[0];
+
         row[0] = i + 1;
+
         for (j, cb) in b.iter().enumerate() {
             let above = row[j + 1];
+
             row[j + 1] = (diagonal + usize::from(ca != *cb))
                 .min(above + 1)
                 .min(row[j] + 1);
             diagonal = above;
         }
     }
+
     row[b.len()]
 }

@@ -20,17 +20,22 @@ impl Compiler {
         };
         let mut params = Vec::new();
         let mut pointers = Vec::new();
+
         for (name, value, mut ty) in self.poly_struct_bindings(s) {
             if self.size_of(ty, span).is_err() {
                 ty = self.type_of_value(&value); // Untyped literal arguments.
             }
+
             let (Ok(size), Ok(align)) = (self.size_of(ty, span), self.align_of(ty, span)) else {
                 continue;
             };
             let offset = storage.bytes.len().next_multiple_of(align.max(1) as usize);
+
             storage.bytes.resize(offset + size as usize, 0);
+
             if let Value::Type(t) = value {
                 let t = self.type_record(r, t);
+
                 pointers.extend([Item::Int(offset as i64), Item::Int(t)]);
             } else if self
                 .write_value(&mut storage, offset as u64, &value, ty, span)
@@ -38,15 +43,19 @@ impl Compiler {
             {
                 continue;
             }
+
             let ty = self.type_record(r, ty);
             let mut m = Record::new(RecordTag::TypeInfoStructMember);
+
             m.str("name", name.as_str().as_bytes())
                 .ptr("type", ty)
                 .int("flags", 0x1)
                 .int("offset_into_constant_storage", offset as i64);
             params.push(r.add(m));
         }
+
         let mut generic = Record::new(RecordTag::TypeInfoStruct);
+
         generic
             .int("type", 7)
             .str(
@@ -69,6 +78,7 @@ impl Compiler {
         if let Some(&id) = self.meta.export.types.get(&ty) {
             return id;
         }
+
         let kind = self.ty.types.kind(ty).clone();
         let span = Span::NONE;
         let size = match &kind {
@@ -105,15 +115,19 @@ impl Compiler {
         };
         // Registered before the fields: types may refer to themselves.
         let id = r.reserve(tag);
+
         self.meta.export.types.insert(ty, id);
         let mut rec = Record::new(tag);
+
         rec.int("type", info_tag as i64).int("runtime_size", size);
+
         if builtin {
             rec.str(
                 lang_items::record_fields::BUILTIN,
                 self.ty.types.name(ty).as_bytes(),
             );
         }
+
         match kind {
             TypeKind::Int {
                 signed, ..
@@ -122,6 +136,7 @@ impl Compiler {
             }
             TypeKind::Pointer(to) => {
                 let to = self.type_record(r, to);
+
                 rec.ptr("pointer_to", to);
             }
             TypeKind::Array {
@@ -134,6 +149,7 @@ impl Compiler {
                     ArrayKind::View => (1, -1),
                     ArrayKind::Resizable => (2, -1),
                 };
+
                 rec.ptr("element_type", elem)
                     .int("array_type", array_type)
                     .int("array_count", count);
@@ -142,6 +158,7 @@ impl Compiler {
                 let args: Vec<i64> = p.params.iter().map(|&t| self.type_record(r, t)).collect();
                 let rets: Vec<i64> = p.returns.iter().map(|&t| self.type_record(r, t)).collect();
                 let flags = ((p.no_context as i64) * 0x8) | ((p.c_call as i64) * 0x20);
+
                 rec.refs("argument_types", args)
                     .refs("return_types", rets)
                     .int("procedure_flags", flags);
@@ -149,6 +166,7 @@ impl Compiler {
             TypeKind::Enum(e) => {
                 let info = self.ty.types.enum_info(e).clone();
                 let base = self.type_record(r, info.base);
+
                 rec.str("name", info.name.as_str().as_bytes())
                     .ptr("internal_type", base)
                     .list(
@@ -170,6 +188,7 @@ impl Compiler {
             TypeKind::Distinct(d) => {
                 let info = self.ty.types.distincts[d.0 as usize].clone();
                 let base = self.type_record(r, info.base);
+
                 rec.str("name", info.name.as_str().as_bytes())
                     .ptr("variant_of", base)
                     .int(
@@ -184,9 +203,11 @@ impl Compiler {
             TypeKind::Struct(s) => {
                 let info = self.ty.types.struct_info(s).clone();
                 let mut members = Vec::new();
+
                 for field in info.fields.iter() {
                     let fty = self.type_record(r, field.ty);
                     let mut m = Record::new(RecordTag::TypeInfoStructMember);
+
                     m.str("name", field.name.map_or("", |n| n.as_str()).as_bytes())
                         .ptr("type", fty)
                         .int("offset_in_bytes", field.offset as i64)
@@ -205,15 +226,18 @@ impl Compiler {
                         .int("offset_into_constant_storage", -1);
                     members.push(r.add(m));
                 }
+
                 rec.str("name", info.name.as_str().as_bytes())
                     .refs("members", members)
                     .int("textual_flags", (info.is_union as i64) * 0x2);
+
                 if !info.poly_args.is_empty() {
                     self.poly_parameters(r, s, &mut rec);
                 }
             }
             _ => {}
         }
+
         *r.get_mut(id).unwrap() = rec;
         id
     }

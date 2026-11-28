@@ -48,9 +48,11 @@ impl Compiler {
             a,
             b,
         } = node;
+
         if matches!(op, BinOp::And | BinOp::Or) {
             return self.check_logical(f, scope, op, a, b, span);
         }
+
         // `cast(float32) ((ifx c then a else b) & mask)`: a float target cannot be the type of an
         // operand of an operator that floats lack, so it does not reach the operands (an `ifx`
         // would widen to it, and the operator would then fail on a float).
@@ -66,6 +68,7 @@ impl Compiler {
             Some(operands) => operands,
             None => self.binary_operands(f, scope, op, a, b, expected)?,
         };
+
         // Type comparisons fold at compile time.
         if let (Operand::Type(x), Operand::Type(y)) = (&lhs, &rhs) {
             return match op {
@@ -78,14 +81,18 @@ impl Compiler {
                 ),
             };
         }
+
         let (lhs, rhs) = match self.as_scalar_operands(f, scope, op, &lhs, &rhs, span)? {
             Some(operands) => operands,
             None => (lhs, rhs),
         };
+
         if let Some(result) = self.try_binary_operator_overload(f, scope, node, &lhs, &rhs, span)? {
             return Ok(result);
         }
+
         self.reject_missing_operator(scope, node, &lhs, &rhs, span)?;
+
         if let (
             Operand::Const {
                 ..
@@ -98,14 +105,18 @@ impl Compiler {
         {
             return Ok(folded);
         }
+
         let (lhs, rhs) = self.procedure_operands(f, lhs, rhs, span)?;
         let (lty, rty) = (lhs.ty(), rhs.ty());
+
         if matches!(op, BinOp::Eq | BinOp::Ne) {
             self.ty.reject_array_comparison(op, lty, rty, span)?;
         }
+
         if self.ty.types.is_pointer(lty) && matches!(op, BinOp::Add | BinOp::Sub) {
             return self.pointer_offset(f, op, lhs, rhs, span);
         }
+
         if self.ty.types.is_pointer(rty) && op == BinOp::Add && self.ty.types.is_integer(lty) {
             return self.check_binary(
                 f,
@@ -119,11 +130,14 @@ impl Compiler {
                 span,
             );
         }
+
         let pointer_and_int = (self.ty.types.is_pointer(lty) && self.ty.types.is_integer(rty))
             || (self.ty.types.is_pointer(rty) && self.ty.types.is_integer(lty));
+
         if is_bitwise(op) && pointer_and_int {
             return self.mask_pointer(f, op, lhs, rhs, span);
         }
+
         let values = self.unify_binary_operands(f, node, (lhs, rhs), expected, span)?;
         self.emit_binary(f, op, values, span)
     }

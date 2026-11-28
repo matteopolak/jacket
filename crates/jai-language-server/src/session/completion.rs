@@ -35,6 +35,7 @@ impl Session {
             let chain: Vec<&str> = hole.chain.iter().map(String::as_str).collect();
             return self.names_at(uri, text, hole.at, &chain, hole.prefix);
         }
+
         let (start, member) = if let CursorContext::Member(m) = context {
             (m.word.start as usize, Some(m))
         } else {
@@ -43,6 +44,7 @@ impl Session {
                 .char_indices()
                 .rfind(|&(_, c)| !ident(c))
                 .map_or(0, |(i, c)| i + c.len_utf8());
+
             (start, None)
         };
         let prefix = text[start..byte].to_owned();
@@ -65,9 +67,11 @@ impl Session {
             ),
             None => (start, Vec::new()),
         };
+
         if let Some(found) = self.names_at(uri, text, at, &chain, prefix.clone()) {
             return Some(found);
         }
+
         // Names a lookup from the scope cannot follow: a macro's parameter (checked where the
         // macro expands), `context`, a member reached through `using`.
         let m = member?;
@@ -88,25 +92,30 @@ impl Session {
     ) -> Option<Completions> {
         let ask_at = |a: &mut semantic::Analysis, path: &Path, at: usize| {
             let mut names = a.complete(path, at, chain)?;
+
             // A receiver with no members may be a stand-in left by a failed attempt: what the
             // check recorded for the member name has the rest.
             if names.is_empty() && !chain.is_empty() {
                 return None;
             }
+
             // Only matching candidates reach the client. Resolving aliases for every visible
             // name scans declarations and documentation that the prefix will discard.
             let lower = prefix.to_lowercase();
+
             names.retain(|name| name.name.to_lowercase().starts_with(&lower));
             a.forward_docs(&mut names);
             a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);
             Some((names, files))
         };
+
         if let Some((names, files)) =
             self.with_compiled_before(uri, text, at, |a, path| ask_at(a, path, at))
         {
             return Some((prefix, names, files));
         }
+
         // An edit before the scope (a line added above it) leaves no compile that knows the
         // text up to there: the last one answers, its names moved to where they are now.
         let (names, files) = if self.may_compile() {
@@ -139,18 +148,22 @@ impl Session {
             } else {
                 a.complete_inferred(path, dot + 1)?
             };
+
             if !recorded && names.is_empty() {
                 return None;
             }
+
             // Only matching candidates reach the client. Resolving aliases for every visible
             // name scans declarations and documentation that the prefix will discard.
             let lower = prefix.to_lowercase();
+
             names.retain(|name| name.name.to_lowercase().starts_with(&lower));
             a.forward_docs(&mut names);
             a.shift_to(path, text, &mut names);
             let files = a.decl_files(&names);
             Some((names, files))
         };
+
         // A checked member expression already has the receiver's type. Replacing its name
         // with a placeholder would recompile the entire program and its build metaprogram.
         if let Some(((names, files), _)) =
@@ -160,6 +173,7 @@ impl Session {
         {
             return Some((prefix, names, files));
         }
+
         const PLACEHOLDER: &str = "__jailsp_member";
         let ident = jaic::lexicon::is_identifier_char;
         let tail = byte
@@ -175,6 +189,7 @@ impl Session {
             })
         };
         let (names, files) = found.unwrap_or_default();
+
         Some((prefix, names, files))
     }
 
@@ -190,15 +205,19 @@ impl Session {
                 .find(|c: char| !ident(c))
                 .unwrap_or(text.len() - start);
         let candidate = format!("{}.{PLACEHOLDER}{}", &text[..start], &text[tail..]);
+
         if self.may_compile() {
             return Ranking::Known(
                 self.with_semantic(uri, &candidate, |a, path| a.complete_fitting(path, start)),
             );
         }
+
         let ask = |a: &mut semantic::Analysis, path: &Path| a.complete_fitting(path, start);
+
         if let Some(fitting) = self.with_cached_semantic(uri, &candidate, ask) {
             return Ranking::Known(fitting);
         }
+
         self.want_compile(uri, &candidate);
         Ranking::Pending
     }
@@ -208,6 +227,7 @@ impl Session {
     /// input while it works turns it on.
     pub fn defer_compiles(&self, on: bool) {
         self.defer_compiles.set(on);
+
         if !on {
             self.compile_pending.borrow_mut().take();
         }
@@ -225,16 +245,21 @@ impl Session {
     /// compiled (a compile stopped by newer input is asked for again).
     pub fn warm_pending(&self) -> Option<bool> {
         let (uri, text) = self.compile_pending.borrow_mut().take()?;
+
         if !self.documents.contains_key(&uri) {
             return None;
         }
+
         let _background = self.background();
+
         jaic::interrupt::arm();
         let _ = self.with_semantic(&uri, &text, |_, _| Some(()));
+
         if jaic::interrupt::disarm() {
             *self.compile_pending.borrow_mut() = Some((uri, text));
             return None;
         }
+
         Some(self.document(&uri).is_ok_and(|d| d.text == text))
     }
 
@@ -246,11 +271,14 @@ impl Session {
         if self.config_document(uri).is_some() {
             return self.manifest_completion(uri, position);
         }
+
         let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position);
+
         if let Some(list) = self.asm_completion(uri, &doc.text, byte) {
             return Ok(list);
         }
+
         self.stale_used.set(false);
         let lexed = Lexed::new(FileId(0), &doc.text);
         let context = ide_facts::cursor_context_in(&doc.text, byte as u32, &lexed);
@@ -261,18 +289,22 @@ impl Session {
         } else {
             self.named_argument_completions(uri, byte)
         };
+
         // In a call's arguments the callee's parameter names come first (see `rank`).
         for item in &mut parameters {
             item.sort_text = Some(format!("!{}", item.label));
         }
+
         if !parameters.is_empty() {
             // Both alternatives remain useful when a local expression shares a parameter name.
             list.items.extend(parameters);
+
             if list.items.len() > self.limits.symbols {
                 list.items.truncate(self.limits.symbols);
                 list.is_incomplete = true;
             }
         }
+
         // Naming a field of a struct literal: its fields come first; once one is named the values
         // are not expressions here, so only the fields remain.
         if let Some((fields, positional)) = self.struct_literal_completions(uri, byte)
@@ -285,6 +317,7 @@ impl Session {
                 list.is_incomplete = false;
             }
         }
+
         // Accepting an item replaces the whole word around the cursor, the letters after it
         // included, so confirming in the middle of a word does not leave its tail behind.
         let text = &doc.text;
@@ -297,6 +330,7 @@ impl Session {
             + text[byte..]
                 .find(|c: char| !word(c))
                 .unwrap_or(text.len() - byte);
+
         if start > 0
             && text.as_bytes()[start - 1] == b'#'
             && list.items.iter().any(|i| i.label.starts_with('#'))
@@ -304,17 +338,20 @@ impl Session {
             // A directive's label includes its `#`.
             start -= 1;
         }
+
         if let CursorContext::String(string) = &context
             && string.directive.is_some()
         {
             // Inside `#load "..."` / `#import "..."`: the entry after the last `/`.
             let from = string.start as usize;
+
             start = from + text[from..byte].rfind('/').map_or(0, |s| s + 1);
             end = byte
                 + text[byte..]
                     .find(|c: char| c == '"' || c == '/' || c.is_whitespace())
                     .unwrap_or(text.len() - byte);
         }
+
         if let Ok(range) = doc.index.range(text, Span::new(start, end)) {
             for item in &mut list.items {
                 if item.replace.is_none() {
@@ -322,6 +359,7 @@ impl Session {
                 }
             }
         }
+
         if self.snippet_support && matches!(context, CursorContext::Code | CursorContext::Member(_))
         {
             crate::call_snippets::apply(
@@ -333,6 +371,7 @@ impl Session {
                 self.call_snippets,
             );
         }
+
         // Names from older text, or none for lack of a compile: the next request asks again.
         list.is_incomplete |= self.take_stale();
         Ok(list)
@@ -353,8 +392,10 @@ impl Session {
             .char_indices()
             .rfind(|&(_, c)| !(c.is_alphanumeric() || c == '_'))
             .map_or(0, |(i, c)| i + c.len_utf8());
+
         if doc.text[..word_start].ends_with('#') {
             let typed = doc.text[word_start..byte].to_lowercase();
+
             return Ok(CompletionList {
                 is_incomplete: false,
                 items: jaic::lexicon::described_directives()
@@ -368,10 +409,13 @@ impl Session {
                     .collect(),
             });
         }
+
         let in_hole = self.hole_cursor(uri, byte).is_some();
+
         if !in_hole && let Some(list) = self.path_completion(uri, &doc.text, context, byte) {
             return Ok(list);
         }
+
         if let Some((prefix, names, files)) =
             self.semantic_completion(uri, &doc.text, byte, context)
         {
@@ -410,20 +454,25 @@ impl Session {
                 self.fitting_names(uri, &doc.text, byte - prefix.len())
             };
             let unranked = matches!(ranking, Ranking::Pending);
+
             incomplete |= unranked;
             let fitting = match ranking {
                 Ranking::Known(fitting) => fitting,
                 Ranking::Pending => None,
             };
+
             for (name, keyword) in all {
                 if !name.name.to_lowercase().starts_with(&lower) {
                     continue;
                 }
+
                 let rank = rank(&name, keyword, here, declaration_start..byte);
+
                 if items.len() >= self.limits.symbols {
                     incomplete = true;
                     break;
                 }
+
                 let kind = match name.kind {
                     _ if keyword => CompletionKind::Keyword,
                     IdeKind::Variable => CompletionKind::Variable,
@@ -448,6 +497,7 @@ impl Session {
                     Some(_) => "1",
                     None => "",
                 };
+
                 items.entry(name.name.clone()).or_insert(CompletionItem {
                     sort_text: Some(format!("{fit}{rank}{}", name.name)),
                     label: name.name,
@@ -458,7 +508,9 @@ impl Session {
                     ..CompletionItem::default()
                 });
             }
+
             let mut items: Vec<CompletionItem> = items.into_values().collect();
+
             // A short list carries its documentation; a long one waits for the client to
             // ask about the item it highlights.
             if items.len() <= crate::doc_view::EAGER_DOCS {
@@ -468,6 +520,7 @@ impl Session {
                     }
                 }
             }
+
             if in_hole {
                 // Names a hole may use are the ones in scope; an import is no hole's business.
             } else if !member {
@@ -477,11 +530,13 @@ impl Session {
             {
                 items.extend(self.postfix_items(uri, &doc.text, lexed, byte, m, &prefix));
             }
+
             return Ok(CompletionList {
                 is_incomplete: incomplete,
                 items,
             });
         }
+
         let (analysis, own_text) = self
             .declarations(uri)
             .expect("opened document has analysis");
@@ -495,6 +550,7 @@ impl Session {
             .map_or("", |(_, token)| {
                 &doc.text[token.span.start..byte.min(token.span.end)]
             });
+
         if self.word(uri, position)?.is_some_and(|(at, _)| {
             at > 0
                 && self
@@ -509,8 +565,10 @@ impl Session {
                 items: vec![],
             });
         }
+
         let mut items = BTreeMap::new();
         let mut incomplete = !analysis.complete || !fresh;
+
         for candidate in self.reachable(uri) {
             let (rows, text) = if candidate == uri {
                 (&analysis.rows, own_text)
@@ -520,6 +578,7 @@ impl Session {
                     self.documents[candidate].text.as_str(),
                 )
             };
+
             for row in rows {
                 let visible = if row.local {
                     candidate == uri
@@ -529,6 +588,7 @@ impl Session {
                     row.parent.is_none() && (candidate == uri || !row.file_private)
                 };
                 let name = row.name.as_str();
+
                 if visible && name.starts_with(prefix) && items.len() < self.limits.symbols {
                     let kind = match row.kind {
                         SymbolKind::Function => CompletionKind::Function,
@@ -538,6 +598,7 @@ impl Session {
                         SymbolKind::TypeAlias => CompletionKind::TypeAlias,
                         _ => CompletionKind::Variable,
                     };
+
                     items.entry(name.to_owned()).or_insert(CompletionItem {
                         label: name.into(),
                         kind,
@@ -549,6 +610,7 @@ impl Session {
                 }
             }
         }
+
         for name in jaic::lexicon::reserved() {
             if name.starts_with(prefix) && items.len() < self.limits.symbols {
                 items.entry(name.into()).or_insert(CompletionItem {
@@ -559,7 +621,9 @@ impl Session {
                 });
             }
         }
+
         let mut items: Vec<CompletionItem> = items.into_values().collect();
+
         incomplete |= self.add_auto_imports(uri, &doc.text, prefix, &mut items);
         Ok(CompletionList {
             is_incomplete: incomplete,
@@ -578,6 +642,7 @@ impl Session {
     ) -> bool {
         let visible: BTreeSet<String> = items.iter().map(|i| i.label.clone()).collect();
         let (auto, incomplete) = self.auto_import_items(uri, text, prefix, &visible);
+
         items.extend(auto);
         incomplete
     }
@@ -589,6 +654,7 @@ impl Session {
 /// auto-imports (`~`).
 fn rank(name: &IdeName, keyword: bool, here: Option<u32>, local: std::ops::Range<usize>) -> char {
     let in_file = here == Some(name.decl.file.0) && name.decl != jaic::source::Span::NONE;
+
     match () {
         () if keyword => '3',
         // Strictly after the declaration's start: the declaration itself is a file name.

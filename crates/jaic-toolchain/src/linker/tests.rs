@@ -38,34 +38,42 @@ fn the_host_target_is_the_machine_s_os_and_cpu() {
 fn the_host_links_with_its_c_driver() {
     let host = FakeHost::mac();
     let found = find(&host, "aarch64-apple-darwin").unwrap();
+
     assert_eq!(found.program, PathBuf::from("/usr/bin/cc"));
     assert!(found.args.is_empty());
     // The other architecture of a Mac is the same driver told the target.
     let found = find(&host, "x86_64-apple-darwin").unwrap();
+
     assert_eq!(args(&found), ["--target=x86_64-apple-darwin"]);
     let host = FakeHost::debian();
+
     assert_eq!(
         find(&host, "x86_64-unknown-linux-gnu").unwrap().program,
         PathBuf::from("/usr/bin/cc")
     );
     let found = find(&host, "i686-unknown-linux-gnu").unwrap();
+
     assert_eq!(args(&found), ["-m32"]);
 }
 
 #[test]
 fn a_missing_c_driver_says_how_to_get_one() {
     let mut host = FakeHost::mac();
+
     host.without("/usr/bin/cc");
     let error = find(&host, "aarch64-apple-darwin").unwrap_err();
+
     assert_eq!(error.what, "no linker for aarch64-apple-darwin");
     assert_eq!(
         error.notes,
         ["install the Xcode command line tools with `xcode-select --install`"]
     );
     let mut host = FakeHost::debian();
+
     host.without("/usr/bin/cc");
     // A C driver that cannot link is the host's own: `cc` is not looked for elsewhere.
     let error = find(&host, "x86_64-unknown-linux-gnu").unwrap_err();
+
     assert!(
         error.notes[0].contains("apt install gcc-x86-64-linux-gnu"),
         "{error}"
@@ -75,8 +83,10 @@ fn a_missing_c_driver_says_how_to_get_one() {
 #[test]
 fn a_gnu_cross_driver_links_a_linux_target_on_linux() {
     let mut host = FakeHost::debian();
+
     host.file("/usr/bin/arm-linux-gnueabihf-gcc");
     let found = find(&host, ARMHF).unwrap();
+
     assert_eq!(
         found.program,
         PathBuf::from("/usr/bin/arm-linux-gnueabihf-gcc")
@@ -88,6 +98,7 @@ fn a_gnu_cross_driver_links_a_linux_target_on_linux() {
 fn a_debian_machine_is_told_the_cross_package() {
     let host = FakeHost::debian();
     let error = find(&host, ARMHF).unwrap_err();
+
     assert_eq!(error.what, format!("no linker for {ARMHF}"));
     assert_eq!(
         error.to_string(),
@@ -100,9 +111,11 @@ fn a_debian_machine_is_told_the_cross_package() {
 #[test]
 fn a_mac_cross_links_with_lld_against_a_fetched_sysroot() {
     let mut host = FakeHost::mac();
+
     host.file("/opt/homebrew/bin/ld.lld");
     host.file("/cache/mac/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot/usr/lib/libc.so");
     let found = find(&host, ARMHF).unwrap();
+
     assert_eq!(found.program, PathBuf::from("/usr/bin/cc"));
     assert_eq!(
         args(&found),
@@ -118,8 +131,10 @@ fn a_mac_cross_links_with_lld_against_a_fetched_sysroot() {
 #[test]
 fn a_mac_without_lld_or_a_sysroot_gets_both_notes() {
     let mut host = FakeHost::mac();
+
     host.file("/opt/homebrew/bin/brew");
     let error = find(&host, ARMHF).unwrap_err();
+
     assert_eq!(error.what, format!("no linker for {ARMHF}"));
     assert_eq!(
         error.notes,
@@ -131,6 +146,7 @@ fn a_mac_without_lld_or_a_sysroot_gets_both_notes() {
     // With LLD but no sysroot only the library is missing.
     host.file("/opt/homebrew/bin/ld.lld");
     let error = find(&host, ARMHF).unwrap_err();
+
     assert_eq!(error.what, format!("no Linux C library for {ARMHF}"));
     assert_eq!(error.notes.len(), 1);
 }
@@ -138,6 +154,7 @@ fn a_mac_without_lld_or_a_sysroot_gets_both_notes() {
 #[test]
 fn a_sysroot_override_wins_over_the_cache() {
     let mut host = FakeHost::mac();
+
     host.file("/opt/homebrew/bin/ld.lld");
     host.file("/cache/mac/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot/usr/lib/libc.so");
     host.dir("/mine");
@@ -149,6 +166,7 @@ fn a_sysroot_override_wins_over_the_cache() {
         ..Overrides::default()
     };
     let found = find_linker(&Lookup::new(&host), Some(target(ARMHF)), &overrides).unwrap();
+
     assert!(args(&found).contains(&"--sysroot=/mine".to_string()));
     let sysroot = find_sysroot(
         &Lookup::new(&host),
@@ -158,12 +176,14 @@ fn a_sysroot_override_wins_over_the_cache() {
     )
     .unwrap()
     .unwrap();
+
     assert_eq!(sysroot.origin, Origin::Override("-sysroot"));
 }
 
 #[test]
 fn qemu_runs_against_the_systems_cross_libraries_first() {
     let mut host = FakeHost::debian();
+
     host.dir("/usr/arm-linux-gnueabihf/lib");
     let found = find_sysroot(
         &Lookup::new(&host),
@@ -173,6 +193,7 @@ fn qemu_runs_against_the_systems_cross_libraries_first() {
     )
     .unwrap()
     .unwrap();
+
     assert_eq!(found.program, PathBuf::from("/usr/arm-linux-gnueabihf"));
     // A link needs a sysroot clang can use, which Debian's cross packages are not.
     assert!(
@@ -198,6 +219,7 @@ fn an_override_replaces_the_lookup_and_is_labelled() {
         ..Overrides::default()
     };
     let found = find_linker(&Lookup::new(&host), Some(target(ARMHF)), &overrides).unwrap();
+
     assert_eq!(found.program, PathBuf::from("/opt/gcc/bin/my-gcc"));
     assert_eq!(
         found.origin.label().as_deref(),
@@ -208,13 +230,16 @@ fn an_override_replaces_the_lookup_and_is_labelled() {
 #[test]
 fn wasm_and_bare_metal_need_lld() {
     let mut host = FakeHost::mac();
+
     host.file("/opt/homebrew/bin/brew");
     let error = find(&host, "wasm32-unknown-wasi").unwrap_err();
+
     assert_eq!(
         error.to_string(),
         "no linker for wasm32-unknown-wasi\nnote: install LLD with `brew install lld`"
     );
     let error = find(&host, "thumbv7em-none-eabihf").unwrap_err();
+
     assert_eq!(error.what, "no linker for thumbv7em-none-eabihf");
     host.file("/opt/homebrew/bin/wasm-ld");
     host.file("/opt/homebrew/bin/ld.lld");
@@ -232,31 +257,38 @@ fn wasm_and_bare_metal_need_lld() {
 #[test]
 fn mingw_is_found_by_the_triple_and_arm64_uses_clang() {
     let mut host = FakeHost::mac();
+
     host.file("/opt/homebrew/bin/x86_64-w64-mingw32-gcc");
     let found = find(&host, "x86_64-pc-windows-gnu").unwrap();
+
     assert!(found.args.is_empty());
     host.file("/opt/homebrew/bin/aarch64-w64-mingw32-clang");
     let found = find(&host, "aarch64-pc-windows-gnu").unwrap();
+
     assert_eq!(args(&found), ["--target=aarch64-pc-windows-gnu"]);
 }
 
 #[test]
 fn mingw_missing_names_the_package_for_each_system() {
     let mut host = FakeHost::mac();
+
     host.file("/opt/homebrew/bin/brew");
     let error = find(&host, "x86_64-pc-windows-gnu").unwrap_err();
+
     assert_eq!(
         error.notes,
         ["install MinGW-w64 with `brew install mingw-w64`"]
     );
     let host = FakeHost::debian();
     let error = find(&host, "x86_64-pc-windows-gnu").unwrap_err();
+
     assert_eq!(
         error.notes,
         ["install MinGW-w64 with `apt install gcc-mingw-w64`"]
     );
     let host = FakeHost::new(Os::Linux, "x86_64");
     let error = find(&host, "x86_64-pc-windows-gnu").unwrap_err();
+
     assert!(error.notes[0].contains("llvm-mingw"), "{error}");
 }
 
@@ -264,6 +296,7 @@ fn mingw_missing_names_the_package_for_each_system() {
 fn macos_cannot_be_linked_for_from_another_system() {
     let host = FakeHost::debian();
     let error = find(&host, "aarch64-apple-darwin").unwrap_err();
+
     assert_eq!(
         error.notes,
         ["it cannot be redistributed, so build for macOS on a Mac"]
@@ -273,6 +306,7 @@ fn macos_cannot_be_linked_for_from_another_system() {
 #[test]
 fn the_archiver_depends_on_the_target() {
     let mut host = FakeHost::mac();
+
     host.file("/usr/bin/ar");
     host.file("/opt/homebrew/bin/llvm-ar");
     host.path.push("/opt/homebrew/bin".into());
@@ -282,6 +316,7 @@ fn the_archiver_depends_on_the_target() {
             .unwrap()
             .program
     };
+
     assert_eq!(ar("aarch64-apple-darwin"), PathBuf::from("/usr/bin/ar"));
     assert_eq!(
         ar("wasm32-unknown-wasi"),
@@ -310,5 +345,6 @@ fn a_sysroot_that_is_not_a_folder_is_an_error_naming_it() {
         SysrootUse::Link,
     )
     .unwrap_err();
+
     assert_eq!(error.what, "-sysroot names `/nope`, which is not a folder");
 }

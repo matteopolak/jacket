@@ -11,8 +11,10 @@ pub(super) fn build(
     let mut candidates = HashSet::default();
     let mut rejected = HashSet::default();
     let mut written = HashSet::default();
+
     for body in bodies.values() {
         let mut slots = HashMap::default();
+
         for event in body.blocks.iter().flat_map(|b| &b.events) {
             if let Event::Expression {
                 operand: LifetimeOperand::Place(value),
@@ -31,12 +33,14 @@ pub(super) fn build(
                 })
             {
                 let entity = compiler.entity(*entity);
+
                 if let EntityState::Done(Resolved::Global {
                     storage: Storage::Data(id),
                     ..
                 }) = entity.state
                 {
                     slots.insert(*value, id);
+
                     if entity.file_private
                         || !entity.exported
                         || [compiler.ns.main_module, entry_module]
@@ -49,6 +53,7 @@ pub(super) fn build(
                 }
             }
         }
+
         for event in body.blocks.iter().flat_map(|b| &b.events) {
             match event {
                 Event::Store {
@@ -58,9 +63,11 @@ pub(super) fn build(
                     ..
                 } if slots.contains_key(place) => {
                     let id = slots[place];
+
                     if *constant == Some(0) {
                         continue;
                     }
+
                     if body.stack_places.contains(value) {
                         written.insert(id);
                     } else {
@@ -79,8 +86,10 @@ pub(super) fn build(
             }
         }
     }
+
     candidates.retain(|id| {
         let global = &compiler.out.program.globals[id.0 as usize];
+
         written.contains(id)
             && !rejected.contains(id)
             && global.export.is_none()

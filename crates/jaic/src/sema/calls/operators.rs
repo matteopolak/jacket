@@ -57,16 +57,20 @@ impl Compiler {
     ) -> Result<Vec<ProcId>> {
         let name = Sym::intern(&format!("operator{text}"));
         let mut ids = self.lookup(scope, name)?;
+
         if public_only {
             ids.retain(|&id| {
                 let e = self.entity(id);
                 e.exported && !e.file_private
             });
         }
+
         if ids.len() > 1 {
             self.check_identical_overloads(&ids)?;
         }
+
         let mut procs = Vec::new();
+
         for id in ids {
             let found = match self.resolve_entity(id)? {
                 scope::Resolved::Proc(p)
@@ -77,12 +81,14 @@ impl Compiler {
                 scope::Resolved::ProcSet(set) => set,
                 _ => continue,
             };
+
             for p in found {
                 if !procs.contains(&p) {
                     procs.push(p);
                 }
             }
         }
+
         Ok(procs)
     }
 
@@ -99,30 +105,39 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<(Operand, Operand)>> {
         let is_struct = |s: &Self, t: TypeId| matches!(s.ty.types.kind(t), TypeKind::Struct(_));
+
         if !(is_struct(self, lhs.ty()) || is_struct(self, rhs.ty()))
             || matches!(lhs, Operand::Type(_) | Operand::Procs(_))
             || matches!(rhs, Operand::Type(_) | Operand::Procs(_))
         {
             return Ok(None);
         }
+
         let procs = self.operator_candidates(scope, binop_text(op))?;
         let args = [operand_arg(scope, span, lhs), operand_arg(scope, span, rhs)];
+
         if self.any_accepts(&procs, &args, span) {
             return Ok(None);
         }
+
         let mut operands = Vec::new();
+
         for operand in [lhs, rhs] {
             let Some(base) = self.as_scalar_base(operand.ty()) else {
                 operands.push(operand.clone());
                 continue;
             };
+
             operands.push(self.convert(f, operand.clone(), base, Site::opaque(span))?);
         }
+
         let rhs = operands.pop().expect("two operands");
         let lhs = operands.pop().expect("two operands");
+
         if is_struct(self, lhs.ty()) || is_struct(self, rhs.ty()) {
             return Ok(None);
         }
+
         Ok(Some((lhs, rhs)))
     }
 
@@ -130,14 +145,18 @@ impl Compiler {
     /// is not a struct.
     fn as_scalar_base(&mut self, ty: TypeId) -> Option<TypeId> {
         let s = self.ty.types.as_struct(ty)?;
+
         if self.layout_struct(s, Span::NONE).is_err() {
             return None;
         }
+
         let fields = self.ty.types.struct_info(s).fields.clone();
         let field = fields.iter().find(|field| field.as_)?;
+
         if self.ty.types.as_struct(field.ty).is_some() {
             return self.as_scalar_base(field.ty);
         }
+
         Some(field.ty)
     }
 
@@ -151,19 +170,23 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Operand>> {
         let (lt, rt) = (lhs.ty(), rhs.ty());
+
         if !(self.ty.overloadable(lt) || self.ty.overloadable(rt))
             || matches!(lhs, Operand::Type(_))
         {
             return Ok(None);
         }
+
         if (self.ty.types.is_pointer(lt) || matches!(self.ty.types.kind(lt), TypeKind::Enum(_)))
             && !matches!(self.ty.types.kind(rt), TypeKind::Struct(_))
         {
             return Ok(None);
         }
+
         let args = vec![operand_arg(scope, span, lhs), operand_arg(scope, span, rhs)];
         let reports_failure = matches!(self.ty.types.kind(lt), TypeKind::Struct(_))
             || matches!(self.ty.types.kind(rt), TypeKind::Struct(_));
+
         self.call_operator(f, scope, node, args, reports_failure, span)
     }
 
@@ -197,6 +220,7 @@ impl Compiler {
         let Ok(probe) = self.check_expr(&mut scratch, scope, other, None) else {
             return Ok(None);
         };
+
         // An inferred member next to an enum is that enum's member and uses the builtin
         // operator, so no module has to be searched (and loaded) for an overload: an `#if`
         // choosing a module's parameters may be what is being decided.
@@ -205,12 +229,15 @@ impl Compiler {
         {
             return Ok(None);
         }
+
         let in_scope = !self.operator_candidates(scope, binop_text(op))?.is_empty()
             || (op == ast::BinOp::Ne && !self.operator_candidates(scope, "==")?.is_empty());
+
         // Without an overload in scope, those of the checked operand's own module apply.
         if !in_scope && self.struct_home_operators(op, probe.ty())?.is_empty() {
             return Ok(None);
         }
+
         let deferred = CallArg {
             name: None,
             spread: false,
@@ -226,9 +253,11 @@ impl Compiler {
             vec![checked, deferred]
         };
         let attempts = self.operator_attempts(scope, op, &args)?;
+
         if attempts.is_empty() {
             return Ok(None);
         }
+
         if matches!(probe, Operand::Type(_)) {
             return err(
                 Code::CallTypeCannotOperand,
@@ -236,14 +265,18 @@ impl Compiler {
                 "a type cannot be an operand of an overloaded operator",
             );
         }
+
         let position = usize::from(!literal_first);
         let mut matched = false;
         let mut taken = None;
+
         for attempt in &attempts {
             let (best, _) = self.rank_candidates(&attempt.procs, &attempt.args, span);
+
             if best.is_empty() {
                 continue;
             }
+
             matched = true;
             let (chosen, _) = self.choose_candidate(best, &attempt.args, span, scope)?;
             // The literal is at the other position when the operands are swapped.
@@ -252,22 +285,28 @@ impl Compiler {
             } else {
                 position
             };
+
             taken = self.argument_param_type(&chosen, at, span)?;
+
             break;
         }
+
         // `.{...}` and `.[...]` build aggregates, which only an overload takes; `.NAME` may be
         // a member of an enum a builtin operator compares.
         if !matched && !matches!(literal.kind, E::InferredMember(_)) {
             let first = attempts.into_iter().next().expect("attempts is not empty");
+
             return self
                 .call_procs(f, scope, &first.procs, first.args, None, span)
                 .map(|_| None);
         }
+
         let Some(ty) = taken else {
             return Ok(None);
         };
         let other = self.check_expr(f, scope, other, None)?;
         let literal = self.check_expr(f, scope, literal, Some(ty))?;
+
         Ok(Some(if literal_first {
             (literal, other)
         } else {
@@ -278,9 +317,11 @@ impl Compiler {
     /// The overloads of `op` (or of `==` for `!=`) declared in the module of struct type `ty`.
     fn struct_home_operators(&mut self, op: ast::BinOp, ty: TypeId) -> Result<Vec<ProcId>> {
         let mut found = self.home_operator_candidates(binop_text(op), &[ty], &[])?.0;
+
         if op == ast::BinOp::Ne {
             found.extend(self.home_operator_candidates("==", &[ty], &[])?.0);
         }
+
         Ok(found)
     }
 
@@ -304,10 +345,12 @@ impl Compiler {
         } else {
             &[(text, false)]
         };
+
         // The overloads in scope first, then those of the operand types' modules.
         for lenient in [false, true] {
             let mut symmetric = Vec::new();
             let mut module = None;
+
             for &(text, negate) in shapes {
                 let scoped = self.operator_candidates(scope, text)?;
                 let (found, used) = if lenient {
@@ -315,10 +358,13 @@ impl Compiler {
                 } else {
                     (scoped, None)
                 };
+
                 if found.is_empty() {
                     continue;
                 }
+
                 module = module.or_else(|| used.clone());
+
                 if !negate {
                     symmetric = found
                         .iter()
@@ -326,6 +372,7 @@ impl Compiler {
                         .filter(|&p| self.proc(p).lit.header.flags.symmetric())
                         .collect();
                 }
+
                 attempts.push(OperatorAttempt {
                     procs: found,
                     args: args.to_vec(),
@@ -334,6 +381,7 @@ impl Compiler {
                     lenient: used,
                 });
             }
+
             if !symmetric.is_empty() {
                 attempts.push(OperatorAttempt {
                     procs: symmetric,
@@ -344,6 +392,7 @@ impl Compiler {
                 });
             }
         }
+
         Ok(attempts)
     }
 
@@ -376,6 +425,7 @@ impl Compiler {
             (false, true) => "!".to_string(),
             (false, false) => String::new(),
         };
+
         Rewrite {
             span,
             prefix,
@@ -397,6 +447,7 @@ impl Compiler {
             binop_text(node.op)
         };
         let rewrite = self.operator_rewrite(node, span, negate, swapped);
+
         self.warn_lenient_operator(scope, span, text, used, Some(rewrite));
     }
 
@@ -413,31 +464,41 @@ impl Compiler {
     ) -> Result<Option<Operand>> {
         let op = node.op;
         let attempts = self.operator_attempts(scope, op, &args)?;
+
         for attempt in attempts {
             let (best, _) = self.rank_candidates(&attempt.procs, &attempt.args, span);
+
             if best.is_empty() {
                 continue;
             }
+
             let (chosen, _) = self.choose_candidate(best, &attempt.args, span, scope)?;
             let Ok(r) = self.emit_call(f, scope, chosen, attempt.args, span) else {
                 continue;
             };
+
             if let Some(used) = attempt.lenient {
                 let shape = (attempt.negate, attempt.swapped);
+
                 self.warn_lenient_binary(scope, node, span, shape, used);
             }
+
             if !attempt.negate {
                 return Ok(Some(r));
             }
+
             let (ty, v) = self.rvalue(f, r, span)?;
             let b = self.truthy(f, ty, v, span)?;
             let one = f.b.iconst(ir::Ty::I8, 1);
+
             return Ok(Some(Operand::Value {
                 ty: TypeId::BOOL,
                 val: f.b.bin(ir::BinOp::Xor, ir::Ty::I8, b, one),
             }));
         }
+
         let procs = self.operator_candidates(scope, binop_text(op))?;
+
         if reports_failure && !procs.is_empty() {
             // No overload takes the struct operands: say so without naming a candidate, and
             // list the ones in scope as notes.
@@ -458,15 +519,19 @@ impl Compiler {
                         .join(" and ")
                 ),
             );
+
             for &p in &procs {
                 let header = self.proc(p).lit.header.span;
+
                 d = d.with_note(header, format!("`operator {text}` is declared here"));
             }
+
             let rewrite = self.operator_rewrite(node, span, false, false);
             let tys: Vec<TypeId> = args
                 .iter()
                 .filter_map(|a| a.op.as_ref().map(Operand::ty))
                 .collect();
+
             return Err(Box::new(self.with_missing_operator_help(
                 scope,
                 d,
@@ -475,6 +540,7 @@ impl Compiler {
                 Some(rewrite),
             )));
         }
+
         Ok(None)
     }
 
@@ -500,9 +566,11 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let (best, _) = self.rank_candidates(procs, &args, span);
+
         if best.is_empty() {
             return err(Code::CallNoOperator, span, "no operator overload matches");
         }
+
         let (chosen, _) = self.choose_candidate(best, &args, span, scope)?;
         self.emit_call(f, scope, chosen, args, span)
     }
@@ -521,6 +589,7 @@ impl Compiler {
         ) {
             return Ok(None);
         }
+
         let text = match op {
             ast::UnOp::Neg => "-",
             ast::UnOp::Not => "!",
@@ -528,10 +597,12 @@ impl Compiler {
             _ => return Ok(None),
         };
         let (procs, lenient) = self.operator_candidates_for(scope, text, operand.ty())?;
+
         if procs.is_empty() {
             if op == ast::UnOp::Not {
                 return Ok(None);
             }
+
             // Neither `-` nor `~` has a builtin meaning for a struct.
             let what = if op == ast::UnOp::Neg {
                 "negate"
@@ -548,6 +619,7 @@ impl Compiler {
                 prefix: String::new(),
                 args: self.src.sources.snippet(operand_span).to_string(),
             };
+
             return Err(Box::new(self.with_missing_operator_help(
                 scope,
                 d,
@@ -556,14 +628,17 @@ impl Compiler {
                 Some(rewrite),
             )));
         }
+
         if let Some(used) = lenient {
             let rewrite = Rewrite {
                 span,
                 prefix: String::new(),
                 args: self.src.sources.snippet(operand_span).to_string(),
             };
+
             self.warn_lenient_operator(scope, span, text, used, Some(rewrite));
         }
+
         let args = vec![CallArg {
             name: None,
             spread: false,
@@ -572,6 +647,7 @@ impl Compiler {
             span,
             scope,
         }];
+
         self.call_procs(f, scope, &procs, args, None, span)
             .map(Some)
     }
@@ -587,20 +663,26 @@ impl Compiler {
     ) -> Result<Option<Operand>> {
         let bt = base.ty();
         let target = self.ty.types.pointee(bt).unwrap_or(bt);
+
         if !matches!(self.ty.types.kind(target), TypeKind::Struct(_)) {
             return Ok(None);
         }
+
         let (mut procs, lenient) = self.operator_candidates_for(scope, text, target)?;
+
         // Unrelated lexical operators do not hide builtin pointer indexing.
         // Keep index/type/result validation in normal call binding once a
         // receiver applies, rather than swallowing an arbitrary call error.
         procs.retain(|&p| self.first_param_accepts(p, target));
+
         if procs.is_empty() {
             return Ok(None);
         }
+
         if let Some(used) = lenient {
             self.warn_lenient_operator(scope, span, text, used, None);
         }
+
         let args = vec![
             CallArg {
                 name: None,
@@ -620,6 +702,7 @@ impl Compiler {
             },
         ];
         let r = self.call_procs(f, scope, &procs, args, None, span)?;
+
         // `operator []` returning a pointer is an lvalue.
         Ok(Some(match r {
             Operand::Value {
@@ -629,6 +712,7 @@ impl Compiler {
                 && self.ty.types.pointee(ty) != Some(target) =>
             {
                 let _ = val;
+
                 Operand::Value {
                     ty,
                     val,
@@ -644,6 +728,7 @@ pub fn binop_text(op: ast::BinOp) -> &'static str {
         Add, And, BitAnd, BitOr, BitXor, Div, Eq, Ge, Gt, Le, Lt, Mul, Ne, Or, Rem, Rotl, Rotr,
         Shl, Shr, Sub,
     };
+
     match op {
         Add => "+",
         Sub => "-",
@@ -674,6 +759,7 @@ impl TypeState {
     pub fn struct_home_scope(&self, t: TypeId) -> Option<ScopeId> {
         let t = self.types.pointee(t).unwrap_or(t);
         let s = self.types.as_struct(self.types.repr_struct(t))?;
+
         self.struct_asts.get(&s).map(|src| src.scope)
     }
 

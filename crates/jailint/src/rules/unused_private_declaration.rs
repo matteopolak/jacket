@@ -50,7 +50,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() || reads_names(cx) {
         return;
     }
+
     let mut scope = ScopeKind::Export;
+
     for stmt in cx.stmts {
         let decl = match &stmt.kind {
             S::Scope(kind) => {
@@ -60,18 +62,23 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             S::Decl(decl) => decl,
             _ => continue,
         };
+
         if scope != ScopeKind::File {
             continue;
         }
+
         let [name] = decl.names.as_slice() else {
             continue;
         };
+
         if read_from_outside(decl, name.name.as_str(), &cx.compiler.options.entry_point) {
             continue;
         }
+
         if cx.mentions(name.name, 0, cx.text.len() as u32, stmt.span) {
             continue;
         }
+
         out.push(finding(
             name.span,
             format!(
@@ -91,14 +98,17 @@ pub(super) fn read_from_outside(decl: &jaic::ast::Decl, name: &str, entry_point:
     if decl.using || decl.backtick || !decl.notes.is_empty() {
         return true;
     }
+
     if READ_BY_NAME.contains(&name) || name.starts_with("__") || name == entry_point {
         return true;
     }
+
     if decl.kind == DeclKind::Const
         && let Some(value) = &decl.value
         && let E::Proc(lit) = &value.kind
     {
         let f = &lit.header.flags;
+
         return f.c_call()
             || f.expand()
             || f.compiler()
@@ -111,6 +121,7 @@ pub(super) fn read_from_outside(decl: &jaic::ast::Decl, name: &str, entry_point:
             || lit.header.operator.is_some()
             || !lit.header.notes.is_empty();
     }
+
     false
 }
 

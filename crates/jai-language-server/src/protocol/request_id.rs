@@ -62,12 +62,14 @@ impl<'de> Deserialize<'de> for RequestId {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         use serde::de::Error;
         const MESSAGE: &str = "request id must be a string or a whole number";
+
         match serde_json::Value::deserialize(deserializer)? {
             serde_json::Value::String(text) => Ok(Self::String(text)),
             serde_json::Value::Number(number) => {
                 if let Some(n) = number.as_i64() {
                     return Ok(Self::Number(n));
                 }
+
                 // 2^63 is the first float an `i64` cannot hold.
                 number
                     .as_f64()
@@ -124,6 +126,7 @@ mod tests {
     fn echoes_the_form_it_received() {
         for text in ["7", "-3", "1.0", "2000.0", "\"abc\"", "\"1\""] {
             let id = parse(text).unwrap();
+
             assert_eq!(serde_json::to_string(&id).unwrap(), text);
             assert_eq!(json!(id).to_string(), text);
         }

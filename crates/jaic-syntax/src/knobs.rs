@@ -82,6 +82,7 @@ fn scramble_seed(var: &jacket_config::env::Var) -> Option<u64> {
 /// A gap below `limit` for position `at` under `seed` (splitmix64).
 pub fn scramble_gap(seed: u64, at: u64, limit: u32) -> u32 {
     let mut z = seed ^ at.wrapping_mul(0x9e37_79b9_7f4a_7c15);
+
     z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
     ((z ^ (z >> 31)) % u64::from(limit)) as u32

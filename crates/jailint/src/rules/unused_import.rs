@@ -54,10 +54,12 @@ pub(crate) fn prepare(
     let (file_scope, module) = (info.scope, info.module);
     let module_scope = compiler.ns.modules[module.0 as usize].scope;
     let mut names: Option<Rc<HashMap<Sym, usize>>> = None;
+
     for s in &ast.stmts {
         let S::Import(imp) = &s.kind else {
             continue;
         };
+
         // The expression that holds an expression's import uses it, and removing the directive
         // from the middle of the expression would leave the rest of it behind.
         if !imp.params.is_empty()
@@ -67,7 +69,9 @@ pub(crate) fn prepare(
         {
             continue;
         }
+
         let text = describe(imp);
+
         if let Some(name) = imp.name {
             let used = [file_scope, module_scope].iter().any(|&sc| {
                 compiler.scope(sc).names.get(&name.name).is_some_and(|ids| {
@@ -92,6 +96,7 @@ pub(crate) fn prepare(
                         .any(|&e| matches!(compiler.entity(e).kind, EntityKind::Import(_)))
                 })
             });
+
             if declared && !used {
                 out.push(Unused {
                     span: s.span,
@@ -99,11 +104,14 @@ pub(crate) fn prepare(
                     named: true,
                 });
             }
+
             continue;
         }
+
         let Some((scope, index, m)) = entry(compiler, &[file_scope, module_scope], imp.span) else {
             continue;
         };
+
         if compiler
             .ed
             .facts()
@@ -112,9 +120,11 @@ pub(crate) fn prepare(
         {
             continue;
         }
+
         let names =
             names.get_or_insert_with(|| module_identifiers(compiler, cache, module, file, tokens));
         let mut found = false;
+
         for &n in names.keys() {
             match compiler.module_lookup(m, n) {
                 Ok(Found::Entities(ids)) if ids.is_empty() => {}
@@ -125,6 +135,7 @@ pub(crate) fn prepare(
                 Err(_) => {}
             }
         }
+
         if !found {
             out.push(Unused {
                 span: s.span,
@@ -133,6 +144,7 @@ pub(crate) fn prepare(
             });
         }
     }
+
     out
 }
 
@@ -158,6 +170,7 @@ fn entry(
             }
         }
     }
+
     None
 }
 
@@ -190,23 +203,28 @@ fn module_identifiers(
     if let Some(found) = cache.identifiers.get(&module) {
         return found.clone();
     }
+
     let mut out = HashMap::default();
     let mut seen: HashSet<PathBuf> = HashSet::default();
     let mut queue: Vec<(PathBuf, String)> = Vec::new();
     let mut own: Option<PathBuf> = None;
+
     for f in compiler.src.files.iter().filter(|f| f.module == module) {
         let src = compiler.src.sources.get(f.id);
         let Some(path) = src.path.as_file().map(std::path::Path::to_path_buf) else {
             continue;
         };
+
         // Every file of the module counts once, however it is reached.
         seen.insert(jaic::canonicalize(&path).unwrap_or(path.clone()));
+
         if f.id == file {
             own = Some(path);
         } else {
             queue.push((path, src.text.to_string()));
         }
     }
+
     if let Some(path) = own {
         apply(
             &FileFacts::of(tokens),
@@ -216,13 +234,17 @@ fn module_identifiers(
             &mut queue,
         );
     }
+
     while let Some((path, text)) = queue.pop() {
         let Some(facts) = file_facts(&text) else {
             continue;
         };
+
         apply(&facts, &path, &mut out, &mut seen, &mut queue);
     }
+
     let out = Rc::new(out);
+
     cache.identifiers.insert(module, out.clone());
     out
 }
@@ -240,15 +262,18 @@ struct FileFacts {
 impl FileFacts {
     fn of(tokens: &[Token]) -> Self {
         let mut counts: HashMap<Sym, usize> = HashMap::default();
+
         for t in tokens {
             if let Tok::Ident(n) = &t.tok {
                 *counts.entry(*n).or_insert(0) += 1;
             }
         }
+
         let links = project::scan_directives(tokens)
             .into_iter()
             .filter(|l| matches!(l.source, LinkSource::Load(_)))
             .collect();
+
         FileFacts {
             identifiers: counts.into_iter().collect(),
             links,
@@ -274,18 +299,24 @@ const FILES_KEPT: usize = 256;
 fn file_facts(text: &str) -> Option<Rc<FileFacts>> {
     use std::hash::{Hash, Hasher};
     let mut h = jaic::fxhash::FxHasher::default();
+
     text.hash(&mut h);
     let key = (h.finish(), text.len());
+
     if let Some(found) = FILES.with(|f| f.borrow().get(&key).cloned()) {
         return Some(found);
     }
+
     let tokens = jaic::lexer::lex(FileId(0), text).ok()?;
     let facts = Rc::new(FileFacts::of(&tokens));
+
     FILES.with(|f| {
         let mut f = f.borrow_mut();
+
         if f.len() >= FILES_KEPT {
             f.clear();
         }
+
         f.insert(key, facts.clone());
     });
     Some(facts)
@@ -303,16 +334,20 @@ fn apply(
     for (n, count) in &facts.identifiers {
         *out.entry(*n).or_insert(0) += count;
     }
+
     let mut links = facts.links.clone();
+
     project::resolve_targets(
         &mut links,
         path.parent().unwrap_or(std::path::Path::new("")),
     );
+
     for link in links {
         let Some(target) = link.target else {
             continue;
         };
         let key = jaic::canonicalize(&target).unwrap_or(target.clone());
+
         if seen.insert(key)
             && let Ok(text) = std::fs::read_to_string(&target)
         {
@@ -334,13 +369,17 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     // A compile that stopped early (a failed `#assert`, an error) left code unchecked.
     let all_checked = cx.complete && cx.procs.iter().all(|p| p.clean || p.is_macro);
+
     for u in &cx.imports {
         if !u.named && !all_checked {
             continue;
         }
+
         let (a, b) = cx.statement_removal(u.span);
+
         out.push(Finding {
             secondary: Vec::new(),
             start: u.span.start as usize,

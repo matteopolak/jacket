@@ -46,9 +46,11 @@ fn returned(s: &Stmt) -> Option<Sym> {
     else {
         return None;
     };
+
     if values.len() != 1 {
         return None;
     }
+
     identifier(&values[0].value)
 }
 
@@ -65,6 +67,7 @@ fn choice(cond: &Expr, selected: Sym, other: Sym) -> Option<Ordering> {
     } else {
         return None;
     };
+
     match (op, left) {
         (BinOp::Lt | BinOp::Le, true) | (BinOp::Gt | BinOp::Ge, false) => Some(Ordering::Minimum),
         (BinOp::Gt | BinOp::Ge, true) | (BinOp::Lt | BinOp::Le, false) => Some(Ordering::Maximum),
@@ -74,24 +77,30 @@ fn choice(cond: &Expr, selected: Sym, other: Sym) -> Option<Ordering> {
 
 pub(super) fn scalar(proc: &ProcLit) -> Option<Ordering> {
     let body = &proc.body.as_ref()?.stmts;
+
     if !(1..=3).contains(&body.len()) || proc.header.returns.len() != 1 {
         return None;
     }
+
     let mut parameters = proc.header.params.iter().filter(|p| !p.baked);
     let a = parameters.next()?;
     let b = parameters.next()?;
+
     if parameters.next().is_some() {
         return None;
     }
+
     let a_name = a.name?.name;
     let b_name = b.name?.name;
     let result = proc.header.returns.first()?;
+
     if proc.header.returns.len() != 1
         || type_name(a.ty.as_ref()?)? != type_name(b.ty.as_ref()?)?
         || type_name(result.ty.as_ref()?)? != type_name(a.ty.as_ref()?)?
     {
         return None;
     }
+
     if let [first, last] = body.as_slice()
         && let S::If {
             cond,
@@ -101,10 +110,12 @@ pub(super) fn scalar(proc: &ProcLit) -> Option<Ordering> {
     {
         let yes = returned(then_branch)?;
         let no = returned(last)?;
+
         if (yes == a_name && no == b_name) || (yes == b_name && no == a_name) {
             return choice(cond, yes, no);
         }
     }
+
     if let [only] = body.as_slice()
         && let S::If {
             cond,
@@ -114,32 +125,40 @@ pub(super) fn scalar(proc: &ProcLit) -> Option<Ordering> {
     {
         let yes = returned(then_branch)?;
         let no = returned(other)?;
+
         if (yes == a_name && no == b_name) || (yes == b_name && no == a_name) {
             return choice(cond, yes, no);
         }
     }
+
     if !b.variadic {
         return None;
     }
+
     let [initial, iteration, finish] = body.as_slice() else {
         return None;
     };
     let S::Decl(d) = &initial.kind else {
         return None;
     };
+
     if d.names.len() != 1 || d.backtick || d.using || identifier(d.value.as_ref()?)? != a_name {
         return None;
     }
+
     let accumulator = d.names[0].name;
+
     if returned(finish) != Some(accumulator) {
         return None;
     }
+
     let S::For(f) = &iteration.kind else {
         return None;
     };
     let ForOver::Collection(over) = &f.over else {
         return None;
     };
+
     if identifier(over) != Some(b_name)
         || f.by_pointer
         || f.pointer_if.is_some()
@@ -147,6 +166,7 @@ pub(super) fn scalar(proc: &ProcLit) -> Option<Ordering> {
     {
         return None;
     }
+
     let element = f.it.map_or_else(|| Sym::intern("it"), |n| n.name);
     let S::If {
         cond,
@@ -164,6 +184,7 @@ pub(super) fn scalar(proc: &ProcLit) -> Option<Ordering> {
     else {
         return None;
     };
+
     if lhs.len() != 1
         || rhs.len() != 1
         || identifier(&lhs[0]) != Some(accumulator)
@@ -171,6 +192,7 @@ pub(super) fn scalar(proc: &ProcLit) -> Option<Ordering> {
     {
         return None;
     }
+
     choice(cond, element, accumulator)
 }
 
@@ -182,9 +204,11 @@ impl Resolver<'_> {
         let [result] = sig.returns.as_slice() else {
             return None;
         };
+
         if sig.params.len() != 2 || sig.params.iter().any(|p| p.ty != *result) {
             return None;
         }
+
         let st = self.compiler.ty.types.as_struct(*result)?;
         let fields: Vec<_> = self
             .compiler
@@ -214,38 +238,49 @@ impl Resolver<'_> {
         else {
             return None;
         };
+
         if values.is_empty() || values.len() != fields.len() {
             return None;
         }
+
         let parameters = &self.body.syntax.header.params;
+
         if parameters.len() != 2 {
             return None;
         }
+
         let names = [parameters[0].name?.name, parameters[1].name?.name];
         let mut selected = None;
+
         for (i, expression) in values.iter().enumerate() {
             let field = expression.name.map_or(fields[i].name, |n| Some(n.name))?;
+
             if !fields.iter().any(|f| f.name == Some(field)) {
                 return None;
             }
+
             let E::Call {
                 args, ..
             } = &expression.value.kind
             else {
                 return None;
             };
+
             if args.len() != 2 {
                 return None;
             }
+
             let input = |e: &Expr| match &e.kind {
                 E::Member(base, name) if name.name == field => identifier(base),
                 _ => None,
             };
             let a = input(&args[0].value)?;
             let b = input(&args[1].value)?;
+
             if !((a == names[0] && b == names[1]) || (a == names[1] && b == names[0])) {
                 return None;
             }
+
             let mut calls =
                 self.body
                     .blocks
@@ -261,11 +296,14 @@ impl Resolver<'_> {
                         _ => None,
                     });
             let order = calls.next()?;
+
             if calls.any(|o| o != order) || selected.is_some_and(|old| old != order) {
                 return None;
             }
+
             selected = Some(order);
         }
+
         selected
     }
 }

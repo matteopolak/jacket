@@ -25,6 +25,7 @@ pub(super) fn capture(function: &ir::Func) -> Vec<LifetimeAddressCast> {
                 return None;
             };
             let integer = |ty| matches!(ty, ir::Ty::I32 | ir::Ty::I64);
+
             ((from == ir::Ty::Ptr && integer(to)) || (to == ir::Ty::Ptr && integer(from)))
                 .then_some(LifetimeAddressCast {
                     value: dst,

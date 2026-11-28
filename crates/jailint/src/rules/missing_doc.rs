@@ -28,7 +28,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     let mut scope = ScopeKind::Export;
+
     for stmt in cx.stmts {
         let decl = match &stmt.kind {
             S::Scope(kind) => {
@@ -38,9 +40,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             S::Decl(decl) => decl,
             _ => continue,
         };
+
         if scope != ScopeKind::Export || decl.kind != DeclKind::Const {
             continue;
         }
+
         let ([name], Some(value)) = (decl.names.as_slice(), &decl.value) else {
             continue;
         };
@@ -51,9 +55,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             _ => continue,
         };
         let text = name.name.as_str();
+
         if text == "main" || docs::declaration(cx.text, name.span.start as usize).is_some() {
             continue;
         }
+
         out.push(finding(
             name.span,
             format!("the exported {kind} `{text}` has no doc comment"),

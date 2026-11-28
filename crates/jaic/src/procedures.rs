@@ -63,6 +63,7 @@ impl Target {
                 let (left, right) = (self.holds(left), self.holds(right));
                 // The value that decides the result alone: false for `&&`, true for `||`.
                 let decides = *op == BinOp::Or;
+
                 if left == Some(decides) || right == Some(decides) {
                     Some(decides)
                 } else {
@@ -80,6 +81,7 @@ impl Target {
                     "CPU" => self.cpu,
                     _ => return None,
                 };
+
                 Some((member.name.as_str() == current) == (*op == BinOp::Eq))
             }
             _ => None,
@@ -92,11 +94,14 @@ fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
         return;
     };
     let mut paths: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+
     paths.sort();
+
     for path in paths {
         if crate::paths::is_hidden(&path) {
             continue;
         }
+
         if path.is_dir() {
             if path.file_name().is_none_or(|n| n != "tests") {
                 jai_files(&path, out);
@@ -111,10 +116,13 @@ fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
 pub fn library_procedures(dirs: &[PathBuf], os: TargetOs, cpu: TargetCpu) -> Vec<Procedure> {
     let target = Target::new(os, cpu);
     let mut files = Vec::new();
+
     for dir in dirs {
         jai_files(dir, &mut files);
     }
+
     let mut out = Vec::new();
+
     for file in files {
         let Ok(text) = std::fs::read_to_string(&file) else {
             continue;
@@ -122,6 +130,7 @@ pub fn library_procedures(dirs: &[PathBuf], os: TargetOs, cpu: TargetCpu) -> Vec
         let file = file.canonicalize().unwrap_or(file);
         let parsed = parse_file_ide(FileId(0), &text);
         let lines = Lines::new(&text);
+
         Walk {
             target: &target,
             lines: &lines,
@@ -130,6 +139,7 @@ pub fn library_procedures(dirs: &[PathBuf], os: TargetOs, cpu: TargetCpu) -> Vec
         }
         .statements(&parsed.file.stmts);
     }
+
     out
 }
 
@@ -179,6 +189,7 @@ impl Walk<'_> {
     /// The procedures declared inside a statement that is not itself a declaration.
     fn nested(&mut self, kind: &StmtKind) {
         let mut bodies: Vec<&ast::Stmt> = Vec::new();
+
         match kind {
             StmtKind::Block(block) => return self.statements(&block.stmts),
             StmtKind::If {
@@ -202,6 +213,7 @@ impl Walk<'_> {
             StmtKind::PushContext(push) => bodies.push(&push.body),
             _ => {}
         }
+
         for body in bodies {
             self.statements(std::slice::from_ref(body));
         }
@@ -217,6 +229,7 @@ impl Walk<'_> {
                     return;
                 };
                 let mut lines = vec![self.lines.of(start)];
+
                 self.body_lines(&body.stmts, &mut lines);
                 lines.sort_unstable();
                 lines.dedup();
@@ -238,6 +251,7 @@ impl Walk<'_> {
     fn body_lines(&self, stmts: &[ast::Stmt], out: &mut Vec<u32>) {
         for stmt in stmts {
             let line = self.lines.of(stmt.span.start);
+
             match &stmt.kind {
                 StmtKind::Decl(decl) => {
                     if decl.kind != ast::DeclKind::Const {
@@ -261,12 +275,14 @@ impl Walk<'_> {
                 } => {
                     out.push(line);
                     self.body_lines(std::slice::from_ref(then_branch), out);
+
                     if let Some(other) = else_branch {
                         self.body_lines(std::slice::from_ref(other), out);
                     }
                 }
                 StmtKind::Switch(switch) => {
                     out.push(line);
+
                     for case in &switch.cases {
                         self.body_lines(&case.body, out);
                     }
@@ -301,6 +317,7 @@ impl Walk<'_> {
 /// the lines that run (comma-separated), separated by tabs.
 pub fn records(procedures: &[Procedure]) -> String {
     let mut text = String::new();
+
     for p in procedures {
         let lines: Vec<String> = p.lines.iter().map(u32::to_string).collect();
         let _ = writeln!(
@@ -313,6 +330,7 @@ pub fn records(procedures: &[Procedure]) -> String {
             lines.join(",")
         );
     }
+
     text
 }
 
@@ -327,11 +345,13 @@ mod tests {
             std::thread::current().id()
         ));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(dir.join("tests")).unwrap();
         std::fs::write(dir.join("a.jai"), source).unwrap();
         std::fs::write(dir.join("tests/skipped.jai"), "t :: () { x := 1; }\n").unwrap();
         let found = library_procedures(std::slice::from_ref(&dir), os, TargetCpu::X64);
         let _ = std::fs::remove_dir_all(&dir);
+
         found
     }
 
@@ -341,8 +361,10 @@ mod tests {
             "add :: (a: int, b: int) -> int {\n    c := a + b;\n    // note\n    return c;\n}\n\nforeign_one :: (x: int) #foreign lib;\n",
             TargetOs::Linux,
         );
+
         assert_eq!(found.len(), 1, "{found:?}");
         let add = &found[0];
+
         assert_eq!((add.name.as_str(), add.line, add.end), ("add", 1, 5));
         assert_eq!(add.lines, [1, 2, 4]);
         assert!(add.file.ends_with("a.jai"));
@@ -355,6 +377,7 @@ mod tests {
             TargetOs::Linux,
         );
         let names: Vec<_> = found.iter().map(|p| p.name.as_str()).collect();
+
         assert_eq!(names, ["outer", "inner", "method"]);
         assert_eq!(found[0].lines, [1, 5]);
         assert_eq!(found[1].lines, [2, 3]);
@@ -367,11 +390,13 @@ mod tests {
             .into_iter()
             .map(|p| p.name)
             .collect();
+
         assert_eq!(linux, ["other", "both", "maybe"]);
         let windows: Vec<_> = read(source, TargetOs::Windows)
             .into_iter()
             .map(|p| p.name)
             .collect();
+
         assert_eq!(windows, ["win", "both", "maybe"]);
     }
 
@@ -384,6 +409,7 @@ mod tests {
             end: 9,
             lines: vec![3, 4, 8],
         };
+
         assert_eq!(records(&[p]), "procedure\t/m/a.jai\tf\t3\t9\t3,4,8\n");
     }
 }

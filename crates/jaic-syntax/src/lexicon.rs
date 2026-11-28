@@ -850,7 +850,9 @@ pub fn to_json() -> String {
         format!("[{}]", names.join(", "))
     };
     let mut out = String::from("{\n");
+
     out.push_str("  \"words\": {\n");
+
     for (at, class) in WordClass::ALL.iter().enumerate() {
         let comma = if at + 1 < WordClass::ALL.len() {
             ","
@@ -864,6 +866,7 @@ pub fn to_json() -> String {
             list(&mut words_of(*class))
         );
     }
+
     out.push_str("  },\n");
     let _ = writeln!(out, "  \"reserved\": {},", list(&mut reserved()));
     let _ = writeln!(out, "  \"types\": {},", list(&mut TYPES.iter().copied()));
@@ -872,7 +875,9 @@ pub fn to_json() -> String {
         "  \"cast_flags\": {},",
         list(&mut CAST_FLAGS.iter().map(|(name, _)| *name))
     );
+
     out.push_str("  \"directives\": {\n");
+
     for role in DirectiveRole::ALL {
         let _ = writeln!(
             out,
@@ -881,6 +886,7 @@ pub fn to_json() -> String {
             list(&mut directives_of(role))
         );
     }
+
     let _ = writeln!(
         out,
         "    \"other\": {}",
@@ -891,12 +897,14 @@ pub fn to_json() -> String {
                 .map(|d| d.name)
         )
     );
+
     out.push_str("  },\n");
     let _ = writeln!(
         out,
         "  \"here_string_languages\": {}",
         list(&mut LANGUAGE_TAGS.iter().copied())
     );
+
     out.push_str("}\n");
     out
 }
@@ -910,6 +918,7 @@ mod tests {
         for name in directive::ALL {
             assert!(DIRECTIVES.iter().any(|d| d.name == *name), "{name}");
         }
+
         assert_eq!(spelled::INSERT, "#insert");
     }
 
@@ -921,6 +930,7 @@ mod tests {
     #[test]
     fn words_are_unique() {
         let mut names: Vec<_> = WORDS.iter().map(|w| w.name).collect();
+
         names.sort_unstable();
         assert!(names.windows(2).all(|w| w[0] != w[1]));
     }

@@ -35,6 +35,7 @@ main :: () {\n\
 fn lints(name: &str, source: &str) -> Vec<String> {
     let dir = project(name, &[("main.jai", source)]);
     let (s, uri, _) = open_file(&dir, "main.jai");
+
     s.diagnostics(&uri)
         .unwrap()
         .into_iter()
@@ -51,6 +52,7 @@ fn a_procedure_only_a_run_calls_may_return_its_frozen_result() {
 #[test]
 fn a_procedure_the_program_calls_still_reports_the_returned_address() {
     let found = lints("called", CALLED);
+
     assert!(
         found.iter().any(|m| m.contains("returns the address")),
         "{found:?}"
@@ -69,6 +71,7 @@ fn the_open_files_of_a_program_share_one_lint_pass() {
     let (other_uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "other.jai");
     let before = jailint::summaries_built();
     let published = s.publications();
+
     assert_eq!(published.len(), 2);
     assert_eq!(jailint::summaries_built() - before, 1);
     let found: Vec<_> = s
@@ -78,6 +81,7 @@ fn the_open_files_of_a_program_share_one_lint_pass() {
         .filter(|d| matches!(d.code, DiagnosticCode::Lint(_)))
         .map(|d| d.message)
         .collect();
+
     assert!(
         found.iter().any(|m| m.contains("returns the address")),
         "{found:?}"

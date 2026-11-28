@@ -18,6 +18,7 @@ fn parenthesized_expression_is_not_a_header() {
 #[test]
 fn if_condition_in_parentheses_is_not_a_header() {
     let stmts = body_of("if (x) { y(); }");
+
     match &stmts[0].kind {
         StmtKind::If {
             cond,
@@ -38,6 +39,7 @@ fn header_with_body_is_a_procedure() {
     );
     let lit = proc_of(&value);
     let h = &lit.header;
+
     assert_eq!(h.params.len(), 6);
     assert!(h.params[1].default.is_some() && h.params[1].ty.is_none());
     assert!(h.params[2].baked);
@@ -53,15 +55,18 @@ fn header_with_body_is_a_procedure() {
 #[test]
 fn header_without_body_is_a_type() {
     let stmts = parse("cb: (x: int) -> int;\ncb2: (int, *float) -> void;\ncb3: () -> bool = null;");
+
     for stmt in &stmts {
         assert!(matches!(
             decl(stmt).ty.as_ref().unwrap().kind,
             ExprKind::ProcType(_)
         ));
     }
+
     let ExprKind::ProcType(header) = &decl(&stmts[1]).ty.as_ref().unwrap().kind else {
         unreachable!()
     };
+
     assert!(header.params.iter().all(|p| p.name.is_none()));
 }
 
@@ -69,6 +74,7 @@ fn header_without_body_is_a_type() {
 fn proc_type_return_does_not_swallow_the_next_parameter() {
     let value = value("f :: (cb: (int) -> int, n: int) {}");
     let h = &proc_of(&value).header;
+
     assert_eq!(h.params.len(), 2);
     assert_eq!(h.params[1].name.unwrap().name.as_str(), "n");
 }
@@ -82,8 +88,10 @@ fn unparenthesised_proc_type_return_before_a_body_is_rejected() {
     );
     let value = value("f :: (n: int) -> ((int, int) -> bool) { return null; }");
     let lit = proc_of(&value);
+
     assert!(lit.body.is_some());
     let ret = lit.header.returns[0].ty.as_ref().unwrap();
+
     assert!(matches!(&ret.kind, ExprKind::ProcType(h) if h.params.len() == 2));
 }
 
@@ -92,11 +100,13 @@ fn named_returns_and_foreign_flags() {
     let value =
         value("f :: (x: int) -> (a: int, b: float) #c_call #no_context #foreign libc \"fn\";");
     let lit = proc_of(&value);
+
     assert!(lit.body.is_none());
     assert_eq!(lit.header.returns.len(), 2);
     assert_eq!(lit.header.returns[0].name.unwrap().name.as_str(), "a");
     assert!(lit.header.flags.c_call() && lit.header.flags.no_context());
     let foreign = lit.header.foreign.as_ref().unwrap();
+
     assert_eq!(foreign.library.unwrap().name.as_str(), "libc");
     assert!(matches!(&foreign.name, ForeignName::Named(n) if &**n == "fn"));
 }
@@ -105,6 +115,7 @@ fn named_returns_and_foreign_flags() {
 fn modify_block_and_deprecation() {
     let value = value("f :: (a: $T) #modify { T = int; } #deprecated \"old\" {}");
     let header = &proc_of(&value).header;
+
     assert_eq!(header.modify.as_ref().unwrap().stmts.len(), 1);
     assert!(matches!(&header.flags.deprecated, Some(Some(msg)) if &**msg == b"old"));
 }
@@ -124,6 +135,7 @@ fn operator_declarations() {
                 .unwrap()
         })
         .collect();
+
     assert_eq!(
         ops.iter().map(|o| &**o).collect::<Vec<_>>(),
         ["+", "[]", "*="]
@@ -142,6 +154,7 @@ fn lambdas() {
     else {
         panic!()
     };
+
     assert_eq!(header.params.len(), 2);
 }
 
@@ -150,6 +163,7 @@ fn lambdas() {
 #[test]
 fn pointer_type_and_address_of_share_the_unary_star() {
     let stmts = parse("p: *int = *x;\nq := a * b;\nr := *a.b;");
+
     assert!(matches!(
         decl(&stmts[0]).ty.as_ref().unwrap().kind,
         ExprKind::Unary(UnOp::Star, _)
@@ -166,6 +180,7 @@ fn pointer_type_and_address_of_share_the_unary_star() {
     let ExprKind::Unary(UnOp::Star, inner) = &decl(&stmts[2]).value.as_ref().unwrap().kind else {
         panic!()
     };
+
     assert!(matches!(inner.kind, ExprKind::Member(..)));
 }
 
@@ -174,6 +189,7 @@ fn postfix_dereference_binds_tighter_than_member_access() {
     let ExprKind::Member(base, field) = value("x := p.*.next;").kind else {
         panic!()
     };
+
     assert_eq!(field.name.as_str(), "next");
     assert!(matches!(base.kind, ExprKind::Unary(UnOp::Deref, _)));
     assert!(matches!(
@@ -195,6 +211,7 @@ fn array_types() {
     else {
         panic!()
     };
+
     assert!(matches!(size, ArraySize::Fixed(_)));
     assert!(matches!(elem.kind, ExprKind::Unary(UnOp::Star, _)));
     assert!(matches!(
@@ -222,6 +239,7 @@ fn array_literal_with_array_type_prefix() {
     else {
         panic!()
     };
+
     assert!(matches!(ty.kind, ExprKind::ArrayType { .. }));
     assert_eq!(elems.len(), 2);
     assert!(matches!(
@@ -237,6 +255,7 @@ fn array_literal_with_array_type_prefix() {
 fn polymorphic_names_and_restrictions() {
     let value = value("f :: (a: $T/Number, b: $U/interface Cmp, c: [$N] $E) {}");
     let h = &proc_of(&value).header;
+
     assert!(matches!(
         h.params[0].ty.as_ref().unwrap().kind,
         ExprKind::PolyRestricted {
@@ -258,6 +277,7 @@ fn polymorphic_names_and_restrictions() {
     else {
         panic!()
     };
+
     assert!(
         matches!(n.kind, ExprKind::PolyVar { .. }) && matches!(elem.kind, ExprKind::PolyVar { .. })
     );
@@ -295,6 +315,7 @@ fn struct_literal_versus_block() {
     else {
         panic!()
     };
+
     assert!(ty.is_some());
     assert_eq!(fields[0].name.unwrap().name.as_str(), "a");
     assert!(fields[1].name.is_none());
@@ -307,6 +328,7 @@ fn struct_literal_versus_block() {
     ));
     // A brace after an `if` condition is a block, never a literal.
     let stmts = body_of("if x { y = 1; }");
+
     assert!(
         matches!(&stmts[0].kind, StmtKind::If { then_branch, .. } if matches!(then_branch.kind, StmtKind::Block(_)))
     );
@@ -324,6 +346,7 @@ fn struct_literal_without_dot() {
             }
         )
     };
+
     assert!(is_literal(&value("v: Desc = {.GENERAL, 1};")));
     assert!(is_literal(&value("v: E = {1, {2, 3}};")));
     let ExprKind::Call {
@@ -332,7 +355,9 @@ fn struct_literal_without_dot() {
     else {
         panic!()
     };
+
     assert!(args.iter().all(|a| is_literal(&a.value)));
+
     // Statements, declarations and lambda bodies keep their braces as blocks.
     for src in [
         "v := f({ if x return 1; });",
@@ -345,13 +370,16 @@ fn struct_literal_without_dot() {
         else {
             panic!("{src}")
         };
+
         assert!(!is_literal(&args[0].value), "{src}");
     }
+
     // Fields named with `:` read as declarations; only then does the error explain `=`.
     let help = |src: &str| match parse_file(FileId(0), src) {
         Ok(_) => panic!("expected a parse error for:\n{src}"),
         Err(d) => d.help,
     };
+
     assert!(help("v := f({x: 1, y: 2});")[0].contains("names its fields with `=`"));
     assert!(help("v := f({ y := 2 z := 3; });").is_empty());
 }
@@ -374,6 +402,7 @@ fn struct_body_forms() {
     let ExprKind::Struct(lit) = value.kind else {
         panic!()
     };
+
     assert_eq!(lit.params.len(), 2);
     assert!(lit.flags.has(StructBits::TYPE_INFO_NONE) && lit.flags.has(StructBits::NO_PADDING));
     assert_eq!(lit.body.len(), 9);
@@ -395,17 +424,20 @@ fn enum_forms() {
     else {
         panic!()
     };
+
     assert!(lit.flags_enum && lit.specified && lit.base.is_some());
     assert_eq!(lit.items.len(), 3);
     let ExprKind::Enum(lit) = value("E :: enum { A; #if X { B; } else { C; } }").kind else {
         panic!()
     };
+
     assert!(lit.base.is_none());
     assert!(matches!(lit.items[1], EnumItem::If { .. }));
     // `A : : 5` spells out the constant form's empty type.
     let ExprKind::Enum(lit) = value("E :: enum { A :: 4; B : :5; C; }").kind else {
         panic!()
     };
+
     assert!(matches!(&lit.items[1], EnumItem::Member(m) if m.value.is_some()));
 }
 
@@ -416,18 +448,21 @@ fn tagged_unions() {
     else {
         panic!()
     };
+
     assert!(lit.tag.is_some());
     let Some(ExprKind::InferredMember(tag)) =
         decl(&lit.body[1]).union_tag().cloned().map(|t| t.kind)
     else {
         panic!()
     };
+
     assert_eq!(tag.name.as_str(), "B");
     let ExprKind::Struct(lit) =
         value("U :: union kind: s8 = 4 { 4,, a: u8; b: u8; -12,, c: s16; }").kind
     else {
         panic!()
     };
+
     assert!(decl(&lit.body[0]).union_tag().is_some());
     assert!(decl(&lit.body[1]).union_tag().is_none());
     assert!(decl(&lit.body[2]).union_tag().is_some());

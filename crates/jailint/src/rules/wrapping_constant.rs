@@ -39,6 +39,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             if let Some(e) = n.expr()
                 && let E::Binary(op, a, b) = &e.kind
@@ -47,6 +48,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 check_operand(cx, *op, a, b, cx.ty(b), true, out);
                 check_operand(cx, *op, b, a, cx.ty(a), true, out);
             }
+
             if let Some(s) = n.stmt()
                 && let S::Assign {
                     op: AssignOp::Op(op @ (BinOp::Div | BinOp::Rem)),
@@ -57,6 +59,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 check_operand(cx, *op, r, l, cx.ty(l), false, out);
             }
+
             true
         });
     }
@@ -84,9 +87,11 @@ fn check_operand(
     let Some(value) = eval(constant) else {
         return;
     };
+
     if eval(other).is_some() || cx.constant(other) {
         return;
     }
+
     let types = &cx.compiler.ty.types;
     let Some(ty) = ty else {
         return;
@@ -99,9 +104,11 @@ fn check_operand(
     else {
         return;
     };
+
     if !(1..=64).contains(&bits) || !wraps(value, bits, signed) {
         return;
     }
+
     let wrapped = wrap(value, bits, signed);
     let text = cx.whole_src(constant).trim();
     let other_text = cx.whole_src(other).trim();
@@ -125,6 +132,7 @@ fn check_operand(
         _ => format!("to mean {wrapped}, write {wrapped}"),
     };
     let (start, end) = cx.whole(other);
+
     out.push(Finding {
         secondary: Vec::new(),
         start: constant.span.start as usize,
@@ -148,6 +156,7 @@ fn check_operand(
 /// `other` as written, parenthesized unless it is a single term.
 fn operand(cx: &Cx, other: &Expr) -> String {
     let text = cx.whole_src(other).trim();
+
     if is_atom(other) {
         text.to_string()
     } else {
@@ -174,6 +183,7 @@ fn wraps(value: i128, bits: u8, signed: bool) -> bool {
     } else {
         (0, 2 * half - 1)
     };
+
     !(min..=max).contains(&value) && (-half..2 * half).contains(&value)
 }
 
@@ -181,6 +191,7 @@ fn wraps(value: i128, bits: u8, signed: bool) -> bool {
 fn wrap(value: i128, bits: u8, signed: bool) -> i128 {
     let modulus = 1i128 << bits;
     let low = value.rem_euclid(modulus);
+
     if signed && low >= modulus / 2 {
         low - modulus
     } else {
@@ -197,6 +208,7 @@ fn eval(e: &Expr) -> Option<i128> {
         E::Unary(UnOp::Plus, a) => eval(a)?,
         E::Binary(op, a, b) => {
             let (x, y) = (eval(a)?, eval(b)?);
+
             match op {
                 BinOp::Add => x.checked_add(y)?,
                 BinOp::Sub => x.checked_sub(y)?,

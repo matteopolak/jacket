@@ -17,6 +17,7 @@ impl Spelling {
     /// The spelling of the literal `text`.
     pub fn of(text: &str) -> Self {
         let lower = text.as_bytes().get(..2).map(<[u8]>::to_ascii_lowercase);
+
         if matches!(lower.as_deref(), Some(b"0x" | b"0b" | b"0h")) {
             Self::Radix
         } else if text.contains('.') {

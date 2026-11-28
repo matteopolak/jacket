@@ -38,9 +38,11 @@ pub const BUILTINS_FILE: &str = "libclang_rt.builtins.a";
 pub fn builtins(host: &dyn Host, target: Target) -> Option<(PathBuf, String)> {
     let dir = builtins_dir(host, target)?;
     let file = dir.join(BUILTINS_FILE);
+
     if !host.is_file(&file) {
         return None;
     }
+
     let (source, _) = built_from(host, &dir)?;
     Some((file, source))
 }
@@ -58,6 +60,7 @@ fn built_from(host: &dyn Host, dir: &Path) -> Option<(String, String)> {
         let name = path.file_name()?.to_str()?.strip_prefix(SOURCE_MARK)?;
         let (rest, stamp) = name.rsplit_once('-')?;
         let (what, version) = rest.rsplit_once('-')?;
+
         Some((format!("{what} {version}"), stamp.to_string()))
     })
 }
@@ -77,6 +80,7 @@ pub fn entries(host: &dyn Host) -> Vec<Entry> {
         return Vec::new();
     };
     let mut found = Vec::new();
+
     for dir in host.read_dir(&root) {
         let Some(name) = dir.file_name().and_then(|n| n.to_str()) else {
             continue;
@@ -89,10 +93,12 @@ pub fn entries(host: &dyn Host) -> Vec<Entry> {
             sysroot: sysroot(host, target).is_some(),
             builtins: builtins(host, target).map(|(_, source)| source),
         };
+
         if entry.sysroot || entry.builtins.is_some() {
             found.push(entry);
         }
     }
+
     found
 }
 
@@ -106,8 +112,10 @@ mod tests {
         let mut host = FakeHost::mac();
         let base = root(&host).unwrap();
         let armv7 = base.join("armv7-unknown-linux-gnueabihf");
+
         host.dir(armv7.join("sysroot/usr").to_str().unwrap());
         let cortex = base.join("thumbv7em-none-eabihf/builtins");
+
         host.file(cortex.join(BUILTINS_FILE).to_str().unwrap());
         host.file(
             cortex

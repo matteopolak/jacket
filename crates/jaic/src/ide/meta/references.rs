@@ -30,6 +30,7 @@ impl Compiler {
             .filter(|(_, d)| *d == decl)
             .map(|(u, d)| (*u, u == d))
             .collect();
+
         // A bare use of an enum member inside its enum's body is an entity use, recorded apart
         // from the qualified `E.name` uses above.
         for r in &ide.refs {
@@ -39,6 +40,7 @@ impl Compiler {
                 out.push((r.span, r.decl));
             }
         }
+
         out.sort_by_key(|(s, _)| (s.file.0, s.start));
         Some(out)
     }
@@ -48,6 +50,7 @@ impl Compiler {
     pub fn ide_member_declared(&self, file: FileId, offset: u32) -> Option<bool> {
         let ide = self.ed.facts()?;
         let (_, decl) = ide.member_use_at(file, offset)?;
+
         Some(ide.member_uses.contains(&(decl, decl)))
     }
 
@@ -57,20 +60,25 @@ impl Compiler {
         if let Some(members) = self.ide_member_references(file, offset) {
             return members;
         }
+
         let Some(at) = self.ide_ref_at(file, offset) else {
             return Vec::new();
         };
         let mut wanted = self.ide_targets(&at);
+
         if wanted.is_empty() {
             return Vec::new();
         }
+
         let Some(ide) = self.ed.facts() else {
             return Vec::new();
         };
+
         // A use naming an overload set reaches every overload in it, so renaming one renames the
         // name of them all: grow the targets by the sets the matching uses name.
         loop {
             let mut grew = false;
+
             for r in &ide.refs {
                 if matches!(r.what, IdeWhat::Procs(_))
                     && self.ide_targets(r).iter().any(|t| wanted.contains(t))
@@ -83,15 +91,19 @@ impl Compiler {
                     }
                 }
             }
+
             if !grew {
                 break;
             }
         }
+
         let mut out: Vec<(Span, bool)> = Vec::new();
+
         for r in &ide.refs {
             if !self.ide_targets(r).iter().any(|t| wanted.contains(t)) {
                 continue;
             }
+
             // `$T` bound by `#bake_constants` is a use of `T` without its `$`.
             let mut span = r.span;
             let dollars = self
@@ -99,11 +111,14 @@ impl Compiler {
                 .bytes()
                 .take_while(|&b| b == b'$')
                 .count();
+
             span.start = (span.start + dollars as u32).min(span.end);
+
             if !out.iter().any(|(s, _)| *s == span) {
                 out.push((span, r.decl));
             }
         }
+
         // A named argument of a call or `#bake_constants` naming a declared parameter.
         for &(u, d) in &ide.member_uses {
             if u != d
@@ -116,6 +131,7 @@ impl Compiler {
                 out.push((u, false));
             }
         }
+
         out.sort_by_key(|(s, _)| (s.file.0, s.start));
         out
     }
@@ -136,6 +152,7 @@ impl Compiler {
             },
             _ => r.ty,
         };
+
         for _ in 0..8 {
             t = match self.ty.types.kind(t) {
                 TypeKind::Pointer(inner) => *inner,
@@ -145,14 +162,17 @@ impl Compiler {
                 _ => break,
             };
         }
+
         let span = match self.ty.types.kind(t) {
             TypeKind::Struct(s) => self.ty.types.struct_info(*s).span,
             TypeKind::Enum(e) => self.ty.types.enum_info(*e).span,
             _ => return Vec::new(),
         };
+
         if span.end <= span.start {
             return Vec::new();
         }
+
         vec![span]
     }
 
@@ -176,9 +196,11 @@ impl Compiler {
         } else {
             r.ty
         };
+
         match self.ty.types.kind(t) {
             TypeKind::Enum(e) => {
                 let info = self.ty.types.enum_info(*e);
+
                 Some(IdeMembers {
                     name: info.name.to_string(),
                     is_enum: true,
@@ -191,6 +213,7 @@ impl Compiler {
             }
             TypeKind::Struct(s) => {
                 let info = self.ty.types.struct_info(*s);
+
                 Some(IdeMembers {
                     name: info.name.to_string(),
                     is_enum: false,
@@ -234,10 +257,12 @@ impl Compiler {
     /// procedure's span, each instance's bindings as `T = s64`).
     pub fn ide_polymorphs(&self, file: FileId) -> Vec<(Span, String, Vec<String>)> {
         let mut out = Vec::new();
+
         for p in &self.pr.procs {
             if !p.is_poly || p.span.file != file || p.bindings.is_some() {
                 continue;
             }
+
             let mut instances: Vec<String> = p
                 .instances
                 .values()
@@ -248,9 +273,11 @@ impl Compiler {
                 })
                 .map(|&inst| self.ide_bindings_text(inst))
                 .collect();
+
             instances.sort();
             out.push((p.span, p.name.to_string(), instances));
         }
+
         out
     }
 
@@ -264,6 +291,7 @@ impl Compiler {
             .iter()
             .filter_map(|(n, ids)| Some((*n, *ids.first()?)))
             .collect();
+
         names.sort_by_key(|(_, e)| self.entity(*e).span.start);
         names
             .into_iter()

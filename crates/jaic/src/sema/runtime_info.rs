@@ -44,10 +44,12 @@ impl Compiler {
         if let Some(g) = self.out.runtime_info {
             return Ok(g);
         }
+
         let size = runtime_info_layout(&self.options.layout).size;
         let g = self
             .out
             .data_global(RUNTIME_INFO, size, Vec::new(), Vec::new());
+
         self.out.runtime_info = Some(g);
         Ok(g)
     }
@@ -59,13 +61,16 @@ impl Compiler {
         let mut text = crate::display_base()
             .map(|dir| dir.display().to_string())
             .unwrap_or_default();
+
         if !text.is_empty() && !text.ends_with(std::path::MAIN_SEPARATOR) {
             text.push(std::path::MAIN_SEPARATOR);
         }
+
         let bytes: Arc<[u8]> = Arc::from(text.as_bytes());
         let data = self.out.string_global(&bytes);
         let view = self.ty.types.builtins().view;
         let mut init = vec![0; view.size as usize];
+
         self.options
             .layout
             .write_view(&mut init, text.len() as u64, 0);
@@ -74,6 +79,7 @@ impl Compiler {
             target: ir::RelocTarget::Global(data),
             addend: 0,
         };
+
         self.out.data_global(
             super::private_names::BUILD_DIRECTORY,
             view.size,
@@ -109,6 +115,7 @@ impl Compiler {
             .filter(|(t, _)| !self.ty.snapshot_infos.contains(t))
             .map(|(&t, &g)| (t, g))
             .collect();
+
         types.sort_by_key(|&(t, _)| t);
         let layout = self.options.layout;
         let pointer = layout.ptr_bytes();
@@ -126,6 +133,7 @@ impl Compiler {
         let segment = segment_info_layout(&layout);
         let mut segments = vec![0u8; data_globals.len() * segment.size as usize];
         let mut segment_relocs = Vec::new();
+
         for (i, &(global, size, read_only)) in data_globals.iter().enumerate() {
             let at = i * segment.size as usize;
             let tag = self
@@ -139,10 +147,12 @@ impl Compiler {
                     SEGMENT_DATA
                 });
             let view_at = at + segment.offsets[1] as usize;
+
             layout.write_u16(&mut segments[at + segment.offsets[0] as usize..], tag);
             layout.write_view(&mut segments[view_at..], size, 0);
             segment_relocs.push(reloc(view_at as u64 + view.data, global));
         }
+
         let segments = self.out.data_global(
             "__runtime_info.segments",
             segments.len() as u64,
@@ -153,6 +163,7 @@ impl Compiler {
         let data_info = global_data_info_layout(&layout);
         let mut gdi = vec![0u8; data_info.size as usize];
         let segment_view = data_info.offsets[1];
+
         layout.write_view(
             &mut gdi[segment_view as usize..],
             data_globals.len() as u64,
@@ -167,8 +178,10 @@ impl Compiler {
 
         let record = runtime_info_layout(&layout);
         let mut bytes = vec![0u8; record.size as usize];
+
         layout.write_view(&mut bytes, types.len() as u64, 0);
         let g = &mut self.out.program.globals[info.0 as usize];
+
         g.init = bytes;
         g.relocs = vec![reloc(view.data, table), reloc(record.offsets[1], gdi)];
         self.ct
@@ -189,18 +202,23 @@ impl Compiler {
         if self.ty.table_funcs.is_empty() {
             return false;
         }
+
         let mut seen = HashSet::default();
         let mut work = vec![root];
+
         while let Some(f) = work.pop() {
             if self.ty.table_funcs.contains(&f) {
                 return true;
             }
+
             if !seen.insert(f) {
                 continue;
             }
+
             let Some(Some(func)) = self.out.program.funcs.get(f.0 as usize) else {
                 continue;
             };
+
             for inst in func.blocks.iter().flat_map(|b| &b.insts) {
                 if let ir::Inst::Call(call) = inst
                     && let ir::Callee::Func(callee) = call.callee
@@ -209,6 +227,7 @@ impl Compiler {
                 }
             }
         }
+
         false
     }
 
@@ -223,39 +242,54 @@ impl Compiler {
             self.ty.types.count(),
             self.ty.infos.len(),
         );
+
         if key == self.ty.snapshot_key {
             return;
         }
+
         let span = Span::NONE;
+
         self.resolve_declared_types();
         let before: HashSet<TypeId> = self.ty.infos.keys().copied().collect();
+
         self.ty.in_snapshot = true;
         let mut index = 0;
+
         while index < self.ty.types.count() {
             let ty = TypeId(index as u32);
+
             index += 1;
+
             if !self.ty.describable_now(ty) {
                 continue;
             }
+
             // A descriptor that cannot be built yet is left out.
             let _ = self.type_info_global(ty, span);
         }
+
         self.ty.in_snapshot = false;
+
         for &ty in self.ty.infos.keys() {
             if !before.contains(&ty) {
                 self.ty.snapshot_infos.insert(ty);
             }
         }
+
         let mut entries: Vec<(TypeId, ir::GlobalId)> =
             self.ty.infos.iter().map(|(&t, &g)| (t, g)).collect();
+
         entries.sort_by_key(|&(t, _)| t);
         let mut table = Vec::with_capacity(entries.len());
+
         for (_, g) in entries {
             if let Ok(addr) = self.ct.interp.global_addr(&self.out.program, g) {
                 table.push(addr);
             }
         }
+
         let count = table.len() as u64;
+
         // A table that cannot be made is empty, as one with no types is.
         self.ct.interp.ct_type_table = match self.ct.interp.keep_pointers(&table) {
             Some(address) => (address, count),
@@ -272,16 +306,20 @@ impl Compiler {
     /// types exist even when nothing named them yet.
     fn resolve_declared_types(&mut self) {
         let mut index = 0;
+
         while index < self.ns.entities.len() {
             let id = EntityId(index as u32);
+
             index += 1;
             let e = self.entity(id);
+
             if !matches!(
                 self.scope(e.scope).kind,
                 ScopeKind::Module | ScopeKind::File | ScopeKind::Root
             ) {
                 continue;
             }
+
             let EntityKind::Decl {
                 decl, ..
             } = &e.kind
@@ -294,10 +332,13 @@ impl Compiler {
                     Some(ast::ExprKind::Enum(_)) => true,
                     _ => false,
                 };
+
             if !plain {
                 continue;
             }
+
             let span = e.span;
+
             if let Ok(Resolved::Const {
                 value: Value::Type(t),
                 ..

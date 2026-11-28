@@ -6,6 +6,7 @@ use test_support::TempDir;
 
 fn check(module: &str, main: &str) -> (bool, String) {
     let dir = TempDir::new("named-import-run-context");
+
     std::fs::create_dir_all(dir.join("modules/Generated")).unwrap();
     std::fs::write(dir.join("modules/Generated/module.jai"), module).unwrap();
     std::fs::write(dir.join("main.jai"), main).unwrap();
@@ -16,6 +17,7 @@ fn check(module: &str, main: &str) -> (bool, String) {
         .arg(dir.join("modules"))
         .output()
         .unwrap();
+
     (
         output.status.success(),
         String::from_utf8_lossy(&output.stderr).into_owned(),
@@ -34,6 +36,7 @@ fn a_failing_import_reports_its_own_error() {
         "#module_parameters(NAME: string);\n#import \"Compiler\";\n#insert #run make();\nmake :: () -> string { if NAME == \"bad\" compiler_report(\"rejected bad\"); return \"\"; }\n",
         MAIN,
     );
+
     assert!(!ok);
     assert!(stderr.contains("rejected bad"), "{stderr}");
     assert!(!stderr.contains("null pointer"), "{stderr}");

@@ -18,6 +18,7 @@ impl DocumentUri {
         if uri.len() > 4096 {
             return Err(Error::Limit("document URI exceeds 4096 bytes"));
         }
+
         // `file:///p`, `file://localhost/p` and `file:/p` name the same local path.
         let rest = uri
             .get(..5)
@@ -36,14 +37,17 @@ impl DocumentUri {
             },
             None => rest,
         };
+
         if !encoded.starts_with('/') || encoded.contains(['?', '#', '\\', '\0']) {
             return Err(Error::Uri(
                 "file URI must have no authority, query or fragment",
             ));
         }
+
         let mut bytes = Vec::with_capacity(encoded.len());
         let input = encoded.as_bytes();
         let mut at = 0;
+
         while at < input.len() {
             if input[at] == b'%' {
                 let value = input
@@ -51,6 +55,7 @@ impl DocumentUri {
                     .ok_or(Error::Uri("incomplete URI escape"))?;
                 let high = hex(value[0]).ok_or(Error::Uri("invalid URI escape"))?;
                 let low = hex(value[1]).ok_or(Error::Uri("invalid URI escape"))?;
+
                 bytes.push(high * 16 + low);
                 at += 3;
             } else {
@@ -58,6 +63,7 @@ impl DocumentUri {
                 at += 1;
             }
         }
+
         let decoded = String::from_utf8(bytes).map_err(|_| Error::Uri("URI path is not UTF-8"))?;
         Self::from_uri_path(&decoded, windows)
     }
@@ -73,29 +79,36 @@ impl DocumentUri {
         if path.len() > 4096 {
             return Err(Error::Limit("document path exceeds 4096 bytes"));
         }
+
         let mut path = native_spelling(path, windows)?;
+
         if windows {
             if path.starts_with("//") {
                 return Err(Error::Uri(
                     "only local file paths without an authority are supported",
                 ));
             }
+
             if drive(&path) {
                 if !path[2..].starts_with('/') {
                     return Err(Error::Uri("drive-relative paths are unsupported"));
                 }
+
                 path.insert(0, '/');
             }
         }
+
         Self::from_uri_path(&path, windows)
     }
 
     fn from_uri_path(path: &str, windows: bool) -> Result<Self, Error> {
         let normalized = normalize(path, windows)?;
         let uri = format!("file://{}", encode(&normalized));
+
         if uri.len() > 4096 {
             return Err(Error::Limit("canonical document URI exceeds 4096 bytes"));
         }
+
         Ok(Self {
             uri,
             // `/C:/...` is URI syntax. A leading slash makes it a rooted path on the
@@ -120,6 +133,7 @@ impl DocumentUri {
         if target.contains('\0') || target.len() > 4096 {
             return Err(Error::Uri("unsupported #load target"));
         }
+
         let parent = Path::new(&self.path)
             .parent()
             .ok_or(Error::Uri("document has no parent folder"))?;
@@ -142,6 +156,7 @@ fn hex(c: u8) -> Option<u8> {
 
 fn encode(path: &str) -> String {
     let mut out = String::new();
+
     for byte in path.bytes() {
         if byte.is_ascii_alphanumeric() || b"/-._~:".contains(&byte) {
             out.push(byte as char);
@@ -150,6 +165,7 @@ fn encode(path: &str) -> String {
             let _ = write!(out, "%{byte:02X}");
         }
     }
+
     out
 }
 
@@ -164,14 +180,19 @@ fn normalize(path: &str, windows: bool) -> Result<String, Error> {
             "document URI path must be absolute with valid separators and no NUL",
         ));
     }
+
     if windows && path.starts_with("//") {
         return Err(Error::Uri("file URI must have no authority"));
     }
+
     let has_drive = windows && drive(&path[1..]);
+
     if has_drive && !path[3..].starts_with('/') {
         return Err(Error::Uri("drive URI must name an absolute path"));
     }
+
     let mut parts = vec![];
+
     for part in path.split('/') {
         match part {
             "" | "." => {}
@@ -179,18 +200,23 @@ fn normalize(path: &str, windows: bool) -> Result<String, Error> {
                 if parts.len() <= usize::from(has_drive) {
                     return Err(Error::Uri("document path escapes its root"));
                 }
+
                 parts.pop();
             }
             value => parts.push(value),
         }
     }
+
     let mut result = format!("/{}", parts.join("/"));
+
     if has_drive {
         result.replace_range(1..2, &result[1..2].to_ascii_uppercase());
+
         if parts.len() == 1 {
             result.push('/');
         }
     }
+
     Ok(result)
 }
 
@@ -229,6 +255,7 @@ mod tests {
             true,
         )
         .unwrap();
+
         assert_eq!(uri.path(), "C:/Users/jai #%é/module.jai");
         assert_eq!(
             uri.as_str(),
@@ -243,12 +270,14 @@ mod tests {
     #[test]
     fn windows_native_separators_drive_case_and_verbatim_paths_share_uri_identity() {
         let a = DocumentUri::from_native(r"c:\Users\jai # % é\Basic\module.jai", true).unwrap();
+
         for spelling in [
             "C:/Users/jai # % é/Basic/module.jai",
             r"\\?\c:\Users\jai # % é\Basic\module.jai",
         ] {
             assert_eq!(DocumentUri::from_native(spelling, true).unwrap(), a);
         }
+
         assert_eq!(
             a.as_str(),
             "file:///C:/Users/jai%20%23%20%25%20%C3%A9/Basic/module.jai"
@@ -273,10 +302,13 @@ mod tests {
         ] {
             assert!(DocumentUri::parse_platform(uri, true).is_err(), "{uri}");
         }
+
         for path in ["C:relative.jai", r"\\remote\share\main.jai", r"\\.\device"] {
             assert!(DocumentUri::from_native(path, true).is_err(), "{path}");
         }
+
         let root = DocumentUri::parse_platform("file:///c%3A/", true).unwrap();
+
         assert_eq!(root.path(), "C:/");
         assert_eq!(root.as_str(), "file:///C:/");
         assert_eq!(
@@ -290,6 +322,7 @@ mod tests {
     #[test]
     fn posix_names_and_literal_percent_bytes_are_encoded_once() {
         let uri = DocumentUri::from_native(r"/case/c:/a\b # %23 é.jai", false).unwrap();
+
         assert_eq!(
             uri.as_str(),
             "file:///case/c:/a%5Cb%20%23%20%2523%20%C3%A9.jai"
@@ -321,6 +354,7 @@ mod tests {
 
         fn canonical(&self, path: &Path) -> PathBuf {
             let native = path.to_str().unwrap().replace('/', "\\");
+
             PathBuf::from(if self.verbatim {
                 format!(r"\\?\{native}")
             } else {
@@ -336,13 +370,18 @@ mod tests {
                 verbatim,
             };
             let root = jaic::paths::file_identity_on(&fs, Path::new(r"c:\Users\x\proj"), true);
+
             assert_eq!(root, Path::new("C:/Users/x/proj"));
+
             for file in [r"C:\Users\x\proj\main.jai", "c:/Users/x/proj/src/a.jai"] {
                 let key = jaic::paths::file_identity_on(&fs, Path::new(file), true);
+
                 assert!(key.starts_with(&root), "{key:?}");
             }
+
             let sibling =
                 jaic::paths::file_identity_on(&fs, Path::new(r"C:\Users\x\project\a.jai"), true);
+
             assert!(!sibling.starts_with(&root), "{sibling:?}");
         }
     }
@@ -354,6 +393,7 @@ mod tests {
         };
         let stdlib = Path::new(r"C:\Users\x\jai-toolchain\stdlib");
         let key = jaic::paths::file_identity_on(&fs, &stdlib.join("Basic").join("Print.jai"), true);
+
         assert_eq!(
             key.to_str().unwrap(),
             "C:/Users/x/jai-toolchain/stdlib/Basic/Print.jai"
@@ -364,6 +404,7 @@ mod tests {
             true,
         )
         .unwrap();
+
         assert_eq!(from_compiler, from_client);
         assert_eq!(
             from_compiler.as_str(),

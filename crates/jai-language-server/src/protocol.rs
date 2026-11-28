@@ -99,18 +99,22 @@ mod tests {
         for (index, kind) in SemanticTokenKind::ALL.iter().enumerate() {
             assert_eq!(*kind as usize, index, "{kind:?} is out of legend order");
         }
+
         let names: BTreeSet<&str> = SemanticTokenKind::ALL.iter().map(|k| k.name()).collect();
+
         assert_eq!(names.len(), SemanticTokenKind::ALL.len());
     }
 
     #[test]
     fn method_tables_have_no_duplicates() {
         let requests: BTreeSet<&str> = Request::METHODS.iter().map(|(name, _)| *name).collect();
+
         assert_eq!(requests.len(), Request::METHODS.len());
         let notifications: BTreeSet<&str> = Notification::METHODS
             .iter()
             .map(|(name, _)| *name)
             .collect();
+
         assert_eq!(notifications.len(), Notification::METHODS.len());
         assert!(requests.is_disjoint(&notifications));
     }
@@ -127,6 +131,7 @@ mod tests {
                 { "uri": "file://localhost/w", "name": "w2" },
             ] },
         });
+
         session.handle_json(&init.to_string()).unwrap();
         assert_eq!(session.session().workspace_folders.len(), 1);
     }

@@ -8,9 +8,11 @@ use crate::source::FileId;
 pub(super) fn bounded(mut text: String) -> String {
     if text.len() > MAX_TEXT {
         let end = text.floor_char_boundary(MAX_TEXT);
+
         text.truncate(end);
         text.push('…');
     }
+
     text
 }
 
@@ -26,6 +28,7 @@ pub fn dedent(text: &str) -> String {
         .map(|l| l.len() - l.trim_start().len())
         .min()
         .unwrap_or(0);
+
     lines
         .iter()
         .map(|l| {
@@ -66,11 +69,13 @@ pub(super) fn substitute(source: &str, subst: &HashMap<Sym, Argument>) -> Option
             "return" | "defer" | "break" | "continue" | "remove"
         )
     };
+
     while i < tokens.len() {
         let t = &tokens[i];
         let (start, end) = (t.span.start as usize, t.span.end as usize);
         let prev = i.checked_sub(1).map(|p| &tokens[p].tok);
         let next = tokens.get(i + 1).map(|n| &n.tok);
+
         match &t.tok {
             // `#insert code_param`: the code itself.
             Tok::Directive(d) if d.as_str() == "insert" => {
@@ -85,6 +90,7 @@ pub(super) fn substitute(source: &str, subst: &HashMap<Sym, Argument>) -> Option
                     out.push_str(text);
                     copied = tokens[i + 1].span.end as usize;
                     i += 2;
+
                     continue;
                 }
             }
@@ -109,6 +115,7 @@ pub(super) fn substitute(source: &str, subst: &HashMap<Sym, Argument>) -> Option
                     out.push_str(text);
                     copied = tokens[i + 1].span.end as usize;
                     i += 2;
+
                     continue;
                 }
             }
@@ -118,6 +125,7 @@ pub(super) fn substitute(source: &str, subst: &HashMap<Sym, Argument>) -> Option
                     next,
                     Some(Tok::Punct(P::ColonEq | P::ColonColon | P::Colon))
                 ) && !matches!(prev, Some(Tok::Punct(P::Dot)));
+
                 if !member
                     && !declared
                     && let Some(Argument {
@@ -128,6 +136,7 @@ pub(super) fn substitute(source: &str, subst: &HashMap<Sym, Argument>) -> Option
                     }) = subst.get(n)
                 {
                     out.push_str(&source[copied..start]);
+
                     if *variadic {
                         out.push_str(&format!(".[{text}]"));
                     } else if *atomic {
@@ -137,13 +146,16 @@ pub(super) fn substitute(source: &str, subst: &HashMap<Sym, Argument>) -> Option
                         out.push_str(text);
                         out.push(')');
                     }
+
                     copied = end;
                 }
             }
             _ => {}
         }
+
         i += 1;
     }
+
     out.push_str(&source[copied.min(source.len())..]);
     Some(out)
 }
@@ -161,6 +173,7 @@ mod tests {
             variadic: false,
             atomic,
         };
+
         subst.insert(Sym::intern("a"), arg("x + 1", false, false));
         subst.insert(Sym::intern("b"), arg("y", false, true));
         subst.insert(Sym::intern("body"), arg("print(\"hi\");", true, false));
@@ -169,6 +182,7 @@ mod tests {
             &subst,
         )
         .unwrap();
+
         assert_eq!(
             text,
             "{ t := (x + 1); total = t * y; p.a = 2; print(\"hi\");; `return; }"

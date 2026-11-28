@@ -37,6 +37,7 @@ impl Compiler {
                     complete,
                     ..
                 } = &**boxed;
+
                 !cases.is_empty()
                     && (*complete || cases.iter().any(|c| c.values.is_empty()))
                     && cases
@@ -51,6 +52,7 @@ impl Compiler {
                     else_branch,
                     ..
                 } = &**boxed;
+
                 match f.static_taken.get(&stmt.span) {
                     Some(true) => self.stmts_return(f, then_branch),
                     Some(false) => self.stmts_return(f, else_branch),

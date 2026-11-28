@@ -195,6 +195,7 @@ fn stat_members(abi: PosixAbi) -> &'static [(Stat, u8)] {
     if abi.darwin() {
         return DARWIN;
     }
+
     match abi.cpu() {
         TargetCpu::X86 | TargetCpu::Arm => LINUX_32,
         TargetCpu::Arm64 => LINUX_GENERIC,
@@ -229,7 +230,9 @@ pub(in crate::interp) fn fill_stat(abi: PosixAbi, out: u64, file: &FileStat) {
         .map(|&(_, bytes)| Member::Int(bytes))
         .collect();
     let record = layout.pack(&ints);
+
     fill(out, 0, record.size as usize);
+
     for (&(what, bytes), &offset) in members.iter().zip(&record.offsets) {
         let value = match what {
             Dev => file.dev,
@@ -246,6 +249,7 @@ pub(in crate::interp) fn fill_stat(abi: PosixAbi, out: u64, file: &FileStat) {
             Nanoseconds(time) => u64::from(file.times[time as usize].1),
             Pad => continue,
         };
+
         write_uint(out + offset, bytes, value);
     }
 }
@@ -286,13 +290,16 @@ pub(in crate::interp) fn fill_dirent(abi: PosixAbi, out: u64, entry: &DirEntry) 
         (18, 19, 255)
     };
     let name = &entry.name[..entry.name.len().min(capacity)];
+
     fill(out, 0, size);
     write_uint(out, 8, entry.inode);
     write_uint(out + 8, 8, entry.next);
     write_uint(out + 16, 2, size as u64);
+
     if abi.darwin() {
         write_uint(out + 18, 2, name.len() as u64);
     }
+
     write_uint(out + kind_at, 1, u64::from(entry.kind));
     write_bytes(out + name_at, name);
 }
@@ -317,6 +324,7 @@ mod tests {
             let layout = Target::new(os, cpu).data_layout();
             let members = stat_members(PosixAbi::new(os == TargetOs::MacOS, Some(cpu)));
             let ints: Vec<Member> = members.iter().map(|&(_, b)| Member::Int(b)).collect();
+
             assert_eq!(layout.pack(&ints).size, size, "{os:?} {cpu:?}");
         }
     }

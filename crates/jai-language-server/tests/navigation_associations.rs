@@ -5,7 +5,9 @@ use test_support::lsp::{file_uri, position, virtual_session};
 fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
     let uri = file_uri("/navigation-associations/main.jai");
     let mut session = virtual_session(&[], &[], None);
+
     session.open(uri.clone(), 1, source.into()).unwrap();
+
     for version in 1..=3 {
         if version > 1 {
             let suffix = "\n// 😀 UTF-16 edit\nunrelated :: (";
@@ -30,6 +32,7 @@ fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
                     String::new(),
                 )
             };
+
             session
                 .change(
                     &uri,
@@ -42,12 +45,14 @@ fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
                 )
                 .unwrap();
         }
+
         let errors: Vec<_> = session
             .diagnostics(&uri)
             .unwrap()
             .into_iter()
             .filter(|d| d.severity == jai_language_server::DiagnosticSeverity::Error)
             .collect();
+
         if version == 2 {
             assert!(
                 !errors.is_empty(),
@@ -56,22 +61,26 @@ fn check(source: &str, targets: &[(u32, u32, u32, u32)]) {
         } else {
             assert!(errors.is_empty(), "{errors:?}");
         }
+
         assert!(
             errors
                 .iter()
                 .all(|d| d.range.start.line >= source.lines().count() as u32),
             "{errors:?}"
         );
+
         for &(line, character, target_line, target_character) in targets {
             let position = Position {
                 line,
                 character,
             };
+
             assert!(
                 session.hover(&uri, position).unwrap().is_some(),
                 "hover {position:?}, version {version}"
             );
             let definitions = session.definition(&uri, position).unwrap();
+
             assert_eq!(
                 definitions.len(),
                 1,
@@ -95,9 +104,11 @@ fn check_names(source: &str, targets: &[(&str, &str)]) {
         .map(|&(usage, declaration)| {
             let at = position(source, source.find(usage).unwrap());
             let target = position(source, source.find(declaration).unwrap());
+
             (at.line, at.character, target.line, target.character)
         })
         .collect();
+
     check(source, &targets);
 }
 

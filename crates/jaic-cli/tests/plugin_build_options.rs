@@ -35,9 +35,11 @@ get_plugin :: () -> *Metaprogram_Plugin {
 
 fn setup(name: &str) -> (TempDir, PathBuf) {
     let dir = TempDir::new(name);
+
     std::fs::create_dir_all(dir.join("modules/Probe")).unwrap();
     std::fs::write(dir.join("modules/Probe/module.jai"), PROBE).unwrap();
     let source = dir.join("program.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\nmain :: () { print(\"hi\\n\"); }\n",
@@ -55,6 +57,7 @@ fn probe(source: &Path, flags: &[&str], plugin_options: &[&str]) -> String {
         .args(plugin_options)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -95,6 +98,7 @@ fn a_plugin_starts_from_the_options_of_the_command_line() {
             "before: llvm=UNSET debug=DEFAULT stack=true array=ON null=ON cast=FATAL crash=OFF\n",
         ),
     ];
+
     for (flags, expected) in cases {
         assert_eq!(probe(&source, flags, &[]), expected, "{flags:?}");
     }
@@ -104,6 +108,7 @@ fn a_plugin_starts_from_the_options_of_the_command_line() {
 fn a_plugin_can_replace_the_options_of_the_command_line() {
     let (_dir, source) = setup("cli-plugin-build-options-override");
     let printed = probe(&source, &["-very_debug"], &["-optimize"]);
+
     assert_eq!(
         printed,
         "before: llvm=O0 debug=DEFAULT stack=true array=ON null=ON cast=FATAL crash=ON\n\
@@ -126,8 +131,10 @@ fn the_optimization_of_the_command_line_reaches_the_plugin_workspace_build() {
             .arg("+Probe")
             .status()
             .unwrap();
+
         assert!(status.success());
         std::fs::read_to_string(path).unwrap()
     };
+
     assert_ne!(ir("-O0"), ir("-O2"));
 }

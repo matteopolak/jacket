@@ -20,8 +20,10 @@ impl Compiler {
         {
             // Return from a macro: store results and leave the expansion.
             let mut ops = Vec::new();
+
             for (i, v) in values.iter().enumerate() {
                 let expected = frame.result_slots.get(i).map(|s| s.0);
+
                 match self.check_expr(f, scope, &v.value, expected)? {
                     // `return two();`: each result of the call fills one of the macro's.
                     Operand::Multi(vals) if values.len() == 1 => {
@@ -30,15 +32,20 @@ impl Compiler {
                     other => ops.push(other),
                 }
             }
+
             for (op, (ty, slot)) in ops.into_iter().zip(&frame.result_slots) {
                 let op = self.convert(f, op, *ty, Site::opaque(span))?;
                 let (_, v) = self.rvalue(f, op, span)?;
+
                 self.store_value(f, *ty, *slot, v, span)?;
             }
+
             self.emit_defers(f, frame.defer_depth.position(), span)?;
             f.b.jump(frame.exit_block);
+
             return Ok(());
         }
+
         // `` `return `x, y; ``: returns from the caller; `` `x `` in the values still means
         // the caller's x.
         let caller = f.macros.last().map(|m| m.caller_scope);
@@ -48,14 +55,19 @@ impl Compiler {
             Vec::new()
         };
         let saved_backtick = f.backtick_scope;
+
         if backtick && caller.is_some() {
             f.backtick_scope = caller;
         }
+
         let result = self.check_proc_return(f, scope, values, span);
+
         f.backtick_scope = saved_backtick;
+
         if backtick {
             f.macros = saved_macros;
         }
+
         result
     }
 
@@ -78,6 +90,7 @@ impl Compiler {
         let names = self.signature(proc, span)?.return_names.clone();
         let types = f.return_types.clone();
         let mut positional = 0;
+
         for v in values {
             let index = if let Some(n) = v.name {
                 names
@@ -107,8 +120,10 @@ impl Compiler {
             let op = self.check_expr(f, scope, &v.value, Some(ty))?;
             let op = self.convert(f, op, ty, &v.value)?;
             let (_, val) = self.rvalue(f, op, v.value.span)?;
+
             self.store_value(f, ty, addr, val, v.value.span)?;
         }
+
         self.emit_fallthrough_return(f, span)
     }
 
@@ -117,6 +132,7 @@ impl Compiler {
         if types.is_empty() {
             return "the procedure returns nothing".into();
         }
+
         let names: Vec<String> = types
             .iter()
             .map(|&t| format!("`{}`", self.ty.types.name(t)))
@@ -132,6 +148,7 @@ impl Compiler {
             span,
             format!("too many return values (procedure returns {})", types.len()),
         );
+
         d = d.with_help(self.returns_help(types));
         let keep = types.len();
         let Some(last) = values.last().filter(|_| values.len() > keep) else {
@@ -159,6 +176,7 @@ impl Compiler {
                 }
             )
         };
+
         d.with_suggestion(
             Suggestion::replace(title, drop, "", Applicability::MaybeIncorrect)
                 .with_action("Remove the extra return values"),
@@ -173,34 +191,43 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         let types = f.return_types.clone();
+
         if values.iter().any(|v| v.name.is_some()) {
             return self.check_named_return(f, scope, values, span);
         }
+
         let mut ops: Vec<Operand> = Vec::new();
         // Where each value was written, for errors.
         let mut spans: Vec<Site> = Vec::new();
+
         for (i, v) in values.iter().enumerate() {
             let op = self.check_expr(f, scope, &v.value, types.get(i).copied())?;
+
             match op {
                 // Extra results of a returned call are dropped, like in a declaration.
                 Operand::Multi(vals) if values.len() == 1 => {
                     ops.extend(vals.into_iter().take(types.len()));
                     spans.resize(ops.len(), Site::one_of(&v.value));
+
                     continue;
                 }
                 // `return f();` of a procedure without results.
                 Operand::Void if values.len() == 1 => {}
                 other => ops.push(other),
             }
+
             spans.resize(ops.len(), Site::from(&v.value));
         }
+
         if ops.is_empty() && !types.is_empty() && f.named_results.iter().all(Option::is_some) {
             self.emit_fallthrough_return(f, span)?;
             return Ok(());
         }
+
         if ops.len() > types.len() {
             return Err(Box::new(self.too_many_returns(&types, values, span)));
         }
+
         if ops.len() < types.len() && !ops.is_empty() {
             // Remaining results take their named defaults.
             if let Some(i) = (ops.len()..types.len()).find(|&i| f.named_results[i].is_none()) {
@@ -219,8 +246,10 @@ impl Compiler {
                     .with_help(self.returns_help(&types)),
             ));
         }
+
         let mut scalars = Vec::new();
         let mut returned = Vec::new();
+
         for (i, &ty) in types.iter().enumerate() {
             let v = if let Some(op) = ops.get(i) {
                 let at = spans.get(i).copied().unwrap_or(Site::opaque(span));
@@ -228,14 +257,17 @@ impl Compiler {
                     .convert(f, op.clone(), ty, at)
                     .map_err(|e| self.return_type_mismatch(e, f.proc, i))?;
                 let (_, v) = self.rvalue(f, op, at.span)?;
+
                 v
             } else {
                 let addr = f.named_results[i].unwrap();
+
                 match self.ir_ty(ty) {
                     Some(t) => f.b.load(t, addr),
                     None => addr,
                 }
             };
+
             returned.push((
                 f.return_outs[i].unwrap_or(v),
                 i,
@@ -245,10 +277,12 @@ impl Compiler {
                     |arg| uncast_return_span(&arg.value),
                 ),
             ));
+
             // A `void` result is checked like the others but leaves nothing to return.
             if ty == TypeId::VOID {
                 continue;
             }
+
             match f.return_outs[i] {
                 Some(out) => self.store_value(f, ty, out, v, span)?,
                 None if f.defers.is_empty() => scalars.push((v, None)),
@@ -257,12 +291,15 @@ impl Compiler {
                     let t = self.ir_ty(ty).unwrap();
                     let slot =
                         f.b.alloca(t.size(&self.options.layout), t.size(&self.options.layout));
+
                     f.b.store(t, slot, v);
                     scalars.push((v, Some((t, slot))));
                 }
             }
         }
+
         self.emit_defers(f, 0, span)?;
+
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
         {
@@ -279,13 +316,16 @@ impl Compiler {
                 );
             }
         }
+
         let mut rets = Vec::new();
+
         for (v, saved) in scalars {
             rets.push(match saved {
                 Some((t, slot)) => f.b.load(t, slot),
                 None => v,
             });
         }
+
         f.b.ret(rets);
         Ok(())
     }
@@ -295,6 +335,7 @@ impl Compiler {
         if f.defers.len() <= depth {
             return Ok(());
         }
+
         let saved = f.defers.clone();
         let saved_context = f.context_binding();
         let result = (|| {
@@ -307,12 +348,15 @@ impl Compiler {
                     let run = f.b.new_block();
                     let after = f.b.new_block();
                     let enabled = f.b.load(Ty::I8, active);
+
                     f.b.branch(enabled, run, after);
                     f.b.switch_to(run);
                     let no = f.b.iconst(Ty::I8, 0);
+
                     f.b.store(Ty::I8, active, no);
                     after
                 });
+
                 if !f.type_only
                     && let Some(record) = &mut f.lifetimes
                 {
@@ -322,6 +366,7 @@ impl Compiler {
                             ..
                         } => None,
                     };
+
                     record.push(
                         f.b.current,
                         crate::ide::lifetimes::LifetimeEvent::Cleanup {
@@ -330,12 +375,14 @@ impl Compiler {
                         },
                     );
                 }
+
                 match &entry.action {
                     DeferAction::RestoreContext {
                         previous,
                         saved_slot,
                     } => {
                         let previous_ptr = f.b.load(Ty::Ptr, *saved_slot);
+
                         if !f.type_only
                             && let (Some(record), Some(source)) = (&mut f.lifetimes, previous)
                         {
@@ -347,6 +394,7 @@ impl Compiler {
                                 },
                             );
                         }
+
                         f.set_context(Some(previous_ptr));
                         f.restore_context_binding(*previous);
                     }
@@ -355,20 +403,26 @@ impl Compiler {
                         let saved_backtick =
                             std::mem::replace(&mut f.backtick_scope, entry.caller_scope);
                         let result = self.check_stmt(f, inner, stmt);
+
                         f.backtick_scope = saved_backtick;
                         result?;
                     }
                 }
+
                 f.lifetime_restore_site(previous_lifetime_site);
+
                 if let Some(after) = after {
                     if !f.b.is_terminated() {
                         f.b.jump(after);
                     }
+
                     f.b.switch_to(after);
                 }
             }
+
             Ok(())
         })();
+
         f.defers = saved;
         // Exit branches do not change the context used to compile other paths.
         f.restore_context_binding(saved_context);
@@ -384,5 +438,6 @@ fn uncast_return_span(mut value: &ast::Expr) -> Span {
     {
         value = inner;
     }
+
     value.span
 }

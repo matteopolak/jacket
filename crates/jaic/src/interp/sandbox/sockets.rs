@@ -30,6 +30,7 @@ impl SandboxHost {
     /// on, so a port of 0 can be found out.
     pub fn preopen_listeners(&mut self, addresses: &[String]) -> Result<Vec<String>, String> {
         let mut bound = Vec::new();
+
         for text in addresses {
             let address = text
                 .to_socket_addrs()
@@ -38,12 +39,16 @@ impl SandboxHost {
                 .ok_or_else(|| format!("the listen address `{text}` names no address"))?;
             let listener = TcpListener::bind(address)
                 .map_err(|e| format!("cannot listen on `{text}`: {e}"))?;
+
             if let Ok(local) = listener.local_addr() {
                 bound.push(local.to_string());
             }
+
             let fd = self.next_socket_fd();
+
             self.sockets.insert(fd, Socket::Listener(listener));
         }
+
         self.extra_environment
             .insert("LISTEN_FDS".into(), addresses.len().to_string());
         Ok(bound)
@@ -53,7 +58,9 @@ impl SandboxHost {
         if self.next_fd < super::FIRST_FD {
             self.next_fd = super::FIRST_FD;
         }
+
         let fd = self.next_fd;
+
         self.next_fd += 1;
         fd
     }
@@ -61,6 +68,7 @@ impl SandboxHost {
     /// `accept`, `recv`, `send`, `shutdown`, and `close` on a socket.
     pub(super) fn socket_call(&mut self, fun: LibcFn, arg: impl Fn(usize) -> u64) -> Option<u64> {
         let fd = arg(0) as i32 as i64;
+
         Some(match fun {
             LibcFn::Close => {
                 self.sockets.remove(&fd)?;
@@ -72,13 +80,16 @@ impl SandboxHost {
                     Some(Socket::Stream(_)) => return Some(self.set_errno(EINVAL)),
                     None => return Some(self.set_errno(self.not_a_socket(fd))),
                 };
+
                 match accepted {
                     Ok((stream, _)) => {
                         // WASI does not report the peer's address.
                         if arg(2) != 0 {
                             write_u32(arg(2), 0);
                         }
+
                         let new = self.next_socket_fd();
+
                         self.sockets.insert(new, Socket::Stream(stream));
                         new as u64
                     }
@@ -88,9 +99,11 @@ impl SandboxHost {
             LibcFn::Recv => {
                 // Only PEEK and WAITALL exist in WASI.
                 let flags = arg(3) as u32 as u64;
+
                 if flags & !(MSG_PEEK | MSG_WAITALL) != 0 {
                     return Some(self.set_errno(EINVAL));
                 }
+
                 let count = arg(2) as usize;
                 let stream = match self.sockets.get_mut(&fd) {
                     Some(Socket::Stream(stream)) => stream,
@@ -105,6 +118,7 @@ impl SandboxHost {
                 } else {
                     stream.read(&mut buffer)
                 };
+
                 match result {
                     Ok(n) => {
                         write_bytes(arg(1), &buffer[..n]);
@@ -117,12 +131,14 @@ impl SandboxHost {
                 if arg(3) as u32 != 0 {
                     return Some(self.set_errno(EINVAL));
                 }
+
                 let bytes = read_bytes(arg(1), arg(2) as usize);
                 let stream = match self.sockets.get_mut(&fd) {
                     Some(Socket::Stream(stream)) => stream,
                     Some(Socket::Listener(_)) => return Some(self.set_errno(ENOTCONN)),
                     None => return Some(self.set_errno(self.not_a_socket(fd))),
                 };
+
                 match stream.write(&bytes) {
                     Ok(n) => n as u64,
                     Err(error) => self.set_errno(errno_of(&error)),
@@ -136,6 +152,7 @@ impl SandboxHost {
                     2 => Shutdown::Both,
                     _ => return Some(self.set_errno(EINVAL)),
                 };
+
                 match self.sockets.get(&fd) {
                     Some(Socket::Stream(stream)) => match stream.shutdown(how) {
                         Ok(()) => 0,
@@ -162,6 +179,7 @@ impl SandboxHost {
 /// Read until `buffer` is full or the peer closes, like `recv` with `MSG_WAITALL`.
 fn read_all(stream: &mut TcpStream, buffer: &mut [u8]) -> std::io::Result<usize> {
     let mut filled = 0;
+
     while filled < buffer.len() {
         match stream.read(&mut buffer[filled..]) {
             Ok(0) => break,
@@ -171,6 +189,7 @@ fn read_all(stream: &mut TcpStream, buffer: &mut [u8]) -> std::io::Result<usize>
             Err(error) => return Err(error),
         }
     }
+
     Ok(filled)
 }
 
@@ -179,6 +198,7 @@ fn errno_of(error: &std::io::Error) -> u64 {
     use std::io::ErrorKind::{
         BrokenPipe, ConnectionAborted, ConnectionReset, InvalidInput, NotConnected, WouldBlock,
     };
+
     match error.kind() {
         BrokenPipe => EPIPE,
         ConnectionReset | ConnectionAborted => ECONNRESET,

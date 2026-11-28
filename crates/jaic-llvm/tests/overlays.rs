@@ -31,6 +31,7 @@ fn forward_overlay_reflection_executes_native_and_wasm_at_o0_and_o2() {
         }
         main :: () {}
     "#;
+
     backend::execute(
         "forward-overlay-reflection",
         "overlay_reflection_check",

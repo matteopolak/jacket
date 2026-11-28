@@ -33,10 +33,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let it = Sym::intern("it");
+
     for p in &cx.procs {
         if !p.clean || p.is_macro {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(outer) = n.stmt() else {
                 return true;
@@ -44,15 +46,20 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let S::For(f) = &outer.kind else {
                 return true;
             };
+
             if !binds_it(f, it) {
                 return true;
             }
+
             let outer_vars = loop_vars(cx, outer, it);
+
             if outer_vars.is_empty() {
                 return true;
             }
+
             // Inner loops binding `it` too (the first level of them).
             let mut stack = Vec::new();
+
             walk_node(Node::Stmt(&f.body), &mut stack, &mut |m, _| {
                 let Some(inner) = m.stmt() else {
                     return true;
@@ -60,10 +67,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 let S::For(g) = &inner.kind else {
                     return true;
                 };
+
                 if !binds_it(g, it) {
                     return true;
                 }
+
                 let inner_vars = loop_vars(cx, inner, it);
+
                 // The outer `it` is read again after the inner loop: `it` changes meaning
                 // and back. (Copying it to a name before the inner loop is the usual idiom.)
                 if !inner_vars.is_empty()
@@ -75,6 +85,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         jaic::ast::ForOver::Range(_, b) => b.span.end,
                         jaic::ast::ForOver::Collection(c) => c.span.end,
                     };
+
                     out.push(Finding {
                         secondary: Vec::new(),
                         start: inner.span.start as usize,
@@ -87,6 +98,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         fix: None,
                     });
                 }
+
                 false
             });
             true
@@ -115,6 +127,7 @@ fn uses(cx: &Cx, body: &Stmt, vars: &[EntityId]) -> bool {
 fn uses_after(cx: &Cx, body: &Stmt, vars: &[EntityId], from: u32) -> bool {
     let mut found = false;
     let mut stack = Vec::new();
+
     walk_node(Node::Stmt(body), &mut stack, &mut |n, _| {
         if let Some(e) = n.expr()
             && matches!(e.kind, jaic::ast::ExprKind::Ident(_))
@@ -123,6 +136,7 @@ fn uses_after(cx: &Cx, body: &Stmt, vars: &[EntityId], from: u32) -> bool {
         {
             found = true;
         }
+
         !found
     });
     found

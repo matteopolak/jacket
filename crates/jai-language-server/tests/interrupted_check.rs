@@ -35,13 +35,17 @@ fn shown(publications: &[(String, i32, Vec<jai_language_server::Diagnostic>)]) -
 #[test]
 fn without_input_the_result_is_the_same() {
     let _guard = lock();
+
     reset();
     let uri = file_uri("/interrupt/same.jai");
     let mut stopped = lean_session();
+
     stopped.open(uri.clone(), 1, SOURCE.into()).unwrap();
     let mut plain = lean_session();
+
     plain.open(uri, 1, SOURCE.into()).unwrap();
     let expected = plain.publications();
+
     assert!(
         expected.iter().any(|(_, _, d)| !d.is_empty()),
         "the program has an error to publish"
@@ -49,15 +53,18 @@ fn without_input_the_result_is_the_same() {
     let got = stopped
         .publications_unless_interrupted()
         .expect("nothing asked it to stop");
+
     assert_eq!(shown(&got), shown(&expected));
 }
 
 #[test]
 fn a_check_stopped_in_the_middle_publishes_nothing_and_poisons_nothing() {
     let _guard = lock();
+
     reset();
     let uri = file_uri("/interrupt/middle.jai");
     let mut session = lean_session();
+
     session.open(uri.clone(), 1, SOURCE.into()).unwrap();
     // Stop at the third body: some are checked already, others are not.
     jaic::interrupt::stop_after(3);
@@ -71,6 +78,7 @@ fn a_check_stopped_in_the_middle_publishes_nothing_and_poisons_nothing() {
     // The next check, undisturbed, is the one a fresh session gives.
     let again = session.publications();
     let mut fresh = lean_session();
+
     fresh.open(uri, 1, SOURCE.into()).unwrap();
     assert_eq!(shown(&again), shown(&fresh.publications()));
     assert!(again.iter().any(|(_, _, d)| !d.is_empty()));
@@ -79,9 +87,11 @@ fn a_check_stopped_in_the_middle_publishes_nothing_and_poisons_nothing() {
 #[test]
 fn a_stopped_check_keeps_the_compile_requests_use() {
     let _guard = lock();
+
     reset();
     let uri = file_uri("/interrupt/kept.jai");
     let mut session = lean_session();
+
     session.open(uri.clone(), 1, SOURCE.into()).unwrap();
     session.publications();
     let (compiles, alive) = session.compile_counts();
@@ -91,6 +101,7 @@ fn a_stopped_check_keeps_the_compile_requests_use() {
         range_length: None,
         text: SOURCE.replace("total := ", "total2 := "),
     };
+
     session.change(&uri, 2, &[edit]).unwrap();
     jaic::interrupt::stop_after(2);
     assert!(session.publications_unless_interrupted().is_none());
@@ -102,9 +113,11 @@ fn a_stopped_check_keeps_the_compile_requests_use() {
 #[test]
 fn requests_are_never_interrupted() {
     let _guard = lock();
+
     reset();
     let uri = file_uri("/interrupt/requests.jai");
     let mut session = lean_session();
+
     session.open(uri.clone(), 1, SOURCE.into()).unwrap();
     // Input is waiting and a stop is due, but these are not armed: they compile and answer.
     jaic::interrupt::request(true);
@@ -118,6 +131,7 @@ fn requests_are_never_interrupted() {
             },
         )
         .unwrap();
+
     assert!(
         completion.items.iter().any(|i| i.label == "total"),
         "completion answered from a full compile"
@@ -131,6 +145,7 @@ fn requests_are_never_interrupted() {
             },
         )
         .unwrap();
+
     assert!(hover.is_some(), "hover answered");
     assert!(session.compile_counts().1 >= 1);
     reset();
@@ -139,6 +154,7 @@ fn requests_are_never_interrupted() {
 #[test]
 fn interrupted_warm_up_retries_without_caching_partial_modules() {
     let _guard = lock();
+
     reset();
     let dir = test_support::lsp::project(
         "interrupt-warm",
@@ -152,6 +168,7 @@ fn interrupted_warm_up_retries_without_caching_partial_modules() {
         jai_language_server::Limits::default(),
         test_support::lsp::modules_environment(None),
     );
+
     session
         .open(uri.clone(), 1, "main :: () { unique_warm }".into())
         .unwrap();
@@ -168,6 +185,7 @@ fn interrupted_warm_up_retries_without_caching_partial_modules() {
             },
         )
         .unwrap();
+
     assert!(
         result
             .items
@@ -179,10 +197,12 @@ fn interrupted_warm_up_retries_without_caching_partial_modules() {
 #[test]
 fn interrupted_lints_are_not_cached_and_retry_matches_fresh() {
     let _guard = lock();
+
     reset();
     let uri = file_uri("/interrupt/lints.jai");
     let text = "main :: () { unused := 42; }";
     let mut session = lean_session();
+
     session.open(uri.clone(), 1, text.into()).unwrap();
     // Populate only the semantic compile, leaving the lint pass cold.
     session
@@ -195,6 +215,7 @@ fn interrupted_lints_are_not_cached_and_retry_matches_fresh() {
         )
         .unwrap();
     let compiles = session.compile_counts().0;
+
     jaic::interrupt::stop_after(2);
     assert!(session.publications_unless_interrupted().is_none());
     assert_eq!(
@@ -205,6 +226,7 @@ fn interrupted_lints_are_not_cached_and_retry_matches_fresh() {
     reset();
     let actual = session.publications();
     let mut fresh = lean_session();
+
     fresh.open(uri, 1, text.into()).unwrap();
     assert_eq!(shown(&actual), shown(&fresh.publications()));
     assert!(actual.iter().any(|(_, _, ds)| {
@@ -219,35 +241,46 @@ fn interrupted_warm_up_keeps_completed_scans_but_retries_the_interrupted_file() 
     use std::cell::{Cell, RefCell};
     use std::path::{Path, PathBuf};
     use std::rc::Rc;
+
     struct StopOnB {
         stop: Cell<bool>,
         reads: RefCell<Vec<PathBuf>>,
     }
+
     impl FileSystem for StopOnB {
         fn read(&self, path: &Path) -> Option<Vec<u8>> {
             self.reads.borrow_mut().push(path.to_path_buf());
+
             if path.ends_with("B/module.jai") && self.stop.replace(false) {
                 jaic::interrupt::request(true);
             }
+
             NativeFs.read(path)
         }
+
         fn is_file(&self, path: &Path) -> bool {
             NativeFs.is_file(path)
         }
+
         fn is_dir(&self, path: &Path) -> bool {
             NativeFs.is_dir(path)
         }
+
         fn canonical(&self, path: &Path) -> PathBuf {
             NativeFs.canonical(path)
         }
+
         fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
             NativeFs.list_dir(path)
         }
+
         fn stamp(&self, path: &Path) -> Option<u64> {
             NativeFs.stamp(path)
         }
     }
+
     let _guard = lock();
+
     reset();
     let dir = test_support::lsp::project(
         "warm-progress",
@@ -262,11 +295,13 @@ fn interrupted_warm_up_keeps_completed_scans_but_retries_the_interrupted_file() 
         reads: RefCell::default(),
     });
     let mut environment = test_support::lsp::environment_at(dir.join("stdlib"), None);
+
     environment.fs = fs.clone();
     let mut session = jai_language_server::Session::with_environment(
         jai_language_server::Limits::default(),
         environment,
     );
+
     session
         .open(
             test_support::lsp::uri_of(&dir.join("main.jai")),
@@ -285,6 +320,7 @@ fn interrupted_warm_up_keeps_completed_scans_but_retries_the_interrupted_file() 
     fs.reads.borrow_mut().clear();
     assert!(session.warm_auto_import_unless_interrupted());
     let reads = fs.reads.borrow();
+
     assert!(
         !reads.iter().any(|p| p.ends_with("A/module.jai")),
         "completed work was discarded: {reads:?}"

@@ -151,10 +151,12 @@ impl Region {
     fn new(len: usize) -> Option<Self> {
         use super::host_pages::{self, Access};
         let base = host_pages::reserve(len)?;
+
         if !host_pages::commit(base + GUARD, len - GUARD, Access::ReadWrite) {
             host_pages::release(base, len);
             return None;
         }
+
         Some(Region {
             base: base as *mut u8,
             len,
@@ -206,6 +208,7 @@ impl Interp {
         if !self.host.native_linking() {
             return self.trap("fibers are not available in the sandbox (WebAssembly) host");
         }
+
         match op {
             ir::Intrinsic::FiberInit => self.fiber_init(program, a[0], a[3], a[4]),
             ir::Intrinsic::FiberFree => {
@@ -213,6 +216,7 @@ impl Interp {
                 if self.fibers.get(&a[0]).is_some_and(|r| r.exec.is_some()) {
                     self.fibers.remove(&a[0]);
                 }
+
                 Ok(())
             }
             _ => self.fiber_switch(program, a[0], a[1]),
@@ -223,6 +227,7 @@ impl Interp {
         if key < 4096 {
             return self.null_trap("fiber_init through a null pointer");
         }
+
         let Some(entry) = self.func_of(entry) else {
             return self.trap("fiber_init needs an interpreted entry procedure");
         };
@@ -259,6 +264,7 @@ impl Interp {
         let arg = &raw const *rec as u64;
         // SAFETY: `top` ends a stack this record owns, and `fiber_main` never returns.
         let sp = unsafe { crate::fiber::host::jaic_fiber_prepare(top, fiber_main, arg) };
+
         rec.ctx = Context {
             sp,
             stack_low: low,
@@ -273,9 +279,11 @@ impl Interp {
         if from < 4096 || to < 4096 {
             return self.null_trap("fiber_switch through a null pointer");
         }
+
         if from == to {
             return Ok(());
         }
+
         let this: *mut Interp = self;
         let Some(target) = self.fibers.get_mut(&to) else {
             return self.trap("fiber_switch to a context that fiber_init never set up");
@@ -283,24 +291,30 @@ impl Interp {
         let Some(exec) = target.exec.take() else {
             return self.trap("fiber_switch to a fiber that is running");
         };
+
         target.interp = this;
         target.program = program;
+
         if !target.started {
             target.started = true;
             target.parent = from;
         }
+
         let to_ctx: *mut Context = &raw mut target.ctx;
         let state = self.take_exec_state();
         let leaving = self
             .fibers
             .entry(from)
             .or_insert_with(|| Box::new(FiberRec::root(from)));
+
         leaving.exec = Some(state);
         let from_ctx: *mut Context = &raw mut leaving.ctx;
+
         self.put_exec_state(exec);
         // SAFETY: both contexts belong to boxed records, which the map keeps until a fiber is
         // initialised again, and `to` holds a prepared or saved stack.
         unsafe { crate::fiber::host::jaic_fiber_switch(from_ctx, to_ctx) };
+
         // Running again: whoever switched here installed this fiber's state first.
         match self.fiber_trap.take() {
             Some(trap) => Err(trap),
@@ -312,22 +326,27 @@ impl Interp {
     /// in, and never come back.
     fn fiber_died(&mut self, key: u64, trap: Trap) -> ! {
         let mut at = key;
+
         for _ in 0..1_000_000 {
             match self.fibers.get(&at) {
                 Some(rec) if rec.parent != 0 => at = rec.parent,
                 _ => break,
             }
         }
+
         let has_root = at != key && self.fibers.get(&at).is_some_and(|r| r.exec.is_some());
+
         if !has_root {
             eprintln!("error in a fiber: {}", trap.message);
             std::process::exit(1);
         }
+
         self.fiber_trap = Some(trap);
         let mine = self.take_exec_state();
         let root = self.fibers.get_mut(&at).expect("root checked above");
         let root_ctx: *mut Context = &raw mut root.ctx;
         let exec = root.exec.take().expect("root checked above");
+
         self.put_exec_state(exec);
         drop(mine);
         let me = self
@@ -335,6 +354,7 @@ impl Interp {
             .get_mut(&key)
             .expect("a running fiber has a record");
         let my_ctx: *mut Context = &raw mut me.ctx;
+
         // SAFETY: as in `fiber_switch`; the root is suspended in its own `fiber_switch`.
         unsafe { crate::fiber::host::jaic_fiber_switch(my_ctx, root_ctx) };
         std::process::abort()
@@ -362,5 +382,6 @@ extern "C" fn fiber_main(rec: u64) -> ! {
             "a fiber's entry procedure returned; it must switch to another fiber for good instead",
         ),
     };
+
     interp.fiber_died(key, trap)
 }

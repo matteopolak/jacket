@@ -32,5 +32,6 @@ fn check_errors(s: &Session, uri: &jai_language_server::DocumentUri) -> Vec<Stri
 fn a_macro_with_a_run_insert_called_as_caller_code_has_no_probe_error() {
     let dir = project("caller-code", &[("main.jai", CALLER_CODE_MACRO)]);
     let (s, uri, _) = open_file(&dir, "main.jai");
+
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
 }

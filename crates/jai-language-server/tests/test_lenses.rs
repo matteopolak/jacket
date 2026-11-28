@@ -33,6 +33,7 @@ fn lenses(files: &[(&str, &str)], file: &str) -> Vec<CodeLens> {
     let mut s = virtual_session(files, &[], None);
     let uri = uri_of(Path::new(file));
     let text = files.iter().find(|(path, _)| *path == file).unwrap().1;
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     s.code_lenses(&uri).unwrap()
 }
@@ -55,6 +56,7 @@ fn each_test_gets_a_run_and_a_debug_lens() {
             )
         })
         .collect();
+
     assert_eq!(
         summary,
         [
@@ -80,6 +82,7 @@ fn each_test_gets_a_run_and_a_debug_lens() {
 fn the_argument_names_the_file_roots_and_the_selecting_filter() {
     let found = lenses(&PROJECT, "/proj/tests/strings.jai");
     let argument = &found[0].command.arguments[0];
+
     assert_eq!(argument["file"], "/proj/tests/strings.jai");
     assert_eq!(argument["projectRoot"], "/proj");
     assert_eq!(argument["testRoot"], "/proj");
@@ -96,6 +99,7 @@ fn a_path_a_filter_expression_cannot_hold_selects_by_name() {
         ("/proj/tests/a(b).jai", "f :: () {} @test"),
     ];
     let found = lenses(&files, "/proj/tests/a(b).jai");
+
     assert_eq!(
         found[0].command.arguments[0]["filter"],
         json!(["--exact", "f"])
@@ -110,6 +114,7 @@ fn a_module_inside_the_project_runs_from_the_project_with_its_own_test_root() {
     ];
     let found = lenses(&files, "/proj/lib/Sort/tests/order.jai");
     let argument = &found[0].command.arguments[0];
+
     assert_eq!(argument["projectRoot"], "/proj");
     assert_eq!(argument["testRoot"], "/proj/lib/Sort");
     assert_eq!(
@@ -121,6 +126,7 @@ fn a_module_inside_the_project_runs_from_the_project_with_its_own_test_root() {
 #[test]
 fn a_file_without_tests_has_no_lenses() {
     let files = [("/proj/main.jai", "main :: () {}\n")];
+
     assert!(lenses(&files, "/proj/main.jai").is_empty());
 }
 
@@ -135,6 +141,7 @@ fn the_setting_turns_the_lenses_off_and_asks_the_client_to_fetch_again() {
             .map(|m| serde_json::from_str(m).unwrap())
             .collect()
     };
+
     send(json!({
         "jsonrpc": "2.0", "id": 1, "method": "initialize",
         "params": { "capabilities": { "workspace": { "codeLens": { "refreshSupport": true } } } },
@@ -153,11 +160,13 @@ fn the_setting_turns_the_lenses_off_and_asks_the_client_to_fetch_again() {
         }));
         reply.last().unwrap()["result"].as_array().unwrap().len()
     };
+
     assert_eq!(ask(&mut send, 2), 2);
     let changed = send(json!({
         "jsonrpc": "2.0", "method": "workspace/didChangeConfiguration",
         "params": { "settings": { "jai": { "tests": { "codeLens": false } } } },
     }));
+
     assert!(
         changed
             .iter()

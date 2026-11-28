@@ -32,14 +32,17 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some(s) = n.stmt() else {
                 return true;
             };
+
             if matches!(s.kind, S::If { .. }) {
                 // The head of a chain only: links are handled from there.
                 let link = matches!(chain.last(), Some(Node::Stmt(parent))
                     if matches!(&parent.kind, S::If { else_branch: Some(e), .. } if e.span == s.span));
+
                 if !link {
                     chain_conditions(cx, s, out);
                 }
             }
+
             true
         });
     }
@@ -50,6 +53,7 @@ fn chain_conditions(cx: &Cx, head: &jaic::ast::Stmt, out: &mut Vec<Finding>) {
     let mut at = head;
     // The branch before the current link: the dead link is cut out from its end.
     let mut before: Option<Span> = None;
+
     while let S::If {
         cond,
         then_branch,
@@ -68,6 +72,7 @@ fn chain_conditions(cx: &Cx, head: &jaic::ast::Stmt, out: &mut Vec<Finding>) {
                     statement_range(cx, then_branch.span).1,
                 )
             });
+
             out.push(match cut {
                 Some((start, end)) if !cx.has_comment_between(start, end) => suggesting(
                     cond.span,
@@ -88,7 +93,9 @@ fn chain_conditions(cx: &Cx, head: &jaic::ast::Stmt, out: &mut Vec<Finding>) {
             // A call may change what the earlier conditions read.
             earlier.clear();
         }
+
         before = Some(then_branch.span);
+
         match else_branch {
             Some(next) => at = next,
             None => break,

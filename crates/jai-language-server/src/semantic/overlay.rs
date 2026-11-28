@@ -71,12 +71,14 @@ impl FileSystem for OverlayFs {
     fn read(&self, path: &Path) -> Option<Vec<u8>> {
         let key = self.canonical_of(path);
         let found = self.files.get(&key);
+
         self.reads
             .borrow_mut()
             .files
             .entry(key)
             .or_default()
             .content = true;
+
         match found {
             Some(bytes) => Some(bytes.to_vec()),
             None => self.base.read(&self.at(path)),
@@ -89,12 +91,14 @@ impl FileSystem for OverlayFs {
         let exists = open || self.base.is_file(&self.at(path));
         let mut reads = self.reads.borrow_mut();
         let read = reads.files.entry(key).or_default();
+
         read.exists = Some(read.exists.is_none_or(|old| old) && exists);
         exists
     }
 
     fn is_dir(&self, path: &Path) -> bool {
         let p = self.canonical_of(path);
+
         self.reads.borrow_mut().dirs.insert(p.clone());
         self.files.keys().any(|k| k.starts_with(&p) && *k != p) || self.base.is_dir(&self.at(path))
     }
@@ -105,13 +109,17 @@ impl FileSystem for OverlayFs {
 
     fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
         let dir = self.canonical_of(path);
+
         self.reads.borrow_mut().dirs.insert(dir.clone());
         let mut entries: BTreeMap<_, _> = self.base.list_dir(&self.at(path)).into_iter().collect();
+
         for file in self.files.keys() {
             if let Ok(relative) = file.strip_prefix(&dir) {
                 let mut parts = relative.components();
+
                 if let Some(first) = parts.next() {
                     let directory = parts.next().is_some();
+
                     entries
                         .entry(first.as_os_str().to_string_lossy().into_owned())
                         .and_modify(|old| *old |= directory)
@@ -119,6 +127,7 @@ impl FileSystem for OverlayFs {
                 }
             }
         }
+
         entries.into_iter().collect()
     }
 
@@ -128,6 +137,7 @@ impl FileSystem for OverlayFs {
             .files
             .get(&key)
             .map(|bytes| jaic::sema::content_stamp(bytes));
+
         // What is stamped counts as read: the compile it belongs to depends on it.
         self.reads
             .borrow_mut()
@@ -135,6 +145,7 @@ impl FileSystem for OverlayFs {
             .entry(key)
             .or_default()
             .content = true;
+
         match open {
             Some(stamp) => Some(stamp),
             None => self.base.stamp(&self.at(path)),

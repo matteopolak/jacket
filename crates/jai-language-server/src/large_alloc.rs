@@ -90,6 +90,7 @@ unsafe impl GlobalAlloc for LargeBlocksToOs {
             // SAFETY: the caller upholds `GlobalAlloc::alloc`'s contract for `layout`.
             return unsafe { System.alloc(layout) };
         }
+
         // Fresh anonymous pages are zero, so this also serves `alloc_zeroed`.
         // SAFETY: an anonymous private mapping at a kernel-chosen address touches no existing
         // memory; the length is non-zero because `mapped` implies `size >= LARGE`.
@@ -103,6 +104,7 @@ unsafe impl GlobalAlloc for LargeBlocksToOs {
                 0,
             )
         };
+
         if at as usize == usize::MAX {
             std::ptr::null_mut()
         } else {
@@ -135,19 +137,23 @@ unsafe impl GlobalAlloc for LargeBlocksToOs {
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
         let from = mapped(layout.size(), layout.align());
         let to = mapped(new_size, layout.align());
+
         if !from && !to {
             // SAFETY: the caller upholds `GlobalAlloc::realloc`'s contract, and `ptr` came from
             // `System` because `mapped` is false for `layout`.
             return unsafe { System.realloc(ptr, layout, new_size) };
         }
+
         if from && to && length(layout.size()) == length(new_size) {
             return ptr;
         }
+
         // SAFETY: `GlobalAlloc::realloc`'s contract makes `new_size`, rounded up to the unchanged
         // alignment, fit in `isize`, and the alignment is a power of two from `layout`.
         let new_layout = unsafe { Layout::from_size_align_unchecked(new_size, layout.align()) };
         // SAFETY: `new_layout` has the caller-validated size and alignment.
         let fresh = unsafe { self.alloc(new_layout) };
+
         if !fresh.is_null() {
             // SAFETY: both blocks are valid for the smaller of the two sizes and cannot overlap
             // (`fresh` is new); `ptr` is then released as the caller's old block, once.
@@ -156,6 +162,7 @@ unsafe impl GlobalAlloc for LargeBlocksToOs {
                 self.dealloc(ptr, layout);
             }
         }
+
         fresh
     }
 }
@@ -168,17 +175,22 @@ mod tests {
     fn blocks_keep_their_contents_across_the_size_classes() {
         let a = LargeBlocksToOs;
         let sizes = [64, LARGE - 1, LARGE, 3 * LARGE + 5, 64, LARGE * 8];
+
         // SAFETY: every block is allocated, resized and freed through `a` with the layout it was
         // last given, and only the bytes within the current size are read or written.
         unsafe {
             let mut layout = Layout::from_size_align(sizes[0], 8).unwrap();
             let mut at = a.alloc(layout);
+
             assert!(!at.is_null());
+
             for (round, &size) in sizes.iter().enumerate() {
                 let fill = (round + 1) as u8;
+
                 if round > 0 {
                     // The bytes both sizes have must survive the move.
                     let keep = layout.size().min(size);
+
                     at = a.realloc(at, layout, size);
                     assert!(!at.is_null());
                     layout = Layout::from_size_align(size, 8).unwrap();
@@ -188,12 +200,15 @@ mod tests {
                             .all(|&b| b == round as u8)
                     );
                 }
+
                 std::ptr::write_bytes(at, fill, size);
             }
+
             a.dealloc(at, layout);
             // Large blocks arrive zeroed and page aligned enough for big alignments.
             let layout = Layout::from_size_align(LARGE * 2, 4096).unwrap();
             let zeroed = a.alloc_zeroed(layout);
+
             assert_eq!(zeroed as usize % 4096, 0);
             assert!(
                 std::slice::from_raw_parts(zeroed, layout.size())

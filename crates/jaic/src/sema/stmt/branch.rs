@@ -41,17 +41,21 @@ impl Compiler {
         if !self.ed.is_live() || self.ed.sketching() || !self.ide_wants_pub(branch.span.file) {
             return;
         }
+
         let warned = self.diag.warnings.len();
         let errors = self.ed.error_count();
         let dead = f.b.new_block();
         let after = f.b.new_block();
         let never = f.b.iconst(Ty::I8, 0);
+
         f.b.branch(never, dead, after);
         f.b.switch_to(dead);
         let _ = self.check_scoped(f, scope, branch);
+
         if !f.b.is_terminated() {
             f.b.jump(after);
         }
+
         f.b.switch_to(after);
         self.diag.warnings.truncate(warned);
         self.ed.forget_errors(errors);
@@ -70,25 +74,33 @@ impl Compiler {
             Err(e) => {
                 // The branches still name and color what they use while the condition is wrong.
                 self.check_dead_for_facts(f, scope, then_branch);
+
                 if let Some(b) = else_branch {
                     self.check_dead_for_facts(f, scope, b);
                 }
+
                 return Err(e);
             }
         };
+
         if let Some(t) = Self::const_truth(&c) {
             if t {
                 if let Some(e) = else_branch {
                     self.check_dead_for_facts(f, scope, e);
                 }
+
                 return self.check_scoped(f, scope, then_branch);
             }
+
             self.check_dead_for_facts(f, scope, then_branch);
+
             if let Some(e) = else_branch {
                 return self.check_scoped(f, scope, e);
             }
+
             return Ok(());
         }
+
         let c = self.settle_untyped(c, None);
         let (ty, v) = self.rvalue(f, c, cond.span)?;
         let c = self.truthy(f, ty, v, cond.span)?;
@@ -99,16 +111,19 @@ impl Compiler {
         } else {
             done
         };
+
         f.lifetime_branch(c, cond.span, then_block, else_block);
         f.b.branch(c, then_block, else_block);
         f.b.switch_to(then_block);
         self.check_scoped(f, scope, then_branch)?;
         f.b.jump(done);
+
         if let Some(e) = else_branch {
             f.b.switch_to(else_block);
             self.check_scoped(f, scope, e)?;
             f.b.jump(done);
         }
+
         f.b.switch_to(done);
         Ok(())
     }
@@ -123,53 +138,69 @@ impl Compiler {
         (header, span): (Span, Span),
     ) -> Result<()> {
         let v = self.check_expr(f, scope, value, None)?;
+
         // Constant switch (types, constants): pick the case at compile time.
         if v.is_const() {
             let mut matched = None;
             let mut default = None;
+
             'outer: for (i, case) in cases.iter().enumerate() {
                 if case.values.is_empty() {
                     default = Some(i);
                     continue;
                 }
+
                 for cv in &case.values {
                     let c = self.check_expr(f, scope, cv, Some(v.ty()))?;
+
                     if !c.is_const() {
                         matched = None;
                         default = None;
+
                         break 'outer;
                     }
+
                     if self.const_equal(&v, &c) {
                         matched = Some(i);
                         break 'outer;
                     }
                 }
             }
+
             if let Some(start) = matched.or(default) {
                 let mut taken = Vec::new();
                 let mut i = start;
+
                 loop {
                     taken.push(i);
                     let inner = self.new_block_scope(scope, cases[i].span);
                     let depth = f.mark_defers();
+
                     self.check_block_stmts(f, inner, &cases[i].body)?;
+
                     if !f.b.is_terminated() {
                         self.emit_defers(f, depth.position(), span)?;
                     }
+
                     f.truncate_defers(depth.position());
+
                     if !cases[i].through || i + 1 >= cases.len() {
                         break;
                     }
+
                     i += 1;
                 }
+
                 let switch = Switch {
                     vty: v.ty(),
                     cases,
                     taken: &taken,
                     complete,
                 };
+
                 return self.check_untaken_cases(f, scope, switch, header, span);
             }
+
             if cases.iter().all(|c| !c.values.is_empty()) {
                 let switch = Switch {
                     vty: v.ty(),
@@ -180,8 +211,10 @@ impl Compiler {
                 return self.check_untaken_cases(f, scope, switch, header, span);
             }
         }
+
         let v = self.settle_untyped(v, None);
         let vty = v.ty();
+
         if vty != TypeId::STRING && self.is_memory_type(vty) {
             return err(
                 Code::StatementsNotSupport,
@@ -189,6 +222,7 @@ impl Compiler {
                 "'if ==' statements do not support struct or array types at this time.",
             );
         }
+
         let (_, val) = self.rvalue(f, v, value.span)?;
         let done = f.b.new_block();
         let bodies: Vec<ir::BlockId> = cases.iter().map(|_| f.b.new_block()).collect();
@@ -196,32 +230,40 @@ impl Compiler {
         // Enum values named by a case, for the `#complete` check below.
         let mut covered = Vec::new();
         let mut seen = Vec::new();
+
         for (i, case) in cases.iter().enumerate() {
             if case.values.is_empty() {
                 default = bodies[i];
                 continue;
             }
+
             for cv in &case.values {
                 let raw = self.check_expr(f, scope, cv, Some(vty))?;
                 let c = self.convert(f, raw.clone(), vty, cv)?;
+
                 Self::check_case_value(f, &raw, &c, cv.span, &mut seen)?;
+
                 if let Some(Value::Int(n)) = c.const_value() {
                     covered.push(n);
                 }
+
                 let (_, cval) = self.rvalue(f, c, cv.span)?;
                 let eq = self.runtime_equal(f, vty, val, cval, cv.span)?;
                 let next = f.b.new_block();
+
                 f.lifetime_branch(eq, cv.span, bodies[i], next);
                 f.b.branch(eq, bodies[i], next);
                 f.b.switch_to(next);
             }
         }
+
         // A missing case is reported after the bodies are checked, so they still have types.
         let missing = if complete {
             self.ty.check_switch_complete(vty, &covered, header)
         } else {
             Ok(())
         };
+
         // Every member has a case, but the value may still be none of them (a cast, or
         // uninitialized memory): stop rather than fall through silently.
         if complete
@@ -232,23 +274,30 @@ impl Compiler {
         {
             default = fail;
         }
+
         f.b.jump(default);
+
         for (i, case) in cases.iter().enumerate() {
             f.b.switch_to(bodies[i]);
             let inner = self.new_block_scope(scope, case.span);
             let depth = f.mark_defers();
+
             self.check_block_stmts(f, inner, &case.body)?;
+
             if !f.b.is_terminated() {
                 self.emit_defers(f, depth.position(), span)?;
             }
+
             f.truncate_defers(depth.position());
             let next = if case.through && i + 1 < cases.len() {
                 bodies[i + 1]
             } else {
                 done
             };
+
             f.b.jump(next);
         }
+
         f.b.switch_to(done);
         missing
     }
@@ -277,12 +326,14 @@ impl Compiler {
                 }
             },
         };
+
         if let Some((_, earlier)) = seen.iter().find(|(v, _)| *v == value) {
             return Err(Box::new(
                 Diagnostic::new(Code::DuplicateCase, span, "Duplicate case.")
                     .with_note(*earlier, "The earlier case is here."),
             ));
         }
+
         seen.push((value, span));
         Ok(())
     }
@@ -296,6 +347,7 @@ impl Compiler {
         else {
             return false;
         };
+
         f.b.func.blocks.iter().flat_map(|b| &b.insts).any(|inst| {
             matches!(
                 inst,
@@ -327,42 +379,58 @@ impl Compiler {
         } = switch;
         let mut covered = Vec::new();
         let mut seen = Vec::new();
+
         for case in cases {
             for cv in &case.values {
                 let raw = self.check_expr(f, scope, cv, Some(vty))?;
                 let c = self.convert(f, raw.clone(), vty, cv)?;
+
                 Self::check_case_value(f, &raw, &c, cv.span, &mut seen)?;
+
                 if let Some(Value::Int(n)) = c.const_value() {
                     covered.push(n);
                 }
             }
         }
+
         let here = f.b.current;
         let dead = f.b.new_block();
+
         f.b.switch_to(dead);
+
         for (i, case) in cases.iter().enumerate() {
             if taken.contains(&i) {
                 continue;
             }
+
             let inner = self.new_block_scope(scope, case.span);
             let depth = f.mark_defers();
+
             self.check_block_stmts(f, inner, &case.body)?;
+
             if !f.b.is_terminated() {
                 self.emit_defers(f, depth.position(), span)?;
             }
+
             f.truncate_defers(depth.position());
+
             if f.b.is_terminated() {
                 let next = f.b.new_block();
+
                 f.b.switch_to(next);
             }
         }
+
         if !f.b.is_terminated() {
             f.b.terminate(ir::Term::Unreachable);
         }
+
         f.b.switch_to(here);
+
         if complete {
             self.ty.check_switch_complete(vty, &covered, header)?;
         }
+
         Ok(())
     }
 
@@ -379,9 +447,11 @@ impl Compiler {
         let TypeKind::Enum(id) = *self.ty.types.kind(ty) else {
             return Ok(None);
         };
+
         if self.ty.types.enums[id.0 as usize].is_flags {
             return Ok(None);
         }
+
         let Some(t) = self.ir_ty(ty) else {
             return Ok(None);
         };
@@ -390,6 +460,7 @@ impl Compiler {
         };
         let here = f.b.current;
         let fail = f.b.new_block();
+
         f.b.switch_to(fail);
         let wide = if t == Ty::I64 {
             val
@@ -402,6 +473,7 @@ impl Compiler {
             f.b.conv(op, t, Ty::I64, val)
         };
         let zero = f.b.iconst(Ty::I64, 0);
+
         self.emit_stopping_check(f, ir::CheckReason::SwitchUnmatched, wide, zero, span)?;
         f.b.switch_to(here);
         Ok(Some(fail))
@@ -442,6 +514,7 @@ impl Compiler {
                 let r =
                     f.b.intrinsic(ir::Intrinsic::Memcmp, vec![a, b, n], &[Ty::I16]);
                 let zero = f.b.iconst(Ty::I16, 0);
+
                 Ok(f.b.cmp(CmpOp::Eq, Ty::I16, r[0], zero))
             }
         }
@@ -452,9 +525,11 @@ impl Compiler {
         let lc = f.b.load(Ty::I64, x);
         let rc = f.b.load(Ty::I64, y);
         let same = f.b.cmp(CmpOp::Eq, Ty::I64, lc, rc);
+
         f.b.store(Ty::I8, result, same);
         let cmp_block = f.b.new_block();
         let done = f.b.new_block();
+
         f.b.branch(same, cmp_block, done);
         f.b.switch_to(cmp_block);
         let xp = self.view_data_at(f, x);
@@ -465,6 +540,7 @@ impl Compiler {
             f.b.intrinsic(ir::Intrinsic::Memcmp, vec![xd, yd, lc], &[Ty::I16]);
         let zero = f.b.iconst(Ty::I16, 0);
         let eq = f.b.cmp(CmpOp::Eq, Ty::I16, r[0], zero);
+
         f.b.store(Ty::I8, result, eq);
         f.b.jump(done);
         f.b.switch_to(done);
@@ -484,18 +560,22 @@ impl TypeState {
             );
         };
         let info = &self.types.enums[id.0 as usize];
+
         if info.is_flags {
             return Ok(());
         }
+
         let missing: Vec<String> = info
             .members
             .iter()
             .filter(|(_, value)| !covered.contains(value))
             .map(|(name, _)| format!(".{name}"))
             .collect();
+
         if missing.is_empty() {
             return Ok(());
         }
+
         Err(Box::new(Diagnostic::new(
             Code::IncompleteSwitch,
             span,

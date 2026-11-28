@@ -14,6 +14,7 @@ fn taking_one_places_address_again_adds_no_definition() {
     let id = c.pr.procs.iter().position(|p| p.name.as_str() == "work");
     let body = &c.ed.facts().unwrap().lifetime_bodies[&ProcId(id.unwrap() as u32)];
     let prepared = Prepared::for_body(&c, body, &all);
+
     // Every query about the place walks its definitions: 40 copies would make a long body
     // cost the square of its length.
     assert!(

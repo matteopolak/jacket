@@ -38,6 +38,7 @@ impl FileNotes {
                     "compile_fail" | "should_fail" | "xfail"
                 )
             });
+
         FileNotes {
             target,
             problems,
@@ -68,13 +69,16 @@ fn expand(
     if config.excluded(&canonical(path)) {
         return;
     }
+
     if path.is_dir() {
         let files = jaic::paths::jai_files_under(path, &mut |p| config.excluded(&canonical(p)));
+
         for file in &files {
             let file = canonical(file);
             let read = notes
                 .entry(file.clone())
                 .or_insert_with(|| FileNotes::read(&file));
+
             if !read.left_out(host) {
                 out.insert(file);
             }
@@ -88,6 +92,7 @@ fn expand(
 /// nearest `jacket.toml`, the `-import_dir`s of the run and the standard library.
 fn program_inputs(options: &Options, configs: &Configs, path: &Path) -> ProgramInputs {
     let mut inputs = ProgramInputs::for_file(&jaic::sema::NativeFs, path, &options.stdlib);
+
     inputs.configured.clone_from(&configs.at(path).import_dirs);
     inputs.packages = configs
         .at(path)
@@ -106,6 +111,7 @@ fn program_inputs(options: &Options, configs: &Configs, path: &Path) -> ProgramI
 fn program_of(options: &Options, configs: &Configs, file: &Path, cache: &mut LoadCache) -> Program {
     let inputs = program_inputs(options, configs, file);
     let mut dirs = inputs.configured.clone();
+
     dirs.extend(inputs.extra.iter().cloned());
     dirs.push(inputs.stdlib.clone());
     resolve_program(&DiskFs, file, &RootOptions::linter(dirs), &inputs, cache)
@@ -118,10 +124,12 @@ pub(super) fn declares_entry(text: &str, entry: &str) -> bool {
     let Ok(file) = jaic::parser::parse_file(jaic::source::FileId(0), text) else {
         return false;
     };
+
     file.stmts.iter().any(|stmt| {
         let jaic::ast::StmtKind::Decl(decl) = &stmt.kind else {
             return false;
         };
+
         decl.names.iter().any(|n| n.name.as_str() == entry)
             && decl.value.as_ref().is_some_and(
                 |v| matches!(&v.kind, jaic::ast::ExprKind::Proc(proc) if proc.body.is_some()),
@@ -132,6 +140,7 @@ pub(super) fn declares_entry(text: &str, entry: &str) -> bool {
 /// The module search path `file`'s program is compiled with, before the compiler gets it.
 pub fn root_import_paths(options: &Options, file: &Path) -> Vec<PathBuf> {
     let configs = Configs::new(&options.config);
+
     program_of(
         options,
         &configs,
@@ -149,6 +158,7 @@ pub(super) fn plan(
 ) -> (Vec<Program>, BTreeSet<PathBuf>, Notes) {
     let mut listed = BTreeSet::new();
     let mut notes = Notes::new();
+
     for p in &options.paths {
         expand(
             p,
@@ -158,10 +168,13 @@ pub(super) fn plan(
             &mut listed,
         );
     }
+
     let mut loaded_by_listed = BTreeSet::new();
+
     for f in &listed {
         loaded_by_listed.extend(project::reachable_loads(&DiskFs, f, usize::MAX));
     }
+
     let mut loader_cache = LoadCache::default();
     let mut roots: Vec<Program> = if let Some(entries) = entries {
         entries
@@ -169,6 +182,7 @@ pub(super) fn plan(
             .map(|entry| {
                 let entry = canonical(entry);
                 let program = program_of(options, configs, &entry, &mut loader_cache);
+
                 match &program.root {
                     Root::Module {
                         entry: module, ..
@@ -183,6 +197,7 @@ pub(super) fn plan(
     } else if let Some(source) = &options.source {
         let source = canonical(source);
         let inputs = program_inputs(options, configs, &source);
+
         vec![program_for(Root::Program(source), &inputs)]
     } else {
         listed
@@ -191,17 +206,21 @@ pub(super) fn plan(
             .map(|f| program_of(options, configs, f, &mut loader_cache))
             .collect()
     };
+
     roots.sort_by(|a, b| a.root.cmp(&b.root));
     roots.dedup_by(|a, b| a.root == b.root);
     let mut report = listed;
+
     report.extend(loaded_by_listed);
     report.retain(|f| !configs.excluded(f));
     let root_files = roots.iter().map(Program::path);
+
     for file in report.iter().map(PathBuf::as_path).chain(root_files) {
         notes
             .entry(file.to_path_buf())
             .or_insert_with(|| FileNotes::read(file));
     }
+
     // A file the scan left out is not reported, so its notes are not either.
     notes.retain(|file, _| report.contains(file) || roots.iter().any(|r| r.path() == file));
     (roots, report, notes)

@@ -30,6 +30,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             match n {
                 jaic::ast::walk::Node::Expr(e) => {
@@ -49,6 +50,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     }
                 }
             }
+
             true
         });
     }
@@ -59,18 +61,22 @@ fn examine(cx: &Cx, span: Span, value: &Expr, count: &Expr, out: &mut Vec<Findin
     let Some(n) = int_literal(count).filter(|&n| n >= 0) else {
         return;
     };
+
     if cx.constant(value) {
         return;
     }
+
     let Some(ty) = cx.ty(value) else {
         return;
     };
     let Some((bits, _)) = types.int_info(ty) else {
         return;
     };
+
     if n < i128::from(bits) {
         return;
     }
+
     out.push(super::finding(
         span,
         format!(

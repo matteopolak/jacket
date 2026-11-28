@@ -37,6 +37,7 @@ impl Snapshot {
             }
         };
         let mut note = |what: String| error.notes.push(what);
+
         for sub in now
             .iter()
             .filter(|n| !self.subs.iter().any(|s| s.path == n.path))
@@ -45,6 +46,7 @@ impl Snapshot {
                 note(format!("could not remove {}: {}", sub.path, failed.message));
             }
         }
+
         for old in &self.subs {
             let here = now.iter().find(|n| n.path == old.path);
             // A copy of another repository in its place is not moved: the old one comes back.
@@ -54,6 +56,7 @@ impl Snapshot {
                 _ => false,
             });
             let other_repo = here.is_some() && !same_repo;
+
             if let Some(n) = here
                 && (n.url.is_none() || old.url.is_none())
             {
@@ -65,8 +68,10 @@ impl Snapshot {
                         n.commit.short()
                     ));
                 }
+
                 continue;
             }
+
             let moved = match here {
                 Some(n) if n.commit == old.commit && !other_repo => continue,
                 Some(_) if !other_repo => {
@@ -78,6 +83,7 @@ impl Snapshot {
                         Some(_) => ctx.git.remove(&project.dir, &old.path),
                         None => Ok(()),
                     };
+
                     gone.and_then(|()| match &old.url {
                         Some(url) => ctx.git.add(
                             &project.dir,
@@ -89,6 +95,7 @@ impl Snapshot {
                     })
                 }
             };
+
             if let Err(failed) = moved {
                 note(format!(
                     "could not put {} back at {}: {}",
@@ -98,11 +105,13 @@ impl Snapshot {
                 ));
             }
         }
+
         if std::fs::read_to_string(&project.file).ok().as_deref() != Some(self.text.as_str())
             && let Err(failed) = project.save(self.text.clone())
         {
             note(format!("could not restore jacket.toml: {}", failed.message));
         }
+
         error
     }
 }

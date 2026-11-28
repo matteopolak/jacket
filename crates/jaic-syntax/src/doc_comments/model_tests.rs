@@ -4,11 +4,14 @@ use super::*;
 fn library(tag: &str, files: &[(&str, &str)]) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("jaic-doc-model-{tag}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
+
     for (file, text) in files {
         let path = dir.join(file);
+
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, text).unwrap();
     }
+
     dir.canonicalize().unwrap()
 }
 
@@ -40,6 +43,7 @@ fn names_in_types_are_resolved_to_declarations() {
             .find(|r| r.path == name)
             .map(|r| (r.file.clone(), r.line))
     };
+
     // The alias chain retains the first hop and then the struct itself.
     assert!(
         params[0]
@@ -73,12 +77,14 @@ fn aliases_overloads_and_members_become_items() {
         ],
     );
     let model = module(&dir, Path::new("/nowhere"));
+
     assert_eq!(model.docs, "A module.");
     let names: Vec<_> = model
         .items
         .iter()
         .map(|i| (i.name.as_str(), i.kind))
         .collect();
+
     assert_eq!(
         names,
         [
@@ -89,8 +95,10 @@ fn aliases_overloads_and_members_become_items() {
         ]
     );
     let split = &model.items[0];
+
     assert_eq!(split.overloads.len(), 2);
     let first = &split.overloads[0];
+
     assert_eq!(first.params[0].doc, "the text");
     assert_eq!(first.returns[0].doc, "whether it was there");
     assert_eq!(first.docs, "Splits `s` at `byte`.");
@@ -125,6 +133,7 @@ fn items_under_an_os_condition_name_their_systems() {
             .find(|i| i.name == name)
             .map(|i| i.platforms.join(","))
     };
+
     assert_eq!(systems("everywhere").as_deref(), Some(""));
     assert_eq!(systems("windows_only").as_deref(), Some("WINDOWS"));
     assert_eq!(systems("both").as_deref(), Some(""));
@@ -156,6 +165,7 @@ fn no_operating_system_is_a_system_of_its_own() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let find = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+
     assert_eq!(find("bare").platforms, ["NONE"]);
     assert!(find("any").platforms.is_empty());
     assert_eq!(model.platforms, ["MACOS", "LINUX"]);
@@ -186,9 +196,11 @@ fn the_experimental_tag_is_a_flag_not_doc_text() {
         ],
     );
     let model = module(&dir, Path::new("/nowhere"));
+
     assert!(model.experimental);
     assert_eq!(model.docs, "Does things.");
     let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+
     assert!(!item("steady").experimental);
     assert!(item("moving").experimental);
     assert_eq!(
@@ -196,6 +208,7 @@ fn the_experimental_tag_is_a_flag_not_doc_text() {
         "Still changing.\nSecond line."
     );
     let json = to_json(&model, &|_| None);
+
     assert!(json.contains("\"experimental\":true"));
     assert!(!json.contains("@experimental"));
     let _ = std::fs::remove_dir_all(&dir);
@@ -218,15 +231,18 @@ fn declarations_of_foreign_procedures_are_listed_as_bindings() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+
     for name in ["Native_Mode", "Native_Box", "NATIVE_MAX", "native_open"] {
         assert!(item(name).binding, "{name}");
     }
+
     assert_eq!(item("Native_Mode").members.len(), 2);
     assert_eq!(item("Native_Box").members.len(), 1);
     assert_eq!(item("native_open").overloads.len(), 1);
     assert!(!item("own").binding);
     let json = to_json(&model, &|_| None);
     let flagged = model.items.iter().filter(|i| i.binding).count();
+
     assert_eq!(json.matches("\"binding\":true").count(), flagged);
     assert_eq!(flagged, model.items.len() - 1);
     let _ = std::fs::remove_dir_all(&dir);
@@ -243,10 +259,13 @@ fn private_foreign_helpers_do_not_make_own_declarations_bindings() {
             &[("module.jai", &source)],
         );
         let model = module(&dir, Path::new("/nowhere"));
+
         for name in ["Case", "Mode", "LIMIT"] {
             let item = model.items.iter().find(|item| item.name == name).unwrap();
+
             assert!(!item.binding, "{scope}: {name} is an own declaration");
         }
+
         assert!(
             model
                 .items
@@ -275,6 +294,7 @@ fn module_parameters_come_with_their_docs() {
         .iter()
         .map(|p| (&*p.name, &*p.ty, &*p.default, &*p.doc))
         .collect();
+
     assert_eq!(
         rows,
         [
@@ -284,6 +304,7 @@ fn module_parameters_come_with_their_docs() {
         ]
     );
     let json = to_json(&model, &|_| None);
+
     assert!(json.contains("\"parameters\":[{\"name\":\"STRICT\""));
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -299,6 +320,7 @@ fn a_procedure_comment_belongs_to_its_overload() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+
     // Shown once: the overload keeps the prose and moves the list into the parameters.
     assert_eq!(item("scale").docs, "");
     assert_eq!(item("scale").overloads[0].docs, "Scales a number.");
@@ -325,6 +347,7 @@ fn imported_type_aliases_keep_their_identity_and_ordered_resolution_chain() {
     );
     let model = module(&dir.join("Paint"), &dir);
     let color = model.items.iter().find(|i| i.name == "Color").unwrap();
+
     assert_eq!(color.kind, "type");
     assert_eq!(color.file, dir.join("Paint/module.jai"));
     assert_eq!(color.line, 3);
@@ -343,6 +366,7 @@ fn imported_type_aliases_keep_their_identity_and_ordered_resolution_chain() {
         .iter()
         .find(|i| i.name == "Pixel_Color")
         .unwrap();
+
     assert_eq!(pixel.kind, "type");
     assert_eq!(pixel.file, dir.join("Paint/module.jai"));
     assert_eq!(pixel.value, "S.Pixel");
@@ -359,6 +383,7 @@ fn imported_type_aliases_keep_their_identity_and_ordered_resolution_chain() {
             .map(|r| (r.file.clone(), r.line))
             .collect::<Vec<_>>()
     };
+
     assert_eq!(
         sites(&params[0]),
         [
@@ -390,6 +415,7 @@ fn type_aliases_in_conditional_branches_share_a_documented_item() {
     );
     let model = module(&dir, &dir);
     let color = model.items.iter().find(|i| i.name == "Color").unwrap();
+
     assert_eq!(color.kind, "type");
     assert_eq!(color.also, [(dir.join("module.jai"), 7)]);
     assert!(color.platforms.is_empty());
@@ -401,6 +427,7 @@ fn type_aliases_in_conditional_branches_share_a_documented_item() {
         .overloads[0]
         .params[0]
         .refs;
+
     assert_eq!(
         (refs[0].file.clone(), refs[0].line),
         (color.file.clone(), color.line)
@@ -432,12 +459,14 @@ fn type_resolution_uses_module_search_roots_and_the_loading_module_scope() {
     );
     let model = module(&dir.join("Consumer"), &dir);
     let record = model.items.iter().find(|i| i.name == "Record").unwrap();
+
     assert_eq!(record.members[0].refs[0].file, dir.join("Input/module.jai"));
     assert_eq!(
         record.members[1].refs[0].file,
         dir.join("Provider/module.jai")
     );
     let use_ = model.items.iter().find(|i| i.name == "use").unwrap();
+
     assert_eq!(
         use_.overloads[0].params[0].refs[0].file,
         dir.join("Input/module.jai")
@@ -455,6 +484,7 @@ fn type_values_are_classified_by_resolution_and_procedure_types_merge_branches()
         )],
     );
     let model = module(&dir, &dir);
+
     for name in ["Word", "Pointer", "Instance", "Callback"] {
         assert_eq!(
             model.items.iter().find(|i| i.name == name).unwrap().kind,
@@ -462,6 +492,7 @@ fn type_values_are_classified_by_resolution_and_procedure_types_merge_branches()
             "{name}"
         );
     }
+
     assert_eq!(
         model.items.iter().find(|i| i.name == "copy").unwrap().kind,
         "constant"
@@ -500,6 +531,7 @@ fn using_reexports_respect_filters() {
     );
     let model = module(&dir.join("Consumer"), &dir);
     let refs = &model.parameters[0].refs;
+
     assert!(refs.iter().any(|r| r.path == "Mode" && !r.private));
     let params = &model
         .items
@@ -508,6 +540,7 @@ fn using_reexports_respect_filters() {
         .unwrap()
         .overloads[0]
         .params;
+
     assert_eq!(params[0].refs[0].file, dir.join("Common/module.jai"));
     assert!(params[1].refs.is_empty());
     assert_eq!(
@@ -528,9 +561,11 @@ fn declarations_in_a_parameter_body_are_items_of_the_module() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let mode = model.items.iter().find(|i| i.name == "Mode").unwrap();
+
     assert_eq!(mode.docs, "The choices.");
     assert!(model.items.iter().all(|i| i.name != "Hidden"));
     let refs = &model.parameters[0].refs;
+
     assert!(refs.iter().any(|r| r.path == "Mode" && !r.private));
     std::fs::remove_dir_all(dir).unwrap();
 }
@@ -546,6 +581,7 @@ fn a_type_item_carries_its_declaration_without_comments() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let item = |name: &str| model.items.iter().find(|i| i.name == name).unwrap();
+
     assert_eq!(
         item("Channel").declaration,
         "Channel :: struct(T: Type, N := 4) {\n    buffer: *T;\n    url := \"http://x\";\n\n    count: int @Counted;\n    next: *Channel(T);\n}"
@@ -557,6 +593,7 @@ fn a_type_item_carries_its_declaration_without_comments() {
     // Struct parameters, field names and notes are not references to anything.
     assert!(item("Channel").decl_refs.iter().all(|r| r.path != "T"));
     let json = to_json(&model, &|_| None);
+
     assert!(json.contains("\"declaration\":\"Channel :: struct(T: Type, N := 4) {\\n"));
     // The comment is the field's docs, so it is not in the declaration too.
     assert!(!json.contains("*T; // trailing"));
@@ -570,6 +607,7 @@ fn comment_stripping_keeps_slashes_in_strings() {
         "a :: \"// kept\"; // gone\n// whole line\nb :: 1; /* x */ c :: 2;\n",
         &|_| true,
     );
+
     assert_eq!(text, "a :: \"// kept\";\nb :: 1;  c :: 2;");
     assert_eq!(places, [Some(0), None, Some(1), None]);
 }
@@ -580,6 +618,7 @@ fn comment_stripping_leaves_the_comments_it_is_not_asked_to_drop() {
     let (text, places) = stripped("a :: 1; // gone\n// kept\nb :: 2; // kept too\n", &|at| {
         at < 15
     });
+
     assert_eq!(text, "a :: 1;\n// kept\nb :: 2; // kept too");
     assert_eq!(places, [Some(0), Some(1), Some(2), None]);
 }
@@ -595,6 +634,7 @@ fn a_declaration_keeps_the_comments_that_are_not_field_docs() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let item = model.items.iter().find(|i| i.name == "Packet").unwrap();
+
     // The size's docs are its member's; the rest, a trailing comment the docs above displace
     // included, stays where it was written.
     assert_eq!(
@@ -606,6 +646,7 @@ fn a_declaration_keeps_the_comments_that_are_not_field_docs() {
         .iter()
         .map(|m| (m.name.as_str(), m.line))
         .collect();
+
     assert_eq!(lines, [("size", Some(1)), ("body", Some(6))]);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -632,6 +673,7 @@ fn private_types_a_public_item_names_become_private_items() {
         .filter(|i| i.private)
         .map(|i| (i.name.as_str(), i.kind))
         .collect();
+
     assert_eq!(
         private,
         [
@@ -642,9 +684,11 @@ fn private_types_a_public_item_names_become_private_items() {
     );
     let queue = model.items.iter().find(|i| i.name == "Queue").unwrap();
     let waiter = model.items.iter().find(|i| i.name == "Waiter").unwrap();
+
     assert!(!queue.private);
     // The declaration's names lead to the private types' declarations.
     let at = |r: &TypeRef| (r.file.clone(), r.line);
+
     assert!(
         queue
             .decl_refs
@@ -661,6 +705,7 @@ fn private_types_a_public_item_names_become_private_items() {
             .all(|i| i.name != "Unused" && i.name != "Unreachable")
     );
     let json = to_json(&model, &|_| None);
+
     assert_eq!(json.matches("\"private\":true").count(), 3);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -682,10 +727,13 @@ fn the_prelude_is_an_implicit_module() {
     );
     let stdlib = dir.clone();
     let prelude = module(&dir.join("prelude"), &stdlib);
+
     assert!(prelude.implicit);
     let thing = module(&dir.join("Other"), &stdlib);
+
     assert!(!thing.implicit);
     let field = &thing.items[0].members[0];
+
     // The field's type leads to the prelude's declaration.
     assert_eq!(field.refs.len(), 1);
     assert!(field.refs[0].file.ends_with("prelude/module.jai"));
@@ -706,6 +754,7 @@ fn links_that_name_nothing_are_listed_with_their_line() {
     let own = |names: &[String]| (names == ["cut"]).then(|| "jaidoc:m/cut".to_owned());
     let json = to_json(&model, &own);
     let tail = json.split("\"unresolved\":").nth(1).unwrap();
+
     // `[cut]` resolves and `[x]` is prose; the rest name nothing.
     for (line, text) in [
         (3, "[missing_thing]"),
@@ -718,6 +767,7 @@ fn links_that_name_nothing_are_listed_with_their_line() {
             "{text} in {tail}"
         );
     }
+
     assert!(!tail.contains("[cut]") && !tail.contains("[x]"), "{tail}");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -742,9 +792,11 @@ fn directives_are_not_same_spelled_declaration_references() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let alias = model.items.iter().find(|i| i.name == "Active").unwrap();
+
     assert!(alias.refs.is_empty());
     let procedure = model.items.iter().find(|i| i.name == "use").unwrap();
     let params = &procedure.overloads[0].params;
+
     assert!(params[0].refs.is_empty());
     assert!(params[1].refs.iter().any(|r| r.path == "Active"));
     assert!(
@@ -796,6 +848,7 @@ fn names_a_type_binds_for_itself_are_not_references() {
         .iter()
         .map(|r| r.path.as_str())
         .collect();
+
     assert!(refs.is_empty(), "{refs:?}");
 }
 
@@ -809,8 +862,10 @@ fn language_type_directive_aliases_are_type_items() {
         )],
     );
     let model = module(&dir, Path::new("/nowhere"));
+
     for name in ["Active", "Extended"] {
         let item = model.items.iter().find(|i| i.name == name).unwrap();
+
         assert_eq!(item.kind, "type", "{name}");
     }
 }
@@ -831,6 +886,7 @@ fn fields_under_a_static_if_are_members_on_their_declaration_lines() {
         .iter()
         .map(|m| (m.name.as_str(), m.doc.as_str(), m.line))
         .collect();
+
     assert_eq!(
         members,
         [
@@ -874,10 +930,12 @@ fn declarations_in_exclusive_branches_are_one_procedure() {
             .overloads
             .len()
     };
+
     // The same signature in both branches is one procedure, whatever the condition.
     assert_eq!(count("flagged"), 1);
     assert_eq!(count("start"), 1);
     let start = model.items.iter().find(|i| i.name == "start").unwrap();
+
     assert!(start.overloads[0].platforms.is_empty());
     // Different signatures, or different docs, stay apart; so do real overloads.
     assert_eq!(count("varied"), 2);
@@ -896,12 +954,14 @@ fn a_type_defined_differently_in_each_branch_keeps_every_definition() {
     );
     let model = module(&dir, &dir);
     let watcher = model.items.iter().find(|i| i.name == "Watcher").unwrap();
+
     assert_eq!(watcher.members[0].name, "stream");
     assert_eq!(watcher.defined_on, ["MACOS"]);
     assert!(watcher.platforms.is_empty());
     let [other] = &watcher.variants[..] else {
         panic!("{:?}", watcher.variants)
     };
+
     assert_eq!(other.members[0].name, "handle");
     assert_eq!(other.docs, "Other watcher.");
     assert_eq!(
@@ -911,8 +971,10 @@ fn a_type_defined_differently_in_each_branch_keeps_every_definition() {
     assert!(other.declaration.contains("handle: s32"));
     // Branches that say the same thing are one definition.
     let same = model.items.iter().find(|i| i.name == "Same").unwrap();
+
     assert!(same.variants.is_empty());
     let json = to_json(&model, &|_| None);
+
     assert!(
         json.contains("\"variants\":[{\"name\":\"Watcher\""),
         "{json}"
@@ -933,6 +995,7 @@ fn a_modules_tests_and_benches_are_not_documented() {
     );
     let model = module(&dir, Path::new("/nowhere"));
     let names: Vec<_> = model.items.iter().map(|i| &*i.name).collect();
+
     assert_eq!(names, ["own", "extra"]);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -949,6 +1012,7 @@ fn directive_operands_are_not_type_references() {
     let model = module(&dir, Path::new("/nowhere"));
     let item = model.items.iter().find(|i| i.name == "Slot").unwrap();
     let mut paths: Vec<_> = item.decl_refs.iter().map(|r| r.path.as_str()).collect();
+
     paths.sort_unstable();
     paths.dedup();
     // `base` and `Count` are named by directives, as an expression and a field, not as types.
@@ -977,10 +1041,12 @@ fn a_public_top_level_insert_the_model_cannot_expand_is_reported_with_its_place(
         .iter()
         .map(|(file, line, _)| (file.file_name().unwrap().to_str().unwrap(), *line))
         .collect();
+
     places.sort_unstable();
     // The private one declares nothing a reader could use; the one in a branch is still public.
     assert_eq!(places, [("module.jai", 5), ("more.jai", 3)]);
     let json = to_json(&model, &|_| None);
+
     assert!(json.contains("\"unexpanded\":[{\"file\":"), "{json}");
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -1005,12 +1071,14 @@ fn what_a_top_level_insert_declares_is_documented_as_generated() {
     let point = model.items.iter().find(|i| i.name == "Point").unwrap();
     let moved = model.items.iter().find(|i| i.name == "move").unwrap();
     let local = model.items.iter().find(|i| i.name == "Local").unwrap();
+
     assert!(point.generated && moved.generated && !local.generated);
     assert_eq!(point.docs, "A point made by the generator.");
     assert_eq!(moved.overloads[0].docs, "Moves it.");
     assert_eq!(point.members.len(), 2);
     // Its place names the insert, which is where its source link leads.
     let name = point.file.to_string_lossy().into_owned();
+
     assert_eq!(generated_origin(&name), Some((origin.to_str().unwrap(), 3)));
     assert!(generated_origin(&local.file.to_string_lossy()).is_none());
     // Names of the file that holds the `#insert` resolve in what it generated.
@@ -1019,12 +1087,14 @@ fn what_a_top_level_insert_declares_is_documented_as_generated() {
         .iter()
         .find(|r| r.path == "Local")
         .unwrap();
+
     assert_eq!((&at.file, at.line), (&local.file, local.line));
     // An empty expansion is silent; a failed one is reported with its reason.
     assert_eq!(model.unexpanded.len(), 1);
     assert_eq!(model.unexpanded[0].1, 7);
     assert_eq!(model.unexpanded[0].2, "make() needs a parameter");
     let json = to_json(&model, &|_| None);
+
     assert!(json.contains("\"generated\":true"), "{json}");
     assert!(
         json.contains("\"reason\":\"make() needs a parameter\""),
@@ -1051,10 +1121,13 @@ fn a_type_of_a_module_in_an_import_dir_resolves() {
             Err(String::new())
         });
         let refs = &model.items[0].overloads[0].params[0].refs;
+
         refs.iter().map(|r| r.file.clone()).collect::<Vec<_>>()
     };
+
     assert!(refs(&[]).is_empty());
     let found = refs(&more);
+
     assert_eq!(found.len(), 1);
     assert!(found[0].ends_with("more/Shapes/module.jai"));
     let _ = std::fs::remove_dir_all(&dir);

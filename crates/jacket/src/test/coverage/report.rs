@@ -30,23 +30,30 @@ pub struct Data {
 pub fn lcov(data: &Data) -> String {
     let mut text = String::new();
     let none = Vec::new();
+
     for (path, lines) in &data.lines {
         let functions = data.functions.get(path).unwrap_or(&none);
         let _ = writeln!(text, "TN:\nSF:{}", path.display());
+
         for function in functions {
             let _ = writeln!(text, "FN:{},{}", function.line, function.name);
         }
+
         for function in functions {
             let _ = writeln!(text, "FNDA:{},{}", function.hits, function.name);
         }
+
         let called = functions.iter().filter(|f| f.hits > 0).count();
         let _ = writeln!(text, "FNF:{}\nFNH:{called}", functions.len());
+
         for (line, count) in lines {
             let _ = writeln!(text, "DA:{line},{count}");
         }
+
         let hit = lines.values().filter(|n| **n > 0).count();
         let _ = writeln!(text, "LF:{}\nLH:{hit}\nend_of_record", lines.len());
     }
+
     text
 }
 
@@ -97,6 +104,7 @@ pub fn module_of(file: &Path, base: &Path, known: &mut BTreeMap<PathBuf, PathBuf
         .or_insert_with(|| {
             // A folder above `base` is not a module of the project.
             let inside = dir.starts_with(base);
+
             dir.ancestors()
                 .take_while(|d| !inside || d.starts_with(base))
                 .find(|d| d.join("module.jai").is_file())
@@ -104,6 +112,7 @@ pub fn module_of(file: &Path, base: &Path, known: &mut BTreeMap<PathBuf, PathBuf
                 .to_path_buf()
         })
         .clone();
+
     crate::shown::path(&module, base)
 }
 
@@ -111,6 +120,7 @@ pub fn module_of(file: &Path, base: &Path, known: &mut BTreeMap<PathBuf, PathBuf
 pub fn rows(data: &Data, base: &Path, group: Group) -> Vec<Row> {
     let mut by_name: BTreeMap<String, Row> = BTreeMap::new();
     let mut modules = BTreeMap::new();
+
     for (path, lines) in &data.lines {
         let name = match group {
             Group::File => crate::shown::path(path, base),
@@ -121,26 +131,31 @@ pub fn rows(data: &Data, base: &Path, group: Group) -> Vec<Row> {
             lines: Tally::default(),
             functions: Tally::default(),
         });
+
         row.lines.add(Tally {
             hit: lines.values().filter(|n| **n > 0).count(),
             total: lines.len(),
         });
         let functions = data.functions.get(path).map_or(&[][..], Vec::as_slice);
+
         row.functions.add(Tally {
             hit: functions.iter().filter(|f| f.hits > 0).count(),
             total: functions.len(),
         });
     }
+
     by_name.into_values().collect()
 }
 
 /// The lines and procedures of all the rows.
 pub fn total(rows: &[Row]) -> (Tally, Tally) {
     let (mut lines, mut functions) = (Tally::default(), Tally::default());
+
     for row in rows {
         lines.add(row.lines);
         functions.add(row.functions);
     }
+
     (lines, functions)
 }
 
@@ -158,6 +173,7 @@ pub fn table(rows: &[Row], what: &str) -> String {
         "{:<width$}  {:>11}  {:>6}  {:>11}  {:>6}\n",
         what, "Lines", "Cover", "Functions", "Cover"
     );
+
     for row in rows {
         let _ = writeln!(
             text,
@@ -167,6 +183,7 @@ pub fn table(rows: &[Row], what: &str) -> String {
             cell(row.functions)
         );
     }
+
     let (lines, functions) = total(rows);
     let _ = writeln!(
         text,
@@ -175,6 +192,7 @@ pub fn table(rows: &[Row], what: &str) -> String {
         cell(lines),
         cell(functions)
     );
+
     text
 }
 
@@ -184,6 +202,7 @@ mod tests {
 
     fn data() -> Data {
         let mut data = Data::default();
+
         data.lines.insert(
             PathBuf::from("/p/src/a.jai"),
             [(1, 5), (2, 0), (3, 1), (4, 2)].into(),
@@ -211,6 +230,7 @@ mod tests {
     #[test]
     fn lcov_has_procedures_and_line_counts() {
         let text = lcov(&data());
+
         assert!(
             text.starts_with("TN:\nSF:/p/src/a.jai\nFN:1,run\nFN:3,idle\nFNDA:5,run\nFNDA:0,idle\nFNF:2\nFNH:1\nDA:1,5\nDA:2,0\n"),
             "{text}"
@@ -227,10 +247,12 @@ mod tests {
     fn the_table_and_lcov_report_the_same_counts() {
         let rows = rows(&data(), Path::new("/p"), Group::File);
         let shown = table(&rows, "File");
+
         assert!(shown.contains("src/a.jai"), "{shown}");
         assert!(shown.contains("3/4") && shown.contains("75.0%"), "{shown}");
         assert!(shown.contains("1/2") && shown.contains("50.0%"), "{shown}");
         let total_row = shown.lines().last().unwrap();
+
         assert!(
             total_row.starts_with("Total")
                 && total_row.contains("3/5")
@@ -243,6 +265,7 @@ mod tests {
     fn modules_are_the_nearest_folder_with_a_module_file() {
         let dir = std::env::temp_dir().join(format!("jacket-cov-modules-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(dir.join("Sort/deep")).unwrap();
         std::fs::create_dir_all(dir.join("loose")).unwrap();
         std::fs::write(dir.join("Sort/module.jai"), "").unwrap();
@@ -250,6 +273,7 @@ mod tests {
         let name = |file: &str, known: &mut BTreeMap<PathBuf, PathBuf>| {
             module_of(&dir.join(file), &dir, known)
         };
+
         assert_eq!(name("Sort/module.jai", &mut known), "Sort");
         assert_eq!(name("Sort/deep/more.jai", &mut known), "Sort");
         assert_eq!(name("loose/x.jai", &mut known), "loose");

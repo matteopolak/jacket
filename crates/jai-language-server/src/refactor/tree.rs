@@ -18,12 +18,14 @@ pub(super) fn proc_bodies<'a>(stmts: &'a [Stmt], out: &mut Vec<(&'a ProcHeader, 
         let Some(x) = n.expr() else {
             return true;
         };
+
         match &x.kind {
             E::Proc(lit) => {
                 if let Some(body) = &lit.body {
                     out.push((&lit.header, body));
                     proc_bodies(&body.stmts, out);
                 }
+
                 false
             }
             E::Struct(st) => {

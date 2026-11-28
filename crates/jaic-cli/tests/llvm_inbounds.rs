@@ -50,12 +50,14 @@ main :: () {
 #[test]
 fn allocation_provenance_controls_llvm_inbounds() {
     let dir = TempDir::new("llvm-inbounds-ir");
+
     std::fs::write(dir.join("main.jai"), SOURCE).unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .args(["main.jai", "-O0", "-emit_ir", "main.ll", "-exe", "main"])
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -69,6 +71,7 @@ fn allocation_provenance_controls_llvm_inbounds() {
             .unwrap();
         ir[ir.find(start).unwrap()..].split("\n}").next().unwrap()
     };
+
     for name in ["field_address", "union_address", "array_address"] {
         assert!(
             body(name).contains("getelementptr inbounds i8"),
@@ -76,6 +79,7 @@ fn allocation_provenance_controls_llvm_inbounds() {
             body(name)
         );
     }
+
     for name in [
         "raw_add",
         "raw_sub",
@@ -92,6 +96,7 @@ fn allocation_provenance_controls_llvm_inbounds() {
             body(name)
         );
     }
+
     // Container metadata is a local copy, but the loaded data pointer has no allocation proof.
     for name in ["view_address", "string_address"] {
         assert!(
@@ -107,7 +112,9 @@ fn allocation_provenance_controls_llvm_inbounds() {
 #[test]
 fn address_only_null_and_integer_offsets_execute_at_o0_and_o2() {
     let dir = TempDir::new("llvm-inbounds-run");
+
     std::fs::write(dir.join("main.jai"), SOURCE).unwrap();
+
     for opt in ["-O0", "-O2"] {
         let exe = dir.join(format!("main{}", std::env::consts::EXE_SUFFIX));
         let build = Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -116,12 +123,14 @@ fn address_only_null_and_integer_offsets_execute_at_o0_and_o2() {
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             build.status.success(),
             "{opt}: {}",
             String::from_utf8_lossy(&build.stderr)
         );
         let run = Command::new(&exe).output().unwrap();
+
         assert!(
             run.status.success(),
             "{opt}: {}",

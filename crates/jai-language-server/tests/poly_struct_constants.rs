@@ -17,6 +17,7 @@ main :: () {
 
 fn lines(found: &[jai_language_server::Location]) -> Vec<u32> {
     let mut lines: Vec<u32> = found.iter().map(|l| l.range.start.line).collect();
+
     lines.sort_unstable();
     lines.dedup();
     lines
@@ -28,6 +29,7 @@ fn go_to_definition_of_a_constant_reaches_the_declaration() {
     let found = s
         .definition(&uri(), at_nth(PROGRAM, "b.count", 0, 2))
         .unwrap();
+
     assert_eq!(lines(&found), [1], "{found:?}");
 }
 
@@ -37,6 +39,7 @@ fn go_to_definition_of_a_field_still_works() {
     let found = s
         .definition(&uri(), at_nth(PROGRAM, "b.data", 0, 2))
         .unwrap();
+
     assert_eq!(lines(&found), [2], "{found:?}");
 }
 
@@ -49,6 +52,7 @@ fn hover_on_a_constant_shows_it() {
         .expect("hover")
         .contents
         .value;
+
     assert!(hover.contains("count"), "{hover}");
 }
 
@@ -66,10 +70,12 @@ get :: (a: *Grid, v: a.data_type) {}
 
 main :: () {}
 ";
+
     let s = open(SOURCE);
     let list = s
         .completion(&uri(), at_nth(SOURCE, "a.data_type", 0, 2))
         .unwrap();
+
     assert!(
         list.items.iter().any(|i| i.label == "data_type"),
         "{:?}",
@@ -83,5 +89,6 @@ fn references_of_a_constant_include_the_declaration_and_the_use() {
     let refs = s
         .references(&uri(), at_nth(PROGRAM, "b.count", 0, 2), true)
         .unwrap();
+
     assert_eq!(lines(&refs), [1, 7], "{refs:?}");
 }

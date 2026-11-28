@@ -5,6 +5,7 @@ use serde_json::{Value, json};
 
 fn initialized(capabilities: &Value) -> Vec<Value> {
     let mut json = JsonSession::new(Limits::default());
+
     json.handle_json(
         &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
             "params": {"capabilities": capabilities}})
@@ -23,9 +24,11 @@ fn sources_and_settings_are_registered_when_the_client_allows_it() {
     let sent = initialized(
         &json!({"workspace": {"didChangeWatchedFiles": {"dynamicRegistration": true}}}),
     );
+
     assert_eq!(sent.len(), 1, "{sent:?}");
     assert_eq!(sent[0]["method"], "client/registerCapability");
     let registration = &sent[0]["params"]["registrations"][0];
+
     assert_eq!(registration["method"], "workspace/didChangeWatchedFiles");
     let globs: Vec<&str> = registration["registerOptions"]["watchers"]
         .as_array()
@@ -33,6 +36,7 @@ fn sources_and_settings_are_registered_when_the_client_allows_it() {
         .iter()
         .map(|w| w["globPattern"].as_str().unwrap())
         .collect();
+
     assert_eq!(globs, ["**/*.jai", "**/jacket.toml"]);
 }
 

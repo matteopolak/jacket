@@ -32,6 +32,7 @@ impl Compiler {
             else {
                 return false;
             };
+
             if matches!(
                 other,
                 Operand::Const {
@@ -41,7 +42,9 @@ impl Compiler {
             ) {
                 return false;
             }
+
             let repr = c.ty.types.repr(other.ty());
+
             c.ty.types
                 .int_info(repr)
                 .is_some_and(|(bits, signed)| !int_fits(*v, bits, signed))
@@ -53,6 +56,7 @@ impl Compiler {
         } else {
             return None;
         };
+
         self.implicit_cost(other.ty(), false, TypeId::S64)
             .map(|_| TypeId::S64)
     }
@@ -91,6 +95,7 @@ impl Compiler {
                 .types
                 .int_info(target)
                 .is_some_and(|(bits, signed)| signed && bits < 64);
+
         if !narrow
             || !untyped_int(then_op)
             || !untyped_int(else_op)
@@ -98,7 +103,9 @@ impl Compiler {
         {
             return Ok(());
         }
+
         let name = self.ty.types.name(target);
+
         Err(Box::new(
             Diagnostic::new(Code::ImplicitNarrowing,
                 span,
@@ -128,6 +135,7 @@ impl Compiler {
         ) {
             return Ok(());
         }
+
         let (tt, et) = (
             Self::ifx_branch_type(then_op),
             Self::ifx_branch_type(else_op),
@@ -147,6 +155,7 @@ impl Compiler {
                 let to = |c: &mut Self, from: TypeId, into: TypeId| {
                     c.implicit_cost(from, false, into).is_some()
                 };
+
                 to(self, a, b)
                     || to(self, b, a)
                     || expected.is_some_and(|e| to(self, a, e) && to(self, b, e))
@@ -155,9 +164,11 @@ impl Compiler {
             (Some(a), None) => !(number(self, else_op) && self.ty.types.repr(a) == TypeId::STRING),
             _ => true,
         };
+
         if agree {
             return Ok(());
         }
+
         let describe = |c: &mut Self, o: &Operand| {
             if let Some(t) = Self::ifx_branch_type(o) {
                 c.ty.types.name(t).clone()
@@ -167,6 +178,7 @@ impl Compiler {
             }
         };
         let (a, b) = (describe(self, then_op), describe(self, else_op));
+
         Err(Box::new(
             Diagnostic::new(
                 Code::BranchesIfxDifferent,
@@ -197,9 +209,11 @@ impl Compiler {
         // An arm that only an expected type can type takes the other arm's type.
         let mut scratch = self.scratch_ctx(scope);
         let (taken, other);
+
         if expected.is_none() && takes_sibling_type(taken_e, other_e) {
             other = self.check_expr(&mut scratch, scope, other_e, None)?;
             let hint = Self::ifx_branch_type(&other);
+
             taken = self.check_expr(f, scope, taken_e, hint)?;
         } else {
             taken = self.check_expr(f, scope, taken_e, expected)?;
@@ -209,15 +223,19 @@ impl Compiler {
                 Some(t) if expected.is_none() && takes_sibling_type(other_e, taken_e) => Some(t),
                 _ => expected,
             };
+
             other = self.check_expr(&mut scratch, scope, other_e, hint)?;
         }
+
         let (then_op, else_op) = if cond_holds {
             (&taken, &other)
         } else {
             (&other, &taken)
         };
+
         self.ifx_branch_agreement((then_op, else_op), (then_e, else_e), expected, span)?;
         self.reject_narrowed_constant_ifx((then_op, else_op), expected, span)?;
+
         // The arm not taken must still fit an integer target: `x: u8 = ifx true then 1 else 256`.
         if let (
             Some(e),
@@ -232,6 +250,7 @@ impl Compiler {
         {
             self.convert_const((*ty, value, true, *origin), e, other_e.span)?;
         }
+
         // A one-character string only becomes a byte where a string is converted directly,
         // not through `ifx`.
         if let (
@@ -244,6 +263,7 @@ impl Compiler {
             && self.ty.types.is_integer(self.ty.types.repr(e))
         {
             let (ty, val) = self.rvalue(f, taken.clone(), span)?;
+
             self.convert(
                 f,
                 Operand::Value {
@@ -254,6 +274,7 @@ impl Compiler {
                 Site::opaque(span),
             )?;
         }
+
         Ok(taken)
     }
 
@@ -272,7 +293,9 @@ impl Compiler {
             cond,
             then_value.map_or(expected, |_| Some(TypeId::BOOL)),
         )?;
+
         self.ide_note_ifx(cond, then_value, else_value);
+
         // Compile-time condition: only check the taken branch.
         if let Operand::Const {
             value, ..
@@ -285,6 +308,7 @@ impl Compiler {
                 Value::Null => Some(false),
                 _ => None,
             };
+
             if let Some(t) = taken {
                 // `#ifx` leaves the other arm out entirely: it is neither checked nor required
                 // to share a type with the taken one.
@@ -297,9 +321,11 @@ impl Compiler {
                 {
                     return self.check_expr(f, scope, arm, expected);
                 }
+
                 if let (Some(then_e), Some(else_e)) = (then_value, else_value) {
                     return self.fold_constant_ifx(f, scope, t, (then_e, else_e), expected, span);
                 }
+
                 if t {
                     return self.check_expr(f, scope, then_value.unwrap(), expected);
                 } else if let Some(else_value) = else_value {
@@ -310,12 +336,14 @@ impl Compiler {
                 // type does not execute the arm's effects.
             }
         }
+
         let cond_op = self.settle_untyped(cond_op, None);
         let (cty, cv) = self.rvalue(f, cond_op, span)?;
         let c = self.truthy(f, cty, cv, span)?;
         let then_block = f.b.new_block();
         let else_block = f.b.new_block();
         let done = f.b.new_block();
+
         f.b.branch(c, then_block, else_block);
         f.b.switch_to(then_block);
         let implicit_then = match then_value {
@@ -326,16 +354,19 @@ impl Compiler {
         // else-value's type, so the else-value is checked first.
         let mut early_else = None;
         let mut then_hint = expected;
+
         if expected.is_none()
             && let (Some(then_e), Some(else_e)) = (then_value, else_value)
             && takes_sibling_type(then_e, else_e)
         {
             f.b.switch_to(else_block);
             let op = self.check_expr(f, scope, else_e, None)?;
+
             then_hint = Self::ifx_branch_type(&op);
             early_else = Some(op);
             f.b.switch_to(then_block);
         }
+
         let then_op = match (then_value, implicit_then) {
             (Some(e), _) | (None, Some(e)) => self.check_expr(f, scope, e, then_hint)?,
             (None, None) => Operand::Value {
@@ -378,6 +409,7 @@ impl Compiler {
         };
         let result_ty = widen.or(then_ty).or(expected_for_arms);
         let then_end = f.b.current;
+
         // Check else first to learn its type when then is untyped.
         f.b.switch_to(else_block);
         let else_op = match (early_else, else_value) {
@@ -387,10 +419,12 @@ impl Compiler {
             }
             (None, None) => None,
         };
+
         if let (Some(then_e), Some(else_e), Some(else_op)) = (then_value, else_value, &else_op) {
             self.ifx_branch_agreement((&then_op, else_op), (then_e, else_e), expected, span)?;
             self.reject_narrowed_constant_ifx((&then_op, else_op), expected, span)?;
         }
+
         // Without a target type, a narrower numeric then-value widens to the else-value's
         // type (`ifx hit then entry.score_s16 else evaluate()` is an `s64`).
         let else_wider = match (then_ty, expected, &else_op) {
@@ -423,6 +457,7 @@ impl Compiler {
             // `ifx c then 5`: an untyped then-value takes its default type.
             (None, None) => self.settle_untyped(then_op.clone(), None).ty(),
         };
+
         if ty == TypeId::VOID {
             // A discarded conditional can join void arms. Their effects are
             // already emitted in their own blocks; there is no result storage
@@ -430,39 +465,48 @@ impl Compiler {
             if let Some(else_op) = else_op {
                 self.convert(f, else_op, ty, Site::opaque(span))?;
             }
+
             f.b.jump(done);
             f.b.switch_to(then_end);
             self.convert(f, then_op, ty, Site::opaque(span))?;
             f.b.jump(done);
             f.b.switch_to(done);
+
             return Ok(Operand::Void);
         }
+
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
         // The result slot must be allocated before both branches use it; slots are function-wide.
         let slot = f.b.slot(size.max(1), align);
         let addr = f.b.slot_addr(slot);
         let mut callable_parameters = None;
+
         match (else_op, else_value) {
             (Some(else_op), Some(else_value)) => {
                 let else_converted = self.convert(f, else_op, ty, else_value)?;
+
                 // Runtime selection changes the callee, not its lexical call
                 // header: inference retains the else arm's names/defaults.
                 callable_parameters = self.callable_operand_parameters(&else_converted)?;
                 let (_, ev) = self.rvalue(f, else_converted, span)?;
+
                 self.store_value(f, ty, addr, ev, span)?;
             }
             _ => self.init_default(f, ty, addr, span)?,
         }
+
         f.b.jump(done);
         f.b.switch_to(then_end);
         let then_converted = self.convert(f, then_op, ty, Site::opaque(span))?;
         let (_, tv) = self.rvalue(f, then_converted, span)?;
         let addr = f.b.slot_addr(slot);
+
         self.store_value(f, ty, addr, tv, span)?;
         f.b.jump(done);
         f.b.switch_to(done);
         let addr = f.b.slot_addr(slot);
+
         match self.ir_ty(ty) {
             Some(t) => Ok(Operand::Value {
                 ty,

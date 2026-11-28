@@ -37,6 +37,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
     fn internal_linkage(&self, gv: GlobalValue<'ctx>, owned: bool, shared: bool) {
         if self.shard.is_some() && (shared || !owned) {
             gv.set_linkage(Linkage::External);
+
             // COFF has no hidden visibility, and MinGW would list the symbol in an unquoted
             // `-exclude-symbols:` linker directive, which names with spaces break.
             if !self.arch.is_windows() {
@@ -53,6 +54,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         if let Some(&i) = self.exports.get(name) {
             self.func(i);
         }
+
         if let Some(&id) = self.foreign_ids.get(name) {
             self.foreign(id);
         }
@@ -73,8 +75,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         let f = self
             .module
             .add_function(&name, lowered.fn_ty, Some(Linkage::External));
+
         if func.linkage == IrLinkage::Internal {
             let shared = self.shard.is_some_and(|s| s.plan.func_shared[i]);
+
             self.internal_linkage(f.as_global_value(), self.owns_func(i), shared);
         } else if self.arch.is_windows() && self.owns_func(i) {
             // `#program_export`: in a DLL's export table (harmless in an executable).
@@ -87,19 +91,24 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 self.ctx.create_string_attribute("wasm-export-name", &name),
             );
         }
+
         if self.imported.get(i).copied().unwrap_or(false) {
             f.as_global_value()
                 .set_linkage(Linkage::AvailableExternally);
         }
+
         self.apply_attrs(&lowered, |loc, attr| f.add_attribute(loc, attr));
         // The frontend already uses these guarantees to omit null checks. Map IR
         // parameters through the ABI plan: C aggregates may expand or disappear.
         let mut index = 0;
+
         for (param, plan) in lowered.params.iter().enumerate() {
             use super::plan::ParamPlan;
+
             if lowered.is_sret(index as usize) {
                 index += 1;
             }
+
             match plan {
                 ParamPlan::Scalar(jaic::ir::Ty::Ptr)
                     if func.trusted.contains(&jaic::ir::Val(param as u32)) =>
@@ -112,12 +121,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 }
                 _ => {}
             }
+
             index += match plan {
                 ParamPlan::Dropped => 0,
                 ParamPlan::Agg(_, jaic::abi::Passing::Registers(pieces)) => pieces.len() as u32,
                 _ => 1,
             };
         }
+
         let inline = match func.inline {
             jaic::ir::InlineHint::Always => Some("alwaysinline"),
             jaic::ir::InlineHint::Never => Some("noinline"),
@@ -126,6 +137,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             }
             jaic::ir::InlineHint::Default => None,
         };
+
         if let Some(name) = inline {
             f.add_attribute(
                 AttributeLoc::Function,
@@ -133,9 +145,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .create_enum_attribute(Attribute::get_named_enum_kind_id(name), 0),
             );
         }
+
         if let Some(section) = &func.section {
             crate::emit::set_section_name(f, section);
         }
+
         if func.cold
             || self
                 .program
@@ -148,6 +162,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     .create_enum_attribute(Attribute::get_named_enum_kind_id("cold"), 0),
             );
         }
+
         if let Some(extra) = &func.target_features
             && let Some(all) = crate::simd::function_features(self.arch, &self.features, extra)
         {
@@ -156,6 +171,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 self.ctx.create_string_attribute("target-features", &all),
             );
         }
+
         // Keep a frame record in every function that calls another, as clang does by default
         // on Apple and AArch64 targets. Without one, frame-pointer stack walks (macOS libc
         // `backtrace`, which Debug uses, and sampling profilers) stop at the first jaic frame.
@@ -164,6 +180,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             self.ctx
                 .create_string_attribute("frame-pointer", "non-leaf"),
         );
+
         if self.arch.is_wasm() {
             // Freestanding, like `-fno-builtin`: on wasm the C library is Jai code in the
             // same module (Wasi_Runtime), so a loop LLVM turned into a `strlen` or `memcmp`
@@ -173,6 +190,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 self.ctx.create_string_attribute("no-builtins", ""),
             );
         }
+
         f
     }
 
@@ -188,9 +206,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             is_data,
             ..
         } = foreign;
+
         if let Some(&p) = self.foreign_symbols.borrow().get(symbol.as_str()) {
             return p;
         }
+
         // A `#program_export` of the same name (a runtime written in Jai that supplies
         // `malloc`, say) is what the linker would bind the reference to. Use it directly:
         // a second LLVM function of that name would be renamed and stay undefined.
@@ -205,6 +225,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             self.code_addr(f)
         } else if *is_data {
             let g = self.module.add_global(self.ctx.i8_type(), None, symbol);
+
             g.set_linkage(Linkage::External);
             // A Windows DLL exports a variable only as `__imp_<name>`, a pointer to it: import
             // libraries define no `<name>` for data. The toolchain says which libraries are DLLs.
@@ -212,9 +233,11 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .library
                 .and_then(|l| self.program.libraries.get(l))
                 .is_some_and(|l| self.target.toolchain().imports_data(&l.name, l.system));
+
             if dll {
                 g.set_dll_storage_class(DLLStorageClass::Import);
             }
+
             g.as_pointer_value()
         } else {
             let lowered = self.lower_sig(sig);
@@ -228,11 +251,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     Some(Linkage::External),
                 ),
             };
+
             if self.arch.is_wasm() && !symbol.starts_with("llvm.") {
                 self.wasm_import(f, symbol, foreign.library);
             }
+
             self.code_addr(f)
         };
+
         self.foreign_symbols
             .borrow_mut()
             .insert(symbol.as_str(), ptr);
@@ -247,6 +273,7 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             .and_then(|i| self.program.libraries.get(i))
             .and_then(|lib| self.target.toolchain().import_module(&lib.name))
             .unwrap_or("env");
+
         for (key, value) in [("wasm-import-module", module), ("wasm-import-name", symbol)] {
             f.add_attribute(
                 AttributeLoc::Function,
@@ -261,23 +288,30 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
         let slot = u64::from(self.layout.pointer_size);
         let size = g.size.max(g.init.len() as u64);
         let mut relocs: Vec<usize> = (0..g.relocs.len()).collect();
+
         relocs.sort_by_key(|&i| g.relocs[i].offset);
         let mut segs = Vec::new();
         let mut pos = 0u64;
+
         for i in relocs {
             let off = g.relocs[i].offset;
+
             if off < pos || off + slot > size {
                 continue;
             }
+
             if off > pos {
                 segs.push(Segment::Bytes(pos, off));
             }
+
             segs.push(Segment::Reloc(i));
             pos = off + slot;
         }
+
         if size > pos || segs.is_empty() {
             segs.push(Segment::Bytes(pos, size.max(1)));
         }
+
         segs
     }
 
@@ -299,7 +333,9 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 .clone()
                 .unwrap_or_else(|| format!("{}.g{i}", g.name));
             let gv = self.module.add_global(ty, None, &name);
+
             gv.set_linkage(Linkage::External);
+
             // A variable in a named section is the linker script's to place or drop: it stays
             // visible and in one copy.
             if let Some(section) = &g.section {
@@ -308,11 +344,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 gv.set_linkage(Linkage::Internal);
             } else if g.export.is_none() {
                 let shared = self.shard.is_some_and(|s| s.plan.global_shared[i]);
+
                 self.internal_linkage(gv, self.owns_global(i), shared);
             }
+
             if self.imported_globals.get(i).copied().unwrap_or(false) {
                 gv.set_linkage(Linkage::AvailableExternally);
             }
+
             gv.set_alignment(g.align.max(1) as u32);
             gv.set_constant(g.read_only);
             gv
@@ -324,8 +363,10 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
             if self.replicated(g) || !self.owns_global(i) && !self.imported_globals[i] {
                 continue;
             }
+
             self.global(i).set_initializer(&self.initializer(g)?);
         }
+
         Ok(())
     }
 
@@ -342,11 +383,13 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                 self.global(i).set_initializer(&self.initializer(g)?);
             }
         }
+
         Ok(())
     }
 
     fn initializer(&self, g: &Global) -> R<inkwell::values::StructValue<'ctx>> {
         let mut fields: Vec<BasicValueEnum> = Vec::new();
+
         for seg in self.segments(g) {
             match seg {
                 Segment::Bytes(a, b) => {
@@ -357,12 +400,14 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                     let start = (a as usize).min(end);
                     let data = &g.init[start..end];
                     let ty = self.ctx.i8_type().array_type((b - a) as u32);
+
                     if data.iter().all(|&x| x == 0) {
                         fields.push(ty.const_zero().into());
                     } else if data.len() as u64 == b - a {
                         fields.push(self.ctx.const_string(data, false).into());
                     } else {
                         let mut padded = data.to_vec();
+
                         padded.resize((b - a) as usize, 0);
                         fields.push(self.ctx.const_string(&padded, false).into());
                     }
@@ -381,12 +426,15 @@ impl<'ctx, 'p> Backend<'ctx, 'p> {
                         let sum = base
                             .const_to_int(word)
                             .const_add(word.const_int(reloc.addend as u64, true));
+
                         sum.const_to_pointer(self.ptr_ty())
                     };
+
                     fields.push(ptr.into());
                 }
             }
         }
+
         Ok(self.ctx.const_struct(&fields, true))
     }
 

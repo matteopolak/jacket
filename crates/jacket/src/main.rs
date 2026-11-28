@@ -36,11 +36,13 @@ fn main() -> ExitCode {
         eprintln!("jacket: cannot read the current directory");
         return ExitCode::from(2);
     };
+
     if let Some(command) = args.first().and_then(|a| a.to_str())
         && TOOL_COMMANDS.contains(&command)
     {
         return tool_command(command, &args[1..], &cwd);
     }
+
     let testing = matches!(
         args.first().and_then(|a| a.to_str()),
         Some("test" | "bench")
@@ -51,6 +53,7 @@ fn main() -> ExitCode {
         args
     };
     let cli = Cli::parse_from(std::iter::once(OsString::from("jacket")).chain(args));
+
     match cli.command {
         Command::Test(test) => test::run(&test, &cwd, None),
         Command::Bench(bench) => test::run(&bench.test, &cwd, Some(&bench)),
@@ -105,12 +108,14 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
         "jaifmt" => Some(tools::JAIFMT),
         _ => None,
     };
+
     if let Some(tool) = raw {
         return match tools::require(tool, &format!("jacket {command}")) {
             Some(program) => tools::exec(program.as_os_str(), args),
             None => ExitCode::from(127),
         };
     }
+
     // `jailint` reads the same file and prints its own notes.
     let loaded = match project::load_with(cwd, command != "lint") {
         Ok(loaded) => loaded,
@@ -119,11 +124,13 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
             return ExitCode::from(2);
         }
     };
+
     if let Some(loaded) = &loaded
         && let Err(error) = project::check_toolchain(loaded)
     {
         return commands::fail(error);
     }
+
     if matches!(command, "build" | "check" | "run")
         && let Some(loaded) = &loaded
         && let Err(error) = dep::require_checked_out(&loaded.config, loaded.dir())
@@ -131,12 +138,14 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
         eprintln!("jacket: error: {error}");
         return ExitCode::from(2);
     }
+
     let fs = Disk;
     let ctx = compile::Context {
         loaded: loaded.as_ref(),
         cwd,
         fs: &fs,
     };
+
     match command {
         "build" => run_jaic(false, args, &ctx),
         "check" => run_jaic(true, args, &ctx),
@@ -174,6 +183,7 @@ fn run_jaic(check: bool, args: &[OsString], ctx: &compile::Context) -> ExitCode 
         Ok(argv) => argv,
         Err(error) => return commands::fail(error),
     };
+
     tools::exec_with_env(jaic.as_os_str(), &argv, &project_name_env(ctx))
 }
 
@@ -190,18 +200,22 @@ fn project_name_env(ctx: &compile::Context) -> Vec<(&'static str, OsString)> {
 /// gets a `[target]` table to copy.
 fn no_runner(target: &target::Target, exe: &Path, cwd: &Path) -> String {
     let at = shown::path(exe, cwd);
+
     if target.project || target.board.is_some() {
         let name = &target.name;
+
         return format!(
             "target `{name}` has no runner, so jacket cannot run what it built\nhelp: set `runner` under `[target.{name}]` in jacket.toml; the program is at {at}"
         );
     }
+
     let triple = target.triple.as_deref().unwrap_or(&target.name);
     let runner = if triple.starts_with("wasm") {
         "wasmtime {exe}"
     } else {
         "PROGRAM {exe}"
     };
+
     format!(
         "`{triple}` is not this machine's target, so jacket cannot run what it built\nhelp: name a runner for it in jacket.toml, then run with `--target NAME`:\n      [target.NAME]\n      triple = \"{triple}\"\n      runner = \"{runner}\"\nnote: the program is at {at}"
     )
@@ -225,12 +239,15 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
         .iter()
         .any(|a| a == "-interp" || a == "-check" || a == "-help" || a == "-version");
     let mut env = project_name_env(ctx);
+
     if runs_itself {
         return tools::exec_with_env(jaic.as_os_str(), &argv, &env);
     }
+
     // The build may be a metaprogram that names its own executable, so ask jaic what it wrote.
     let report = std::env::temp_dir().join(format!("jacket-exe-{}.txt", std::process::id()));
     let _ = std::fs::remove_file(&report);
+
     env.push((
         jacket_config::env::REPORT_EXE.name,
         report.clone().into_os_string(),
@@ -238,6 +255,7 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
     let started = tools::status(jaic.as_os_str(), &argv, &env);
     let reported = compile::reported_executable(&report);
     let _ = std::fs::remove_file(&report);
+
     match started {
         Ok(0) => {}
         Ok(code) => return ExitCode::from(code),
@@ -246,14 +264,18 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
             return ExitCode::from(127);
         }
     }
+
     let exe = match reported {
         Ok(exe) => exe,
         Err(error) => return commands::fail(error),
     };
+
     if let Some(color) = status::lines(&argv) {
         let shown = exe.strip_prefix(ctx.cwd).unwrap_or(&exe);
+
         status::print("Running", &format!("`{}`", shown.display()), color);
     }
+
     let Some(target) = expansion.target else {
         return tools::exec(exe.as_os_str(), program_args);
     };
@@ -265,13 +287,16 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
         if target.triple.is_none() && target.board.is_none() {
             return tools::exec(exe.as_os_str(), program_args);
         }
+
         return commands::fail(no_runner(&target, &exe, ctx.cwd));
     };
+
     if !program_args.is_empty() {
         return commands::fail(format!(
             "target `{}` runs the program through its runner, which passes it no arguments",
             target.name
         ));
     }
+
     tools::exec(&command[0], &command[1..])
 }

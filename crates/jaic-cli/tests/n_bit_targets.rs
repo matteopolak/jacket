@@ -12,6 +12,7 @@ fn run(target: &str, source: &Path) -> String {
         .args(["-target", target])
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{target}: {}",
@@ -59,6 +60,7 @@ fn build_wasm32_runtime(dir: &test_support::tmp::TempDir) -> Option<std::path::P
         .arg(&module)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -96,6 +98,7 @@ fn a_wasm32_executable_keeps_traces_and_arguments() {
         .args(["--list", "--run", "name"])
         .output()
         .unwrap();
+
     assert_runtime_output(&output);
 }
 
@@ -118,6 +121,7 @@ fn a_wasm32_executable_runs_under_wasmtime() {
         .args(["--list", "--run", "name"])
         .output()
         .unwrap();
+
     assert_runtime_output(&output);
 }
 
@@ -149,6 +153,7 @@ fn a_plugin_setting_the_cpu_back_keeps_the_target() {
             .args(["-target", target, "+Extensions/Testing/Discovery"])
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{target}: {}",
@@ -174,6 +179,7 @@ fn a_plugin_workspace_reads_files_at_compile_time_on_i686() {
         ])
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -187,6 +193,7 @@ fn a_plugin_workspace_reads_files_at_compile_time_on_i686() {
 fn enum_names_in_type_information_use_the_targets_string_size() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/enum-names.jai");
+
     for target in [
         "x86_64-unknown-linux-gnu",
         "i686-unknown-linux-gnu",
@@ -208,10 +215,12 @@ fn enum_names_in_type_information_use_the_targets_string_size() {
 fn a_big_endian_program_sees_its_own_byte_order() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/byte-order.jai");
+
     assert_eq!(
         run("x86_64-unknown-linux-gnu", &source),
         "4 3 2 1\n84281096\n1069547520\n"
     );
+
     for target in ["s390x-unknown-linux-gnu", "powerpc64-unknown-linux-gnu"] {
         assert_eq!(
             run(target, &source),
@@ -236,10 +245,12 @@ fn a_powerpc64_program_has_8_byte_pointers() {
 fn volatile_accesses_use_the_targets_byte_order() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/compiler/targets/volatile-order.jai");
+
     assert_eq!(
         run("x86_64-unknown-linux-gnu", &source),
         "16909060\n168496141 13 3085\n"
     );
+
     for target in ["s390x-unknown-linux-gnu", "powerpc64-unknown-linux-gnu"] {
         assert_eq!(
             run(target, &source),
@@ -266,6 +277,7 @@ fn an_avr_program_checks_at_compile_time() {
         .arg("+Extensions/Embedded/Boards/Arduino_Uno")
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -291,6 +303,7 @@ fn a_board_plugin_runs_on_the_host_with_a_freestanding_target() {
         .arg("+Extensions/Embedded/Boards/Arduino_Uno")
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -304,6 +317,7 @@ fn a_board_plugin_runs_on_the_host_with_a_freestanding_target() {
 fn a_string_builder_is_sized_by_the_pointer_width() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/builder-size.jai");
+
     for target in [
         "x86_64-unknown-linux-gnu",
         "i686-unknown-linux-gnu",
@@ -315,6 +329,7 @@ fn a_string_builder_is_sized_by_the_pointer_width() {
             .args(["-target", target])
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{target}: {}",
@@ -329,6 +344,7 @@ fn a_string_builder_is_sized_by_the_pointer_width() {
 fn a_pointer_stored_in_a_frame_slot_has_the_targets_width() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/compiler/targets/frame-pointer-width.jai");
+
     for target in [
         "i686-unknown-linux-gnu",
         "armv7-unknown-linux-gnueabihf",
@@ -344,6 +360,7 @@ fn a_pointer_stored_in_a_frame_slot_has_the_targets_width() {
 fn atomics_use_the_targets_byte_order() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/compiler/targets/atomics-order.jai");
+
     for target in [
         "x86_64-unknown-linux-gnu",
         "s390x-unknown-linux-gnu",
@@ -367,6 +384,7 @@ fn atomics_use_the_targets_byte_order() {
 fn the_emulated_c_library_writes_records_at_the_targets_layout() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/libc-records.jai");
+
     for target in [
         "i686-unknown-linux-gnu",
         "armv7-unknown-linux-gnueabihf",
@@ -388,6 +406,7 @@ fn the_emulated_c_library_writes_records_at_the_targets_layout() {
 fn integer_handles_made_at_compile_time_keep_their_values() {
     let source = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/compiler/targets/integer-handles.jai");
+
     for target in [
         "x86_64-unknown-linux-gnu",
         "i686-unknown-linux-gnu",
@@ -406,6 +425,7 @@ fn pointers_wrap_at_the_targets_width() {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/pointer-wrap.jai");
     let wide = "18446744073709551600 16 16 18446744073709551600\ntrue 18446744073709551615\n";
     let narrow = "4294967280 16 16 4294967280\ntrue 4294967295\n";
+
     for (target, expected) in [
         ("x86_64-unknown-linux-gnu", wide),
         ("s390x-unknown-linux-gnu", wide),
@@ -423,6 +443,7 @@ fn pointers_wrap_at_the_targets_width() {
 fn a_compile_time_fault_names_the_programs_address() {
     let source =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/compiler/targets/wild-read.jai");
+
     for target in ["x86_64-unknown-linux-gnu", "i686-unknown-linux-gnu"] {
         let output = Command::new(JAIC)
             .arg("-check")
@@ -431,6 +452,7 @@ fn a_compile_time_fault_names_the_programs_address() {
             .output()
             .unwrap();
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert!(
             stderr.contains("read from address 0x80000000 faulted"),
             "{target}: {stderr}"

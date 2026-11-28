@@ -65,9 +65,11 @@ impl Compiler {
             span,
             "not enough values in this struct literal",
         );
+
         if !missing.is_empty() {
             d = d.with_label(missing_label(&missing));
         }
+
         if !asked.is_empty() {
             d = d.with_note(
                 Span::NONE,
@@ -77,6 +79,7 @@ impl Compiler {
                 ),
             );
         }
+
         Box::new(d.with_help(
             "give the missing values, or name the members you set (`.{ a = 1 }`) and leave the rest to their defaults",
         ))
@@ -90,6 +93,7 @@ impl Compiler {
         span: Span,
     ) -> Result<String> {
         let name = self.ty.types.name(ty);
+
         Ok(match misfit {
             LitMisfit::NoMember(member) => format!("`{name}` has no member `{member}`"),
             LitMisfit::Value(Some(member)) => {
@@ -108,6 +112,7 @@ impl Compiler {
                     .skip(*given)
                     .filter_map(|m| m.0)
                     .collect();
+
                 if missing.is_empty() {
                     "not enough values in this struct literal".to_string()
                 } else {
@@ -137,6 +142,7 @@ impl Compiler {
             format!("too many values for `{name}`"),
         )
         .with_label("this value has no member");
+
         d = d.with_note(
             Span::NONE,
             if names.is_empty() {
@@ -160,9 +166,11 @@ impl Compiler {
             Some(before) => values[before].value.span.end,
             None => extra.start,
         };
+
         if tail.iter().any(|a| a.name.is_some()) || start > last.end {
             return Box::new(d.with_help("remove the extra values"));
         }
+
         let (title, action) = if tail.len() == 1 {
             ("remove the extra value", "Remove the extra value")
         } else {
@@ -173,6 +181,7 @@ impl Compiler {
             end: last.end,
             ..last
         };
+
         Box::new(d.with_suggestion(
             Suggestion::replace(title, span, "", Applicability::MaybeIncorrect).with_action(action),
         ))

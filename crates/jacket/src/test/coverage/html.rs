@@ -52,6 +52,7 @@ fn source(file: &Path, counts: &BTreeMap<u32, u64>) -> String {
     let text = std::fs::read_to_string(file).unwrap_or_default();
     let mut out = String::from("<pre class=\"src\">");
     let mut shown = 0;
+
     for (i, code) in text.lines().enumerate() {
         shown = i as u32 + 1;
         let (class, count) = match counts.get(&shown) {
@@ -65,6 +66,7 @@ fn source(file: &Path, counts: &BTreeMap<u32, u64>) -> String {
             escape(code)
         );
     }
+
     // Lines of a file that cannot be read (or has changed) are still listed.
     for (line, count) in counts.range(shown + 1..) {
         let class = if *count == 0 {
@@ -77,6 +79,7 @@ fn source(file: &Path, counts: &BTreeMap<u32, u64>) -> String {
             "<span class=\"{class}\"><i>{line}</i><b>{count}</b></span>"
         );
     }
+
     out.push_str("</pre>");
     out
 }
@@ -88,12 +91,14 @@ pub fn render(data: &Data, base: &Path) -> String {
     let (lines, functions) = total(&modules);
     let mut known = BTreeMap::new();
     let mut by_module: BTreeMap<String, Vec<&PathBuf>> = BTreeMap::new();
+
     for path in data.lines.keys() {
         by_module
             .entry(module_of(path, base, &mut known))
             .or_default()
             .push(path);
     }
+
     let mut page = format!(
         "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>Test coverage</title>\n<style>{STYLE}</style>\n</head>\n<body>\n<h1>Test coverage</h1>\n<p class=\"muted\">{} of {} lines and {} of {} procedures ran ({:.1}% and {:.1}%).</p>\n",
         lines.hit,
@@ -103,7 +108,9 @@ pub fn render(data: &Data, base: &Path) -> String {
         lines.percent(),
         functions.percent()
     );
+
     page.push_str("<table class=\"summary\">\n<tr><th>Module</th><th>Lines</th><th>Cover</th><th>Procedures</th><th>Cover</th></tr>\n");
+
     for (n, module) in modules.iter().enumerate() {
         let _ = writeln!(
             page,
@@ -113,10 +120,13 @@ pub fn render(data: &Data, base: &Path) -> String {
             cells(module.functions)
         );
     }
+
     page.push_str("</table>\n");
     let mut id = 0;
+
     for (n, module) in modules.iter().enumerate() {
         let _ = writeln!(page, "<h2 id=\"m{n}\">{}</h2>", escape(&module.name));
+
         for path in by_module.get(&module.name).into_iter().flatten() {
             let counts = &data.lines[*path];
             let name = path
@@ -126,6 +136,7 @@ pub fn render(data: &Data, base: &Path) -> String {
                 .to_string();
             let row = files.iter().find(|r| r.name == name);
             let tally = row.map_or_else(Tally::default, |r| r.lines);
+
             id += 1;
             let _ = writeln!(
                 page,
@@ -138,6 +149,7 @@ pub fn render(data: &Data, base: &Path) -> String {
             );
         }
     }
+
     page.push_str("</body>\n</html>\n");
     page
 }
@@ -150,18 +162,24 @@ mod tests {
     fn the_page_is_self_contained_and_marks_lines_by_whether_they_ran() {
         let dir = std::env::temp_dir().join(format!("jacket-cov-html-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(&dir).unwrap();
         let file = dir.join("a.jai");
+
         std::fs::write(&file, "one :: () {}\nif a < b && c { }\n\nthree\n").unwrap();
         let mut data = Data::default();
+
         data.lines
             .insert(file, [(1, 3), (2, 0), (4, 1), (9, 0)].into());
         let page = render(&data, &dir);
         let _ = std::fs::remove_dir_all(&dir);
+
         assert!(page.starts_with("<!doctype html>"), "{page}");
+
         for outside in ["http://", "https://", "src=", "<link", "<script"] {
             assert!(!page.contains(outside), "{outside} in the page");
         }
+
         assert!(
             page.contains("<span class=\"hit\"><i>1</i><b>3</b>one :: () {}</span>"),
             "{page}"

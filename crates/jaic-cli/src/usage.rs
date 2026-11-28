@@ -30,6 +30,7 @@ pub(super) fn usage_text(color: bool) -> String {
             "turn colour off or on".into(),
         ),
     ]);
+
     Cli::spec()
         .help()
         .section("Environment", environment)
@@ -59,6 +60,7 @@ pub(super) fn unknown_option(option: &str) -> CliError {
         return CliError::new(format!("unknown optimization level `{option}`"))
             .help("use -O0, -O1, -O2 or -O3");
     }
+
     let mut error = CliError::new(format!("unknown option `{option}`"));
     let spec = Cli::spec();
     let known = spec
@@ -66,9 +68,11 @@ pub(super) fn unknown_option(option: &str) -> CliError {
         .iter()
         .filter(|opt| matches!(opt.kind, argdef::Kind::Flag | argdef::Kind::Value))
         .flat_map(|opt| opt.names.iter().copied());
+
     if let Some(near) = jaic::suggest::closest(option, known) {
         error = error.help(format!("did you mean `{near}`?"));
     }
+
     error.help("options after a `+Plugin` belong to that plugin; `jaic -help` lists jaic's own")
 }
 

@@ -36,12 +36,14 @@ fn check(s: &Session, uri: &DocumentUri, text: &str) {
     ] {
         let position = at(text, usage);
         let hover = s.hover(uri, position).unwrap().expect(usage);
+
         assert!(
             !hover.contents.value.contains("Source syntax declaration"),
             "{usage}: {}",
             hover.contents.value
         );
         let targets = s.definition(uri, position).unwrap();
+
         assert_eq!(targets.len(), 1, "{usage}: {targets:?}");
         assert_eq!(
             targets[0].uri,
@@ -49,12 +51,15 @@ fn check(s: &Session, uri: &DocumentUri, text: &str) {
         );
         assert_eq!(targets[0].range.start, at(VALUES, definition));
     }
+
     for usage in ["marker =", "marker;"] {
         let targets = s.definition(uri, at(text, usage)).unwrap();
+
         assert_eq!(targets.len(), 1, "{usage}: {targets:?}");
         assert_eq!(targets[0].uri, uri.as_str());
         assert_eq!(targets[0].range.start, at(text, "marker: int"));
         let hover = s.hover(uri, at(text, usage)).unwrap().expect(usage);
+
         assert!(!hover.contents.value.contains("Source syntax declaration"));
     }
 }
@@ -63,8 +68,10 @@ fn check(s: &Session, uri: &DocumentUri, text: &str) {
 fn qualified_reexports_and_context_keep_exact_locations_after_utf16_edits() {
     let uri = file_uri("/ide-audit/main.jai");
     let mut session = session();
+
     session.open(uri.clone(), 1, MAIN.into()).unwrap();
     let errors = session.diagnostics(&uri).unwrap();
+
     assert!(
         errors
             .iter()
@@ -73,6 +80,7 @@ fn qualified_reexports_and_context_keep_exact_locations_after_utf16_edits() {
     );
     check(&session, &uri, MAIN);
     let insertion = at(MAIN, "first :=");
+
     session
         .change(
             &uri,
@@ -88,6 +96,7 @@ fn qualified_reexports_and_context_keep_exact_locations_after_utf16_edits() {
         )
         .unwrap();
     let changed = MAIN.replace("first :=", "extra := \"🎯\"; first :=");
+
     check(&session, &uri, &changed);
     session
         .change(
@@ -108,14 +117,17 @@ fn nested_initializer_targets_and_contextual_enums_keep_exact_field_definitions(
     const SOURCE: &str = "Record :: struct { kind: enum { FIRST; SECOND; } detail: struct { count:int; } }\nmain :: () { value:=Record.{kind=.SECOND, detail.count=13}; observed:=value.detail.count; }\n";
     let uri = file_uri("/ide-audit/main.jai");
     let mut s = session();
+
     s.open(uri.clone(), 1, SOURCE.into()).unwrap();
     let diagnostics = s.diagnostics(&uri).unwrap();
+
     assert!(
         diagnostics
             .iter()
             .all(|d| d.severity != DiagnosticSeverity::Error),
         "{diagnostics:?}"
     );
+
     for (usage, declaration) in [
         ("SECOND,", "SECOND;"),
         ("detail.count=", "detail: struct"),
@@ -123,11 +135,13 @@ fn nested_initializer_targets_and_contextual_enums_keep_exact_field_definitions(
     ] {
         let position = at(SOURCE, usage);
         let hover = s.hover(&uri, position).unwrap().expect(usage);
+
         assert!(
             !hover.contents.value.contains("Source syntax declaration"),
             "{usage}: {hover:?}"
         );
         let definitions = s.definition(&uri, position).unwrap();
+
         assert_eq!(definitions.len(), 1, "{usage}: {definitions:?}");
         assert_eq!(definitions[0].uri, uri.as_str());
         assert_eq!(
@@ -143,9 +157,12 @@ fn builtin_type_uses_hover_without_fabricated_source_definitions() {
     let uri = file_uri("/ide-audit/main.jai");
     let text = "value: int;\nmain :: () { other: s32; }\n";
     let mut session = session();
+
     session.open(uri.clone(), 1, text.into()).unwrap();
+
     for name in ["int;", "s32;"] {
         let hover = session.hover(&uri, at(text, name)).unwrap().expect(name);
+
         assert!(!hover.contents.value.contains("Source syntax declaration"));
         assert_eq!(
             session.definition(&uri, at(text, name)).unwrap(),
@@ -159,8 +176,10 @@ fn static_reexport_filter_names_navigate_to_visible_original_declarations() {
     let uri = file_uri("/ide-audit/main.jai");
     let facade = file_uri("/ide-audit/modules/Facade/module.jai");
     let mut s = session();
+
     s.open(uri, 1, MAIN.into()).unwrap();
     s.open(facade.clone(), 1, FACADE.into()).unwrap();
+
     for (usage, declaration) in [
         ("amount,state", "amount ::"),
         ("state,Number", "state:"),
@@ -168,8 +187,10 @@ fn static_reexport_filter_names_navigate_to_visible_original_declarations() {
     ] {
         let p = at(FACADE, usage);
         let hover = s.hover(&facade, p).unwrap().expect(usage);
+
         assert!(!hover.contents.value.contains("Source syntax declaration"));
         let targets = s.definition(&facade, p).unwrap();
+
         assert_eq!(targets.len(), 1, "{usage}: {targets:?}");
         assert_eq!(
             targets[0].uri,
@@ -184,10 +205,13 @@ fn selector_metadata_retains_overloads_and_does_not_expose_private_or_absent_nam
     let uri = file_uri("/ide-audit/main.jai");
     let text = "using,only(choose) M :: #import \"Overloads\";\nmain :: () {value:=choose(1);}\n";
     let mut s = session();
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     let p = at(text, "choose)");
+
     assert!(s.hover(&uri, p).unwrap().is_some());
     let targets = s.definition(&uri, p).unwrap();
+
     assert_eq!(targets.len(), 2, "{targets:?}");
     assert!(targets.iter().all(
         |t| t.uri == "file:///ide-audit/modules/Overloads/module.jai"
@@ -201,6 +225,7 @@ fn selector_metadata_retains_overloads_and_does_not_expose_private_or_absent_nam
         vec![0, 1]
     );
     let text = "using,only(secret,absent) M :: #import \"Values\";\nmain :: () {}\n";
+
     s.change(
         &uri,
         2,
@@ -217,6 +242,7 @@ fn selector_metadata_retains_overloads_and_does_not_expose_private_or_absent_nam
             .iter()
             .all(|d| d.severity != DiagnosticSeverity::Error)
     );
+
     for name in ["secret,", "absent)"] {
         assert_eq!(
             s.definition(&uri, at(text, name)).unwrap(),
@@ -230,8 +256,10 @@ fn static_aggregate_filters_use_actual_field_identity() {
     let uri = file_uri("/ide-audit/main.jai");
     let text = "R :: struct {field:int;}\nmain :: () {r:R; using,only(field) r; field=3;}\n";
     let mut s = session();
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     let targets = s.definition(&uri, at(text, "field)")).unwrap();
+
     assert_eq!(targets.len(), 1, "{targets:?}");
     assert_eq!(targets[0].uri, uri.as_str());
     assert_eq!(targets[0].range.start, at(text, "field:int"));
@@ -243,9 +271,12 @@ fn aggregate_using_targets_keep_the_original_local_and_global_type_and_identity(
     let uri = file_uri("/ide-audit/main.jai");
     let text = "R :: struct {field:int;}\nglobal:R;\nmain :: () {local:R; using,only(field) local; using,except(absent) global;}\n";
     let mut s = session();
+
     s.open(uri.clone(), 1, text.into()).unwrap();
+
     for (usage, decl) in [("local;", "local:R"), ("global;", "global:R")] {
         let hover = s.hover(&uri, at(text, usage)).unwrap().expect(usage);
+
         assert!(
             !hover.contents.value.contains("Source syntax declaration"),
             "{usage}: {}",
@@ -257,6 +288,7 @@ fn aggregate_using_targets_keep_the_original_local_and_global_type_and_identity(
             hover.contents.value
         );
         let targets = s.definition(&uri, at(text, usage)).unwrap();
+
         assert_eq!(targets.len(), 1, "{usage}: {targets:?}");
         assert_eq!(targets[0].uri, uri.as_str());
         assert_eq!(targets[0].range.start, at(text, decl));
@@ -268,6 +300,7 @@ fn named_module_arguments_navigate_to_real_parameter_declarations_on_cached_inst
     let uri = file_uri("/ide-audit/main.jai");
     let text = "First :: #import \"Configured\"(LIMIT=12);\nAgain :: #import \"Configured\"(LIMIT=12);\nOther :: #import \"Configured\"(LIMIT=9);\nmain :: () {}\n";
     let mut s = session();
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     assert!(
         s.diagnostics(&uri)
@@ -275,6 +308,7 @@ fn named_module_arguments_navigate_to_real_parameter_declarations_on_cached_inst
             .iter()
             .all(|d| d.severity != DiagnosticSeverity::Error)
     );
+
     for line in 0..3 {
         let source_line = text.lines().nth(line as usize).unwrap();
         let p = Position {
@@ -282,12 +316,14 @@ fn named_module_arguments_navigate_to_real_parameter_declarations_on_cached_inst
             character: source_line.find("LIMIT=").unwrap() as u32,
         };
         let hover = s.hover(&uri, p).unwrap().expect("named module argument");
+
         assert!(
             hover.contents.value.contains("s64"),
             "{}",
             hover.contents.value
         );
         let targets = s.definition(&uri, p).unwrap();
+
         assert_eq!(targets.len(), 1, "{targets:?}");
         assert_eq!(
             targets[0].uri,
@@ -305,6 +341,7 @@ fn invalid_module_argument_labels_keep_failed_context_without_fabricated_targets
     let uri = file_uri("/ide-audit/main.jai");
     let text = "Bad :: #import \"Configured\"(ABSENT=12);\nmain :: () {value:=Bad.value;}\n";
     let mut s = session();
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     // The binding diagnostic may be attached to the module parameter header,
     // rather than this caller file. Empty local diagnostics cannot imply success.
@@ -312,6 +349,7 @@ fn invalid_module_argument_labels_keep_failed_context_without_fabricated_targets
         .semantic_coverage(&uri)
         .unwrap()
         .expect("analysis context");
+
     assert!(
         coverage.program_errors > 0 && !coverage.program_complete,
         "{coverage:?}"
@@ -327,8 +365,10 @@ fn malformed_c_variadic_call_diagnoses_and_valid_edit_restores_navigation() {
     let uri = file_uri("/ide-audit/main.jai");
     let bad = "broken :: (items: ..int, tail:int) #c_call {}\nmain :: () {broken(1,tail=2);}\n";
     let mut s = session();
+
     s.open(uri.clone(), 1, bad.into()).unwrap();
     let diagnostics = s.diagnostics(&uri).unwrap();
+
     assert!(
         diagnostics
             .iter()
@@ -341,6 +381,7 @@ fn malformed_c_variadic_call_diagnoses_and_valid_edit_restores_navigation() {
     let _ = s.hover(&uri, at(bad, "broken(1")).unwrap();
     let _ = s.definition(&uri, at(bad, "broken(1")).unwrap();
     let good = "sum :: (items: ..int, tail:int=4) -> int {value:=tail; for items value+=it; return value;}\nmain :: () {value:=sum(1,tail=2);}\n";
+
     s.change(
         &uri,
         2,
@@ -358,6 +399,7 @@ fn malformed_c_variadic_call_diagnoses_and_valid_edit_restores_navigation() {
             .all(|d| d.severity != DiagnosticSeverity::Error)
     );
     let targets = s.definition(&uri, at(good, "sum(1")).unwrap();
+
     assert_eq!(targets.len(), 1, "{targets:?}");
     assert_eq!(targets[0].range.start, at(good, "sum ::"));
     assert!(s.hover(&uri, at(good, "sum(1")).unwrap().is_some());
@@ -368,6 +410,7 @@ fn configured_bootstrap_type_uses_keep_semantic_hovers() {
     let uri = file_uri("/ide-audit/main.jai");
     let text = "value: int;\nmain :: () { other: s32; }\n";
     let mut session = stdlib_session();
+
     session.open(uri.clone(), 1, text.into()).unwrap();
     assert!(
         session
@@ -376,8 +419,10 @@ fn configured_bootstrap_type_uses_keep_semantic_hovers() {
             .iter()
             .all(|d| d.severity != DiagnosticSeverity::Error)
     );
+
     for name in ["int;", "s32;"] {
         let hover = session.hover(&uri, at(text, name)).unwrap().expect(name);
+
         assert!(!hover.contents.value.contains("Source syntax declaration"));
     }
 }
@@ -387,6 +432,7 @@ fn production_basic_temp_and_exit_remain_typed_and_navigate() {
     let uri = file_uri("/ide-audit/main.jai");
     let text = "using #import \"Basic\";\nBasic :: #import \"Basic\";\nmain :: () { allocator := Basic.temp; exit(1); }\n";
     let mut s = stdlib_session();
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     assert!(
         s.diagnostics(&uri)
@@ -394,14 +440,17 @@ fn production_basic_temp_and_exit_remain_typed_and_navigate() {
             .iter()
             .all(|d| d.severity != DiagnosticSeverity::Error)
     );
+
     for (name, expected) in [("temp;", "Allocator"), ("exit(1)", "s32")] {
         let hover = s.hover(&uri, at(text, name)).unwrap().expect(name);
+
         assert!(
             hover.contents.value.contains(expected),
             "{}",
             hover.contents.value
         );
         let targets = s.definition(&uri, at(text, name)).unwrap();
+
         assert!(!targets.is_empty(), "{name}");
         assert!(
             targets
@@ -415,11 +464,14 @@ fn production_basic_temp_and_exit_remain_typed_and_navigate() {
 fn open_project_modules_do_not_erase_root_type_facts() {
     let root = repo_path("tests/lsp/audit/values");
     let mut session = stdlib_session();
+
     session.set_workspace_folders(vec![root.clone()]);
     let uri = uri_of(&root.join("main.jai"));
     let text = std::fs::read_to_string(root.join("main.jai")).unwrap();
+
     session.open(uri.clone(), 1, text.clone()).unwrap();
     let module = root.join("modules/Probe/module.jai");
+
     session
         .open(
             uri_of(&module),
@@ -428,12 +480,14 @@ fn open_project_modules_do_not_erase_root_type_facts() {
         )
         .unwrap();
     let errors = session.diagnostics(&uri).unwrap();
+
     assert!(
         errors
             .iter()
             .all(|d| d.severity != DiagnosticSeverity::Error),
         "{errors:?}"
     );
+
     for token in jaic::lexer::lex(jaic::source::FileId(0), &text).unwrap() {
         if matches!(
             token.tok,
@@ -441,17 +495,21 @@ fn open_project_modules_do_not_erase_root_type_facts() {
         ) {
             let p = position(&text, token.span.start as usize);
             let hover = session.hover(&uri, p).unwrap();
+
             if matches!(token.tok,jaic::lexer::Tok::Ident(name) if name.as_str()=="int") {
                 assert!(
                     hover.is_some_and(|h| !h.contents.value.contains("Source syntax declaration")),
                     "first request at {p:?}"
                 );
             }
+
             let _ = session.definition(&uri, p).unwrap();
         }
     }
+
     for name in ["int;", "context.audit_marker ="] {
         let hover = session.hover(&uri, at(&text, name)).unwrap().expect(name);
+
         assert!(!hover.contents.value.contains("Source syntax declaration"));
     }
 }
@@ -460,7 +518,9 @@ fn open_project_modules_do_not_erase_root_type_facts() {
 fn an_open_unloaded_source_file_has_semantic_facts_in_its_own_file_context() {
     let root = repo_path("tests/lsp/audit/orphans");
     let mut s = stdlib_session();
+
     s.set_workspace_folders(vec![root.clone()]);
+
     for file in ["main.jai", "extras.jai"] {
         s.open(
             uri_of(&root.join(file)),
@@ -469,25 +529,30 @@ fn an_open_unloaded_source_file_has_semantic_facts_in_its_own_file_context() {
         )
         .unwrap();
     }
+
     let uri = uri_of(&root.join("extras.jai"));
     let text = std::fs::read_to_string(root.join("extras.jai")).unwrap();
+
     assert!(
         s.diagnostics(&uri)
             .unwrap()
             .iter()
             .all(|d| d.severity != DiagnosticSeverity::Error)
     );
+
     for (name, decl) in [
         ("Value.{", "Value ::"),
         ("number +", "number:"),
         ("hidden;", "hidden ::"),
     ] {
         let hover = s.hover(&uri, at(&text, name)).unwrap().expect(name);
+
         assert!(
             !hover.contents.value.contains("Source syntax declaration"),
             "{name}"
         );
         let targets = s.definition(&uri, at(&text, name)).unwrap();
+
         assert_eq!(targets.len(), 1, "{name}: {targets:?}");
         assert_eq!(targets[0].range.start, at(&text, decl));
         assert_eq!(targets[0].uri, uri.as_str());

@@ -19,10 +19,12 @@ use std::sync::Arc;
 /// `path`'s id among the files `compiler` compiled.
 pub(super) fn find_file(compiler: &Compiler, path: &Path) -> Option<FileId> {
     let files = || (0..compiler.src.sources.len() as u32).map(FileId);
+
     files()
         .find(|&f| compiler.src.sources.get(f).path.as_file() == Some(path))
         .or_else(|| {
             let want = compiler.src.fs.canonical(path);
+
             files().find(|&f| {
                 compiler
                     .src
@@ -45,6 +47,7 @@ fn editor_facts(
     untrusted: bool,
 ) -> IdeFacts {
     let mut facts = IdeFacts::new(vec![IdeRoot::under(root)]).with_files(open.to_vec());
+
     facts.output = Some(host.clone());
     facts.lint = lint;
     facts.untrusted = untrusted;
@@ -95,11 +98,13 @@ fn check_rest(
     mut errors: Vec<jaic::diagnostics::Diagnostic>,
 ) -> Vec<jaic::diagnostics::Diagnostic> {
     let mut seen: HashSet<_> = errors.iter().map(|e| (e.span, e.message.clone())).collect();
+
     for e in compiler.ide_check_all() {
         if seen.insert((e.span, e.message.clone())) {
             errors.push(e);
         }
     }
+
     compiler.ide_sketch_polymorphs();
     errors
 }
@@ -125,6 +130,7 @@ fn known(
                 .text
                 .contains(jaic::lexicon::spelled::INSERT)
     };
+
     errors.retain(|e| {
         !(e.code.is_unknown_result() || (e.code == Code::UnknownIdentifier && refused(e.span.file)))
     });
@@ -137,6 +143,7 @@ fn writes_module_parameters(text: &str) -> bool {
     if !text.contains(jaic::lexicon::spelled::MODULE_PARAMETERS) {
         return false;
     }
+
     jaic::lexer::Lexed::new(FileId(0), text)
         .tokens
         .iter()
@@ -149,6 +156,7 @@ fn first_line(compiler: &Compiler, root: &Path) -> jaic::source::Span {
         return jaic::source::Span::new(FileId(0), 0, 0);
     };
     let text = &compiler.src.sources.get(file).text;
+
     jaic::source::Span::new(file, 0, text.find('\n').unwrap_or(text.len()))
 }
 
@@ -195,6 +203,7 @@ pub(super) fn compile(
     let open: Vec<PathBuf> = files.keys().cloned().collect();
     let options = || {
         let mut options = (env.options)(root);
+
         jaic::project::add_import_dirs(&mut options.import_paths, dirs);
         // The target `jaic -check -os <os>` would use.
         jaic::target::select_os_cpu(&mut options, os, None);
@@ -222,6 +231,7 @@ pub(super) fn compile(
     )
     .map(|(import, folder)| {
         let stub = jaic::project::module_root_stub(&folder);
+
         files.insert(
             jaic::paths::file_identity(&*env.fs, &stub),
             Arc::from(jaic::project::module_root_stub_text(&import).into_bytes()),
@@ -242,11 +252,14 @@ pub(super) fn compile(
         fs.clone(),
         &dir.to_string_lossy(),
     )));
+
     if !untrusted {
         let mut host = host.borrow_mut();
+
         host.services.clone_from(&env.services);
         host.real_environment = true;
     }
+
     // Spelled like the compiler's source paths, which come through the overlay's keys.
     let dir_key = jaic::paths::file_identity(&*env.fs, &dir);
     // A compile for another target only answers hover and definition: lints come from the
@@ -259,6 +272,7 @@ pub(super) fn compile(
     // by the same limits.
     // Each dependency's own folders and routed copies, as the build passes them.
     let mut compiler_options = options();
+
     // An unreadable `jacket.toml` was already reported when the import folders were found
     // (`modules.rs`), so the compile goes on without per-package folders.
     compiler_options.package_imports =
@@ -279,11 +293,13 @@ pub(super) fn compile(
         report: Box::new(|_, _| {}),
         limits,
     });
+
     started
         .compiler
         .ed
         .record(editor_facts(&dir_key, &open, &host, lint, untrusted));
     let number = parses.begin();
+
     started.compiler.ed.parse_reuse = Some((parses.clone(), number));
     let lint_root = match &stub {
         Some(stub) => LintRoot::Module {
@@ -298,40 +314,51 @@ pub(super) fn compile(
         .into_iter()
         .map(|e| *e)
         .collect::<Vec<_>>();
+
     // Stopped for a newer request (see `jaic::interrupt`): what is left of the check is not
     // worth finishing, and the caller discards it.
     if jaic::interrupt::fired() {
         return None;
     }
+
     // A metaprogram that failed or ran out of budget did not finish what it did: its facts
     // would be a prefix of the real ones.
     let ran_to_the_end = errors.is_empty();
+
     // Workspaces no message loop drove compile once the metaprogram is done, as in a build.
     // Their stopping error is in their own facts, so the message here adds nothing.
     if errors.is_empty() {
         let _ = started.finish_workspaces();
     }
+
     let mut compiler = *started.compiler;
+
     // Workspaces kept for `get_type_table` after they completed go to the observer now.
     if let Some(workspaces) = compiler.ct.interp.workspaces.clone() {
         jaic::build::hand_over_kept(&workspaces);
     }
+
     let errors = check_rest(&mut compiler, errors);
+
     if jaic::interrupt::fired() {
         return None;
     }
+
     let errors = known(&compiler, errors);
     // The wall-clock limit passed: the compile-time code that ran into it said nothing (its
     // result is unknown, not wrong), and this is the one notice that results are partial.
     let stopped = host.borrow_mut().has_stopped();
+
     if stopped {
         let notice = limits.stopped_notice(first_line(&compiler, root));
+
         compiler.diag.warnings.push(notice);
     } else {
         // The limit bounds the check; hovers over its result evaluate what it left lazily,
         // however long after.
         host.borrow_mut().end_time_limit();
     }
+
     let base_paths = (env.options)(root).import_paths;
     let mut recorded: Vec<(i64, BuiltProgram)> = Vec::new();
     let mut others: Vec<Program> = built
@@ -340,6 +367,7 @@ pub(super) fn compile(
         .map(|mut compiler| {
             let id = compiler.meta.workspace;
             let mut program = BuiltProgram::default();
+
             for source in added.borrow().get(&id).into_iter().flatten() {
                 match source {
                     jaic::sema::ProgramSource::File(path) => {
@@ -350,6 +378,7 @@ pub(super) fn compile(
                     _ => program.strings += 1,
                 }
             }
+
             program.import_dirs = compiler
                 .options
                 .import_paths
@@ -360,6 +389,7 @@ pub(super) fn compile(
             recorded.push((id, program));
             let errors = check_rest(&mut compiler, Vec::new());
             let errors = known(&compiler, errors);
+
             Program {
                 compiler,
                 // Core does not expose a generated program's selected entry. Never borrow
@@ -372,6 +402,7 @@ pub(super) fn compile(
             }
         })
         .collect();
+
     // A note and the compile-time code that read it are usually in different programs.
     jaic::ide::share_note_reads(
         &mut std::iter::once(&mut compiler)
@@ -385,11 +416,13 @@ pub(super) fn compile(
     jailint::facts::retain_compile_time_reach(&mut compiler);
     compiler.release_build_state();
     compiler.release_lowered_code();
+
     for other in &mut others {
         jailint::facts::retain_compile_time_reach(&mut other.compiler);
         other.compiler.release_build_state();
         other.compiler.release_lowered_code();
     }
+
     // Every interpreter on the host is closed: what compile-time code left allocated goes too.
     host.borrow_mut().release_memory();
     recorded.sort_by_key(|(id, _)| *id);
@@ -400,6 +433,7 @@ pub(super) fn compile(
             .flat_map(|compiler| {
                 (0..compiler.src.sources.len() as u32).filter_map(|id| {
                     let source = compiler.src.sources.get(FileId(id));
+
                     source.path.as_file().map(|path| {
                         (
                             jaic::paths::file_identity(&*env.fs, path),
@@ -412,6 +446,7 @@ pub(super) fn compile(
         dependencies: reads.borrow().clone(),
         checked: 0,
     });
+
     Some(Compiled {
         compiler,
         errors,

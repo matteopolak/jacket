@@ -52,6 +52,7 @@ impl Compiler {
                 }
             })
             .sum();
+
         self.write_value(agg, offset, &value, fty, span)
     }
 
@@ -109,6 +110,7 @@ impl Compiler {
         } else {
             self.type_info_global(target, span)?
         };
+
         agg.relocs.push(ir::Reloc {
             offset,
             target: ir::RelocTarget::Global(g),
@@ -145,32 +147,39 @@ impl Compiler {
             bytes: vec![0; notes.len() * stride as usize],
             relocs: Vec::new(),
         };
+
         for (i, note) in notes.iter().enumerate() {
             let at = i as u64 * stride;
             let text = note.text.as_bytes();
+
             self.options.layout.write_u64(
                 &mut data.bytes[(at + view.count) as usize..],
                 text.len() as u64,
             );
+
             if text.is_empty() {
                 continue;
             }
+
             let g = match self.note_place(note.span) {
                 Some(place) => self.out.note_global(text, place),
                 None => self.out.string_global(&Arc::from(text)),
             };
+
             data.relocs.push(ir::Reloc {
                 offset: at + view.data,
                 target: ir::RelocTarget::Global(g),
                 addend: 0,
             });
         }
+
         data
     }
 
     /// Where the note at `span` is written, as the note watch names places.
     fn note_place(&self, span: Span) -> Option<crate::interp::note_watch::NotePlace> {
         let source = self.src.sources.try_get(span.file)?;
+
         source.path.as_file()?;
         Some(crate::interp::note_watch::NotePlace {
             path: crate::paths::program_path(&source.path.to_string()).into(),
@@ -212,9 +221,11 @@ impl Compiler {
             .sum();
         let view = self.ty.types.builtins().view;
         let count_at = (offset + view.count) as usize;
+
         self.options
             .layout
             .write_u64(&mut agg.bytes[count_at..], count as u64);
+
         if count > 0 {
             let name = format!("type_info.{name}.{}", self.out.program.globals.len());
             let g = self.out.program.add_global(ir::Global {
@@ -227,12 +238,14 @@ impl Compiler {
                 export: None,
                 section: None,
             });
+
             agg.relocs.push(ir::Reloc {
                 offset: offset + view.data,
                 target: ir::RelocTarget::Global(g),
                 addend: 0,
             });
         }
+
         Ok(())
     }
 
@@ -242,14 +255,17 @@ impl Compiler {
             bytes: vec![0; types.len() * slot as usize],
             relocs: Vec::new(),
         };
+
         for (i, &t) in types.iter().enumerate() {
             let g = self.type_info_global(t, span)?;
+
             data.relocs.push(ir::Reloc {
                 offset: i as u64 * slot,
                 target: ir::RelocTarget::Global(g),
                 addend: 0,
             });
         }
+
         Ok(data)
     }
 
@@ -259,6 +275,7 @@ impl Compiler {
             bytes: vec![0; strings.len() * stride as usize],
             relocs: Vec::new(),
         };
+
         for (i, s) in strings.iter().enumerate() {
             self.write_value(
                 &mut data,
@@ -268,6 +285,7 @@ impl Compiler {
                 span,
             )?;
         }
+
         Ok(data)
     }
 }

@@ -21,24 +21,30 @@ impl Compiler {
     pub(crate) fn ide_header_text(&self, p: ProcId) -> String {
         let header = &self.proc(p).lit.header;
         let mut text = self.ide_snippet(header.span).to_string();
+
         // A `#modify` block is code, not signature: the header names it without its body.
         if let Some(modify) = &header.modify {
             let start = (modify.span.start.saturating_sub(header.span.start)) as usize;
             let end = (modify.span.end.saturating_sub(header.span.start)) as usize;
+
             if start < end
                 && end <= text.len()
                 && text.is_char_boundary(start)
                 && text.is_char_boundary(end)
             {
                 let rest = text[end..].to_string();
+
                 text.truncate(start);
                 text = format!("{}{rest}", text.trim_end());
             }
         }
+
         let text = text.as_str();
+
         if !header.baked {
             return text.to_string();
         }
+
         // The parameter list is the first parenthesized group; the rest follows it.
         let mut depth = 0;
         let close = text.char_indices().find_map(|(i, c)| {
@@ -48,6 +54,7 @@ impl Compiler {
                 ')' => depth -= 1,
                 _ => {}
             }
+
             None
         });
         let Some(close) = close else {
@@ -59,6 +66,7 @@ impl Compiler {
             .iter()
             .map(|param| self.ide_snippet(param.span).trim())
             .collect();
+
         format!(
             "{}({}){}",
             &text[..open],
@@ -75,6 +83,7 @@ impl Compiler {
         let TypeKind::Struct(s) = *self.ty.types.kind(t) else {
             return short;
         };
+
         self.ide_laid_out(t);
         let info = self.ty.types.struct_info(s);
         // A cut name says less than the fields under it: the polymorphic struct's name heads them.
@@ -88,10 +97,13 @@ impl Compiler {
                 .to_string()
         };
         let fields = info.fields.clone();
+
         if fields.iter().all(|f| f.name.is_none()) {
             return head;
         }
+
         let mut text = format!("{head} {{\n");
+
         for f in fields.iter().take(HOVER_FIELDS) {
             let Some(name) = f.name else {
                 continue;
@@ -101,14 +113,18 @@ impl Compiler {
                 .sources
                 .try_get(f.span.file)
                 .and_then(|file| crate::docs::declaration(&file.text, f.span.start as usize));
+
             for line in doc.iter().flat_map(|d| d.lines()) {
                 text.push_str(&format!("    /// {line}\n"));
             }
+
             text.push_str(&format!("    {name}: {};\n", self.ty.types.name(f.ty)));
         }
+
         if fields.len() > HOVER_FIELDS {
             text.push_str("    ...\n");
         }
+
         text.push('}');
         text
     }
@@ -118,6 +134,7 @@ impl Compiler {
             TypeKind::Struct(s) => {
                 // A polymorphic instance may not have its fields yet when nothing has used it.
                 let s = *s;
+
                 self.ide_laid_out(t);
                 let info = self.ty.types.struct_info(s);
                 let fields: Vec<String> = info
@@ -131,6 +148,7 @@ impl Compiler {
                 } else {
                     "struct"
                 };
+
                 format!("{name} :: {keyword} {{ {} }}", fields.join(" "))
             }
             TypeKind::Enum(e) => {
@@ -146,6 +164,7 @@ impl Compiler {
                 } else {
                     "enum"
                 };
+
                 format!(
                     "{name} :: {keyword} {} {{ {} }}",
                     self.ty.types.name(info.base),
@@ -154,6 +173,7 @@ impl Compiler {
             }
             _ => {
                 let full = self.ty.types.name(t);
+
                 if full == name {
                     format!("{name} :: Type")
                 } else {
@@ -185,6 +205,7 @@ impl Compiler {
             }
             _ => self.resolve_entity(id).ok(),
         };
+
         match resolved {
             Some(Resolved::Const {
                 value: value::Value::Type(t),
@@ -268,6 +289,7 @@ impl Compiler {
             ),
             _ => false,
         };
+
         ids.iter()
             .copied()
             .find(is_proc)
@@ -279,9 +301,11 @@ impl Compiler {
     pub(super) fn ide_entity_name(&self, id: EntityId) -> Option<IdeName> {
         let e = self.entity(id);
         let name = e.name.as_str();
+
         if name.is_empty() || name.starts_with(['\0', '`']) || name.contains(' ') {
             return None;
         }
+
         let mut call = None;
         let mut ty = None;
         let (kind, detail) = match &e.kind {
@@ -368,9 +392,11 @@ impl Compiler {
                         (ast::DeclKind::Var, _) => IdeKind::Variable,
                         _ => IdeKind::Constant,
                     };
+
                     if let Some(E::Proc(lit)) = decl.value.as_ref().map(|v| &v.kind) {
                         call = Some(IdeCall::of_headers([&*lit.header]));
                     }
+
                     let detail = match decl.value.as_ref().map(|v| &v.kind) {
                         Some(E::Proc(lit)) => one_line(self.src.sources.snippet(lit.header.span)),
                         _ => one_line(self.src.sources.snippet(e.span)),
@@ -379,6 +405,7 @@ impl Compiler {
                 }
             },
         };
+
         // Overloads are separate declarations of one name; the call must suit them all.
         if kind == IdeKind::Function
             && let Some(ids) = self.scope(e.scope).names.get(&e.name)
@@ -396,10 +423,12 @@ impl Compiler {
                     _ => None,
                 })
                 .collect();
+
             if headers.len() > 1 {
                 call = Some(IdeCall::of_headers(headers));
             }
         }
+
         Some(IdeName {
             docs: None,
             name: name.to_string(),

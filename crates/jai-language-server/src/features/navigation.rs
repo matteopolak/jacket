@@ -26,6 +26,7 @@ impl Session {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+
         Ok(found
             .into_iter()
             .filter_map(|(path, text, start, end)| self.location_in(&path, &text, start, end))
@@ -46,27 +47,35 @@ impl Session {
         let [(target, row)] = rows[..] else {
             return Ok(Vec::new());
         };
+
         if !row.local || target != key {
             return Ok(Vec::new());
         }
+
         let name = row.name.as_str();
         let found = self.references(key, position, true)?;
         let mut ranges = Vec::with_capacity(found.len());
+
         for location in &found {
             if location.uri != key.as_str() || location.range.start.line != location.range.end.line
             {
                 return Ok(Vec::new());
             }
+
             let start = doc.index.byte(&doc.text, location.range.start);
             let end = doc.index.byte(&doc.text, location.range.end);
+
             if doc.text.get(start..end) != Some(name) {
                 return Ok(Vec::new());
             }
+
             ranges.push(location.range);
         }
+
         let on_name = ranges
             .iter()
             .any(|r| r.start <= position && position <= r.end);
+
         Ok(if on_name {
             ranges
         } else {
@@ -87,24 +96,29 @@ impl Session {
         let Some((_, token)) = self.word(uri, position)? else {
             return Ok(None);
         };
+
         if token.kind != TokenKind::Ident {
             return Ok(None);
         }
+
         let range = doc.index.range(&doc.text, token.span)?;
         let byte = doc.index.byte(&doc.text, position);
         let outside = self
             .checked(uri, |a, f| a.compiler.ide_member_declared(f, byte as u32))
             .flatten()
             == Some(false);
+
         if outside {
             return Ok(None);
         }
+
         // A name nothing in the checked files declares (a built-in type) has no declaration to
         // rewrite, so renaming its uses would break them. A declaration spelled otherwise is
         // another name for the same thing (`T` bound to `int`), not this one's.
         let word = {
             let start = doc.index.byte(&doc.text, range.start);
             let end = doc.index.byte(&doc.text, range.end);
+
             doc.text[start..end].to_string()
         };
         let declared = self
@@ -117,10 +131,13 @@ impl Session {
                     .any(|(_, text, start, end)| text.get(start..end) == Some(word.as_str()))
             })
             .unwrap_or(false);
+
         if !declared {
             return Ok(None);
         }
+
         let found = self.references(uri, position, true)?;
+
         Ok(found
             .iter()
             .any(|l| l.uri == uri.as_str() && l.range == range)
@@ -136,9 +153,11 @@ impl Session {
         new_name: &str,
     ) -> Result<Option<RenameEdits>, Error> {
         let _background = self.background();
+
         if !jaic::lexicon::is_identifier(new_name) || jaic::lexicon::is_reserved(new_name) {
             return Err(Error::InvalidEdit("the new name is not an identifier"));
         }
+
         let Some(range) = self.prepare_rename(uri, position)? else {
             return Ok(None);
         };
@@ -146,9 +165,11 @@ impl Session {
         let old = {
             let start = doc.index.byte(&doc.text, range.start);
             let end = doc.index.byte(&doc.text, range.end);
+
             doc.text[start..end].to_string()
         };
         let mut edits: Vec<(String, Vec<TextEdit>)> = Vec::new();
+
         for location in self.references(uri, position, true)? {
             // In an open document, edit only spans that spell the old name.
             if let Ok(target) = DocumentUri::parse(&location.uri)
@@ -156,19 +177,23 @@ impl Session {
             {
                 let start = open.index.byte(&open.text, location.range.start);
                 let end = open.index.byte(&open.text, location.range.end);
+
                 if open.text.get(start..end) != Some(old.as_str()) {
                     continue;
                 }
             }
+
             let edit = TextEdit {
                 range: location.range,
                 new_text: new_name.into(),
             };
+
             match edits.iter_mut().find(|(u, _)| *u == location.uri) {
                 Some((_, list)) => list.push(edit),
                 None => edits.push((location.uri, vec![edit])),
             }
         }
+
         Ok(Some(edits))
     }
 
@@ -203,6 +228,7 @@ impl Session {
                     .collect::<Vec<_>>()
             })
             .unwrap_or_default();
+
         Ok(found
             .into_iter()
             .filter_map(|(path, text, start, end)| {
@@ -210,6 +236,7 @@ impl Session {
                 let line_start = jaic::source::line_start(&text, start);
                 let before = &text[line_start..start];
                 let name = before.split("::").next().unwrap_or("").trim();
+
                 if jaic::lexicon::is_identifier(name) {
                     let at = line_start
                         + before
@@ -217,6 +244,7 @@ impl Session {
                             .expect("invariant: `name` is a piece of `before`");
                     return self.location_in(&path, &text, at, at + name.len());
                 }
+
                 self.location_in(&path, &text, start, end.min(start + 1).max(start))
             })
             .collect())

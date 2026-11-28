@@ -22,6 +22,7 @@ fn refreshes(messages: &[Value], method: &str) -> Vec<Value> {
 
 fn started() -> JsonSession {
     let mut json = JsonSession::with_environment(Limits::default(), environment());
+
     send(
         &mut json,
         &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {
@@ -48,26 +49,33 @@ fn settings_changed(json: &mut JsonSession) -> Vec<Value> {
 fn a_refresh_asked_for_while_one_is_outstanding_is_sent_once_on_the_answer() {
     let mut json = started();
     let first = refreshes(&settings_changed(&mut json), "workspace/diagnostic/refresh");
+
     assert_eq!(first.len(), 1);
+
     // Two more while the client has not answered: nothing is sent.
     for _ in 0..2 {
         let more = settings_changed(&mut json);
+
         assert!(refreshes(&more, "workspace/diagnostic/refresh").is_empty());
     }
+
     // The answer brings exactly one request for what was asked meanwhile.
     let answer = send(
         &mut json,
         &json!({"jsonrpc": "2.0", "id": first[0]["id"], "result": null}),
     );
     let again = refreshes(&answer, "workspace/diagnostic/refresh");
+
     assert_eq!(again.len(), 1, "{answer:?}");
     // Answering that one leaves nothing further.
     let last = send(
         &mut json,
         &json!({"jsonrpc": "2.0", "id": again[0]["id"], "result": null}),
     );
+
     assert!(last.is_empty(), "{last:?}");
     // And with nothing outstanding the next request goes straight out.
     let next = refreshes(&settings_changed(&mut json), "workspace/diagnostic/refresh");
+
     assert_eq!(next.len(), 1);
 }

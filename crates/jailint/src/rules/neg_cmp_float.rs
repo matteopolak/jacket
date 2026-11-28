@@ -25,10 +25,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, chain| {
             let Some(e) = n.expr() else {
                 return true;
@@ -40,11 +42,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
+
             if !(cx.ty(a).is_some_and(|t| types.is_float(t))
                 || cx.ty(b).is_some_and(|t| types.is_float(t)))
             {
                 return true;
             }
+
             let inverse = match op {
                 BinOp::Lt => BinOp::Ge,
                 BinOp::Le => BinOp::Gt,
@@ -69,6 +73,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 format!("({text})")
             };
             let (start, end) = cx.whole(e);
+
             // The expression as written, with its closing parentheses.
             out.push(suggesting(
                 jaic::source::Span::new(e.span.file, start, end),

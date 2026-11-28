@@ -24,6 +24,7 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
                 return None;
             };
             let proc = &cx.compiler.pr.procs[callee.0 as usize];
+
             if !cx
                 .compiler
                 .src
@@ -36,6 +37,7 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
             {
                 return None;
             }
+
             let change = if cx.compiler.proc_has_note(*callee, "AddsToArray") {
                 Change::Append
             } else if proc.name.as_str() == "array_add" {
@@ -48,6 +50,7 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
             Some((*span, change))
         })
         .collect();
+
     for block in blocks.iter_mut() {
         if let Op::Grow(region, span) = block.op
             && let Some(&change) = calls.get(&span)
@@ -55,6 +58,7 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
             block.op = Op::Capacity(region, change, span);
         }
     }
+
     let regions: HashSet<_> = blocks
         .iter()
         .filter_map(|b| match b.op {
@@ -62,13 +66,17 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
             _ => None,
         })
         .collect();
+
     for region in regions {
         // Equal incoming facts survive joins. Loops or rebinding widen to unknown.
         let mut states = vec![None; blocks.len()];
+
         states[0] = Some(None);
         let mut queue = VecDeque::from([0]);
+
         while let Some(i) = queue.pop_front() {
             let mut state = states[i].unwrap();
+
             match blocks[i].op {
                 Op::EmptyArray(r) if r == region => state = Some((0u64, 0u64)),
                 Op::Replace(r) | Op::Grow(r, _) | Op::MayGrow(r, _) | Op::MayReach(r, _)
@@ -98,18 +106,21 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
                 }
                 _ => {}
             }
+
             for &next in &blocks[i].next {
                 let joined = match states[next] {
                     None => state,
                     Some(old) if old == state => old,
                     _ => None,
                 };
+
                 if states[next] != Some(joined) {
                     states[next] = Some(joined);
                     queue.push_back(next);
                 }
             }
         }
+
         for (i, block) in blocks.iter_mut().enumerate() {
             if let Op::Capacity(r, change, span) = block.op
                 && r == region
@@ -122,6 +133,7 @@ pub(super) fn refine(cx: &Cx, body: &LifetimeBody, blocks: &mut [Block]) {
                             Change::Reserve(n) => n <= capacity,
                             Change::UnknownAppend => true,
                         });
+
                 block.op = if room {
                     Op::MayGrow(r, span)
                 } else {

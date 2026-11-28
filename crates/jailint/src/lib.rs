@@ -125,9 +125,11 @@ pub(crate) fn lint_files_with_entry(
         &|_| true,
         &mut |_, found| out.extend(found),
     );
+
     if !done {
         return Vec::new();
     }
+
     out.sort_by(|a, b| (&a.path, a.start, a.rule).cmp(&(&b.path, b.start, b.rule)));
     out.dedup_by(|a, b| a.path == b.path && a.start == b.start && a.rule == b.rule);
     out
@@ -180,30 +182,39 @@ pub(crate) fn lint_each_with(
             .find(|f| f.id == id)
             .map(|f| f.module)
     }));
+
     run.lifetime_files.extend(files.iter().copied());
+
     if let Some(reach) = reach {
         let _ = run.reach.set(Some(reach));
     }
+
     let time_lifetimes = jacket_config::env::LIFETIME_STATS.is_set();
+
     if !compiler.ed.facts().is_some_and(|ide| ide.lint) {
         for &file in files.iter().filter(|&&f| pending(f)) {
             sink(file, Vec::new());
         }
+
         return true;
     }
+
     for &file in files.iter().filter(|&&f| pending(f)) {
         if jaic::interrupt::should_stop() {
             return false;
         }
+
         let mut out = Vec::new();
         let path = compiler.src.sources.get(file).path.to_string();
         let text = compiler.src.sources.get(file).text.clone();
         // Lex once; the parser hands the tokens back for the rules and suppressions.
         let (tokens, comments, lex_errors) = jaic::lexer::lex_with_trivia(file, &text);
+
         if !lex_errors.is_empty() {
             sink(file, Vec::new());
             continue;
         }
+
         let (ast, tokens) = jaic::parser::parse_tokens(file, &text, tokens);
         let Ok(ast) = ast else {
             sink(file, Vec::new());
@@ -218,10 +229,12 @@ pub(crate) fn lint_each_with(
             .map(|r| (r, config.level_at(r, at)))
             .filter(|(_, level)| *level != Level::Allow)
             .collect();
+
         if wanted.is_empty() {
             sink(file, Vec::new());
             continue;
         }
+
         if wanted
             .iter()
             .any(|(r, _)| r.name == rules::unreachable_declaration::INFO.name)
@@ -229,6 +242,7 @@ pub(crate) fn lint_each_with(
             run.reach
                 .get_or_init(|| rules::unreachable_declaration::analyze(compiler, complete));
         }
+
         let imports = if wanted.iter().any(|(r, _)| r.name == "unused_import") {
             rules::unused_import::prepare(compiler, &mut module_facts, file, &ast, &tokens)
         } else {
@@ -241,6 +255,7 @@ pub(crate) fn lint_each_with(
         };
         let suppressions = suppress::Suppressions::new(&text, &tokens, &comments, &ast);
         let mut cx = syntax::Cx::new(compiler, &text, &ast, &tokens, &comments, imports, &run);
+
         cx.complete = complete;
         cx.lifetime_mode = config
             .flag_lifetime_mode
@@ -262,10 +277,12 @@ pub(crate) fn lint_each_with(
             .max_frame_bytes
             .unwrap_or(config::DEFAULT_MAX_FRAME_BYTES);
         cx.doc_links = doc_links;
+
         for &(rule, level) in &wanted {
             if jaic::interrupt::should_stop() {
                 return false;
             }
+
             let mut found = Vec::new();
             let started = (time_lifetimes
                 && matches!(
@@ -279,7 +296,9 @@ pub(crate) fn lint_each_with(
                         | "returned_local_address"
                 ))
             .then(std::time::Instant::now);
+
             (rule.check)(&cx, &mut found);
+
             if let Some(started) = started {
                 eprintln!(
                     "lifetime-rule-time file={path} rule={} wall_ms={:.3}",
@@ -287,10 +306,12 @@ pub(crate) fn lint_each_with(
                     started.elapsed().as_secs_f64() * 1000.0
                 );
             }
+
             for f in found {
                 if suppressions.allows_rule(rule, f.start) {
                     continue;
                 }
+
                 out.push(Lint {
                     rule: rule.name,
                     level,
@@ -307,10 +328,13 @@ pub(crate) fn lint_each_with(
                         .filter_map(|(span, message)| {
                             // Generated inserts are explained at their writable source site.
                             let mut span = *span;
+
                             while let Some(site) = compiler.src.insert_sites.get(&span.file) {
                                 span = *site;
                             }
+
                             let source = compiler.src.sources.try_get(span.file)?;
+
                             Some(SecondaryLabel {
                                 path: source.path.to_string(),
                                 text: source.text.clone(),
@@ -324,16 +348,19 @@ pub(crate) fn lint_each_with(
                 });
             }
         }
+
         // After every other rule has had its say: what no finding used is stale.
         if complete
             && let Some(&(rule, level)) =
                 wanted.iter().find(|(r, _)| r.name == "unused_suppression")
         {
             let ran: Vec<&str> = wanted.iter().map(|(r, _)| r.name).collect();
+
             for stale in suppressions.unused(&|name| suppress::could_judge(name, &ran)) {
                 if suppressions.allows_rule(rule, stale.start) {
                     continue;
                 }
+
                 out.push(Lint {
                     rule: rule.name,
                     level,
@@ -349,14 +376,17 @@ pub(crate) fn lint_each_with(
                 });
             }
         }
+
         // A rule that was stopped reported only part of its findings.
         if jaic::interrupt::fired() {
             return false;
         }
+
         out.sort_by(|a, b| (&a.path, a.start, a.rule).cmp(&(&b.path, b.start, b.rule)));
         out.dedup_by(|a, b| a.path == b.path && a.start == b.start && a.rule == b.rule);
         sink(file, out);
     }
+
     true
 }
 

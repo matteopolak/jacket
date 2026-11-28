@@ -12,11 +12,13 @@ pub fn load(cwd: &Path) -> Result<Option<Loaded>, ConfigError> {
 /// reads the same file and prints them itself (`jailint`) leaves them to it.
 pub fn load_with(cwd: &Path, notes: bool) -> Result<Option<Loaded>, ConfigError> {
     let loaded = jacket_config::load(&Disk, cwd)?;
+
     if notes && let Some(loaded) = &loaded {
         for note in &loaded.notes {
             eprintln!("jacket: {note}");
         }
     }
+
     Ok(loaded)
 }
 
@@ -47,9 +49,11 @@ mod tests {
     #[test]
     fn a_project_pinned_to_another_release_is_an_error_naming_the_upgrade() {
         let file = Path::new("/p/jacket.toml");
+
         assert!(pinned_toolchain(None, file, "1.0.0").is_ok());
         assert!(pinned_toolchain(Some("1.0.0"), file, "1.0.0").is_ok());
         let error = pinned_toolchain(Some("0.9.0"), file, "1.0.0").unwrap_err();
+
         assert_eq!(
             error,
             "/p/jacket.toml asks for toolchain 0.9.0, but this is jacket 1.0.0\nhelp: run `jacket upgrade --version 0.9.0`, or change `[toolchain] version`"

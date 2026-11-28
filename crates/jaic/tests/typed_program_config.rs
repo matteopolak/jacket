@@ -12,16 +12,21 @@ fn compile_with_dependency(
     dependency: Option<&str>,
 ) -> (Compiler, jaic::sema::Result<()>) {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/Choice/module.jai", module.as_bytes());
     fs.insert("/app/main.jai", main.as_bytes());
+
     if let Some(source) = dependency {
         fs.insert("/lib/Dep/module.jai", source.as_bytes());
     }
+
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec!["/lib".into()];
     let mut compiler = Compiler::new(options, Rc::new(fs));
     let result = compiler.compile_program(Path::new("/app/main.jai"));
+
     (compiler, result)
 }
 
@@ -66,9 +71,11 @@ main :: () {
 #[test]
 fn interface_program_setting_can_use_a_plain_imports_independent_public_type() {
     let (compiler, result) = compile(INTERFACE, PLAIN_IMPORT);
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     assert_eq!(
         compiler
             .ns
@@ -86,6 +93,7 @@ fn polymorphic_program_setting_uses_the_configured_value_before_validation() {
         &INTERFACE.replace("$I/interface Protocol", "$I"),
         PLAIN_IMPORT,
     );
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
@@ -95,6 +103,7 @@ fn polymorphic_program_setting_uses_the_configured_value_before_validation() {
 fn an_early_public_member_condition_does_not_consume_the_default() {
     let main = format!("#if Public.Number == s64 {{ early :: true; }} {PLAIN_IMPORT}");
     let (compiler, result) = compile(INTERFACE, &main);
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
@@ -111,9 +120,11 @@ fn ordinary_interface_settings_keep_distinct_nominal_module_instances() {
         PLAIN_IMPORT.replace("\"Choice\"()(", "\"Choice\"(")
     );
     let (compiler, result) = compile(&module, &main);
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     assert_eq!(
         compiler
             .ns
@@ -132,6 +143,7 @@ fn unused_invalid_program_interface_is_still_rejected() {
         "M :: #import \"Choice\"()(Implementation=Broken); Broken :: struct {} main :: () {}",
     );
     let error = result.expect_err("unused interface contracts must be checked");
+
     assert!(
         error.message.contains("run"),
         "{}",
@@ -149,6 +161,7 @@ fn a_failed_header_contract_remains_an_error_on_repeated_expansion() {
     let repeated = compiler
         .expand_all()
         .expect_err("the error cannot be consumed");
+
     assert_eq!(original.message, repeated.message);
     assert_eq!(original.span, repeated.span);
 }
@@ -158,6 +171,7 @@ fn a_real_program_value_dependency_cycle_is_still_rejected() {
     let main = "Public :: #import \"Choice\"; Custom :: #import \"Choice\"()(Implementation=Hooks); Hooks :: Public.selected_type; main::(){}";
     let (compiler, result) = compile(INTERFACE, main);
     let error = result.expect_err("the selected value cannot depend on itself");
+
     assert!(
         error.message.contains("circular"),
         "{}",
@@ -170,6 +184,7 @@ fn conflicting_program_settings_are_still_rejected() {
     let main = "A :: #import \"Choice\"()(Implementation=One); B :: #import \"Choice\"()(Implementation=Two); One :: struct {run::(value:s64)->s64{return value;}} Two :: struct {run::(value:s64)->s64{return value;}} main::(){}";
     let (compiler, result) = compile(INTERFACE, main);
     let error = result.expect_err("conflicting settings cannot be overwritten");
+
     assert!(
         error.message.contains("another value"),
         "{}",
@@ -180,6 +195,7 @@ fn conflicting_program_settings_are_still_rejected() {
 #[test]
 fn a_valid_unused_default_contract_is_checked_without_configuration() {
     let (compiler, result) = compile(INTERFACE, "M :: #import \"Choice\"; main::(){}");
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
@@ -203,6 +219,7 @@ fn interfaces_loaded_only_while_lowering_a_body_are_still_checked() {
         );
         let (compiler, result) = compile(&module, &main);
         let error = result.expect_err("body-only modules also retain interface contracts");
+
         assert!(
             error.message.contains("run"),
             "{}",
@@ -221,6 +238,7 @@ fn modules_discovered_by_a_late_contract_keep_their_top_level_errors() {
         Some(dependency),
     );
     let error = result.expect_err("newly discovered module work must settle");
+
     assert!(
         error.message.contains("assert"),
         "{}",
@@ -237,15 +255,18 @@ fn late_module_runs_execute_once_and_repeated_settlement_is_idempotent() {
         "main :: () { M :: #import \"Choice\"; value: M.Number; }",
         Some(dependency),
     );
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     compiler.settle().unwrap();
     compiler
         .add_source(&jaic::sema::ProgramSource::String(
             "Observe :: #import \"Dep\"; #assert Observe.counter==1;".into(),
         ))
         .unwrap();
+
     if let Err(error) = compiler.settle() {
         panic!("{}", error.render(&compiler.src.sources));
     }

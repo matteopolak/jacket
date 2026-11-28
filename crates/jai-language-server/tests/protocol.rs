@@ -4,6 +4,7 @@ use serde_json::{Value, json};
 /// Hover text of `answer` (a syntax-only session) after initializing with `capabilities`.
 fn hover_with(capabilities: Value) -> Value {
     let mut session = JsonSession::new(Limits::default());
+
     send(
         &mut session,
         json!({
@@ -48,19 +49,24 @@ fn hovers_are_markdown_when_the_client_renders_it() {
     let markdown = hover_with(
         json!({ "textDocument": { "hover": { "contentFormat": ["markdown", "plaintext"] } } }),
     );
+
     assert_eq!(markdown["kind"], "markdown");
     let value = markdown["value"].as_str().unwrap();
+
     assert!(
         value.starts_with("```jai\nanswer :: () -> int {return 42;}\n```\n\nSource syntax"),
         "{value}"
     );
+
     for capabilities in [
         json!({}),
         json!({ "textDocument": { "hover": { "contentFormat": ["plaintext"] } } }),
     ] {
         let plain = hover_with(capabilities);
+
         assert_eq!(plain["kind"], "plaintext");
         let value = plain["value"].as_str().unwrap();
+
         assert!(
             value.starts_with("answer :: () -> int {return 42;}\n\nSource syntax declaration."),
             "{value}"
@@ -82,6 +88,7 @@ fn initialize(session: &mut JsonSession) {
         session,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
     );
+
     assert_eq!(
         output[0]["result"]["capabilities"]["positionEncoding"],
         "utf-16"
@@ -99,6 +106,7 @@ fn jsonrpc_lifecycle_and_notification_response_rules_are_real() {
         &mut session,
         json!({ "jsonrpc": "2.0", "id": 0, "method": "textDocument/hover", "params": {} }),
     );
+
     assert_eq!(before[0]["error"]["code"], -32002);
     initialize(&mut session);
     assert!(
@@ -112,6 +120,7 @@ fn jsonrpc_lifecycle_and_notification_response_rules_are_real() {
         &mut session,
         json!({ "jsonrpc": "2.0", "id": "stop", "method": "shutdown" }),
     );
+
     assert_eq!(shutdown[0]["id"], "stop");
     assert!(shutdown[0]["result"].is_null());
     assert!(send(&mut session, json!({ "jsonrpc": "2.0", "method": "exit" })).is_empty());
@@ -121,6 +130,7 @@ fn jsonrpc_lifecycle_and_notification_response_rules_are_real() {
 #[test]
 fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
     let mut session = JsonSession::new(Limits::default());
+
     initialize(&mut session);
     let text = "answer :: () -> int {return 42;}\nmain :: () -> int {return answer();}";
     let open = send(
@@ -138,9 +148,11 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
             },
         }),
     );
+
     assert_eq!(open[0]["method"], "textDocument/publishDiagnostics");
     assert_eq!(open[0]["params"]["version"], 1);
     assert_eq!(open[0]["params"]["diagnostics"], json!([]));
+
     for (id, method) in [
         (2, "textDocument/definition"),
         (3, "textDocument/hover"),
@@ -158,14 +170,18 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
                 },
             }),
         );
+
         assert!(out[0].get("error").is_none(), "{out:?}");
         assert!(!out[0]["result"].is_null());
+
         if method == "textDocument/definition" {
             assert_eq!(out[0]["result"][0]["range"]["start"]["line"], 0);
         }
+
         if method == "textDocument/hover" {
             assert_eq!(out[0]["result"]["contents"]["kind"], "plaintext");
         }
+
         if method == "textDocument/completion" {
             let answer = out[0]["result"]["items"]
                 .as_array()
@@ -173,10 +189,12 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
                 .iter()
                 .find(|item| item["label"] == "answer")
                 .unwrap();
+
             assert_eq!(answer["kind"], 3);
             assert!(answer["detail"].as_str().unwrap().contains("return 42"));
         }
     }
+
     let symbols = send(
         &mut session,
         json!({
@@ -186,6 +204,7 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
             "params": { "textDocument": { "uri": "file:///workspace/main.jai" } },
         }),
     );
+
     assert_eq!(symbols[0]["result"][0]["kind"], 12);
     assert!(symbols[0]["result"][0].get("children").is_none());
     let tokens = send(
@@ -198,6 +217,7 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
         }),
     );
     let data = tokens[0]["result"]["data"].as_array().unwrap();
+
     assert!(
         data.as_chunks::<5>()
             .0
@@ -215,6 +235,7 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
             },
         }),
     );
+
     assert_eq!(changed[0]["params"]["version"], 2);
     assert_eq!(changed[0]["params"]["diagnostics"][0]["severity"], 1);
     assert_eq!(changed[0]["params"]["diagnostics"][0]["code"], "parser");
@@ -232,12 +253,14 @@ fn versioned_diagnostics_completion_hover_and_definition_use_standard_shapes() {
             "params": { "textDocument": { "uri": "file:///workspace/main.jai" } },
         }),
     );
+
     assert_eq!(closed[0]["params"]["diagnostics"], json!([]));
 }
 
 #[test]
 fn queued_cancellation_and_completed_responses_have_distinct_semantics() {
     let mut session = JsonSession::new(Limits::default());
+
     initialize(&mut session);
     session.cancel_request(RequestId::Number(7)).unwrap();
     let output = send(
@@ -249,12 +272,14 @@ fn queued_cancellation_and_completed_responses_have_distinct_semantics() {
             "params": { "textDocument": { "uri": "file:///workspace/missing.jai" } },
         }),
     );
+
     assert_eq!(output[0]["error"]["code"], -32800);
     session.cancel_request(RequestId::Number(1)).unwrap();
     let repeated = send(
         &mut session,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "shutdown" }),
     );
+
     assert!(repeated[0].get("error").is_none());
 }
 
@@ -262,23 +287,27 @@ fn queued_cancellation_and_completed_responses_have_distinct_semantics() {
 fn malformed_json_invalid_identifiers_and_message_limits_fail_explicitly() {
     let mut session = JsonSession::new(Limits::default());
     let output: Value = serde_json::from_str(&session.handle_json("{").unwrap()[0]).unwrap();
+
     assert_eq!(output["error"]["code"], -32700);
     assert!(output["id"].is_null());
     let invalid = send(
         &mut session,
         json!({ "jsonrpc": "2.0", "id": true, "method": "initialize" }),
     );
+
     assert_eq!(invalid[0]["error"]["code"], -32600);
     let mut tiny = JsonSession::new(Limits {
         message_bytes: 4,
         ..Limits::default()
     });
+
     assert!(tiny.handle_json("{\"x\":1}").is_err());
 }
 
 #[test]
 fn deferred_publications_wait_for_the_flush_and_use_the_latest_text() {
     let mut session = JsonSession::new(Limits::default());
+
     session.defer_publications(true);
     initialize(&mut session);
     let uri = "file:///workspace/main.jai";
@@ -292,6 +321,7 @@ fn deferred_publications_wait_for_the_flush_and_use_the_latest_text() {
             },
         })
     };
+
     assert!(
         send(
             &mut session,
@@ -314,6 +344,7 @@ fn deferred_publications_wait_for_the_flush_and_use_the_latest_text() {
         .iter()
         .map(|m| serde_json::from_str(m).unwrap())
         .collect();
+
     assert_eq!(flushed.len(), 1);
     assert_eq!(flushed[0]["method"], "textDocument/publishDiagnostics");
     assert_eq!(flushed[0]["params"]["version"], 3);
@@ -335,11 +366,13 @@ fn doc_comments_reach_hover_and_completion_resolve_is_advertised() {
             } } },
         }),
     );
+
     assert_eq!(
         init[0]["result"]["capabilities"]["completionProvider"]["resolveProvider"],
         true
     );
     let text = "// Gives the answer.\n//\n// ```\n// x := answer();\n// ```\nanswer :: () -> int {return 42;}\nmain :: () -> int {return answer();}";
+
     send(
         &mut session,
         json!({
@@ -366,6 +399,7 @@ fn doc_comments_reach_hover_and_completion_resolve_is_advertised() {
         }),
     );
     let value = out[0]["result"]["contents"]["value"].as_str().unwrap();
+
     assert!(
         value.contains("Gives the answer.\n\n```jai\nx := answer();\n```"),
         "{value}"
@@ -375,6 +409,7 @@ fn doc_comments_reach_hover_and_completion_resolve_is_advertised() {
         &mut session,
         json!({ "jsonrpc": "2.0", "id": 3, "method": "completionItem/resolve", "params": item }),
     );
+
     assert_eq!(resolved[0]["result"]["label"], "answer");
 }
 
@@ -382,18 +417,23 @@ fn doc_comments_reach_hover_and_completion_resolve_is_advertised() {
 fn request_ids_may_be_any_whole_number_and_are_echoed_as_received() {
     for raw in ["1.0", "7", "-4", "9007199254740993", "\"abc\"", "\"1\""] {
         let mut session = JsonSession::new(Limits::default());
+
         initialize(&mut session);
         let request = format!(r#"{{"jsonrpc":"2.0","id":{raw},"method":"shutdown"}}"#);
         let output: Value =
             serde_json::from_str(&session.handle_json(&request).unwrap()[0]).unwrap();
+
         assert_eq!(output["id"].to_string(), raw);
         assert!(output.get("error").is_none(), "{raw}");
     }
+
     let mut session = JsonSession::new(Limits::default());
+
     for raw in ["1.5", "true", "null", "1e300"] {
         let request = format!(r#"{{"jsonrpc":"2.0","id":{raw},"method":"shutdown"}}"#);
         let output: Value =
             serde_json::from_str(&session.handle_json(&request).unwrap()[0]).unwrap();
+
         assert_eq!(output["error"]["code"], -32600, "{raw}");
     }
 }
@@ -401,11 +441,14 @@ fn request_ids_may_be_any_whole_number_and_are_echoed_as_received() {
 #[test]
 fn a_cancellation_matches_the_same_number_written_either_way() {
     let mut session = JsonSession::new(Limits::default());
+
     initialize(&mut session);
     let cancel = r#"{"jsonrpc":"2.0","method":"$/cancelRequest","params":{"id":7}}"#;
+
     session.handle_json(cancel).unwrap();
     let request = r#"{"jsonrpc":"2.0","id":7.0,"method":"textDocument/documentSymbol","params":{"textDocument":{"uri":"file:///workspace/missing.jai"}}}"#;
     let output: Value = serde_json::from_str(&session.handle_json(request).unwrap()[0]).unwrap();
+
     assert_eq!(output["error"]["code"], -32800);
     assert_eq!(output["id"].to_string(), "7.0");
 }

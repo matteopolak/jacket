@@ -27,6 +27,7 @@ impl Compiler {
         let instance = !info.poly_args.is_empty();
         let mut sites = Vec::new();
         let mut absorbed = Vec::new();
+
         for (field, f) in info.fields.iter().enumerate() {
             if f.name.is_some() {
                 let site = IdeFieldSite {
@@ -35,6 +36,7 @@ impl Compiler {
                     field,
                     offset: f.offset,
                 };
+
                 sites.push((f.span, site));
             } else if f.using
                 && let TypeKind::Struct(inner) = *self.ty.types.kind(f.ty)
@@ -43,6 +45,7 @@ impl Compiler {
                 absorbed.push((inner, f.offset));
             }
         }
+
         let sites: Vec<_> = sites
             .into_iter()
             .filter(|(span, _)| span.end > span.start && self.ide_wants(span.file))
@@ -57,11 +60,14 @@ impl Compiler {
         let Some(ide) = self.ed.facts_mut() else {
             return;
         };
+
         for name in names {
             ide.member_uses.insert((name, name));
         }
+
         for (span, site) in sites {
             let site = (!instance).then_some(site);
+
             ide.fields
                 .entry(span)
                 .and_modify(|old| {
@@ -71,6 +77,7 @@ impl Compiler {
                 })
                 .or_insert(site);
         }
+
         for (inner, base) in absorbed {
             for entry in ide.fields.values_mut() {
                 if let Some(site) = entry
@@ -78,6 +85,7 @@ impl Compiler {
                 {
                     site.owner = s;
                     site.offset += base;
+
                     if instance {
                         *entry = None;
                     }
@@ -95,14 +103,17 @@ impl Compiler {
         let refs = ide.refs_at(file, offset);
         let builtin_type = |mut ty| {
             ty = self.ty.types.repr_struct(ty);
+
             while let TypeKind::Pointer(inner) = *self.ty.types.kind(ty) {
                 ty = self.ty.types.repr_struct(inner);
             }
+
             !matches!(
                 self.ty.types.kind(ty),
                 TypeKind::Struct(_) | TypeKind::Enum(_)
             )
         };
+
         !refs.is_empty()
             && refs.iter().all(|r| match &r.what {
                 IdeWhat::Type(ty) => {
@@ -132,9 +143,11 @@ impl Compiler {
     /// starts the declaration (`name :: ...`).
     pub fn ide_definition(&mut self, file: FileId, offset: u32) -> Vec<Span> {
         let mut spans = self.ide_definition_in_sources(file, offset);
+
         for span in &mut spans {
             *span = self.ide_surface_span(*span);
         }
+
         spans.dedup();
         spans
     }
@@ -146,9 +159,11 @@ impl Compiler {
             let Some(source) = self.src.sources.try_get(span.file) else {
                 break;
             };
+
             if !source.path.is_virtual() {
                 break;
             }
+
             if let Some(&site) = self.src.insert_sites.get(&span.file) {
                 span = site;
             } else if let Some(&origin) = self.src.origins.get(&span.file) {
@@ -161,6 +176,7 @@ impl Compiler {
                 break;
             }
         }
+
         span
     }
 
@@ -168,6 +184,7 @@ impl Compiler {
     /// there (not moved to the `#insert` that wrote it).
     pub(super) fn ide_definition_in_sources(&mut self, file: FileId, offset: u32) -> Vec<Span> {
         self.ide_note_callee_at(file, offset);
+
         if let Some((_, ids)) = self.ide_filter_targets(file, offset) {
             return self.ide_narrow_decls(
                 ids.iter()
@@ -175,10 +192,12 @@ impl Compiler {
                     .collect(),
             );
         }
+
         if let Some(selection) = self.ed.facts().and_then(|ide| {
             (0..3).find_map(|delta| {
                 let start = offset.checked_sub(delta)?;
                 let end = start.checked_add(3)?;
+
                 ide.for_expansions.get(&Span {
                     file,
                     start,
@@ -193,10 +212,13 @@ impl Compiler {
                 .map(|&p| (self.proc(p).span, self.proc(p).name.to_string()))
                 .collect();
             let mut definitions = self.ide_narrow_decls(spans);
+
             definitions.sort_unstable_by_key(|s| (s.file.0, s.start, s.end));
             definitions.dedup();
+
             return definitions;
         }
+
         // A struct field or enum member: the declaration its use was matched to.
         if let Some(ide) = self.ed.facts()
             && let Some((_, decl)) = ide.member_use_at(file, offset)
@@ -204,8 +226,10 @@ impl Compiler {
         {
             return vec![decl];
         }
+
         let Some(r) = self.ed.facts().and_then(|ide| {
             let mut here = ide.refs_at(file, offset);
+
             self.ide_prefer_own_parameters(&mut here);
             here.into_iter()
                 .min_by_key(|r| r.span.end - r.span.start)
@@ -228,6 +252,7 @@ impl Compiler {
                     // As a recorded use does: a procedure (or an alias of procedures) goes to
                     // the procedures themselves.
                     let mut spans = Vec::new();
+
                     for id in ids {
                         let procs = match self.resolve_entity(id) {
                             Ok(Resolved::Proc(p)) => vec![p],
@@ -238,17 +263,20 @@ impl Compiler {
                                 continue;
                             }
                         };
+
                         spans.extend(
                             procs
                                 .into_iter()
                                 .map(|p| (self.proc(p).span, self.proc(p).name.to_string())),
                         );
                     }
+
                     self.ide_narrow_decls(spans)
                 }
                 None => Vec::new(),
             };
         };
+
         // A module's name (`B` of `B.print`): the start of its entry file.
         if let IdeWhat::Module(m) = r.what {
             return self.ns.modules[m.0 as usize]
@@ -262,6 +290,7 @@ impl Compiler {
                 .into_iter()
                 .collect();
         }
+
         let name = self.src.sources.snippet(r.span).to_string();
         let spans: Vec<(Span, String)> = match &r.what {
             IdeWhat::Entity(e) => vec![(self.entity(*e).span, name)],
@@ -292,6 +321,7 @@ impl Compiler {
             },
             IdeWhat::Member(_) | IdeWhat::Module(_) => Vec::new(),
         };
+
         self.ide_narrow_decls(spans)
     }
 
@@ -310,8 +340,10 @@ impl Compiler {
             if !bytes.get(at).is_some_and(|&b| word(b)) {
                 return None;
             }
+
             let start = (0..=at).rev().take_while(|&i| word(bytes[i])).last()?;
             let end = (at..bytes.len()).take_while(|&i| word(bytes[i])).last()? + 1;
+
             Some((start, end))
         };
         let (start, end) = word_at(offset as usize)?;
@@ -326,6 +358,7 @@ impl Compiler {
             let [id] = ids.as_slice() else {
                 return None;
             };
+
             match this.resolve_entity(*id).ok()? {
                 scope::Resolved::Module(module) => Some(module),
                 _ => None,
@@ -343,10 +376,13 @@ impl Compiler {
         let previous = bytes[..qualifier_start]
             .iter()
             .rposition(|b| !b.is_ascii_whitespace());
+
         if previous.is_some_and(|i| bytes[i] == b'.') {
             return None;
         }
+
         let module = alias(self, &text[qualifier_start..qualifier_end])?;
+
         match self.module_member_lookup(module, Sym::intern(&text[start..end])) {
             Ok(Found::Entities(ids)) if !ids.is_empty() => Some(IdeModuleName::Member(span, ids)),
             _ => None,
@@ -367,6 +403,7 @@ impl Compiler {
             })
             .map(|(s, name)| {
                 let text = self.src.sources.snippet(s);
+
                 if let Some(at) = text.find(name.as_str())
                     && text[..at].trim().is_empty()
                 {
@@ -376,8 +413,10 @@ impl Compiler {
                         end: s.start + (at + name.len()) as u32,
                     };
                 }
+
                 // A loop's span covers `for name: ...`: its `name :` inside.
                 let word = |c: char| c == '_' || c.is_alphanumeric();
+
                 if text.starts_with("for")
                     && let Some((at, _)) = text.match_indices(name.as_str()).find(|&(at, _)| {
                         text[at + name.len()..].trim_start().starts_with(':')
@@ -391,6 +430,7 @@ impl Compiler {
                         end: s.start + (at + name.len()) as u32,
                     };
                 }
+
                 // A procedure's span starts at its literal: find `name :` earlier on the line.
                 let source = self.src.sources.get(s.file);
                 let file = &source.text;
@@ -399,10 +439,12 @@ impl Compiler {
                     .rmatch_indices(name.as_str())
                     .find(|&(at, _)| {
                         let rest = &file[line + at + name.len()..];
+
                         rest.trim_start().starts_with(':')
                             && !file[..line + at]
                                 .ends_with(|c: char| c == '_' || c.is_alphanumeric())
                     });
+
                 match found {
                     Some((at, _)) => Span {
                         file: s.file,
@@ -431,9 +473,11 @@ impl Compiler {
                 Some(IdeReceiver::Module(m)) => self.module_member_lookup(m, *last).ok(),
                 Some(IdeReceiver::Type(t) | IdeReceiver::Value(t)) => {
                     let member = self.ide_member_decl(t, *last);
+
                     if member.is_some() {
                         return member.into_iter().collect();
                     }
+
                     return self.ide_struct_scope_decls(t, *last);
                 }
                 None => return self.ide_poly_struct_member(scope, first, *last),
@@ -446,6 +490,7 @@ impl Compiler {
             .into_iter()
             .map(|id| (self.entity(id).span, last.to_string()))
             .collect();
+
         self.ide_narrow_decls(spans)
     }
 
@@ -458,18 +503,21 @@ impl Compiler {
             return Vec::new();
         };
         let mut spans = Vec::new();
+
         for id in ids {
             let procs = match self.resolve_entity(id) {
                 Ok(Resolved::Proc(p)) => vec![p],
                 Ok(Resolved::ProcSet(ps)) => ps,
                 _ => return Vec::new(),
             };
+
             spans.extend(
                 procs
                     .into_iter()
                     .map(|p| (self.proc(p).span, self.proc(p).name.to_string())),
             );
         }
+
         self.ide_narrow_decls(spans)
     }
 
@@ -494,6 +542,7 @@ impl Compiler {
             ast::StmtKind::Decl(decl) => decl.names.as_slice(),
             _ => &[],
         });
+
         params
             .chain(fields)
             .filter(|ident| ident.name == name)
@@ -511,6 +560,7 @@ impl Compiler {
             .into_iter()
             .map(|id| (self.entity(id).span, name.to_string()))
             .collect();
+
         self.ide_narrow_decls(spans)
     }
 
@@ -518,11 +568,14 @@ impl Compiler {
     /// per instance; they all declare the same names).
     pub(super) fn struct_scope_entities(&self, t: TypeId, name: Sym) -> Vec<EntityId> {
         let mut out: Vec<EntityId> = Vec::new();
+
         for i in 0..self.ns.scopes.len() {
             let s = ScopeId(i as u32);
+
             if self.scope(s).kind != ScopeKind::Struct(t) {
                 continue;
             }
+
             if let Some(ids) = self.scope(s).names.get(&name) {
                 out.extend(ids.iter().copied().filter(|&id| {
                     matches!(
@@ -532,6 +585,7 @@ impl Compiler {
                 }));
             }
         }
+
         out
     }
 }

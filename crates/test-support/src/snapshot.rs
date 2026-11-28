@@ -53,11 +53,13 @@ fn repo_root() -> PathBuf {
 pub fn normalize_repo_paths(text: &str) -> String {
     let root = repo_root();
     let mut redactor = Redactor::new().root("[repo]", &root);
+
     if let Ok(current) = std::env::current_dir()
         && let Some(up) = relative_up(&current, &root)
     {
         redactor = redactor.relative("[repo]", &up);
     }
+
     redactor.apply(text)
 }
 
@@ -66,9 +68,11 @@ pub fn normalize_repo_paths(text: &str) -> String {
 #[must_use]
 pub fn normalize_paths(text: &str, roots: &[(&str, &Path)]) -> String {
     let mut redactor = Redactor::new();
+
     for (label, path) in roots {
         redactor = redactor.root(label, path);
     }
+
     redactor.apply(text)
 }
 
@@ -76,6 +80,7 @@ pub fn normalize_paths(text: &str, roots: &[(&str, &Path)]) -> String {
 fn relative_up(from: &Path, to: &Path) -> Option<String> {
     let from = from.canonicalize().ok()?;
     let depth = from.strip_prefix(to).ok()?.components().count();
+
     (depth > 0).then(|| vec![".."; depth].join("/"))
 }
 
@@ -113,6 +118,7 @@ impl Redactor {
             .replace('\\', "/");
         let slash = slash.trim_end_matches('/').to_string();
         let back = slash.replace('/', "\\");
+
         for spelling in [
             format!(r"\\?\{back}"),
             format!("//?/{slash}"),
@@ -122,6 +128,7 @@ impl Redactor {
         ] {
             self.add(spelling, label, false);
         }
+
         self
     }
 
@@ -131,6 +138,7 @@ impl Redactor {
     pub fn relative(mut self, label: &str, up: &str) -> Self {
         let slash = up.replace('\\', "/");
         let slash = slash.trim_end_matches('/').to_string();
+
         self.add(slash.replace('/', "\\"), label, true);
         self.add(slash, label, true);
         self
@@ -140,6 +148,7 @@ impl Redactor {
         if spelling.is_empty() || self.patterns.iter().any(|(s, _, _)| *s == spelling) {
             return;
         }
+
         self.patterns.push((spelling, label.to_string(), relative));
         self.patterns
             .sort_by_key(|(s, _, _)| std::cmp::Reverse(s.len()));
@@ -150,22 +159,27 @@ impl Redactor {
     pub fn apply(&self, text: &str) -> String {
         let mut out = String::with_capacity(text.len());
         let mut at = 0;
+
         while at < text.len() {
             let rest = &text[at..];
             let previous = text[..at].chars().next_back();
+
             if let Some((spelling, label)) = self.match_at(rest, previous) {
                 out.push_str(label);
                 let tail_end = rest[spelling.len()..]
                     .find(is_tail_end)
                     .map_or(rest.len(), |n| spelling.len() + n);
+
                 out.push_str(&rest[spelling.len()..tail_end].replace('\\', "/"));
                 at = text.len() - rest.len() + tail_end;
             } else {
                 let ch = rest.chars().next().expect("rest is not empty");
+
                 out.push(ch);
                 at += ch.len_utf8();
             }
         }
+
         out
     }
 
@@ -183,6 +197,7 @@ impl Redactor {
                     let in_name = c.is_alphanumeric() || matches!(c, '.' | '_' | '-');
                     !(in_name || (*relative && matches!(c, '/' | '\\' | ':')))
                 });
+
                 (ends_here && starts_here).then_some((spelling.as_str(), label.as_str()))
             })
     }
@@ -221,7 +236,9 @@ pub fn assert_generated_file(path: &Path, generated: &str, follow_up: &str) {
             .unwrap_or_else(|error| panic!("cannot write {}: {error}", path.display()));
         return;
     }
+
     let current = std::fs::read_to_string(path).unwrap_or_default();
+
     assert!(
         current == generated,
         "{} is stale: rerun the test with INSTA_UPDATE=always{follow_up}",
@@ -259,6 +276,7 @@ mod tests {
         let redactor = Redactor::new()
             .root("[repo]", Path::new("/work/repo"))
             .relative("[repo]", "../..");
+
         assert_eq!(
             redactor.apply("--> ../../stdlib/a.jai:1:1"),
             "--> [repo]/stdlib/a.jai:1:1"
@@ -315,6 +333,7 @@ mod tests {
                 ("[repo]", Path::new("/work/repo")),
             ],
         );
+
         assert_eq!(text, "[tmp]/a.jai [repo]/b.jai");
     }
 
@@ -333,6 +352,7 @@ mod tests {
     #[test]
     fn up_paths() {
         let dir = crate::tmp::TempDir::new("up");
+
         std::fs::create_dir_all(dir.join("a/b")).unwrap();
         assert_eq!(
             relative_up(&dir.join("a/b"), &dir).as_deref(),

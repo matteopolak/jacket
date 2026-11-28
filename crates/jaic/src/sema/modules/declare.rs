@@ -24,6 +24,7 @@ impl Compiler {
                 Err(error) => self.ed.keep_going(error)?,
             }
         }
+
         Ok(vis)
     }
 
@@ -43,6 +44,7 @@ impl Compiler {
         vis: ast::ScopeKind,
     ) -> Result<ast::ScopeKind> {
         let exported = vis == ast::ScopeKind::Export;
+
         if matches!(self.scope(scope).kind, ScopeKind::Struct(_)) {
             // Struct bodies: only constants are entities; fields are laid out separately.
             match &stmt.kind {
@@ -74,8 +76,10 @@ impl Compiler {
                 }
                 _ => {}
             }
+
             return Ok(vis);
         }
+
         match &stmt.kind {
             ast::StmtKind::Decl(..) => self.declare_decl_stmt(scope, file_scope, stmt, vis)?,
             ast::StmtKind::Import(..)
@@ -102,6 +106,7 @@ impl Compiler {
                 );
             }
         }
+
         Ok(vis)
     }
 
@@ -114,6 +119,7 @@ impl Compiler {
     ) -> Result<()> {
         let target = self.target_scope(scope, file_scope, vis);
         let exported = vis == ast::ScopeKind::Export;
+
         match &stmt.kind {
             ast::StmtKind::Decl(decl) => {
                 // `using _ :: struct {...}` may appear many times: each gets its own name.
@@ -125,8 +131,10 @@ impl Compiler {
                     }
                 };
                 let mut using_name = None;
+
                 for (index, name) in decl.names.iter().enumerate() {
                     let named = entity_name(self, name.name);
+
                     using_name.get_or_insert(named);
                     self.check_redeclared(target, named, name.span, Some(decl))?;
                     let id = self.add_entity(
@@ -139,8 +147,10 @@ impl Compiler {
                         },
                         exported,
                     );
+
                     self.entity_mut(id).file_private = vis == ast::ScopeKind::File;
                     self.entity_mut(id).home = file_scope;
+
                     if let Some(ast::Expr {
                         kind: ast::ExprKind::Proc(lit),
                         ..
@@ -149,6 +159,7 @@ impl Compiler {
                     {
                         self.ns.export_entities.push(id);
                     }
+
                     // A variable placed in a section is wanted by the linker script, not by code.
                     if decl.kind != ast::DeclKind::Const
                         && decl
@@ -158,12 +169,14 @@ impl Compiler {
                     {
                         self.ns.export_entities.push(id);
                     }
+
                     // Assembly the program is made of, not something code names.
                     if decl.kind == ast::DeclKind::Const
                         && decl.notes.iter().any(|n| n.is(MODULE_ASM_NOTE))
                     {
                         self.ns.export_entities.push(id);
                     }
+
                     // `L :: #library,link_always "x"` is linked even if nothing names it.
                     if let Some(ast::Expr {
                         kind: ast::ExprKind::UnknownDirective(directive),
@@ -176,10 +189,12 @@ impl Compiler {
                     {
                         self.ns.export_entities.push(id);
                     }
+
                     if !decl.notes.is_empty() || decl.kind == ast::DeclKind::Const {
                         self.note_declaration(id, decl);
                     }
                 }
+
                 // A procedure's body `#import`s are visible to the whole module (`#if`-guarded
                 // ones once their branch is checked).
                 if let Some(ast::Expr {
@@ -190,6 +205,7 @@ impl Compiler {
                 {
                     self.hoist_body_imports(file_scope, &body.stmts, true);
                 }
+
                 if decl.using
                     && decl.kind == ast::DeclKind::Const
                     && let [name] = decl.names.as_slice()
@@ -235,6 +251,7 @@ impl Compiler {
                             },
                             exported,
                         );
+
                         self.entity_mut(id).file_private = vis == ast::ScopeKind::File;
                         self.entity_mut(id).home = file_scope;
                     }
@@ -266,6 +283,7 @@ impl Compiler {
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
@@ -279,10 +297,12 @@ impl Compiler {
         let target = self.target_scope(scope, file_scope, vis);
         let exported = vis == ast::ScopeKind::Export;
         let file = self.scope_file(file_scope);
+
         match &stmt.kind {
             ast::StmtKind::Import(import) => {
                 self.validate_import_program_origin(file_scope, import)?;
                 self.note_program_params(file_scope, import);
+
                 if let Some(name) = import.name {
                     self.check_redeclared(target, name.name, name.span, None)?;
                     let id = self.add_entity(
@@ -292,7 +312,9 @@ impl Compiler {
                         EntityKind::Import(import.clone()),
                         exported,
                     );
+
                     self.entity_mut(id).home = file_scope;
+
                     if let Some(filter) = &import.using {
                         // `using Name :: #import "M"` also brings the module's names into scope;
                         // at module level (exported) they become the module's members too.
@@ -300,11 +322,14 @@ impl Compiler {
                             let index = self.scope(target).imports.len();
                             let module_id = self.scope(target).module;
                             let module = &mut self.ns.modules[module_id.0 as usize];
+
                             module.member_using_imports.push(index);
+
                             if exported {
                                 module.exported_using_imports.push(index);
                             }
                         }
+
                         self.push_import(
                             target,
                             ImportEntry {
@@ -327,6 +352,7 @@ impl Compiler {
                     } else {
                         target
                     };
+
                     // Anonymous `using,only/except(...) #import` exposes the
                     // selected original declarations just like its named form,
                     // without introducing a public namespace alias.
@@ -337,11 +363,14 @@ impl Compiler {
                         let index = self.scope(target).imports.len();
                         let module_id = self.scope(target).module;
                         let module = &mut self.ns.modules[module_id.0 as usize];
+
                         module.member_using_imports.push(index);
+
                         if exported {
                             module.exported_using_imports.push(index);
                         }
                     }
+
                     self.push_import(
                         target,
                         ImportEntry {
@@ -360,6 +389,7 @@ impl Compiler {
             } => {
                 let module = self.scope(scope).module;
                 let full = self.file_dir(file).join(&**path);
+
                 if self.file_is_loaded(&full, module) {
                     return Err(Box::new(
                         crate::sema::Diagnostic::new(
@@ -372,6 +402,7 @@ impl Compiler {
                         ),
                     ));
                 }
+
                 self.load_file(&full, module, *span)?;
             }
             ast::StmtKind::ModuleParameters(boxed) => {
@@ -381,6 +412,7 @@ impl Compiler {
                     body,
                 } = &**boxed;
                 let module = self.scope(scope).module;
+
                 if self.ns.main_module == Some(module) {
                     return err(
                         Code::ModuleParameters,
@@ -388,7 +420,9 @@ impl Compiler {
                         "#module_parameters can only be used at the top level of an imported module, not in a program file",
                     );
                 }
+
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
+
                 for import in self.ns.modules[module.0 as usize].argument_imports.clone() {
                     let ordinary = params
                         .iter()
@@ -398,12 +432,16 @@ impl Compiler {
                         .iter()
                         .filter_map(|p| p.name.map(|n| n.name))
                         .collect::<Vec<_>>();
+
                     self.validate_import_groups(&import, &ordinary, &program)?;
                 }
+
                 for (position, param) in params.iter().chain(runtime_params).enumerate() {
                     self.declare_module_parameter(scope, module, position, param, eval_scope)?;
                 }
+
                 self.validate_module_arguments(module, stmt.span)?;
+
                 // Reject unknown/duplicate arguments after all header names are known,
                 // before checking omissions. Program parameters may bind later.
                 for (position, param) in params.iter().enumerate() {
@@ -421,20 +459,26 @@ impl Compiler {
                         );
                     }
                 }
+
                 let program = runtime_params.iter().filter_map(|p| p.name.map(|n| n.name));
+
                 self.ns.modules[module.0 as usize]
                     .program_params
                     .extend(program);
+
                 // Registering a typed slot may reenter the loader. Check any
                 // requests queued during registration before releasing provenance.
                 for import in self.ns.modules[module.0 as usize].argument_imports.clone() {
                     self.validate_or_queue_import_groups(module, &import)?;
                 }
+
                 self.ns.modules[module.0 as usize].argument_imports.clear();
+
                 // The trailing block declares names the parameter defaults may use.
                 if let Some(body) = body {
                     self.declare_stmts(scope, file_scope, &body.stmts, vis)?;
                 }
+
                 // Keep contracts separate from declaration registration. Forming
                 // an importing hook type may itself need an unrelated public
                 // declaration from this module. Checking the default here would
@@ -448,6 +492,7 @@ impl Compiler {
                             .copied()
                             .find(|&id| self.entity(id).name == name)
                             .unwrap();
+
                         self.ns.modules[module.0 as usize].parameter_contracts.push(
                             ParameterContract {
                                 entity: id,
@@ -464,6 +509,7 @@ impl Compiler {
                     value,
                     filter,
                 } = &**boxed;
+
                 // `using Module;` / `using SomeStruct;` at file scope: resolved lazily.
                 self.push_pending(
                     target,
@@ -484,6 +530,7 @@ impl Compiler {
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
@@ -496,6 +543,7 @@ impl Compiler {
     ) -> Result<()> {
         let target = self.target_scope(scope, file_scope, vis);
         let exported = vis == ast::ScopeKind::Export;
+
         match &stmt.kind {
             ast::StmtKind::StaticIf(_)
             | ast::StmtKind::StaticSwitch(_)
@@ -517,16 +565,19 @@ impl Compiler {
                     message,
                     args,
                 } = &**boxed;
+
                 self.ct
                     .asserts
                     .push((cond.clone(), message.clone(), args.clone(), file_scope));
             }
             ast::StmtKind::AddContext(decl) => {
                 self.ns.add_contexts.push((decl.clone(), file_scope));
+
                 // Context already made (a `#run` needed it): extend it while its layout
                 // is still open.
                 if let Some(ty) = self.ty.context_type {
                     let s = self.ty.types.as_struct(ty).unwrap();
+
                     if self.ty.types.struct_info(s).layout == crate::types::LayoutState::Pending {
                         if let Some(src) = self.ty.struct_asts.get_mut(&s) {
                             src.extra.push((decl.clone(), file_scope));
@@ -564,6 +615,7 @@ impl Compiler {
                         "#poke_name takes a module and a name",
                     );
                 };
+
                 self.ns.pokes.push((module.clone(), *poked, file_scope));
             }
             // An unnamed `#library,link_always "c++";` is linked although nothing refers to it.
@@ -586,11 +638,13 @@ impl Compiler {
                         system: true
                     }
                 );
+
                 self.declare_library(file_scope, system, flags, args.first(), stmt.span)?;
             }
             ast::StmtKind::Directive(_) | ast::StmtKind::Empty => {}
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
@@ -607,6 +661,7 @@ impl Compiler {
                 );
             };
             let module_scope = self.ns.modules[module.0 as usize].scope;
+
             // The module sees the same entity (a copy would resolve to a second,
             // distinct type).
             for id in self.lookup(file_scope, name)? {
@@ -620,6 +675,7 @@ impl Compiler {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -642,6 +698,7 @@ impl Compiler {
         } else {
             ast::ScopeKind::Module
         };
+
         match &stmt.kind {
             ast::StmtKind::StaticIf(boxed) => {
                 let crate::ast::StaticIfStmt {
@@ -657,6 +714,7 @@ impl Compiler {
                 } else {
                     else_branch
                 };
+
                 self.ide_note_branches(boxed, taken);
                 self.declare_stmts(scope, file_scope, branch, vis)?;
             }
@@ -667,6 +725,7 @@ impl Compiler {
                     ..
                 } = &**boxed;
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
+
                 for case in self.static_switch_cases(eval_scope, value, cases)? {
                     self.declare_stmts(scope, file_scope, &case.body, vis)?;
                 }
@@ -677,6 +736,7 @@ impl Compiler {
                 } = &**boxed;
                 let stmts =
                     self.eval_insert_stmts(file_scope_for_eval(self, scope, file_scope), value)?;
+
                 self.declare_stmts(scope, file_scope, &stmts, vis)?;
             }
             ast::StmtKind::Using(boxed) => {
@@ -687,19 +747,23 @@ impl Compiler {
                 let eval_scope = file_scope_for_eval(self, scope, file_scope);
                 let entry = self.using_target(eval_scope, value)?;
                 let entry = self.filter_using_entry(eval_scope, entry, filter, stmt.span)?;
+
                 if exported
                     && entry.member_type().is_some()
                     && self.scope(scope).kind == ScopeKind::Module
                 {
                     let module = self.scope(scope).module;
+
                     self.ns.modules[module.0 as usize]
                         .exported_usings
                         .push(entry.clone());
                 }
+
                 if let UsingEntry::Module(used, filter) = &entry
                     && self.scope(scope).kind == ScopeKind::Module
                 {
                     let module = self.scope(scope).module;
+
                     self.ns.modules[module.0 as usize].using_modules.push(
                         crate::sema::ModuleUsing {
                             module: *used,
@@ -708,10 +772,12 @@ impl Compiler {
                         },
                     );
                 }
+
                 self.push_using(scope, entry);
             }
             _ => unreachable!("only conditional items are pending"),
         }
+
         Ok(())
     }
 }

@@ -46,11 +46,13 @@ fn directive_at(text: &str, at: usize) -> Option<&str> {
     let end = rest
         .find(|c: char| !(c.is_alphanumeric() || c == '_'))
         .unwrap_or(rest.len());
+
     Some(&rest[..end])
 }
 
 fn clip(text: &str, chars: usize) -> String {
     let one_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+
     if one_line.chars().count() > chars {
         let cut: String = one_line.chars().take(chars).collect();
         format!("{cut}…")
@@ -70,6 +72,7 @@ impl Session {
         query: impl FnOnce(&mut semantic::Analysis, FileId) -> T,
     ) -> Option<T> {
         let doc = self.document(uri).ok()?;
+
         self.with_semantic(uri, &doc.text, |a, path| {
             let file = a.file(path)?;
             Some(query(a, file))
@@ -89,6 +92,7 @@ impl Session {
             })
         } else {
             let doc = self.document(uri).ok()?;
+
             self.on_older_compile(uri, &doc.text, |analysis, path, shift| {
                 let file = analysis.file(path)?;
                 Some(query(analysis, file, shift))
@@ -99,9 +103,11 @@ impl Session {
     /// `span` of an open document as a range, if it lies on character boundaries.
     pub(crate) fn range_of(&self, uri: &DocumentUri, span: Span) -> Option<Range> {
         let doc = self.document(uri).ok()?;
+
         if span.end > doc.text.len() || span.start > span.end {
             return None;
         }
+
         doc.index.range(&doc.text, span).ok()
     }
 
@@ -121,6 +127,7 @@ impl Session {
                 .range(text, span)
                 .ok()?,
         };
+
         Some(Location {
             uri: target.as_str().into(),
             range,
@@ -183,6 +190,7 @@ impl jaic::sema::FileSystem for OpenFiles<'_> {
 /// names of `a, b := f()`), read from the tokens so it holds wherever `text` stopped parsing.
 fn inferred_name_ends(text: &str) -> HashSet<u32> {
     let tokens = jaic::lexer::lex_ide(FileId(0), text).0;
+
     ide_facts::inferred_name_spans(&tokens)
         .iter()
         .map(|s| s.end)
@@ -192,6 +200,7 @@ fn inferred_name_ends(text: &str) -> HashSet<u32> {
 /// A literal argument (a parameter name hint helps there).
 fn literal(source: &str) -> bool {
     let s = source.trim_start_matches('-');
+
     s.starts_with(|c: char| c.is_ascii_digit())
         || s.starts_with('"')
         || matches!(s, "true" | "false" | "null")
@@ -204,6 +213,7 @@ fn literal(source: &str) -> bool {
 fn inline_insert(text: &str, span: Span, code: &str) -> Option<(Span, String)> {
     let before = text[..span.start].trim_end();
     let statement = before.is_empty() || before.ends_with([';', '{', '}']);
+
     if statement {
         let rest = &text[span.end..];
         let semi = rest.trim_start_matches([' ', '\t']);
@@ -222,12 +232,16 @@ fn inline_insert(text: &str, span: Span, code: &str) -> Option<(Span, String)> {
             .lines()
             .collect::<Vec<_>>()
             .join(&format!("\n{indent}"));
+
         return Some((Span::new(span.start, end), body));
     }
+
     let code = code.trim().trim_end_matches(';').trim();
+
     if code.is_empty() {
         return None;
     }
+
     Some((span, format!("({code})")))
 }
 
@@ -240,8 +254,10 @@ fn open_call(text: &str, byte: usize) -> Option<(usize, Vec<&str>, usize, Option
     let mut at = byte.min(bytes.len());
     let mut current_start = byte;
     let limit = byte.saturating_sub(4096);
+
     while at > limit {
         at -= 1;
+
         match bytes[at] {
             b')' | b']' | b'}' => depth += 1,
             b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
@@ -251,52 +267,66 @@ fn open_call(text: &str, byte: usize) -> Option<(usize, Vec<&str>, usize, Option
                 if commas == 0 {
                     current_start = at + 1;
                 }
+
                 commas += 1;
             }
             b'"' => {
                 // Skip back over a string literal on this line.
                 let line = jaic::source::line_start(text, at);
+
                 at = text[line..at].rfind('"').map_or(at, |q| line + q);
             }
             _ => {}
         }
     }
+
     if bytes.get(at) != Some(&b'(') {
         return None;
     }
+
     if commas == 0 {
         current_start = at + 1;
     }
+
     let ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_' || b >= 0x80;
     let mut chain = Vec::new();
     let mut end = at;
+
     loop {
         let mut s = end;
+
         while s > 0 && ident(bytes[s - 1]) {
             s -= 1;
         }
+
         if s == end || bytes[s].is_ascii_digit() {
             break;
         }
+
         chain.push(&text[s..end]);
+
         if s > 0 && bytes[s - 1] == b'.' {
             end = s - 1;
         } else {
             break;
         }
     }
+
     if chain.is_empty() || matches!(chain[0], "if" | "while" | "for" | "cast" | "case" | "ifx") {
         return None;
     }
+
     chain.reverse();
     let current = text[current_start..byte].trim_start();
     let named = current.split_once('=').and_then(|(n, rest)| {
         let n = n.trim();
+
         (!rest.starts_with('=')
             && !n.is_empty()
             && n.chars().all(jaic::lexicon::is_identifier_char))
         .then(|| n.to_string())
     });
+
     Some((at, chain, commas, named))
 }
 
@@ -304,6 +334,7 @@ fn open_call(text: &str, byte: usize) -> Option<(usize, Vec<&str>, usize, Option
 fn param_type(param: &str) -> Option<&str> {
     let ty = param.split_once(':').map_or(param, |(_, ty)| ty);
     let ty = ty.split_once('=').map_or(ty, |(ty, _)| ty).trim();
+
     (!ty.starts_with("..")).then_some(ty)
 }
 
@@ -312,6 +343,7 @@ fn param_type(param: &str) -> Option<&str> {
 /// `clamp(x: float, lo: float, hi: float)` it is not.
 fn ambiguous_params(params: &[String]) -> Vec<bool> {
     let types: Vec<Option<&str>> = params.iter().map(|p| param_type(p)).collect();
+
     types
         .iter()
         .map(|ty| ty.is_some_and(|ty| types.iter().filter(|other| **other == Some(ty)).count() > 1))
@@ -326,11 +358,13 @@ mod tests {
     fn open_calls_find_the_callee_and_argument() {
         let text = "x := Math.clamp(a, f(b, c), ";
         let (open, chain, arg, named) = open_call(text, text.len()).unwrap();
+
         assert_eq!(&text[open..=open], "(");
         assert_eq!(chain, ["Math", "clamp"]);
         assert_eq!(arg, 2);
         assert_eq!(named, None);
         let text = "f(1, scale = ";
+
         assert_eq!(
             open_call(text, text.len()).unwrap().3.as_deref(),
             Some("scale")
@@ -344,6 +378,7 @@ mod tests {
         let start = text.find(jaic::lexicon::spelled::INSERT).unwrap();
         let end = text.find(";\n}").unwrap();
         let (span, body) = inline_insert(text, Span::new(start, end), "a := 1;\nb := 2;").unwrap();
+
         assert_eq!(&text[span.end - 1..span.end], ";");
         assert_eq!(body, "a := 1;\n    b := 2;");
     }
@@ -354,6 +389,7 @@ mod tests {
         let ends = inferred_name_ends(text);
         let end =
             |name: &str, n: usize| (text.match_indices(name).nth(n).unwrap().0 + name.len()) as u32;
+
         assert!(ends.contains(&end("x", 0)) && ends.contains(&end("a", 0)));
         assert!(ends.contains(&end("b", 0)) && ends.contains(&end("z", 0)));
         assert!(!ends.contains(&end("y", 0)));

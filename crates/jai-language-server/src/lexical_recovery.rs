@@ -6,7 +6,9 @@ pub(crate) fn mask(text: &str, damage: &[Span]) -> Option<String> {
     if damage.is_empty() {
         return None;
     }
+
     let mut bytes = text.as_bytes().to_vec();
+
     for span in damage {
         for byte in &mut bytes[span.start..span.end] {
             if !matches!(*byte, b'\n' | b'\r') {
@@ -14,6 +16,7 @@ pub(crate) fn mask(text: &str, damage: &[Span]) -> Option<String> {
             }
         }
     }
+
     Some(String::from_utf8(bytes).expect("whole lexical regions lie on UTF-8 boundaries"))
 }
 
@@ -24,12 +27,14 @@ pub(crate) fn update(old: &str, new: &str, previous: &[Span]) -> Vec<Span> {
     if jaic::parser::parse_file(FileId(0), new).is_ok() {
         return Vec::new();
     }
+
     // A text whose every literal and comment closes has no lexical damage to omit. Without this a
     // region that kept growing with the typing (a string closed at its edge) would never match a
     // lexical region of the new text and would stay masked.
     if jaic::lexer::lexical_regions(FileId(0), new).is_ok() {
         return Vec::new();
     }
+
     let old_view = mask(old, previous);
     let mut regions: Vec<Span> =
         jaic::lexer::lexical_regions(FileId(0), old_view.as_deref().unwrap_or(old))
@@ -37,12 +42,14 @@ pub(crate) fn update(old: &str, new: &str, previous: &[Span]) -> Vec<Span> {
             .into_iter()
             .map(|s| Span::new(s.start as usize, s.end as usize))
             .collect();
+
     regions.extend_from_slice(previous);
     let mut start = old
         .bytes()
         .zip(new.bytes())
         .take_while(|(a, b)| a == b)
         .count();
+
     start = old.floor_char_boundary(start);
     let suffix = old[start..]
         .bytes()
@@ -71,17 +78,22 @@ pub(crate) fn update(old: &str, new: &str, previous: &[Span]) -> Vec<Span> {
         }
     };
     let mut damage = Vec::new();
+
     for region in regions {
         let touched = region.start <= old_end && start <= region.end;
         let was_damaged = previous.contains(&region);
+
         if !touched && !was_damaged {
             continue;
         }
+
         let mapped = Span::new(map_start(region.start), map_end(region.end));
+
         if mapped.start < mapped.end {
             damage.push(mapped);
         }
     }
+
     damage.sort_by_key(|s| (s.start, s.end));
     damage.dedup();
     damage

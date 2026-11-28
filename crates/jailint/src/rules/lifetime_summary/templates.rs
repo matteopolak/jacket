@@ -6,10 +6,12 @@ pub(super) fn pushes_context(proc: &ProcLit) -> bool {
     if !proc.header.flags.expand() {
         return false;
     }
+
     let Some(body) = &proc.body else {
         return false;
     };
     let mut found = false;
+
     walk(&body.stmts, &mut |node, _| {
         if let Node::Stmt(s) = node {
             found |= match &s.kind {
@@ -20,6 +22,7 @@ pub(super) fn pushes_context(proc: &ProcLit) -> bool {
                 _ => false,
             };
         }
+
         !found
     });
     found

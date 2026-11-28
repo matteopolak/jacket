@@ -23,6 +23,7 @@ main :: () { x := weighted_a(2); }
 
 fn open(defer: bool, program: &str) -> Session {
     let mut s = session();
+
     s.defer_library_bodies(defer);
     s.open(uri(), 1, program.into()).unwrap();
     s
@@ -37,8 +38,10 @@ fn check(program: &str) {
 fn check_in(s: &Session, program: &str) {
     let use_site = at_offset(program, "a * 10", 0);
     let hover = s.hover(&uri(), use_site).unwrap().expect("hover");
+
     assert_eq!(hover.contents.value, "a: s64", "{hover:?}");
     let defs = s.definition(&uri(), use_site).unwrap();
+
     assert_eq!(defs.len(), 1, "{defs:?}");
     assert_eq!(defs[0].range.start, at(program, "a: int"), "{defs:?}");
 }

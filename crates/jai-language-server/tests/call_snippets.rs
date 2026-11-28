@@ -7,6 +7,7 @@ use test_support::lsp::{cursor, file_uri, lean_environment, session as stdlib_se
 
 fn session(snippets: bool, mode: CallSnippets) -> Session {
     let mut s = Session::with_environment(Limits::default(), lean_environment());
+
     s.set_snippet_support(snippets);
     s.set_call_snippets(mode);
     s
@@ -17,6 +18,7 @@ fn item(s: &mut Session, source: &str, label: &str) -> Option<CompletionItem> {
     let (text, at) = cursor(source);
     let uri = file_uri("/call-snippets/main.jai");
     let _ = s.close(&uri);
+
     s.open(uri.clone(), 1, text.clone()).unwrap();
     s.completion(&uri, at)
         .unwrap()
@@ -45,6 +47,7 @@ fn body(statement: &str) -> String {
 fn a_procedure_with_parameters_puts_the_cursor_inside_the_parentheses() {
     let mut s = session(true, CallSnippets::AddParentheses);
     let add = item(&mut s, &body("x := ad|"), "add").unwrap();
+
     assert_eq!(add.insert_text.as_deref(), Some("add($0)"));
     assert!(add.snippet);
     assert!(add.trigger_signature_help);
@@ -54,6 +57,7 @@ fn a_procedure_with_parameters_puts_the_cursor_inside_the_parentheses() {
 fn a_parameterless_procedure_gets_empty_parentheses() {
     let mut s = session(true, CallSnippets::AddParentheses);
     let now = item(&mut s, &body("x := no|"), "now").unwrap();
+
     assert_eq!(now.insert_text.as_deref(), Some("now()$0"));
     assert!(!now.trigger_signature_help);
 }
@@ -71,24 +75,29 @@ fn overloads_are_empty_only_when_every_overload_is() {
 fn fill_arguments_adds_a_placeholder_for_each_required_parameter() {
     let mut s = session(true, CallSnippets::FillArguments);
     let add = item(&mut s, &body("x := ad|"), "add").unwrap();
+
     assert_eq!(add.insert_text.as_deref(), Some("add(${1:a}, ${2:b})$0"));
     // Parameters with a default or `..` varargs are left for the caller.
     let greet = item(&mut s, &body("gre|"), "greet").unwrap();
+
     assert_eq!(greet.insert_text.as_deref(), Some("greet(${1:name})$0"));
     // Overloads cannot name their arguments.
     let twice = item(&mut s, &body("twic|"), "twice").unwrap();
+
     assert_eq!(twice.insert_text.as_deref(), Some("twice($0)"));
 }
 
 #[test]
 fn the_setting_none_and_a_client_without_snippets_leave_the_name_alone() {
     let mut s = session(true, CallSnippets::None);
+
     assert_eq!(
         item(&mut s, &body("x := ad|"), "add").unwrap().insert_text,
         None
     );
     let mut s = session(false, CallSnippets::AddParentheses);
     let add = item(&mut s, &body("x := ad|"), "add").unwrap();
+
     assert_eq!((add.insert_text, add.snippet), (None, false));
 }
 
@@ -110,14 +119,19 @@ fn no_parentheses_where_the_procedure_is_a_value() {
         ("v: ad|;", "add"),
         ("f :: () -> ad|;", "add"),
     ];
+
     for (statement, label) in negatives {
         let text = body(statement);
+
         assert_eq!(inserted(&text, label), None, "{statement}");
     }
+
     // A global initialiser cannot call at run time.
     let global = format!("{PROCEDURES}handler := ad|;\nmain :: () {{}}\n");
+
     assert_eq!(inserted(&global, "add"), None);
     let directive = body("#procedure_of_call ad|(1, 2);");
+
     assert_eq!(inserted(&directive, "add"), None);
 }
 
@@ -158,10 +172,12 @@ fn named_arguments_and_paths_are_not_calls() {
         main :: () {\n    x := scale(fac|);\n}\n";
     let mut s = session(true, CallSnippets::AddParentheses);
     let named = item(&mut s, source, "factor").unwrap();
+
     assert_eq!(named.insert_text.as_deref(), Some("factor = "));
     assert!(!named.trigger_signature_help);
     let import = "#import \"Bas|\";\n";
     let mut s = session(true, CallSnippets::AddParentheses);
+
     assert!(item(&mut s, import, "Basic").is_none_or(|i| !i.snippet));
 }
 
@@ -169,16 +185,19 @@ fn named_arguments_and_paths_are_not_calls() {
 fn statement_keywords_expand_to_a_skeleton() {
     let mut s = session(true, CallSnippets::AddParentheses);
     let for_loop = item(&mut s, &body("fo|"), "for").unwrap();
+
     assert_eq!(
         for_loop.insert_text.as_deref(),
         Some("for ${1:iterable} {\n    $0\n}")
     );
     let while_loop = item(&mut s, &body("whi|"), "while").unwrap();
+
     assert_eq!(
         while_loop.insert_text.as_deref(),
         Some("while ${1:condition} {\n    $0\n}")
     );
     let branch = item(&mut s, &body("i|"), "if").unwrap();
+
     assert!(branch.snippet);
     // In an expression the keyword stays a word, and so does one in front of existing code.
     assert_eq!(
@@ -193,6 +212,7 @@ fn statement_keywords_expand_to_a_skeleton() {
     );
     // Snippets are for clients that ask for them.
     let mut plain = session(false, CallSnippets::AddParentheses);
+
     assert_eq!(
         item(&mut plain, &body("fo|"), "for").unwrap().insert_text,
         None
@@ -204,14 +224,17 @@ fn case_expands_only_inside_the_braces_of_an_if_on_a_value() {
     let source = "main :: () {\n    x := 1;\n    if x == {\n        ca|\n    }\n}\n";
     let mut s = session(true, CallSnippets::AddParentheses);
     let case = item(&mut s, source, "case").unwrap();
+
     assert_eq!(case.insert_text.as_deref(), Some("case ${1:value};\n$0"));
     let elsewhere = item(&mut s, &body("ca|"), "case").unwrap();
+
     assert_eq!(elsewhere.insert_text, None);
 }
 
 fn request(session: &mut JsonSession, id: u64, method: &str, params: Value) -> Value {
     let message = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
     let out = session.handle_json(&message.to_string()).unwrap();
+
     out.iter()
         .map(|m| serde_json::from_str::<Value>(m).unwrap())
         .find(|m| m["id"] == json!(id))
@@ -220,11 +243,13 @@ fn request(session: &mut JsonSession, id: u64, method: &str, params: Value) -> V
 
 fn notify(session: &mut JsonSession, method: &str, params: Value) {
     let message = json!({ "jsonrpc": "2.0", "method": method, "params": params });
+
     session.handle_json(&message.to_string()).unwrap();
 }
 
 fn complete(session: &mut JsonSession, id: u64, text: &str, line: u32, character: u32) -> Value {
     let uri = "file:///call-snippets/wire.jai";
+
     notify(
         session,
         "textDocument/didOpen",
@@ -251,6 +276,7 @@ fn find<'a>(reply: &'a Value, label: &str) -> &'a Value {
 fn the_wire_item_is_a_snippet_that_asks_for_parameter_hints() {
     let text = "add :: (a: int, b: int) -> int { return a + b; }\nmain :: () {\n    ad\n}\n";
     let mut s = JsonSession::with_environment(Limits::default(), lean_environment());
+
     request(
         &mut s,
         1,
@@ -261,6 +287,7 @@ fn the_wire_item_is_a_snippet_that_asks_for_parameter_hints() {
     notify(&mut s, "initialized", json!({}));
     let reply = complete(&mut s, 2, text, 2, 6);
     let add = find(&reply, "add");
+
     assert_eq!(add["textEdit"]["newText"], "add($0)");
     assert_eq!(add["insertTextFormat"], 2);
     assert_eq!(
@@ -274,6 +301,7 @@ fn the_wire_item_is_a_snippet_that_asks_for_parameter_hints() {
         json!({ "settings": { "jai": { "completion": { "callSnippets": "fillArguments" } } } }),
     );
     let reply = complete(&mut s, 3, text, 2, 6);
+
     assert_eq!(
         find(&reply, "add")["textEdit"]["newText"],
         "add(${1:a}, ${2:b})$0"
@@ -285,6 +313,7 @@ fn the_wire_item_is_a_snippet_that_asks_for_parameter_hints() {
     );
     let reply = complete(&mut s, 4, text, 2, 6);
     let add = find(&reply, "add");
+
     assert_eq!(add["textEdit"]["newText"], "add");
     assert!(add.get("command").is_none());
 }
@@ -293,10 +322,12 @@ fn the_wire_item_is_a_snippet_that_asks_for_parameter_hints() {
 fn a_client_without_snippet_support_gets_plain_text() {
     let text = "add :: (a: int) {}\nmain :: () {\n    ad\n}\n";
     let mut s = JsonSession::with_environment(Limits::default(), lean_environment());
+
     request(&mut s, 1, "initialize", json!({ "capabilities": {} }));
     notify(&mut s, "initialized", json!({}));
     let reply = complete(&mut s, 2, text, 2, 6);
     let add = find(&reply, "add");
+
     assert_eq!(add["textEdit"]["newText"], "add");
     assert!(add.get("insertTextFormat").is_none());
 }
@@ -304,8 +335,10 @@ fn a_client_without_snippet_support_gets_plain_text() {
 #[test]
 fn an_auto_import_is_inserted_as_a_call_too() {
     let mut s = stdlib_session();
+
     s.set_snippet_support(true);
     let print = item(&mut s, "main :: () {\n    prin|\n}\n", "print").unwrap();
+
     assert!(!print.additional_edits.is_empty(), "{print:?}");
     assert_eq!(print.insert_text.as_deref(), Some("print($0)"));
 }
@@ -314,6 +347,7 @@ fn labels(s: &mut Session, source: &str, prefix: &str) -> Vec<String> {
     let (text, at) = cursor(source);
     let uri = file_uri("/call-snippets/main.jai");
     let _ = s.close(&uri);
+
     s.open(uri.clone(), 1, text.clone()).unwrap();
     s.completion(&uri, at)
         .unwrap()
@@ -329,9 +363,11 @@ fn postfix_templates_replace_the_receiver_and_the_word() {
     let mut s = session(true, CallSnippets::AddParentheses);
     let source = "main :: () {\n    flag := true;\n    flag.i|\n}\n";
     let item = item(&mut s, source, "if").unwrap();
+
     assert_eq!(item.insert_text.as_deref(), Some("if flag {\n    $0\n}"));
     assert_eq!(item.filter_text.as_deref(), Some("flag.if"));
     let range = item.replace.unwrap();
+
     assert_eq!(
         (range.start.line, range.start.character, range.end.character),
         (2, 4, 10)
@@ -343,10 +379,13 @@ fn statement_postfixes_stay_out_of_expressions() {
     let mut s = session(true, CallSnippets::AddParentheses);
     let statement = "main :: () {\n    flag := true;\n    flag.|\n}\n";
     let all = labels(&mut s, statement, "");
+
     for want in ["if", "while", "for", "return", "not", "ref"] {
         assert!(all.iter().any(|l| l == want), "{want} in {all:?}");
     }
+
     let expression = "main :: () {\n    flag := true;\n    other := flag.|\n}\n";
+
     assert_eq!(labels(&mut s, expression, ""), ["not", "ref"]);
 }
 
@@ -355,12 +394,15 @@ fn postfix_templates_need_a_value_receiver_and_a_snippet_client() {
     let mut s = session(true, CallSnippets::AddParentheses);
     // A type's members are its constants, not something to wrap.
     let ty = "Vec :: struct { x: int; }\nmain :: () {\n    Vec.|\n}\n";
+
     assert!(labels(&mut s, ty, "").is_empty());
     // A call's result is a value.
     let call = "make :: () -> bool { return true; }\nmain :: () {\n    make().|\n}\n";
+
     assert!(labels(&mut s, call, "").contains(&"if".to_owned()));
     let mut plain = session(false, CallSnippets::AddParentheses);
     let source = "main :: () {\n    flag := true;\n    flag.|\n}\n";
+
     assert!(labels(&mut plain, source, "").is_empty());
 }
 
@@ -380,6 +422,7 @@ fn closing_labels(s: &Session, uri: &DocumentUri, text: &str) -> Vec<(u32, Strin
             character: 0,
         },
     };
+
     s.inlay_hints(uri, end)
         .unwrap()
         .into_iter()
@@ -393,11 +436,13 @@ fn a_long_procedure_names_its_closing_brace() {
     let mut s = session(false, CallSnippets::AddParentheses);
     let uri = file_uri("/call-snippets/main.jai");
     let text = long_procedure();
+
     s.open(uri.clone(), 1, text.clone()).unwrap();
     assert_eq!(closing_labels(&s, &uri, &text), [(31, "// big".to_owned())]);
     // The threshold is a setting, and 0 turns the hints off.
     s.set_closing_brace_min_lines(3);
     let labels = closing_labels(&s, &uri, &text);
+
     assert_eq!(labels.len(), 2, "{labels:?}");
     s.set_closing_brace_min_lines(0);
     assert!(closing_labels(&s, &uri, &text).is_empty());
@@ -406,6 +451,7 @@ fn a_long_procedure_names_its_closing_brace() {
 #[test]
 fn the_closing_brace_setting_arrives_over_the_protocol() {
     let mut s = JsonSession::with_environment(Limits::default(), lean_environment());
+
     request(
         &mut s,
         1,
@@ -414,6 +460,7 @@ fn the_closing_brace_setting_arrives_over_the_protocol() {
     );
     notify(&mut s, "initialized", json!({}));
     let uri = "file:///call-snippets/closing.jai";
+
     notify(
         &mut s,
         "textDocument/didOpen",
@@ -429,6 +476,7 @@ fn the_closing_brace_setting_arrives_over_the_protocol() {
         )
     };
     let off = hints(&mut s, 2);
+
     assert!(
         off["result"].is_array() && !off.to_string().contains("// big"),
         "{off}"
@@ -439,5 +487,6 @@ fn the_closing_brace_setting_arrives_over_the_protocol() {
         json!({ "settings": { "jai": { "inlayHints": { "closingBraceMinLines": 25 } } } }),
     );
     let third = hints(&mut s, 3).to_string();
+
     assert!(third.contains("// big"), "{third}");
 }

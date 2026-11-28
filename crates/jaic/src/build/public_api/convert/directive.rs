@@ -19,9 +19,11 @@ impl Convert<'_, '_> {
     pub(super) fn run(&mut self, at: u64, ty: TypeId) -> R<(RunBody, Vec<Ident>)> {
         let flags = self.flag_names(at, SyntaxKey::Flags)?;
         let body = self.extra(at, SyntaxKey::RunBody)?;
+
         if body == 0 {
             let start = self.mark();
             let callee = self.child(at, ty, "procedure")?;
+
             self.word("()");
             let call = mk(
                 ExprKind::Call {
@@ -31,13 +33,16 @@ impl Convert<'_, '_> {
                 },
                 self.since(start),
             );
+
             return Ok((RunBody::Expr(call), flags));
         }
+
         let (name, _) = self.node_type(body)?;
         let body = if name == "BLOCK" {
             RunBody::Block(self.block(body)?)
         } else if STATEMENT_KINDS.contains(&name.as_str()) {
             let stmt = self.stmt(body)?;
+
             RunBody::Block(ast::Block {
                 span: stmt.span,
                 stmts: vec![stmt],
@@ -46,6 +51,7 @@ impl Convert<'_, '_> {
         } else {
             RunBody::Expr(self.expr(body)?)
         };
+
         Ok((body, flags))
     }
 
@@ -54,14 +60,17 @@ impl Convert<'_, '_> {
         let flags = self.flag_names(at, SyntaxKey::Flags)?;
         let scope = self.opt_expr(at, ty, "scope_redirection")?;
         let mut replacements = Vec::new();
+
         for (keyword, field) in [
             ("break", "break_replacement"),
             ("continue", "continue_replacement"),
             ("remove", "remove_replacement"),
         ] {
             let value = self.ptr(at, ty, field)?;
+
             if value != 0 {
                 let name = self.name(keyword);
+
                 self.word("=");
                 replacements.push(ast::Arg {
                     name: Some(name),
@@ -72,6 +81,7 @@ impl Convert<'_, '_> {
                 });
             }
         }
+
         Ok(InsertStmt {
             value: self.child(at, ty, "expression")?,
             flags,
@@ -89,10 +99,12 @@ impl Convert<'_, '_> {
         };
         let alias = self.attribute(at, SyntaxKey::Alias)?;
         let name = (!alias.is_empty()).then(|| self.name(&alias));
+
         self.word("#import");
         let kind = self.int_attribute(at, SyntaxKey::ImportKind)?;
         let flags = self.flag_names(at, SyntaxKey::Flags)?;
         let path: Arc<str> = self.text(at, ty, "name")?.into();
+
         self.word(&super::quote_bytes(path.as_bytes()));
         let source = match kind {
             0 => ImportSource::Module(path),
@@ -105,20 +117,24 @@ impl Convert<'_, '_> {
         let module = self.ptr(at, ty, "module_parameters_call")?;
         let program = self.ptr(at, ty, "program_parameters_call")?;
         let mut params = Vec::new();
+
         if module != 0 {
             self.word("(");
             params = self.arguments(module, call, "arguments_unsorted")?;
             self.word(")");
         }
+
         let program_params_start = if program == 0 {
             None
         } else {
             let start = params.len();
+
             self.word("(");
             params.extend(self.arguments(program, call, "arguments_unsorted")?);
             self.word(")");
             Some(start)
         };
+
         Ok(Import {
             source,
             params,
@@ -134,9 +150,11 @@ impl Convert<'_, '_> {
     /// A `PLACEHOLDER` statement: `#placeholder`, a generic directive, or an expression.
     pub(super) fn directive_stmt(&mut self, at: u64, name: &str, ty: TypeId) -> R<StmtKind> {
         let directive = self.attribute(at, SyntaxKey::DirectiveName)?;
+
         if directive == "placeholder" {
             self.word("#placeholder");
             let names = self.extra_list(at, SyntaxKey::DirectiveArgs)?;
+
             return Ok(StmtKind::Placeholder(
                 names
                     .into_iter()
@@ -144,6 +162,7 @@ impl Convert<'_, '_> {
                     .collect::<R<_>>()?,
             ));
         }
+
         if GENERIC_DIRECTIVES.contains(&directive.as_str()) {
             let span = self.word(&format!("#{directive}"));
             let flags = self.flag_names(at, SyntaxKey::Flags)?;
@@ -152,6 +171,7 @@ impl Convert<'_, '_> {
                 .into_iter()
                 .map(|arg| self.expr(arg))
                 .collect::<R<_>>()?;
+
             return Ok(StmtKind::Directive(Box::new(DirectiveStmt {
                 name: Ident {
                     name: Sym::intern(&directive),
@@ -162,6 +182,7 @@ impl Convert<'_, '_> {
                 args,
             })));
         }
+
         Ok(StmtKind::Expr(self.expr_node(at, name, ty)?))
     }
 
@@ -170,10 +191,13 @@ impl Convert<'_, '_> {
         if self.num(at, ty, "no_parameters")? != 0 {
             return Err(Trap::new("cannot serialize using without parameters"));
         }
+
         self.word("using");
+
         if self.num(at, ty, "filter_type")? == 0 {
             return Ok(UsingFilter::None);
         }
+
         let kind = if self.enum_is(at, ty, "filter_type", "ONLY")? {
             UsingFilterKind::Only
         } else if self.enum_is(at, ty, "filter_type", "EXCEPT")? {
@@ -183,16 +207,20 @@ impl Convert<'_, '_> {
         } else {
             return Err(Trap::new("unknown using filter"));
         };
+
         if let Some(expr) = self.opt_expr(at, ty, "filter_expression")? {
             return Ok(UsingFilter::Computed {
                 kind,
                 expr,
             });
         }
+
         let original = self.int_attribute(at, SyntaxKey::StaticFilter)?;
+
         if original == 0 || (original == 3) != (kind == UsingFilterKind::Map) {
             return Err(Trap::new("using filter has no matching argument syntax"));
         }
+
         let arguments = self.attribute(at, SyntaxKey::FilterArguments)?;
         self.filter_names(kind, &arguments)
     }
@@ -201,11 +229,14 @@ impl Convert<'_, '_> {
     pub(super) fn private_using(&mut self, at: u64) -> R<UsingFilter> {
         self.word("using");
         let expression = self.extra(at, SyntaxKey::FilterExpression)?;
+
         if expression == 0 {
             let filter = self.attribute(at, SyntaxKey::Filter)?;
+
             if filter.is_empty() {
                 return Ok(UsingFilter::None);
             }
+
             let parsed = filter.strip_prefix(',').and_then(|rest| {
                 let (kind, rest) = rest.split_once('(')?;
                 Some((kind.to_owned(), rest.strip_suffix(')')?.to_owned()))
@@ -217,14 +248,17 @@ impl Convert<'_, '_> {
                 _ => return Err(Trap::new("unknown private using filter")),
             };
             let arguments = parsed.map(|(_, arguments)| arguments).unwrap_or_default();
+
             return self.filter_names(kind, &arguments);
         }
+
         let kind = match self.int_attribute(at, SyntaxKey::FilterKind)? {
             1 => UsingFilterKind::Only,
             2 => UsingFilterKind::Except,
             3 => UsingFilterKind::Map,
             _ => return Err(Trap::new("unknown private using filter")),
         };
+
         Ok(UsingFilter::Computed {
             kind,
             expr: self.expr(expression)?,
@@ -237,17 +271,23 @@ impl Convert<'_, '_> {
             .split(',')
             .map(str::trim)
             .filter(|part| !part.is_empty());
+
         if kind == UsingFilterKind::Map {
             let mut pairs = Vec::new();
+
             for part in parts {
                 let Some((from, to)) = part.split_once('=') else {
                     return Err(Trap::new("using filter has no matching argument syntax"));
                 };
+
                 pairs.push((self.name(from.trim()), self.name(to.trim())));
             }
+
             return Ok(UsingFilter::Map(pairs));
         }
+
         let names = parts.map(|part| self.name(part)).collect();
+
         Ok(match kind {
             UsingFilterKind::Only => UsingFilter::Only(names),
             _ => UsingFilter::Except(names),
@@ -258,6 +298,7 @@ impl Convert<'_, '_> {
         if !self.flag(at, SyntaxKey::AsmPresent)? {
             return Err(Trap::new("assembly node has no syntax metadata"));
         }
+
         self.word("#asm");
         let features = self.attribute(at, SyntaxKey::Features)?;
         let features = features
@@ -268,6 +309,7 @@ impl Convert<'_, '_> {
             .collect::<Vec<_>>();
         let features = self.idents(features);
         let mut items = Vec::new();
+
         for item in self.extra_list(at, SyntaxKey::AsmItems)? {
             items.push(
                 if self.attribute(item, SyntaxKey::AsmKind)? == "declaration" {
@@ -278,6 +320,7 @@ impl Convert<'_, '_> {
             );
             self.word(";");
         }
+
         Ok(AsmBlock {
             features,
             items,
@@ -303,16 +346,20 @@ impl Convert<'_, '_> {
         };
         let mut operands = Vec::new();
         let mut rounded = false;
+
         for operand in self.extra_list(at, SyntaxKey::Operands)? {
             let operand = self.asm_operand(operand)?;
+
             rounded |= !matches!(operand, AsmOperand::Mem(_));
             operands.push(operand);
         }
+
         if round.is_some() && !rounded {
             return Err(Trap::new(
                 "assembly rounding modifier requires a register operand",
             ));
         }
+
         let mask = self.extra(at, SyntaxKey::Mask)?;
         let mask = if mask == 0 {
             None
@@ -320,6 +367,7 @@ impl Convert<'_, '_> {
             let zeroing = self.flag(at, SyntaxKey::Zeroing)?;
             Some((Box::new(self.asm_operand(mask)?), zeroing))
         };
+
         Ok(AsmInst {
             mnemonic,
             size,
@@ -337,10 +385,13 @@ impl Convert<'_, '_> {
             "declaration" => Ok(AsmOperand::Decl(self.asm_decl(at)?)),
             "memory" => {
                 let start = self.mark();
+
                 self.word("[");
                 let mut terms = Vec::new();
+
                 for term in self.extra_list(at, SyntaxKey::Terms)? {
                     let negate = self.flag(term, SyntaxKey::Negate)?;
+
                     if negate || !terms.is_empty() {
                         self.word(if negate {
                             "-"
@@ -348,16 +399,19 @@ impl Convert<'_, '_> {
                             "+"
                         });
                     }
+
                     let Some(value) = self.extra_expr(term, SyntaxKey::Value)? else {
                         return Err(Trap::new("a memory operand term needs a value"));
                     };
                     let scale = self.extra_expr(term, SyntaxKey::Scale)?;
+
                     terms.push(AsmMemTerm {
                         negate,
                         value,
                         scale,
                     });
                 }
+
                 self.word("]");
                 Ok(AsmOperand::Mem(AsmMem {
                     terms,
@@ -387,6 +441,7 @@ impl Convert<'_, '_> {
                 Err(_) => AsmPin::Name(self.name(&pin)),
             })
         };
+
         Ok(AsmDecl {
             name,
             colon,

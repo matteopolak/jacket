@@ -47,48 +47,61 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         if !p.clean || p.is_macro || !eligible(cx, p) {
             continue;
         }
+
         let h = p.header;
+
         // An empty body is a stub or a placeholder: its signature is the point.
         if p.body.stmts.is_empty() {
             continue;
         }
+
         // Code `#insert`ed into the body may use any parameter.
         if cx.has_insert(p.body.span.start, p.body.span.end) {
             continue;
         }
+
         let proc_name = p
             .decl
             .and_then(|d| d.names.first())
             .map_or("", |n| n.name.as_str());
         // Looked up lazily: it reads files, and most procedures have no unused parameter.
         let mut variant = None;
+
         for param in &h.params {
             let Some(name) = param.name else {
                 continue;
             };
+
             if name.name.as_str().starts_with('_') || param.baked || param.auto_bake {
                 continue;
             }
+
             // `x: [$N] $T`: the argument is how the call settles `N` and `T`.
             if cx.has_dollar(param.span) {
                 continue;
             }
+
             let ents = cx.locals(param.span);
+
             if ents.is_empty() {
                 continue;
             }
+
             if ents.iter().any(|&e| cx.compiler.is_used(e))
                 || cx.mentions(name.name, h.span.start, p.body.span.end, name.span)
             {
                 continue;
             }
+
             if *variant.get_or_insert_with(|| has_variant(cx, p, proc_name)) {
                 break;
             }
+
             out.push(Finding {
                 secondary: Vec::new(),
                 start: name.span.start as usize,
@@ -118,6 +131,7 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
     let Some(decl) = p.decl else {
         return false;
     };
+
     if f.c_call()
         || f.expand()
         || f.compiler()
@@ -134,26 +148,33 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
     {
         return false;
     }
+
     let name = decl.names.first().map_or("", |n| n.name.as_str());
+
     // The program's entry point is called by the runtime, not by anything in view.
     if name == cx.compiler.options.entry_point {
         return false;
     }
+
     let ids = cx.procs_with_header(h.span);
+
     if ids.is_empty() {
         return false;
     }
+
     let compiler = cx.compiler;
     let Some(file) = compiler.src.files.iter().find(|f| f.id == cx.file) else {
         return false;
     };
     let module_scope = compiler.ns.modules[file.module.0 as usize].scope;
     let in_main = Some(file.module) == compiler.ns.main_module;
+
     for &id in &*ids {
         let info = compiler.proc(id);
         // The name as the file and its module see it (a `#scope_file` overload lives in the
         // file's scope, a public one in the module's).
         let mut seen = Vec::new();
+
         for sc in [info.scope, file.scope, module_scope] {
             for &e in compiler
                 .scope(sc)
@@ -167,29 +188,36 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
                 }
             }
         }
+
         // Overloads share a shape.
         if seen.len() > 1 {
             return false;
         }
+
         // Exported from a module: callers may be anywhere.
         let private = seen.iter().all(|&e| {
             let ent = compiler.entity(e);
             ent.file_private || matches!(ent.kind, EntityKind::Local { .. })
         });
+
         if !in_main && !private {
             return false;
         }
     }
+
     // Every mention is a call, and there is at least one.
     let mut calls = 0;
+
     for &id in &*ids {
         for use_ in &*cx.compiler.ide_uses_of_proc(id) {
             if !is_callee(cx, *use_) {
                 return false;
             }
+
             calls += 1;
         }
     }
+
     calls > 0
 }
 
@@ -197,14 +225,17 @@ fn eligible(cx: &Cx, p: &ProcSite) -> bool {
 fn is_callee(cx: &Cx, span: jaic::source::Span) -> bool {
     let called = |tokens: &[Token]| {
         let next = tokens.partition_point(|t| t.span.start < span.end);
+
         matches!(
             tokens.get(next).map(|t| &t.tok),
             Some(Tok::Punct(P::LParen))
         )
     };
+
     if span.file == cx.file {
         return called(cx.tokens);
     }
+
     let Some(tokens) = cx.run.tokens(cx.compiler, span.file) else {
         return false;
     };
@@ -246,6 +277,7 @@ fn has_variant(cx: &Cx, own: &ProcSite, name: &str) -> bool {
                 .is_some_and(|n| n.name.as_str() == name)
             && signature(q.header) == sig
     });
+
     same_file || variant_in_unloaded_file(cx, name, &sig)
 }
 
@@ -266,6 +298,7 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
     let cached = cx.run.variants.borrow().get(dir).cloned();
     let variants = cached.unwrap_or_else(|| {
         let v = Rc::new(load_variants(dir));
+
         cx.run
             .variants
             .borrow_mut()
@@ -281,9 +314,11 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
             p.as_path() != path && defs.get(name).is_some_and(|l| l.iter().any(|s| s == sig))
         })
         .peekable();
+
     if candidates.peek().is_none() {
         return false;
     }
+
     let own = canonical(cx, path);
     let loaded: Vec<PathBuf> = cx
         .compiler
@@ -292,6 +327,7 @@ fn variant_in_unloaded_file(cx: &Cx, name: &str, sig: &Signature) -> bool {
         .iter()
         .filter_map(|f| Some(canonical(cx, f.path.as_file()?)))
         .collect();
+
     candidates.any(|(p, _)| {
         let p = canonical(cx, p);
         p != own && !loaded.contains(&p)
@@ -356,12 +392,15 @@ impl RunState {
 
 fn load_variants(dir: &Path) -> Variants {
     let mut dirs = vec![dir.to_path_buf()];
+
     if let Some(up) = dir.parent() {
         dirs.push(up.to_path_buf());
         dirs.extend(jaic::paths::subdirs_of(up).into_iter().filter(|p| p != dir));
     }
+
     let mut out = Variants::new();
     let mut budget = MAX_FILES;
+
     for d in dirs {
         let files = jaic::paths::jai_files_in(&d).into_iter().filter(|p| {
             p.file_name()
@@ -369,19 +408,23 @@ fn load_variants(dir: &Path) -> Variants {
                 .is_some_and(|n| !n.ends_with(".fixed.jai"))
                 && p.metadata().is_ok_and(|m| m.len() <= MAX_FILE_SIZE)
         });
+
         for f in files {
             if budget == 0 {
                 return out;
             }
+
             budget -= 1;
             let Some(defs) = file_defs(&f) else {
                 continue;
             };
+
             if !defs.is_empty() {
                 out.push((f, defs));
             }
         }
     }
+
     out
 }
 
@@ -403,6 +446,7 @@ const DEFS_KEPT: usize = 2000;
 fn file_defs(path: &Path) -> Option<Defs> {
     let meta = std::fs::metadata(path).ok()?;
     let stamp = meta.modified().ok();
+
     if let Some(stamp) = stamp
         && let Some(found) = DEFS.with(|d| {
             d.borrow()
@@ -413,20 +457,26 @@ fn file_defs(path: &Path) -> Option<Defs> {
     {
         return Some(found);
     }
+
     let text = std::fs::read_to_string(path).ok()?;
     let ast = jaic::parser::parse_file(jaic::source::FileId(u32::MAX), &text).ok()?;
     let mut found = HashMap::default();
+
     top_level(&ast.stmts, &mut found);
     let defs = Defs::new(found);
+
     if let Some(stamp) = stamp {
         DEFS.with(|d| {
             let mut d = d.borrow_mut();
+
             if d.len() >= DEFS_KEPT {
                 d.clear();
             }
+
             d.insert(path.to_path_buf(), (stamp, meta.len(), defs.clone()));
         });
     }
+
     Some(defs)
 }
 
@@ -454,6 +504,7 @@ fn top_level(list: &[jaic::ast::Stmt], defs: &mut HashMap<String, Vec<Signature>
                 }
             }
         }
+
         true
     });
 }

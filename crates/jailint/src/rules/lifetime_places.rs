@@ -41,6 +41,7 @@ impl Places {
         let events: Vec<_> = body.blocks.iter().flat_map(|b| &b.events).collect();
         let contexts = context::aliases(body);
         let slots: HashMap<_, _> = body.slot_aliases.iter().copied().collect();
+
         for event in &events {
             let typed = match **event {
                 Event::Store {
@@ -75,10 +76,12 @@ impl Places {
                 } => Some((v, base_ty)),
                 _ => None,
             };
+
             if let Some((value, ty)) = typed
                 && let Some(&canonical) = slots.get(&value)
             {
                 let id = this.place(canonical, ty);
+
                 this.values.insert((value, ty), id);
             }
         }
@@ -97,14 +100,18 @@ impl Places {
                 } => Some((v, base_ty)),
                 _ => None,
             };
+
             if let Some((value, ty)) = typed
                 && let Some(&source) = contexts.get(&value)
             {
                 let id = this.place(source, ty);
+
                 this.values.insert((value, ty), id);
             }
         }
+
         let mut globals = HashMap::default();
+
         for event in &events {
             if let Event::Expression {
                 operand: LifetimeOperand::Place(v),
@@ -122,9 +129,11 @@ impl Places {
                     jaic::ir::Storage::Foreign(id) => (true, id.0, ty),
                 };
                 let id = *globals.entry(key).or_insert_with(|| this.place(v, ty));
+
                 this.values.insert((v, ty), id);
             }
         }
+
         // A single, unexposed pointer slot is an immutable SSA source for this body.
         // Repeated loads must project from the same holder, including pointer parameters.
         let mut pointer_stores = HashMap::<Val, Vec<(Val, usize, usize)>>::default();
@@ -137,6 +146,7 @@ impl Places {
                 _ => None,
             })
             .collect();
+
         for (block, b) in body.blocks.iter().enumerate() {
             for (ordinal, event) in b.events.iter().enumerate() {
                 if let Event::Store {
@@ -154,6 +164,7 @@ impl Places {
                 }
             }
         }
+
         for (block, b) in body.blocks.iter().enumerate() {
             for (ordinal, event) in b.events.iter().enumerate() {
                 if let Event::Parameter {
@@ -168,8 +179,10 @@ impl Places {
                 {
                     this.stable_parameters.insert(incoming);
                     let root = this.place(incoming, ty);
+
                     this.values.insert((place, ty), root);
                 }
+
                 if let Event::Load {
                     place,
                     value,
@@ -183,10 +196,12 @@ impl Places {
                     && ((*from == block && *at < ordinal) || (*from == 0 && block != 0))
                 {
                     let source = this.place(*source, ty);
+
                     this.values.insert((value, ty), source);
                 }
             }
         }
+
         for event in &events {
             match **event {
                 Event::Field {
@@ -203,9 +218,11 @@ impl Places {
                         continue;
                     };
                     let mut parent = this.place(base, base_ty);
+
                     if indirect {
                         parent = this.project(parent, Projection::Deref);
                     }
+
                     this.types.insert(
                         parent,
                         if indirect {
@@ -215,10 +232,13 @@ impl Places {
                         },
                     );
                     let field = this.project(parent, Projection::Field(name));
+
                     this.values.insert((result, result_ty), field);
                     this.types.insert(field, result_ty);
+
                     if descriptor {
                         this.descriptor_fields.insert(field, parent);
+
                         if name.as_str() == "data" {
                             this.data.insert(field, (parent, span));
                         }
@@ -236,12 +256,14 @@ impl Places {
                     let projection =
                         index.map_or(Projection::DynamicElement(result), Projection::Element);
                     let element = this.project(parent, projection);
+
                     this.values.insert((result, result_ty), element);
                     this.types.insert(element, result_ty);
                 }
                 _ => {}
             }
         }
+
         for event in events {
             if let Event::Indirect {
                 place,
@@ -249,8 +271,10 @@ impl Places {
             } = *event
             {
                 let id = this.place(place, ty);
+
                 this.indirect.insert(id);
             }
+
             if let Event::Expression {
                 operand: LifetimeOperand::Place(v),
                 ty,
@@ -258,9 +282,11 @@ impl Places {
             } = *event
             {
                 let id = this.place(v, ty);
+
                 this.types.insert(id, ty);
             }
         }
+
         this
     }
 
@@ -268,7 +294,9 @@ impl Places {
         if let Some(&id) = self.values.get(&(value, ty)) {
             return id;
         }
+
         let id = self.intern_root((value, ty));
+
         self.values.insert((value, ty), id);
         id
     }
@@ -277,7 +305,9 @@ impl Places {
         if let Some(&id) = self.root_ids.get(&root) {
             return id;
         }
+
         let id = self.paths.len();
+
         self.paths.push((root, Vec::new()));
         self.parents.push(None);
         self.roots.push(id);
@@ -289,9 +319,12 @@ impl Places {
         if let Some(&id) = self.child_ids.get(&(base, projection)) {
             return id;
         }
+
         let (root, mut path) = self.paths[base].clone();
+
         path.push(projection);
         let id = self.paths.len();
+
         self.paths.push((root, path));
         self.parents.push(Some(base));
         self.roots.push(self.roots[base]);
@@ -308,22 +341,28 @@ impl Places {
     pub fn contains(&self, parent: usize, child: usize) -> bool {
         let (a, pa) = &self.paths[parent];
         let (b, pb) = &self.paths[child];
+
         a == b && pb.starts_with(pa)
     }
 
     pub fn import(&mut self, other: &Self, id: usize) -> usize {
         let (root, path) = &other.paths[id];
         let mut target = self.intern_root(*root);
+
         for &projection in path {
             target = self.project(target, projection);
         }
+
         if let Some(&ty) = other.types.get(&id) {
             self.types.insert(target, ty);
         }
+
         if let Some(&(owner, span)) = other.data.get(&id) {
             let owner = self.import(other, owner);
+
             self.data.insert(target, (owner, span));
         }
+
         target
     }
 
@@ -340,6 +379,7 @@ impl Places {
 
     pub fn stable_projection(&self, place: usize) -> bool {
         let ((root, _), path) = &self.paths[place];
+
         self.stable_parameters.contains(root)
             && path.first() == Some(&Projection::Deref)
             && path.iter().filter(|p| **p == Projection::Deref).count() == 1
@@ -356,6 +396,7 @@ impl Places {
 
     pub fn lookup(&self, other: &Self, place: usize) -> Option<usize> {
         let (root, path) = &other.paths[place];
+
         path.iter()
             .try_fold(*self.root_ids.get(root)?, |at, projection| {
                 self.child_ids.get(&(at, *projection)).copied()
@@ -369,27 +410,34 @@ impl Places {
     pub fn descendants(&self, parent: usize) -> Vec<usize> {
         let mut result = Vec::new();
         let mut queue = self.children.get(&parent).cloned().unwrap_or_default();
+
         while let Some(id) = queue.pop() {
             result.push(id);
+
             if let Some(children) = self.children.get(&id) {
                 queue.extend(children);
             }
         }
+
         result
     }
 
     pub fn copied_fields(&mut self, target: usize, source: usize) -> Vec<(usize, usize)> {
         let mut pairs = Vec::new();
+
         // Either side can introduce the field: a returned aggregate's output buffer
         // need not have an explicit member expression in this body.
         for (from, to, reverse) in [(target, source, false), (source, target, true)] {
             let depth = self.paths[from].1.len();
+
             for id in self.descendants(from) {
                 let suffix = self.paths[id].1[depth..].to_vec();
                 let mut other = to;
+
                 for projection in suffix {
                     other = self.project(other, projection);
                 }
+
                 pairs.push(if reverse {
                     (other, id)
                 } else {
@@ -397,6 +445,7 @@ impl Places {
                 });
             }
         }
+
         pairs.sort_unstable();
         pairs.dedup();
         pairs

@@ -29,18 +29,22 @@ impl Convert<'_, '_> {
 
     pub(super) fn opt_expr(&mut self, at: u64, ty: TypeId, field: &str) -> R<Option<Expr>> {
         let child = self.ptr(at, ty, field)?;
+
         if child == 0 {
             return Ok(None);
         }
+
         self.expr(child).map(Some)
     }
 
     /// An attribute node as an expression.
     pub(super) fn extra_expr(&mut self, at: u64, key: SyntaxKey) -> R<Option<Expr>> {
         let child = self.extra(at, key)?;
+
         if child == 0 {
             return Ok(None);
         }
+
         self.expr(child).map(Some)
     }
 
@@ -58,6 +62,7 @@ impl Convert<'_, '_> {
             "UNARY_OPERATOR" => self.unary(at, ty)?,
             "PROCEDURE_CALL" => {
                 let (callee, args, hint) = self.call(at, ty)?;
+
                 ExprKind::Call {
                     callee: Box::new(callee),
                     args,
@@ -67,14 +72,18 @@ impl Convert<'_, '_> {
             "CAST" => self.cast(at, ty)?,
             "IF" => {
                 let flags = self.num(at, ty, "if_flags")?;
+
                 if flags & 2 == 0 {
                     return Err(Trap::new("an if statement cannot be used as an expression"));
                 }
+
                 self.word("ifx");
                 let cond = self.child(at, ty, "condition")?;
+
                 self.word("then");
                 let then_value = self.value_block(at, ty, "then_block")?;
                 let else_value = self.value_block(at, ty, "else_block")?;
+
                 ExprKind::Ifx {
                     cond: Box::new(cond),
                     then_value: then_value.map(Box::new),
@@ -86,12 +95,14 @@ impl Convert<'_, '_> {
             "PROCEDURE_HEADER" => return self.procedure(at, ty),
             "PROCEDURE_BODY" => {
                 let header = self.ptr(at, ty, "header")?;
+
                 return self.node(header, |c, name, ty| {
                     if name != "PROCEDURE_HEADER" {
                         return Err(Trap::new(format!(
                             "a procedure body's header must be a PROCEDURE_HEADER, got {name}"
                         )));
                     }
+
                     c.procedure(header, ty)
                 });
             }
@@ -104,6 +115,7 @@ impl Convert<'_, '_> {
             }
             "DIRECTIVE_BAKE" => {
                 let constants = self.enum_is(at, ty, "bake_type", "CONSTANTS_BAKE")?;
+
                 self.word(if constants {
                     "#bake_constants"
                 } else {
@@ -118,6 +130,7 @@ impl Convert<'_, '_> {
                 else {
                     return Err(Trap::new("#bake_arguments requires a procedure call"));
                 };
+
                 ExprKind::Bake {
                     callee,
                     args,
@@ -126,6 +139,7 @@ impl Convert<'_, '_> {
             }
             "DIRECTIVE_INSERT" => {
                 let insert = self.insert(at, ty)?;
+
                 ExprKind::Insert(Box::new(ast::InsertExpr {
                     value: insert.value,
                     flags: insert.flags,
@@ -155,6 +169,7 @@ impl Convert<'_, '_> {
             }
             "DIRECTIVE_CODE" => {
                 self.word("#code");
+
                 if self.has(at, ty, "code_flags", "NULL")? {
                     let span = self.word("null");
                     ExprKind::Code(Arc::new(CodeBody::Expr(mk(ExprKind::Null, span))))
@@ -173,6 +188,7 @@ impl Convert<'_, '_> {
             }
             "DIRECTIVE_CONTEXT_TYPE" => {
                 let span = self.word("#context_type");
+
                 ExprKind::UnknownDirective(Box::new(UnknownDirective {
                     name: ast::Ident {
                         name: Sym::intern("context_type"),
@@ -190,7 +206,9 @@ impl Convert<'_, '_> {
                 if self.num(at, ty, "flags")? & 1 != 0 {
                     return Err(Trap::new("#assert cannot be used as an expression"));
                 }
+
                 let (body, flags) = self.run(at, ty)?;
+
                 ExprKind::Run {
                     body: Arc::new(body),
                     flags,
@@ -212,19 +230,23 @@ impl Convert<'_, '_> {
                 )));
             }
         };
+
         Ok(mk(kind, self.since(start)))
     }
 
     fn ident(&mut self, at: u64, ty: TypeId) -> R<Expr> {
         let start = self.mark();
         let name = self.text(at, ty, "name")?;
+
         if name.is_empty() {
             return Err(Trap::new("an identifier needs a name"));
         }
+
         let flags = self.num(at, ty, "flags")?;
         let sym = Sym::intern(&name);
         let expr = if flags & 1 != 0 {
             let baked = self.flag(at, SyntaxKey::PolyBaked)?;
+
             self.word(&format!(
                 "{}${name}",
                 if baked {
@@ -242,19 +264,23 @@ impl Convert<'_, '_> {
             } else {
                 self.word("/");
                 let interface = self.flag(at, SyntaxKey::Interface)?;
+
                 if interface {
                     self.word("interface");
                 }
+
                 ExprKind::PolyRestricted {
                     name: sym,
                     restriction: Box::new(self.expr(restriction)?),
                     interface,
                 }
             };
+
             mk(kind, self.since(start))
         } else {
             mk(ExprKind::Ident(sym), self.word(&name))
         };
+
         Ok(if flags & 0x40 != 0 {
             mk(ExprKind::Backtick(Box::new(expr)), self.since(start))
         } else {
@@ -268,11 +294,13 @@ impl Convert<'_, '_> {
             1 => return self.number(at, ty),
             2 => {
                 let raw = self.raw(at, ty, "_string")?;
+
                 self.word(&quote_bytes(&raw));
                 ExprKind::Str(raw.into())
             }
             3 => {
                 let value = self.num(at, ty, "_s64")? != 0;
+
                 self.word(if value {
                     "true"
                 } else {
@@ -282,16 +310,21 @@ impl Convert<'_, '_> {
             }
             7 => {
                 let info = self.ptr(at, ty, "struct_literal_info")?;
+
                 if info == 0 {
                     return Err(Trap::new("a struct literal needs its struct_literal_info"));
                 }
+
                 let literal = self.ty("Code_Struct_Literal_Info")?;
                 let target = self.opt_expr(info, literal, "type_expression")?;
+
                 self.word(".{");
                 let mut fields = Vec::new();
+
                 for argument in self.list(info, literal, "arguments")? {
                     fields.push(self.struct_field(argument)?);
                 }
+
                 self.word("}");
                 ExprKind::StructLit {
                     ty: target.map(Box::new),
@@ -300,17 +333,21 @@ impl Convert<'_, '_> {
             }
             6 => {
                 let info = self.ptr(at, ty, "array_literal_info")?;
+
                 if info == 0 {
                     return Err(Trap::new("an array literal needs its array_literal_info"));
                 }
+
                 let literal = self.ty("Code_Array_Literal_Info")?;
                 let element = self.opt_expr(info, literal, "element_type")?;
+
                 self.word(".[");
                 let elems = self
                     .list(info, literal, "array_members")?
                     .into_iter()
                     .map(|member| self.expr(member))
                     .collect::<R<Vec<_>>>()?;
+
                 self.word("]");
                 ExprKind::ArrayLit {
                     ty: element.map(Box::new),
@@ -319,12 +356,15 @@ impl Convert<'_, '_> {
             }
             8 => {
                 let info = self.ptr(at, ty, "pointer_literal_info")?;
+
                 if info != 0 {
                     let literal = self.ty("Code_Pointer_Literal_Info")?;
+
                     if self.num(info, literal, "data_pointer")? != 0 {
                         return Err(Trap::new("cannot serialize an opaque pointer literal"));
                     }
                 }
+
                 self.word("null");
                 ExprKind::Null
             }
@@ -334,12 +374,14 @@ impl Convert<'_, '_> {
             }
             value => return Err(Trap::new(format!("unsupported literal value kind {value}"))),
         };
+
         Ok(mk(kind, self.since(start)))
     }
 
     /// `name = value` and `target = value` fields are `=` operators.
     fn struct_field(&mut self, at: u64) -> R<ast::Arg> {
         let (name, ty) = self.node_type(at)?;
+
         if name == "BINARY_OPERATOR" && self.num(at, ty, "operator_type")? == u64::from(b'=') {
             let left = self.ptr(at, ty, "left")?;
             let (left_name, _) = self.node_type(left)?;
@@ -348,7 +390,9 @@ impl Convert<'_, '_> {
             } else {
                 (None, Some(Box::new(self.expr(left)?)))
             };
+
             self.word("=");
+
             return Ok(ast::Arg {
                 name,
                 target,
@@ -357,6 +401,7 @@ impl Convert<'_, '_> {
                 value: self.child(at, ty, "right")?,
             });
         }
+
         Ok(ast::Arg {
             name: None,
             target: None,
@@ -377,9 +422,11 @@ impl Convert<'_, '_> {
                 Some(digits) => (true, digits.to_owned()),
                 None => (false, spelling),
             };
+
             if negate {
                 self.word("-");
             }
+
             let span = self.word(&digits);
             let Some(Tok::Float(value)) = crate::lexer::lex(PLACEHOLDER_FILE, &digits)
                 .ok()
@@ -388,6 +435,7 @@ impl Convert<'_, '_> {
             else {
                 return Err(Trap::new("edited float literal does not spell a float"));
             };
+
             (negate, mk(ExprKind::float_literal(value, &digits), span))
         } else if self.has(at, ty, "value_flags", "HEX")?
             || self.has(at, ty, "value_flags", "BINARY")?
@@ -397,15 +445,18 @@ impl Convert<'_, '_> {
             } else {
                 value
             };
+
             if negative {
                 self.word("-");
             }
+
             let spelling = if self.has(at, ty, "value_flags", "BINARY")? {
                 format!("0b{magnitude:b}")
             } else {
                 format!("0x{magnitude:x}")
             };
             let span = self.word(&spelling);
+
             (
                 negative,
                 mk(
@@ -420,10 +471,13 @@ impl Convert<'_, '_> {
             } else {
                 value
             };
+
             if negate {
                 self.word("-");
             }
+
             let span = self.word(&magnitude.to_string());
+
             (
                 negate,
                 mk(
@@ -432,6 +486,7 @@ impl Convert<'_, '_> {
                 ),
             )
         };
+
         Ok(if negate {
             mk(
                 ExprKind::Unary(UnOp::Neg, Box::new(kind)),
@@ -446,6 +501,7 @@ impl Convert<'_, '_> {
     /// category (whether it defaults to or requires `float64`).
     fn float_spelling(&mut self, at: u64, ty: TypeId, bits: u64) -> R<String> {
         let value = f64::from_bits(bits);
+
         if self.has(at, ty, "value_flags", "HEX")? {
             let negative = self.has(at, ty, "value_flags", "MINUS_SIGN")?;
             let magnitude = if negative {
@@ -457,13 +513,16 @@ impl Convert<'_, '_> {
                 format!("0h{:016x}", magnitude.to_bits())
             } else {
                 let narrow = magnitude as f32;
+
                 if f64::from(narrow).to_bits() != magnitude.to_bits() {
                     return Err(Trap::new(
                         "edited float literal is not representable at its declared precision",
                     ));
                 }
+
                 format!("0h{:08x}", narrow.to_bits())
             };
+
             return Ok(format!(
                 "{}{text}",
                 if negative {
@@ -473,9 +532,11 @@ impl Convert<'_, '_> {
                 }
             ));
         }
+
         if value.is_nan() {
             return Err(Trap::new("cannot serialize a decimal NaN literal"));
         }
+
         let wanted = if self.has(at, ty, "value_flags", "REQUIRES_FLOAT64")? {
             9
         } else if self.has(at, ty, "value_flags", "DEFAULTS_TO_FLOAT64")? {
@@ -488,6 +549,7 @@ impl Convert<'_, '_> {
         } else {
             ""
         };
+
         if value.is_infinite() {
             let digits = if wanted == 9 {
                 "1.000000001"
@@ -496,9 +558,11 @@ impl Convert<'_, '_> {
             };
             return Ok(format!("{sign}{digits}e999"));
         }
+
         if value == 0.0 && wanted > 0 {
             return Ok(format!("{sign}0.{}1e-999", "0".repeat(wanted - 1)));
         }
+
         let scientific = format!("{:.16e}", value.abs());
         let (coefficient, exponent) = scientific
             .split_once('e')
@@ -511,10 +575,12 @@ impl Convert<'_, '_> {
             .expect("scientific formatting has a numeric exponent")
             - fraction as i32;
         let mut digits = coefficient.replace('.', "");
+
         while digits.len() > 1 && digits.ends_with('0') {
             digits.pop();
             exponent += 1;
         }
+
         let text = if wanted == 0 {
             format!("{digits}.0")
         } else if digits.len() <= wanted {
@@ -529,29 +595,41 @@ impl Convert<'_, '_> {
     fn binary(&mut self, at: u64, ty: TypeId) -> R<ExprKind> {
         let op = self.num(at, ty, "operator_type")?;
         let left = self.ptr(at, ty, "left")?;
+
         if op == u64::from(b'.') {
             if left == 0 {
                 self.word(".");
                 let child = self.ptr(at, ty, "right")?;
+
                 return Ok(ExprKind::InferredMember(self.ident_name(child)?));
             }
+
             let base = self.expr(left)?;
+
             self.word(".");
             let child = self.ptr(at, ty, "right")?;
             let member = self.ident_name(child)?;
+
             return Ok(ExprKind::Member(Box::new(base), member));
         }
+
         let left = self.expr(left)?;
+
         if op == 500 {
             self.word("[");
             let index = self.child(at, ty, "right")?;
+
             self.word("]");
+
             return Ok(ExprKind::Index(Box::new(left), Box::new(index)));
         }
+
         if super::stmt::assign_op(op).is_some() {
             return Err(Trap::new("an assignment cannot be used as an expression"));
         }
+
         let (op, symbol) = bin_op(op)?;
+
         self.word(symbol);
         let right = self.child(at, ty, "right")?;
         Ok(ExprKind::Binary(op, Box::new(left), Box::new(right)))
@@ -567,6 +645,7 @@ impl Convert<'_, '_> {
             137 | 168 | 169 => UnOp::Deref,
             value => return Err(Trap::new(format!("unsupported operator {value}"))),
         };
+
         if op != UnOp::Deref {
             self.word(match op {
                 UnOp::Neg => "-",
@@ -576,10 +655,13 @@ impl Convert<'_, '_> {
                 _ => "*",
             });
         }
+
         let value = self.child(at, ty, "subexpression")?;
+
         if op == UnOp::Deref {
             self.word(".*");
         }
+
         Ok(ExprKind::Unary(op, Box::new(value)))
     }
 
@@ -597,21 +679,25 @@ impl Convert<'_, '_> {
             _ => CallHint::None,
         };
         let callee = self.child(at, ty, "procedure_expression")?;
+
         self.word("(");
         let mut args = self.arguments(at, ty, "arguments_unsorted")?;
         let changes = self.extra_list(at, SyntaxKey::ContextArguments)?;
         let names = self.attribute(at, SyntaxKey::ContextNames)?;
         let names = names.split(',').map(str::to_owned).collect::<Vec<_>>();
+
         for (index, change) in changes.into_iter().enumerate() {
             self.word(",,");
             let name = match names.get(index) {
                 Some(name) if !name.is_empty() => {
                     let name = self.name(name);
+
                     self.word("=");
                     Some(name)
                 }
                 _ => None,
             };
+
             args.push(ast::Arg {
                 name,
                 target: None,
@@ -620,6 +706,7 @@ impl Convert<'_, '_> {
                 value: self.expr(change)?,
             });
         }
+
         self.word(")");
         Ok((callee, args, hint))
     }
@@ -634,6 +721,7 @@ impl Convert<'_, '_> {
             Some(Box::new(self.child(at, ty, "target_type")?))
         };
         let value = self.child(at, ty, "expression")?;
+
         Ok(ExprKind::Cast {
             ty: target,
             value: Box::new(value),
@@ -648,13 +736,17 @@ impl Convert<'_, '_> {
     /// An `ifx` branch: a block of one value is that value.
     fn value_block(&mut self, at: u64, ty: TypeId, field: &str) -> R<Option<Expr>> {
         let block = self.ptr(at, ty, field)?;
+
         if block == 0 {
             return Ok(None);
         }
+
         let statements = self.list(block, self.ty("Code_Block")?, "statements")?;
+
         if let [value] = statements[..] {
             return self.expr(value).map(Some);
         }
+
         self.expr(block).map(Some)
     }
 
@@ -671,15 +763,18 @@ impl Convert<'_, '_> {
         } else {
             None
         };
+
         if modifier.is_some() {
             self.word("#type");
         }
+
         let pointer = self.ptr(at, ty, "pointer_to")?;
         let element = self.ptr(at, ty, "array_element_type")?;
         let target = self.ptr(at, ty, "type_directive_target")?;
         let value = if pointer != 0 {
             self.word("*");
             let pointee = self.expr(pointer)?;
+
             mk(
                 ExprKind::Unary(UnOp::Star, Box::new(pointee)),
                 self.since(start),
@@ -695,8 +790,10 @@ impl Convert<'_, '_> {
                     None => ArraySize::View,
                 }
             };
+
             self.word("]");
             let elem = self.expr(element)?;
+
             mk(
                 ExprKind::ArrayType {
                     size,
@@ -708,11 +805,14 @@ impl Convert<'_, '_> {
             self.expr(target)?
         } else {
             let value = self.ptr(at, ty, "type_valued_expression")?;
+
             if value == 0 {
                 return Err(Trap::new("a type instantiation needs a type"));
             }
+
             self.expr(value)?
         };
+
         Ok(match modifier {
             Some(modifier) => mk(
                 ExprKind::TypeDirective {
@@ -730,18 +830,24 @@ impl Convert<'_, '_> {
         if !self.attribute(at, SyntaxKey::AsmKind)?.is_empty() {
             return Err(Trap::new("an assembly operand cannot be used outside #asm"));
         }
+
         let name = self.attribute(at, SyntaxKey::DirectiveName)?;
+
         if name.is_empty() {
             return Err(Trap::new("a placeholder node needs a directive name"));
         }
+
         if name == "procedure_of_call" {
             self.word("#procedure_of_call");
             let call = self.extra(at, SyntaxKey::DirectiveArgs)?;
+
             return Ok(ExprKind::ProcedureOfCall(Box::new(self.expr(call)?)));
         }
+
         let span = self.word(&format!("#{name}"));
         let flags = self.flag_names(at, SyntaxKey::Flags)?;
         let operand = self.extra_expr(at, SyntaxKey::DirectiveArgs)?;
+
         Ok(ExprKind::UnknownDirective(Box::new(UnknownDirective {
             name: ast::Ident {
                 name: Sym::intern(&name),

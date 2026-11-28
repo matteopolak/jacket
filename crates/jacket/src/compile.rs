@@ -41,6 +41,7 @@ fn flag_region(args: &[OsString]) -> &[OsString] {
 fn has_flag(region: &[OsString], name: &str) -> bool {
     region.iter().any(|a| {
         let a = text(a);
+
         a == name
             || a.strip_prefix(name)
                 .is_some_and(|rest| rest.starts_with('='))
@@ -68,6 +69,7 @@ fn asks_about_jaic(args: &[OsString]) -> bool {
 pub fn entry(ctx: &Context) -> Option<PathBuf> {
     let base = ctx.loaded.map_or(ctx.cwd, |l| l.dir());
     let project = ctx.loaded.map(|l| &l.config.project);
+
     jacket_config::first_entry(ctx.fs, base, project)
         // A configured entry that is not there yet is still what the project asks for; jaic
         // says it cannot read it.
@@ -108,6 +110,7 @@ fn supplied(loaded: &Loaded) -> Result<Vec<Supplied>, String> {
         &loaded.config,
     )
     .map_err(|error| error.to_string())?;
+
     for dir in roots.modules {
         out.push(Supplied {
             flag: "-import_dir",
@@ -115,6 +118,7 @@ fn supplied(loaded: &Loaded) -> Result<Vec<Supplied>, String> {
             unless: None,
         });
     }
+
     for (package, dirs) in roots.packages {
         for dir in dirs {
             out.push(Supplied {
@@ -124,7 +128,9 @@ fn supplied(loaded: &Loaded) -> Result<Vec<Supplied>, String> {
             });
         }
     }
+
     let experimental = &loaded.config.experimental;
+
     if let Some(n) = experimental.parse_threads {
         out.push(Supplied {
             flag: "-parse_threads",
@@ -132,6 +138,7 @@ fn supplied(loaded: &Loaded) -> Result<Vec<Supplied>, String> {
             unless: Some(&[]),
         });
     }
+
     if experimental.serial_parse == Some(true) {
         out.push(Supplied {
             flag: "-serial_parse",
@@ -139,6 +146,7 @@ fn supplied(loaded: &Loaded) -> Result<Vec<Supplied>, String> {
             unless: Some(&[]),
         });
     }
+
     if let Some(n) = experimental.codegen_units {
         out.push(Supplied {
             flag: "-codegen_units",
@@ -146,6 +154,7 @@ fn supplied(loaded: &Loaded) -> Result<Vec<Supplied>, String> {
             unless: Some(&["-no_split"]),
         });
     }
+
     Ok(out)
 }
 
@@ -177,33 +186,40 @@ pub fn project_flags(args: &[OsString], loaded: Option<&Loaded>) -> Result<Vec<O
     };
     let region = flag_region(args);
     let mut out: Vec<OsString> = Vec::new();
+
     for supplied in supplied(loaded)? {
         let given = supplied.unless.is_some_and(|others| {
             has_flag(region, supplied.flag) || others.iter().any(|o| has_flag(region, o))
         });
+
         if !given {
             out.push(supplied.flag.into());
             out.extend(supplied.value.map(OsString::from));
         }
     }
+
     Ok(out)
 }
 
 /// The command line `jaic` is started with.
 pub fn jaic_argv(check: bool, args: &[OsString], ctx: &Context) -> Result<Vec<OsString>, String> {
     let mut argv: Vec<OsString> = Vec::new();
+
     if check {
         argv.push("-check".into());
     }
+
     if asks_about_jaic(args) {
         argv.extend(args.iter().cloned());
         return Ok(argv);
     }
+
     if named_input(args).is_none()
         && let Some(entry) = entry(ctx)
     {
         argv.push(entry.into_os_string());
     }
+
     argv.extend(project_flags(args, ctx.loaded)?);
     argv.extend(args.iter().cloned());
     Ok(argv)
@@ -243,11 +259,14 @@ pub fn executable(argv: &[OsString], cwd: &Path) -> Option<PathBuf> {
         None => dir.join(source.file_stem()?),
     };
     let suffix = std::env::consts::EXE_SUFFIX;
+
     if !suffix.is_empty() && path.extension().is_none_or(|e| e != &suffix[1..]) {
         let mut name = path.into_os_string();
+
         name.push(suffix);
         path = PathBuf::from(name);
     }
+
     Some(path)
 }
 
@@ -256,6 +275,7 @@ pub fn split_run(args: &[OsString]) -> (&[OsString], &[OsString]) {
     if flag_region_has(args, "-interp") {
         return (args, &[]);
     }
+
     match args.iter().position(|a| a == "--") {
         Some(i) => (&args[..i], &args[i + 1..]),
         None => (args, &[]),
@@ -288,6 +308,7 @@ pub fn reported_executable(report: &Path) -> Result<PathBuf, String> {
         ));
     };
     let exe = PathBuf::from(line.trim());
+
     if exe.is_file() {
         Ok(exe)
     } else {
@@ -305,19 +326,24 @@ mod tests {
     #[test]
     fn the_executable_is_the_one_jaic_reported_never_a_guess() {
         let dir = std::env::temp_dir().join(format!("jacket-reported-{}", std::process::id()));
+
         std::fs::create_dir_all(&dir).unwrap();
         let report = dir.join("exe.txt");
         let error = reported_executable(&report).unwrap_err();
+
         assert!(
             error.starts_with("jaic did not report the executable it wrote\n"),
             "{error}"
         );
         std::fs::write(&report, "").unwrap();
         let error = reported_executable(&report).unwrap_err();
+
         assert!(error.ends_with("is empty"), "{error}");
         let exe = dir.join("app");
+
         std::fs::write(&report, format!("{}\n", exe.display())).unwrap();
         let error = reported_executable(&report).unwrap_err();
+
         assert!(error.contains("but there is no such file"), "{error}");
         std::fs::write(&exe, "").unwrap();
         std::fs::write(&report, format!("/old/one\n{}\n", exe.display())).unwrap();
@@ -353,6 +379,7 @@ mod tests {
             cwd: Path::new("/w"),
             fs: &fs,
         };
+
         jaic_argv(check, &os(args), &ctx)
             .unwrap()
             .iter()
@@ -401,10 +428,12 @@ mod tests {
             &["-help"],
             &["-version"],
         ];
+
         for case in cases {
             assert_eq!(argv(false, case, None, vec![]), *case, "build {case:?}");
             let with = loaded("[project]\nentry = [\"x.jai\"]\n");
             let mut want = vec!["-check"];
+
             want.extend(case.iter());
             assert_eq!(
                 argv(true, case, Some(&with), vec!["/w/x.jai"]),
@@ -417,6 +446,7 @@ mod tests {
     #[test]
     fn the_entry_goes_first_when_no_file_is_named() {
         let with = loaded("[project]\nentry = [\"src/app.jai\", \"other.jai\"]\n");
+
         assert_eq!(
             argv(false, &["-o"], Some(&with), vec!["/w/src/app.jai"]),
             ["/w/src/app.jai", "-o"]
@@ -444,6 +474,7 @@ mod tests {
         let with = loaded(
             "[project]\nentry = [\"m.jai\"]\nimport-path = [\"vendor\"]\n[experimental]\nparse-threads = 2\nserial-parse = true\ncodegen-units = 4\n",
         );
+
         assert_eq!(
             argv(false, &[], Some(&with), vec!["/w/m.jai"]),
             [
@@ -488,6 +519,7 @@ mod tests {
                 .map(|a| a.to_string_lossy().into_owned())
                 .collect()
         };
+
         assert_eq!(
             flags(&["-O2"]),
             [
@@ -510,10 +542,12 @@ mod tests {
     fn run_splits_program_arguments_unless_interpreting() {
         let args = os(&["m.jai", "-o", "--", "a", "b"]);
         let (jaic, program) = split_run(&args);
+
         assert_eq!(jaic, &os(&["m.jai", "-o"])[..]);
         assert_eq!(program, &os(&["a", "b"])[..]);
         let args = os(&["m.jai", "-interp", "--", "a"]);
         let (jaic, program) = split_run(&args);
+
         assert_eq!(jaic.len(), 4);
         assert!(program.is_empty());
     }
@@ -524,6 +558,7 @@ mod tests {
             executable(&os(args), Path::new("/w")).map(|p| p.to_string_lossy().into_owned())
         };
         let suffix = std::env::consts::EXE_SUFFIX;
+
         assert_eq!(at(&["src/m.jai"]), Some(format!("/w/src/m{suffix}")));
         assert_eq!(
             at(&["m.jai", "-exe", "app"]),

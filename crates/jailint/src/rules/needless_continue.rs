@@ -39,11 +39,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             _ => return,
         };
         let mut ends = Vec::new();
+
         tails(body, &mut ends);
+
         for (cont, removable) in ends {
             let message = "this `continue` is the last thing the loop does".to_string();
             let help = "the loop goes on without it".to_string();
             let (start, end) = cx.tidy_removal(cont.span);
+
             if removable && !cx.has_comment_between(start, end) {
                 out.push(replacing(
                     cont.span,
@@ -71,6 +74,7 @@ fn tails<'a>(s: &'a Stmt, out: &mut Vec<(&'a Stmt, bool)>) {
                 .iter()
                 .filter(|s| !matches!(s.kind, S::Empty))
                 .collect();
+
             if let Some(last) = stmts.last() {
                 if matches!(last.kind, S::Continue(None)) {
                     out.push((last, stmts.len() > 1));
@@ -85,6 +89,7 @@ fn tails<'a>(s: &'a Stmt, out: &mut Vec<(&'a Stmt, bool)>) {
             ..
         } => {
             tails(then_branch, out);
+
             if let Some(e) = else_branch {
                 tails(e, out);
             }

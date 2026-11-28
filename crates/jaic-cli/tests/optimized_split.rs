@@ -12,9 +12,11 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 /// pins its own count passes the flag again later, and the last one wins.
 fn jaic() -> Command {
     let mut command = Command::new(JAIC);
+
     if let Some(units) = jacket_config::env::TEST_CODEGEN_UNITS.os() {
         command.arg("-codegen_units").arg(units);
     }
+
     command
 }
 
@@ -76,6 +78,7 @@ const EXPECTED: &str = "apply 70\ncounter 14\nhistory 34379605\nprimes 129\nbig 
 
 fn build_and_run(units: &str, level: &str) -> String {
     let dir = TempDir::new(&format!("optimized-split-{units}{level}"));
+
     std::fs::write(dir.join("main.jai"), SOURCE).unwrap();
     let exe = dir.join(if cfg!(windows) {
         "out.exe"
@@ -89,12 +92,14 @@ fn build_and_run(units: &str, level: &str) -> String {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
     let run = Command::new(&exe).output().unwrap();
+
     assert!(run.status.success());
     String::from_utf8_lossy(&run.stdout).replace("\r\n", "\n")
 }
@@ -102,11 +107,14 @@ fn build_and_run(units: &str, level: &str) -> String {
 #[test]
 fn modules_divided_before_the_optimizer_match_a_whole_build() {
     let whole = build_and_run("1", "-O2");
+
     assert_eq!(whole, EXPECTED);
     assert_eq!(build_and_run("1", "-O0"), EXPECTED);
+
     for units in ["2", "3", "5"] {
         assert_eq!(build_and_run(units, "-O2"), whole, "{units} modules, -O2");
     }
+
     assert_eq!(build_and_run("3", "-O1"), whole, "3 modules, -O1");
 }
 
@@ -115,17 +123,23 @@ fn modules_divided_before_the_optimizer_match_a_whole_build() {
 /// same result as an unoptimized build.
 fn driver_source() -> String {
     let mut src = String::from("#import \"Basic\";\n\n");
+
     for k in 0..60 {
         src += &format!("step_{k} :: (x: s64) -> s64 {{\n    for 0..3 {{\n");
+
         for j in 0..40 {
             src += &format!("        x = x * 31 + {};\n", k * 40 + j);
         }
+
         src += "    }\n    return x;\n}\n\n";
     }
+
     src += "drive :: (x: s64) -> s64 {\n";
+
     for k in 0..60 {
         src += &format!("    x = step_{k}(x) % 1000003;\n");
     }
+
     src += "    return x;\n}\n\nmain :: () { print(\"%\\n\", drive(7)); }\n";
     src
 }
@@ -133,25 +147,32 @@ fn driver_source() -> String {
 #[test]
 fn a_function_that_would_absorb_its_callees_keeps_the_largest_out() {
     let dir = TempDir::new("optimized-inline-cap");
+
     std::fs::write(dir.join("main.jai"), driver_source()).unwrap();
     let build = |level: &str, exe: &str, ir: Option<&str>| {
         let mut cmd = jaic();
+
         cmd.args(["main.jai", level, "-exe", exe]);
+
         if let Some(ir) = ir {
             cmd.args(["-emit_ir", ir]);
         }
+
         let out = cmd.current_dir(&dir).output().unwrap();
+
         assert!(
             out.status.success(),
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
         let run = Command::new(dir.join(exe)).output().unwrap();
+
         assert!(run.status.success());
         String::from_utf8_lossy(&run.stdout).replace("\r\n", "\n")
     };
     let unoptimized = build("-O0", "o0", Some("o0.ll"));
     let optimized = build("-O2", "o2", Some("o2.ll"));
+
     assert_eq!(optimized, unoptimized);
     // `noinline` sits in an attribute group (`attributes #3 = { ... }`) that a definition names.
     let kept_out = |file: &str| {
@@ -161,11 +182,13 @@ fn a_function_that_would_absorb_its_callees_keeps_the_largest_out() {
             .filter(|l| l.starts_with("attributes #") && l.contains("noinline"))
             .filter_map(|l| l.strip_prefix("attributes ")?.split(' ').next())
             .collect();
+
         text.lines()
             .filter(|l| l.starts_with("define") && l.contains("@step_"))
             .filter(|l| groups.iter().any(|g| l.contains(&format!(" {g} "))))
             .count()
     };
+
     assert_eq!(kept_out("o0.ll"), 0);
     assert!(kept_out("o2.ll") > 0);
 }
@@ -188,6 +211,7 @@ main :: () {
 }
 "#;
     let dir = TempDir::new("optimized-cold");
+
     std::fs::write(dir.join("main.jai"), source).unwrap();
     let exe = dir.join(if cfg!(windows) {
         "out.exe"
@@ -200,6 +224,7 @@ main :: () {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -207,17 +232,21 @@ main :: () {
     );
     let run = |arg: &str| Command::new(&exe).arg(arg).output().unwrap();
     let ok = run("none");
+
     assert!(ok.status.success());
     assert_eq!(
         String::from_utf8_lossy(&ok.stdout).replace("\r\n", "\n"),
         "done\n"
     );
     let cold = run("cold");
+
     assert!(cold.status.success());
     assert!(String::from_utf8_lossy(&cold.stdout).contains("reported 7"));
     let failed = run("assert");
+
     assert!(!failed.status.success());
     assert!(String::from_utf8_lossy(&failed.stderr).contains("assertion failed: bad 2"));
     let null = run("null");
+
     assert!(!null.status.success());
 }

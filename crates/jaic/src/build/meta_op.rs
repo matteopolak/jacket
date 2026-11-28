@@ -23,6 +23,7 @@ pub const LANGUAGE_VERSION: (u32, u32, u32) = (0, 2, 99);
 /// integers fill `Version_Info`, then the Jacket product version.
 pub fn compiler_version() -> String {
     let (major, minor, micro) = LANGUAGE_VERSION;
+
     format!(
         "Jai {major}.{minor}.{micro} (Jacket {})",
         env!("CARGO_PKG_VERSION")

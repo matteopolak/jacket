@@ -24,6 +24,7 @@ pub fn map<T: Sync, R: Send>(
 ) -> Vec<R> {
     let next = AtomicUsize::new(0);
     let slots: Vec<Mutex<Option<R>>> = items.iter().map(|_| Mutex::new(None)).collect();
+
     std::thread::scope(|scope| {
         for _ in 0..threads.max(1).min(items.len()) {
             scope.spawn(|| {
@@ -33,6 +34,7 @@ pub fn map<T: Sync, R: Send>(
                         break;
                     };
                     let result = task(index, item);
+
                     *slots[index]
                         .lock()
                         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(result);
@@ -67,14 +69,18 @@ pub fn try_map<T: Sync, R: Send, E: Send>(
         if failed.load(Ordering::Relaxed) {
             return None;
         }
+
         let result = task(index, item);
+
         if result.is_err() {
             failed.store(true, Ordering::Relaxed);
         }
+
         Some(result)
     });
     let mut done = Vec::with_capacity(items.len());
     let mut skipped = false;
+
     for result in results {
         match result {
             Some(Ok(value)) => done.push(value),
@@ -82,6 +88,7 @@ pub fn try_map<T: Sync, R: Send, E: Send>(
             None => skipped = true,
         }
     }
+
     assert!(!skipped, "an item was skipped only after another failed");
     Ok(done)
 }
@@ -97,9 +104,11 @@ mod tests {
             assert_eq!(index, *item);
             item * 2
         });
+
         assert_eq!(doubled, (0..50).map(|i| i * 2).collect::<Vec<_>>());
         assert!(map(&[] as &[u8], 4, |_, _| ()).is_empty());
         let zero_sized = [(), (), ()];
+
         assert_eq!(map(&zero_sized, 2, |index, ()| index), [0, 1, 2]);
     }
 
@@ -109,12 +118,14 @@ mod tests {
         let items: Vec<usize> = (0..100).collect();
         let result = try_map(&items, 1, |_, &item| {
             started.fetch_add(1, Ordering::Relaxed);
+
             if item >= 3 {
                 Err(item)
             } else {
                 Ok(item)
             }
         });
+
         assert_eq!(result, Err(3));
         assert_eq!(started.load(Ordering::Relaxed), 4);
         assert_eq!(

@@ -28,6 +28,7 @@ fn options(dir: &Path, config: Config) -> Options {
 fn a_note_read_by_another_program_that_loads_its_file_is_used() {
     let root = TempDir::new("shared-note-reads");
     let dir: PathBuf = root.join("programs");
+
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(
         dir.join("shared.jai"),
@@ -45,8 +46,10 @@ fn a_note_read_by_another_program_that_loads_its_file_is_used() {
         root: dir.clone(),
         ..Config::default()
     };
+
     config.levels.insert("unused_note".into(), Level::Warn);
     let found = run(&options(&dir, config));
+
     assert!(found.incomplete.is_empty(), "{:?}", found.incomplete);
     let messages: Vec<&str> = found
         .lints
@@ -54,5 +57,6 @@ fn a_note_read_by_another_program_that_loads_its_file_is_used() {
         .filter(|l| l.rule == "unused_note")
         .map(|l| l.message.as_str())
         .collect();
+
     assert_eq!(messages, ["no compile-time code read the note `@toml`"]);
 }

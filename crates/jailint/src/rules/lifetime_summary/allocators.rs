@@ -27,6 +27,7 @@ impl Allocators {
             ty: Some(ty),
             ..Self::default()
         };
+
         for (&id, body) in valid {
             if c.pr.procs[id.0 as usize]
                 .sig
@@ -35,26 +36,31 @@ impl Allocators {
             {
                 continue;
             }
+
             let Some(bits) = capabilities(body) else {
                 continue;
             };
             let context_storage = bits & 0x0600_0000 != 0
                 && super::allocator_storage::returns_context_storage(c, body);
+
             if bits & 0x0200_0000 != 0
                 && !context_storage
                 && let Some(ProcTarget::Func(f)) = c.pr.procs[id.0 as usize].target
             {
                 result.heap_functions.insert(f);
             }
+
             // The capability bit alone also describes independent pools. Only the
             // runtime context's temporary-storage provider has the global reset epoch.
             if bits & 0x0400_0000 != 0 && context_storage {
                 result.temporary.insert(id);
+
                 if let Some(ProcTarget::Func(f)) = c.pr.procs[id.0 as usize].target {
                     result.temporary_functions.insert(f);
                 }
             }
         }
+
         if let Some(facts) = c.ed.facts() {
             for (&id, relocs) in &facts.lifetime_globals {
                 if c.out.program.globals[id.0 as usize].size != c.ty.types.size_of(ty) {
@@ -70,6 +76,7 @@ impl Allocators {
                 }
             }
         }
+
         result
     }
 }
@@ -77,6 +84,7 @@ impl Allocators {
 fn allocator_types(c: &Compiler) -> Option<(TypeId, TypeId)> {
     let module = c.ns.preload?;
     let scope = c.ns.modules[module.0 as usize].scope;
+
     for entity in c.scope(scope).names.get(&Sym::intern("Allocator"))? {
         if let EntityState::Done(Resolved::Const {
             value: Value::Type(ty),
@@ -90,9 +98,11 @@ fn allocator_types(c: &Compiler) -> Option<(TypeId, TypeId)> {
                     .fields
                     .iter()
                     .find(|f| f.name == Some(Sym::intern("proc")))?;
+
             return Some((ty, field.ty));
         }
     }
+
     None
 }
 
@@ -116,6 +126,7 @@ pub(super) fn nonallocating_call(body: &LifetimeBody, args: &[super::LifetimeArg
 fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option<u64> {
     let stack: HashSet<_> = body.stack_places.iter().copied().collect();
     let mut values = HashMap::default();
+
     for event in body.blocks.iter().flat_map(|b| &b.events) {
         if let Event::Parameter {
             formal,
@@ -127,16 +138,21 @@ fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option
             values.insert(*incoming, *value);
         }
     }
+
     let mut queue = std::collections::VecDeque::from([(0, values)]);
     let mut answer = None;
     let mut visits = 0;
+
     while let Some((block, mut values)) = queue.pop_front() {
         visits += 1;
+
         if visits > 128 {
             return None;
         }
+
         let block = &body.blocks[block];
         let mut successors = block.successors.clone();
+
         for event in &block.events {
             match event {
                 Event::Initialize {
@@ -145,6 +161,7 @@ fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option
                     if !stack.contains(place) {
                         return None;
                     }
+
                     values.insert(*place, 0);
                 }
                 Event::Store {
@@ -156,7 +173,9 @@ fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option
                     if !stack.contains(place) {
                         return None;
                     }
+
                     let source = constant.or_else(|| scalar(body, *value, &values, 0));
+
                     assign(&mut values, *place, source);
                 }
                 Event::Load {
@@ -169,6 +188,7 @@ fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option
                     value,
                 } => {
                     let source = scalar(body, *place, &values, 0);
+
                     assign(&mut values, *value, source);
                 }
                 Event::IntegerBinary {
@@ -187,6 +207,7 @@ fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option
                         jaic::ir::BinOp::Xor => Some(a ^ b),
                         _ => None,
                     });
+
                     assign(&mut values, *value, result);
                 }
                 Event::Branch {
@@ -201,6 +222,7 @@ fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option
                         } else {
                             then_block
                         };
+
                         successors.retain(|to| to == selected);
                     }
                 }
@@ -211,9 +233,11 @@ fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option
                     ..
                 } => {
                     let flags = constant.or_else(|| scalar(body, *value, &values, 0))?;
+
                     if answer.is_some_and(|previous| previous != flags) {
                         return None;
                     }
+
                     answer = Some(flags);
                 }
                 Event::Call {
@@ -226,8 +250,10 @@ fn static_result(body: &LifetimeBody, arguments: &HashMap<usize, u64>) -> Option
                 _ => {}
             }
         }
+
         queue.extend(successors.into_iter().map(|to| (to, values.clone())));
     }
+
     answer
 }
 
@@ -248,9 +274,11 @@ fn scalar(
     if depth > 16 {
         return None;
     }
+
     if let Some(&value) = values.get(&value) {
         return Some(value);
     }
+
     let comparison = body.comparisons.iter().find(|c| c.value == value)?;
     let a = comparison
         .left_constant
@@ -258,6 +286,7 @@ fn scalar(
     let b = comparison
         .right_constant
         .or_else(|| scalar(body, comparison.right, values, depth + 1))?;
+
     Some(u64::from(match comparison.op {
         CmpOp::Eq => a == b,
         CmpOp::Ne => a != b,

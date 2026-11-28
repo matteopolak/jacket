@@ -37,8 +37,10 @@ mod win32_threads {
             "#
             );
             let mut options = Options::host();
+
             options.runtime_support = false;
             let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
             if let Err(error) = c.compile_sources(&[ProgramSource::String(source)]) {
                 panic!("{create}: {}", error.render(&c.src.sources));
             }
@@ -67,8 +69,10 @@ mod win32_threads {
             #assert(check()==0);
         "#;
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         if let Err(error) = c.compile_sources(&[ProgramSource::String(source.into())]) {
             panic!("{}", error.render(&c.src.sources));
         }
@@ -77,6 +81,7 @@ mod win32_threads {
     #[test]
     fn managed_windows_thread_entry_requires_the_real_callback_abi() {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         let source = r"
@@ -90,6 +95,7 @@ mod win32_threads {
         let error = c
             .compile_sources(&[ProgramSource::String(source.into())])
             .expect_err("wide callback result must not masquerade as u32");
+
         assert!(
             error.message.contains("thread entry ABI"),
             "{}",
@@ -106,6 +112,7 @@ mod win32_threads {
             ("null", 0, 0x10, "creation flags"),
         ] {
             let mut options = Options::host();
+
             options.runtime_support = false;
             let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
             let source = format!(
@@ -119,6 +126,7 @@ mod win32_threads {
             let error = compiler
                 .compile_sources(&[ProgramSource::String(source)])
                 .expect_err("unsupported options must not become default OS behavior");
+
             assert!(
                 error.message.contains(expected),
                 "{}",
@@ -137,6 +145,7 @@ mod thread_aliases {
     #[test]
     fn real_kernel_aliases_preserve_exit_codes_and_handle_lifetimes() {
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.stack_trace = false;
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
@@ -144,6 +153,7 @@ mod thread_aliases {
             "{}\n#assert check()==0;",
             include_str!("../../../tests/compiler/semantics/windows-thread-alias-lifecycle.jai")
         );
+
         if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
             panic!("{}", error.render(&compiler.src.sources));
         }
@@ -159,6 +169,7 @@ mod thread_description {
     #[test]
     fn managed_handles_names_queries_pseudo_handles_and_errors_are_native() {
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.stack_trace = false;
         let mut compiler = Compiler::new(options, Rc::new(NativeFs));
@@ -166,6 +177,7 @@ mod thread_description {
             "{}\n#assert check() == 0;",
             include_str!("../../../tests/compiler/semantics/windows-thread-description.jai")
         );
+
         if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
             panic!("{}", error.render(&compiler.src.sources));
         }

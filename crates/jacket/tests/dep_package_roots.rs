@@ -10,15 +10,20 @@ const COMPILER: &str =
 
 fn run(files: &[(&str, &str)], args: &[&str]) -> (TempDir, std::process::Output) {
     let root = TempDir::new("package-roots");
+
     for (path, text) in files {
         let full = root.join(path);
+
         std::fs::create_dir_all(full.parent().unwrap()).unwrap();
         std::fs::write(full, text).unwrap();
     }
+
     let compiler = root.join("jaic");
+
     std::fs::write(&compiler, COMPILER).unwrap();
     std::fs::set_permissions(&compiler, std::fs::Permissions::from_mode(0o755)).unwrap();
     let jacket = root.join("jacket");
+
     std::fs::copy(env!("CARGO_BIN_EXE_jacket"), &jacket).unwrap();
     let log = root.join("args.txt");
     let output = Command::new(&jacket)
@@ -27,11 +32,13 @@ fn run(files: &[(&str, &str)], args: &[&str]) -> (TempDir, std::process::Output)
         .env("ARGS_LOG", &log)
         .output()
         .unwrap();
+
     (root, output)
 }
 
 fn seen(files: &[(&str, &str)], args: &[&str]) -> (TempDir, Vec<String>) {
     let (root, output) = run(files, args);
+
     assert!(output.status.success(), "{output:?}");
     let log = root.join("args.txt");
     let lines = std::fs::read_to_string(&log)
@@ -39,6 +46,7 @@ fn seen(files: &[(&str, &str)], args: &[&str]) -> (TempDir, Vec<String>) {
         .lines()
         .map(String::from)
         .collect();
+
     (root, lines)
 }
 
@@ -78,6 +86,7 @@ fn each_dependency_with_import_folders_is_passed_as_its_own_flags() {
         ]
     })
     .collect();
+
     assert_eq!(args[..args.len() - 1], expected[..], "{args:?}");
     assert_eq!(args.last().map(String::as_str), Some("main.jai"));
 }
@@ -100,6 +109,7 @@ fn a_module_below_the_repository_root_is_found_through_its_parent_folder() {
         &["build", "main.jai"],
     );
     let at = |p: &str| root.join(p).display().to_string();
+
     assert_eq!(
         args,
         [
@@ -124,8 +134,10 @@ fn a_dependency_manifest_that_cannot_be_read_stops_the_build_and_names_the_file(
         ],
         &["build", "main.jai"],
     );
+
     assert!(!output.status.success(), "{output:?}");
     let err = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         err.contains(&root.join("modules/dep/jacket.toml").display().to_string()),
         "{err}"

@@ -61,6 +61,7 @@ impl Store {
                 .join("jacket")
                 .join("test-deps"),
         };
+
         Self::open_in(dir, jaic)
     }
 
@@ -83,6 +84,7 @@ impl Store {
     /// The store in `dir` with its old entries pruned.
     fn opened(dir: PathBuf, jaic: &Path) -> Result<Self, String> {
         let store = Self::at(dir, jaic)?;
+
         store.prune(MAX_AGE, SystemTime::now())?;
         Ok(store)
     }
@@ -97,6 +99,7 @@ impl Store {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
             Err(error) => return Err(store_error(&self.dir, &error)),
         };
+
         for entry in entries {
             let entry = entry.map_err(|error| store_error(&self.dir, &error))?;
             let path = entry.path();
@@ -108,10 +111,12 @@ impl Store {
                     .is_ok_and(|modified| {
                         now.duration_since(modified).is_ok_and(|age| age > max_age)
                     });
+
             if old {
                 remove(&path)?;
             }
         }
+
         Ok(())
     }
 
@@ -126,6 +131,7 @@ impl Store {
                 jaic.display()
             )
         })?;
+
         Ok(Self {
             dir: std::path::absolute(&dir).unwrap_or(dir),
             compiler,
@@ -145,12 +151,15 @@ impl Store {
         plugin: bool,
     ) -> PathBuf {
         let mut hash = Hash::new();
+
         hash.part(&self.compiler);
         hash.part(&stdlib.to_string_lossy());
+
         match program {
             Program::File(path) => {
                 hash.part("file");
                 let path = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+
                 hash.part(&path.to_string_lossy());
             }
             Program::Text(text) => {
@@ -158,12 +167,15 @@ impl Store {
                 hash.part(text);
             }
         }
+
         for list in [flags, root_flags] {
             hash.part(&list.len().to_string());
+
             for flag in list {
                 hash.part(flag);
             }
         }
+
         hash.part(if plugin {
             "plugin"
         } else {
@@ -188,8 +200,10 @@ impl Store {
         let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         let dir =
             std::env::temp_dir().join(format!("jacket-scratch-store-{}-{n}", std::process::id()));
+
         std::fs::create_dir_all(&dir).unwrap();
         let jaic = dir.join("jaic");
+
         std::fs::write(&jaic, "compiler").unwrap();
         std::sync::Arc::new(Self::at(dir.join("store"), &jaic).unwrap())
     }
@@ -214,10 +228,12 @@ pub fn read(entry: &Path) -> Result<Option<Vec<String>>, String> {
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(store_error(entry, &error)),
     };
+
     if let Ok(file) = std::fs::File::options().write(true).open(entry) {
         file.set_modified(SystemTime::now())
             .map_err(|error| store_error(entry, &error))?;
     }
+
     Ok(Some(text.lines().map(str::to_string).collect()))
 }
 
@@ -244,10 +260,12 @@ mod tests {
     #[test]
     fn a_store_folder_that_cannot_be_written_is_an_error_naming_it() {
         let dir = test_support::TempDir::new("deps-store-blocked");
+
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join("file"), "").unwrap();
         let error = Store::open_in(dir.join("file").join("store"), Path::new("jaic")).unwrap_err();
         let missing = Store::at(dir.join("store"), Path::new("/nowhere/jaic")).unwrap_err();
+
         assert!(
             missing.starts_with("cannot read the compiler `/nowhere/jaic`"),
             "{missing}"
@@ -263,6 +281,7 @@ mod tests {
 
     fn store(dir: &Path) -> Store {
         let jaic = dir.join("jaic");
+
         std::fs::write(&jaic, "compiler one").unwrap();
         Store::at(dir.join("store"), &jaic).unwrap()
     }
@@ -276,6 +295,7 @@ mod tests {
         let dir =
             std::env::temp_dir().join(format!("jacket-deps-store-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -286,6 +306,7 @@ mod tests {
         let store = store(&dir);
         let file = Program::File(Path::new("/p/a.jai"));
         let base = entry(&store, file, &["-os", "wasm"], false);
+
         assert_eq!(base, entry(&store, file, &["-os", "wasm"], false));
         assert_ne!(base, entry(&store, file, &[], false), "flags");
         assert_ne!(base, entry(&store, file, &["-os", "wasm"], true), "plugin");
@@ -328,6 +349,7 @@ mod tests {
         );
         std::fs::write(dir.join("jaic"), "compiler two").unwrap();
         let changed = Store::at(dir.join("store"), &dir.join("jaic")).unwrap();
+
         assert_ne!(
             base,
             entry(&changed, file, &["-os", "wasm"], false),
@@ -339,18 +361,23 @@ mod tests {
     fn pruning_removes_only_old_lists() {
         let dir = temp("prune");
         let store = store(&dir);
+
         store.prepare(&dir.join("store/x.deps")).unwrap();
         let old = dir.join("store/old.deps");
         let fresh = dir.join("store/fresh.deps");
         let other = dir.join("store/old.txt");
+
         for file in [&old, &fresh, &other] {
             std::fs::write(file, "/a.jai\n").unwrap();
         }
+
         let day = Duration::from_hours(24);
         let aged = |file: &Path, days: u32| {
             let handle = std::fs::File::options().write(true).open(file).unwrap();
+
             handle.set_modified(SystemTime::now() - day * days).unwrap();
         };
+
         aged(&old, 40);
         aged(&other, 40);
         aged(&fresh, 2);
@@ -360,6 +387,7 @@ mod tests {
         assert!(other.exists(), "only lists are the store's to delete");
         // Reading an old list keeps it.
         let kept = dir.join("store/kept.deps");
+
         std::fs::write(&kept, "/a.jai\n").unwrap();
         aged(&kept, 40);
         assert_eq!(read(&kept).unwrap(), Some(vec!["/a.jai".into()]));
@@ -371,15 +399,19 @@ mod tests {
     fn opening_prunes_and_a_pruned_list_is_a_miss() {
         let dir = temp("open");
         let jaic = dir.join("jaic");
+
         std::fs::write(&jaic, "compiler").unwrap();
         let old = dir.join("store/old.deps");
+
         std::fs::create_dir_all(dir.join("store")).unwrap();
         std::fs::write(&old, "/a.jai\n").unwrap();
         let handle = std::fs::File::options().write(true).open(&old).unwrap();
+
         handle
             .set_modified(SystemTime::now() - Duration::from_hours(24 * 40))
             .unwrap();
         let store = Store::opened(dir.join("store"), &jaic).unwrap();
+
         assert_eq!(
             read(&old).unwrap(),
             None,
@@ -394,14 +426,18 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let dir = temp("readonly");
         let store = store(&dir);
+
         store.prepare(&dir.join("store/x.deps")).unwrap();
         let old = dir.join("store/old.deps");
+
         std::fs::write(&old, "/a.jai\n").unwrap();
         let handle = std::fs::File::options().write(true).open(&old).unwrap();
+
         handle
             .set_modified(SystemTime::now() - Duration::from_hours(24 * 40))
             .unwrap();
         std::fs::set_permissions(&old, std::fs::Permissions::from_mode(0o444)).unwrap();
+
         // Root can still open it for writing, and then the entry may go.
         if std::fs::File::options().write(true).open(&old).is_err() {
             store.prune(MAX_AGE, SystemTime::now()).unwrap();
@@ -414,6 +450,7 @@ mod tests {
         let dir = temp("prepare");
         let store = store(&dir);
         let entry = entry(&store, Program::Text("x"), &[], false);
+
         store.prepare(&entry).unwrap();
         assert_eq!(read(&entry).unwrap(), None);
         std::fs::write(&entry, "/a.jai\n/b.jai\n").unwrap();

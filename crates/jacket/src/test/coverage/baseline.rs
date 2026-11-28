@@ -44,6 +44,7 @@ impl Baseline {
             tally(self.lines)
         );
         let last = self.modules.len().saturating_sub(1);
+
         for (i, (name, t)) in self.modules.iter().enumerate() {
             let comma = if i == last {
                 ""
@@ -52,6 +53,7 @@ impl Baseline {
             };
             let _ = writeln!(text, "    {}: {}{comma}", json!(name), tally(*t));
         }
+
         text.push_str("  }\n}\n");
         text
     }
@@ -65,6 +67,7 @@ impl Baseline {
                     .map(|n| n as usize)
                     .ok_or_else(|| format!("`{key}` is missing or not a count"))
             };
+
             Ok(Tally {
                 hit: count("hit")?,
                 total: count("total")?,
@@ -78,6 +81,7 @@ impl Baseline {
             .iter()
             .map(|(name, v)| Ok((name.clone(), tally(v)?)))
             .collect::<Result<_, String>>()?;
+
         Ok(Baseline {
             lines,
             modules,
@@ -92,6 +96,7 @@ impl Baseline {
         let mut check = |name: &str, before: Tally, after: Tally| {
             // The lines `now` runs fewer of than it would at the baseline's share.
             let short = before.percent() / 100.0 * after.total as f64 - after.hit as f64;
+
             if after.percent() < before.percent() - margin && short > NOISE_LINES {
                 found.push(Drop {
                     name: name.to_string(),
@@ -100,11 +105,13 @@ impl Baseline {
                 });
             }
         };
+
         for (name, before) in &self.modules {
             if let Some(after) = now.modules.get(name) {
                 check(name, *before, *after);
             }
         }
+
         check("Total", self.lines, now.lines);
         found
     }
@@ -127,12 +134,14 @@ pub fn markdown(
         } else {
             base.modules.get(name).copied()
         };
+
         match tally {
             Some(t) => format!("{:+.1}", now.percent() - t.percent()),
             None => "new".to_string(),
         }
     };
     let mut text = String::from("### Test coverage\n\n");
+
     if drops.is_empty() {
         let _ = writeln!(
             text,
@@ -153,10 +162,12 @@ pub fn markdown(
                 .join(", ")
         );
     }
+
     text.push_str(
         "| Module | Lines | Cover | Procedures | Cover | Change |\n|---|--:|--:|--:|--:|--:|\n",
     );
     let mut sorted: Vec<&Row> = modules.iter().collect();
+
     sorted.sort_by(|a, b| {
         a.lines
             .percent()
@@ -176,10 +187,13 @@ pub fn markdown(
             before(name, lines)
         );
     };
+
     line("**Total**", lines, functions);
+
     for row in sorted {
         line(&row.name, row.lines, row.functions);
     }
+
     text
 }
 
@@ -202,6 +216,7 @@ mod tests {
     fn a_baseline_is_written_and_read_back() {
         let baseline = Baseline::of(&[module("Sort", 2, 4), module("Hash \"Table\"", 9, 10)]);
         let text = baseline.render();
+
         assert_eq!(Baseline::parse(&text).unwrap(), baseline);
         assert!(text.contains("\"Sort\": {\"hit\":2,\"total\":4}"), "{text}");
         assert!(Baseline::parse("{").is_err());
@@ -223,6 +238,7 @@ mod tests {
         ]);
         let drops = before.drops(&after, 0.5);
         let names: Vec<_> = drops.iter().map(|d| d.name.as_str()).collect();
+
         assert_eq!(names, ["B"]);
         assert!((drops[0].before - 50.0).abs() < 1e-9 && (drops[0].after - 40.0).abs() < 1e-9);
         // A module that lost 10 points drags the total down by as much here.
@@ -232,6 +248,7 @@ mod tests {
             .into_iter()
             .map(|d| d.name)
             .collect();
+
         assert_eq!(names, ["A", "Total"]);
         assert!(before.drops(&before, 0.0).is_empty());
     }
@@ -241,6 +258,7 @@ mod tests {
         // 3 of 500 lines is 0.6 points; 3 more lines of new code that never ran is too.
         let before = Baseline::of(&[module("Thread", 307, 500), module("New", 50, 100)]);
         let now = Baseline::of(&[module("Thread", 304, 500), module("New", 50, 103)]);
+
         assert!(before.drops(&now, 0.5).is_empty());
         // 20 lines of new code that never ran is a drop although no line stopped running.
         let grown = Baseline::of(&[module("Thread", 307, 500), module("New", 50, 120)]);
@@ -249,6 +267,7 @@ mod tests {
             .into_iter()
             .map(|d| d.name)
             .collect();
+
         assert_eq!(names, ["New", "Total"]);
     }
 
@@ -259,6 +278,7 @@ mod tests {
         let now = Baseline::of(&rows);
         let drops = before.drops(&now, 0.5);
         let text = markdown(&rows, Some(&before), &drops, 0.5);
+
         assert!(
             text.contains("**Coverage dropped by more than 0.5 points** in `A` (50.0% to 40.0%)"),
             "{text}"
@@ -268,6 +288,7 @@ mod tests {
             .filter(|l| l.starts_with("| ") && !l.starts_with("| Module"))
             .map(|l| l.split(" | ").next().unwrap())
             .collect();
+
         assert_eq!(order, ["| **Total**", "| C", "| A", "| B"]);
         assert!(
             text.contains("| A | 40/100 | 40.0% | 0/0 | 100.0% | -10.0 |"),

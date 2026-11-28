@@ -61,6 +61,7 @@ pub(super) fn select(f: &mut FnCtx, ty: Ty, cond: Val, a: Val, b: Val) -> Val {
     let inv = f.b.un(UnOp::Not, ty, mask);
     let x = bin(f, BinOp::And, ty, a, mask);
     let y = bin(f, BinOp::And, ty, b, inv);
+
     bin(f, BinOp::Or, ty, x, y)
 }
 
@@ -75,6 +76,7 @@ pub(super) fn sign_flag_of(f: &mut FnCtx, ty: Ty, a: Val, b: Val, res: Val, sub:
         )
     };
     let both = bin(f, BinOp::And, ty, x, y);
+
     is_neg(f, ty, both)
 }
 
@@ -95,11 +97,13 @@ pub(super) fn wide_mul(f: &mut FnCtx, sz: Ty, a: Val, b: Val, signed: bool) -> (
         let p = bin(f, BinOp::Mul, Ty::I64, a, b);
         let shift = konst(f, Ty::I64, bits(sz));
         let hi = bin(f, BinOp::LShr, Ty::I64, p, shift);
+
         return (
             resize(f, hi, Ty::I64, sz, false),
             resize(f, p, Ty::I64, sz, false),
         );
     }
+
     let m32 = konst(f, Ty::I64, 0xffff_ffff);
     let s32 = konst(f, Ty::I64, 32);
     let a0 = bin(f, BinOp::And, Ty::I64, a, m32);
@@ -119,9 +123,11 @@ pub(super) fn wide_mul(f: &mut FnCtx, sz: Ty, a: Val, b: Val, signed: bool) -> (
     let u01 = bin(f, BinOp::LShr, Ty::I64, p01, s32);
     let u10 = bin(f, BinOp::LShr, Ty::I64, p10, s32);
     let mut hi = bin(f, BinOp::Add, Ty::I64, p11, u01);
+
     hi = bin(f, BinOp::Add, Ty::I64, hi, u10);
     hi = bin(f, BinOp::Add, Ty::I64, hi, carry);
     let lo = bin(f, BinOp::Mul, Ty::I64, a, b);
+
     if signed {
         // High word of the signed product: subtract the operand when the other is negative.
         let s63 = konst(f, Ty::I64, 63);
@@ -129,8 +135,10 @@ pub(super) fn wide_mul(f: &mut FnCtx, sz: Ty, a: Val, b: Val, signed: bool) -> (
         let mb = bin(f, BinOp::AShr, Ty::I64, b, s63);
         let fix_a = bin(f, BinOp::And, Ty::I64, ma, b);
         let fix_b = bin(f, BinOp::And, Ty::I64, mb, a);
+
         hi = bin(f, BinOp::Sub, Ty::I64, hi, fix_a);
         hi = bin(f, BinOp::Sub, Ty::I64, hi, fix_b);
     }
+
     (hi, lo)
 }

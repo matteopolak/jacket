@@ -15,16 +15,19 @@ enum Node {
 fn reachable(program: &ir::Program, roots: impl IntoIterator<Item = Node>) -> HashSet<Node> {
     let mut seen = HashSet::default();
     let mut pending: Vec<_> = roots.into_iter().collect();
+
     while let Some(node) = pending.pop() {
         if !seen.insert(node) {
             continue;
         }
+
         match node {
             Node::Function(id) => {
                 let Some(function) = program.funcs.get(id.0 as usize).and_then(Option::as_ref)
                 else {
                     continue;
                 };
+
                 for inst in function.blocks.iter().flat_map(|b| &b.insts) {
                     match inst {
                         Inst::Call(call) => {
@@ -53,6 +56,7 @@ fn reachable(program: &ir::Program, roots: impl IntoIterator<Item = Node>) -> Ha
             }
         }
     }
+
     seen
 }
 
@@ -60,6 +64,7 @@ fn reachable(program: &ir::Program, roots: impl IntoIterator<Item = Node>) -> Ha
 /// compile that releases them before it is linted.
 pub(crate) fn retain(compiler: &mut Compiler) {
     let kept = reach(compiler, None);
+
     if let Some(facts) = compiler.ed.facts_mut() {
         facts.lifetime_reach = Some(kept);
     }
@@ -83,6 +88,7 @@ fn reach(compiler: &Compiler, entry_module: Option<jaic::sema::ModuleId>) -> Com
         .enumerate()
         .filter_map(|(i, f)| {
             let id = FuncId(i as u32);
+
             f.as_ref()
                 .filter(|f| {
                     f.origin == ir::FuncOrigin::Procedure
@@ -92,6 +98,7 @@ fn reach(compiler: &Compiler, entry_module: Option<jaic::sema::ModuleId>) -> Com
                 .map(|_| Node::Function(id))
         })
         .collect();
+
     // The entry point runs at runtime even when a `#run` also calls it.
     roots.extend(compiler.pr.procs.iter().filter_map(|proc| {
         super::is_entry_point(compiler, proc, entry_module)
@@ -119,6 +126,7 @@ fn reach(compiler: &Compiler, entry_module: Option<jaic::sema::ModuleId>) -> Com
             let Some(ProcTarget::Func(id)) = proc.target else {
                 return None;
             };
+
             (host.contains(&Node::Function(id)) && !runtime.contains(&Node::Function(id)))
                 .then_some(ProcId(i as u32))
         })
@@ -150,6 +158,7 @@ fn reach(compiler: &Compiler, entry_module: Option<jaic::sema::ModuleId>) -> Com
                 .flatten()
         })
         .collect();
+
     CompileTimeReach {
         only,
         finals: roots,
@@ -170,6 +179,7 @@ pub(super) fn compile_time_only(
         .and_then(|facts| facts.lifetime_reach.clone())
         .unwrap_or_else(|| reach(compiler, entry_module));
     let mut nested = HashSet::default();
+
     if let Some(facts) = compiler.ed.facts() {
         for body in facts.lifetime_bodies.values() {
             for event in body.blocks.iter().flat_map(|b| &b.events) {
@@ -197,6 +207,7 @@ pub(super) fn compile_time_only(
             }
         }
     }
+
     let frozen = only.iter().copied().filter(|id| {
         !nested.contains(id) && matches!(compiler.pr.procs[id.0 as usize].target, Some(ProcTarget::Func(f)) if roots.contains(&f))
     }).collect();

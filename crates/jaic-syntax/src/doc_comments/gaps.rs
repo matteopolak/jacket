@@ -35,6 +35,7 @@ fn has_example(docs: &str) -> bool {
             return false;
         };
         let info = info.trim();
+
         info.is_empty() || info.split([',', ' ']).next() == Some("jai")
     })
 }
@@ -43,9 +44,11 @@ fn kind_of(decl: &crate::ast::Decl) -> Option<&'static str> {
     if decl.kind != DeclKind::Const {
         return None;
     }
+
     if ide_facts::alias_path(decl).is_some() {
         return Some("alias");
     }
+
     match ide_facts::decl_class(decl) {
         DeclClass::Procedure => Some("procedure"),
         DeclClass::Struct => Some("struct"),
@@ -72,17 +75,21 @@ fn declares_bodiless_procs(file: &crate::ast::File) -> bool {
 /// in the library, then `import_dirs`, then `stdlib`.
 pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
     let mut own = Vec::new();
+
     super::own_files(dir, true, &mut own);
     let module_file = super::canonical(&crate::paths::module_entry(dir));
     let mut queue: Vec<PathBuf> = own;
     let mut seen = BTreeSet::new();
     // Every file of the library and the files they load, parsed once.
     let mut parsed_files = Vec::new();
+
     while let Some(file) = queue.pop() {
         let file = super::canonical(&file);
+
         if !seen.insert(file.clone()) {
             continue;
         }
+
         let Ok(text) = std::fs::read_to_string(&file) else {
             continue;
         };
@@ -95,9 +102,11 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
                 _ => None,
             })
             .collect();
+
         queue.extend(loads.iter().cloned());
         parsed_files.push((file, text, parsed, loads));
     }
+
     // A file that declares bodiless procedures mirrors a native API or the compiler's
     // built-ins: its types and procedures are documented elsewhere, and are not listed. So are
     // the files it loads (a generated binding's per-platform parts).
@@ -107,8 +116,10 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
         .map(|(file, ..)| file.clone())
         .collect();
     let mut changed = true;
+
     while changed {
         changed = false;
+
         for (file, _, _, loads) in &parsed_files {
             if bindings.contains(file) {
                 for load in loads {
@@ -117,11 +128,14 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
             }
         }
     }
+
     let mut files = Files::new(stdlib).with_import_dirs(import_dirs);
     let mut out = Vec::new();
+
     for (file, text, parsed, _) in &parsed_files {
         let binding = bindings.contains(file);
         let mut first_statement = None;
+
         for item in ide_facts::top_level(&parsed.file) {
             first_statement.get_or_insert(item.span.start as usize);
             let TopLevelKind::Decl(decl) = item.kind else {
@@ -131,12 +145,15 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
                 continue;
             };
             let start = item.span.start as usize;
+
             if binding || item.visibility != Visibility::Export {
                 continue;
             }
+
             let (site, at) = docs::docs_site(&mut files, file.clone(), name.span.start as usize);
             let doc =
                 docs::Resolver::text(&mut files, &site).and_then(|t| docs::declaration(&t, at));
+
             out.push(Entry {
                 file: file.clone(),
                 line: text[..start].matches('\n').count() + 1,
@@ -146,6 +163,7 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
                 example: doc.as_deref().is_some_and(has_example),
             });
         }
+
         if *file == module_file {
             // A comment directly above the first statement documents that, not the module.
             let opening = docs::opening(text).filter(|o| {
@@ -153,6 +171,7 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
                     .and_then(|at| docs::located_above(text, at))
                     .is_none_or(|first| first.line != o.line)
             });
+
             out.push(Entry {
                 file: file.clone(),
                 line: 1,
@@ -163,6 +182,7 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
             });
         }
     }
+
     out.sort_by(|a, b| (&a.file, a.line).cmp(&(&b.file, b.line)));
     out
 }
@@ -171,6 +191,7 @@ pub fn gaps(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<Entry> {
 /// with `doc` and `example` as `1` or `0`.
 pub fn records(entries: &[Entry]) -> String {
     let mut out = String::new();
+
     for e in entries {
         out.push_str(&format!(
             "{}\t{}\t{}\t{}\t{}\t{}\n",
@@ -182,6 +203,7 @@ pub fn records(entries: &[Entry]) -> String {
             u8::from(e.example)
         ));
     }
+
     out
 }
 
@@ -192,11 +214,14 @@ mod tests {
     fn library(name: &str, files: &[(&str, &str)]) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("jaic-doc-gaps-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         for (file, text) in files {
             let path = dir.join(file);
+
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, text).unwrap();
         }
+
         dir
     }
 
@@ -224,6 +249,7 @@ mod tests {
         );
         let found = gaps(&dir, Path::new("/nowhere"), &[]);
         let module = rows(&found);
+
         assert!(module.contains(&("module", "", true, false)), "{module:?}");
         assert!(module.contains(&("procedure", "documented", true, true)));
         assert!(module.contains(&("procedure", "bare", false, false)));
@@ -231,9 +257,11 @@ mod tests {
         assert!(module.contains(&("enum", "Mode", false, false)));
         assert!(module.contains(&("alias", "forwarded", true, false)));
         assert!(module.contains(&("alias", "missing", false, false)));
+
         for hidden in ["hidden", "Hidden_Type", "private", "CONSTANT"] {
             assert!(module.iter().all(|r| r.1 != hidden), "{hidden} is listed");
         }
+
         let _ = std::fs::remove_dir_all(dir);
     }
 
@@ -244,6 +272,7 @@ mod tests {
             &[("module.jai", "// About the procedure.\nfirst :: () {}\n")],
         );
         let found = gaps(&dir, Path::new("/nowhere"), &[]);
+
         assert_eq!(
             rows(&found),
             [
@@ -264,6 +293,7 @@ mod tests {
             )],
         );
         let found = gaps(&dir, Path::new("/nowhere"), &[]);
+
         assert_eq!(
             rows(&found),
             [
@@ -291,6 +321,7 @@ mod tests {
             ],
         );
         let found = gaps(&dir, Path::new("/nowhere"), &[]);
+
         assert_eq!(
             rows(&found),
             [
@@ -315,6 +346,7 @@ mod tests {
             ],
         );
         let found = gaps(&dir, Path::new("/nowhere"), &[]);
+
         assert_eq!(rows(&found), [("module", "", true, false)]);
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -334,11 +366,13 @@ mod tests {
         let (lib, more) = (dir.join("lib"), vec![dir.join("more")]);
         let alias = |import_dirs: &[PathBuf]| {
             let found = gaps(&lib, Path::new("/nowhere"), import_dirs);
+
             rows(&found)
                 .into_iter()
                 .find(|r| r.1 == "make")
                 .map(|r| r.2)
         };
+
         assert_eq!(alias(&[]), Some(false));
         assert_eq!(alias(&more), Some(true));
         let _ = std::fs::remove_dir_all(dir);

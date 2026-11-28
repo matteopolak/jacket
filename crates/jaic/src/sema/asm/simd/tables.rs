@@ -11,6 +11,7 @@ pub(in crate::sema::asm) fn elem_size(op: VOp) -> u64 {
         PermTwo, PermilImm, Pmaddubsw, Pmaddwd, Psadbw, Pshufb, RotImm, Round, Scatter, Sha,
         Shuf128, ShufHalf, Shufpd, Ternlog, Testm, Unary, Unpack, Valign, VecToMask,
     };
+
     match op {
         Bin(_, t)
         | RotImm(_, t)
@@ -144,6 +145,7 @@ const NAMED: &[(&str, VOp)] = {
         Pcmpstr, Perm, Perm2x128, PermTwo, PermilImm, Phminposuw, Pmaddubsw, Pmaddwd, Psadbw,
         Pshufb, Ptest, Scatter, Sha, Shuf128, ShufHalf, Shufpd, Ternlog, Unpack, Valign,
     };
+
     &[
         ("paddsb", Bin(B2::AddSatS, Ty::I8)),
         ("paddsw", Bin(B2::AddSatS, Ty::I16)),
@@ -411,6 +413,7 @@ const INT_LANE_FAMILIES: &[(&str, IntFamily)] = {
         Bin, BlendMask, Compress, Expand, IntCmp, MaskToVec, Perm, PermTwo, Pextr, Pinsr, RotImm,
         Testm, Unary,
     };
+
     &[
         ("psllv", |t| Bin(B2::Shlv, t)),
         ("psrlv", |t| Bin(B2::Shrv, t)),
@@ -461,11 +464,13 @@ pub(in crate::sema::asm) fn lookup_simd(name: &str) -> Option<VOp> {
     if let Some(&(_, op)) = NAMED.iter().find(|(named, _)| *named == name) {
         return Some(op);
     }
+
     for &(prefix, op) in INT_LANE_FAMILIES {
         if let Some(t) = name.strip_prefix(prefix).and_then(int_letter) {
             return Some(op(t));
         }
     }
+
     for &(prefix, scalar_forms, op) in FLOAT_FORM_FAMILIES {
         if let Some((t, scalar)) = name.strip_prefix(prefix).and_then(float_letters)
             && (scalar_forms || !scalar)
@@ -473,6 +478,7 @@ pub(in crate::sema::asm) fn lookup_simd(name: &str) -> Option<VOp> {
             return Some(op(t, scalar));
         }
     }
+
     lane_conversion(name).or_else(|| fma(name))
 }
 
@@ -484,17 +490,21 @@ fn lane_conversion(name: &str) -> Option<VOp> {
     {
         return Some(VOp::VecToMask(t));
     }
+
     // pmovsx / pmovzx <from><to>
     for (prefix, signed) in [("pmovsx", true), ("pmovzx", false)] {
         if let Some(rest) = name.strip_prefix(prefix) {
             let mut c = rest.chars();
             let (from, to) = (size_letter(c.next()?)?, size_letter(c.next()?)?);
+
             if c.next().is_some() || from.numeric_size() >= to.numeric_size() {
                 return None;
             }
+
             return Some(VOp::Extend(from, to, signed));
         }
     }
+
     // pmov[s|us]<from><to> down-conversions (pmovwb, pmovsdb, pmovusqd...).
     for (prefix, sat) in [
         ("pmovus", Sat::Unsigned),
@@ -509,12 +519,15 @@ fn lane_conversion(name: &str) -> Option<VOp> {
             let (Some(from), Some(to)) = (size_letter(a), size_letter(b)) else {
                 continue;
             };
+
             if from.numeric_size() <= to.numeric_size() {
                 continue;
             }
+
             return Some(VOp::Narrow(from, to, sat));
         }
     }
+
     None
 }
 
@@ -541,6 +554,7 @@ fn fma(name: &str) -> Option<VOp> {
         )
     } else {
         let r = rest.strip_prefix("sub")?;
+
         (
             if neg {
                 FmaKind::Nmsub
@@ -550,16 +564,22 @@ fn fma(name: &str) -> Option<VOp> {
             r,
         )
     };
+
     if neg && matches!(kind, FmaKind::MaddSub | FmaKind::MsubAdd) {
         return None;
     }
+
     let order: u16 = rest.get(..3)?.parse().ok()?;
+
     if !matches!(order, 132 | 213 | 231) {
         return None;
     }
+
     let (t, scalar) = float_letters(&rest[3..])?;
+
     if scalar && matches!(kind, FmaKind::MaddSub | FmaKind::MsubAdd) {
         return None;
     }
+
     Some(VOp::Fma(kind, order, t, scalar))
 }

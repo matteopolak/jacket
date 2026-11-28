@@ -9,10 +9,12 @@ pub(super) fn system_list(platforms: &[String]) -> String {
     if platforms.is_empty() {
         return "Every system".into();
     }
+
     let names: Vec<&str> = platforms
         .iter()
         .map(|p| system_name(p).unwrap_or(p.as_str()))
         .collect();
+
     match names.split_last() {
         Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
         _ => names.join(""),
@@ -32,8 +34,10 @@ pub(super) fn variant_views(site: &Site, mi: usize, item: &Item) -> Vec<VariantV
     if item.variants.is_empty() {
         return Vec::new();
     }
+
     let m = &site.modules[mi];
     let from = format!("{}.{}", m.id, item.name);
+
     definitions_of(item)
         .iter()
         .enumerate()
@@ -46,6 +50,7 @@ pub(super) fn variant_views(site: &Site, mi: usize, item: &Item) -> Vec<VariantV
             } else {
                 segments(site, m, file, line, &blocks_at(site, &d.docs, &from, 1))
             };
+
             VariantView {
                 id: format!("d{}", n + 1),
                 label: system_list(platforms),

@@ -13,6 +13,7 @@ fn compile_configured(
     configure: impl FnOnce(&mut Compiler),
 ) -> Result<(), String> {
     let mut compiler = compiler_for(source, cross);
+
     configure(&mut compiler);
     compiler
         .compile_program(Path::new("/main.jai"))
@@ -23,6 +24,7 @@ fn compile_configured(
 /// `cross`.
 fn compiler_for(source: &str, cross: bool) -> Compiler {
     let mut fs = VirtualFs::default();
+
     fs.insert("/main.jai", source.as_bytes());
     fs.insert("/prelude/module.jai", "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }".as_bytes());
     fs.insert(
@@ -30,9 +32,11 @@ fn compiler_for(source: &str, cross: bool) -> Compiler {
         "IS_HOST :: OS==BUILD_OS && CPU==BUILD_CPU;".as_bytes(),
     );
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/prelude/module.jai".into());
     options.import_paths = vec!["/modules".into()];
+
     if cross {
         options.os = if options.os == TargetOs::Linux {
             TargetOs::Windows
@@ -45,6 +49,7 @@ fn compiler_for(source: &str, cross: bool) -> Compiler {
             TargetCpu::X64
         };
     }
+
     Compiler::new(options, Rc::new(fs))
 }
 
@@ -77,6 +82,7 @@ fn host_procedure_cannot_have_even_defaulted_parameters() {
         true,
     )
     .expect_err("host entry procedure must have no parameters");
+
     assert!(error.contains("must take no arguments"), "{error}");
 }
 
@@ -88,6 +94,7 @@ fn unsupported_host_result_domains_keep_explicit_diagnostics() {
     ] {
         let error =
             compile(source, true).expect_err("host pointers and types cannot escape isolation");
+
         assert!(error.contains("#run,host"), "{error}");
     }
 }
@@ -99,6 +106,7 @@ fn cross_target_host_run_rejects_target_capture() {
         true,
     )
     .expect_err("isolated host evaluation cannot capture target declarations");
+
     assert!(
         error.contains("unknown identifier") && error.contains("target_only"),
         "{error}"
@@ -113,6 +121,7 @@ fn host_evaluation_shares_the_execution_budget() {
         |compiler| compiler.ct.interp.block_budget = Some(10),
     )
     .expect_err("isolated execution must not evade the caller's budget");
+
     assert!(error.contains("execution budget exhausted"), "{error}");
 }
 
@@ -120,16 +129,20 @@ fn host_evaluation_shares_the_execution_budget() {
 fn host_effects_are_not_replayed_after_an_unresolved_target_body() {
     use std::cell::Cell;
     struct Observer(Rc<Cell<usize>>);
+
     impl jaic::interp::Host for Observer {
         fn native_linking(&self) -> bool {
             false
         }
+
         fn isolated_host(&self) -> Option<Box<dyn jaic::interp::Host>> {
             Some(Box::new(Self(self.0.clone())))
         }
+
         fn write(&mut self, _: &[u8], _: bool) {
             panic!("unexpected write");
         }
+
         fn foreign(
             &mut self,
             symbol: &str,
@@ -139,13 +152,16 @@ fn host_effects_are_not_replayed_after_an_unresolved_target_body() {
             if symbol != "observe_host" {
                 return None;
             }
+
             self.0.set(self.0.get() + 1);
             Some(Ok(vec![1]))
         }
     }
+
     let effects = Rc::new(Cell::new(0));
     let counter = effects.clone();
     let error=compile_configured("#placeholder Body; generator :: () { value := #run,host -> int { L :: #library \"observer\"; observe_host :: ()->int #foreign L; return observe_host(); } #insert Body; } #run generator(); main :: () {}",true,move |compiler|compiler.ct.interp=jaic::interp::Interp::new(Box::new(Observer(counter)), jaic::layout::DataLayout::host()).into()).expect_err("unresolved body must remain a real failure");
+
     assert!(
         error.contains("Body") || error.contains("placeholder"),
         "{error}"
@@ -160,13 +176,16 @@ fn host_effects_are_not_replayed_after_an_unresolved_target_body() {
 #[test]
 fn custom_provider_without_isolation_cannot_fall_back_to_native_execution() {
     struct RestrictedHost;
+
     impl jaic::interp::Host for RestrictedHost {
         fn native_linking(&self) -> bool {
             false
         }
+
         fn write(&mut self, _: &[u8], _: bool) {
             panic!("unexpected host write");
         }
+
         fn foreign(
             &mut self,
             _: &str,
@@ -176,12 +195,14 @@ fn custom_provider_without_isolation_cannot_fall_back_to_native_execution() {
             panic!("unexpected foreign call");
         }
     }
+
     let error = compile_configured("#run,host {} main :: () {}", true, |compiler| {
         compiler.ct.interp =
             jaic::interp::Interp::new(Box::new(RestrictedHost), jaic::layout::DataLayout::host())
                 .into();
     })
     .expect_err("an unsupported isolation provider must be diagnosed");
+
     assert!(
         error.contains("does not provide isolated #run,host"),
         "{error}"
@@ -198,9 +219,12 @@ fn a_top_level_insert_run_runs_once_in_a_cross_build() {
     // The host twin runs it while it loads the program; the target reuses that result.
     let source = "make :: () -> string { return \"X :: 7;\"; } #insert #run make(); #assert X == 7; main :: () {}";
     let mut compiler = compiler_for(source, true);
+
     if let Err(error) = compiler.compile_program(Path::new("/main.jai")) {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     let runs = compiler.meta.perf.runs.iter().filter(|run| run.outermost);
+
     assert_eq!(runs.count(), 1);
 }

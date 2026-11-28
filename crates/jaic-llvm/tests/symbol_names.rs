@@ -29,10 +29,12 @@ fn a_global_and_a_function_of_one_name_get_different_symbols() {
     let compiler = variant.compile(&SOURCE.replace('\'', "\""));
     let dir = TempDir::new("symbol-names");
     let ir = dir.join("module.ll");
+
     variant.emit(&compiler, &dir.join("module.o"), Some(&ir));
     let text = std::fs::read_to_string(&ir).unwrap();
     let mut globals = Vec::new();
     let mut functions = Vec::new();
+
     for line in text.lines() {
         let Some(rest) = line.strip_prefix('@') else {
             if let Some(at) = line
@@ -41,8 +43,10 @@ fn a_global_and_a_function_of_one_name_get_different_symbols() {
             {
                 functions.push(at.split('(').next().unwrap().trim_matches('"').to_string());
             }
+
             continue;
         };
+
         globals.push(
             rest.split(" = ")
                 .next()
@@ -51,6 +55,7 @@ fn a_global_and_a_function_of_one_name_get_different_symbols() {
                 .to_string(),
         );
     }
+
     let ours = |names: &[String]| -> Vec<String> {
         names
             .iter()
@@ -59,7 +64,9 @@ fn a_global_and_a_function_of_one_name_get_different_symbols() {
             .collect()
     };
     let (globals, functions) = (ours(&globals), ours(&functions));
+
     assert!(!globals.is_empty() && !functions.is_empty(), "{text}");
+
     for g in &globals {
         assert!(!functions.contains(g), "{g} names a global and a function");
         assert!(g.rsplit('.').next().unwrap().starts_with('g'), "{g}");

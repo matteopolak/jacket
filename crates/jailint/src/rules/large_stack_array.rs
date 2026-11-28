@@ -34,11 +34,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         locals(cx, &p.body.stmts, &mut |name, ty| {
             if !matches!(
                 types.kind(ty),
@@ -49,10 +52,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             ) {
                 return;
             }
+
             let bytes = types.size_of(ty);
+
             if bytes as usize <= cx.max_stack_array_bytes {
                 return;
             }
+
             out.push(super::finding(
                 name.span,
                 format!(
@@ -80,11 +86,14 @@ pub(super) fn locals(cx: &Cx, stmts: &[Stmt], f: &mut dyn FnMut(&Ident, TypeId))
         let S::Decl(d) = &s.kind else {
             return true;
         };
+
         if d.kind != DeclKind::Var {
             return true;
         }
+
         for name in &d.names {
             let mut found = None;
+
             for &e in &*cx.locals(name.span) {
                 let EntityKind::Local {
                     ty, ..
@@ -92,16 +101,19 @@ pub(super) fn locals(cx: &Cx, stmts: &[Stmt], f: &mut dyn FnMut(&Ident, TypeId))
                 else {
                     continue;
                 };
+
                 found = match found {
                     None => Some(ty),
                     Some(other) if other == ty => Some(ty),
                     Some(_) => None,
                 };
             }
+
             if let Some(ty) = found {
                 f(name, ty);
             }
         }
+
         true
     });
 }
@@ -110,6 +122,7 @@ pub(super) fn locals(cx: &Cx, stmts: &[Stmt], f: &mut dyn FnMut(&Ident, TypeId))
 pub(super) fn size(bytes: u64) -> String {
     const KIB: u64 = 1024;
     const MIB: u64 = KIB * KIB;
+
     if bytes >= MIB && bytes.is_multiple_of(MIB) {
         format!("{} MiB", bytes / MIB)
     } else if bytes >= KIB && bytes.is_multiple_of(KIB) {

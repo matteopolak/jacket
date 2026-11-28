@@ -25,6 +25,7 @@ pub fn issues(text: &str, dir: &Path, checks: &[Check]) -> Vec<Issue> {
     let Ok((config, unknown)) = parse_lenient(text) else {
         return vec![unreadable(text)];
     };
+
     if !unknown.is_empty() {
         return unknown
             .iter()
@@ -34,6 +35,7 @@ pub fn issues(text: &str, dir: &Path, checks: &[Check]) -> Vec<Issue> {
             })
             .collect();
     }
+
     check(text, &config, dir, checks)
 }
 
@@ -47,6 +49,7 @@ fn unreadable(text: &str) -> Issue {
             }
         }
     };
+
     Issue {
         message: error.message().to_string(),
         span: error.span(),
@@ -68,6 +71,7 @@ fn check(text: &str, config: &Config, dir: &Path, checks: &[Check]) -> Vec<Issue
 /// is named `unused_varible`, say), else nothing.
 fn named_key(text: &str, message: &str) -> Option<Range<usize>> {
     let table = DeTable::parse(text).ok()?;
+
     message
         .split('`')
         .skip(1)
@@ -85,9 +89,11 @@ pub fn key_span(text: &str, path: &str) -> Option<Range<usize>> {
 fn walk(table: &DeTable<'_>, path: &[String]) -> Option<Range<usize>> {
     let (key, value) = table.get_key_value(path.first()?.as_str())?;
     let rest = &path[1..];
+
     if rest.is_empty() {
         return Some(key.span());
     }
+
     match value.get_ref() {
         DeValue::Table(inner) => walk(inner, rest),
         DeValue::Array(items) => {
@@ -95,6 +101,7 @@ fn walk(table: &DeTable<'_>, path: &[String]) -> Option<Range<usize>> {
                 Ok(n) => (items.get(n)?, &rest[1..]),
                 Err(_) => (items.first()?, rest),
             };
+
             match entry.get_ref() {
                 DeValue::Table(inner) => walk(inner, rest),
                 _ => None,
@@ -108,6 +115,7 @@ fn segments(path: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut current = String::new();
     let mut quoted = false;
+
     for c in path.chars() {
         match c {
             '"' => quoted = !quoted,
@@ -115,6 +123,7 @@ fn segments(path: &str) -> Vec<String> {
             c => current.push(c),
         }
     }
+
     out.push(current);
     out
 }
@@ -125,6 +134,7 @@ fn find_key(table: &DeTable<'_>, name: &str) -> Option<Range<usize>> {
         if key.get_ref().as_ref() == name {
             return Some(key.span());
         }
+
         let inner = match value.get_ref() {
             DeValue::Table(inner) => find_key(inner, name),
             DeValue::Array(items) => items.iter().find_map(|item| match item.get_ref() {
@@ -133,9 +143,11 @@ fn find_key(table: &DeTable<'_>, name: &str) -> Option<Range<usize>> {
             }),
             _ => None,
         };
+
         if inner.is_some() {
             return inner;
         }
     }
+
     None
 }

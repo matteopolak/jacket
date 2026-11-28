@@ -4,8 +4,10 @@ use std::rc::Rc;
 
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     c.compile_sources(&[ProgramSource::String(source.into())])
         .map_err(|error| error.render(&c.src.sources))
 }

@@ -97,9 +97,11 @@ impl Compiler {
     pub(super) fn warn_unreachable(&mut self, f: &FnCtx, body: &ast::Block) -> bool {
         let mut walk = Walk::default();
         let completes = self.walk_stmts(f, &mut walk, &body.stmts, true);
+
         if self.ed.sketching() || !self.ide_wants_pub(body.span.file) {
             return completes;
         }
+
         self.ed.body_walked(body.span, walk.dead);
         completes
     }
@@ -108,6 +110,7 @@ impl Compiler {
     fn walk_stmts(&mut self, f: &FnCtx, walk: &mut Walk, stmts: &[ast::Stmt], warn: bool) -> bool {
         let mark = walk.env.mark();
         let completes = self.walk_run(f, walk, stmts, warn);
+
         walk.env.truncate(mark);
         completes
     }
@@ -128,14 +131,18 @@ impl Compiler {
                         _ => {}
                     }
                 }
+
                 continue;
             }
+
             let Some(next) = stmts[i + 1..].iter().find(|s| runs_in_order(s)) else {
                 return false;
             };
+
             if (next.span.file.0 as usize) >= self.src.sources.len() {
                 return false;
             }
+
             let word = match &stmt.kind {
                 S::Return {
                     ..
@@ -144,6 +151,7 @@ impl Compiler {
                 S::Continue(_) => Some("continue"),
                 _ => None,
             };
+
             if warn && let Some(word) = word {
                 let mut warning = Diagnostic::new(
                     Code::UnreachableStatements,
@@ -152,13 +160,16 @@ impl Compiler {
                 )
                 .with_label("this statement can not run")
                 .with_help(format!("remove it, or the `{word}` before it"));
+
                 if let Some(last) = stmts.last() {
                     // The span of a statement leaves out its `;`.
                     let mut dead = next.span.to(last.span);
                     let after = Span::new(dead.file, dead.end as usize, dead.end as usize + 1);
+
                     if self.src.sources.snippet(after) == ";" {
                         dead = dead.to(after);
                     }
+
                     warning = warning.with_suggestion(Suggestion::replace(
                         "remove the statements that can not run",
                         dead,
@@ -166,13 +177,17 @@ impl Compiler {
                         Applicability::MaybeIncorrect,
                     ));
                 }
+
                 self.warn(warning);
             }
+
             if let Some(last) = stmts.last() {
                 walk.dead.push(next.span.to(last.span));
             }
+
             return false;
         }
+
         true
     }
 
@@ -195,15 +210,18 @@ impl Compiler {
             } => self.walk_if(f, walk, cond, then_branch, else_branch.as_deref(), warn),
             S::While(w) => {
                 let truth = self.walk_truth(walk, &w.cond);
+
                 if truth == Some(false) {
                     walk.dead.push(branch_span(&w.body));
                     return true;
                 }
+
                 walk.loops.push(LoopCtx {
                     label: w.label.as_ref().map(|l| l.name),
                     broken: false,
                 });
                 let mark = walk.env.mark();
+
                 self.ed.narrow(&mut walk.env, &w.cond, true, w.body.span);
                 self.walk_stmt(f, walk, &w.body, warn);
                 walk.env.truncate(mark);
@@ -217,6 +235,7 @@ impl Compiler {
                     walk.dead.push(branch_span(&for_.body));
                     return true;
                 }
+
                 walk.loops.push(LoopCtx {
                     label: None,
                     broken: false,
@@ -240,6 +259,7 @@ impl Compiler {
                     else_branch,
                     ..
                 } = &**boxed;
+
                 match f.static_taken.get(&stmt.span) {
                     Some(true) => self.walk_stmts(f, walk, then_branch, warn),
                     Some(false) => self.walk_stmts(f, walk, else_branch, warn),
@@ -262,6 +282,7 @@ impl Compiler {
         let truth = self.walk_truth(walk, cond);
         let mark = walk.env.mark();
         let mut then_exits_normally = false;
+
         if truth == Some(false) {
             walk.dead.push(branch_span(then_branch));
         } else {
@@ -269,11 +290,13 @@ impl Compiler {
             then_exits_normally = self.walk_stmt(f, walk, then_branch, warn);
             walk.env.truncate(mark);
         }
+
         let Some(else_branch) = else_branch else {
             walk.if_exits = (then_exits_normally, true);
             return then_exits_normally || truth != Some(true);
         };
         let mut else_exits_normally = false;
+
         if truth == Some(true) {
             walk.dead.push(branch_span(else_branch));
         } else {
@@ -281,6 +304,7 @@ impl Compiler {
             else_exits_normally = self.walk_stmt(f, walk, else_branch, warn);
             walk.env.truncate(mark);
         }
+
         walk.if_exits = (then_exits_normally, else_exits_normally);
         then_exits_normally || else_exits_normally
     }
@@ -296,6 +320,7 @@ impl Compiler {
         let exhaustive = *complete || cases.iter().any(|c| c.values.is_empty());
         let mut completes = !exhaustive;
         let mut falls_in = false;
+
         for case in cases {
             let body = stmts_span(&case.body);
             let excluded = !case.values.is_empty()
@@ -304,27 +329,36 @@ impl Compiler {
                     .values
                     .iter()
                     .all(|v| self.ed.compare(&walk.env, BinOp::Eq, value, v) == Some(false));
+
             if excluded && !falls_in {
                 if let Some(body) = body {
                     walk.dead.push(body);
                 }
+
                 falls_in = false;
+
                 continue;
             }
+
             let mark = walk.env.mark();
+
             if !falls_in {
                 self.ed
                     .narrow_case(&mut walk.env, value, case, body.unwrap_or(case.span));
             }
+
             // An empty selected case still exits normally, or enters the next
             // case when marked #through; only its diagnostic span is absent.
             let ends_normally = self.walk_stmts(f, walk, &case.body, false);
+
             walk.env.truncate(mark);
             falls_in = case.through && ends_normally;
+
             if !case.through && ends_normally {
                 completes = true;
             }
         }
+
         completes
     }
 

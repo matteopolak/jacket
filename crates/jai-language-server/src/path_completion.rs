@@ -35,15 +35,18 @@ impl Session {
                 .into_iter()
                 .map(|p| p.join(folder))
                 .collect();
+
             roots.push(here.join("modules").join(folder));
             roots
         };
         // (name, is_folder): the environment's files and the open documents under each root.
         let mut entries = BTreeSet::new();
+
         for root in &roots {
             if let Some(environment) = &self.environment {
                 entries.extend(environment.fs.list_dir(root));
             }
+
             for open in self.documents.keys() {
                 let Ok(rest) = Path::new(open.path()).strip_prefix(root) else {
                     continue;
@@ -52,9 +55,11 @@ impl Session {
                 let Some(first) = parts.next() else {
                     continue;
                 };
+
                 entries.insert((first.to_string_lossy().into_owned(), parts.next().is_some()));
             }
         }
+
         // jaic's own modules, imported as `Extensions/Name` (stdlib/Extensions).
         let extensions = jaic::STDLIB_EXTENSIONS_DIR;
         let module_detail = if folder == extensions {
@@ -67,6 +72,7 @@ impl Session {
             .filter(|(name, _)| name.starts_with(partial) && !name.starts_with('.'))
             .filter_map(|(name, is_folder)| {
                 let jai = name.strip_suffix(".jai");
+
                 match (is_folder, jai) {
                     (true, _) if !load && folder.is_empty() && name == extensions => {
                         Some(CompletionItem {
@@ -121,6 +127,7 @@ impl Session {
             .filter(|item| !load || here.join(folder).join(&item.label) != Path::new(uri.path()))
             .collect::<Vec<_>>();
         let mut seen = BTreeSet::new();
+
         Some(CompletionList {
             is_incomplete: false,
             items: items

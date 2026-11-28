@@ -28,10 +28,13 @@ pub fn relocate(file: &mut File, real: FileId) {
         file: real,
         shared: HashSet::default(),
     };
+
     file.file = real;
+
     for stmt in &mut file.stmts {
         r.stmt(stmt);
     }
+
     for found in &mut file.lenient {
         r.span(&mut found.span);
     }
@@ -43,6 +46,7 @@ pub fn relocate_code(body: &mut CodeBody, real: FileId) {
         file: real,
         shared: HashSet::default(),
     };
+
     match body {
         CodeBody::Expr(expr) => r.expr(expr),
         CodeBody::Stmt(stmt) => r.stmt(stmt),
@@ -56,6 +60,7 @@ pub fn relocate_stmts(stmts: &mut [Stmt], real: FileId) {
         file: real,
         shared: HashSet::default(),
     };
+
     for stmt in stmts {
         r.stmt(stmt);
     }
@@ -142,6 +147,7 @@ impl Relocator {
 
     fn expr(&mut self, expr: &mut Expr) {
         self.span(&mut expr.span);
+
         match &mut expr.kind {
             ExprKind::Ident(_)
             | ExprKind::PolyVar {
@@ -171,6 +177,7 @@ impl Relocator {
             }
             ExprKind::Exists(a, other) => {
                 self.expr(a);
+
                 if let Some(other) = other {
                     self.expr(other);
                 }
@@ -236,13 +243,16 @@ impl Relocator {
                 if let ArraySize::Fixed(size) = size {
                     self.expr(size);
                 }
+
                 self.expr(elem);
             }
             ExprKind::ProcType(header) => self.header(header),
             ExprKind::Proc(lit) => {
                 if self.once(lit) {
                     let lit = rc_mut(lit);
+
                     self.header(&lit.header);
+
                     if let Some(body) = &mut lit.body {
                         self.block(body);
                     }
@@ -260,6 +270,7 @@ impl Relocator {
             ExprKind::Enum(lit) => {
                 if self.once(lit) {
                     let lit = rc_mut(lit);
+
                     self.opt_expr(&mut lit.base);
                     self.enum_items(&mut lit.items);
                     self.notes(&mut lit.notes);
@@ -279,6 +290,7 @@ impl Relocator {
                         RunBody::Block(block) => self.block(block),
                     }
                 }
+
                 self.idents(flags);
             }
             ExprKind::Code(body) => {
@@ -312,21 +324,26 @@ impl Relocator {
 
     fn asm(&mut self, block: &mut AsmBlock) {
         self.idents(&mut block.features);
+
         for item in &mut block.items {
             match item {
                 AsmItem::Inst(inst) => {
                     self.ident(&mut inst.mnemonic);
+
                     match &mut inst.size {
                         Some(AsmSize::Suffix(ident)) => self.ident(ident),
                         Some(AsmSize::Dynamic(expr)) => self.expr(expr),
                         None => {}
                     }
+
                     for operand in &mut inst.operands {
                         self.asm_operand(operand);
                     }
+
                     if let Some((mask, _)) = &mut inst.evex.mask {
                         self.asm_operand(mask);
                     }
+
                     self.span(&mut inst.span);
                 }
                 AsmItem::Decl(decl) => self.asm_decl(decl),
@@ -342,6 +359,7 @@ impl Relocator {
                     self.expr(&mut term.value);
                     self.opt_expr(&mut term.scale);
                 }
+
                 self.span(&mut mem.span);
             }
             AsmOperand::Decl(decl) => self.asm_decl(decl),
@@ -351,6 +369,7 @@ impl Relocator {
     fn asm_decl(&mut self, decl: &mut AsmDecl) {
         self.ident(&mut decl.name);
         self.opt_ident(&mut decl.class);
+
         if let Some(AsmPin::Name(name)) = &mut decl.pin {
             self.ident(name);
         }
@@ -359,9 +378,11 @@ impl Relocator {
     fn params(&mut self, params: &mut [Param]) {
         for param in params {
             self.opt_ident(&mut param.name);
+
             if let Some(filter) = &mut param.using_filter {
                 self.filter(filter);
             }
+
             self.opt_expr(&mut param.ty);
             self.opt_expr(&mut param.default);
             self.notes(&mut param.notes);
@@ -373,24 +394,32 @@ impl Relocator {
         if !self.once(header) {
             return;
         }
+
         let header = rc_mut(header);
+
         self.params(&mut header.params);
+
         for ret in &mut header.returns {
             self.opt_ident(&mut ret.name);
             self.opt_expr(&mut ret.ty);
             self.opt_expr(&mut ret.default);
             self.span(&mut ret.span);
         }
+
         if let Some(Some(library)) = &mut header.flags.elsewhere {
             self.ident(library);
         }
+
         self.idents(&mut header.flags.other);
+
         if let Some(foreign) = &mut header.foreign {
             self.opt_ident(&mut foreign.library);
         }
+
         if let Some(modify) = &mut header.modify {
             self.block(modify);
         }
+
         self.notes(&mut header.notes);
         self.span(&mut header.span);
     }
@@ -399,18 +428,23 @@ impl Relocator {
         if !self.once(lit) {
             return;
         }
+
         let lit = rc_mut(lit);
+
         if let Some(tag) = &mut lit.tag {
             self.ident(&mut tag.name);
             self.opt_boxed(&mut tag.ty);
             self.opt_boxed(&mut tag.value);
         }
+
         self.params(&mut lit.params);
         self.stmts(&mut lit.body);
         self.opt_expr(&mut lit.flags.align);
+
         if let Some(modify) = &mut lit.modify {
             self.block(modify);
         }
+
         self.notes(&mut lit.notes);
         self.span(&mut lit.span);
     }
@@ -456,25 +490,33 @@ impl Relocator {
         if !self.once(decl) {
             return;
         }
+
         let decl = rc_mut(decl);
+
         self.idents(&mut decl.names);
         self.opt_expr(&mut decl.ty);
         self.opt_expr(&mut decl.value);
         self.stmt_notes(&mut decl.notes);
         self.span(&mut decl.span);
+
         if let Some(rare) = &mut decl.rare {
             self.exprs(&mut rare.extra_values);
+
             for target in rare.targets.iter_mut().flatten() {
                 self.expr(target);
             }
+
             if let Some(filter) = &mut rare.using_filter {
                 self.filter(filter);
             }
+
             self.opt_expr(&mut rare.align);
             self.idents(&mut rare.flags);
+
             if let Some(foreign) = &mut rare.foreign {
                 self.opt_ident(&mut foreign.library);
             }
+
             self.opt_expr(&mut rare.union_tag);
         }
     }
@@ -503,15 +545,18 @@ impl Relocator {
 
     fn switch(&mut self, switch: &mut SwitchStmt) {
         self.expr(&mut switch.value);
+
         for case in &mut switch.cases {
             self.case(case);
         }
+
         self.span(&mut switch.header);
     }
 
     fn stmt(&mut self, stmt: &mut Stmt) {
         self.span(&mut stmt.span);
         self.stmt_notes(&mut stmt.notes);
+
         match &mut stmt.kind {
             StmtKind::Decl(decl) | StmtKind::AddContext(decl) => self.decl(decl),
             StmtKind::Expr(expr) => self.expr(expr),
@@ -531,6 +576,7 @@ impl Relocator {
             } => {
                 self.expr(cond);
                 self.stmt(then_branch);
+
                 if let Some(branch) = else_branch {
                     self.stmt(branch);
                 }
@@ -547,6 +593,7 @@ impl Relocator {
                 self.opt_expr(&mut f.pointer_if);
                 self.opt_expr(&mut f.reverse_if);
                 self.opt_expr(&mut f.iterator);
+
                 match &mut f.over {
                     ForOver::Range(a, b) => {
                         self.expr(a);
@@ -554,6 +601,7 @@ impl Relocator {
                     }
                     ForOver::Collection(expr) => self.expr(expr),
                 }
+
                 self.stmt(&mut f.body);
                 self.idents(&mut f.flags);
             }
@@ -579,6 +627,7 @@ impl Relocator {
                 self.stmts(&mut s.then_branch);
                 self.stmts(&mut s.else_branch);
                 self.span(&mut s.then_arm);
+
                 if let Some(arm) = &mut s.else_arm {
                     self.span(arm);
                 }
@@ -600,12 +649,15 @@ impl Relocator {
             StmtKind::Import(import) => {
                 if self.once(import) {
                     let import = rc_mut(import);
+
                     self.args(&mut import.params);
                     self.opt_ident(&mut import.name);
                     self.idents(&mut import.flags);
+
                     if let Some(filter) = &mut import.using {
                         self.filter(filter);
                     }
+
                     self.span(&mut import.span);
                 }
             }
@@ -616,6 +668,7 @@ impl Relocator {
             StmtKind::ModuleParameters(module) => {
                 self.params(&mut module.params);
                 self.params(&mut module.runtime_params);
+
                 if let Some(body) = &mut module.body {
                     self.block(body);
                 }

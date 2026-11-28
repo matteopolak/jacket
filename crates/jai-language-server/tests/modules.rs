@@ -18,12 +18,16 @@ fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() 
         ],
     );
     let mut s = Session::with_environment(Limits::default(), modules_environment(None));
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("main.jai"));
+
     s.open(uri.clone(), 1, text.into()).unwrap();
+
     for (member, line) in [("answer", 0), ("enabled", 1), ("Word", 2)] {
         let offset = text.find(&format!("Values.{member}")).unwrap() + 7;
         let found = s.definition(&uri, position(text, offset)).unwrap();
+
         assert_eq!(found.len(), 1, "{member}: {found:?}");
         assert!(
             found[0].uri.ends_with("/modules/Values/module.jai"),
@@ -36,9 +40,11 @@ fn qualified_constants_globals_and_primitive_aliases_keep_declaration_targets() 
 /// The type-checker errors of `file` when the workspace folder is `folder`.
 fn errors(folder: &Path, file: &str) -> Vec<String> {
     let mut s = Session::with_environment(Limits::default(), modules_environment(None));
+
     s.set_workspace_folders(vec![folder.to_path_buf()]);
     let path = folder.join(file);
     let uri = uri_of(&path);
+
     s.open(uri.clone(), 1, std::fs::read_to_string(&path).unwrap())
         .unwrap();
     s.diagnostics(&uri)
@@ -63,6 +69,7 @@ fn modules_folder_of_an_ancestor_is_searched() {
             ("server/app/main.jai", APP),
         ],
     );
+
     assert_eq!(errors(&dir, "server/app/main.jai"), Vec::<String>::new());
 }
 
@@ -76,6 +83,7 @@ fn folders_above_the_workspace_are_not_searched() {
         ],
     );
     let found = errors(&dir.join("project"), "main.jai");
+
     assert!(
         found.iter().any(|e| e.contains("Tools")),
         "an import outside the workspace stays unresolved: {found:?}"
@@ -95,6 +103,7 @@ fn jacket_toml_import_path_is_searched() {
             ("src/main.jai", APP),
         ],
     );
+
     assert_eq!(errors(&dir, "src/main.jai"), Vec::<String>::new());
 }
 
@@ -111,6 +120,7 @@ fn import_path_added_by_a_build_metaprogram_is_searched() {
             ("src/main.jai", APP),
         ],
     );
+
     assert_eq!(errors(&dir, "src/main.jai"), Vec::<String>::new());
 }
 
@@ -123,10 +133,13 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
         &[("main.jai", text), ("modules/Wgpu_Like/module.jai", module)],
     );
     let mut s = Session::with_environment(Limits::default(), modules_environment(None));
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("main.jai"));
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     let tokens = s.semantic_tokens(&uri).unwrap();
+
     // Every declaration form, none of them used: the global constant, the local constant and the
     // local variable.
     for n in 0..3 {
@@ -140,6 +153,7 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
             let position = at(offset);
             // Inside the name, not only on its first character.
             let found = s.definition(&uri, at(offset + 3)).unwrap();
+
             assert_eq!(found.len(), 1, "{name} #{n}: {found:?}");
             assert!(
                 found[0].uri.ends_with("/modules/Wgpu_Like/module.jai"),
@@ -147,6 +161,7 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
             );
             assert_eq!(found[0].range.start.line, target, "{name} #{n}: {found:?}");
             let token = tokens.iter().find(|t| t.position == position);
+
             assert_eq!(token.map(|t| t.kind), Some(kind), "{name} #{n}");
         }
     }
@@ -158,6 +173,7 @@ fn constant_struct_literals_navigate_and_highlight_like_variables() {
 fn an_opened_module_file_is_checked_as_an_imported_module() {
     let module = "#module_parameters(VERBOSE := false);\n#if VERBOSE { LEVEL :: 2; } else { LEVEL :: 1; }\nlevel :: () -> int { return LEVEL; }\n";
     let dir = project("module-entry", &[("modules/Config/module.jai", module)]);
+
     assert_eq!(
         errors(&dir, "modules/Config/module.jai"),
         Vec::<String>::new()
@@ -175,16 +191,20 @@ fn qualified_module_scope_members_complete_and_navigate_without_becoming_imports
         None,
     );
     let uri = uri_of(Path::new("/app/main.jai"));
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     let at = position(text, text.find("M.hidden").unwrap() + 2);
     let definitions = s.definition(&uri, at).unwrap();
+
     assert_eq!(definitions.len(), 1);
     assert!(definitions[0].uri.ends_with("/Values/module.jai"));
     let items = s.completion(&uri, at).unwrap();
+
     assert!(items.items.iter().any(|i| i.label == "hidden"));
     assert!(!items.items.iter().any(|i| i.label == "file_only"));
     let items = s
         .completion(&uri, position(text, text.find("x:=").unwrap()))
         .unwrap();
+
     assert!(!items.items.iter().any(|i| i.label == "hidden"));
 }

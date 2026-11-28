@@ -22,17 +22,22 @@ impl Compiler {
                 TypeKind::Bool | TypeKind::Int { .. } | TypeKind::Float { .. } | TypeKind::String
             )
         };
+
         if !scalar(self.ty.types.kind(from)) || !scalar(self.ty.types.kind(to)) {
             return true;
         }
+
         let number =
             |kind: &TypeKind| matches!(kind, TypeKind::Int { .. } | TypeKind::Float { .. });
+
         if constant {
             let numeric = number(self.ty.types.kind(from)) && number(self.ty.types.kind(to));
+
             if (numeric && !literal) || (from == TypeId::STRING && to == TypeId::U8) {
                 return true;
             }
         }
+
         self.implicit_cost(from, literal, to).is_some()
     }
 
@@ -42,21 +47,27 @@ impl Compiler {
         if from == to {
             return Some(EXACT);
         }
+
         if self.is_stand_in(from) || self.is_stand_in(to) {
             // A sketch's stand-in: anything converts, at the cost of the worst conversion.
             return Some(TO_ANY);
         }
+
         // A `void` variable boxes too; a call without a value is rejected by the caller.
         if to == TypeId::ANY && from != TypeId::COMPILE_TIME {
             return Some(TO_ANY);
         }
+
         if self.ty.types.wide_float(from).is_some() || self.ty.types.wide_float(to).is_some() {
             return self.wide_implicit_cost(from, untyped, to);
         }
+
         let fk = self.ty.types.kind(from).clone();
         let tk = self.ty.types.kind(to).clone();
+
         if untyped {
             let tr = self.ty.types.repr(to);
+
             if from == TypeId::NULL {
                 return matches!(
                     self.ty.types.kind(tr),
@@ -64,6 +75,7 @@ impl Compiler {
                 )
                 .then_some(LITERAL);
             }
+
             // Between float overloads a literal prefers float32 (`log(2)` is `log(float32)`).
             let float_cost = |c: &Self| {
                 if c.ty.types.repr(to) == TypeId::F64 {
@@ -72,19 +84,24 @@ impl Compiler {
                     LITERAL
                 }
             };
+
             if self.ty.types.is_integer(from) {
                 if self.ty.types.is_integer(to) {
                     return Some(LITERAL);
                 }
+
                 if self.ty.types.is_float(to) {
                     return Some(float_cost(self));
                 }
+
                 return None;
             }
+
             if self.ty.types.is_float(from) {
                 return self.ty.types.is_float(to).then(|| float_cost(self));
             }
         }
+
         match (&fk, &tk) {
             (
                 TypeKind::Int {
@@ -147,10 +164,12 @@ impl Compiler {
                 {
                     return Some(POINTER);
                 }
+
                 // *Derived → *Base through `#as` members.
                 if self.as_offset(*f, *t).is_some() {
                     return Some(SUBTYPE);
                 }
+
                 // `*Wrapper` → the pointer type of its `#as` member (`#as handle: VkDevice`).
                 self.as_offset(*f, to).map(|_| SUBTYPE + 1)
             }
@@ -204,9 +223,11 @@ impl Compiler {
             // any of its `#as` members.
             (TypeKind::Pointer(f), _) => {
                 let f = *f;
+
                 if f == to && matches!(tk, TypeKind::Struct(_)) {
                     return Some(SUBTYPE + 1);
                 }
+
                 self.as_offset(f, to).map(|_| SUBTYPE + 1)
             }
             (TypeKind::Proc(a), TypeKind::Proc(b)) => (a == b).then_some(EXACT),
@@ -217,20 +238,25 @@ impl Compiler {
     /// Offset of a `#as` member of type `to` inside struct `from` (searching recursively).
     pub fn as_offset(&mut self, from: TypeId, to: TypeId) -> Option<u64> {
         let s = self.ty.types.as_struct(from)?;
+
         if self.layout_struct(s, Span::NONE).is_err() {
             return None;
         }
+
         let fields = self.ty.types.struct_info(s).fields.clone();
+
         for field in fields.iter() {
             if field.as_ {
                 if field.ty == to {
                     return Some(field.offset);
                 }
+
                 if let Some(inner) = self.as_offset(field.ty, to) {
                     return Some(field.offset + inner);
                 }
             }
         }
+
         None
     }
 }

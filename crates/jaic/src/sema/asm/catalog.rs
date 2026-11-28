@@ -54,6 +54,7 @@ pub fn instruction(name: &str) -> Option<&'static AsmInstruction> {
             .map(|at| &table[at])
     };
     let kind = decode(name)?;
+
     find(name)
         .or_else(|| find(&format!("v{name}")))
         .or_else(|| name.strip_prefix('v').and_then(find))
@@ -103,10 +104,13 @@ pub fn pin_names() -> Vec<String> {
         .iter()
         .map(std::string::ToString::to_string)
         .collect();
+
     out.extend((8..16).map(|i| format!("r{i}")));
+
     for (prefix, count) in [("xmm", 16), ("ymm", 16), ("zmm", 32), ("k", 8)] {
         out.extend((0..count).map(|i| format!("{prefix}{i}")));
     }
+
     out
 }
 
@@ -128,7 +132,9 @@ mod tests {
     #[test]
     fn every_listed_mnemonic_is_accepted_and_described() {
         let table = instructions();
+
         assert!(table.len() > 900, "{}", table.len());
+
         for i in table {
             assert!(is_supported(&i.mnemonic), "{}", i.mnemonic);
             assert!(
@@ -143,7 +149,9 @@ mod tests {
             );
             assert_eq!(instruction(&i.mnemonic), Some(i));
         }
+
         let vpaddd = instruction("vpaddd").unwrap();
+
         assert!(
             instruction("prefetcht0")
                 .unwrap()
@@ -185,6 +193,7 @@ mod tests {
             include_str!("simd/ext.rs"),
         ];
         let mut literals = std::collections::BTreeSet::new();
+
         for source in sources {
             for (i, part) in source.split('"').enumerate() {
                 if i % 2 == 1
@@ -197,16 +206,21 @@ mod tests {
                 }
             }
         }
+
         let letters = ["b", "w", "d", "q"];
         let mut tails: Vec<String> = vec![String::new()];
+
         tails.extend(literals.iter().filter(|l| l.len() <= 3).cloned());
+
         for a in letters {
             tails.push(a.to_owned());
             tails.push(format!("{a}2m"));
+
             for b in letters {
                 tails.push(format!("{a}{b}"));
             }
         }
+
         let table = instructions();
         let listed = |n: &str| {
             table
@@ -214,6 +228,7 @@ mod tests {
                 .is_ok()
         };
         let mut missing = Vec::new();
+
         for head in &literals {
             for tail in &tails {
                 let name = format!("{head}{tail}");
@@ -223,11 +238,13 @@ mod tests {
                     // `lock_` on any core instruction, and `movzx`/`movsx` with any suffix.
                     || name.starts_with("lock_")
                     || (name.starts_with("movzx") || name.starts_with("movsx"));
+
                 if is_supported(&name) && !spelled {
                     missing.push(name);
                 }
             }
         }
+
         assert!(missing.is_empty(), "accepted but not listed: {missing:?}");
     }
 

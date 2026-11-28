@@ -30,11 +30,14 @@ fn stdlib_c_abi_matches_host_headers() {
     };
     let target = format!("{os}-{cpu}");
     let dir = TempDir::new("native-abi-layout");
+
     if toolchain::host_cc().is_none() {
         return;
     }
+
     let mismatches = abi_layout::check_host(JAIC, &abi_manifest(&target), &target, &dir)
         .unwrap_or_else(|e| panic!("{e}"));
+
     assert!(
         mismatches.is_empty(),
         "{} stdlib declarations differ from the C headers:\n{}",
@@ -50,22 +53,27 @@ fn stdlib_c_abi_matches_host_headers() {
 #[test]
 fn stdlib_c_abi_matches_cross_target_headers() {
     let specs = jacket_config::env::ABI_CROSS.get().unwrap_or_default();
+
     if specs.trim().is_empty() {
         toolchain::skip("JAIC_ABI_CROSS names no target to check");
         return;
     }
+
     let clang = jacket_config::env::ABI_CLANG
         .get()
         .unwrap_or_else(|| "clang".into());
     let mut failures = Vec::new();
+
     for spec in specs.split(';').filter(|s| !s.trim().is_empty()) {
         let target = abi_layout::cross_target(spec.trim()).unwrap_or_else(|e| panic!("{e}"));
         let dir = TempDir::new(&target.name);
+
         match abi_layout::check_cross(JAIC, &clang, &abi_manifest(&target.name), &target, &dir) {
             Ok(mismatches) => failures.extend(mismatches),
             Err(e) => failures.push(format!("[{}] {e}", target.name)),
         }
     }
+
     assert!(
         failures.is_empty(),
         "{} problems:\n{}",
@@ -80,6 +88,7 @@ fn stdlib_c_abi_matches_cross_target_headers() {
 fn c_structs_by_value() {
     let fixture = repo_root().join("tests/compiler/native/c-structs-by-value");
     let dir = TempDir::new("native-c-structs");
+
     for name in [
         "structs.c",
         "types.jai",
@@ -88,6 +97,7 @@ fn c_structs_by_value() {
     ] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
     }
+
     let lib = if cfg!(target_os = "macos") {
         "libstructs.dylib"
     } else {
@@ -98,29 +108,35 @@ fn c_structs_by_value() {
     let mut steps = vec![Command::new(
         toolchain::host_cc().expect("a C compiler is installed"),
     )];
+
     if cfg!(windows) {
         steps[0].args(["-c", "structs.c", "-o", "structs.o"]);
         let mut archive = toolchain::command("llvm-ar");
+
         archive.args(["rcs", "libstructs.lib", "structs.o"]);
         steps.push(archive);
     } else {
         steps[0].args(["-shared", "-fPIC", "-o", lib, "structs.c"]);
     }
+
     if cfg!(target_os = "macos") {
         // Found through the executable's rpath rather than relative to the working directory.
         steps[0].arg("-Wl,-install_name,@rpath/libstructs.dylib");
     }
+
     for step in &mut steps {
         let Ok(output) = step.current_dir(&dir).output() else {
             eprintln!("skipping: no C compiler");
             return;
         };
+
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
+
     let calls = "{11, 22} {2, 4, 6} {5, 6, 7, 8} 10 {-7, 9} {99, 2.5} {11, 22, 33} {11, 22}\n832\n8940414\n";
     let callbacks = "{111, 47} {10, 20, 30, 40} {8, 4}\n832\n{12, 10.25} {7.5, 5.25}\n8940414\n";
     let run_interp = |name: &str| {
@@ -129,6 +145,7 @@ fn c_structs_by_value() {
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -136,16 +153,20 @@ fn c_structs_by_value() {
         );
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     if !cfg!(windows) {
         assert_eq!(run_interp("foreign_calls"), calls);
         assert_eq!(run_interp("callbacks"), callbacks);
     }
+
     let run_native = |name: &str| {
         let output = build_and_run(&dir.join(format!("{name}.jai")), &dir, name).unwrap();
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     assert_eq!(run_native("foreign_calls"), calls);
     assert_eq!(run_native("callbacks"), callbacks);
+
     // Windows: the interpreter loads the fixture as `libstructs.dll` (built after the native
     // runs, since its import library replaces the static `libstructs.lib`). An MSVC DLL exports
     // only what it is told to, so every function defined in `structs.c` is named. On x64 the
@@ -153,20 +174,27 @@ fn c_structs_by_value() {
     if cfg!(windows) {
         let source = std::fs::read_to_string(dir.join("structs.c")).unwrap();
         let mut link = toolchain::command("clang");
+
         link.args(["-shared", "structs.c", "-o", "libstructs.dll"]);
+
         for line in source.lines() {
             let starts_definition = line.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
+
             if !starts_definition || line.starts_with("typedef") {
                 continue;
             }
+
             let Some(head) = line.split('(').next() else {
                 continue;
             };
+
             if let Some(name) = head.split_whitespace().last() {
                 link.arg(format!("-Wl,/EXPORT:{}", name.trim_start_matches('*')));
             }
         }
+
         let output = link.current_dir(&dir).output().unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -186,21 +214,26 @@ fn c_structs_by_value() {
 fn c_call_procedures_stored_in_memory() {
     let fixture = repo_root().join("tests/compiler/native/c-call-stored");
     let dir = TempDir::new("native-c-call-stored");
+
     for name in ["stored.c", "stored.jai"] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
     }
+
     let compile = |args: &[&str]| {
         let mut cc = Command::new(toolchain::host_cc().expect("a C compiler is installed"));
+
         cc.args(args).current_dir(&dir);
         let output = cc
             .output()
             .expect("native callback regressions require a C compiler");
+
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
     };
+
     if cfg!(target_os = "macos") {
         compile(&[
             "-shared",
@@ -222,12 +255,14 @@ fn c_call_procedures_stored_in_memory() {
             "stored.c",
         ]);
     }
+
     let expected = "115 1006 -9\n21 -4 true true\n[9, 7, 5, 3, 1]\n133\n7 1018 8\n";
     let output = jaic()
         .args(["-interp", "stored.jai"])
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -235,6 +270,7 @@ fn c_call_procedures_stored_in_memory() {
     );
     assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
     let output = build_and_run(&dir.join("stored.jai"), &dir, "stored").unwrap();
+
     assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
 }
 
@@ -248,21 +284,26 @@ fn c_call_procedures_stored_in_memory() {
 fn c_thread_callbacks_block_on_jai_threads() {
     let fixture = repo_root().join("tests/compiler/native/c-callback-threads");
     let dir = TempDir::new("native-c-callback-threads");
+
     for name in ["blocking.c", "blocking.jai", "deadlock.jai"] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
     }
+
     let compile = |args: &[&str]| {
         let mut cc = Command::new(toolchain::host_cc().expect("a C compiler is installed"));
+
         cc.args(args).current_dir(&dir);
         let output = cc
             .output()
             .expect("native callback regressions require a C compiler");
+
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
     };
+
     if cfg!(target_os = "macos") {
         compile(&[
             "-shared",
@@ -283,6 +324,7 @@ fn c_thread_callbacks_block_on_jai_threads() {
             "blocking.c",
         ]);
     }
+
     let expected = "mutex: 42\ncondition: 42\njoin: 42\nsleep: 10\nnested: 61\n\
                     nested on a thread of C: 61\nnested on a Jai thread: 31\n\
                     progress while a thread waits in C: 5000050000 1\n";
@@ -291,6 +333,7 @@ fn c_thread_callbacks_block_on_jai_threads() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "jaic -interp blocking.jai exited with {}\nstdout:\n{}\nstderr:\n{}",
@@ -303,6 +346,7 @@ fn c_thread_callbacks_block_on_jai_threads() {
         expected
     );
     let output = build_and_run(&dir.join("blocking.jai"), &dir, "blocking").unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&output.stdout).replace('\r', ""),
         expected
@@ -324,6 +368,7 @@ fn c_thread_callbacks_block_on_jai_threads() {
         let mut stdout = child.stdout.take().unwrap();
         let out = std::thread::spawn(move || {
             let mut bytes = Vec::new();
+
             stdout.read_to_end(&mut bytes).ok();
             bytes
         });
@@ -331,8 +376,10 @@ fn c_thread_callbacks_block_on_jai_threads() {
         let errors = std::thread::spawn(move || {
             let mut started = None;
             let mut text = String::new();
+
             for line in stderr.lines() {
                 let line = line.unwrap();
+
                 if line.trim_end() == "started" && started.is_none() {
                     started = Some(std::time::Instant::now());
                 } else {
@@ -340,6 +387,7 @@ fn c_thread_callbacks_block_on_jai_threads() {
                     text.push('\n');
                 }
             }
+
             (started, text)
         });
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
@@ -347,17 +395,21 @@ fn c_thread_callbacks_block_on_jai_threads() {
             if let Some(status) = child.try_wait().unwrap() {
                 break (status, false);
             }
+
             if std::time::Instant::now() >= deadline {
                 child.kill().unwrap();
                 break (child.wait().unwrap(), true);
             }
+
             std::thread::sleep(std::time::Duration::from_millis(10));
         };
         let (started, text) = errors.join().unwrap();
+
         assert!(!timed_out, "{args:?}: deadlock report timed out: {text}");
         let took = started
             .unwrap_or_else(|| panic!("{args:?} never started: {text}"))
             .elapsed();
+
         assert!(!status.success(), "{args:?} did not fail");
         assert!(
             text.contains("deadlock: every thread is blocked"),
@@ -368,6 +420,7 @@ fn c_thread_callbacks_block_on_jai_threads() {
     };
     let jai_only = report(&["-interp", "deadlock.jai"]);
     let callback = report(&["-interp", "deadlock.jai", "--", "callback"]);
+
     assert!(callback >= grace, "the callback case took {callback:?}");
     assert!(
         jai_only < grace,
@@ -384,15 +437,18 @@ fn c_thread_callbacks_block_on_jai_threads() {
 fn c_callbacks_from_the_top_of_a_stack() {
     let fixture = repo_root().join("tests/compiler/native/c-callback-threads");
     let dir = TempDir::new("native-c-callback-stack-top");
+
     for name in ["stack_top.c", "stack_top.jai"] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
     }
+
     let library = if cfg!(target_os = "macos") {
         "libstack_top.dylib"
     } else {
         "libstack_top.so"
     };
     let mut cc = toolchain::command("cc");
+
     cc.args([
         "-shared",
         "-fPIC",
@@ -402,12 +458,15 @@ fn c_callbacks_from_the_top_of_a_stack() {
         "stack_top.c",
     ])
     .current_dir(&dir);
+
     if cfg!(target_os = "macos") {
         cc.arg("-Wl,-install_name,@rpath/libstack_top.dylib");
     }
+
     let output = cc
         .output()
         .expect("native callback regressions require a C compiler");
+
     assert!(
         output.status.success(),
         "{}",
@@ -418,6 +477,7 @@ fn c_callbacks_from_the_top_of_a_stack() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "jaic -interp stack_top.jai exited with {}\nstderr:\n{}",
@@ -455,6 +515,7 @@ fn crash_in_native_code_is_reported_on_windows() {
         ),
     );
     let err = String::from_utf8_lossy(&output.stderr);
+
     assert_eq!(output.status.code(), Some(121), "{err}");
     assert!(
         err.contains("crash.jai:4:5: error: native code crashed (access violation at address 0x10) while calling foreign procedure `strlen`"),
@@ -467,6 +528,7 @@ fn crash_in_native_code_is_reported_on_windows() {
         "kernel32 :: #system_library \"kernel32\";\nCreateThread :: (attributes: *void, stack: u64, start: *void, parameter: *void, flags: u32, id: *u32) -> *void #foreign kernel32;\nWaitForSingleObject :: (handle: *void, milliseconds: u32) -> u32 #foreign kernel32;\nmain :: () {\n    thread := CreateThread(null, 0, cast(*void) 16, null, 0, null);\n    WaitForSingleObject(thread, 0xffff_ffff);\n}\n",
     );
     let err = String::from_utf8_lossy(&output.stderr);
+
     assert!(!output.status.success(), "{err}");
     assert_ne!(output.status.code(), Some(121), "{err}");
     assert!(!err.contains("native code crashed"), "{err}");
@@ -480,7 +542,9 @@ fn sanitized_builds_report_memory_errors() {
     if cfg!(windows) {
         return;
     }
+
     let dir = TempDir::new("native-sanitizers");
+
     std::fs::write(
         dir.join("errors.jai"),
         "#import \"Basic\";\n\
@@ -508,6 +572,7 @@ fn sanitized_builds_report_memory_errors() {
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -524,12 +589,14 @@ fn sanitized_builds_report_memory_errors() {
     };
     let both = build("both", "address,undefined");
     let clean = run(&both, "none");
+
     assert_eq!(String::from_utf8_lossy(&clean.stdout), "5\n0\n");
     assert!(clean.status.success());
 
     let asan = build("asan", "address");
     let heap = run(&asan, "heap");
     let report = String::from_utf8_lossy(&heap.stderr);
+
     assert!(!heap.status.success());
     assert!(
         report.contains("AddressSanitizer: heap-use-after-free") && report.contains("errors.jai:9"),
@@ -539,6 +606,7 @@ fn sanitized_builds_report_memory_errors() {
     let ubsan = build("ubsan", "undefined");
     let stack = run(&ubsan, "stack");
     let report = String::from_utf8_lossy(&stack.stderr);
+
     assert!(!stack.status.success());
     assert!(
         report.contains("errors.jai:13") && report.contains("runtime error: access out of bounds"),
@@ -550,6 +618,7 @@ fn sanitized_builds_report_memory_errors() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(!cross.status.success());
     assert!(String::from_utf8_lossy(&cross.stderr).contains("cross builds"));
 }
@@ -563,7 +632,9 @@ fn cpp_non_pod_results_use_the_hidden_pointer() {
     if cfg!(windows) {
         return;
     }
+
     let dir = TempDir::new("native-cpp-non-pod");
+
     std::fs::write(
         dir.join("counter.cpp"),
         "struct Counter {\n\
@@ -590,6 +661,7 @@ fn cpp_non_pod_results_use_the_hidden_pointer() {
         "libcounter.so"
     };
     let mut compile = Command::new("c++");
+
     compile.args([
         "-shared",
         "-fPIC",
@@ -598,13 +670,16 @@ fn cpp_non_pod_results_use_the_hidden_pointer() {
         lib,
         "counter.cpp",
     ]);
+
     if cfg!(target_os = "macos") {
         compile.arg("-Wl,-install_name,@rpath/libcounter.dylib");
     }
+
     let Ok(output) = compile.current_dir(&dir).output() else {
         eprintln!("skipping: no C++ compiler");
         return;
     };
+
     assert!(
         output.status.success(),
         "{}",
@@ -615,8 +690,10 @@ fn cpp_non_pod_results_use_the_hidden_pointer() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert_eq!(String::from_utf8_lossy(&interp.stdout), "41\n");
     let native = build_and_run(&dir.join("non_pod.jai"), &dir, "non_pod").unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&native.stdout),
         "41\n",
@@ -634,7 +711,9 @@ fn cpp_non_pod_callback_results() {
     if cfg!(windows) {
         return;
     }
+
     let dir = TempDir::new("native-cpp-non-pod-callbacks");
+
     std::fs::write(
         dir.join("counter.cpp"),
         "struct Counter {\n\
@@ -685,6 +764,7 @@ fn cpp_non_pod_callback_results() {
         "libcounter.so"
     };
     let mut compile = Command::new("c++");
+
     compile.args([
         "-shared",
         "-fPIC",
@@ -693,13 +773,16 @@ fn cpp_non_pod_callback_results() {
         lib,
         "counter.cpp",
     ]);
+
     if cfg!(target_os = "macos") {
         compile.arg("-Wl,-install_name,@rpath/libcounter.dylib");
     }
+
     let Ok(output) = compile.current_dir(&dir).output() else {
         eprintln!("skipping: no C++ compiler");
         return;
     };
+
     assert!(
         output.status.success(),
         "{}",
@@ -710,6 +793,7 @@ fn cpp_non_pod_callback_results() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&interp.stdout),
         "41 123\n",
@@ -722,6 +806,7 @@ fn cpp_non_pod_callback_results() {
         "non_pod_callbacks",
     )
     .unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&native.stdout),
         "41 123\n",
@@ -741,8 +826,10 @@ fn c_long_double() {
     if cfg!(windows) {
         return;
     }
+
     let fixture = repo_root().join("tests/compiler/native/c-long-double");
     let dir = TempDir::new("native-c-long-double");
+
     for name in [
         "longdouble.c",
         "longdouble.h",
@@ -753,6 +840,7 @@ fn c_long_double() {
     ] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
     }
+
     let lib = if cfg!(target_os = "macos") {
         "liblongdouble.dylib"
     } else {
@@ -760,17 +848,21 @@ fn c_long_double() {
     };
     let compile = |extra: &[&str]| {
         let mut cc = toolchain::command("cc");
+
         cc.args(extra)
             .args(["-shared", "-fPIC", "-o", lib, "longdouble.c"]);
+
         if cfg!(target_os = "macos") {
             cc.arg("-Wl,-install_name,@rpath/liblongdouble.dylib");
         }
+
         cc.current_dir(&dir).output()
     };
     let Ok(output) = compile(&[]) else {
         eprintln!("skipping: no C compiler");
         return;
     };
+
     assert!(
         output.status.success(),
         "{}",
@@ -780,6 +872,7 @@ fn c_long_double() {
     let callbacks = "apply 7.5 true\nbox_apply 4.5\n";
     let jaic = |args: &[&str]| {
         let output = jaic().args(args).current_dir(&dir).output().unwrap();
+
         assert!(
             output.status.success(),
             "{args:?}: {}",
@@ -787,16 +880,20 @@ fn c_long_double() {
         );
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     assert_eq!(jaic(&["-interp", "foreign_calls.jai"]), calls);
+
     // C calling a Jai procedure that takes a wide long double needs a native build; where long
     // double is float64 the interpreter's callbacks work as usual.
     if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
         assert_eq!(jaic(&["-interp", "callbacks.jai"]), callbacks);
     }
+
     let run_native = |name: &str| {
         let output = build_and_run(&dir.join(format!("{name}.jai")), &dir, name).unwrap();
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     assert_eq!(run_native("foreign_calls"), calls);
     assert_eq!(run_native("callbacks"), callbacks);
 
@@ -806,10 +903,13 @@ fn c_long_double() {
             .args(["-x86_64", "/usr/bin/true"])
             .status()
             .is_ok_and(|s| s.success());
+
     if !rosetta {
         return;
     }
+
     let output = compile(&["-arch", "x86_64"]).unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -828,6 +928,7 @@ fn c_long_double() {
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -835,10 +936,12 @@ fn c_long_double() {
         );
         String::from_utf8_lossy(&output.stdout).into_owned()
     };
+
     assert_eq!(x86("foreign_calls"), calls);
     assert_eq!(x86("callbacks"), callbacks);
     let soft = jaic(&["-interp", "precision.jai", "-target", "x86_64-apple-darwin"]);
     let hard = x86("precision");
+
     assert!(soft.len() > 10_000, "{soft}");
     assert!(soft == hard, "soft-float x87 differs from the hardware");
 }
@@ -849,6 +952,7 @@ fn c_variadic_calls() {
     let dir = TempDir::new("native-varargs");
     let source = repo_root().join("tests/compiler/regressions/c-variadic-foreign-calls.jai");
     let output = build_and_run(&source, &dir, "varargs").unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "ok\n",
@@ -864,6 +968,7 @@ fn c_variadic_calls() {
 #[test]
 fn dll_crt_static_library_links_on_windows() {
     let dir = TempDir::new("native-dll-crt");
+
     std::fs::write(
         dir.join("crtuser.c"),
         "#include <stdio.h>\n#include <stdlib.h>\n\
@@ -887,6 +992,7 @@ fn dll_crt_static_library_links_on_windows() {
          main :: () {\n    print(\"lines: %\\n\", crtuser_lines(temp_c_string(#file)));\n}\n",
     )
     .unwrap();
+
     for (program, args) in [
         (
             "clang",
@@ -899,14 +1005,17 @@ fn dll_crt_static_library_links_on_windows() {
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
+
     let output =
         build_and_run(&dir.join("main.jai"), &dir, "main").unwrap_or_else(|e| panic!("{e}"));
+
     assert_eq!(String::from_utf8_lossy(&output.stdout), "lines: 6\n");
     // The DLL CRT, not a static copy: the executable imports the UCRT's stdio set.
     let imports = toolchain::command("llvm-readobj")
@@ -915,6 +1024,7 @@ fn dll_crt_static_library_links_on_windows() {
         .output()
         .unwrap();
     let imports = String::from_utf8_lossy(&imports.stdout).to_ascii_lowercase();
+
     assert!(imports.contains("api-ms-win-crt-stdio"), "{imports}");
 }
 
@@ -927,6 +1037,7 @@ fn msvc_long_double_math_calls_the_double_functions() {
         .unwrap()
         .toolchain();
     let double = msvc.rename("sqrtl").expect("sqrtl is a renamed symbol");
+
     assert!(msvc.is_runtime("libm"));
     std::fs::write(
         dir.join("main.jai"),
@@ -952,6 +1063,7 @@ fn msvc_long_double_math_calls_the_double_functions() {
         .output()
         .unwrap();
     let ir = read_ir_parts(&dir.join("main.ll"));
+
     assert!(
         ir.contains(&format!("declare double @{double}(double)")),
         "{ir}"
@@ -982,6 +1094,7 @@ fn msvc_c_runtime_variables_are_dllimport() {
         .map(|row| row.name)
         .find(|name| !only.contains(name))
         .unwrap();
+
     std::fs::write(
         dir.join("main.jai"),
         format!(
@@ -998,6 +1111,7 @@ fn msvc_c_runtime_variables_are_dllimport() {
     .unwrap();
     let emit = |target: &str| {
         let name = format!("{target}.ll");
+
         // Only the IR matters: the link needs a toolchain this host may lack.
         jaic()
             .args([
@@ -1008,8 +1122,10 @@ fn msvc_c_runtime_variables_are_dllimport() {
             .unwrap();
         read_ir_parts(&dir.join(name))
     };
+
     for target in ["x86_64-pc-windows-msvc", "aarch64-pc-windows-msvc"] {
         let ir = emit(target);
+
         assert!(
             ir.contains("@_fmode = external dllimport global"),
             "{target}: {ir}"
@@ -1024,7 +1140,9 @@ fn msvc_c_runtime_variables_are_dllimport() {
             "{target}: {ir}"
         );
     }
+
     let ir = emit("x86_64-pc-windows-gnu");
+
     assert!(ir.contains("@_fmode = external global"), "{ir}");
     assert!(
         ir.contains("@other_data = external dllimport global"),
@@ -1038,6 +1156,7 @@ fn msvc_c_runtime_variables_are_dllimport() {
 #[test]
 fn msvc_cpp_methods_take_the_result_pointer_after_this() {
     let dir = TempDir::new("native-msvc-cpp-method");
+
     std::fs::write(
         dir.join("main.jai"),
         "Handle :: struct { ptr: u64; }\n\
@@ -1047,6 +1166,7 @@ fn msvc_cpp_methods_take_the_result_pointer_after_this() {
          main :: () {\n    vtable := Heap_Vtable.{ start };\n    heap := Heap.{ *vtable };\n    handle := heap.vtable.start(*heap);\n}\n",
     )
     .unwrap();
+
     // On arm64 the pointer is also `inreg`: LLVM puts any other `sret` pointer in x8, not x1.
     for (target, method, result) in [
         ("x86_64-pc-windows-msvc", true, "ptr sret([8 x i8])"),
@@ -1070,6 +1190,7 @@ fn msvc_cpp_methods_take_the_result_pointer_after_this() {
             .lines()
             .find(|l| l.contains("call") && l.contains("(ptr %") && !l.contains('@'))
             .unwrap_or_else(|| panic!("{target}: no call through the vtable\n{ir}"));
+
         if method {
             assert!(
                 definition.contains(&format!("(ptr %0, {result} %1)")),
@@ -1089,8 +1210,10 @@ fn msvc_cpp_methods_take_the_result_pointer_after_this() {
                 "{target}: {call}"
             );
         }
+
         for part in std::fs::read_dir(dir.path()).unwrap() {
             let path = part.unwrap().path();
+
             if path.extension().is_some_and(|e| e == "ll") {
                 std::fs::remove_file(path).unwrap();
             }

@@ -33,6 +33,7 @@ pub fn host_target(host: &dyn Host) -> Target {
 fn missing(lookup: &Lookup, what: String, needs: &[Need]) -> Missing {
     let manager = PackageManager::detect(lookup);
     let os = lookup.host.os();
+
     Missing::new(
         what,
         needs.iter().map(|need| need.note(os, manager)).collect(),
@@ -42,6 +43,7 @@ fn missing(lookup: &Lookup, what: String, needs: &[Need]) -> Missing {
 fn overridden(target: Target, given: &Given<OsString>) -> Found {
     let program = given.value.to_string_lossy().into_owned();
     let mut found = Found::new(PathBuf::from(&given.value), Origin::Override(given.from));
+
     // A linker named by hand gets the arguments its style expects, as one found by the lookup does.
     match target.toolchain().linker {
         Linker::Msvc if !names::is_msvc_linker(&program) => {
@@ -57,6 +59,7 @@ fn overridden(target: Target, given: &Given<OsString>) -> Found {
         }
         _ => {}
     }
+
     found
 }
 
@@ -67,22 +70,27 @@ pub fn find_linker(
     overrides: &Overrides,
 ) -> Result<Found, Missing> {
     let target = target.unwrap_or_else(|| host_target(lookup.host));
+
     if let Some(given) = &overrides.linker {
         return Ok(overridden(target, given));
     }
+
     let no_linker = || format!("no linker for {target}");
+
     if target.is_wasm() {
         return lookup
             .llvm_tool("wasm-ld")
             .map(|path| Found::new(path, Origin::System))
             .ok_or_else(|| missing(lookup, no_linker(), &[Need::Lld]));
     }
+
     if target.is_freestanding() {
         return lookup
             .llvm_tool("ld.lld")
             .map(|path| Found::new(path, Origin::System))
             .ok_or_else(|| missing(lookup, no_linker(), &[Need::Lld]));
     }
+
     match target.toolchain().linker {
         Linker::Unix => unix(lookup, target, overrides),
         Linker::MinGw => mingw(lookup, target),
@@ -93,14 +101,17 @@ pub fn find_linker(
 fn unix(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result<Found, Missing> {
     let host = host_target(lookup.host);
     let no_linker = || format!("no linker for {target}");
+
     if target.is_apple() {
         if lookup.host.os() != Os::MacOs {
             return Err(missing(lookup, no_linker(), &[Need::AppleSdk]));
         }
+
         let cc = lookup
             .which("cc")
             .ok_or_else(|| missing(lookup, no_linker(), &[Need::CDriver]))?;
         let found = Found::new(cc, Origin::System);
+
         // The other architecture of a Mac (run through Rosetta, and the reverse): Apple's `cc`
         // is clang and links either.
         return Ok(if target == host {
@@ -109,6 +120,7 @@ fn unix(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result<Found,
             found.with_args([format!("--target={target}")])
         });
     }
+
     if target.os != TargetOs::Linux {
         return Err(Missing::new(
             no_linker(),
@@ -122,6 +134,7 @@ fn unix(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result<Found,
             )],
         ));
     }
+
     // The system C driver, when it builds for the target's CPU.
     if lookup.host.os() == Os::Linux
         && target.abi != TargetAbi::Musl
@@ -130,11 +143,13 @@ fn unix(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result<Found,
         if target.cpu == host.cpu {
             return Ok(Found::new(cc, Origin::System));
         }
+
         // 32-bit x86 on a 64-bit machine: the C driver's multilib mode.
         if target.cpu == TargetCpu::X86 && host.cpu == TargetCpu::X64 {
             return Ok(Found::new(cc, Origin::System).with_args(["-m32"]));
         }
     }
+
     cross_linux(lookup, target, overrides)
 }
 
@@ -145,6 +160,7 @@ fn cross_linux(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result
     {
         return Ok(Found::new(driver, Origin::System));
     }
+
     let driver = if lookup.host.os() == Os::MacOs {
         lookup.which("cc")
     } else {
@@ -152,6 +168,7 @@ fn cross_linux(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result
     };
     let lld = lookup.llvm_tool("ld.lld");
     let sysroot = find_sysroot(lookup, target, overrides, SysrootUse::Link)?;
+
     if let (Some(driver), Some(lld), Some(sysroot)) = (&driver, &lld, &sysroot) {
         return Ok(Found::new(driver.clone(), Origin::System)
             .with_args([
@@ -162,9 +179,11 @@ fn cross_linux(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result
             ])
             .with_sysroot(sysroot.clone()));
     }
+
     let manager = PackageManager::detect(lookup);
     let packaged = matches!(manager, Some(PackageManager::Apt | PackageManager::Dnf));
     let mut needs = Vec::new();
+
     if packaged && pins::gnu_triple(target).is_some() {
         needs.push(Need::CrossLinux {
             target,
@@ -173,15 +192,18 @@ fn cross_linux(lookup: &Lookup, target: Target, overrides: &Overrides) -> Result
         if driver.is_none() {
             needs.push(Need::Clang);
         }
+
         if lld.is_none() {
             needs.push(Need::Lld);
         }
+
         if sysroot.is_none() {
             needs.push(Need::CrossLinux {
                 target,
             });
         }
     }
+
     let what = if driver.is_some() && lld.is_some() {
         format!("no Linux C library for {target}")
     } else {
@@ -219,19 +241,23 @@ pub fn find_sysroot(
                 Vec::new(),
             ));
         }
+
         return Ok(Some(Found::new(
             given.value.clone(),
             Origin::Override(given.from),
         )));
     }
+
     if purpose == SysrootUse::Run
         && let Some(gnu) = pins::gnu_triple(target)
     {
         let system = PathBuf::from("/usr").join(gnu);
+
         if lookup.host.os() == Os::Linux && lookup.host.is_dir(&system.join("lib")) {
             return Ok(Some(Found::new(system, Origin::System)));
         }
     }
+
     Ok(cache::sysroot(lookup.host, target).map(|dir| Found::new(dir, Origin::Cache)))
 }
 
@@ -250,9 +276,11 @@ fn mingw(lookup: &Lookup, target: Target) -> Result<Found, Missing> {
         format!("{cpu}-w64-mingw32-gcc"),
         format!("{cpu}-w64-mingw32-clang"),
     ];
+
     if lookup.host.os() == Os::Windows {
         names.extend(["gcc".to_string(), "clang".to_string()]);
     }
+
     let Some(program) = names.iter().find_map(|name| lookup.tool(name)) else {
         return Err(missing(
             lookup,
@@ -263,6 +291,7 @@ fn mingw(lookup: &Lookup, target: Target) -> Result<Found, Missing> {
         ));
     };
     let found = Found::new(program.clone(), Origin::System);
+
     Ok(if names::is_clang(&program.to_string_lossy()) {
         found.with_args([format!("--target={target}")])
     } else {
@@ -286,40 +315,54 @@ fn msvc(lookup: &Lookup, target: Target) -> Result<Found, Missing> {
     };
     let with_lib = |program: &std::path::Path| {
         let mut found = Found::new(program, Origin::System);
+
         if let Some(lib) = discover::lib_env(arch) {
             found.env.push(("LIB".into(), lib));
         }
+
         found
     };
+
     // No process is started to find this one; the `PATH` check below runs `link /?`.
     if let Some(tool) = discover::find_tool("link.exe", arch) {
         let mut found = Found::new(tool.program, Origin::System);
+
         found.env = tool.env;
+
         return Ok(found);
     }
+
     let mut skipped = Vec::new();
+
     for program in lookup.every_on_path("link") {
         if msvc::is_microsoft_linker(lookup.host, &program) {
             return Ok(with_lib(&program));
         }
+
         skipped.push(program);
     }
+
     if let Some(program) = lookup.which("clang") {
         return Ok(clang(program));
     }
+
     if let Some(program) = lookup.which("lld-link") {
         return Ok(with_lib(&program));
     }
+
     if let Some(program) = msvc::find_clang(lookup) {
         return Ok(clang(program));
     }
+
     let mut error = missing(lookup, format!("no linker for {target}"), &[Need::Msvc]);
+
     for program in skipped {
         error.notes.push(format!(
             "`{}` is not Microsoft's linker but the coreutils `link` (Git for Windows, MSYS2), so it was skipped",
             program.display()
         ));
     }
+
     Err(error)
 }
 
@@ -333,18 +376,21 @@ pub fn find_archiver(
     overrides: &Overrides,
 ) -> Result<Found, Missing> {
     let target = target.unwrap_or_else(|| host_target(lookup.host));
+
     if let Some(given) = &overrides.archiver {
         return Ok(Found::new(
             PathBuf::from(&given.value),
             Origin::Override(given.from),
         ));
     }
+
     let no_archiver = || format!("no archiver for {target}");
     let find = |names: &[String]| names.iter().find_map(|name| lookup.tool(name));
     let program = if target.is_wasm() {
         lookup.llvm_tool("llvm-ar")
     } else if target.toolchain().linker.is_windows() {
         let mingw = format!("{}-w64-mingw32-ar", mingw_cpu(target));
+
         find(&[mingw, "llvm-ar".into(), "llvm-lib".into(), "lib".into()]).or_else(|| {
             discover::find_tool("lib.exe", discover::arch_dir(target.cpu)).map(|tool| tool.program)
         })
@@ -356,6 +402,7 @@ pub fn find_archiver(
     } else {
         Need::Archiver
     };
+
     program
         .map(|program| Found::new(program, Origin::System))
         .ok_or_else(|| missing(lookup, no_archiver(), &[need]))
@@ -372,6 +419,7 @@ pub fn find_sanitizer_driver(lookup: &Lookup, overrides: &Overrides) -> Result<F
             Origin::Override(given.from),
         ));
     }
+
     lookup
         .llvm_tool("clang")
         .map(|path| Found::new(path, Origin::System))

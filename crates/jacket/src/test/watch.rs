@@ -43,6 +43,7 @@ impl Watched {
             .flat_map(|f| discover::import_folders(f))
             .chain(discover::import_folders(flags));
         let roots = roots.iter().map(|r| canonical(&r.dir));
+
         self.folders = coverage::outermost(roots.chain(imports).filter(|f| f.is_dir()))
             .into_iter()
             .collect();
@@ -65,14 +66,17 @@ type Stamps = BTreeMap<PathBuf, (SystemTime, u64)>;
 fn scan(folders: &BTreeSet<PathBuf>) -> Stamps {
     let mut stamps = Stamps::new();
     let mut pending: Vec<PathBuf> = folders.iter().cloned().collect();
+
     while let Some(folder) = pending.pop() {
         for entry in std::fs::read_dir(&folder).into_iter().flatten().flatten() {
             let path = entry.path();
             let Ok(kind) = entry.file_type() else {
                 continue;
             };
+
             if kind.is_dir() {
                 let name = entry.file_name();
+
                 if !SKIPPED.iter().any(|s| name == *s) {
                     pending.push(path);
                 }
@@ -80,10 +84,12 @@ fn scan(folders: &BTreeSet<PathBuf>) -> Stamps {
                 && let Ok(meta) = entry.metadata()
             {
                 let modified = meta.modified().unwrap_or(SystemTime::UNIX_EPOCH);
+
                 stamps.insert(path, (modified, meta.len()));
             }
         }
     }
+
     stamps
 }
 
@@ -101,19 +107,25 @@ fn changed(before: &Stamps, now: &Stamps) -> BTreeSet<PathBuf> {
 /// becomes what was found, and the files that differ are returned.
 fn wait_for_change(folders: &BTreeSet<PathBuf>, stamps: &mut Stamps) -> BTreeSet<PathBuf> {
     let mut now = scan(folders);
+
     while now == *stamps {
         std::thread::sleep(POLL);
         now = scan(folders);
     }
+
     loop {
         std::thread::sleep(SETTLE);
         let later = scan(folders);
+
         if later == now {
             break;
         }
+
         now = later;
     }
+
     let files = changed(stamps, &now);
+
     *stamps = now;
     files
 }
@@ -125,22 +137,29 @@ pub fn run(args: &TestArgs, cwd: &Path) -> ExitCode {
     let mut only: Option<BTreeSet<PathBuf>> = None;
     let mut stamps: Option<Stamps> = None;
     let human = args.format == crate::cli::OutputFormat::Human;
+
     loop {
         if human && std::io::stdout().is_terminal() {
             // Clear the screen and the scrollback, and go to the top.
             print!("\x1b[2J\x1b[3J\x1b[H");
         }
+
         let code = run_once(args, cwd, None, &mut watched, only.as_ref());
+
         if watched.folders.is_empty() {
             return code;
         }
+
         let stamps = stamps.get_or_insert_with(|| scan(&watched.folders));
+
         eprintln!(
             "jacket: watching {} for changes to .jai files; Ctrl-C quits",
             plural(watched.folders.len(), "folder"),
         );
         let files = wait_for_change(&watched.folders, stamps);
+
         only = narrowed(&files, &watched.tests);
+
         match &only {
             Some(files) => eprintln!("jacket: {} changed", plural(files.len(), "test file")),
             None => eprintln!("jacket: code changed; running all selected tests"),
@@ -176,13 +195,17 @@ mod tests {
     #[test]
     fn a_change_to_test_files_narrows_the_run() {
         let tests = set(&["/t/a.jai", "/t/b.jai"]);
+
         assert_eq!(narrowed(&set(&["/t/a.jai"]), &tests), None, "not on disk");
         let dir = std::env::temp_dir().join(format!("jacket-watch-narrow-{}", std::process::id()));
+
         std::fs::create_dir_all(&dir).unwrap();
         let (a, lib) = (dir.join("a.jai"), dir.join("lib.jai"));
+
         std::fs::write(&a, "").unwrap();
         std::fs::write(&lib, "").unwrap();
         let tests: BTreeSet<PathBuf> = [a.clone()].into();
+
         assert_eq!(
             narrowed(&[a.clone()].into(), &tests),
             Some([a.clone()].into())
@@ -196,6 +219,7 @@ mod tests {
     fn scans_see_new_edited_and_removed_jai_files() {
         let dir = std::env::temp_dir().join(format!("jacket-watch-scan-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(dir.join("sub")).unwrap();
         std::fs::create_dir_all(dir.join("target")).unwrap();
         std::fs::write(dir.join("a.jai"), "one").unwrap();
@@ -204,6 +228,7 @@ mod tests {
         std::fs::write(dir.join("target/c.jai"), "one").unwrap();
         let folders: BTreeSet<PathBuf> = [dir.clone()].into();
         let first = scan(&folders);
+
         assert_eq!(first.len(), 2, "{first:?}");
         std::fs::write(dir.join("a.jai"), "longer").unwrap();
         std::fs::remove_file(dir.join("sub/b.jai")).unwrap();
@@ -213,6 +238,7 @@ mod tests {
             .iter()
             .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
             .collect();
+
         assert_eq!(names, ["a.jai", "d.jai", "b.jai"]);
         assert!(changed(&now, &now).is_empty());
         let _ = std::fs::remove_dir_all(&dir);
@@ -222,9 +248,11 @@ mod tests {
     fn import_folders_are_watched_with_the_roots() {
         let dir = std::env::temp_dir().join(format!("jacket-watch-dirs-{}", std::process::id()));
         let (root, vendor, inside) = (dir.join("root"), dir.join("vendor"), dir.join("root/src"));
+
         for folder in [&root, &vendor, &inside] {
             std::fs::create_dir_all(folder).unwrap();
         }
+
         let flags = [
             "-O0".to_string(),
             "-import_dir".into(),
@@ -234,8 +262,10 @@ mod tests {
             root.to_string_lossy().into_owned(),
         ];
         let mut watched = Watched::default();
+
         watched.set_folders(&[], &flags, &[]);
         let folders: Vec<_> = watched.folders.iter().cloned().collect();
+
         assert_eq!(folders, [canonical(&root), canonical(&vendor)]);
         let _ = std::fs::remove_dir_all(&dir);
     }

@@ -5,6 +5,7 @@ use super::*;
 #[test]
 fn mmap64_maps_like_mmap() {
     let mut h = host();
+
     h.darwin_files = cfg!(target_os = "macos");
     let flags = if h.darwin_files {
         2 | 0x1000
@@ -13,6 +14,7 @@ fn mmap64_maps_like_mmap() {
     };
     let page = virtual_memory::page_size();
     let at = call(&mut h, "mmap64", &[0, page, 3, flags, u64::MAX, 0]);
+
     assert_ne!(at, u64::MAX);
     assert_eq!(call(&mut h, "munmap", &[at, page]), 0);
 }
@@ -22,6 +24,7 @@ fn mmap64_maps_like_mmap() {
 #[test]
 fn unmapping_part_of_a_mapping_keeps_the_rest() {
     let mut h = host();
+
     h.darwin_files = cfg!(target_os = "macos");
     let flags = if h.darwin_files {
         2 | 0x1000
@@ -30,8 +33,10 @@ fn unmapping_part_of_a_mapping_keeps_the_rest() {
     };
     let page = virtual_memory::page_size();
     let at = call(&mut h, "mmap", &[0, 3 * page, 3, flags, u64::MAX, 0]);
+
     assert_ne!(at, u64::MAX);
     let byte = |addr: u64| addr as *mut u8;
+
     // SAFETY: the three pages were just mapped readable and writable.
     unsafe {
         assert_eq!(*byte(at + page), 0);
@@ -55,6 +60,7 @@ fn unmapping_part_of_a_mapping_keeps_the_rest() {
 fn anonymous_mappings_share_one_total_cap_per_host() {
     const ENOMEM: u32 = 12;
     let mut h = host();
+
     h.darwin_files = cfg!(target_os = "macos");
     let flags = if h.darwin_files {
         2 | 0x1000
@@ -63,6 +69,7 @@ fn anonymous_mappings_share_one_total_cap_per_host() {
     };
     let map = |h: &mut SandboxHost, len: u64| call(h, "mmap", &[0, len, 3, flags, u64::MAX, 0]);
     let page = virtual_memory::page_size();
+
     // Without a lower limit the cap is `MAX_MAPPED_BYTES`; a refused request maps nothing.
     assert_eq!(
         map(&mut h, virtual_memory::MAX_MAPPED_BYTES + page),
@@ -72,6 +79,7 @@ fn anonymous_mappings_share_one_total_cap_per_host() {
     // A cap of a few pages: Windows commits what is mapped, and a test should not commit the
     // real 1 GiB cap.
     let half = 2 * page;
+
     h.map_limit = Some(2 * half);
 
     // One request over the cap is refused outright.
@@ -80,6 +88,7 @@ fn anonymous_mappings_share_one_total_cap_per_host() {
 
     let first = map(&mut h, half);
     let second = map(&mut h, half);
+
     assert_ne!(first, u64::MAX);
     assert_ne!(second, u64::MAX);
     // The total, not each request, is capped.
@@ -89,6 +98,7 @@ fn anonymous_mappings_share_one_total_cap_per_host() {
     // Unmapping gives the bytes back, whole or in part.
     assert_eq!(call(&mut h, "munmap", &[first, half]), 0);
     let again = map(&mut h, page);
+
     assert_ne!(again, u64::MAX);
     assert_eq!(call(&mut h, "munmap", &[second, page]), 0);
     assert_eq!(call(&mut h, "munmap", &[again, page]), 0);

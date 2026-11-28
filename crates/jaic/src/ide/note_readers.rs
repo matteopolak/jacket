@@ -48,6 +48,7 @@ impl Compiler {
             return;
         };
         let reads = watch.take();
+
         for read in reads {
             if let Some(reader) = self.note_reader(&read)
                 && let Some(ide) = self.ed.facts_mut()
@@ -63,15 +64,19 @@ impl Compiler {
     fn note_reader(&mut self, read: &NoteRead) -> Option<NoteReader> {
         let files = self.src.sources.len();
         let mut site = None;
+
         for &loc in read.stack.iter().filter(|l| (l.0 as usize) < files) {
             site.get_or_insert(loc);
+
             if self.ide_wants(FileId(loc.0)) {
                 site = Some(loc);
                 break;
             }
         }
+
         let (file, line, col) = site?;
         let source = self.src.sources.get(FileId(file));
+
         Some(NoteReader {
             note: read.note.clone(),
             path: source.path.to_string(),
@@ -86,10 +91,13 @@ impl Compiler {
             return Vec::new();
         };
         let source = self.src.sources.get(file);
+
         if source.path.as_file().is_none() {
             return Vec::new();
         }
+
         let path = crate::paths::program_path(&source.path.to_string());
+
         ide.note_readers
             .iter()
             .filter(|r| *r.note.path == *path)
@@ -119,6 +127,7 @@ impl Compiler {
 pub fn share_note_reads(compilers: &mut [&mut Compiler]) {
     let mut keys = HashSet::default();
     let mut all: Vec<NoteReader> = Vec::new();
+
     for c in compilers.iter() {
         if let Some(ide) = c.ed.facts() {
             for reader in &ide.note_readers {
@@ -128,6 +137,7 @@ pub fn share_note_reads(compilers: &mut [&mut Compiler]) {
             }
         }
     }
+
     for c in compilers.iter_mut() {
         if let Some(ide) = c.ed.facts_mut() {
             ide.note_readers.clone_from(&all);

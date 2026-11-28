@@ -7,12 +7,14 @@ use crate::reflection_bootstrap as bootstrap;
 
 fn compile(source: &str, os: TargetOs, cpu: TargetCpu) -> (Compiler, jaic::sema::Result<()>) {
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.os = os;
     options.cpu = cpu;
     options.import_paths.push("/lib".into());
     options.preload = Some("/lib/prelude/module.jai".into());
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/prelude/module.jai", format!("{} Type_Info_Variant :: struct {{using #as info:Type_Info; name:string; variant_of:*Type_Info; variant_flags:u32;}}", bootstrap::BOOTSTRAP).as_bytes());
     fs.insert(
         "/lib/Backing/module.jai",
@@ -29,6 +31,7 @@ fn compile(source: &str, os: TargetOs, cpu: TargetCpu) -> (Compiler, jaic::sema:
         b"using,except(omitted_name) #import \"Facade\";".as_slice(),
     );
     let mut c = Compiler::new(options, Rc::new(fs));
+
     c.ct.interp
         .set_host(Box::new(jaic::interp::SandboxHost::default()));
     let result = c.compile_sources(&[ProgramSource::String(source.into())]);
@@ -45,6 +48,7 @@ fn initialized_constants_are_never_assignable_storage_aliases() {
     ] {
         let (c, result) = compile(source, TargetOs::MacOS, TargetCpu::Arm64);
         let error = result.expect_err("initialized :: bindings must remain immutable");
+
         assert!(
             error.message.contains("constant"),
             "{}",
@@ -61,6 +65,7 @@ fn filtered_storage_reexports_do_not_publish_excluded_declarations() {
         TargetCpu::Arm64,
     );
     let error = result.expect_err("a reexport must retain its name filters");
+
     assert!(
         error.message.contains("no exported member `Secret`"),
         "{}",
@@ -91,9 +96,11 @@ fn foreign_storage_type_queries_and_reexports_need_no_runtime_symbol() {
             os,
             cpu,
         );
+
         if let Err(e) = result {
             panic!("{}", e.render(&c.src.sources));
         }
+
         assert_eq!(
             c.out.program.foreigns.iter().filter(|f| f.is_data).count(),
             1,
@@ -110,6 +117,7 @@ fn unavailable_foreign_value_expressions_still_require_runtime_storage() {
         TargetCpu::Arm64,
     );
     let error = result.expect_err("actual value computation needs available foreign storage");
+
     assert!(
         error.message.contains("not available"),
         "{}",
@@ -128,8 +136,10 @@ fn native_c_storage_reads_and_mutations_share_reexported_declarations() {
     ) else {
         return;
     };
+
     jaic::interp::add_library_dir(dir.to_path_buf());
     let mut fs = VirtualFs::default();
+
     fs.insert(
         "/lib/Backing/module.jai",
         include_bytes!("../../../tests/compiler/semantics/storage-aliases/Backing/module.jai")
@@ -146,6 +156,7 @@ fn native_c_storage_reads_and_mutations_share_reexported_declarations() {
             .as_slice(),
     );
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths.push("/lib".into());
     let mut c = Compiler::new(options, Rc::new(fs));
@@ -153,9 +164,11 @@ fn native_c_storage_reads_and_mutations_share_reexported_declarations() {
         "F :: #import \"Forward\"; R :: #import \"Backing\"; {} #assert storage_alias_check()==0;",
         include_str!("../../../tests/compiler/semantics/storage-aliases/behavior.jai")
     );
+
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source)]) {
         panic!("{}", e.render(&c.src.sources));
     }
+
     assert_eq!(
         c.out.program.foreigns.iter().filter(|f| f.is_data).count(),
         2
@@ -170,6 +183,7 @@ fn unavailable_foreign_storage_still_diagnoses_real_reads() {
         TargetCpu::Arm64,
     );
     let error = result.expect_err("a real read still requires available foreign storage");
+
     assert!(
         error.message.contains("unavailable_data") && error.message.contains("not available"),
         "{}",

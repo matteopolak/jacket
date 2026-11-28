@@ -5,10 +5,13 @@ use std::{path::Path, rc::Rc};
 
 fn compile(files: &[(&str, &str)], runtime: bool) -> Compiler {
     let mut fs = VirtualFs::default();
+
     for (path, text) in files {
         fs.insert(*path, text.as_bytes());
     }
+
     let mut options = Options::host();
+
     options.runtime_support = runtime;
     options.runtime_entry_point = false;
     options.runtime_initialization = false;
@@ -37,6 +40,7 @@ fn readiness_probe_does_not_discard_an_imported_invalid_condition() {
         false,
     );
     let error = compiler.compile_program(Path::new("/app/main.jai")).expect_err("a readiness probe must not discard unknown-name errors from imported pending conditions");
+
     assert!(
         error.message.contains("unknown identifier `missing_flag`"),
         "{}",
@@ -69,6 +73,7 @@ fn acyclic_imported_conditional_flag_becomes_ready() {
         ],
         false,
     );
+
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
         panic!("{}", error.render(&compiler.src.sources));
     }
@@ -92,6 +97,7 @@ fn readiness_probe_does_not_discard_an_imported_undeclared_call() {
     let error = compiler
         .compile_program(Path::new("/app/main.jai"))
         .expect_err("undeclared calls cannot disappear inside readiness probes");
+
     assert!(
         error
             .message
@@ -116,6 +122,7 @@ fn readiness_constant_run_effect_is_not_replayed() {
         ],
         false,
     );
+
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
         panic!("{}", error.render(&compiler.src.sources));
     }
@@ -136,6 +143,7 @@ fn readiness_constant_run_can_depend_on_pending_declarations() {
         ],
         false,
     );
+
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
         panic!("{}", error.render(&compiler.src.sources));
     }
@@ -156,10 +164,12 @@ fn readiness_constant_run_failure_is_terminal() {
         ],
         false,
     );
+
     compiler.ct.interp.block_budget = Some(32);
     let error = compiler
         .compile_program(Path::new("/app/main.jai"))
         .expect_err("executed constant failure must be retained");
+
     assert_eq!(compiler.ct.traps, 1);
     let flags = compiler
         .ns
@@ -168,11 +178,13 @@ fn readiness_constant_run_failure_is_terminal() {
         .find(|module| module.name == "Flags")
         .unwrap();
     let ready = compiler.scope(flags.scope).names[&Sym::intern("ready")][0];
+
     assert!(matches!(
         compiler.entity(ready).state,
         EntityState::Failed(_)
     ));
     let repeated = compiler.resolve_entity(ready).unwrap_err();
+
     assert_eq!(repeated.message, error.message);
     assert_eq!(
         compiler.ct.traps, 1,
@@ -189,6 +201,7 @@ fn pending_insert_fulfills_placeholder_before_conditional_commit() {
         )],
         false,
     );
+
     if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
         panic!("{}", error.render(&compiler.src.sources));
     }
@@ -219,6 +232,7 @@ fn officially_rejected_conditional_cycle_remains_an_error() {
         ],
         false,
     );
+
     assert!(
         compiler
             .compile_program(Path::new("/app/main.jai"))

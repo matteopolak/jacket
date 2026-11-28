@@ -39,6 +39,7 @@ impl Compiler {
             );
         };
         let tmp = f.b.alloca(64, 16);
+
         f.b.zero(tmp, 64);
         // In-lane operations work per 128-bit block (8 bytes for MMX).
         let block = width.min(16);
@@ -56,6 +57,7 @@ impl Compiler {
             inst,
             op,
         };
+
         match op {
             VOp::Bin(..)
             | VOp::RotImm(..)
@@ -123,6 +125,7 @@ impl Compiler {
             | VOp::MaskMov(..) => self.simd_masks(f, cx, &c)?,
             _ => unreachable!("core vector ops are lowered by the vector table"),
         }
+
         Ok(())
     }
 }

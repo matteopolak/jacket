@@ -18,7 +18,9 @@ pub(super) fn seed(
         },
         |ids| ids.iter().copied().collect(),
     );
+
     ids.sort_unstable_by_key(|p| p.0);
+
     for id in ids {
         let i = id.0 as usize;
         let mut summary = Summary {
@@ -26,6 +28,7 @@ pub(super) fn seed(
             ordering: super::ordering::scalar(&compiler.pr.procs[i].lit),
             ..Default::default()
         };
+
         if compiler.pr.procs[i].lit.body.is_none() {
             summary.ordering = if compiler.proc_has_note(id, "ReturnsSmaller") {
                 Some(super::ordering::Ordering::Minimum)
@@ -37,6 +40,7 @@ pub(super) fn seed(
             summary.observable.output |= compiler.proc_has_note(id, "WritesOutput");
             summary.observable.exit |= compiler.proc_has_note(id, "Exits");
         }
+
         if let Some(formal) = super::lifetime_movement::maybe_released_formal(compiler, id)
             && compiler.pr.procs[i]
                 .sig
@@ -51,11 +55,14 @@ pub(super) fn seed(
                 kind: Kind::Free,
                 guard: None,
             };
+
             summary.may.insert(effect, vec![compiler.pr.procs[i].span]);
         }
+
         if valid.contains_key(&id) || summary.observable.exit {
             summary.normal_return = Some(false);
         }
+
         if compiler.proc_has_note(id, "ValidUntilNextCall") {
             summary.returns.insert(
                 0,
@@ -75,6 +82,7 @@ pub(super) fn seed(
                 kind: Kind::Advance,
                 guard: None,
             };
+
             summary
                 .may
                 .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
@@ -82,6 +90,7 @@ pub(super) fn seed(
                 .guaranteed
                 .insert(effect, vec![compiler.pr.procs[i].span]);
         }
+
         for (formal, mutation) in super::lifetime_movement::contracts(compiler, id) {
             let effect = Effect {
                 target: Path {
@@ -91,15 +100,18 @@ pub(super) fn seed(
                 kind: Kind::Mutation(mutation),
                 guard: None,
             };
+
             summary
                 .may
                 .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
+
             if mutation.guaranteed() {
                 summary
                     .guaranteed
                     .insert(effect, vec![compiler.pr.procs[i].span]);
             }
         }
+
         if compiler.proc_has_note(id, "GrowsArray") {
             let effect = Effect {
                 target: Path {
@@ -109,6 +121,7 @@ pub(super) fn seed(
                 kind: Kind::Resize,
                 guard: None,
             };
+
             summary
                 .may
                 .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
@@ -116,6 +129,7 @@ pub(super) fn seed(
                 .guaranteed
                 .insert(effect, vec![compiler.pr.procs[i].span]);
         }
+
         if let Some(formal) = super::lifetime_movement::released_formal(compiler, id) {
             let effect = Effect {
                 target: Path {
@@ -125,6 +139,7 @@ pub(super) fn seed(
                 kind: Kind::Free,
                 guard: None,
             };
+
             summary
                 .may
                 .insert(effect.clone(), vec![compiler.pr.procs[i].span]);
@@ -132,14 +147,17 @@ pub(super) fn seed(
                 .guaranteed
                 .insert(effect, vec![compiler.pr.procs[i].span]);
         }
+
         for (formal, key, result) in super::lifetime_movement::borrowed(compiler, id) {
             let path = Path {
                 root: Root::Parameter(formal),
                 steps: vec![Step::Storage],
             };
+
             summary.returns.insert(result, (path.clone(), None));
             summary.elements.insert(result, (path, key));
         }
+
         for (note, root) in [
             ("Allocates", Root::Heap),
             ("TempAllocates", Root::Temporary),
@@ -147,10 +165,13 @@ pub(super) fn seed(
             if note == "Allocates" && compiler.pr.procs[i].lit.body.is_some() {
                 continue;
             }
+
             let indices = super::lifetime_movement::result_indices(compiler, id, note);
+
             if compiler.pr.procs[i].lit.body.is_none() && !indices.is_empty() {
                 summary.allocation_effects.insert((root.clone(), None));
             }
+
             for index in indices {
                 summary.returns.insert(
                     index,
@@ -164,6 +185,7 @@ pub(super) fn seed(
                 );
             }
         }
+
         if compiler.proc_has_note(id, "TemporaryStorageMark") {
             summary.returns.insert(
                 0,
@@ -176,6 +198,7 @@ pub(super) fn seed(
                 ),
             );
         }
+
         for (note, kind, root) in [
             (
                 "ResetsTemporaryStorage",
@@ -197,6 +220,7 @@ pub(super) fn seed(
                     kind,
                     guard: None,
                 };
+
                 summary
                     .may
                     .insert(e.clone(), vec![compiler.pr.procs[i].span]);
@@ -205,8 +229,10 @@ pub(super) fn seed(
                     .insert(e, vec![compiler.pr.procs[i].span]);
             }
         }
+
         all.procs.insert(id, summary);
     }
+
     for body in valid.values() {
         for event in body.blocks.iter().flat_map(|b| &b.events) {
             if let super::Event::Call {
@@ -216,7 +242,9 @@ pub(super) fn seed(
             } = event
             {
                 let summary = all.procs.entry(*callee).or_default();
+
                 summary.memory = Some(*memory);
+
                 for formal in 0..8 {
                     if memory.writes & (1 << formal) != 0 {
                         summary.may.insert(
@@ -231,6 +259,7 @@ pub(super) fn seed(
                             vec![compiler.pr.procs[callee.0 as usize].span],
                         );
                     }
+
                     if (memory.reads | memory.writes) & (1 << formal) != 0 {
                         summary.may_reads.insert(Path {
                             root: Root::Parameter(formal),
@@ -241,5 +270,6 @@ pub(super) fn seed(
             }
         }
     }
+
     all
 }

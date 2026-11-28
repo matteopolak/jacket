@@ -48,9 +48,11 @@ impl<'ctx> Backend<'ctx, '_> {
         let scalar = |i: usize, ty: Ty| -> R<inkwell::values::FloatValue<'ctx>> {
             Ok(self.coerce(args[i], ty)?.into_float_value())
         };
+
         match op {
             WideOp::Arith(kind) => {
                 let (x, y) = (load(1)?, load(2)?);
+
                 store(match kind {
                     WideArith::Add => b.build_float_add(x, y, "")?,
                     WideArith::Sub => b.build_float_sub(x, y, "")?,
@@ -70,6 +72,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     _ => return Err("integer comparison on a long double".into()),
                 };
                 let r = b.build_float_compare(pred, load(0)?, load(1)?, "")?;
+
                 Ok(vec![
                     b.build_int_z_extend(r, self.ctx.i8_type(), "")?.into(),
                 ])
@@ -114,6 +117,7 @@ impl<'ctx> Backend<'ctx, '_> {
             self.coerce(args[i], Ty::Ptr)
                 .map(|v| v.into_pointer_value())
         };
+
         match op {
             Intrinsic::Memcpy
             | Intrinsic::Memset
@@ -175,6 +179,7 @@ impl<'ctx> Backend<'ctx, '_> {
             Intrinsic::Wide(op, fmt) => self.wide(op, fmt, args),
             Intrinsic::ByteLookup(width) => {
                 let (dst, table, idx) = (ptr_arg(0)?, ptr_arg(1)?, ptr_arg(2)?);
+
                 crate::simd::byte_lookup(&self.simd_cx(), width, dst, table, idx)?;
                 Ok(vec![])
             }
@@ -186,6 +191,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     (ptr_arg(0)?, ptr_arg(1)?),
                     (length(2)?, length(3)?),
                 )?;
+
                 Ok(r.into_iter().map(Into::into).collect())
             }
             Intrinsic::SignMask(width) => {
@@ -213,6 +219,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 .map(|v| v.into_pointer_value())
         };
         let size_arg = |i: usize| self.as_int(args[i]).and_then(|v| self.i64_of(v));
+
         match op {
             Intrinsic::Memcpy => {
                 b.build_memmove(ptr_arg(0)?, 1, ptr_arg(1)?, 1, size_arg(2)?)?;
@@ -224,6 +231,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     self.ctx.i8_type(),
                     "",
                 )?;
+
                 b.build_memset(ptr_arg(0)?, 1, byte, size_arg(2)?)?;
                 Ok(vec![])
             }
@@ -246,6 +254,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let gt = b.build_int_compare(IntPredicate::SGT, r, zero, "")?;
                 let pos = b.build_int_z_extend(gt, i16t, "")?;
                 let neg = b.build_int_s_extend(lt, i16t, "")?;
+
                 Ok(vec![b.build_or(pos, neg, "")?.into()])
             }
             Intrinsic::CompareAndSwap => {
@@ -285,11 +294,14 @@ impl<'ctx> Backend<'ctx, '_> {
                     AtomicOrdering::SequentiallyConsistent,
                 )?;
                 let mut prev = b.build_extract_value(res, 0, "")?;
+
                 if let Some(float) = float {
                     prev = b.build_bit_cast(prev, float, "")?;
                 }
+
                 let ok = b.build_extract_value(res, 1, "")?.into_int_value();
                 let ok = b.build_int_z_extend(ok, self.ctx.i8_type(), "")?;
+
                 Ok(vec![ok.into(), prev])
             }
             Intrinsic::AtomicLoad(order) => {
@@ -303,6 +315,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let inst = load
                     .as_instruction_value()
                     .ok_or("an atomic load is not an instruction")?;
+
                 inst.set_atomic_ordering(atomic_ordering(order))
                     .map_err(|e| Error(format!("atomic ordering: {e:?}")))?;
                 inst.set_alignment(int.get_bit_width() / 8)
@@ -319,6 +332,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let inst = load
                     .as_instruction_value()
                     .ok_or("a volatile load is not an instruction")?;
+
                 inst.set_volatile(true)
                     .map_err(|e| Error(format!("volatile: {e:?}")))?;
                 inst.set_alignment(int.get_bit_width() / 8)
@@ -328,6 +342,7 @@ impl<'ctx> Backend<'ctx, '_> {
             Intrinsic::VolatileStore => {
                 let value = self.atomic_bits(args[1])?;
                 let inst = b.build_store(ptr_arg(0)?, value)?;
+
                 inst.set_volatile(true)
                     .map_err(|e| Error(format!("volatile: {e:?}")))?;
                 inst.set_alignment(value.get_type().get_bit_width() / 8)
@@ -337,6 +352,7 @@ impl<'ctx> Backend<'ctx, '_> {
             Intrinsic::AtomicStore(order) => {
                 let value = self.atomic_bits(args[1])?;
                 let inst = b.build_store(ptr_arg(0)?, value)?;
+
                 inst.set_atomic_ordering(atomic_ordering(order))
                     .map_err(|e| Error(format!("atomic ordering: {e:?}")))?;
                 inst.set_alignment(value.get_type().get_bit_width() / 8)
@@ -358,6 +374,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     AtomicOp::Xor => AtomicRMWBinOp::Xor,
                 };
                 let old = b.build_atomicrmw(rmw, ptr_arg(0)?, value, atomic_ordering(order))?;
+
                 Ok(vec![self.coerce(old.into(), ty)?])
             }
             Intrinsic::AtomicCas(success, failure) => {
@@ -378,6 +395,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let prev = b.build_extract_value(res, 0, "")?;
                 let ok = b.build_extract_value(res, 1, "")?.into_int_value();
                 let ok = b.build_int_z_extend(ok, self.ctx.i8_type(), "")?;
+
                 Ok(vec![ok.into(), self.coerce(prev, ty)?])
             }
             _ => unreachable!("dispatched only for this group's operations"),
@@ -398,6 +416,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 .map(|v| v.into_pointer_value())
         };
         let size_arg = |i: usize| self.as_int(args[i]).and_then(|v| self.i64_of(v));
+
         match op {
             Intrinsic::DebugBreak => {
                 self.call_intrinsic("llvm.debugtrap", &[], &[])?;
@@ -408,8 +427,10 @@ impl<'ctx> Backend<'ctx, '_> {
                     let reason = self.constant_operand(reason, "trap reason")?;
                     let zero = i64t.const_zero();
                     let fatal = self.ctx.i8_type().const_int(1, false);
+
                     self.report_check(st, reason, zero, zero, fatal)?;
                 }
+
                 self.call_intrinsic("llvm.trap", &[], &[])?;
                 Ok(vec![])
             }
@@ -419,10 +440,13 @@ impl<'ctx> Backend<'ctx, '_> {
                 let bv = self.i64_of(self.as_int(args[2])?)?;
                 let fatal = self.constant_operand(args[3], "check fatality")?;
                 let fatal_value = self.ctx.i8_type().const_int(fatal, false);
+
                 self.report_check(st, reason, a, bv, fatal_value)?;
+
                 if fatal != 0 {
                     self.call_intrinsic("llvm.trap", &[], &[])?;
                 }
+
                 Ok(vec![])
             }
             Intrinsic::BoundsCheck => {
@@ -430,6 +454,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let index = self.i64_of(self.as_int(args[0])?)?;
                 let count = self.i64_of(self.as_int(args[1])?)?;
                 let out = b.build_int_compare(IntPredicate::UGE, index, count, "")?;
+
                 self.trap_if(st, out, jaic::ir::CheckReason::Bounds, index, count)?;
                 Ok(vec![])
             }
@@ -445,6 +470,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     self.ctx.i8_type(),
                     "",
                 )?;
+
                 self.libc_call(
                     "wasm_write_string",
                     ty,
@@ -483,6 +509,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 } else {
                     "write"
                 };
+
                 self.libc_call(
                     name,
                     ty,
@@ -507,8 +534,10 @@ impl<'ctx> Backend<'ctx, '_> {
             let v = self
                 .call_intrinsic(name, &[ty], &[args[0].into()])?
                 .ok_or("math intrinsic produced no value")?;
+
             Ok(vec![v])
         };
+
         match op {
             Intrinsic::Sqrt => float_unary("llvm.sqrt"),
             Intrinsic::Sin => float_unary("llvm.sin"),
@@ -527,6 +556,7 @@ impl<'ctx> Backend<'ctx, '_> {
                         &[args[0].into(), args[1].into(), args[2].into()],
                     )?
                     .ok_or("fma produced no value")?;
+
                 Ok(vec![v])
             }
             Intrinsic::Popcount | Intrinsic::Bswap => {
@@ -539,6 +569,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let v = self
                     .call_intrinsic(name, &[ty], &[args[0].into()])?
                     .ok_or("bit intrinsic produced no value")?;
+
                 Ok(vec![v])
             }
             Intrinsic::Ctlz | Intrinsic::Cttz => {
@@ -553,6 +584,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let v = self
                     .call_intrinsic(name, &[ty], &[args[0].into(), no_poison.into()])?
                     .ok_or("bit intrinsic produced no value")?;
+
                 Ok(vec![v])
             }
             Intrinsic::SAddOverflow
@@ -578,6 +610,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let flag = b
                     .build_extract_value(pair.into_struct_value(), 1, "")?
                     .into_int_value();
+
                 Ok(vec![
                     b.build_int_z_extend(flag, self.ctx.i8_type(), "")?.into(),
                 ])
@@ -594,11 +627,13 @@ impl<'ctx> Backend<'ctx, '_> {
         args: &[BasicValueEnum<'ctx>],
     ) -> R<Vec<BasicValueEnum<'ctx>>> {
         let i64t = self.ctx.i64_type();
+
         match op {
             Intrinsic::CpuId => {
                 if !self.arch.is_x86_64() {
                     return Err("CPUID requires an x86-64 target".into());
                 }
+
                 let i32t = self.ctx.i32_type();
                 let outputs = self.ctx.struct_type(&[i32t.into(); 4], false);
                 let ty = self.fn_type(Some(outputs.into()), &[i32t.into(); 2], false);
@@ -621,6 +656,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let value = basic(self.builder.build_indirect_call(ty, asm, &call_args, "")?)
                     .ok_or("CPUID produced no value")?
                     .into_struct_value();
+
                 (0..4)
                     .map(|i| {
                         self.builder
@@ -633,6 +669,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 if !self.arch.is_x86_64() {
                     return Err("XGETBV requires an x86-64 target".into());
                 }
+
                 let i32t = self.ctx.i32_type();
                 let outputs = self.ctx.struct_type(&[i32t.into(); 2], false);
                 let ty = self.fn_type(Some(outputs.into()), &[i32t.into()], false);
@@ -655,6 +692,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     )
                     .ok_or("XGETBV produced no value")?
                     .into_struct_value();
+
                 (0..2)
                     .map(|i| {
                         self.builder
@@ -669,6 +707,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 if !self.arch.is_x86_64() {
                     return Err("x86 timestamp instruction requires an x86-64 target".into());
                 }
+
                 let i32t = self.ctx.i32_type();
                 let fields = [i32t.into(); 3];
                 let outputs = self.ctx.struct_type(
@@ -703,9 +742,11 @@ impl<'ctx> Backend<'ctx, '_> {
                     .build_left_shift(hi, i64t.const_int(32, false), "")?;
                 let timestamp = self.builder.build_or(lo, hi, "")?;
                 let mut result = vec![timestamp.into()];
+
                 if aux {
                     result.push(self.builder.build_extract_value(value, 2, "")?);
                 }
+
                 Ok(result)
             }
             Intrinsic::X86Random {
@@ -715,6 +756,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 if !self.arch.is_x86_64() {
                     return Err("x86 random instruction requires an x86-64 target".into());
                 }
+
                 let (ty, suffix) = match width {
                     Ty::I16 => (self.ctx.i16_type(), "w"),
                     Ty::I32 => (self.ctx.i32_type(), "l"),
@@ -737,6 +779,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     )?
                     .ok_or("random instruction produced no value")?
                     .into_struct_value();
+
                 (0..2)
                     .map(|i| {
                         self.builder
@@ -749,11 +792,13 @@ impl<'ctx> Backend<'ctx, '_> {
                 if !self.arch.is_x86_64() {
                     return Err("x86 memory fence requires an x86-64 target".into());
                 }
+
                 let instruction = match kind {
                     ir::X86Fence::Load => "lfence",
                     ir::X86Fence::Store => "sfence",
                     ir::X86Fence::Full => "mfence",
                 };
+
                 self.inline_asm(instruction, "~{memory}", None)?;
                 Ok(vec![])
             }
@@ -761,6 +806,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 if !self.arch.is_x86_64() {
                     return Err("x86 PAUSE requires an x86-64 target".into());
                 }
+
                 self.inline_asm("pause", "", None)?;
                 Ok(vec![])
             }
@@ -768,6 +814,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 if !self.arch.is_x86_64() {
                     return Err("x86 prefetch requires an x86-64 target".into());
                 }
+
                 let [address] = args else {
                     return Err("invalid x86 prefetch operands".into());
                 };
@@ -788,6 +835,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     None,
                     false,
                 );
+
                 self.builder
                     .build_indirect_call(ty, asm, &[pointer.into()], "")?;
                 Ok(vec![])
@@ -804,6 +852,7 @@ impl<'ctx> Backend<'ctx, '_> {
         _want: &[Ty],
     ) -> R<Vec<BasicValueEnum<'ctx>>> {
         let i64t = self.ctx.i64_type();
+
         match op {
             // WebAssembly code cannot see its own call stack.
             Intrinsic::ReturnAddress if self.arch.is_wasm() => {
@@ -814,6 +863,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let v = self
                     .call_intrinsic("llvm.returnaddress", &[], &[zero.into()])?
                     .ok_or("returnaddress produced no value")?;
+
                 Ok(vec![v])
             }
             Intrinsic::CpuId
@@ -849,6 +899,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 if !matches!(self.arch, Arch::X86_64 | Arch::Win64) {
                     return Err("`syscall` in #asm needs an x86-64 target".into());
                 }
+
                 let i64t = self.ctx.i64_type();
                 let ty = self.fn_type(Some(i64t.into()), &[i64t.into(); 7], false);
                 // rax = number; rdi, rsi, rdx, r10, r8, r9 = arguments; rcx and r11 are clobbered.
@@ -868,6 +919,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     .collect::<R<Vec<BasicMetadataValueEnum>>>()?;
                 let v = basic(self.builder.build_indirect_call(ty, asm, &call_args, "")?)
                     .ok_or("syscall produced no value")?;
+
                 Ok(vec![v])
             }
             Intrinsic::Pause => {
@@ -876,6 +928,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     Arch::X86_64 | Arch::Win64 | Arch::X86 => "pause",
                     Arch::Wasm | Arch::S390x | Arch::PowerPc64 | Arch::Avr => return Ok(vec![]),
                 };
+
                 self.inline_asm(asm, "", None)?;
                 Ok(vec![])
             }
@@ -896,6 +949,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 .map(|v| v.into_pointer_value())
         };
         let size_arg = |i: usize| self.as_int(args[i]).and_then(|v| self.i64_of(v));
+
         match op {
             Intrinsic::FiberInit | Intrinsic::FiberSwitch | Intrinsic::FiberFree
                 if self.arch.is_wasm() => Err(
@@ -908,6 +962,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let void = self.ctx.void_type();
                 let ty = void.fn_type(&[self.ptr_ty().into(), self.ptr_ty().into()], false);
                 let f = self.fiber_routine(jaic::fiber::SWITCH, ty)?;
+
                 b.build_call(f, &[ptr_arg(0)?.into(), ptr_arg(1)?.into()], "")?;
                 Ok(vec![])
             }
@@ -931,6 +986,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 .ok_or("fiber prepare produced no value")?
                 .into_int_value();
                 let at = jaic::fiber::offsets(self.layout.pointer_size);
+
                 for (offset, value) in [
                     (at.sp, sp),
                     (at.stack_low, low),
@@ -939,6 +995,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 ] {
                     b.build_store(self.gep_const(fiber, offset)?, value)?;
                 }
+
                 Ok(vec![])
             }
             _ => unreachable!("dispatched only for this group's operations"),
@@ -951,8 +1008,10 @@ impl<'ctx> Backend<'ctx, '_> {
         if let Some(f) = self.module.get_function(name) {
             return Ok(f);
         }
+
         let text = jaic::fiber::module_asm(self.arch, self.target.is_apple())
             .ok_or("fibers need a native target")?;
+
         // One text defines both routines, so only the first one declared brings it.
         if [jaic::fiber::SWITCH, jaic::fiber::PREPARE]
             .iter()
@@ -960,6 +1019,7 @@ impl<'ctx> Backend<'ctx, '_> {
         {
             crate::emit::append_module_asm(self.module, &text);
         }
+
         Ok(self.module.add_function(name, ty, Some(Linkage::External)))
     }
 
@@ -979,6 +1039,7 @@ impl<'ctx> Backend<'ctx, '_> {
             None,
             false,
         );
+
         Ok(basic(self.builder.build_indirect_call(ty, asm, &[], "")?))
     }
 
@@ -1009,6 +1070,7 @@ impl<'ctx> Backend<'ctx, '_> {
             None,
             false,
         );
+
         basic(
             self.builder
                 .build_indirect_call(fn_ty, asm, &[value.into()], "")?,
@@ -1030,6 +1092,7 @@ impl<'ctx> Backend<'ctx, '_> {
             None,
             false,
         );
+
         self.builder
             .build_indirect_call(fn_ty, asm, &[pointer.into()], "")?;
         Ok(())

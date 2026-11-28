@@ -23,6 +23,7 @@ impl Sources<'_> {
             return vec![decl.clone()];
         };
         let mut import_dirs = vec![import_dir.to_path_buf()];
+
         import_dirs.extend(self.options(root).import_paths);
         let mut resolver = Resolver {
             sources: self,
@@ -31,18 +32,22 @@ impl Sources<'_> {
             visiting: BTreeSet::new(),
         };
         let mut resolved = Vec::new();
+
         for target in resolver.resolve(root, file, path, false) {
             let Some(header) = target.signature.strip_prefix(&target.name) else {
                 continue;
             };
             let mut public = decl.clone();
+
             public.kind = CompletionKind::Function;
             public.signature = format!("{}{header}", decl.name);
             public.alias = None;
             public.call = target.call;
+
             if public.doc.is_empty() {
                 public.doc = target.doc;
             }
+
             if !resolved
                 .iter()
                 .any(|d: &Decl| d.signature == public.signature)
@@ -50,6 +55,7 @@ impl Sources<'_> {
                 resolved.push(public);
             }
         }
+
         if resolved.is_empty() {
             vec![decl.clone()]
         } else {
@@ -69,6 +75,7 @@ impl Sources<'_> {
         import_dirs: &[PathBuf],
     ) -> Option<PathBuf> {
         let local = file.parent()?.join("modules");
+
         std::iter::once(&local)
             .chain(import_dirs.iter())
             .flat_map(|dir| {
@@ -91,11 +98,15 @@ impl Resolver<'_, '_> {
         if path.is_empty() || self.visiting.len() >= 64 {
             return Vec::new();
         }
+
         let key = (root.into(), file.into(), path.into(), external);
+
         if !self.visiting.insert(key.clone()) {
             return Vec::new();
         }
+
         let result = self.resolve_inner(root, file, path, external);
+
         self.visiting.remove(&key);
         result
     }
@@ -124,6 +135,7 @@ impl Resolver<'_, '_> {
             self.sources.closure(self.index, root)
         };
         let mut result = Vec::new();
+
         for part in files {
             let scan = self.sources.scan(self.index, &part);
             let visible = |visibility: Visibility| {
@@ -135,6 +147,7 @@ impl Resolver<'_, '_> {
                     visibility != Visibility::File
                 }
             };
+
             for decl in scan
                 .local_decls
                 .iter()
@@ -142,12 +155,14 @@ impl Resolver<'_, '_> {
             {
                 if let Some(alias) = &decl.alias {
                     let mut target = alias.clone();
+
                     target.extend_from_slice(&path[1..]);
                     result.extend(self.resolve(root, &part, &target, false));
                 } else if path.len() == 1 && decl.kind == CompletionKind::Function {
                     result.push(decl.clone());
                 }
             }
+
             for import in scan
                 .imports
                 .iter()
@@ -158,6 +173,7 @@ impl Resolver<'_, '_> {
                 }
             }
         }
+
         result
     }
 }

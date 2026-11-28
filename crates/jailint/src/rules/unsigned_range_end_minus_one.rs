@@ -22,10 +22,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(s) = n.stmt() else {
                 return true;
@@ -39,15 +41,19 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let E::Binary(BinOp::Sub, count, one) = &hi.kind else {
                 return true;
             };
+
             if !matches!(one.kind, E::Int(v, ..) if v.get() == 1) || cx.constant(count) {
                 return true;
             }
+
             let Some(ty) = cx.ty(count) else {
                 return true;
             };
+
             if types.int_info(ty).is_none_or(|(_, signed)| signed) {
                 return true;
             }
+
             out.push(super::finding(
                 hi.span,
                 format!(

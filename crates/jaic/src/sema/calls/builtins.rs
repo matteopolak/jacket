@@ -25,6 +25,7 @@ impl Compiler {
                 "builtin needs an argument",
             );
         };
+
         match b {
             BuiltinProc::SizeOf | BuiltinProc::AlignOf => {
                 self.builtin_size_or_align(b, scope, arg, span)
@@ -68,6 +69,7 @@ impl Compiler {
                 } else {
                     "align_of"
                 };
+
                 return Err(Box::new(
                     Diagnostic::new(
                         Code::CallNeedsConstantType,
@@ -89,6 +91,7 @@ impl Compiler {
         } else {
             self.align_of(ty, span)?
         };
+
         Ok(Operand::Const {
             ty: TypeId::S64,
             value: Value::Int(v as i128),
@@ -121,11 +124,13 @@ impl Compiler {
                     parens: None,
                 };
                 let id = self.add_code(Arc::new(ast::CodeBody::Expr(expr)), pscope);
+
                 self.pr.code_procs.insert(id.0 as usize, p);
                 id
             }
             None => self.add_code(Arc::new(ast::CodeBody::Expr(arg.value.clone())), scope),
         };
+
         Ok(Operand::Const {
             ty: TypeId::CODE,
             value: Value::Code(id),
@@ -139,11 +144,13 @@ impl Compiler {
         if let Some(t) = self.type_field_type(scope, &arg.value)? {
             return Ok(Operand::Type(t));
         }
+
         // Only the type is needed, so an enclosing procedure's local is fine
         // (`#run f(type_of(local))` inside a body).
         if let Some(t) = self.outer_local_type(scope, &arg.value)? {
             return Ok(Operand::Type(t));
         }
+
         let op = match self.check_expr_no_emit(scope, &arg.value) {
             Ok(op) => op,
             Err(e) => match self.enclosing_struct_field_type(scope, &arg.value)? {
@@ -165,6 +172,7 @@ impl Compiler {
             Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], span)?,
             other => other.ty(),
         };
+
         Ok(Operand::Type(ty))
     }
 
@@ -177,6 +185,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let op = self.check_expr(f, scope, &arg.value, Some(TypeId::TYPE))?;
+
         if matches!(
             op,
             Operand::Value {
@@ -190,11 +199,13 @@ impl Compiler {
             // A runtime `Type` is already a `*Type_Info`.
             let (_, v) = self.rvalue(f, op, span)?;
             let info = self.preload_type(PreludeType::TypeInfo, span)?;
+
             return Ok(Operand::Value {
                 ty: self.ty.types.pointer(info),
                 val: v,
             });
         }
+
         // A generic struct named without arguments has the descriptor its instances
         // carry as `polymorph_source_struct`.
         if let Operand::PolyStruct(ps) = op
@@ -211,16 +222,19 @@ impl Compiler {
             };
             let global = self.generic_struct_info_global(key, name, desc, span)?;
             let v = f.b.global_addr(global);
+
             return Ok(Operand::Value {
                 ty: self.ty.types.pointer(desc),
                 val: v,
             });
         }
+
         let ty = self.operand_as_type(op, arg.value.span)?;
         let info_ty = self.type_info_struct_type(ty, span)?;
         let ptr = self.ty.types.pointer(info_ty);
         let global = self.type_info_global(ty, span)?;
         let v = f.b.global_addr(global);
+
         Ok(Operand::Value {
             ty: ptr,
             val: v,
@@ -233,6 +247,7 @@ impl Compiler {
         let constant = op.is_const()
             || matches!(op, Operand::Procs(_))
             || self.is_constant_pointer(scope, &arg.value, &op);
+
         Ok(Operand::bool(constant))
     }
 
@@ -246,6 +261,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let ty = self.eval_type_in(f, scope, &arg.value)?;
         let proc = self.initializer_proc(ty, span)?;
+
         // A type that is all zeroes by default has no initializer (`#if initializer_of(T)`).
         if matches!(self.default_initializer(ty, span), Ok(None)) {
             return Ok(Operand::Const {
@@ -255,6 +271,7 @@ impl Compiler {
                 origin: Origin::Computed,
             });
         }
+
         Ok(Operand::Value {
             ty: proc.1,
             val: f.b.func_addr(proc.0),
@@ -287,6 +304,7 @@ impl Compiler {
                     );
                 }
             };
+
             (ty, name)
         } else {
             let E::Member(base, field) = &arg.value.kind else {
@@ -297,16 +315,19 @@ impl Compiler {
                 );
             };
             let ty = self.eval_type_in(f, scope, base)?;
+
             (ty, field.name.as_str().to_string())
         };
         let mut offset = 0u64;
         let mut cur = ty;
+
         for part in path.split('.') {
             if let Some((o, t)) = self.member_offset(cur, part, span)? {
                 offset += o;
                 cur = t;
             } else {
                 let tn = self.ty.types.name(cur);
+
                 return err(
                     Code::CallNoMemberFixed,
                     span,
@@ -314,6 +335,7 @@ impl Compiler {
                 );
             }
         }
+
         Ok(Operand::Const {
             ty: TypeId::S64,
             value: Value::Int(offset as i128),
@@ -332,6 +354,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let ty = self.eval_type_in(f, scope, &arg.value)?;
         let v = self.is_value_type(ty, span)?;
+
         Ok(Operand::bool(v))
     }
 
@@ -340,6 +363,7 @@ impl Compiler {
     /// array views, resizable arrays, procedures, `Any`, `Type` or `Code` inside.
     pub(super) fn is_value_type(&mut self, ty: TypeId, span: Span) -> Result<bool> {
         let ty = self.ty.types.repr(ty);
+
         Ok(match self.ty.types.kind(ty).clone() {
             TypeKind::Void
             | TypeKind::Bool
@@ -364,11 +388,13 @@ impl Compiler {
                     .iter()
                     .map(|f| f.ty)
                     .collect();
+
                 for t in fields {
                     if !self.is_value_type(t, span)? {
                         return Ok(false);
                     }
                 }
+
                 true
             }
             _ => false,
@@ -395,10 +421,12 @@ impl Compiler {
             if let Some(ty) = self.pending_struct_field_type(t, field.name, expr.span)? {
                 return Ok(Some(ty));
             }
+
             if let Some((_, fty)) = self.find_member(t, field.name, expr.span)? {
                 return Ok(Some(fty));
             }
         }
+
         Ok(None)
     }
 
@@ -413,7 +441,9 @@ impl Compiler {
             if let Some(ty) = self.struct_field_type(scope, *name, expr.span)? {
                 return Ok(Some(ty));
             }
+
             let mut s = Some(scope);
+
             while let Some(sid) = s {
                 if let ScopeKind::Struct(t) = self.scope(sid).kind
                     && self.ty.types.as_struct(t).is_none_or(|s| {
@@ -423,9 +453,11 @@ impl Compiler {
                 {
                     return Ok(Some(fty));
                 }
+
                 s = self.scope(sid).parent;
             }
         }
+
         Ok(None)
     }
 
@@ -444,6 +476,7 @@ impl Compiler {
             },
             file,
         );
+
         scratch.set_context(Some(scratch.b.param(0)));
         scratch.type_only = true;
         scratch
@@ -468,6 +501,7 @@ impl Compiler {
         };
         let inst = self.proc_for_param_types(proc, &info.params, span)?;
         let ty = self.proc_type(inst, span).ok()?;
+
         (ty == target || self.ty.proc_types_compatible(ty, target)).then_some(inst)
     }
 
@@ -477,6 +511,7 @@ impl Compiler {
     pub(in crate::sema) fn poly_proc_type(&mut self, proc: ProcId) -> TypeId {
         let header = self.proc(proc).lit.header.clone();
         let scope = self.proc(proc).scope;
+
         self.poly_header_type(scope, &header)
     }
 
@@ -489,6 +524,7 @@ impl Compiler {
     ) -> TypeId {
         let mut params = Vec::new();
         let mut variadic = false;
+
         for p in &header.params {
             let mut ty = match (&p.ty, &p.default) {
                 (Some(t), _) => self.poly_shape_type(scope, t),
@@ -506,12 +542,15 @@ impl Compiler {
                 }
                 (None, None) => TypeId::POLY_PARAM,
             };
+
             if p.variadic {
                 variadic = true;
                 ty = self.ty.types.array(ty, ArrayKind::View);
             }
+
             params.push(ty);
         }
+
         let returns: Vec<TypeId> = header
             .returns
             .iter()
@@ -521,6 +560,7 @@ impl Compiler {
             })
             .filter(|&t| t != TypeId::VOID)
             .collect();
+
         self.ty
             .types
             .intern(TypeKind::Proc(Arc::new(crate::types::ProcType {
@@ -554,6 +594,7 @@ impl Compiler {
             })
             .collect();
         let returns = header.returns.iter().map(|_| TypeId::POLY_PARAM).collect();
+
         self.ty
             .types
             .intern(TypeKind::Proc(Arc::new(crate::types::ProcType {
@@ -574,6 +615,7 @@ impl Compiler {
         if !procs::has_poly(ty) {
             return self.eval_type(scope, ty).unwrap_or(TypeId::POLY_PARAM);
         }
+
         match &ty.kind {
             E::Unary(ast::UnOp::Star, inner) => {
                 let inner = self.poly_shape_type(scope, inner);
@@ -614,6 +656,7 @@ impl Compiler {
                 scope,
             })
             .collect();
+
         Some(self.match_candidate(proc, &args, span).ok()?.proc)
     }
 
@@ -646,11 +689,13 @@ impl Compiler {
         // Only the argument types matter: runtime locals are fine in a constant.
         let mut scratch = self.scratch_ctx(scope);
         let call_args = self.precheck_args(&mut scratch, scope, args)?;
+
         for &p in &procs {
             if let Ok(c) = self.match_candidate(p, &call_args, call.span) {
                 return Ok(Operand::Procs(vec![c.proc]));
             }
         }
+
         err(
             Code::CallNoProcedureMatches,
             call.span,

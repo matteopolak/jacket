@@ -16,6 +16,7 @@ fn errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
 
 fn goes_to(s: &Session, uri: &DocumentUri, text: &str, marker: &str, suffix: &str) {
     let found = s.definition(uri, at_offset(text, marker, 2)).unwrap();
+
     assert!(
         found.len() == 1 && found[0].uri.ends_with(suffix),
         "{marker}: {found:?} (wanted {suffix}); {:?}",
@@ -47,7 +48,9 @@ fn imports_and_loads_resolve_through_every_kind_of_path() {
         ],
     );
     let (s, uri, text) = open_file(&dir, "src/main.jai");
+
     assert_eq!(errors(&s, &uri), Vec::<String>::new());
+
     for (marker, suffix) in [
         ("\"Single\"", "/src/modules/Single.jai"),
         ("\"Folder\"", "/src/modules/Folder/module.jai"),
@@ -59,7 +62,9 @@ fn imports_and_loads_resolve_through_every_kind_of_path() {
     ] {
         goes_to(&s, &uri, &text, marker, suffix);
     }
+
     let links = s.document_links(&uri).unwrap();
+
     assert_eq!(links.len(), 8, "{links:?}");
 }
 
@@ -78,6 +83,7 @@ fn load_with_parent_directory_segments() {
         ],
     );
     let (s, uri, text) = open_file(&dir, "app/main.jai");
+
     assert_eq!(errors(&s, &uri), Vec::<String>::new());
     assert_eq!(s.diagnostics(&uri).unwrap(), vec![]);
     goes_to(
@@ -89,6 +95,7 @@ fn load_with_parent_directory_segments() {
     );
     // The loaded file is checked as part of the program that loads it.
     let (s2, uri2, text2) = open_file(&dir, "shared/util.jai");
+
     assert_eq!(errors(&s2, &uri2), Vec::<String>::new());
     goes_to(&s2, &uri2, &text2, "\"more.jai\"", "/shared/more.jai");
 }
@@ -107,6 +114,7 @@ fn hover_on_a_module_string_names_the_file() {
     let (s, uri, text) = open_file(&dir, "main.jai");
     let hover = s.hover(&uri, at_offset(&text, "\"Single\"", 3)).unwrap();
     let hover = hover.expect("hover on the module string").contents.value;
+
     assert!(hover.contains("modules/Single.jai"), "{hover}");
 }
 
@@ -124,19 +132,24 @@ fn completion_inside_an_import_string_lists_modules() {
     let (s, uri, text) = open_file(&dir, "main.jai");
     let list = s.completion(&uri, at_offset(&text, "\"\";", 1)).unwrap();
     let labels: Vec<_> = list.items.iter().map(|i| i.label.as_str()).collect();
+
     for want in ["Single", "Folder", "Basic", "String"] {
         assert!(labels.contains(&want), "{want} missing from {labels:?}");
     }
+
     // Completing a partial name inside the string filters and replaces the word.
     let partial = "#import \"Basic\";\n#import \"Sing\";\nmain :: () { }\n";
     let (s, uri, ()) = {
         let mut s = Session::with_environment(Limits::default(), environment());
+
         s.set_workspace_folders(vec![dir.to_path_buf()]);
         let uri = uri_of(&dir.join("main.jai"));
+
         s.open(uri.clone(), 2, partial.into()).unwrap();
         (s, uri, ())
     };
     let list = s.completion(&uri, at_offset(partial, "Sing", 4)).unwrap();
+
     assert!(list.items.iter().any(|i| i.label == "Single"), "{list:?}");
 }
 
@@ -156,6 +169,7 @@ fn missing_module_is_reported_with_a_quick_fix_to_the_closest_name() {
         .iter()
         .find(|d| d.message.contains("module `Singel` not found"))
         .unwrap_or_else(|| panic!("{diagnostics:?}"));
+
     assert_eq!(missing.code, DiagnosticCode::Check);
     let actions = s.code_actions(&uri, at_range(&text, "Singel")).unwrap();
     let fix = actions
@@ -163,6 +177,7 @@ fn missing_module_is_reported_with_a_quick_fix_to_the_closest_name() {
         .find(|a| a.kind == Some("quickfix") && a.title.contains("Single"))
         .unwrap_or_else(|| panic!("{actions:?}"));
     let (_, edits) = fix.edit.as_ref().unwrap();
+
     assert_eq!(edits.len(), 1);
     assert_eq!(edits[0].new_text, "Single");
     assert_eq!(edits[0].range.start, at_offset(&text, "Singel", 0));
@@ -171,6 +186,7 @@ fn missing_module_is_reported_with_a_quick_fix_to_the_closest_name() {
 
 fn at_range(text: &str, marker: &str) -> jai_language_server::Range {
     let p = at_offset(text, marker, 1);
+
     jai_language_server::Range {
         start: p,
         end: p,

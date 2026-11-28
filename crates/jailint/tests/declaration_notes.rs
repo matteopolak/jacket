@@ -19,9 +19,11 @@ fn unused_note_knows_every_declaration_note() {
         })
         .filter(|n| !n.is_empty())
         .collect();
+
     documented.sort_unstable();
     documented.dedup();
     let mut listed = jailint::LINT_NOTES.to_vec();
+
     listed.sort_unstable();
     assert_eq!(listed, documented);
 }

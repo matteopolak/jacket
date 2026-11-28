@@ -5,6 +5,7 @@ fn names(source: &str) -> Vec<String> {
     let (text, at) = cursor(source);
     let mut s = lean_session();
     let uri = file_uri("/callback-arguments/main.jai");
+
     s.open(uri.clone(), 1, text.clone()).unwrap();
     s.completion(&uri, at)
         .unwrap()
@@ -18,6 +19,7 @@ fn names(source: &str) -> Vec<String> {
 #[test]
 fn same_shaped_callback_fields_keep_independent_headers() {
     let declarations = "Holder :: struct { callback: (public_option := false) -> int; }\nOther :: struct { callback: (private_option := true) -> int; }\nmain :: () { h: Holder; other: Other; ";
+
     assert_eq!(
         names(&format!("{declarations}h.callback(|); }}")),
         ["public_option"]
@@ -61,6 +63,7 @@ fn declared_callback_header_wins_over_initializer_and_same_type_alias() {
 #[test]
 fn grouped_nested_and_unclosed_callback_calls_use_actual_callee() {
     let prefix = "Holder :: struct { callback: (argument: int, option := false) -> int; }\nmain :: () { h: Holder; ";
+
     assert_eq!(
         names(&format!("{prefix}(h.callback)(1, op|); }}")),
         ["option"]
@@ -78,6 +81,7 @@ fn grouped_nested_and_unclosed_callback_calls_use_actual_callee() {
 #[test]
 fn callback_slots_filter_both_sides_and_positional_arguments() {
     let prefix = "main :: (callback: (first: int, second := false, third := true) -> int) { ";
+
     assert_eq!(
         names(&format!("{prefix}callback(1, |); }}")),
         ["second", "third"]

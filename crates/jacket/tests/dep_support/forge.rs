@@ -52,6 +52,7 @@ pub fn rfc3339(secs: i64) -> String {
         mp - 9
     };
     let y = yoe + era * 400 + i64::from(m <= 2);
+
     format!(
         "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
         rest / 3600,
@@ -66,9 +67,11 @@ impl Forge {
         let base = format!("http://{}", listener.local_addr().unwrap());
         let state = Arc::new(Mutex::new(State::default()));
         let shared = state.clone();
+
         std::thread::spawn(move || {
             for stream in listener.incoming().flatten() {
                 let state = shared.clone();
+
                 std::thread::spawn(move || serve(stream, &state));
             }
         });
@@ -82,6 +85,7 @@ impl Forge {
     pub fn release(&self, repo: &str, tag: &str, secs_ago: i64) {
         let mut state = self.state.lock().unwrap();
         let entry = state.releases.entry(repo.to_string()).or_default();
+
         entry.0.retain(|(t, _)| t != tag);
         entry.0.insert(0, (tag.to_string(), now() - secs_ago));
         entry.1 += 1;
@@ -105,11 +109,14 @@ fn serve(mut stream: TcpStream, state: &Mutex<State>) {
     let mut chunk = [0u8; 4096];
     let (head, body) = loop {
         let n = stream.read(&mut chunk).unwrap_or(0);
+
         if n == 0 {
             return;
         }
+
         data.extend_from_slice(&chunk[..n]);
         let text = String::from_utf8_lossy(&data).into_owned();
+
         if let Some((head, rest)) = text.split_once("\r\n\r\n") {
             let length = head
                 .lines()
@@ -119,6 +126,7 @@ fn serve(mut stream: TcpStream, state: &Mutex<State>) {
                         .map(|v| v.trim().parse::<usize>().unwrap_or(0))
                 })
                 .unwrap_or(0);
+
             if rest.len() >= length {
                 break (head.to_string(), rest.to_string());
             }
@@ -147,6 +155,7 @@ fn serve(mut stream: TcpStream, state: &Mutex<State>) {
     } else if let Some(repo) = list_repo(&route) {
         let (releases, version) = state.releases.get(&repo).cloned().unwrap_or_default();
         let etag = format!("\"{repo}-{version}\"");
+
         if inbound_etag.as_deref() == Some(etag.as_str()) {
             (304, Some(etag), String::new())
         } else {
@@ -163,18 +172,22 @@ fn serve(mut stream: TcpStream, state: &Mutex<State>) {
         private_token: header("private-token"),
         status,
     };
+
     state.log.push(request);
     drop(state);
     let mut out = format!(
         "HTTP/1.1 {status} X\r\nConnection: close\r\nContent-Length: {}\r\n",
         json.len()
     );
+
     if let Some(etag) = etag {
         out.push_str(&format!("ETag: {etag}\r\n"));
     }
+
     if status == 403 {
         out.push_str("x-ratelimit-remaining: 0\r\n");
     }
+
     out.push_str("\r\n");
     out.push_str(&json);
     let _ = stream.write_all(out.as_bytes());
@@ -187,6 +200,7 @@ fn list_repo(route: &str) -> Option<String> {
             .strip_suffix("/releases")
             .map(|r| r.replace("%2F", "/"));
     }
+
     let rest = route
         .strip_prefix("/api/v1/repos/")
         .or_else(|| route.strip_prefix("/repos/"))?;
@@ -208,6 +222,7 @@ fn list_json(route: &str, releases: &[(String, i64)]) -> String {
             )
         })
         .collect();
+
     format!("[{}]", rows.join(","))
 }
 
@@ -218,6 +233,7 @@ fn graphql(state: &State, body: &str) -> String {
         .and_then(|v| v["query"].as_str().map(str::to_string))
         .unwrap_or_default();
     let mut fields = Vec::new();
+
     for (at, marker) in query.match_indices(": repository(owner: ") {
         let alias = query[..at].rsplit(' ').next().unwrap_or("");
         let rest = &query[at + marker.len()..];
@@ -242,10 +258,12 @@ fn graphql(state: &State, body: &str) -> String {
                 )
             })
             .collect();
+
         fields.push(format!(
             "\"{alias}\":{{\"releases\":{{\"nodes\":[{}]}}}}",
             nodes.join(",")
         ));
     }
+
     format!("{{\"data\":{{{}}}}}", fields.join(","))
 }

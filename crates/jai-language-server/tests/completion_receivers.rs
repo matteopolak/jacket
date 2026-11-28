@@ -5,6 +5,7 @@ fn labels(source: &str) -> Vec<String> {
     let (text, at) = cursor(source);
     let mut session = lean_session();
     let uri = file_uri("/receivers/main.jai");
+
     session.open(uri.clone(), 1, text).unwrap();
     let list = session.completion(&uri, at).unwrap();
     list.items.into_iter().map(|i| i.label).collect()
@@ -17,6 +18,7 @@ fn a_macro_parameter() {
     let labels = labels(&format!(
         "{COUNTER}peek :: (c: Counter) -> int #expand {{ return c.|from; }}\nmain :: () {{ c: Counter; x := peek(c); }}"
     ));
+
     assert!(labels.contains(&"step".to_string()), "{labels:?}");
 }
 
@@ -25,6 +27,7 @@ fn a_call_result() {
     let labels = labels(&format!(
         "{COUNTER}make :: () -> Counter {{ c: Counter; return c; }}\nmain :: () {{ x := make().|from; }}"
     ));
+
     assert!(labels.contains(&"step".to_string()), "{labels:?}");
 }
 
@@ -33,6 +36,7 @@ fn an_indexed_element() {
     let labels = labels(&format!(
         "{COUNTER}main :: () {{ list: [3] Counter; x := list[0].|from; }}"
     ));
+
     assert!(labels.contains(&"step".to_string()), "{labels:?}");
 }
 
@@ -42,6 +46,7 @@ fn a_name_shadowed_only_below_the_cursor() {
     let labels = labels(&format!(
         "{COUNTER}Other :: struct {{ a: int; b: int; }}\nc: Counter;\nmain :: () {{ x := c.|from; c: Other; y := c.a; }}"
     ));
+
     assert!(labels.contains(&"step".to_string()), "{labels:?}");
     assert!(!labels.contains(&"b".to_string()), "{labels:?}");
 }
@@ -56,6 +61,7 @@ fn a_parameter_of_a_polymorphic_procedure_offers_every_instance() {
          pick :: (a: $T) {\n    #if T == Pair { x := a.|first; } else { y := a; }\n}\n\
          main :: () { p: Pair; n: Named; pick(p); pick(n); }",
     );
+
     assert!(labels.contains(&"second".to_string()), "{labels:?}");
 }
 
@@ -65,6 +71,7 @@ fn a_space_before_the_dot() {
     let labels = labels(&format!(
         "{COUNTER}main :: () {{ c: Counter; x := c .|from; y := c .from; }}"
     ));
+
     assert!(labels.contains(&"step".to_string()), "{labels:?}");
 }
 
@@ -73,5 +80,6 @@ fn a_space_before_the_dot() {
 fn an_inferred_member_has_no_receiver() {
     let labels =
         labels("Color :: enum { red; green; }\nmain :: () { c: Color; if c == .|red { } }");
+
     assert!(labels.contains(&"green".to_string()), "{labels:?}");
 }

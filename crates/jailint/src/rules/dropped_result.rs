@@ -38,10 +38,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(s) = n.stmt() else {
                 return true;
             };
+
             match &s.kind {
                 S::Decl(d) => {
                     if d.rare.is_none()
@@ -49,8 +51,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         && let Some(value) = &d.value
                     {
                         let discard = d.names.len() == 1 && d.names[0].name.as_str() == "_";
+
                         if !discard {
                             let last = d.names.last().map(|n| n.span.end as usize);
+
                             // `x: T = f();` stays: where the `_` goes there is not settled.
                             examine(
                                 cx,
@@ -69,6 +73,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 } => {
                     let discard =
                         lhs.len() == 1 && matches!(lhs[0].kind, E::Ident(n) if n.as_str() == "_");
+
                     if let [value] = rhs.as_slice()
                         && !discard
                     {
@@ -83,6 +88,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 }
                 _ => {}
             }
+
             true
         });
     }
@@ -108,12 +114,14 @@ fn examine(cx: &Cx, value: &Expr, kept: usize, after: Option<usize>, out: &mut V
         }
     } else {
         let mut lists = Vec::new();
+
         for &p in &*named {
             match &cx.compiler.pr.procs[p.0 as usize].sig {
                 Some(sig) => lists.push(sig.returns.clone()),
                 None => return,
             }
         }
+
         lists
     };
     let drops_bool = |returns: &Vec<TypeId>| {
@@ -121,15 +129,18 @@ fn examine(cx: &Cx, value: &Expr, kept: usize, after: Option<usize>, out: &mut V
             .get(kept)
             .is_some_and(|&t| matches!(types.kind(types.repr_struct(t)), TypeKind::Bool))
     };
+
     if !lists.iter().all(drops_bool) {
         return;
     }
+
     let name = cx.whole_src(callee).trim();
     let message = format!(
         "`{name}` returns {} values but this keeps {kept}; the next value is a `bool`, which usually says whether the call worked",
         lists[0].len()
     );
     let help = "receive the flag, or write `, _` to show it is ignored on purpose".to_string();
+
     out.push(match after {
         Some(at) => suggesting(
             value.span,

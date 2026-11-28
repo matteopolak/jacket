@@ -57,15 +57,18 @@ impl Interp {
             .pop()
             .map_or_else(|| self.new_stack(self.stack_bytes(STACK_SIZE) / 8), Ok)?;
         let outer = self.take_exec_state();
+
         self.put_exec_state(ExecState {
             stack,
             ..ExecState::default()
         });
         self.call_nesting += 1;
         let result = self.exec(program, func, args);
+
         self.read_only.seal();
         self.call_nesting -= 1;
         let mine = self.take_exec_state();
+
         self.put_exec_state(outer);
         self.callback_stacks.push(mine.stack);
         result.map(Rets::into_vec)
@@ -78,37 +81,47 @@ impl Interp {
         if self.closed {
             return self.trap("compile-time code no longer runs: the compile is over");
         }
+
         // Runtime startup loads linked requirements even when the program never
         // calls C. Compile-time pure code need not load another target's libraries;
         // its actual foreign lookups perform the required native initialization.
         if !self.compile_time {
             self.load_required_libraries(program)?;
         }
+
         if self.stack.is_empty() {
             self.stack = self.new_stack(self.stack_bytes(STACK_SIZE) / 8)?;
             self.sp = 0;
         }
+
         let (sp, depth, calls) = (self.sp, self.depth, self.calls.len());
         let started =
             (self.compile_time && self.call_nesting == 0).then(crate::platform::Stopwatch::start);
+
         self.call_nesting += 1;
         let mut result = self.guarded(program, calls, |this| this.exec(program, func, args));
+
         if self.call_nesting == 1
             && matches!(&result, Err(trap) if trap.kind == Some(TrapKind::Suspended))
         {
             // A thread of the sandbox's scheduler blocked: run the others until this one ends.
             result = self.inline_schedule(program, result);
+
             if result.is_err() {
                 (self.sp, self.depth) = (sp, depth);
                 self.calls.truncate(calls);
             }
         }
+
         self.call_nesting -= 1;
+
         if let Some(started) = started {
             COMPILE_TIME_NANOS.fetch_add(started.elapsed().as_nanos() as u64, Ordering::Relaxed);
             COMPILE_TIME_CALLS.fetch_add(1, Ordering::Relaxed);
         }
+
         let result = result.map(Rets::into_vec);
+
         if self.forked_child {
             // Compile-time code forked and the child came back here (its `exec*` failed
             // or it trapped): it must not go on compiling alongside the parent.
@@ -118,12 +131,14 @@ impl Interp {
                     t.message
                 );
             }
+
             exit_forked_child(if result.is_ok() {
                 0
             } else {
                 127
             });
         }
+
         result
     }
 
@@ -140,11 +155,14 @@ impl Interp {
         if !self.compile_time {
             return body(self);
         }
+
         let (sp, depth, nesting) = (self.sp, self.depth, self.call_nesting);
+
         match super::guard::guarded(|| body(self)) {
             Ok(result) => result,
             Err(fault) => {
                 let trap = self.fault_trap(program, fault, calls);
+
                 (self.sp, self.depth, self.call_nesting) = (sp, depth, nesting);
                 self.calls.truncate(calls);
                 Err(trap)
@@ -166,12 +184,15 @@ impl Interp {
         ))
         .at(self.loc)
         .of_kind(Some(TrapKind::MemoryFault));
+
         for k in (calls.min(self.calls.len())..self.calls.len()).rev() {
             let loc = self.calls.get(k + 1).map_or(self.loc, |c| c.1);
+
             if let Some(Some(func)) = program.funcs.get(self.calls[k].0.0 as usize) {
                 trap.push_frame(func, loc);
             }
         }
+
         trap
     }
 
@@ -194,17 +215,20 @@ impl Interp {
             .get(id.0 as usize)
             .cloned()
             .unwrap_or_default();
+
         if self.defer_missing_bodies && self.compile_time {
             if self.call_nesting != 1 || !self.compiler_threads_idle() {
                 return self.trap(format!(
                     "cannot suspend compile-time body dependency `{name}` across a native callback or managed thread"
                 ));
             }
+
             return self.trap_of(
                 TrapKind::CompileDependency(id),
                 format!("waiting for the body of `{name}`"),
             );
         }
+
         self.trap(format!(
             "procedure `{name}` has no body available at this point"
         ))
@@ -222,16 +246,19 @@ impl Interp {
         {
             return self.run_hook(program, hook, args);
         }
+
         let func = self.body(program, id)?;
         let frame = self.frame(program, id, func);
         let entered = self.enter(program, func, frame)?;
         let n = args.len().min(func.sig.params.len());
+
         // SAFETY: `enter` checked the frame's registers fit on the stack, and a procedure
         // has at least a register for each parameter.
         unsafe { std::ptr::copy_nonoverlapping(args.as_ptr(), entered.regs, n) };
         let rets = self.run_entered(program, id, func, frame, &entered)?;
         // SAFETY: the callee left `rets` results at the start of its registers.
         let results = unsafe { std::slice::from_raw_parts(entered.regs, rets as usize) };
+
         Ok(Rets::collect(results.iter().copied()))
     }
 
@@ -249,6 +276,7 @@ impl Interp {
     ) -> Res<()> {
         let id = FuncId(callee);
         let (args, rets) = pool.split_at(nargs);
+
         // SAFETY (register accesses): `code::build` checked every register named in `pool`.
         if self
             .hooks
@@ -265,6 +293,7 @@ impl Interp {
                     // register of the caller's frame, which `regs` points at.
                     *slot = unsafe { *regs.add(a as usize) };
                 }
+
                 &small[..nargs]
             } else {
                 argv = args
@@ -276,27 +305,34 @@ impl Interp {
                 &argv
             };
             let out = self.exec(program, id, argv)?;
+
             for (&r, &v) in rets[..nrets].iter().zip(out.iter()) {
                 // SAFETY: `code::build` checked every register named in `pool`, so each is a
                 // register of the caller's frame, which `regs` points at.
                 unsafe { *regs.add(r as usize) = v };
             }
+
             return Ok(());
         }
+
         let func = self.body(program, id)?;
         let frame = self.frame(program, id, func);
         let entered = self.enter(program, func, frame)?;
+
         for (i, &a) in args.iter().enumerate().take(func.sig.params.len()) {
             // SAFETY: `i` is below the callee's parameter count, which `enter` gave registers for;
             // the argument register is one `code::build` checked in the caller's frame.
             unsafe { *entered.regs.add(i) = *regs.add(a as usize) };
         }
+
         let n = self.run_entered(program, id, func, frame, &entered)? as usize;
+
         for (i, &r) in rets[..nrets].iter().enumerate().take(n) {
             // SAFETY: `i` is below the results the callee returned, which sit at the start of its
             // registers; the result register is one `code::build` checked in the caller's frame.
             unsafe { *regs.add(r as usize) = *entered.regs.add(i) };
         }
+
         Ok(())
     }
 
@@ -309,19 +345,24 @@ impl Interp {
                 "stack overflow (recursion too deep)",
             );
         }
+
         if let Some(lines) = self.lines.as_mut() {
             lines.enter(program, func);
         }
+
         let base = self.sp;
         let stack_start = self.stack.as_mut_ptr() as u64;
         let align = frame.align - 1;
         let start = ((stack_start + base + align) & !align) - stack_start;
         let end = start + frame.size + frame.node_size + frame.code.regs as u64 * 8;
+
         if end > (self.stack.len() * 8) as u64 {
             return self.trap_of(TrapKind::StackOverflow, "interpreter stack overflow");
         }
+
         self.sp = end;
         let stack_base = stack_start + start;
+
         // Registers are not cleared: the IR defines a value before it reads it. Debug builds
         // fill them with a recognizable pattern to catch code that does not.
         #[cfg(debug_assertions)]
@@ -354,13 +395,16 @@ impl Interp {
         self.calls.push((id, self.loc));
         let saved_loc = self.loc;
         let (mut saved_trace_loc, mut pushed) = (None, None);
+
         if program.stack_trace.is_some() {
             saved_trace_loc = Some(self.trace_loc);
+
             if frame.node_size != 0 {
                 // SAFETY: the callee's first registers are its parameters, which the caller
                 // set (`context` is the first).
                 let args =
                     unsafe { std::slice::from_raw_parts(entered.regs, func.sig.params.len()) };
+
                 pushed = self.trace_enter(
                     program,
                     id,
@@ -374,8 +418,10 @@ impl Interp {
                 self.trace_loc = Some(self.loc);
             }
         }
+
         let outer = if self.profile.is_some() {
             let outer = (self.frame_blocks, self.frame_insts);
+
             (self.frame_blocks, self.frame_insts) = (0, 0);
             outer
         } else {
@@ -390,12 +436,15 @@ impl Interp {
             pushed,
             outer,
         };
+
         if suspended(&result) {
             // The thread is switching out: the frame stays on its stack, to be resumed.
             (self.frame_blocks, self.frame_insts) = outer;
             self.capture_frame(exit, frame, entered.stack_base);
+
             return result;
         }
+
         self.leave_frame(func, exit, result)
     }
 
@@ -411,6 +460,7 @@ impl Interp {
         if let Err(trap) = &mut result {
             trap.push_frame(func, self.loc);
         }
+
         if let Some(counts) = self.profile.as_mut() {
             counts.add(
                 exit.id.0 as usize,
@@ -420,15 +470,19 @@ impl Interp {
             );
             (self.frame_blocks, self.frame_insts) = exit.outer;
         }
+
         if let Some((slot, previous)) = exit.pushed {
             // SAFETY: `slot` is the stack-trace context word `trace_enter` wrote through, in the
             // program's live context memory, and `previous` is the node it held before.
             unsafe { self.poke(slot, self.layout.pointer_size as usize, previous) };
         }
+
         self.loc = exit.saved_loc;
+
         if let Some(trace_loc) = exit.saved_trace_loc {
             self.trace_loc = trace_loc;
         }
+
         self.depth -= 1;
         self.calls.pop();
         self.sp = exit.base;
@@ -452,14 +506,17 @@ impl Interp {
         let n = &layout.node;
         let info = func.trace.as_ref()?;
         let context = *args.first()?;
+
         if context == 0 {
             return None;
         }
+
         let slot = context + layout.context;
         let line = self
             .trace_loc
             .unwrap_or(self.loc)
             .map_or(0, |(_, line, _)| line);
+
         // SAFETY: `context` is the program's live context pointer, so `slot` is its stack-trace
         // word; `previous` and `node` point at stack-trace nodes laid out as `layout.node`
         // describes, `node` inside the frame being entered.
@@ -467,20 +524,24 @@ impl Interp {
             let word = self.layout.pointer_size as usize;
             let previous = self.peek(slot, word);
             let (mut depth, mut hash) = (1u32, 0xcbf2_9ce4_8422_2325u64);
+
             if previous != 0 {
                 self.poke(previous + n.line_number, 4, u64::from(line));
                 depth = (self.peek(previous + n.call_depth, 4) as u32).wrapping_add(1);
                 hash = self.peek(previous + n.hash, 8);
             }
+
             hash = (hash ^ (id.0 as u64) ^ ((line as u64) << 32)).wrapping_mul(0x0100_0000_01b3);
             let info_addr = match frame.trace_info.get() {
                 0 => {
                     let addr = self.trace_info(program, id, info);
+
                     frame.trace_info.set(addr);
                     addr
                 }
                 addr => addr,
             };
+
             self.poke(node + n.next, word, previous);
             self.poke(node + n.info, word, info_addr);
             self.poke(node + n.hash, 8, hash);
@@ -498,6 +559,7 @@ impl Interp {
         {
             return addr;
         }
+
         let path = program
             .file_paths
             .get(info.file as usize)
@@ -519,6 +581,7 @@ impl Interp {
             self.layout.pointer_size as usize,
             self.layout.builtins().view.data,
         );
+
         for (offset, size, value) in [
             (at.name, 8, info.name.len() as u64),
             (at.name + data, word, name),
@@ -536,9 +599,11 @@ impl Interp {
             // within the `Stack_Trace_Procedure_Info` layout.
             unsafe { self.poke(addr + offset, size, value) };
         }
+
         if self.trace_infos.len() <= id.0 as usize {
             self.trace_infos.resize(id.0 as usize + 1, 0);
         }
+
         self.trace_infos[id.0 as usize] = addr;
         addr
     }
@@ -559,6 +624,7 @@ impl Interp {
                 let s = args[0];
                 let (count, data) = self.fetch_view(s)?;
                 let bytes = self.fetch(data, count)?;
+
                 self.effects += 1;
                 self.host
                     .write(&bytes, args.get(1).is_some_and(|&v| v & 1 != 0));
@@ -567,11 +633,14 @@ impl Interp {
                 let view = args[0];
                 let (count, data) = self.fetch_view(view)?;
                 let to_stderr = args.get(1).is_some_and(|&v| v & 1 != 0);
+
                 self.effects += 1;
+
                 for i in 0..count {
                     let s = data + i as u64 * self.layout.builtins().view.size;
                     let (n, p) = self.fetch_view(s)?;
                     let bytes = self.fetch(p, n)?;
+
                     self.host.write(&bytes, to_stderr);
                 }
             }
@@ -584,12 +653,14 @@ impl Interp {
                 let service = String::from_utf8_lossy(&read(self, args[0])?).into_owned();
                 let request = read(self, args[1])?;
                 let response = args[2];
+
                 self.effects += 1;
                 let reply = self.host.service(&service, &request);
                 let count = reply.body.len() as u64;
                 let Some(data) = self.keep(&reply.body, 1) else {
                     return self.trap("cannot allocate the service reply");
                 };
+
                 if response != 0 {
                     self.store(
                         ir::Ty::I64,
@@ -602,12 +673,14 @@ impl Interp {
                         data,
                     )?;
                 }
+
                 return Ok(Rets::one(reply.status as u64));
             }
             Hook::Unknown => {
                 let s = args[0];
                 let (count, data) = self.fetch_view(s)?;
                 let message = String::from_utf8_lossy(&self.fetch(data, count)?).into_owned();
+
                 return self.trap_of(TrapKind::Unknown, message);
             }
             Hook::HostMonotonicNanos => {
@@ -617,6 +690,7 @@ impl Interp {
                     .get_or_init(std::time::Instant::now)
                     .elapsed()
                     .as_nanos();
+
                 return Ok(Rets::one((nanos as u64).saturating_add(1_000_000_000)));
             }
             Hook::AssertionFailed {
@@ -640,10 +714,13 @@ impl Interp {
                         format!("assertion failed: {message}")
                     })
                     .unwrap_err();
+
                 trap.assertion = Some(Box::new((path, line, col)));
+
                 if message.is_empty() {
                     trap.kind = Some(TrapKind::BareAssertion);
                 }
+
                 return Err(trap);
             }
             Hook::Meta(op, has_context) => {
@@ -651,6 +728,7 @@ impl Interp {
                     return self.trap("this build has no compiler workspaces (Compiler module)");
                 };
                 let loc = self.loc;
+
                 return crate::build::call(&workspaces, op, has_context, args, self).map_err(
                     |mut t| {
                         t.loc = t.loc.or(loc);
@@ -659,6 +737,7 @@ impl Interp {
                 );
             }
         }
+
         Ok(Rets::default())
     }
 }

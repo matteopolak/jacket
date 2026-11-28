@@ -81,13 +81,16 @@ pub(super) fn get_name(handle: u64, capacity: u64) -> (u64, Vec<u8>) {
         let mut bytes = vec![0; len];
         // SAFETY: the caller retains the native thread; `bytes` owns `len` bytes.
         let status = unsafe { pthread_getname_np(handle as Handle, bytes.as_mut_ptr(), len) };
+
         if status == 0 {
             let end = bytes
                 .iter()
                 .position(|&byte| byte == 0)
                 .expect("SDK names are terminated");
+
             bytes.truncate(end + 1);
         }
+
         (status as u32 as u64, bytes)
     }
     #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "macos")))]

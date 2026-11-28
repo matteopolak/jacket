@@ -31,6 +31,7 @@ impl Compiler {
         if span.file == f.file && !f.b.is_terminated() {
             let (line, col) = self.src.sources.get(span.file).line_col(span.start);
             let debug_scope = self.debug_scope(f, scope, line, col);
+
             f.b.loc(span.file.0, line, col, debug_scope);
         }
     }
@@ -51,6 +52,7 @@ impl Compiler {
         let head = f.b.new_block();
         let body_block = f.b.new_block();
         let exit = f.b.new_block();
+
         f.b.jump(head);
         f.b.switch_to(head);
         let (scope, c) = match label.filter(|_| *bind_label) {
@@ -62,9 +64,11 @@ impl Compiler {
                 let size = self.size_of(ty, cond.span)?;
                 let align = self.align_of(ty, cond.span)?;
                 let addr = f.b.alloca(size.max(1), align);
+
                 self.store_value(f, ty, addr, v, cond.span)?;
                 let inner = self.new_block_scope(scope, cond.span.to(body.span));
                 let depth = self.scope(inner).proc_depth;
+
                 self.declare_loop_var(
                     f,
                     inner,
@@ -83,6 +87,7 @@ impl Compiler {
             }
             None => (scope, self.check_condition(f, scope, cond)?),
         };
+
         // `while true` only ends through `break`, which the missing-return warning relies on.
         if matches!(cond.kind, ast::ExprKind::Bool(true)) {
             f.b.jump(body_block);
@@ -90,8 +95,10 @@ impl Compiler {
             f.lifetime_branch(c, cond.span, body_block, exit);
             f.b.branch(c, body_block, exit);
         }
+
         f.b.switch_to(body_block);
         let defer_depth = f.mark_defers();
+
         f.loops.push(LoopFrame {
             label: label.map(|l| l.name),
             break_block: exit,
@@ -102,6 +109,7 @@ impl Compiler {
             ),
         });
         let result = self.check_scoped(f, scope, body);
+
         f.loops.pop();
         result?;
         f.b.jump(head);
@@ -126,6 +134,7 @@ impl Compiler {
             } else {
                 "continue"
             };
+
             return match label {
                 Some(l) => err(
                     Code::NoEnclosingLoop,
@@ -135,6 +144,7 @@ impl Compiler {
                 None => err(Code::OutsideLoop, span, format!("{what} outside of a loop")),
             };
         };
+
         self.emit_defers(f, frame.defer_depth.position(), span)?;
         f.b.jump(if is_break {
             frame.break_block
@@ -198,12 +208,16 @@ impl Compiler {
         let off_l = f.b.bin(ir::BinOp::Mul, Ty::I64, last, s);
         let dst = f.b.ptr_add(data, off_i);
         let src = f.b.ptr_add(data, off_l);
+
         f.b.copy(dst, src, size);
         f.b.store(Ty::I64, addr, last);
+
         if !reverse {
             let idx2 = f.b.bin(ir::BinOp::Sub, Ty::I64, idx, one);
+
             f.b.store(Ty::I64, index_slot, idx2);
         }
+
         Ok(())
     }
 
@@ -221,11 +235,13 @@ impl Compiler {
     ) {
         let written = [for_.it.map(|i| i.span), for_.index.map(|i| i.span)];
         let first = vars[0].0;
+
         for (i, var) in vars.into_iter().enumerate() {
             // `for it_index: 0..n`: the named value hides the default index.
             if i == 1 && var.0 == first {
                 continue;
             }
+
             self.declare_loop_var(f, loop_scope, backticks[i], var, (span, written[i]));
         }
     }
@@ -246,10 +262,13 @@ impl Compiler {
             && caller != loop_scope
         {
             let id = self.new_entity(caller, name, span, kind.clone(), false);
+
             self.ide_note_entity_at(id, written);
         }
+
         self.debug_local_kind(f, loop_scope, name, span, &kind);
         let id = self.new_entity(loop_scope, name, span, kind, false);
+
         self.ide_note_entity_at(id, written);
     }
 
@@ -263,26 +282,36 @@ impl Compiler {
         // `for *=cond` / `for <=cond`: by pointer / in reverse when the constant holds.
         if for_.pointer_if.is_some() || for_.reverse_if.is_some() {
             let mut resolved = for_.clone();
+
             if let Some(cond) = resolved.pointer_if.take() {
                 resolved.by_pointer |= self.eval_static_condition(scope, &cond)?;
             }
+
             if let Some(cond) = resolved.reverse_if.take() {
                 resolved.reverse |= self.eval_static_condition(scope, &cond)?;
             }
+
             return self.check_for(f, scope, &resolved, span);
         }
+
         let flagged = crate::parser::check_bits(&for_.flags);
+
         if flagged.adds_to(f.checks_off) {
             let saved = f.checks_off;
+
             f.checks_off = saved.with(flagged);
             let result = self.check_for(f, scope, for_, span);
+
             f.checks_off = saved;
+
             return result;
         }
+
         let it_name = for_.it.map_or_else(|| Sym::intern("it"), |i| i.name);
         let index_name = for_
             .index
             .map_or_else(|| Sym::intern("it_index"), |i| i.name);
+
         if let Some(index) = for_.index
             && index.name == it_name
         {
@@ -292,6 +321,7 @@ impl Compiler {
                 format!("the loop's value and index are both named `{it_name}`"),
             );
         }
+
         let (lo, hi, collection) = match &for_.over {
             ast::ForOver::Range(a, b) => (Some(a), Some(b), None),
             ast::ForOver::Collection(c) => (None, None, Some(c)),
@@ -306,6 +336,7 @@ impl Compiler {
             it_name,
             index_name,
         };
+
         match (lo, hi, collection) {
             (Some(a), Some(b), _) => self.check_for_range(f, scope, &lp, a, b),
             (_, _, Some(c)) => self.check_for_collection(f, scope, &lp, c),
@@ -373,6 +404,7 @@ impl Compiler {
         let it =
             f.b.alloca(t.size(&self.options.layout), t.size(&self.options.layout));
         let idx = f.b.alloca(8, 8);
+
         f.b.store(
             t,
             it,
@@ -383,11 +415,13 @@ impl Compiler {
             },
         );
         let zero = f.b.iconst(Ty::I64, 0);
+
         f.b.store(Ty::I64, idx, zero);
         let head = f.b.new_block();
         let body_block = f.b.new_block();
         let step = f.b.new_block();
         let exit = f.b.new_block();
+
         f.b.jump(head);
         f.b.switch_to(head);
         let cur = f.b.load(t, it);
@@ -407,10 +441,12 @@ impl Compiler {
                 end
             },
         );
+
         f.lifetime_branch(c, a.span.to(b.span), body_block, exit);
         f.b.branch(c, body_block, exit);
         f.b.switch_to(body_block);
         let names = [it_name, index_name];
+
         self.declare_loop_vars(
             f,
             loop_scope,
@@ -438,6 +474,7 @@ impl Compiler {
         );
         self.ide_note_implicit_loop_names(for_, a.span, [ty, TypeId::S64]);
         let defer_depth = f.mark_defers();
+
         f.loops.push(LoopFrame {
             label: Some(it_name),
             break_block: exit,
@@ -448,6 +485,7 @@ impl Compiler {
             ),
         });
         let result = self.check_scoped(f, loop_scope, &for_.body);
+
         f.loops.pop();
         result?;
         f.b.jump(step);
@@ -474,6 +512,7 @@ impl Compiler {
             },
         );
         let advance = f.b.new_block();
+
         f.lifetime_branch(at_end, a.span.to(b.span), exit, advance);
         f.b.branch(at_end, exit, advance);
         f.b.switch_to(advance);
@@ -488,10 +527,12 @@ impl Compiler {
             cur,
             one,
         );
+
         f.b.store(t, it, next);
         let i = f.b.load(Ty::I64, idx);
         let one64 = f.b.iconst(Ty::I64, 1);
         let i2 = f.b.bin(ir::BinOp::Add, Ty::I64, i, one64);
+
         f.b.store(Ty::I64, idx, i2);
         f.b.jump(body_block);
         f.b.switch_to(exit);
@@ -504,6 +545,7 @@ impl Compiler {
     fn for_expansion_wants_pointer(&mut self, procs: &[ProcId], cty: TypeId) -> bool {
         let mut by_value = false;
         let mut by_pointer = false;
+
         for &p in procs {
             match self.first_param_takes(p, cty) {
                 Some((true, _)) => by_pointer = true,
@@ -511,6 +553,7 @@ impl Compiler {
                 None => {}
             }
         }
+
         by_pointer && !by_value
     }
 
@@ -554,6 +597,7 @@ impl Compiler {
                 .types
                 .pointee(cty)
                 .is_some_and(|inner| takes_one(self, inner));
+
         Some((pointer, takes))
     }
 
@@ -568,6 +612,7 @@ impl Compiler {
         span: Span,
     ) -> Result<(TypeId, ir::Val)> {
         let (caddr, cty) = region;
+
         Ok(if by_pointer {
             if let Some(record) = &mut f.lifetimes {
                 record.push(
@@ -580,6 +625,7 @@ impl Compiler {
                     },
                 );
             }
+
             let pt = self.ty.types.pointer(elem);
             (pt, self.spill(f, pt, elem_addr, span)?)
         } else if self.is_memory_type(elem) {
@@ -619,6 +665,7 @@ impl Compiler {
             it_name,
             index_name,
         } = *lp;
+
         // `for iterate(x)`: a call to a for_expansion-shaped macro (body: Code second).
         if for_.iterator.is_none()
             && let ast::ExprKind::Call {
@@ -631,6 +678,7 @@ impl Compiler {
             && procs.iter().all(|&p| self.proc_takes_for_body(p))
         {
             let leading = self.precheck_args(f, scope, args)?;
+
             return self.check_for_expansion(
                 f,
                 scope,
@@ -640,6 +688,7 @@ impl Compiler {
                 span,
             );
         }
+
         let iterated = c.span;
         let op = self.check_expr(f, scope, c, None)?;
         let cty = op.ty();
@@ -652,11 +701,13 @@ impl Compiler {
                 self.ty.types.kind(self.ty.types.repr_struct(target)),
                 TypeKind::Struct(_)
             );
+
         if for_.iterator.is_some() || is_struct {
             let procs = self.for_expansion_procs(scope, for_, &op, span)?;
             let wants_pointer = self.for_expansion_wants_pointer(&procs, cty);
             let op = if wants_pointer && !self.ty.types.is_pointer(cty) {
                 let (_, addr) = self.address_of(f, op, span)?;
+
                 Operand::Value {
                     ty: self.ty.types.pointer(cty),
                     val: addr,
@@ -672,6 +723,7 @@ impl Compiler {
                 span,
                 scope,
             }];
+
             return self.expand_struct_for(
                 f,
                 (scope, for_),
@@ -680,6 +732,7 @@ impl Compiler {
                 (cty, span),
             );
         }
+
         let (elem, fixed) = match self.ty.types.kind(self.ty.types.repr(cty)).clone() {
             _ if let Some(elem) = stand_in_elem => (elem, None),
             TypeKind::Array {
@@ -698,6 +751,7 @@ impl Compiler {
             } => p,
             other => {
                 let (ty, addr) = self.address_of(f, other, c.span)?;
+
                 Operand::Place {
                     ty,
                     addr,
@@ -719,15 +773,18 @@ impl Compiler {
         let start = if for_.reverse {
             let n = load_count(f);
             let one = f.b.iconst(Ty::I64, 1);
+
             f.b.bin(ir::BinOp::Sub, Ty::I64, n, one)
         } else {
             f.b.iconst(Ty::I64, 0)
         };
+
         f.b.store(Ty::I64, idx, start);
         let head = f.b.new_block();
         let body_block = f.b.new_block();
         let step = f.b.new_block();
         let exit = f.b.new_block();
+
         f.b.jump(head);
         f.b.switch_to(head);
         // The bound test, here and again after each step (so a step goes straight to the body
@@ -735,6 +792,7 @@ impl Compiler {
         // shrink the array.
         let in_range = |f: &mut FnCtx| {
             let i = f.b.load(Ty::I64, idx);
+
             if for_.reverse {
                 let zero = f.b.iconst(Ty::I64, 0);
                 f.b.cmp(CmpOp::SGe, Ty::I64, i, zero)
@@ -744,6 +802,7 @@ impl Compiler {
             }
         };
         let c = in_range(f);
+
         f.lifetime_branch(c, condition_span, body_block, exit);
         f.b.branch(c, body_block, exit);
         f.b.switch_to(body_block);
@@ -757,6 +816,7 @@ impl Compiler {
         let s = f.b.iconst(Ty::I64, esize);
         let off = f.b.bin(ir::BinOp::Mul, Ty::I64, i, s);
         let elem_addr = f.b.ptr_add(data, off);
+
         f.lifetime_iteration(
             (caddr, cty),
             (idx, it_name, index_name),
@@ -772,6 +832,7 @@ impl Compiler {
             (caddr, cty),
             iterated,
         )?;
+
         if !for_.by_pointer
             && !self.is_memory_type(elem)
             && let Some(record) = &mut f.lifetimes
@@ -787,6 +848,7 @@ impl Compiler {
                 },
             );
         }
+
         self.declare_loop_vars(
             f,
             loop_scope,
@@ -817,6 +879,7 @@ impl Compiler {
             LoopRemove::Array(container.clone(), idx, elem, for_.reverse)
         } else {
             let elem_name = self.ty.types.name(elem);
+
             LoopRemove::Unsupported(format!(
                 "remove cannot shrink the fixed-size array `{}`; loop over a resizable array \
                  (`[..] {elem_name}`) or an array view (`[] {elem_name}`) to remove elements",
@@ -824,6 +887,7 @@ impl Compiler {
             ))
         };
         let defer_depth = f.mark_defers();
+
         f.loops.push(LoopFrame {
             label: Some(it_name),
             break_block: exit,
@@ -832,6 +896,7 @@ impl Compiler {
             remove,
         });
         let result = self.check_scoped(f, loop_scope, &for_.body);
+
         f.loops.pop();
         result?;
         f.b.jump(step);
@@ -857,8 +922,10 @@ impl Compiler {
             i,
             one,
         );
+
         f.b.store(Ty::I64, idx, next);
         let c = in_range(f);
+
         f.lifetime_branch(c, condition_span, body_block, exit);
         f.b.branch(c, body_block, exit);
         f.b.switch_to(exit);
@@ -889,9 +956,11 @@ impl Compiler {
                         );
                     }
                 }
+
                 if let ast::ExprKind::Member(_, last) = &path.kind {
                     self.ide_note_for_iterator(last, &procs);
                 }
+
                 path.path_string()
                     .map_or_else(|| Sym::intern("for_expansion"), |s| Sym::intern(&s))
             }
@@ -903,7 +972,9 @@ impl Compiler {
                     }) => *name,
                     _ => Sym::intern("for_expansion"),
                 };
+
                 procs = self.procs_named(scope, macro_name)?;
+
                 // A visible `for_expansion` for other types only (Testing's for `*Bench`) does
                 // not hide the one declared with the collection's type.
                 if for_.iterator.is_none()
@@ -911,11 +982,13 @@ impl Compiler {
                     && !self.for_expansion_takes(&procs, collection.ty())
                 {
                     let found = self.procs_named(home, macro_name)?;
+
                     if !found.is_empty() {
                         self.warn_lenient_for_expansion(scope, span, collection.ty(), home);
                         procs = found;
                     }
                 }
+
                 if let Some(ast::Expr {
                     kind: ast::ExprKind::Ident(name),
                     span,
@@ -926,15 +999,19 @@ impl Compiler {
                         name: *name,
                         span: *span,
                     };
+
                     self.ide_note_for_iterator(&ident, &procs);
                 }
+
                 macro_name
             }
         };
+
         if procs.is_empty() {
             let ty = self.ty.types.name(collection.ty());
             return Err(Box::new(no_visible_iterating(macro_name, &ty, span)));
         }
+
         Ok(procs)
     }
 
@@ -949,6 +1026,7 @@ impl Compiler {
         (cty, span): (TypeId, Span),
     ) -> Result<()> {
         let candidates = procs.clone();
+
         match self.check_for_expansion(f, scope, for_, (procs, leading), names, span) {
             Err(e)
                 if e.code == Code::CallMismatch
@@ -966,28 +1044,33 @@ impl Compiler {
     fn no_expansion_for(&mut self, cty: TypeId, procs: &[ProcId], span: Span) -> Diagnostic {
         let ty = self.ty.types.name(cty);
         let mut d = no_visible_iterating(Sym::intern("for_expansion"), &ty, span);
+
         for &p in procs {
             let header = self.proc(p).lit.header.clone();
             let Some(param) = header.params.first().and_then(|q| q.ty.as_ref()) else {
                 continue;
             };
             let takes = self.src.sources.snippet(param.extent()).trim().to_string();
+
             d = d.with_note(
                 header.span,
                 format!("this `for_expansion` iterates over `{takes}`, not `{ty}`"),
             );
         }
+
         d
     }
 
     /// The procedures `name` resolves to from `scope`.
     fn procs_named(&mut self, scope: ScopeId, name: Sym) -> Result<Vec<ProcId>> {
         let mut procs = Vec::new();
+
         for id in self.lookup(scope, name)? {
             if let Resolved::Proc(p) = self.resolve_entity(id)? {
                 procs.push(p);
             }
         }
+
         Ok(procs)
     }
 
@@ -1005,17 +1088,20 @@ impl Compiler {
         // The edit covers the whole written expression, parentheses included.
         let written = expr.extent();
         let text = self.src.sources.snippet(written).trim();
+
         if !self.ty.types.is_integer(self.ty.types.repr(ty))
             || matches!(self.ty.types.kind(ty), TypeKind::Enum(_))
             || text.is_empty()
         {
             return d;
         }
+
         let range = if expr.is_atomic_written() {
             format!("0..{text} - 1")
         } else {
             format!("0..({text}) - 1")
         };
+
         d.with_suggestion(
             Suggestion::replace(
                 format!("to repeat {text} times, loop over a range: `for {range}`"),
@@ -1030,10 +1116,13 @@ impl Compiler {
     /// A macro whose second parameter is the loop body (`(x, body: Code, flags)`).
     fn proc_takes_for_body(&mut self, p: ProcId) -> bool {
         let info = self.proc(p);
+
         if !info.is_macro {
             return false;
         }
+
         let lit = info.lit.clone();
+
         lit.header
             .params
             .get(1)
@@ -1069,6 +1158,7 @@ impl Compiler {
             .preload_type(PreludeType::ForFlags, span)
             .unwrap_or(TypeId::U8);
         let mut args = leading;
+
         args.extend([
             CallArg {
                 name: None,
@@ -1114,6 +1204,7 @@ impl Compiler {
             label: Some(it_name),
         });
         let result = self.call_procs(f, loop_scope, &procs, args, None, span);
+
         f.pending_for_body = None;
         result.map(|_| ())
     }

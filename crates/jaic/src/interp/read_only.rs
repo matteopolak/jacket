@@ -45,10 +45,13 @@ impl ReadOnlyData {
         let Some((slot, base, len)) = window.claim_read_only() else {
             // Every region is taken: the data goes to ordinary memory.
             let mut none = Self::default();
+
             none.refused = true;
+
             return none;
         };
         let mut data = Self::default();
+
         data.base = base;
         data.limit = len;
         data.in_window = Some((window.clone(), slot));
@@ -76,20 +79,26 @@ impl ReadOnlyData {
             if self.refused || align > STEP {
                 return None;
             }
+
             let Some(base) = host_pages::reserve(RESERVE) else {
                 self.refused = true;
                 return None;
             };
+
             self.base = base;
             self.limit = RESERVE;
         }
+
         let start = self.used.checked_next_multiple_of(align)?;
         let end = start.checked_add(size.max(1))?;
+
         if end > self.limit || !(self.base + start).is_multiple_of(align) {
             return None;
         }
+
         if end > self.committed {
             let to = end.next_multiple_of(STEP);
+
             if !host_pages::commit(
                 self.base + self.committed,
                 to - self.committed,
@@ -97,8 +106,10 @@ impl ReadOnlyData {
             ) {
                 return None;
             }
+
             self.committed = to;
         }
+
         self.used = end;
         Some((self.base + start) as u64)
     }
@@ -107,6 +118,7 @@ impl ReadOnlyData {
     /// give back and take again.
     pub(super) fn clear(&mut self) {
         let (base, used) = (self.base as u64, self.used);
+
         if used > 0 {
             // SAFETY: `base..base + used` is the committed, placed part of this reservation.
             self.fill(base, used, || unsafe {
@@ -114,6 +126,7 @@ impl ReadOnlyData {
             });
             self.seal();
         }
+
         self.used = 0;
     }
 
@@ -123,17 +136,20 @@ impl ReadOnlyData {
         if !self.contains(addr) {
             return write();
         }
+
         let offset = addr as usize - self.base;
         let start = offset / STEP * STEP;
         let end = (offset + len.max(1))
             .next_multiple_of(STEP)
             .min(self.committed);
+
         match self.open {
             Some((lo, hi)) if lo <= start && end <= hi => {}
             Some((lo, hi)) => {
                 // Grow to one span; the pages in between are read-only already or about to
                 // be sealed with the rest.
                 let (lo, hi) = (lo.min(start), hi.max(end));
+
                 protect(self.base + lo, hi - lo, Access::ReadWrite);
                 self.open = Some((lo, hi));
             }
@@ -142,6 +158,7 @@ impl ReadOnlyData {
                 self.open = Some((start, end));
             }
         }
+
         write()
     }
 

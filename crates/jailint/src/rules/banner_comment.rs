@@ -27,14 +27,18 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for c in cx.comments {
         if c.kind == CommentKind::Block && !c.terminated {
             continue;
         }
+
         if !is_rule(c.body(cx.text)) {
             continue;
         }
+
         let (start, end) = cx.statement_removal(c.span);
+
         out.push(Finding {
             secondary: Vec::new(),
             start: c.span.start as usize,

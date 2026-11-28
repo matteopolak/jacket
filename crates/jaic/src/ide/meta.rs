@@ -175,9 +175,11 @@ impl Compiler {
         if opens.is_empty() || self.ed.facts().is_none() {
             return Vec::new();
         }
+
         let text = self.src.sources.get(file).text.clone();
         let mut callees = crate::parser::parse_callees_ide(file, &text, opens);
         let mut out = Vec::new();
+
         for &open in opens {
             let Some(callee) = callees.remove(&open) else {
                 continue;
@@ -185,8 +187,10 @@ impl Compiler {
             let target = self
                 .ide_call_target_of(file, open, &callee)
                 .and_then(|t| self.callee_class(&t.procedures));
+
             out.extend(target.map(|class| (open, class)));
         }
+
         out
     }
 
@@ -194,6 +198,7 @@ impl Compiler {
         if procedures.is_empty() {
             return None;
         }
+
         Some(if procedures.iter().all(|&p| self.proc(p).is_macro) {
             IdeClass::Macro
         } else {
@@ -207,8 +212,10 @@ impl Compiler {
         if self.ide_call_skipped(file, open)? {
             return None;
         }
+
         let text = self.src.sources.get(file).text.clone();
         let callee = crate::parser::parse_callee_ide(file, &text, open)?;
+
         self.ide_call_target_of(file, open, &callee)
     }
 
@@ -236,6 +243,7 @@ impl Compiler {
         if self.ide_call_skipped(file, open)? {
             return None;
         }
+
         let scope = self.ide_scope_at(file, callee.span.start)?;
         let operand = self.check_expr_no_emit(scope, callee).ok()?;
         let parameters = match &operand {
@@ -252,6 +260,7 @@ impl Compiler {
             } => vec![id],
             _ => Vec::new(),
         };
+
         Some(IdeCallTarget {
             procedures,
             parameters,
@@ -270,6 +279,7 @@ impl Compiler {
         {
             return;
         }
+
         let Some(source) = self.src.sources.try_get(file) else {
             return;
         };
@@ -280,17 +290,23 @@ impl Compiler {
                 .is_some_and(|&b| b == b'_' || b.is_ascii_alphanumeric())
         };
         let at = offset as usize;
+
         if !word(at) && (at == 0 || !word(at - 1)) {
             return;
         }
+
         let mut end = at;
+
         while word(end) {
             end += 1;
         }
+
         let mut open = end;
+
         while bytes.get(open).is_some_and(u8::is_ascii_whitespace) {
             open += 1;
         }
+
         if bytes.get(open) == Some(&b'(') {
             let _ = self.ide_call_target_at(file, open as u32);
         }

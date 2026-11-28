@@ -7,14 +7,17 @@ use std::rc::Rc;
 /// The text of every dead run of `source` (as the editor would fade it), in source order.
 fn dead_runs(source: &str) -> Vec<String> {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     compiler.ed.record(IdeFacts::new(vec![IdeRoot::Virtual]));
     compiler
         .begin_sources(&[ProgramSource::String(source.into())])
         .unwrap();
     let _ = compiler.finish_program();
     let errors = compiler.ide_check_all();
+
     assert!(errors.is_empty(), "{errors:?}");
     let ide = compiler.ed.facts().unwrap();
     let mut runs: Vec<(u32, u32)> = ide
@@ -23,6 +26,7 @@ fn dead_runs(source: &str) -> Vec<String> {
         .filter(|((body, _), n)| ide.body_evals.get(body) == Some(*n))
         .map(|((_, run), _)| (run.start, run.end))
         .collect();
+
     runs.sort_unstable();
     runs.dedup();
     runs.iter()
@@ -35,6 +39,7 @@ const EXIT: &str = "exit :: (status: s32) #foreign;\n";
 #[test]
 fn a_call_to_an_exit_primitive_ends_the_block() {
     let source = format!("{EXIT}main :: () {{ exit(1); dead := 1; }}\n");
+
     assert_eq!(dead_runs(&source), ["dead := 1"]);
 }
 
@@ -48,6 +53,7 @@ outer :: () {{ middle(); after_middle := 1; }}
 main :: () {{ outer(); }}
 "
     );
+
     assert_eq!(dead_runs(&source), ["after_middle := 1"]);
 }
 
@@ -60,6 +66,7 @@ looping :: () {{ looping(); }}
 main :: () {{ sometimes(false); a := 1; looping(); b := 2; }}
 "
     );
+
     assert_eq!(dead_runs(&source), Vec::<String>::new());
 }
 
@@ -72,5 +79,6 @@ pick :: (x: $T) {{ #if T == s64 {{ fail(); }} }}
 main :: () {{ pick(1); pick(true); live := 1; }}
 "
     );
+
     assert_eq!(dead_runs(&source), Vec::<String>::new());
 }

@@ -40,6 +40,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             if let Some(s) = n.stmt()
                 && let S::For(f) = &s.kind
@@ -47,6 +48,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 out.push(found);
             }
+
             true
         });
     }
@@ -54,6 +56,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 
 fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     let types = &cx.compiler.ty.types;
+
     if f.by_pointer
         || f.reverse
         || f.pointer_if.is_some()
@@ -63,12 +66,15 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     {
         return None;
     }
+
     let ForOver::Collection(array) = &f.over else {
         return None;
     };
+
     if !matches!(types.kind(cx.ty(array)?), TypeKind::Array { .. }) {
         return None;
     }
+
     let value = f.it.map_or_else(|| Sym::intern("it"), |i| i.name);
     let index = f.index.map_or_else(|| Sym::intern("it_index"), |i| i.name);
     let S::If {
@@ -88,19 +94,24 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         (false, true) => a,
         _ => return None,
     };
+
     if mentions(wanted, value, index) || !super::pure(wanted) || cx.ty(a)? != cx.ty(b)? {
         return None;
     }
+
     // Assignments to outside variables, then `break`.
     let steps = match &then_branch.kind {
         S::Block(b) => b.stmts.as_slice(),
         _ => std::slice::from_ref(&**then_branch),
     };
     let (last, assigns) = steps.split_last()?;
+
     if !matches!(last.kind, S::Break(None)) {
         return None;
     }
+
     let mut sets_index = false;
+
     for s in assigns {
         let S::Assign {
             op: AssignOp::Assign,
@@ -113,15 +124,18 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         let ([target], [source]) = (lhs.as_slice(), rhs.as_slice()) else {
             return None;
         };
+
         if !matches!(target.kind, E::Ident(n) if n != value && n != index) {
             return None;
         }
+
         match &source.kind {
             E::Bool(_) => {}
             E::Ident(n) if *n == index => sets_index = true,
             _ => return None,
         }
     }
+
     let wanted_src = cx.whole_src(wanted).trim();
     let array_src = cx.whole_src(array).trim();
     let call = format!("array_find({array_src}, {wanted_src})");
@@ -132,6 +146,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     };
     // Up to the end of the collection: not the whitespace or comments before the body.
     let header = jaic::source::Span::new(cx.file, stmt.span.start as usize, cx.whole(array).1);
+
     Some(super::finding(
         header,
         format!("this loop looks for `{wanted_src}` in `{array_src}` by hand"),
@@ -143,12 +158,14 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
 fn mentions(e: &Expr, value: Sym, index: Sym) -> bool {
     let mut found = false;
     let mut stack = Vec::new();
+
     jaic::ast::walk::walk_node(jaic::ast::walk::Node::Expr(e), &mut stack, &mut |n, _| {
         if let Some(x) = n.expr()
             && matches!(x.kind, E::Ident(name) if name == value || name == index)
         {
             found = true;
         }
+
         !found
     });
     found

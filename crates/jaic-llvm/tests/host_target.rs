@@ -34,6 +34,7 @@ fn host_constants_execute_native_and_wasm_at_o0_and_o2() {
         main :: () {{}}
     "#
     );
+
     backend::execute(
         "host-target",
         "host_target_check",

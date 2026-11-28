@@ -12,11 +12,14 @@ use std::sync::Arc;
 
 fn failed() -> (Compiler, ProcId) {
     let mut fs = VirtualFs::default();
+
     fs.insert("/audit/main.jai", b"broken :: missing; failed :: () -> s64 { nested :: () {}; nested(); return absent; } replacement :: () -> s64 { return 7; } main :: () {}".as_slice());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     compiler
         .ed
         .record(IdeFacts::new(vec![IdeRoot::under("/audit/")]));
@@ -43,6 +46,7 @@ fn failed() -> (Compiler, ProcId) {
 #[test]
 fn replacing_body_retries_without_source_epoch_change() {
     let (mut compiler, id) = failed();
+
     assert!(compiler.lower_body(id).is_err());
     let replacement = compiler
         .pr
@@ -53,6 +57,7 @@ fn replacing_body_retries_without_source_epoch_change() {
         .lit
         .clone();
     let header = compiler.proc(id).lit.header.clone();
+
     compiler.pr.procs[id.0 as usize].lit = Arc::new(ast::ProcLit {
         header,
         body: replacement.body.clone(),
@@ -61,12 +66,14 @@ fn replacing_body_retries_without_source_epoch_change() {
     let Some(super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
         panic!("compiled target");
     };
+
     assert!(compiler.out.program.funcs[func.0 as usize].is_some());
 }
 
 #[test]
 fn replacing_a_parked_body_retries_during_the_next_audit() {
     let (mut compiler, id) = failed();
+
     compiler.ide_check_all();
     assert!(compiler.pr.parked_bodies.contains(&id));
     let replacement = compiler
@@ -78,11 +85,13 @@ fn replacing_a_parked_body_retries_during_the_next_audit() {
         .lit
         .clone();
     let header = compiler.proc(id).lit.header.clone();
+
     compiler.pr.procs[id.0 as usize].lit = Arc::new(ast::ProcLit {
         header,
         body: replacement.body.clone(),
     });
     let errors = compiler.ide_check_all();
+
     assert!(
         !errors.iter().any(|e| e.message.contains("absent")),
         "{errors:?}"
@@ -90,6 +99,7 @@ fn replacing_a_parked_body_retries_during_the_next_audit() {
     let Some(super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
         panic!("compiled target");
     };
+
     assert!(compiler.out.program.funcs[func.0 as usize].is_some());
 }
 
@@ -98,6 +108,7 @@ fn adding_visible_binding_retries_without_loading_a_file() {
     let (mut compiler, id) = failed();
     let scope = compiler.scope(compiler.proc(id).scope).parent.unwrap();
     let name = Sym::intern("absent");
+
     compiler.add_entity(
         scope,
         name,
@@ -112,6 +123,7 @@ fn adding_visible_binding_retries_without_loading_a_file() {
     let Some(super::procs::ProcTarget::Func(func)) = compiler.proc(id).target else {
         panic!("compiled target");
     };
+
     assert!(compiler.out.program.funcs[func.0 as usize].is_some());
 }
 
@@ -125,6 +137,7 @@ fn removing_ide_facts_keeps_strict_lowering_unmemoized() {
         .iter()
         .filter(|n| n.as_str() == "nested")
         .count();
+
     compiler.ed.stop();
     assert!(
         compiler
@@ -140,6 +153,7 @@ fn removing_ide_facts_keeps_strict_lowering_unmemoized() {
         .iter()
         .filter(|n| n.as_str() == "nested")
         .count();
+
     assert!(
         after > before,
         "strict lowering must really execute, not consult IDE failure facts"
@@ -150,18 +164,23 @@ fn removing_ide_facts_keeps_strict_lowering_unmemoized() {
 /// lowering takes them up.
 fn failing_and_good_bodies(n: usize) -> String {
     let mut source = String::new();
+
     for i in 0..n {
         source += &format!(
             "bad{i} :: () -> s64 #program_export {{ #insert -> string {{ a: [2] s64; k := {i} + 5; a[k] = 1; return \"inserted := {i};\"; }} return {i}; }}\n"
         );
     }
+
     for i in 0..n {
         source += &format!("good{i} :: () -> s64 #program_export {{ return {i}; }}\n");
     }
+
     source += "main :: () {";
+
     for i in 0..n {
         source += &format!(" bad{i}(); good{i}();");
     }
+
     source + " }"
 }
 
@@ -169,20 +188,25 @@ fn failing_and_good_bodies(n: usize) -> String {
 /// that keeps asking for more lowering makes them, over `n` bodies whose `#insert` traps.
 fn runs_over_rounds(n: usize, rounds: usize) -> u64 {
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     compiler
         .begin_sources(&[super::ProgramSource::String(failing_and_good_bodies(n))])
         .unwrap();
+
     for _ in 0..rounds {
         compiler.lower_reachable();
     }
+
     compiler.ct.executions
 }
 
 #[test]
 fn a_body_whose_insert_trapped_is_not_run_again_while_nothing_changed() {
     let (one, many) = (runs_over_rounds(4, 1), runs_over_rounds(4, 6));
+
     assert_eq!(many, one, "later rounds must not redo the failing bodies");
 }

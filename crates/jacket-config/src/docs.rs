@@ -12,6 +12,7 @@ pub(crate) fn describe(table: &str, key: &str) -> Option<&'static str> {
     } else {
         table
     };
+
     DOCS.iter()
         .find(|(t, k, _)| *t == table && *k == key)
         .map(|(.., text)| *text)
@@ -23,6 +24,7 @@ pub(crate) fn describe_table(table: &str) -> Option<&'static str> {
         Some((parent, key)) => (parent, key),
         None => ("", table),
     };
+
     if parent == "dependencies" || parent == "target" || parent == "test.profile" {
         return Some(match parent {
             "dependencies" => "A git dependency, pinned by the commit of its submodule.",
@@ -30,6 +32,7 @@ pub(crate) fn describe_table(table: &str) -> Option<&'static str> {
             _ => "A named set of test settings that `--profile` lays over `[test]`.",
         });
     }
+
     describe(parent, key)
 }
 

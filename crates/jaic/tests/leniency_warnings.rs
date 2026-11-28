@@ -14,27 +14,33 @@ Source_Code_Location :: struct { fully_pathed_filename: string; line_number: s64
 /// A compile of `main` (`/main.jai`) with `modules` (name, source) importable.
 fn compile(main: &str, modules: &[(&str, &str)]) -> (Result<(), Box<Diagnostic>>, Compiler) {
     let mut fs = VirtualFs::default();
+
     for (name, source) in modules {
         fs.insert(format!("/modules/{name}/module.jai"), source.as_bytes());
     }
+
     fs.insert("/prelude.jai", PRELUDE.as_bytes());
     fs.insert("/main.jai", main.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some(Path::new("/prelude.jai").to_path_buf());
     options.import_paths = vec![Path::new("/modules").to_path_buf()];
     options.preload_stdlib = Some(Path::new("/modules").to_path_buf());
     let mut compiler = Compiler::new(options, Rc::new(fs));
     let result = compiler.compile_program(Path::new("/main.jai"));
+
     (result, compiler)
 }
 
 /// The warnings with `code`'s code of a program that must compile.
 fn warnings(main: &str, modules: &[(&str, &str)], code: Code) -> Vec<Diagnostic> {
     let (result, compiler) = compile(main, modules);
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     compiler
         .diag
         .warnings
@@ -47,15 +53,18 @@ fn warnings(main: &str, modules: &[(&str, &str)], code: Code) -> Vec<Diagnostic>
 /// The one warning of `leniency`, with its code, the shared note, and the text it renders to.
 fn the_warning(main: &str, modules: &[(&str, &str)], code: Code) -> String {
     let (result, compiler) = compile(main, modules);
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     let found: Vec<_> = compiler
         .diag
         .warnings
         .iter()
         .filter(|w| w.code == code)
         .collect();
+
     assert_eq!(found.len(), 1, "{:?}", compiler.diag.warnings);
     assert!(found[0].notes.iter().any(|(_, note)| note == NOTE));
     compiler.render(found[0])
@@ -77,6 +86,7 @@ fn for_over_a_type_reached_through_a_namespace_warns() {
         &[("Coll", COLL)],
         Code::NamespacedForExpansion,
     );
+
     assert!(
         text.contains("`for_expansion` is not in scope here: using the one declared with `Coll`"),
         "{text}"
@@ -101,6 +111,7 @@ for_expansion :: (o: *Other, body: Code, flags: For_Flags) #expand { #insert bod
         &[("Coll", COLL), ("Other", other)],
         Code::NamespacedForExpansion,
     );
+
     assert!(text.contains("add `using M;` to this scope"), "{text}");
 }
 
@@ -112,6 +123,7 @@ fn for_with_the_module_imported_by_name_does_not_warn() {
             &[("Coll", COLL)],
             Code::NamespacedForExpansion,
         );
+
         assert!(found.is_empty(), "{header}: {found:?}");
     }
 }
@@ -123,6 +135,7 @@ fn for_through_a_pointer_with_the_module_imported_does_not_warn() {
         &[("Coll", COLL)],
         Code::NamespacedForExpansion,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -135,6 +148,7 @@ fn for_inside_an_imported_module_is_silent() {
         &[("Coll", COLL), ("User", user)],
         Code::NamespacedForExpansion,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -147,6 +161,7 @@ fn warns_in_the_program_and_not_in_a_module(code: Code, main: &str, in_module: &
         &[("User", in_module)],
         code,
     );
+
     assert!(found.is_empty(), "{code:?} in a module: {found:?}");
     text
 }
@@ -160,6 +175,7 @@ fn place_warns_and_names_overlay() {
         "Ts :: struct { a: u16; #place a; b: float64; }
         go :: () { t: Ts; t.b = 1; }",
     );
+
     assert!(
         text.contains("`#place` is a deprecated directive"),
         "{text}"
@@ -176,6 +192,7 @@ fn foreign_library_warns_and_names_library() {
         "m :: #foreign_library \"libm\";
         go :: () { }",
     );
+
     assert!(
         text.contains("`#foreign_library` is not a directive here"),
         "{text}"
@@ -187,6 +204,7 @@ fn foreign_library_warns_and_names_library() {
         &[],
         Code::ForeignLibrary,
     );
+
     assert!(text.contains("write `#system_library`"), "{text}");
 }
 
@@ -199,6 +217,7 @@ fn an_unnamed_library_statement_warns() {
         "#library,link_always \"libm\";
         go :: () { }",
     );
+
     assert!(text.contains("`#library` needs a name here"), "{text}");
 }
 
@@ -211,6 +230,7 @@ fn must_after_a_return_type_warns() {
         "f :: () -> int #must { return 1; }
         go :: () { x := f(); }",
     );
+
     assert!(
         text.contains("`#must` after a return type is not a directive here"),
         "{text}"
@@ -224,6 +244,7 @@ fn a_semicolon_before_else_in_a_static_ifx_warns() {
         "main :: () { n := #ifx true then 1; else 2; }",
         "go :: () { n := #ifx true then 1; else 2; }",
     );
+
     assert!(text.contains("`;` before `else` ends the `#ifx`"), "{text}");
     assert!(text.contains("remove the `;`"), "{text}");
 }
@@ -237,6 +258,7 @@ fn the_address_of_a_struct_literal_warns() {
         "T :: struct { a: int; }
         go :: () { p := *T.{1}; }",
     );
+
     assert!(
         text.contains("`*T.{1}` reads as a pointer type followed by a literal"),
         "{text}"
@@ -263,6 +285,7 @@ fn the_portable_spellings_do_not_warn() {
             &[],
             leniency,
         );
+
         assert!(found.is_empty(), "{leniency:?}: {found:?}");
     }
 }
@@ -276,6 +299,7 @@ fn an_enum_loose_type_warns_and_names_the_integer_type() {
         "D :: enum { E; N; }
         go :: () { y: D.loose; y = 3; }",
     );
+
     assert!(text.contains("`loose` is not a member of `D`"), "{text}");
     assert!(
         text.contains("write the integer type, `s64`, and cast to `D`"),
@@ -296,6 +320,7 @@ fn a_procedure_with_the_parameters_of_an_imported_one_warns() {
         &[("Sys", SYS)],
         Code::HidesImport,
     );
+
     assert!(
         text.contains("`grab` has the same parameters as the one `Sys` exports"),
         "{text}"
@@ -309,6 +334,7 @@ fn a_name_that_is_not_a_procedure_warns_when_an_import_exports_it() {
     for declaration in ["errno: s32;", "Shared :: struct { m: int; }"] {
         let main = format!("#import \"Sys\"; {declaration} main :: () {{ }}");
         let text = the_warning(&main, &[("Sys", SYS)], Code::HidesImport);
+
         assert!(
             text.contains("is also exported by `Sys`, which this program imports"),
             "{declaration}: {text}"
@@ -324,6 +350,7 @@ fn overloads_that_differ_and_namespaced_imports_do_not_warn() {
         "#import \"Sys\"; main :: () { errno: s32; }",
     ] {
         let found = warnings(main, &[("Sys", SYS)], Code::HidesImport);
+
         assert!(found.is_empty(), "{main}: {found:?}");
     }
 }
@@ -339,6 +366,7 @@ fn a_declaration_of_an_imported_module_is_silent() {
         &[("Sys", SYS), ("User", user)],
         Code::HidesImport,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -349,6 +377,7 @@ fn a_float_exponent_without_a_fraction_warns() {
         "main :: () { x := 1e20; }",
         "go :: () { x := 1e20; }",
     );
+
     assert!(
         text.contains("`1e20` has an exponent and no fraction"),
         "{text}"
@@ -359,6 +388,7 @@ fn a_float_exponent_without_a_fraction_warns() {
         &[],
         Code::FloatExponent,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -371,6 +401,7 @@ fn align_on_a_whole_struct_warns() {
         "S :: struct #align 64 { v: s64; }
         go :: () { s: S; }",
     );
+
     assert!(
         text.contains("`#align` is not a directive of a struct as a whole"),
         "{text}"
@@ -382,6 +413,7 @@ fn align_on_a_whole_struct_warns() {
         &[],
         Code::StructAlign,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -392,6 +424,7 @@ fn for_over_an_array_literal_without_a_type_warns() {
         "main :: () { for x: .[1, 2, 3] {} }",
         "go :: () { for x: .[1, 2, 3] {} }",
     );
+
     assert!(
         text.contains("`for` over an array literal needs its element type"),
         "{text}"
@@ -402,6 +435,7 @@ fn for_over_an_array_literal_without_a_type_warns() {
         &[],
         Code::ForOverArrayLiteral,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -412,6 +446,7 @@ fn a_struct_literal_for_a_dynamic_array_warns() {
         "main :: () { a: [..] s64; a = .{}; }",
         "go :: () { a: [..] s64; a = .{}; }",
     );
+
     assert!(
         text.contains("an untyped `.{..}` literal is not a dynamic array"),
         "{text}"
@@ -422,6 +457,7 @@ fn a_struct_literal_for_a_dynamic_array_warns() {
         &[],
         Code::ArrayFromStructLiteral,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -434,6 +470,7 @@ fn target_features_warns() {
         "f :: () -> s64 #target_features \"avx2\" { return 1; }
         go :: () { f(); }",
     );
+
     assert!(
         text.contains("`#target_features` is not a directive of a procedure header"),
         "{text}"
@@ -450,6 +487,7 @@ fn push_context_without_a_block_warns() {
         "run :: () {}
         go :: () { c := context; push_context c run(); }",
     );
+
     assert!(text.contains("`push_context` takes a block"), "{text}");
     assert!(text.contains("push_context c { statement; }"), "{text}");
     let found = warnings(
@@ -458,6 +496,7 @@ fn push_context_without_a_block_warns() {
         &[],
         Code::PushContextStatement,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -468,6 +507,7 @@ fn a_main_that_returns_a_value_warns() {
         &[],
         Code::MainReturnsValue,
     );
+
     assert!(text.contains("`main` returns a value"), "{text}");
     assert!(text.contains("exit(code)"), "{text}");
     let found = warnings(
@@ -475,12 +515,14 @@ fn a_main_that_returns_a_value_warns() {
         &[("User", "go :: () -> s64 { return 0; }")],
         Code::MainReturnsValue,
     );
+
     assert!(found.is_empty(), "{found:?}");
     let found = warnings(
         "f :: () -> s64 { return 0; } main :: () { f(); }",
         &[],
         Code::MainReturnsValue,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -491,6 +533,7 @@ fn caller_location_outside_a_default_warns() {
         "main :: () { l := #caller_location; }",
         "go :: () { l := #caller_location; }",
     );
+
     assert!(
         text.contains("`#caller_location` is only allowed as the default value of a parameter"),
         "{text}"
@@ -502,6 +545,7 @@ fn caller_location_outside_a_default_warns() {
         &[],
         Code::CallerLocationOutsideDefault,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -514,6 +558,7 @@ fn several_values_in_a_code_argument_warn() {
         "f :: (c: Code) #expand { #insert c; }
         go :: () { f(#code { a, b := 1, 2; }); }",
     );
+
     assert!(
         text.contains("a comma ends a `#code` block that is a call argument"),
         "{text}"
@@ -525,6 +570,7 @@ fn several_values_in_a_code_argument_warn() {
         &[],
         Code::MultiValueInCodeArgument,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -537,6 +583,7 @@ fn a_spread_next_to_other_varargs_warns() {
         "f :: (xs: ..s64) {}
         go :: () { a := s64.[1, 2]; f(0, ..a); }",
     );
+
     assert!(
         text.contains("`..` spreads into a variadic parameter by itself"),
         "{text}"
@@ -551,6 +598,7 @@ fn a_spread_next_to_other_varargs_warns() {
         &[],
         Code::SpreadWithOtherArguments,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -563,6 +611,7 @@ fn exists_on_an_expression_warns() {
         "W :: struct (N: s64) { c :: 1; }
         go :: () { #assert #exists(W(3).c); }",
     );
+
     assert!(
         text.contains("`#exists` takes a name or names joined by `.`"),
         "{text}"
@@ -574,6 +623,7 @@ fn exists_on_an_expression_warns() {
         &[],
         Code::ExistsOnExpression,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -586,6 +636,7 @@ fn a_procedure_cast_to_an_integer_warns() {
         "p :: () {}
         go :: () { n := cast(u64) p; }",
     );
+
     assert!(
         text.contains("a procedure cannot be cast to `u64` directly"),
         "{text}"
@@ -597,6 +648,7 @@ fn a_procedure_cast_to_an_integer_warns() {
         &[],
         Code::ProcedureCastToInteger,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -609,6 +661,7 @@ fn the_address_of_a_macro_constant_warns() {
         "m :: (x: u32) -> u8 #expand { p := cast(*u8) *x; return p.*; }
         go :: () { m(5); }",
     );
+
     assert!(
         text.contains("`x` is a constant here, and a constant has no address"),
         "{text}"
@@ -620,6 +673,7 @@ fn the_address_of_a_macro_constant_warns() {
         &[],
         Code::AddressOfMacroConstant,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }
 
@@ -632,11 +686,13 @@ fn a_positional_literal_that_leaves_defaults_warns() {
         "L :: struct { a: s32; b: s32; c: u32 = 7; }
         go :: () { x: L = .{1, 2}; }",
     );
+
     assert!(
         text.contains("not enough values in this struct literal"),
         "{text}"
     );
     assert!(text.contains("name the members you set"), "{text}");
+
     for source in [
         "L :: struct { a: s32; b: s32; c: u32 = 7; }
         main :: () { x: L = .{1, 2, 3}; y: L = .{a = 1, b = 2}; }",
@@ -644,6 +700,7 @@ fn a_positional_literal_that_leaves_defaults_warns() {
         main :: () { x: L = .{}; }",
     ] {
         let found = warnings(source, &[], Code::PositionalLiteralDefaults);
+
         assert!(found.is_empty(), "{found:?}");
     }
 }
@@ -656,6 +713,7 @@ fn a_positional_literal_missing_a_member_without_a_default_is_an_error() {
         &[],
     );
     let error = result.expect_err("a member without a default needs a value");
+
     assert_eq!(error.message, "not enough values in this struct literal");
 }
 
@@ -668,6 +726,7 @@ fn whitespace_inside_a_notes_parentheses_warns() {
         "S :: struct { a: s64; @help(\"two words\") }
         go :: () { s: S; }",
     );
+
     assert!(
         text.contains("`@help(\"two words\")` has whitespace inside its parentheses"),
         "{text}"
@@ -678,5 +737,6 @@ fn whitespace_inside_a_notes_parentheses_warns() {
         &[],
         Code::NoteWithSpaces,
     );
+
     assert!(found.is_empty(), "{found:?}");
 }

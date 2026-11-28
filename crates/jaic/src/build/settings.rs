@@ -223,6 +223,7 @@ pub(super) fn shown_path(path: &std::path::Path) -> String {
         .components()
         .filter(|c| !matches!(c, std::path::Component::CurDir))
         .collect();
+
     crate::display_path(&path)
 }
 

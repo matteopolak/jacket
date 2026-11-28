@@ -30,6 +30,7 @@ pub fn innermost_modules_folder(dir: &Path, relative: &Path) -> (PathBuf, PathBu
     else {
         return (dir.to_path_buf(), relative.to_path_buf());
     };
+
     (
         dir.join(parts[..=at].iter().collect::<PathBuf>()),
         parts[at + 1..].iter().collect(),
@@ -58,6 +59,7 @@ pub fn program_path(path: &str) -> String {
 /// Lexically normalize `a/./b/../c` without touching the filesystem.
 pub fn normalize(path: &Path) -> PathBuf {
     let mut out = PathBuf::new();
+
     for component in path.components() {
         match component {
             Component::CurDir => {}
@@ -76,6 +78,7 @@ pub fn normalize(path: &Path) -> PathBuf {
             c => out.push(c.as_os_str()),
         }
     }
+
     out
 }
 
@@ -96,9 +99,11 @@ pub fn strip_verbatim(path: &str) -> Option<String> {
         format!(r"\\{share}")
     } else {
         let drive = rest.as_bytes();
+
         if drive.len() < 2 || !drive[0].is_ascii_alphabetic() || drive[1] != b':' {
             return None;
         }
+
         rest.to_string()
     };
     // Win32 parsing trims trailing dots and spaces and treats `/` as a separator; such names only
@@ -108,6 +113,7 @@ pub fn strip_verbatim(path: &str) -> Option<String> {
         || plain
             .split('\\')
             .any(|c| c.ends_with('.') || c.ends_with(' '));
+
     (!odd).then_some(plain)
 }
 
@@ -118,15 +124,20 @@ pub fn native_spelling(path: &str, windows: bool) -> Option<String> {
     if !windows {
         return Some(path.to_owned());
     }
+
     let mut result = path.to_owned();
+
     if result.starts_with(r"\\?\") {
         result = strip_verbatim(&result)?;
     }
+
     result = to_slash(&result);
     let bytes = result.as_bytes();
+
     if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
         result.replace_range(0..1, &result[..1].to_ascii_uppercase());
     }
+
     Some(result)
 }
 
@@ -179,7 +190,9 @@ impl CanonCache {
         if let Some(found) = self.lookup(path) {
             return Ok(found);
         }
+
         let real = canonicalize(path)?;
+
         self.store(path, real.clone());
         Ok(real)
     }
@@ -193,7 +206,9 @@ impl CanonCache {
         if let Some(found) = self.lookup(path) {
             return found;
         }
+
         let found = resolve(path);
+
         self.store(path, found.clone());
         found
     }
@@ -219,9 +234,11 @@ impl CanonCache {
 
     fn store(&self, path: &Path, found: PathBuf) {
         let mut map = self.0.lock().expect("path cache lock");
+
         if map.len() >= Self::LIMIT {
             map.clear();
         }
+
         map.insert(path.to_path_buf(), found);
     }
 }
@@ -241,12 +258,14 @@ pub fn default_stdlib_dir() -> PathBuf {
     if let Some(dir) = jacket_config::env::STDLIB.os() {
         return dir.into();
     }
+
     let Ok(exe) = std::env::current_exe() else {
         return PathBuf::from("stdlib");
     };
     let real = std::fs::canonicalize(&exe).ok();
     let beside = |exe: &Path| exe.parent().map(|dir| dir.join("stdlib"));
     let expected = beside(&exe).unwrap_or_else(|| PathBuf::from("stdlib"));
+
     [Some(exe), real]
         .into_iter()
         .flatten()
@@ -273,6 +292,7 @@ pub fn subdirs_of(dir: &Path) -> Vec<PathBuf> {
         .map(|entry| entry.path())
         .filter(|p| !is_hidden(p) && p.is_dir())
         .collect();
+
     dirs.sort();
     dirs
 }
@@ -286,6 +306,7 @@ pub fn jai_files_in(dir: &Path) -> Vec<PathBuf> {
         .map(|entry| entry.path())
         .filter(|p| p.extension().is_some_and(|e| e == "jai") && !is_hidden(p) && p.is_file())
         .collect();
+
     files.sort();
     files
 }
@@ -294,6 +315,7 @@ pub fn jai_files_in(dir: &Path) -> Vec<PathBuf> {
 /// for which `prune` answers true is skipped, together with everything beneath it.
 pub fn jai_files_under(dir: &Path, prune: &mut dyn FnMut(&Path) -> bool) -> Vec<PathBuf> {
     let mut out = Vec::new();
+
     collect_jai_files(dir, prune, &mut out);
     out
 }
@@ -305,11 +327,14 @@ fn collect_jai_files(dir: &Path, prune: &mut dyn FnMut(&Path) -> bool, out: &mut
         .flatten()
         .map(|entry| entry.path())
         .collect();
+
     children.sort();
+
     for child in children {
         if is_hidden(&child) || prune(&child) {
             continue;
         }
+
         if child.is_dir() {
             collect_jai_files(&child, prune, out);
         } else if child.extension().is_some_and(|e| e == "jai") {
@@ -326,6 +351,7 @@ pub fn library_import_dir(file: &Path) -> Option<PathBuf> {
         .skip(1)
         .find(|d| d.file_name().is_some_and(|n| n == "tests"))?;
     let library = tests.parent()?;
+
     library
         .join("module.jai")
         .is_file()
@@ -371,6 +397,7 @@ mod tests {
     fn canonicalize_resolves_existing_paths_and_rejects_missing_ones() {
         let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
         let real = canonicalize(manifest.join("src/../src/lib.rs")).unwrap();
+
         assert!(real.ends_with("src/lib.rs") || real.ends_with(r"src\lib.rs"));
         assert!(canonicalize(manifest.join("no/such/file.jai")).is_err());
     }
@@ -381,19 +408,24 @@ mod tests {
         let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
         let path = manifest.join("src/../src/lib.rs");
         let first = cache.canonicalize(&path).unwrap();
+
         assert_eq!(first, canonicalize(&path).unwrap());
         assert_eq!(cache.canonicalize(&path).unwrap(), first);
         let missing = manifest.join("no/such/file.jai");
+
         assert!(cache.canonicalize(&missing).is_err());
         assert!(cache.lookup(&missing).is_none());
         let mut calls = 0;
+
         for _ in 0..2 {
             let got = cache.get_or_insert_with(&missing, |p| {
                 calls += 1;
                 normalize(p)
             });
+
             assert_eq!(got, normalize(&missing));
         }
+
         assert_eq!(calls, 1);
         cache.clear();
         assert!(cache.lookup(&path).is_none());
@@ -402,9 +434,11 @@ mod tests {
     #[test]
     fn the_cache_starts_over_at_its_limit() {
         let cache = CanonCache::new();
+
         for i in 0..=CanonCache::LIMIT {
             cache.get_or_insert_with(Path::new(&format!("/p/{i}")), std::path::Path::to_path_buf);
         }
+
         assert_eq!(cache.0.lock().unwrap().len(), 1);
     }
 

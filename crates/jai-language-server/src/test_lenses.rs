@@ -62,10 +62,12 @@ impl TestProcedure {
             _ if text.starts_with("cases(") => Some(TestKind::Cases),
             _ => None,
         };
+
         // The first of `@test` and `@bench` decides, as Discovery reads them.
         if notes().find(|text| matches!(*text, "test" | "bench")) != Some("test") {
             return None;
         }
+
         Some(Self {
             name: procedure.name.name.as_str().to_owned(),
             name_span: Span::new(
@@ -100,6 +102,7 @@ fn filter(name: &str, file: &str) -> Vec<String> {
     if file.contains(['*', '?', '[', ']', '{', '}', '(', ')', '\\']) {
         return vec!["--exact".into(), name.into()];
     }
+
     vec!["-E".into(), format!("test(={name}) and file({file})")]
 }
 
@@ -116,9 +119,11 @@ impl Session {
     /// A "Run test" and a "Debug test" lens over each test procedure of the document.
     pub(crate) fn test_code_lenses(&self, uri: &DocumentUri) -> Result<Vec<CodeLens>, Error> {
         self.document(uri)?;
+
         if !self.test_lenses {
             return Ok(Vec::new());
         }
+
         let Some(analysis) = self.analysis_for(uri) else {
             return Ok(Vec::new());
         };
@@ -135,6 +140,7 @@ impl Session {
             .and_then(|root| path.strip_prefix(root).ok())
             .map_or_else(|| slashed(path), slashed);
         let mut lenses = Vec::new();
+
         for test in &analysis.test_procedures {
             let Some(range) = self.range_of(uri, test.name_span) else {
                 continue;
@@ -148,6 +154,7 @@ impl Session {
                 "testRoot": root.as_deref().map(Path::to_string_lossy),
                 "filter": filter(&test.name, &relative),
             });
+
             for (title, command) in [("Run test", RUN_COMMAND), ("Debug test", DEBUG_COMMAND)] {
                 lenses.push(CodeLens {
                     range,
@@ -159,6 +166,7 @@ impl Session {
                 });
             }
         }
+
         Ok(lenses)
     }
 }

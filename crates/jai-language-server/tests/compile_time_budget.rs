@@ -30,13 +30,16 @@ fn errors(diagnostics: Vec<Diagnostic>) -> Vec<Diagnostic> {
 #[test]
 fn only_the_runaway_run_is_reported_where_it_was_started() {
     let mut s = test_support::lsp::session();
+
     // The budget must run out first; on a slow machine 200M blocks outlast the default time limit.
     s.set_check_time_limit(0.0);
     s.open(test_support::lsp::uri(), 1, SOURCE.into()).unwrap();
     let errors = errors(s.diagnostics(&test_support::lsp::uri()).unwrap());
     let lines: Vec<u32> = errors.iter().map(|d| d.range.start.line).collect();
+
     assert_eq!(lines, [1], "{errors:#?}");
     let message = &errors[0].message;
+
     assert!(
         message.contains("execution budget exhausted (100000000 steps)"),
         "{message}"
@@ -59,16 +62,19 @@ main :: () { total := light + heavy; total += 1; }
 fn heavy_session() -> (Session, jai_language_server::DocumentUri) {
     let dir = test_support::lsp::project("budget-config", &[("main.jai", HEAVY)]);
     let (s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
+
     (s, uri)
 }
 
 #[test]
 fn the_evaluation_budget_bounds_each_evaluation() {
     let (mut s, uri) = heavy_session();
+
     assert_eq!(errors(s.diagnostics(&uri).unwrap()), []);
     s.set_evaluation_budget(20_000);
     let found = errors(s.diagnostics(&uri).unwrap());
     let lines: Vec<u32> = found.iter().map(|d| d.range.start.line).collect();
+
     assert_eq!(lines, [6], "{found:#?}");
     assert!(
         found[0].message.contains("(20000 steps)"),
@@ -99,11 +105,14 @@ fn a_project_cannot_raise_the_budget() {
         ],
     );
     let (mut s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
+
     s.set_evaluation_budget(20_000);
     let config = test_support::lsp::uri_of(&dir.join("jacket.toml"));
     let text = std::fs::read_to_string(dir.join("jacket.toml")).unwrap();
+
     s.open(config.clone(), 1, text).unwrap();
     let problems = s.diagnostics(&config).unwrap();
+
     assert_eq!(problems.len(), 1, "{problems:#?}");
     assert!(problems[0].message.contains("unknown setting `check`"));
     assert_eq!(errors(s.diagnostics(&uri).unwrap()), []);
@@ -113,6 +122,7 @@ fn a_project_cannot_raise_the_budget() {
 fn the_wall_clock_limit_stops_the_check_with_one_notice() {
     let dir = test_support::lsp::project("wall-clock", &[("main.jai", SOURCE)]);
     let (mut s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
+
     s.set_evaluation_budget(0);
     s.set_check_time_limit(0.3);
     let found = s.diagnostics(&uri).unwrap();
@@ -120,6 +130,7 @@ fn the_wall_clock_limit_stops_the_check_with_one_notice() {
         .iter()
         .filter(|d| d.message.contains("checking stopped"))
         .collect();
+
     assert_eq!(notices.len(), 1, "{found:#?}");
     assert_eq!(notices[0].severity, DiagnosticSeverity::Warning);
     assert!(
@@ -140,14 +151,17 @@ fn a_hover_after_the_time_limit_passed_still_describes_a_module_alias() {
     let text = "#import \"Basic\";\nB :: #import \"Basic\";\nmain :: () { B.print(\"x\"); }\n";
     let started = Instant::now();
     let mut unlimited = test_support::lsp::open(text);
+
     unlimited.set_check_time_limit(0.0);
     let _ = unlimited.diagnostics(&test_support::lsp::uri());
     // A limit the check meets however slow the machine is.
     let limit = (started.elapsed().as_secs_f64() * 5.0).max(1.0);
 
     let mut s = test_support::lsp::open(text);
+
     s.set_check_time_limit(limit);
     let found = s.diagnostics(&test_support::lsp::uri()).unwrap();
+
     assert!(
         found
             .iter()
@@ -157,6 +171,7 @@ fn a_hover_after_the_time_limit_passed_still_describes_a_module_alias() {
     std::thread::sleep(Duration::from_secs_f64(limit + 0.2));
     let at = test_support::lsp::at(text, "B ::");
     let hover = s.hover(&test_support::lsp::uri(), at).unwrap().unwrap();
+
     assert_eq!(hover.contents.value, "B :: #import \"Basic\"");
 }
 
@@ -164,6 +179,7 @@ fn a_hover_after_the_time_limit_passed_still_describes_a_module_alias() {
 fn costly_evaluations_get_a_lens_and_a_ranked_list() {
     let dir = test_support::lsp::project("cost-lens", &[("main.jai", HEAVY)]);
     let (mut s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
+
     s.set_cost_lens_blocks(5000);
     let lenses: Vec<_> = s
         .code_lenses(&uri)
@@ -171,12 +187,15 @@ fn costly_evaluations_get_a_lens_and_a_ranked_list() {
         .into_iter()
         .filter(|l| l.command.command == "jai.showCompileTimeCosts")
         .collect();
+
     // Only `heavy` is above the threshold; `light` stays clean.
     assert_eq!(lenses.len(), 1, "{lenses:#?}");
     assert_eq!(lenses[0].range.start.line, 6);
     let title = &lenses[0].command.title;
+
     assert!(title.contains(" blocks · "), "{title}");
     let costs = s.compile_time_costs(&uri);
+
     assert!(costs.len() >= 2, "{} evaluations", costs.len());
     assert_eq!(costs[0].location.range.start.line, 6);
     assert!(costs.windows(2).all(|w| w[0].blocks >= w[1].blocks));
@@ -197,10 +216,13 @@ fn an_isolated_host_run_is_in_the_cost_list_at_its_own_directive() {
         Limits::default(),
         test_support::lsp::environment_at(test_support::lsp::stdlib(), Some(other)),
     );
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let (uri, _) = test_support::lsp::open_from_disk(&mut s, &dir, "main.jai");
+
     s.set_cost_lens_blocks(5000);
     let costs = s.compile_time_costs(&uri);
+
     assert!(
         costs
             .iter()
@@ -217,6 +239,7 @@ fn an_isolated_host_run_is_in_the_cost_list_at_its_own_directive() {
             .collect::<Vec<_>>()
     );
     let lenses = s.code_lenses(&uri).unwrap();
+
     assert!(
         lenses
             .iter()
@@ -230,6 +253,7 @@ fn cheap_evaluations_show_no_lens_by_default() {
     let dir = test_support::lsp::project("cost-lens-default", &[("main.jai", HEAVY)]);
     let (s, uri, _) = test_support::lsp::open_file(&dir, "main.jai");
     let lenses = s.code_lenses(&uri).unwrap();
+
     assert!(
         lenses
             .iter()
@@ -240,9 +264,11 @@ fn cheap_evaluations_show_no_lens_by_default() {
 
 fn send(session: &mut JsonSession, id: Option<u64>, method: &str, params: Value) -> Vec<Value> {
     let mut message = json!({ "jsonrpc": "2.0", "method": method, "params": params });
+
     if let Some(id) = id {
         message["id"] = json!(id);
     }
+
     session
         .handle_json(&message.to_string())
         .unwrap()
@@ -267,6 +293,7 @@ fn open_runaway(s: &mut JsonSession, uri: &str) -> Vec<Value> {
         "textDocument/didOpen",
         json!({ "textDocument": { "uri": uri, "languageId": "jai", "version": 1, "text": RUNAWAY } }),
     );
+
     messages.extend(send(
         s,
         Some(2),
@@ -279,6 +306,7 @@ fn open_runaway(s: &mut JsonSession, uri: &str) -> Vec<Value> {
 #[test]
 fn the_client_hears_of_a_limit_at_the_evaluation_that_hit_it() {
     let mut s = JsonSession::with_environment(Limits::default(), test_support::lsp::environment());
+
     send(
         &mut s,
         Some(1),
@@ -294,12 +322,15 @@ fn the_client_hears_of_a_limit_at_the_evaluation_that_hit_it() {
     let uri = "file:///limit-notice/main.jai";
     let messages = open_runaway(&mut s, uri);
     let notices = limit_notices(&messages);
+
     assert_eq!(notices.len(), 1, "{messages:#?}");
     let params = &notices[0]["params"];
+
     assert_eq!(params["kind"], "budget");
     assert_eq!(params["uri"], uri);
     assert_eq!(params["range"]["start"]["line"], 1);
     let message = params["message"].as_str().unwrap();
+
     assert!(message.contains("(50000 steps)"), "{params}");
     // Raising the setting re-checks, and the evaluation no longer hits it.
     let after = send(
@@ -309,6 +340,7 @@ fn the_client_hears_of_a_limit_at_the_evaluation_that_hit_it() {
         json!({ "settings": { "jai": { "compileTime": { "evaluationBudget": 200_000 } } } }),
     );
     let notices = limit_notices(&after);
+
     assert_eq!(notices.len(), 1, "{after:#?}");
     assert!(
         notices[0]["params"]["message"]
@@ -322,6 +354,7 @@ fn the_client_hears_of_a_limit_at_the_evaluation_that_hit_it() {
 #[test]
 fn a_client_that_did_not_ask_gets_no_limit_notice() {
     let mut s = JsonSession::with_environment(Limits::default(), test_support::lsp::environment());
+
     send(
         &mut s,
         Some(1),
@@ -332,5 +365,6 @@ fn a_client_that_did_not_ask_gets_no_limit_notice() {
         }),
     );
     let messages = open_runaway(&mut s, "file:///limit-quiet/main.jai");
+
     assert_eq!(limit_notices(&messages).len(), 0, "{messages:#?}");
 }

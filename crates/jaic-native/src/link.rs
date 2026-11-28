@@ -62,6 +62,7 @@ fn library_group(
     cross_dirs: &[PathBuf],
 ) -> Result<Vec<LinkArg>, String> {
     let mut args = library_args(lib, toolchain, cross, helpers, cross_dirs)?;
+
     if lib.link_always
         && toolchain.linker == Linker::Unix
         && !args.is_empty()
@@ -70,6 +71,7 @@ fn library_group(
         args.insert(0, LinkArg::Option("-Wl,--push-state,--no-as-needed".into()));
         args.push(LinkArg::Option("-Wl,--pop-state".into()));
     }
+
     Ok(args)
 }
 
@@ -110,33 +112,42 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     let linker = toolchain.linker;
     let cross = target.is_some_and(|t| t != BuildTarget::host());
     let helpers = uses_compiler_helpers(target, BuildTarget::host());
+
     if sanitize.any() {
         check_sanitizer_target(target)?;
     }
+
     // Each library's argument group is added once (`-framework X` is two arguments).
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
+
     for lib in libraries {
         let args = library_group(lib, toolchain, cross, helpers, cross_library_dirs)?;
+
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
     }
+
     // LLVM lowers float rounding (`llvm.trunc`, `floor`, `ceil`, `round`, from `#asm` and
     // casts) to libm calls on CPUs without SSE4.1 (baseline x86-64), so libm is always linked;
     // on macOS it is part of libSystem and `-lm` is a no-op.
     for name in toolchain.implicit_libraries {
         let implicit = vec![LinkArg::Lib((*name).into())];
+
         if !seen.contains(&implicit) {
             seen.push(implicit);
         }
     }
+
     order_link_groups(&mut seen);
     let overrides = Overrides::from_env();
     let lookup = lookup()?;
     let (linker_found, mut cmd) = if sanitize.any() {
         let found = find_sanitizer_driver(&lookup, &overrides).map_err(|m| m.to_string())?;
         let mut cmd = command(&found);
+
         cmd.args(sanitize.driver_flag());
+
         if sanitize.fuzzer {
             cmd.arg(fuzzer_runtime(&found.program)?);
             cmd.arg(if cfg!(target_os = "macos") {
@@ -145,12 +156,15 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
                 "-lstdc++"
             });
         }
+
         (found, cmd)
     } else {
         let found = find_linker(&lookup, target, &overrides).map_err(|m| m.to_string())?;
         let cmd = command(&found);
+
         (found, cmd)
     };
+
     report("Linker", &linker_found, &lookup, target);
     let mut coverage_source = None;
     // The driver is told by the program's name, which is ASCII when it is one jaic knows.
@@ -164,6 +178,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     )?;
     let msvc_style = driver != Driver::C;
     let runtime = toolchain.runtime_args(driver);
+
     if driver == Driver::ClangCl {
         // CL's /link consumes everything after it. Keep compiler options and
         // actual driver inputs before the delimiter; the rest uses LINK syntax.
@@ -172,11 +187,14 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
             .args(&extra_args.driver)
             .arg("/link");
     }
+
     if msvc_style {
         cmd.arg("/NOLOGO").arg(format!("/OUT:{}", output.display()));
+
         if driver == Driver::MsvcLink {
             cmd.args(objects);
         }
+
         cmd.arg(if dynamic_library {
             "/DLL"
         } else {
@@ -187,36 +205,46 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         if dynamic_library {
             cmd.arg("-shared");
         }
+
         cmd.args(objects).arg("-o").arg(output);
+
         if sanitize.coverage {
             let source =
                 std::env::temp_dir().join(format!("jaic-coverage-{}.c", std::process::id()));
+
             std::fs::write(&source, COVERAGE_RUNTIME)
                 .map_err(|e| format!("could not write `{}`: {e}", source.display()))?;
             cmd.args(["-w", "-O1"]).arg(&source);
             coverage_source = Some(source);
         }
+
         cmd.args(&runtime.link);
     }
+
     if !dynamic_library && let Some(stack) = toolchain.stack_arg(driver) {
         cmd.arg(stack);
     }
+
     if debug_info && linker == Linker::Msvc {
         let prefix = if msvc_style {
             ""
         } else {
             "-Wl,"
         };
+
         cmd.args(pdb_args(output).iter().map(|a| format!("{prefix}{a}")));
     }
+
     for arg in seen.concat() {
         render_link_arg(&mut cmd, &arg, msvc_style);
     }
+
     if driver == Driver::C {
         cmd.args(extra_args.driver);
     } else {
         cmd.args(extra_args.linker);
     }
+
     #[cfg(target_os = "macos")]
     if linker_found
         .program
@@ -229,6 +257,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         && coverage_source.is_none()
     {
         let args: Vec<std::ffi::OsString> = cmd.get_args().map(ToOwned::to_owned).collect();
+
         // The linker alone, without the driver (`apple_ld`).
         if let Some(mut direct) = crate::apple_ld::direct_command(&args)? {
             let ld = jaic_toolchain::Found::new(
@@ -237,6 +266,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
             );
             let out =
                 crate::linker::run_captured(&mut direct).map_err(|e| linker_not_run(&ld, &e))?;
+
             return if out.status.success() {
                 Ok(())
             } else {
@@ -244,11 +274,15 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
             };
         }
     }
+
     let out = crate::linker::run_captured(&mut cmd);
+
     if let Some(source) = coverage_source {
         let _ = std::fs::remove_file(source);
     }
+
     let out = out.map_err(|e| linker_not_run(&linker_found, &e))?;
+
     if out.status.success() {
         Ok(())
     } else {
@@ -281,14 +315,18 @@ pub fn link_inputs(
     let cross = target.is_some_and(|t| t != BuildTarget::host());
     let helpers = uses_compiler_helpers(target, BuildTarget::host());
     let mut seen: Vec<Vec<LinkArg>> = Vec::new();
+
     for lib in libraries {
         let args = library_group(lib, toolchain, cross, helpers, cross_dirs)?;
+
         if !args.is_empty() && !seen.contains(&args) {
             seen.push(args);
         }
     }
+
     order_link_groups(&mut seen);
     let mut inputs = LinkInputs::default();
+
     for arg in seen.concat() {
         match arg {
             LinkArg::Lib(name) if linker == Linker::Msvc => {
@@ -308,6 +346,7 @@ pub fn link_inputs(
             LinkArg::Option(option) => inputs.user_libraries.push(option),
         }
     }
+
     // What `link` adds with /DEFAULTLIB. A custom link command often passes /NODEFAULTLIB
     // (to swap in the static runtime), which then needs every one of them named.
     for name in toolchain.runtime_inputs() {
@@ -315,6 +354,7 @@ pub fn link_inputs(
             inputs.system_libraries.push(name);
         }
     }
+
     Ok(inputs)
 }
 
@@ -332,6 +372,7 @@ fn fuzzer_runtime(driver: &Path) -> Result<PathBuf, String> {
         crate::linker::run_captured(Command::new(driver).arg(format!("--print-file-name={name}")))
             .map_err(|e| format!("could not run `{shown}` to find {name}: {e}"))?;
     let path = PathBuf::from(String::from_utf8_lossy(&out.stdout).trim());
+
     if path.is_absolute() && path.is_file() {
         Ok(path)
     } else {

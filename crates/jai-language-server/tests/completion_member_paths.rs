@@ -5,6 +5,7 @@ fn labels(source: &str) -> Vec<String> {
     let (text, at) = cursor(source);
     let mut session = lean_session();
     let uri = file_uri("/member-paths/main.jai");
+
     session.open(uri.clone(), 1, text).unwrap();
     let list = session.completion(&uri, at).unwrap();
     list.items.into_iter().map(|i| i.label).collect()
@@ -12,6 +13,7 @@ fn labels(source: &str) -> Vec<String> {
 
 fn offers(source: &str, name: &str) {
     let labels = labels(source);
+
     assert!(labels.contains(&name.to_string()), "{name} in {labels:?}");
 }
 
@@ -62,6 +64,7 @@ fn a_using_member_path_reaches_the_nested_members() {
                   Tex2D :: struct { texture: Tex; using,only(width, height) texture.desc; }\n\
                   main :: () { t: Tex2D; x := t.|width; }";
     let labels = labels(source);
+
     assert!(labels.contains(&"height".to_string()), "{labels:?}");
     assert!(!labels.contains(&"depth".to_string()), "{labels:?}");
 }

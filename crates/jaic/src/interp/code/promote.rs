@@ -31,6 +31,7 @@ pub(super) enum Use {
 )]
 pub(super) fn visit(op: &mut Op, pool: &mut [u32], f: &mut impl FnMut(Use, &mut u32)) {
     use Use::{Read, Write};
+
     match op {
         Op::Const {
             dst, ..
@@ -243,9 +244,11 @@ pub(super) fn visit(op: &mut Op, pool: &mut [u32], f: &mut impl FnMut(Use, &mut 
         } => {
             // After the call's location come its arguments, then its results.
             let (at, nargs, nrets) = (*at as usize + 1, *nargs as usize, *nrets as usize);
+
             for r in &mut pool[at..at + nargs] {
                 f(Read, r);
             }
+
             for r in &mut pool[at + nargs..at + nargs + nrets] {
                 f(Write, r);
             }
@@ -339,6 +342,7 @@ fn fits(op: &Op, reg: u32, mask: u32, layout: &DataLayout) -> bool {
             (1u64 << (n * 8)) - 1
         }
     };
+
     match *op {
         Op::Cmp {
             dst, ..
@@ -390,14 +394,17 @@ fn fits(op: &Op, reg: u32, mask: u32, layout: &DataLayout) -> bool {
 /// How many edges reach each block of `func`; the entry block's count includes the call.
 fn predecessors(func: &ir::Func) -> Vec<u32> {
     let mut preds = vec![0; func.blocks.len()];
+
     if let Some(entry) = preds.first_mut() {
         *entry = 1;
     }
+
     for block in &func.blocks {
         for next in block.term.successors() {
             preds[next.0 as usize] += 1;
         }
     }
+
     preds
 }
 
@@ -465,12 +472,16 @@ pub(super) fn promote(
     };
     // The pieces' registers, in the order of their offsets.
     let mut order: Vec<(u64, (u8, u32))> = pieces.into_iter().collect();
+
     order.sort_by_key(|(off, _)| *off);
     let mut reg_of = HashMap::default();
+
     for (i, (off, (size, _))) in order.iter().enumerate() {
         reg_of.insert(*off, (base + i as u32, *size));
     }
+
     let nregs = base as usize + order.len();
+
     for op in ops.iter_mut() {
         *op = match *op {
             Op::LoadFrame {
@@ -506,6 +517,7 @@ pub(super) fn promote(
             other => other,
         };
     }
+
     let mut pass = Pass {
         func,
         ops,
@@ -519,6 +531,7 @@ pub(super) fn promote(
         reads: vec![0; nregs],
         writes: vec![0; nregs],
     };
+
     pass.run();
     nregs
 }
@@ -551,6 +564,7 @@ fn pieces(
     // Slots whose address is taken, or that are reached any other way than by frame ops.
     let mut bad = vec![false; func.slots.len()];
     let mut accesses: Vec<Vec<(u64, u8)>> = vec![Vec::new(); func.slots.len()];
+
     for op in ops {
         let (off, ty) = match *op {
             Op::FrameAddr {
@@ -559,6 +573,7 @@ fn pieces(
                 if let Some(s) = slot_of(off) {
                     bad[s] = true;
                 }
+
                 continue;
             }
             Op::Ir {
@@ -572,6 +587,7 @@ fn pieces(
                 {
                     bad[slot.0 as usize] = true;
                 }
+
                 continue;
             }
             Op::LoadFrame {
@@ -596,6 +612,7 @@ fn pieces(
         };
         let size = ty.size(layout);
         let end = offsets[s] + func.slots[s].size;
+
         if !matches!(
             ty,
             Ty::I8 | Ty::I16 | Ty::I32 | Ty::F32 | Ty::I64 | Ty::F64 | Ty::Ptr
@@ -604,24 +621,31 @@ fn pieces(
             bad[s] = true;
             continue;
         }
+
         accesses[s].push((off, size as u8));
     }
+
     let mut pieces = HashMap::default();
+
     for (s, list) in accesses.iter_mut().enumerate() {
         if bad[s] || list.is_empty() {
             continue;
         }
+
         list.sort_unstable();
         list.dedup();
         // Every access to an offset has one size, and none overlaps another.
         let overlaps = list.windows(2).any(|w| w[0].0 + w[0].1 as u64 > w[1].0);
+
         if overlaps {
             continue;
         }
+
         for &(off, size) in list.iter() {
             pieces.insert(off, (size, s as u32));
         }
     }
+
     (!pieces.is_empty()).then_some(pieces)
 }
 
@@ -631,13 +655,16 @@ impl Pass<'_> {
         self.count();
         self.alias_entry_stores();
         self.relax_exts();
+
         for _ in 0..2 {
             for b in 0..self.blocks.len() {
                 self.forward_stores(b);
                 self.forward_copies(b);
             }
+
             self.drop_unread();
         }
+
         self.compact();
     }
 
@@ -646,11 +673,14 @@ impl Pass<'_> {
         self.reads.iter_mut().for_each(|n| *n = 0);
         self.writes.iter_mut().for_each(|n| *n = 0);
         let (mut reads, mut writes) = (Vec::new(), Vec::new());
+
         for i in 0..self.ops.len() {
             if self.dead[i] {
                 continue;
             }
+
             let (r, w) = (&mut self.reads, &mut self.writes);
+
             visit(&mut self.ops[i], self.pool, &mut |u, reg| match u {
                 Use::Read => r[*reg as usize] += 1,
                 Use::Write => w[*reg as usize] += 1,
@@ -658,9 +688,11 @@ impl Pass<'_> {
             reads.clear();
             writes.clear();
             ir_regs(self.func, &self.ops[i], &mut reads, &mut writes);
+
             for &reg in &reads {
                 self.reads[reg as usize] += 1;
             }
+
             for &reg in &writes {
                 self.writes[reg as usize] += 1;
             }
@@ -672,7 +704,9 @@ impl Pass<'_> {
         if !matches!(self.ops[i], Op::Ir { .. } | Op::Term { .. }) {
             return false;
         }
+
         let (mut reads, mut writes) = (Vec::new(), Vec::new());
+
         ir_regs(self.func, &self.ops[i], &mut reads, &mut writes);
         reads.contains(&reg) || writes.contains(&reg)
     }
@@ -680,6 +714,7 @@ impl Pass<'_> {
     /// Whether op `i` reads `reg`, and whether it writes it.
     fn touches(&mut self, i: usize, reg: u32) -> (bool, bool) {
         let (mut read, mut write) = (false, false);
+
         visit(&mut self.ops[i], self.pool, &mut |u, r| {
             if *r == reg {
                 match u {
@@ -697,6 +732,7 @@ impl Pass<'_> {
     fn relax_exts(&mut self) {
         for b in 0..self.blocks.len() {
             let (start, end) = (self.blocks[b].start as usize, self.blocks[b].end as usize);
+
             for i in start..end {
                 let Op::Ext {
                     dst,
@@ -706,17 +742,22 @@ impl Pass<'_> {
                 else {
                     continue;
                 };
+
                 if self.dead[i] {
                     continue;
                 }
+
                 for j in (start..i).rev() {
                     if self.dead[j] {
                         continue;
                     }
+
                     if self.opaque(j, src) {
                         break;
                     }
+
                     let (_, write) = self.touches(j, src);
+
                     if write {
                         if fits(&self.ops[j], src, mask, self.layout) {
                             self.ops[i] = Op::Mov {
@@ -724,6 +765,7 @@ impl Pass<'_> {
                                 src,
                             };
                         }
+
                         break;
                     }
                 }
@@ -737,8 +779,10 @@ impl Pass<'_> {
         if self.blocks.is_empty() || self.entered_again() {
             return;
         }
+
         let params = self.func.sig.params.len() as u32;
         let (start, end) = (self.blocks[0].start as usize, self.blocks[0].end as usize);
+
         for i in start..end {
             let Op::Mov {
                 dst,
@@ -747,6 +791,7 @@ impl Pass<'_> {
             else {
                 continue;
             };
+
             if dst < self.base
                 || src >= self.base
                 || self.writes[dst as usize] != 1
@@ -755,24 +800,30 @@ impl Pass<'_> {
             {
                 continue;
             }
+
             // `src` is a parameter, or an earlier result of the entry block.
             let mut defined = src < params;
+
             for j in start..i {
                 defined |= !self.dead[j] && self.touches(j, src).1;
             }
+
             if !defined {
                 continue;
             }
+
             for j in 0..self.ops.len() {
                 if self.dead[j] {
                     continue;
                 }
+
                 visit(&mut self.ops[j], self.pool, &mut |u, r| {
                     if u == Use::Read && *r == dst {
                         *r = src;
                     }
                 });
             }
+
             self.reads[src as usize] += self.reads[dst as usize];
             self.reads[dst as usize] = 0;
             self.dead[i] = true;
@@ -815,6 +866,7 @@ impl Pass<'_> {
     /// `t = op ...; piece = t` becomes `piece = op ...` when `t` has no other reader.
     fn forward_stores(&mut self, b: usize) {
         let (start, end) = (self.blocks[b].start as usize, self.blocks[b].end as usize);
+
         for i in start..end {
             let Op::Mov {
                 dst,
@@ -823,6 +875,7 @@ impl Pass<'_> {
             else {
                 continue;
             };
+
             if self.dead[i]
                 || dst < self.base
                 || src >= self.base
@@ -832,34 +885,45 @@ impl Pass<'_> {
             {
                 continue;
             }
+
             // The op before this one in the block that writes `src`; nothing in between may
             // touch the piece, since it would now be written earlier.
             let mut def = None;
+
             for j in (start..i).rev() {
                 if self.dead[j] {
                     continue;
                 }
+
                 if self.opaque(j, src) {
                     break;
                 }
+
                 let (read, write) = self.touches(j, src);
+
                 if read {
                     break;
                 }
+
                 let (reads_piece, writes_piece) = self.touches(j, dst);
+
                 if write {
                     if !writes_piece {
                         def = Some(j);
                     }
+
                     break;
                 }
+
                 if reads_piece || writes_piece {
                     break;
                 }
             }
+
             let Some(j) = def else {
                 continue;
             };
+
             visit(&mut self.ops[j], self.pool, &mut |u, r| {
                 if u == Use::Write && *r == src {
                     *r = dst;
@@ -877,6 +941,7 @@ impl Pass<'_> {
     /// (The move goes when nothing reads `dst` any more.)
     fn forward_copies(&mut self, b: usize) {
         let (start, end) = (self.blocks[b].start as usize, self.blocks[b].end as usize);
+
         for i in start..end {
             let Op::Mov {
                 dst,
@@ -885,19 +950,24 @@ impl Pass<'_> {
             else {
                 continue;
             };
+
             if self.dead[i] || dst == src {
                 continue;
             }
+
             if self.forward_copy(dst, src, i + 1, end) || self.reads[dst as usize] == 0 {
                 continue;
             }
+
             for next in self.func.blocks[b].term.successors() {
                 let next = next.0 as usize;
+
                 if next != b && self.preds[next] == 1 {
                     let (from, to) = (
                         self.blocks[next].start as usize,
                         self.blocks[next].end as usize,
                     );
+
                     self.forward_copy(dst, src, from, to);
                 }
             }
@@ -911,7 +981,9 @@ impl Pass<'_> {
             if self.dead[j] {
                 continue;
             }
+
             let mut moved = 0;
+
             visit(&mut self.ops[j], self.pool, &mut |u, r| {
                 if u == Use::Read && *r == dst {
                     *r = src;
@@ -922,10 +994,12 @@ impl Pass<'_> {
             self.reads[dst as usize] -= moved;
             let (_, writes_dst) = self.touches(j, dst);
             let (_, writes_src) = self.touches(j, src);
+
             if writes_dst || writes_src || self.writes_opaque(j, dst, src) {
                 return true;
             }
         }
+
         to - from > WINDOW
     }
 
@@ -934,7 +1008,9 @@ impl Pass<'_> {
         if !matches!(self.ops[i], Op::Ir { .. } | Op::Term { .. }) {
             return false;
         }
+
         let (mut reads, mut writes) = (Vec::new(), Vec::new());
+
         ir_regs(self.func, &self.ops[i], &mut reads, &mut writes);
         writes.contains(&a) || writes.contains(&b)
     }
@@ -945,15 +1021,18 @@ impl Pass<'_> {
     fn drop_unread(&mut self) {
         let mut needed = vec![false; self.reads.len()];
         let mut work = Vec::new();
+
         // The live pure ops writing each register: `first[reg]`, then `next[op]` (`NONE` ends).
         const NONE: u32 = u32::MAX;
         let mut first = vec![NONE; self.reads.len()];
         let mut next = vec![NONE; self.ops.len()];
         let (mut reads, mut writes) = (Vec::new(), Vec::new());
+
         for i in 0..self.ops.len() {
             if self.dead[i] {
                 continue;
             }
+
             if pure(&self.ops[i]) {
                 visit(&mut self.ops[i], self.pool, &mut |u, r| {
                     if u == Use::Write {
@@ -963,6 +1042,7 @@ impl Pass<'_> {
                 });
                 continue;
             }
+
             reads.clear();
             writes.clear();
             ir_regs(self.func, &self.ops[i], &mut reads, &mut writes);
@@ -971,6 +1051,7 @@ impl Pass<'_> {
                     reads.push(*r);
                 }
             });
+
             for &r in &reads {
                 if !needed[r as usize] {
                     needed[r as usize] = true;
@@ -978,8 +1059,10 @@ impl Pass<'_> {
                 }
             }
         }
+
         while let Some(reg) = work.pop() {
             let mut i = first[reg as usize];
+
             while i != NONE {
                 visit(&mut self.ops[i as usize], self.pool, &mut |u, r| {
                     if u == Use::Read && !needed[*r as usize] {
@@ -990,18 +1073,23 @@ impl Pass<'_> {
                 i = next[i as usize];
             }
         }
+
         let mut changed = false;
+
         for (reg, &head) in first.iter().enumerate() {
             if needed[reg] {
                 continue;
             }
+
             let mut i = head;
+
             while i != NONE {
                 self.dead[i as usize] = true;
                 changed = true;
                 i = next[i as usize];
             }
         }
+
         if changed {
             self.count();
         }
@@ -1010,12 +1098,15 @@ impl Pass<'_> {
     /// Remove the dead ops and fix the block ranges.
     fn compact(&mut self) {
         let mut kept = Vec::with_capacity(self.ops.len());
+
         for block in self.blocks.iter_mut() {
             let (start, end) = (block.start as usize, block.end as usize);
+
             block.start = kept.len() as u32;
             kept.extend((start..end).filter(|&i| !self.dead[i]).map(|i| self.ops[i]));
             block.end = kept.len() as u32;
         }
+
         *self.ops = kept;
     }
 }

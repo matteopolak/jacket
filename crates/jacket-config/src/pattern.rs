@@ -91,9 +91,11 @@ impl PathPattern {
             };
             let nodes = parser.sequence(0).map_err(fail)?;
             let mut out = Vec::new();
+
             expand(&nodes, &mut out).map_err(fail)?;
             out
         };
+
         Ok(PathPattern {
             source: source.to_string(),
             alternatives,
@@ -137,12 +139,15 @@ impl PathPattern {
     /// The leading folders of the pattern that are plain text (`stdlib` for `stdlib/A*/x`).
     pub fn literal_prefix(&self) -> &str {
         let mut end = 0;
+
         for part in self.source.split_inclusive('/') {
             if part.contains(SPECIAL) {
                 break;
             }
+
             end += part.len();
         }
+
         self.source[..end].trim_end_matches('/')
     }
 }
@@ -156,18 +161,23 @@ fn run(tokens: &[Token], path: &str, exact: bool) -> bool {
     let end = tokens.len();
     let mut current = vec![false; end + 1];
     let mut next = vec![false; end + 1];
+
     current[0] = true;
     close(tokens, &mut current);
+
     for c in path.chars() {
         // A directory of the path ends here.
         if !exact && c == '/' && current[end] {
             return true;
         }
+
         next.fill(false);
+
         for (i, token) in tokens.iter().enumerate() {
             if !current[i] {
                 continue;
             }
+
             match token {
                 Token::Literal(l) => next[i + 1] |= *l == c,
                 Token::Any => next[i + 1] |= c != '/',
@@ -176,6 +186,7 @@ fn run(tokens: &[Token], path: &str, exact: bool) -> bool {
                     ranges,
                 } => {
                     let inside = ranges.iter().any(|&(lo, hi)| lo <= c && c <= hi);
+
                     next[i + 1] |= c != '/' && inside != *negated;
                 }
                 Token::Star => next[i] |= c != '/',
@@ -183,12 +194,15 @@ fn run(tokens: &[Token], path: &str, exact: bool) -> bool {
                 Token::OptionalGlobstarSlash => {}
             }
         }
+
         close(tokens, &mut next);
         std::mem::swap(&mut current, &mut next);
+
         if !current.contains(&true) {
             return false;
         }
     }
+
     current[end]
 }
 
@@ -198,6 +212,7 @@ fn close(tokens: &[Token], states: &mut [bool]) {
         if !states[i] {
             continue;
         }
+
         if token.can_skip() {
             states[i + 1] = true;
         } else if *token == Token::OptionalGlobstarSlash {
@@ -264,6 +279,7 @@ impl Parser {
 
     fn bump(&mut self) -> Option<char> {
         let c = self.peek();
+
         self.at += 1;
         c
     }
@@ -271,6 +287,7 @@ impl Parser {
     /// Up to the end of the pattern, or (inside `{}`) to a `,` or `}`.
     fn sequence(&mut self, depth: usize) -> Result<Vec<Node>, String> {
         let mut out = Vec::new();
+
         loop {
             let Some(c) = self.peek() else {
                 return if depth > 0 {
@@ -279,21 +296,26 @@ impl Parser {
                     Ok(out)
                 };
             };
+
             if depth > 0 && matches!(c, ',' | '}') {
                 return Ok(out);
             }
+
             self.at += 1;
             let node = match c {
                 '{' => {
                     let mut alternatives = Vec::new();
+
                     loop {
                         alternatives.push(self.sequence(depth + 1)?);
+
                         match self.bump() {
                             Some(',') => {}
                             Some('}') => break,
                             _ => return Err("`{` is never closed".into()),
                         }
                     }
+
                     Node::Alternatives(alternatives)
                 }
                 '[' => Node::Token(self.class()?),
@@ -303,6 +325,7 @@ impl Parser {
                 '?' => Node::Token(Token::Any),
                 '*' if self.peek() == Some('*') => {
                     self.at += 1;
+
                     if self.peek() == Some('/') {
                         self.at += 1;
                         out.push(Node::Token(Token::OptionalGlobstarSlash));
@@ -315,6 +338,7 @@ impl Parser {
                 '*' => Node::Token(Token::Star),
                 c => Node::Token(Token::Literal(c)),
             };
+
             out.push(node);
         }
     }
@@ -322,11 +346,14 @@ impl Parser {
     /// A `[...]` class, after its `[`.
     fn class(&mut self) -> Result<Token, String> {
         let negated = matches!(self.peek(), Some('!' | '^'));
+
         if negated {
             self.at += 1;
         }
+
         let mut ranges = Vec::new();
         let mut first = true;
+
         loop {
             let lo = match self.bump() {
                 None => return Err("`[` is never closed".into()),
@@ -334,8 +361,10 @@ impl Parser {
                 Some('\\') => self.bump().ok_or("`[` is never closed")?,
                 Some(c) => c,
             };
+
             first = false;
             let mut hi = lo;
+
             if self.peek() == Some('-') && self.chars.get(self.at + 1).is_some_and(|&c| c != ']') {
                 self.at += 1;
                 hi = match self.bump() {
@@ -343,12 +372,15 @@ impl Parser {
                     Some(c) => c,
                     None => return Err("`[` is never closed".into()),
                 };
+
                 if hi < lo {
                     return Err(format!("the range `{lo}-{hi}` runs backwards"));
                 }
             }
+
             ranges.push((lo, hi));
         }
+
         Ok(Token::Class {
             negated,
             ranges,
@@ -359,6 +391,7 @@ impl Parser {
 /// Every token list `nodes` stands for, one per way of choosing among the alternatives.
 fn expand(nodes: &[Node], out: &mut Vec<Vec<Token>>) -> Result<(), String> {
     let mut lists: Vec<Vec<Token>> = vec![Vec::new()];
+
     for node in nodes {
         match node {
             Node::Token(token) => {
@@ -368,19 +401,23 @@ fn expand(nodes: &[Node], out: &mut Vec<Vec<Token>>) -> Result<(), String> {
             }
             Node::Alternatives(alternatives) => {
                 let mut tails = Vec::new();
+
                 for alternative in alternatives {
                     expand(alternative, &mut tails)?;
                 }
+
                 if lists.len().saturating_mul(tails.len()) > MAX_ALTERNATIVES {
                     return Err(format!(
                         "the `{{}}` alternatives expand to more than {MAX_ALTERNATIVES} patterns"
                     ));
                 }
+
                 lists = lists
                     .iter()
                     .flat_map(|head| {
                         tails.iter().map(move |tail| {
                             let mut list = head.clone();
+
                             list.extend(tail.iter().cloned());
                             list
                         })
@@ -389,6 +426,7 @@ fn expand(nodes: &[Node], out: &mut Vec<Vec<Token>>) -> Result<(), String> {
             }
         }
     }
+
     out.extend(lists);
     Ok(())
 }
@@ -398,6 +436,7 @@ fn expand(nodes: &[Node], out: &mut Vec<Vec<Token>>) -> Result<(), String> {
 pub fn relative_text(path: &Path, root: &Path) -> String {
     let path = path.strip_prefix(root).unwrap_or(path);
     let mut out = String::new();
+
     for component in path.components() {
         match component {
             Component::Prefix(prefix) => out.push_str(&prefix.as_os_str().to_string_lossy()),
@@ -407,10 +446,12 @@ pub fn relative_text(path: &Path, root: &Path) -> String {
                 if !out.is_empty() && !out.ends_with('/') {
                     out.push('/');
                 }
+
                 out.push_str(&component.as_os_str().to_string_lossy());
             }
         }
     }
+
     out
 }
 
@@ -431,6 +472,7 @@ mod tests {
     fn golden_cases() {
         let cases = include_str!("../../../tests/glob/cases.txt");
         let mut count = 0;
+
         for line in cases
             .lines()
             .filter(|l| !l.starts_with('#') && !l.is_empty())
@@ -438,6 +480,7 @@ mod tests {
             let [pattern, path, expected] = line.split('\t').collect::<Vec<_>>()[..] else {
                 panic!("bad glob case: {line:?}");
             };
+
             assert_eq!(
                 matches(pattern, path),
                 expected == "match",
@@ -445,6 +488,7 @@ mod tests {
             );
             count += 1;
         }
+
         assert!(count > 30);
     }
 
@@ -484,6 +528,7 @@ mod tests {
     fn exact_matches_leave_out_what_is_inside() {
         let exact =
             |pattern: &str, path: &str| PathPattern::new(pattern).unwrap().is_exact_match(path);
+
         assert!(exact("stdlib/Basic", "stdlib/Basic"));
         assert!(!exact("stdlib/Basic", "stdlib/Basic/Sub"));
         assert!(exact("stdlib/*", "stdlib/Basic"));
@@ -495,6 +540,7 @@ mod tests {
     #[test]
     fn literal_prefixes() {
         let pattern = |text: &str| PathPattern::new(text).unwrap();
+
         assert!(pattern("stdlib/Basic/").is_literal());
         assert!(!pattern("stdlib/**").is_literal());
         assert_eq!(pattern("stdlib/A*/x").literal_prefix(), "stdlib");
@@ -547,6 +593,7 @@ mod tests {
         assert!(invalid("[z-a]").contains("backwards"));
         assert!(invalid("{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}").contains("more than"));
         let error = PathPattern::new("a[").unwrap_err().to_string();
+
         assert!(error.contains("`a[`"), "{error}");
     }
 
@@ -555,11 +602,14 @@ mod tests {
         let pattern = "**/".repeat(500) + "x";
         let path = "a/".repeat(2000) + "y";
         let started = std::time::Instant::now();
+
         assert!(!matches(&pattern, &path));
         assert!(matches(&pattern, &(path + "/x")));
         let stars = "*".repeat(500) + "x";
+
         assert!(!matches(&stars, &"a".repeat(5000)));
         let mixed = "a*".repeat(300);
+
         assert!(!matches(&mixed, &"a".repeat(2999).replace('a', "b")));
         assert!(
             started.elapsed() < std::time::Duration::from_secs(5),
@@ -574,12 +624,16 @@ mod tests {
         struct Holder {
             paths: Vec<PathPattern>,
         }
+
         let holder: Holder = toml::from_str("paths = [\"a/**\", \"{b,c}\"]").unwrap();
+
         assert!(holder.paths[1].is_match("c"));
         assert_eq!(holder.paths[0].as_str(), "a/**");
         let text = toml::to_string(&holder).unwrap();
+
         assert_eq!(toml::from_str::<Holder>(&text).unwrap(), holder);
         let error = toml::from_str::<Holder>("paths = [\"ok\", \"b[\"]").unwrap_err();
+
         assert!(error.to_string().contains("line 1"), "{error}");
         assert!(error.to_string().contains("`b[`"), "{error}");
     }
@@ -587,6 +641,7 @@ mod tests {
     #[test]
     fn relative_text_uses_slashes() {
         let root = Path::new("/r");
+
         assert_eq!(relative_text(Path::new("/r/a/b.jai"), root), "a/b.jai");
         assert_eq!(relative_text(Path::new("/x/b.jai"), root), "/x/b.jai");
         assert_eq!(relative_text(Path::new("a/b.jai"), root), "a/b.jai");

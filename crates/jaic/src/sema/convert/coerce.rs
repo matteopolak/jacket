@@ -16,12 +16,15 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let from = op.ty();
+
         if to == TypeId::ANY {
             return self.box_any(f, op, span);
         }
+
         if let Some(converted) = self.wide_cast(f, op.clone(), to, span)? {
             return Ok(converted);
         }
+
         let op = if matches!(
             op,
             Operand::Const {
@@ -40,6 +43,7 @@ impl Compiler {
         };
         let fk = self.ty.types.kind(from).clone();
         let tk = self.ty.types.kind(to).clone();
+
         match (&fk, &tk) {
             (
                 TypeKind::Array {
@@ -72,6 +76,7 @@ impl Compiler {
                             export: None,
                             section: None,
                         });
+
                         f.b.global_addr(global)
                     }
                     _ => self.address_of(f, op, span)?.1,
@@ -84,8 +89,10 @@ impl Compiler {
                 };
                 let view = self.view_slot(f);
                 let count = f.b.iconst(Ty::I64, n);
+
                 f.b.store(Ty::I64, view, count);
                 let data = self.view_data_at(f, view);
+
                 f.b.store(Ty::Ptr, data, addr);
                 f.lifetime_view(view, addr, from, to, span);
                 Ok(Operand::Value {
@@ -105,6 +112,7 @@ impl Compiler {
             ) => {
                 // A resizable array starts with (count, data): reuse its prefix.
                 let (_, addr) = self.address_of(f, op, span)?;
+
                 f.lifetime_view(addr, addr, from, to, span);
                 Ok(Operand::Value {
                     ty: to,
@@ -119,6 +127,7 @@ impl Compiler {
                 TypeKind::Pointer(_),
             ) => {
                 let (_, addr) = self.address_of(f, op, span)?;
+
                 Ok(Operand::Value {
                     ty: to,
                     val: addr,
@@ -128,6 +137,7 @@ impl Compiler {
                 let offset = self.as_offset(from, to).unwrap();
                 let (_, addr) = self.address_of(f, op, span)?;
                 let field = f.b.ptr_offset(addr, offset);
+
                 Ok(Operand::Place {
                     ty: to,
                     addr: field,
@@ -140,6 +150,7 @@ impl Compiler {
                     self.as_offset(*inner, to).unwrap()
                 };
                 let (_, v) = self.rvalue(f, op, span)?;
+
                 Ok(Operand::Place {
                     ty: to,
                     addr: f.b.ptr_offset(v, offset),
@@ -154,6 +165,7 @@ impl Compiler {
                 // `*Wrapper` → its `#as` member's pointer value: load the member.
                 let offset = self.as_offset(*inner, to).unwrap();
                 let (_, v) = self.rvalue(f, op, span)?;
+
                 Ok(Operand::Place {
                     ty: to,
                     addr: f.b.ptr_offset(v, offset),
@@ -167,6 +179,7 @@ impl Compiler {
                 let offset = self.as_offset(*inner, *target).unwrap_or(0);
                 let (_, v) = self.rvalue(f, op, span)?;
                 let val = f.b.ptr_offset(v, offset);
+
                 f.lifetime_copy(val, v);
                 Ok(Operand::Value {
                     ty: to,
@@ -180,6 +193,7 @@ impl Compiler {
             {
                 let offset = self.as_offset(*inner, to).unwrap();
                 let (_, v) = self.rvalue(f, op, span)?;
+
                 Ok(Operand::Place {
                     ty: to,
                     addr: f.b.ptr_offset(v, offset),
@@ -206,6 +220,7 @@ impl Compiler {
                     val: v,
                 });
             }
+
             return err(
                 Code::ConvertCannotTo,
                 span,
@@ -223,9 +238,11 @@ impl Compiler {
         let kept = |t| self.ty.types.is_pointer(t);
         let integers =
             self.ty.types.int_info(from).is_some() && self.ty.types.int_info(to).is_some();
+
         if (kept(from) && kept(to)) || integers {
             f.lifetime_copy(val, v);
         }
+
         Ok(Operand::Value {
             ty: to,
             val,

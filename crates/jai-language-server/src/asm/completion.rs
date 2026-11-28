@@ -23,13 +23,16 @@ impl Session {
         if !text.contains(jaic::lexicon::spelled::ASM) {
             return None;
         }
+
         let blocks = asm_blocks(text);
         let (block, place) = locate(&blocks, byte)?;
+
         match place {
             AsmPlace::Features {
                 word_start,
             } => {
                 let typed = text[word_start as usize..byte].to_ascii_uppercase();
+
                 return Some(CompletionList {
                     is_incomplete: false,
                     items: catalog::feature_modifiers()
@@ -41,6 +44,7 @@ impl Session {
             }
             AsmPlace::Body => {}
         }
+
         let start = block.statement_at(byte)?.span.start as usize;
         let stmt = parse_asm_statement(text, start, byte);
         let (word, _) = word_range(text, byte);
@@ -50,16 +54,20 @@ impl Session {
         let items: Vec<CompletionItem> = match slot(text, &stmt)? {
             Slot::Mnemonic => {
                 let mut items: Vec<CompletionItem> = Vec::new();
+
                 for i in catalog::instructions() {
                     if !i.mnemonic.starts_with(&lower) {
                         continue;
                     }
+
                     if items.len() >= self.limits.symbols {
                         incomplete = true;
                         break;
                     }
+
                     items.push(instruction_item(i));
                 }
+
                 if prefix.is_empty() {
                     for class in catalog::register_classes() {
                         items.push(CompletionItem {
@@ -72,6 +80,7 @@ impl Session {
                         });
                     }
                 }
+
                 items
             }
             Slot::Suffix => SUFFIXES
@@ -101,7 +110,9 @@ impl Session {
                 if prefix.bytes().next().is_some_and(|b| b.is_ascii_digit()) {
                     return Some(CompletionList::default());
                 }
+
                 let mut items = BTreeMap::new();
+
                 for reg in registers(text, block) {
                     if reg.span.end as usize <= word && reg.name.starts_with(prefix) {
                         items.entry(reg.name.clone()).or_insert(CompletionItem {
@@ -112,15 +123,18 @@ impl Session {
                         });
                     }
                 }
+
                 for name in self.asm_scope_names(uri, text, block) {
                     if !name.name.starts_with(prefix) || items.len() >= self.limits.symbols {
                         continue;
                     }
+
                     let kind = if name.kind == IdeKind::Constant {
                         CompletionKind::Constant
                     } else {
                         CompletionKind::Variable
                     };
+
                     items.entry(name.name.clone()).or_insert(CompletionItem {
                         label: name.name,
                         kind,
@@ -128,9 +142,11 @@ impl Session {
                         ..CompletionItem::default()
                     });
                 }
+
                 items.into_values().collect()
             }
         };
+
         Some(CompletionList {
             is_incomplete: incomplete,
             items,
@@ -151,13 +167,16 @@ impl Session {
         let at = block.directive.start as usize;
         let blank = |from: usize, to: usize| -> String {
             let mut bytes = text.as_bytes().to_vec();
+
             for b in &mut bytes[from..to] {
                 if *b != b'\n' {
                     *b = b' ';
                 }
             }
+
             String::from_utf8(bytes).unwrap_or_default()
         };
+
         if self.environment.is_some() {
             // Without the block; braces it left open (an unterminated block took the
             // procedure's `}`) are closed at the end, which keeps every offset.
@@ -170,10 +189,12 @@ impl Session {
                     Tok::Punct(P::RBrace) => depth - 1,
                     _ => depth,
                 });
+
             if open > 0 {
                 probe.push('\n');
                 probe.push_str(&"}".repeat(open as usize));
             }
+
             if let Some(names) =
                 self.with_semantic(uri, &probe, |a, path| a.complete(path, at, &[]))
             {
@@ -183,11 +204,13 @@ impl Session {
                     .collect();
             }
         }
+
         let Some((analysis, rows_text)) = self.declarations(uri) else {
             return Vec::new();
         };
         let at = crate::semantic::Shift::between(rows_text.as_bytes(), doc.text.as_bytes())
             .to_old_or_edit(at);
+
         analysis
             .rows
             .iter()

@@ -17,6 +17,7 @@ impl Session {
         range: crate::Range,
     ) -> Result<Vec<SemanticToken>, Error> {
         let mut tokens = self.semantic_tokens(uri)?;
+
         tokens.retain(|t| range.start <= t.position && t.position < range.end);
         Ok(tokens)
     }
@@ -38,12 +39,14 @@ impl Session {
         // `$T` / `$$T`: the name is a type parameter throughout its procedure.
         let mut poly: HashMap<&str, Vec<Span>> = HashMap::default();
         let mut poly_declarations: HashSet<Span> = HashSet::default();
+
         for parameter in &analysis.type_parameters {
             poly.entry(parameter.name.as_str())
                 .or_default()
                 .push(parameter.scope);
             poly_declarations.insert(parameter.declaration);
         }
+
         // Holes of `@Interpolates` literals are code: the `%` and parentheses are operators and the
         // expression's tokens are classified like any others.
         let sites = self.interpolation_sites(uri);
@@ -62,6 +65,7 @@ impl Session {
             })
             .map(|s| (s, SemanticTokenKind::FormatSpecifier))
             .collect();
+
         for hole in sites.iter().flat_map(|s| &s.holes) {
             for edge in [
                 Span::new(hole.whole.start, hole.expr.start),
@@ -72,20 +76,26 @@ impl Session {
                 }
             }
         }
+
         cuts.sort_by_key(|c| c.0.start);
         // The first row declared at each token (a row per token would be a scan per token).
         let mut declared: HashMap<Span, usize> = HashMap::default();
+
         declared.reserve(analysis.rows.len());
+
         for (at, row) in analysis.rows.iter().enumerate() {
             declared.entry(row.selection).or_insert(at);
         }
+
         // (span, kind, declaration, readonly, expand)
         let mut pieces: Vec<(Span, SemanticTokenKind, bool, bool, bool)> = Vec::new();
+
         for token in analysis.tokens.iter().chain(&hole_tokens) {
             let row = declared.get(&token.span).map(|&at| &analysis.rows[at]);
             let declaration = row.is_some();
             let readonly = row.is_some_and(|row| row.readonly);
             let piece = |kind| (token.span, kind, declaration, readonly, false);
+
             match token.kind {
                 // `#string WGSL`: the editor highlights the body as that language.
                 TokenKind::String
@@ -94,6 +104,7 @@ impl Session {
                 TokenKind::String => {
                     let mut at = token.span.start;
                     let first = cuts.partition_point(|s| s.0.start < token.span.start);
+
                     for &(spec, cut_kind) in cuts[first..]
                         .iter()
                         .take_while(|s| s.0.start < token.span.end)
@@ -108,9 +119,11 @@ impl Session {
                                 false,
                             ));
                         }
+
                         pieces.push((spec, cut_kind, false, false, false));
                         at = spec.end;
                     }
+
                     if at < token.span.end {
                         pieces.push((
                             Span::new(at, token.span.end),
@@ -132,6 +145,7 @@ impl Session {
                 }
                 TokenKind::Ident => {
                     let spelling = token.spelling(text);
+
                     if poly.get(spelling).is_some_and(|scopes| {
                         scopes
                             .iter()
@@ -146,6 +160,7 @@ impl Session {
                         ));
                         continue;
                     }
+
                     let base = match row.map(|row| row.kind) {
                         Some(SymbolKind::Function) => SemanticTokenKind::Function,
                         Some(SymbolKind::Struct | SymbolKind::Enum | SymbolKind::TypeAlias) => {
@@ -177,15 +192,19 @@ impl Session {
                         },
                         _ => (base, false, false),
                     };
+
                     pieces.push((token.span, kind, declaration, readonly || constant, expand));
                 }
             }
         }
+
         if !hole_tokens.is_empty() {
             pieces.sort_by_key(|p| p.0.start);
         }
+
         // Code in the Jai code blocks of comments.
         let fences = Self::fence_tokens(text);
+
         if !fences.is_empty() {
             pieces.extend(
                 fences
@@ -194,9 +213,11 @@ impl Session {
             );
             pieces.sort_by_key(|p| p.0.start);
         }
+
         // Links in doc comments, colored like what they name (a comment has no token of its own).
         if self.environment.is_some() {
             let links = self.doc_link_tokens(uri);
+
             if !links.is_empty() {
                 pieces.extend(
                     links
@@ -206,10 +227,13 @@ impl Session {
                 pieces.sort_by_key(|p| p.0.start);
             }
         }
+
         let mut output = vec![];
+
         for (span, kind, declaration, readonly, expand) in pieces {
             let first = doc.index.position(text, span.start)?.line as usize;
             let last = doc.index.position(text, span.end)?.line as usize;
+
             for (_, (start, end)) in doc
                 .index
                 .lines()
@@ -219,14 +243,18 @@ impl Session {
             {
                 let start = start.max(span.start);
                 let end = end.min(span.end);
+
                 if start >= end {
                     continue;
                 }
+
                 if output.len() >= self.limits.tokens {
                     return Err(Error::Limit("semantic token line budget exceeded"));
                 }
+
                 let position = doc.index.position(text, start)?;
                 let length = jaic::source::utf16_len(&text[start..end]);
+
                 output.push(SemanticToken {
                     position,
                     length,
@@ -237,6 +265,7 @@ impl Session {
                 });
             }
         }
+
         Ok(output)
     }
 }

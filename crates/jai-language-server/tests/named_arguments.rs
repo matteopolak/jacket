@@ -6,6 +6,7 @@ fn complete(source: &str) -> Vec<CompletionItem> {
     let (text, at) = cursor(source);
     let mut session = lean_session();
     let uri = file_uri("/named-arguments/main.jai");
+
     session.open(uri.clone(), 1, text.clone()).unwrap();
     session.completion(&uri, at).unwrap().items
 }
@@ -13,6 +14,7 @@ fn complete(source: &str) -> Vec<CompletionItem> {
 #[test]
 fn variadic_spread_defaults_and_generic_headers_use_actual_slots() {
     let decl = "f :: (first: int, rest: ..int, enabled := false) {}\nmain :: () { ";
+
     assert_eq!(names(&format!("{decl}f(1, 2, 3, |); }}")), ["enabled"]);
     assert_eq!(names(&format!("{decl}f(1, ..values, |); }}")), ["enabled"]);
     assert_eq!(
@@ -44,6 +46,7 @@ fn resolved_overload_wins_and_member_completion_is_preserved() {
     let items = complete(
         "Record :: struct { field: int; }\nf :: (option := false) {}\nmain :: () { r: Record; f(r.fi|); }",
     );
+
     assert!(items.iter().any(|i| i.label == "field"));
     assert!(!items.iter().any(|i| i.detail.starts_with("parameter ")));
 }
@@ -65,6 +68,7 @@ fn known_argument_types_filter_unselected_overloads() {
         ["enabled"]
     );
     let declarations = "f :: (value: int, option_integer := false) {}\nf :: (value: string, option_string := false) {}\nmain :: () { ";
+
     assert_eq!(
         names(&format!("{declarations}f(1, opt|); }}")),
         ["option_integer"]
@@ -95,6 +99,7 @@ fn utf16_incremental_edits_recompute_the_callee_without_stale_names() {
     let mut s = lean_session();
     let uri = file_uri("/named-arguments/main.jai");
     let mut text = "f :: (first := false) {}\ng :: (other := false) {}\nmain :: () { unicode := \"😀\"; f( ); }".to_owned();
+
     s.open(uri.clone(), 1, text.clone()).unwrap();
     let callee = text.rfind("f(").unwrap();
     let byte = callee + 2;
@@ -107,7 +112,9 @@ fn utf16_incremental_edits_recompute_the_callee_without_stale_names() {
             .map(|i| i.label)
             .collect::<Vec<_>>()
     };
+
     assert_eq!(get(&s, &text), ["first"]);
+
     for (version, replacement, expected) in [(2, "g", "other"), (3, "f", "first")] {
         s.change(
             &uri,
@@ -139,6 +146,7 @@ fn names(source: &str) -> Vec<String> {
 fn incomplete_call_offers_remaining_defaults_and_preserves_expressions() {
     let collisions =
         complete("f :: (enabled := false) {}\nmain :: () { enabled := true; f(en|); }");
+
     assert_eq!(
         collisions.iter().filter(|i| i.label == "enabled").count(),
         2
@@ -157,6 +165,7 @@ fn incomplete_call_offers_remaining_defaults_and_preserves_expressions() {
         .iter()
         .find(|i| i.label == "enabled")
         .expect("named parameter");
+
     assert_eq!(enabled.insert_text.as_deref(), Some("enabled = "));
     assert!(items.iter().any(|i| i.label == "enabled_local"));
 }
@@ -164,6 +173,7 @@ fn incomplete_call_offers_remaining_defaults_and_preserves_expressions() {
 #[test]
 fn supplied_arguments_filter_each_overload_and_parameters_after_cursor() {
     let decl = "f :: (first: int, second := 2, third := 3) {}\n";
+
     assert_eq!(
         names(&format!("{decl}main :: () {{ f(1, |); }}")),
         ["second", "third"]
@@ -181,15 +191,18 @@ fn supplied_arguments_filter_each_overload_and_parameters_after_cursor() {
         [] as [std::string::String; 0]
     );
     let overloads = "f :: (first: int, integer_option := false) {}\nf :: (first: string, text_option := false) {}\nmain :: () { f(|); }";
+
     assert_eq!(names(overloads), ["first", "integer_option", "text_option"]);
 }
 
 #[test]
 fn nested_calls_methods_aliases_and_selected_callback_fields() {
     let source = "Tools :: struct { emit :: (amount: int, enabled := false) {} }\nalias :: Tools.emit;\nHolder :: struct { callback: (value: int, option := false) -> int; }\nmain :: () { holder: Holder; ";
+
     for call in ["Tools.emit(en|)", "alias(en|)"] {
         assert_eq!(names(&format!("{source}{call}; }}")), ["enabled"]);
     }
+
     assert_eq!(
         names(&format!("{source}holder.callback(op|); }}")),
         ["option"]
@@ -234,6 +247,7 @@ fn nested_incomplete_calls_resolve_from_the_original_scope() {
 #[test]
 fn values_members_comments_strings_and_unresolved_callees_do_not_invent_names() {
     let decl = "f :: (first: string, enabled := false) {}\nmain :: () { ";
+
     for call in [
         "f(first = en|)",
         "f(\"en|\")",
@@ -245,6 +259,7 @@ fn values_members_comments_strings_and_unresolved_callees_do_not_invent_names() 
     ] {
         assert!(names(&format!("{decl}{call}; }}")).is_empty(), "{call}");
     }
+
     assert_eq!(
         names(&format!("{decl}f(\"comma, )\", /* comma, ( */ en|); }}")),
         ["enabled"]
@@ -265,9 +280,11 @@ fn insertion_replaces_whole_utf16_word_and_preserves_or_normalizes_separator() {
             .into_iter()
             .find(|i| i.label == "enabled")
             .unwrap();
+
         assert_eq!(item.insert_text.as_deref(), Some(expected));
         let text = source.replace('|', "");
         let start = text.find("f(en").unwrap() + 2;
+
         assert_eq!(item.replace.unwrap().start, position(&text, start));
     }
 }
@@ -284,10 +301,12 @@ fn named_arguments_rank_before_locals_and_file_names() {
             .unwrap_or_else(|| panic!("{label} offered"));
         item.sort_text.clone().unwrap_or_else(|| item.label.clone())
     };
+
     assert!(sort("to_standard_error") < sort("local"));
     assert!(sort("local") < sort("main"));
     // The first character says whether the name fits the expected type, the second its rank.
     let rank = |label: &str| sort(label).chars().nth(1);
+
     assert!(rank("local") == Some('1') && rank("main") == Some('2'));
     // A `__` name declared in this file is the user's own and ranks with the file's other names.
     assert_eq!(rank("__hidden"), rank("main"));
@@ -296,9 +315,11 @@ fn named_arguments_rank_before_locals_and_file_names() {
 #[test]
 fn a_procedure_alias_offers_the_aliased_procedures_parameters() {
     let decl = "Impl :: struct { f :: (a: int, rest: ..int, flag := false) {} }\ng :: Impl.f;\nh :: g;\nmain :: () { ";
+
     assert_eq!(names(&format!("{decl}g(1, 2, |); }}")), ["flag"]);
     assert_eq!(names(&format!("{decl}h(1, 2, |); }}")), ["flag"]);
     let any = "f :: (format: string, args: ..Any, flag := false) {}\nmain :: () { ";
+
     assert_eq!(names(&format!("{any}f(\"%\\n\", 1, |); }}")), ["flag"]);
     assert_eq!(
         names(

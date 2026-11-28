@@ -103,16 +103,21 @@ impl Func {
             "{name}: ({:?}) -> ({:?})",
             self.sig.params, self.sig.returns
         );
+
         for (i, slot) in self.slots.iter().enumerate() {
             let _ = writeln!(out, "  slot{i}: {} bytes, align {}", slot.size, slot.align);
         }
+
         for (i, block) in self.blocks.iter().enumerate() {
             let _ = writeln!(out, "b{i}:");
+
             for inst in &block.insts {
                 let _ = writeln!(out, "    {inst:?}");
             }
+
             let _ = writeln!(out, "    {:?}", block.term);
         }
+
         out
     }
 

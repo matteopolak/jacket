@@ -34,6 +34,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
         ..
     } = proof;
     let index = |cell: usize| relevant.get(&cell).copied();
+
     for i in states.swept() {
         let block = &model.blocks[i];
         let state = states.visited(i).unwrap();
@@ -73,6 +74,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
             out.returned_local_address.len(),
             out.temp_storage_escape.len(),
         ];
+
         match &block.op {
             CfgOp::Use(cell, at)
             | CfgOp::Resource(Op::Read {
@@ -83,21 +85,29 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 && !frees.contain(*at) =>
             {
                 let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
+
                 if witnesses.is_empty() {
                     continue;
                 }
+
                 if keeps_use(cx, model, &block.op, &witnesses, *at) {
                     continue;
                 }
+
                 if matches!(kind, Origin::Stack(_) | Origin::Statement(_)) {
                     let mut f = finding(*at,"this pointer refers to stack storage whose lifetime has ended".into(),Some("keep the value in the enclosing scope, or copy it into caller-owned storage".into()));
+
                     label(&mut f, origin, &witnesses);
+
                     if let Some(site) = mapped {
                         map_finding(&mut f, *at, site);
                     }
+
                     push(&mut out.returned_local_address, f);
+
                     continue;
                 }
+
                 let name = cx.compiler.src.sources.snippet(*at).trim();
                 let mut f = finding(
                     *at,
@@ -107,6 +117,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                             .into(),
                     ),
                 );
+
                 if matches!(kind, Origin::Temporary) {
                     f.message = format!("`{name}` is used after its temporary storage was reset");
                     f.help = Some(
@@ -114,23 +125,27 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                             .into(),
                     );
                 }
+
                 if matches!(kind, Origin::Until(_)) {
                     f.message =
                         format!("`{name}` is used after its foreign valid-until contract expired");
                     f.help = Some("copy the borrowed data before the next provider call, or obtain a new result".into());
                 }
+
                 if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
                     && state[index(*cell).unwrap()] != DEAD
                 {
                     f.message =
                         format!("strict mode: `{name}` may be used after release along a bad path");
                 }
+
                 if witnesses.len() > 1 && state[index(*cell).unwrap()] == DEAD {
                     f.message.push_str(&format!(
                         "; every path passes one of these {} invalidating calls",
                         witnesses.len()
                     ));
                 }
+
                 label(&mut f, origin, &witnesses);
                 push(&mut out.use_after_free, f);
             }
@@ -141,9 +156,11 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 ..
             }) if index(*cell).is_some_and(|c| super::super::dead(cx, state[c])) => {
                 let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
+
                 if witnesses.is_empty() {
                     continue;
                 }
+
                 if witnesses.iter().all(|(j, _)| {
                     matches!(
                         model.blocks[*j].op,
@@ -161,6 +178,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 ) {
                     continue;
                 }
+
                 if let CfgOp::Resource(Op::Free {
                     contents: true,
                     fields: Some(now),
@@ -171,10 +189,12 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 {
                     continue;
                 }
+
                 let name = free_name(cx, body, *span);
                 let same = witnesses.iter().all(|(j,_)| matches!(model.blocks[*j].op, CfgOp::Resource(Op::Free {callee: previous,..}) if previous == *callee));
                 let mut f = if same && span.file == cx.file && statement_call(body, *span) {
                     let (start, end) = cx.statement_removal(*span);
+
                     suggesting(
                         *span,
                         format!("`{name}` is freed a second time"),
@@ -197,6 +217,7 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                         )),
                     )
                 };
+
                 label(&mut f, origin, &witnesses);
                 push(&mut out.double_free, f);
             }
@@ -206,9 +227,11 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 ..
             }) if index(*cell).is_some_and(|c| super::super::dead(cx, state[c])) => {
                 let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
+
                 if witnesses.is_empty() || witnesses.iter().all(|(_, site)| *site == *span) {
                     continue;
                 }
+
                 // The contents went first; freeing the memory that held them is a different release.
                 if witnesses.iter().all(|(j, _)| {
                     matches!(
@@ -221,7 +244,9 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
                 }) {
                     continue;
                 }
+
                 let mut f = finding(*span,"this call frees storage that was already released".into(),Some("remove the second call, or initialize the released field with a new allocation first".into()));
+
                 label(&mut f, origin, &witnesses);
                 push(&mut out.double_free, f);
             }
@@ -239,11 +264,14 @@ pub(super) fn emit(proof: Proof<'_>, out: &mut Reports) {
             ) => proof.escape(i, *cell, span, out),
             _ => {}
         }
+
         if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
             proof.decorate(i, before, out);
         }
+
         if let Some(site) = mapped {
             let raw = primary.unwrap();
+
             for (findings, from) in [
                 &mut out.use_after_free,
                 &mut out.double_free,
@@ -281,6 +309,7 @@ fn keeps_use(
     });
     let text = &cx.compiler.src.sources.get(at.file).text;
     let suffix = &text[at.end as usize..];
+
     if contents
         && !matches!(op, CfgOp::Resource(Op::Read { .. }))
         && (suffix.trim_start().starts_with(".* =")
@@ -288,6 +317,7 @@ fn keeps_use(
     {
         return true;
     }
+
     if let CfgOp::Resource(Op::Read {
         members: Some(read),
         ..
@@ -304,10 +334,13 @@ fn keeps_use(
     {
         return true;
     }
+
     let mut used = used_members(suffix, true);
+
     if used.is_empty() {
         used = used_members(&text[at.start as usize..], false);
     }
+
     !used.is_empty()
         && released_members(model, witnesses).is_some_and(|freed| {
             !freed
@@ -328,6 +361,7 @@ impl Proof<'_> {
         {
             return;
         }
+
         let (CfgOp::Use(cell, _)
         | CfgOp::Resource(
             Op::Read {
@@ -375,6 +409,7 @@ impl Proof<'_> {
             .states
             .get(at)
             .is_some_and(|s| !matches!(s[dense], LIVE | DEAD));
+
         for (findings, start) in [
             &mut out.use_after_free,
             &mut out.double_free,
@@ -387,20 +422,25 @@ impl Proof<'_> {
             for f in &mut findings[start..] {
                 if may {
                     f.fix = None;
+
                     if !f.message.starts_with("strict mode:") {
                         f.message =
                             format!("strict mode: possible lifetime violation: {}", f.message);
                     }
                 }
+
                 f.message
                     .push_str(&format!("; shortest bad path shown ({count})"));
+
                 for &(span, taken) in &decisions {
                     f.secondary.push((
                         span,
                         format!("shortest bad path takes this condition as {taken}"),
                     ));
                 }
+
                 super::super::witness::targets(self.cx, self.model, &spans, f);
+
                 if witnesses.iter().any(|(i, _)| {
                     matches!(
                         self.model.blocks[*i].op,
@@ -432,6 +472,7 @@ impl Proof<'_> {
         let Some(cell) = index(cell) else {
             return;
         };
+
         if if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
             state[cell] & (LIVE | DEAD) == 0
         } else {
@@ -452,10 +493,12 @@ impl Proof<'_> {
         }) {
             return;
         }
+
         if matches!(kind, Origin::Stack(_) | Origin::Statement(_)) {
             if !returning && entrypoint_storage(cx, body, kind) {
                 return;
             }
+
             if let CfgOp::Resource(Op::Escape {
                 target,
                 store,
@@ -465,6 +508,7 @@ impl Proof<'_> {
             {
                 return;
             }
+
             let name = stack_name(cx, body, origin);
             let message = if returning {
                 let source = cx.compiler.src.sources.snippet(origin).trim();
@@ -473,6 +517,7 @@ impl Proof<'_> {
                 } else {
                     "the address of"
                 };
+
                 format!(
                     "this returns {how} the local `{name}`, which is gone once the procedure returns"
                 )
@@ -480,6 +525,7 @@ impl Proof<'_> {
                 format!("the address of the local `{name}` escapes into storage that outlives it")
             };
             let mut f = finding(*span, message, Some("return the value itself, take the memory from an allocator (`New`, `alloc`), or have the caller pass the place to fill".into()));
+
             f.secondary
                 .push((origin, "stack storage borrowed here".into()));
             push(&mut out.returned_local_address, f);
@@ -543,12 +589,14 @@ impl Proof<'_> {
                 )
             };
             let mut f = finding(*span, message, Some(help.into()));
+
             f.secondary
                 .push((origin, "temporary storage allocated here".into()));
             push(&mut out.temp_storage_escape, f);
         } else if super::super::dead(cx, state[cell]) {
             let witnesses = witnesses(model, states, relevant, i, kind, region, cx);
             let mut f = finding(*span,"this returns storage released by deferred cleanup".into(),Some("transfer ownership to the caller, or return a copy made outside the released storage".into()));
+
             label(&mut f, origin, &witnesses);
             push(&mut out.use_after_free, f);
         }
@@ -566,6 +614,7 @@ fn push(out: &mut Vec<Finding>, f: Finding) {
 
 fn label(f: &mut Finding, origin: Span, witnesses: &[(usize, Span)]) {
     f.secondary.push((origin, "storage derived here".into()));
+
     for &(_, site) in witnesses {
         f.secondary.push((site, "storage invalidated here".into()));
     }
@@ -582,21 +631,26 @@ fn witnesses(
 ) -> Vec<(usize, Span)> {
     let index = |c: usize| relevant.get(&c).copied();
     let mut incoming = vec![Vec::new(); model.blocks.len()];
+
     for (i, b) in model.blocks.iter().enumerate() {
         for &to in &b.next {
             incoming[to].push(i);
         }
     }
+
     let mut queue: VecDeque<_> = incoming[use_at].iter().copied().collect();
     let mut seen = HashSet::default();
     let mut result = Vec::new();
+
     while let Some(i) = queue.pop_front() {
         if !seen.insert(i) {
             continue;
         }
+
         let Some(state) = states.get(i) else {
             continue;
         };
+
         if let CfgOp::Resource(op) = &model.blocks[i].op
             && kills(cx, op, kind, region, &state[..=relevant.len() * 2], &index)
         {
@@ -623,11 +677,15 @@ fn witnesses(
             else {
                 unreachable!()
             };
+
             result.push((i, site));
+
             continue;
         }
+
         queue.extend(&incoming[i]);
     }
+
     result.sort_by_key(|(_, s)| (s.file.0, s.start, s.end));
     result.dedup_by_key(|(_, s)| *s);
     result
@@ -659,6 +717,7 @@ fn stack_name(cx: &Cx, body: &LifetimeBody, origin: Span) -> String {
         .snippet(origin)
         .trim()
         .trim_start_matches('*');
+
     body.blocks
         .iter()
         .flat_map(|b| &b.events)
@@ -678,14 +737,17 @@ fn stack_name(cx: &Cx, body: &LifetimeBody, origin: Span) -> String {
 
 fn statement_call(body: &LifetimeBody, site: Span) -> bool {
     let mut found = false;
+
     if let Some(block) = &body.syntax.body {
         jaic::ast::walk::walk(&block.stmts, &mut |node, _| {
             if let Some(jaic::ast::StmtKind::Expr(e)) = node.stmt().map(|s| &s.kind) {
                 found |= e.span == site;
             }
+
             true
         });
     }
+
     found
 }
 
@@ -706,6 +768,7 @@ impl Proof<'_> {
         else {
             return true;
         };
+
         // A concrete sink must be cleared before reset or before returning to a caller.
         // The process entry has no caller after its final exit, but resets still matter.
         self.escape_survives(
@@ -738,6 +801,7 @@ impl Proof<'_> {
             super::Cell::Value(_) => None,
         };
         let mut start = at;
+
         if store {
             // The escape observation precedes this store's conservative memory barrier.
             // Begin checking retention after the actual destination copy, not its preparation.
@@ -745,13 +809,16 @@ impl Proof<'_> {
                 let [next] = model.blocks[start].next.as_slice() else {
                     return false;
                 };
+
                 start = *next;
+
                 if matches!(&model.blocks[start].op,CfgOp::Copy(pairs) if pairs.iter().any(|(t,_)| *t == target))
                 {
                     break;
                 }
             }
         }
+
         let mut seen = HashSet::default();
         let mut queue: VecDeque<_> = model.blocks[start]
             .next
@@ -759,10 +826,12 @@ impl Proof<'_> {
             .map(|&i| (i, true))
             .collect();
         let mut escaped = false;
+
         while let Some((i, mut kept)) = queue.pop_front() {
             if !seen.insert((i, kept)) {
                 continue;
             }
+
             match model.blocks[i].op {
                 CfgOp::Resource(Op::Escape {
                     target: other, ..
@@ -777,6 +846,7 @@ impl Proof<'_> {
                     if kept {
                         return true;
                     }
+
                     continue;
                 }
                 CfgOp::Resource(Op::MayReset(_))
@@ -798,13 +868,17 @@ impl Proof<'_> {
                     if process_exit {
                         continue;
                     }
+
                     if !kept && !any_path {
                         return false;
                     }
+
                     if kept && any_path {
                         return true;
                     }
+
                     escaped |= kept;
+
                     continue;
                 }
                 CfgOp::Resource(Op::ScopeEnd(parent, _)) if matches!(kind,Origin::Stack(child) if inside(cx,child,parent)) =>
@@ -812,7 +886,9 @@ impl Proof<'_> {
                     if !kept {
                         return false;
                     }
+
                     escaped = true;
+
                     continue;
                 }
                 CfgOp::Resource(Op::StatementEnd(span)) if matches!(kind,Origin::Statement(at) if contains(span,at)) =>
@@ -820,17 +896,22 @@ impl Proof<'_> {
                     if !kept {
                         return false;
                     }
+
                     escaped = true;
+
                     continue;
                 }
                 _ => {}
             }
+
             if any_path && !kept {
                 // An overwritten origin cannot become retained again on this path.
                 continue;
             }
+
             queue.extend(model.blocks[i].next.iter().map(|&i| (i, kept)));
         }
+
         escaped
     }
 
@@ -838,6 +919,7 @@ impl Proof<'_> {
         let CfgOp::Resource(op) = &self.model.blocks[at].op else {
             return false;
         };
+
         self.states.get(at).is_some_and(|state| {
             super::kills(
                 self.cx,
@@ -854,6 +936,7 @@ impl Proof<'_> {
 
 fn expression_name(cx: &Cx, body: &LifetimeBody, span: Span) -> String {
     let mut source = span;
+
     if let Some(syntax) = &body.syntax.body {
         jaic::ast::walk::walk(&syntax.stmts, &mut |node, _| {
             if let Some(expr) = node.expr()
@@ -864,9 +947,11 @@ fn expression_name(cx: &Cx, body: &LifetimeBody, span: Span) -> String {
             {
                 source = callee.span;
             }
+
             true
         });
     }
+
     cx.compiler.src.sources.snippet(source).trim().to_owned()
 }
 
@@ -897,9 +982,11 @@ fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &C
     else {
         return false;
     };
+
     if summary.may_returns.contains(result) {
         return true;
     }
+
     if summary
         .returns
         .get(result)
@@ -907,10 +994,12 @@ fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &C
     {
         return true;
     }
+
     let super::Cell::Place(place) = model.cells.values[*cell] else {
         return false;
     };
     let mut prefix = Vec::new();
+
     for projection in &model.places.paths[place].1 {
         match projection {
             crate::rules::lifetime_places::Projection::Field(name) => {
@@ -921,6 +1010,7 @@ fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &C
             }
             _ => break,
         }
+
         if summary
             .return_fields
             .get(&(*result, prefix.clone()))
@@ -932,6 +1022,7 @@ fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &C
             return true;
         }
     }
+
     let steps = model.places.paths[place]
         .1
         .iter()
@@ -945,6 +1036,7 @@ fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &C
             _ => None,
         })
         .collect::<Option<Vec<_>>>();
+
     steps.is_some_and(|mut steps| {
         let known = |steps: &[crate::rules::lifetime_summary::Step]| {
             summary
@@ -955,15 +1047,18 @@ fn inferred_temporary_return(cx: &Cx, body: &LifetimeBody, model: &Model, op: &C
                     .get(&(*result, steps.to_vec()))
                     .is_some_and(|p| p.root == super::Root::Temporary)
         };
+
         if known(&steps) {
             return true;
         }
+
         // Resource copies can introduce a descriptor's data child after typed
         // places were indexed. Recover its parent type from the retained root.
         if descriptor_data_place(cx, model, place) {
             steps.pop();
             return known(&steps);
         }
+
         false
     })
 }
@@ -975,9 +1070,11 @@ fn descriptor_data_place(cx: &Cx, model: &Model, place: usize) -> bool {
     let Some((Projection::Field(name), prefix)) = path.split_last() else {
         return false;
     };
+
     if name.as_str() != "data" {
         return false;
     }
+
     for projection in prefix {
         ty = match projection {
             Projection::Field(name) => {
@@ -995,6 +1092,7 @@ fn descriptor_data_place(cx: &Cx, model: &Model, place: usize) -> bool {
                 else {
                     return false;
                 };
+
                 field.ty
             }
             Projection::Element(_) | Projection::DynamicElement(_) => {
@@ -1014,6 +1112,7 @@ fn descriptor_data_place(cx: &Cx, model: &Model, place: usize) -> bool {
             }
         };
     }
+
     matches!(
         cx.compiler.ty.types.kind(ty),
         jaic::types::TypeKind::String
@@ -1031,11 +1130,13 @@ fn entrypoint_storage(cx: &Cx, body: &LifetimeBody, kind: Origin) -> bool {
         return false;
     };
     let mut scope = &cx.compiler.ns.scopes[scope.0 as usize];
+
     if scope.kind == jaic::sema::scope::ScopeKind::Block
         && let Some(parent) = scope.parent
     {
         scope = &cx.compiler.ns.scopes[parent.0 as usize];
     }
+
     scope.kind == jaic::sema::scope::ScopeKind::Proc
         && scope.proc == Some(body.procedure)
         && entrypoint_activation(cx, body)
@@ -1043,6 +1144,7 @@ fn entrypoint_storage(cx: &Cx, body: &LifetimeBody, kind: Origin) -> bool {
 
 fn entrypoint_activation(cx: &Cx, body: &LifetimeBody) -> bool {
     let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
+
     if !cx.compiler.options.runtime_entry_point
         || !crate::rules::lifetime_summary::is_entry_point(
             cx.compiler,
@@ -1054,10 +1156,12 @@ fn entrypoint_activation(cx: &Cx, body: &LifetimeBody) -> bool {
     {
         return false;
     }
+
     let Some(facts) = cx.compiler.ed.facts() else {
         return false;
     };
     let summaries = cx.run.lifetimes.get().unwrap();
+
     !facts.lifetime_bodies.values().any(|caller| {
         caller
             .blocks
@@ -1088,6 +1192,7 @@ fn released_members(
     witnesses: &[(usize, Span)],
 ) -> Option<Vec<Vec<jaic::intern::Sym>>> {
     let mut all = Vec::new();
+
     for (j, _) in witnesses {
         let CfgOp::Resource(Op::Free {
             contents: true,
@@ -1097,8 +1202,10 @@ fn released_members(
         else {
             return None;
         };
+
         all.extend(fields.iter().cloned());
     }
+
     (!all.is_empty()).then_some(all)
 }
 
@@ -1122,13 +1229,17 @@ fn used_members(text: &str, after: bool) -> Vec<&str> {
         &text[ident(text)..]
     };
     let mut chain = Vec::new();
+
     while let Some(next) = rest.strip_prefix('.') {
         let member = &next[..ident(next)];
+
         if member.is_empty() {
             break;
         }
+
         chain.push(member);
         rest = &next[member.len()..];
     }
+
     chain
 }

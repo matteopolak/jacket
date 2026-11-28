@@ -14,6 +14,7 @@ impl Session {
         let text = self.document(uri).map_or("", |d| d.text.as_str());
         let produced = |label: &str| -> Vec<Block> {
             let count = e.texts.len();
+
             e.texts
                 .iter()
                 .enumerate()
@@ -34,18 +35,21 @@ impl Session {
                 Inline::Text(said.into()),
             ])
         };
+
         match e.kind {
             IdeExpansionKind::Insert => {
                 if e.texts.iter().all(|t| t.trim().is_empty()) {
                     directive_said(jaic::lexicon::directive::INSERT, " inserts nothing")
                 } else {
                     let mut blocks = vec![Block::Code(jaic::lexicon::spelled::INSERT.into())];
+
                     blocks.extend(produced("expands to"));
                     HoverText::new(blocks)
                 }
             }
             IdeExpansionKind::Macro => {
                 let mut blocks = vec![Block::Code(e.detail.clone())];
+
                 blocks.extend(produced("expands to"));
                 HoverText::new(blocks)
             }
@@ -65,10 +69,12 @@ impl Session {
                 } else {
                     vec![Block::Code(format!("#run = {}: {}", e.texts[0], e.detail))]
                 };
+
                 if !e.output.is_empty() {
                     blocks.push(Block::Section("prints".into()));
                     blocks.push(Block::Output(e.output.trim_end().into()));
                 }
+
                 HoverText::new(blocks)
             }
             IdeExpansionKind::If => {
@@ -87,6 +93,7 @@ impl Session {
                         _ => ": the condition is false, the else branch is compiled",
                     }
                 };
+
                 directive_said(directive, said)
             }
         }
@@ -117,6 +124,7 @@ impl Session {
             .unwrap_or(path)
             .display()
             .to_string();
+
         Some((
             link.string.start,
             link.string.end,
@@ -157,11 +165,13 @@ impl Session {
             self.describe(uri, &e)
         } else {
             let about = jaic::lexicon::directive_about(word)?;
+
             HoverText::new(vec![
                 Block::Code(format!("#{word}")),
                 Block::Para(vec![Inline::Text(format!("{about}."))]),
             ])
         };
+
         Some((token.span.start, token.span.end, text))
     }
 
@@ -172,9 +182,11 @@ impl Session {
         byte: usize,
     ) -> Option<(usize, usize, HoverText)> {
         let word = jaic::lexicon::is_identifier_char;
+
         if !text.is_char_boundary(byte) {
             return None;
         }
+
         let start = text[..byte]
             .char_indices()
             .rfind(|&(_, c)| !word(c))
@@ -192,9 +204,11 @@ impl Session {
             .any(|w| before.ends_with(w) && !before[..before.len() - w.len()].ends_with(word));
         let line = jaic::source::line_start(text, start);
         let in_dot_cast = after.starts_with([')', ',']) && text[line..start].contains(".(");
+
         if !chained && !in_dot_cast {
             return None;
         }
+
         Some((
             start,
             end,
@@ -219,11 +233,14 @@ impl Session {
         let [using, comma] = analysis.tokens.get(index.checked_sub(2)?..index)? else {
             return None;
         };
+
         if using.spelling(&doc.text) != "using" || comma.spelling(&doc.text) != "," {
             return None;
         }
+
         let name = token.spelling(&doc.text);
         let about = jaic::lexicon::using_filter_about(name)?;
+
         Some((
             token.span.start,
             token.span.end,
@@ -241,6 +258,7 @@ impl Session {
         byte: usize,
     ) -> Option<(usize, usize, HoverText)> {
         let e = self.expansion_at(uri, byte)?;
+
         Some((
             e.span.start as usize,
             e.span.end as usize,
@@ -264,6 +282,7 @@ impl Session {
                 .blocks
                 .extend_from_slice(self.describe(uri, &e).sections());
         }
+
         hover
     }
 }

@@ -11,6 +11,7 @@ fn failed_identifier_does_not_become_a_literal_members_definition() {
     let uri = file_uri("/qualified-values/main.jai");
     let source = "bad :: missing;\nmain :: () { failed := bad; length := \"abc\".count; }\n";
     let mut s = session();
+
     s.open(uri.clone(), 1, source.into()).unwrap();
     assert!(s.diagnostics(&uri).unwrap().iter().any(|d| {
         d.severity == jai_language_server::DiagnosticSeverity::Error
@@ -27,6 +28,7 @@ fn qualified_private_name_remains_an_error_without_a_fabricated_target() {
     let uri = file_uri("/qualified-values/main.jai");
     let source = SOURCE.replace("Data.scalar", "Data.secret");
     let mut s = session();
+
     s.open(uri.clone(), 1, source.clone()).unwrap();
     assert!(s.diagnostics(&uri).unwrap().iter().any(|d| {
         d.severity == jai_language_server::DiagnosticSeverity::Error && d.message.contains("secret")
@@ -36,6 +38,7 @@ fn qualified_private_name_remains_an_error_without_a_fabricated_target() {
         [] as [jai_language_server::Location; 0]
     );
     let definitions = s.definition(&uri, at(&source, "aggregate;")).unwrap();
+
     assert_eq!(definitions.len(), 1, "{definitions:?}");
     assert_eq!(definitions[0].range.start, at(MODULE, "aggregate ::"));
 }
@@ -59,7 +62,9 @@ fn same_named_values_in_different_modules_follow_the_actual_lookup() {
     let uri = file_uri("/qualified-values/main.jai");
     let source = "Left :: #import \"Values\";\nRight :: #import \"Other\";\nmain :: () { first := Left.scalar; second := Right.scalar; }\n";
     let mut s = session();
+
     s.open(uri.clone(), 1, source.into()).unwrap();
+
     for (usage, path, declaration) in [
         ("scalar; second", "Values", at(MODULE, "scalar ::")),
         (
@@ -72,6 +77,7 @@ fn same_named_values_in_different_modules_follow_the_actual_lookup() {
         ),
     ] {
         let definitions = s.definition(&uri, at(source, usage)).unwrap();
+
         assert_eq!(definitions.len(), 1, "{usage}: {definitions:?}");
         assert_eq!(
             definitions[0].uri,
@@ -91,6 +97,7 @@ fn assert_definitions(s: &Session, uri: &DocumentUri, source: &str) {
         ("callback(1)", "callback ::"),
     ] {
         let definitions = s.definition(uri, at(source, usage)).unwrap();
+
         assert_eq!(definitions.len(), 1, "{usage}: {definitions:?}");
         assert_eq!(
             definitions[0].uri, "file:///qualified-values/modules/Values/module.jai",
@@ -102,6 +109,7 @@ fn assert_definitions(s: &Session, uri: &DocumentUri, source: &str) {
             "{usage}"
         );
         let hover = s.hover(uri, at(source, usage)).unwrap().unwrap();
+
         assert!(!hover.contents.value.contains("Source syntax declaration"));
     }
 }
@@ -110,6 +118,7 @@ fn assert_definitions(s: &Session, uri: &DocumentUri, source: &str) {
 fn qualified_scalar_aggregate_variable_and_type_alias_keep_their_declarations() {
     let uri = file_uri("/qualified-values/main.jai");
     let mut s = session();
+
     s.open(uri.clone(), 1, SOURCE.into()).unwrap();
     assert!(
         s.diagnostics(&uri)
@@ -121,6 +130,7 @@ fn qualified_scalar_aggregate_variable_and_type_alias_keep_their_declarations() 
     );
     assert_definitions(&s, &uri, SOURCE);
     let damaged = SOURCE.replace("    first", "    broken := (\n    first");
+
     s.change(
         &uri,
         2,

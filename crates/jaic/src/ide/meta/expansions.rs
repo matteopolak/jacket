@@ -24,19 +24,25 @@ impl Compiler {
         let Some(ide) = self.ed.facts_mut() else {
             return;
         };
+
         if let Some(&at) = ide.expansion_index.get(&(span, kind)) {
             let e = &mut ide.expansions[at];
+
             if !e.texts.contains(&text) && e.texts.len() < MAX_VARIANTS {
                 e.texts.push(text);
             }
+
             if e.output.is_empty() {
                 e.output = output;
             }
+
             return;
         }
+
         if ide.expansions.len() >= MAX_EXPANSIONS {
             return;
         }
+
         ide.expansion_index
             .insert((span, kind), ide.expansions.len());
         ide.expansions.push(IdeExpansion {
@@ -70,6 +76,7 @@ impl Compiler {
         // Both streams in write order; `mark` counted bytes of both.
         let mut all = Vec::new();
         let (mut o, mut e) = (0, 0);
+
         for &(to_stderr, n) in &host.order {
             if to_stderr {
                 all.extend_from_slice(&host.stderr[e..(e + n).min(host.stderr.len())]);
@@ -79,6 +86,7 @@ impl Compiler {
                 o += n;
             }
         }
+
         String::from_utf8_lossy(all.get(mark..).unwrap_or(&[])).into_owned()
     }
 
@@ -87,29 +95,37 @@ impl Compiler {
     fn ide_widen(&self, span: Span, names: &[&str]) -> Option<Span> {
         let text = &self.src.sources.try_get(span.file)?.text;
         let start = span.start as usize;
+
         if start > text.len() {
             return None;
         }
+
         let from = text.floor_char_boundary(start.saturating_sub(512));
         let before = &text[from..start];
         let mut at = before.len();
+
         while let Some(hash) = before[..at].rfind('#') {
             let between = &before[hash..];
+
             if between.contains([';', '{', '}']) {
                 return None;
             }
+
             let word: String = between[1..]
                 .chars()
                 .take_while(|c| c.is_alphanumeric() || *c == '_')
                 .collect();
+
             if names.contains(&word.as_str()) {
                 return Some(Span {
                     start: (from + hash) as u32,
                     ..span
                 });
             }
+
             at = hash;
         }
+
         None
     }
 
@@ -120,6 +136,7 @@ impl Compiler {
             ast::CodeBody::Stmt(s) => self.ide_snippet(s.span).trim().to_string(),
             ast::CodeBody::Block(b) => {
                 let text = self.ide_snippet(b.span).trim();
+
                 match text.strip_prefix('{').and_then(|t| t.strip_suffix('}')) {
                     Some(inner) => dedent(inner.trim_matches('\n')),
                     None => text.to_string(),
@@ -135,6 +152,7 @@ impl Compiler {
         let text = &file.text;
         let end = (span.end as usize).min(text.len());
         let start = (span.start as usize).min(end);
+
         text.get(start..end).unwrap_or("")
     }
 
@@ -143,6 +161,7 @@ impl Compiler {
         if !self.ide_wants_file(value.span.file) {
             return;
         }
+
         let text = match op {
             Operand::Const {
                 value: Value::String(s),
@@ -158,6 +177,7 @@ impl Compiler {
         let span = self
             .ide_widen(value.span, &["insert"])
             .unwrap_or(value.span);
+
         if let Some(ide) = self.ed.facts_mut()
             && ide.keep_insert_text
         {
@@ -165,6 +185,7 @@ impl Compiler {
                 .entry(value.span)
                 .or_insert_with(|| (span, text.clone()));
         }
+
         self.ide_note_expansion(
             span,
             IdeExpansionKind::Insert,
@@ -180,6 +201,7 @@ impl Compiler {
         if !self.ide_wants_file(span.file) {
             return;
         }
+
         let output = self.ide_output_since(mark);
         let (text, detail, literal) = match op {
             Operand::Const {
@@ -194,6 +216,7 @@ impl Compiler {
                     Value::Bytes(_) => format!("{}.{{…}}", self.ty.types.name(*ty)),
                     other => other.render(&self.ty.types, true),
                 });
+
                 (text, self.ty.types.name(*ty), literal)
             }
             Operand::Type(t) => {
@@ -210,6 +233,7 @@ impl Compiler {
             Operand::Void => (String::new(), "void".into(), None),
             _ => return,
         };
+
         self.ide_note_expansion(span, IdeExpansionKind::Run, text, detail, output, literal);
     }
 
@@ -219,6 +243,7 @@ impl Compiler {
             Value::Int(v) => v.to_string(),
             Value::Float(v, _) => {
                 let text = format!("{v}");
+
                 if text.contains(['.', 'e', 'i', 'N']) {
                     text
                 } else {
@@ -238,9 +263,11 @@ impl Compiler {
         if !self.ide_wants_file(cond.span.file) {
             return;
         }
+
         let Some(span) = self.ide_widen(cond.span, &["if", "ifx", "assert"]) else {
             return;
         };
+
         self.ide_note_expansion(
             span,
             IdeExpansionKind::If,

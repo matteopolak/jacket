@@ -11,6 +11,7 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 fn asm_syscall_checks_and_sandbox_refuses_it() {
     let dir = TempDir::new("cli-asm-syscall");
     let source = dir.join("futex.jai");
+
     std::fs::write(
         &source,
         r#"#import "Basic";
@@ -43,6 +44,7 @@ main :: () {
         .args(["-target", "x86_64-linux-gnu"])
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -56,6 +58,7 @@ main :: () {
         .args(["-os", "wasm"])
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -71,6 +74,7 @@ main :: () {
 fn asm_syscall_getpid_matches_the_process_id() {
     let dir = TempDir::new("cli-asm-getpid");
     let source = dir.join("getpid.jai");
+
     std::fs::write(
         &source,
         r#"#import "Basic";
@@ -94,6 +98,7 @@ main :: () {
         .arg(&source)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -108,12 +113,14 @@ main :: () {
         .arg(&exe)
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
     let output = Command::new(&exe).output().unwrap();
+
     assert!(output.status.success());
     assert_eq!(String::from_utf8_lossy(&output.stdout), "true\n");
 }
@@ -147,6 +154,7 @@ main :: () {
 fn asm_syscall_accepts_listed_argument_registers() {
     let dir = TempDir::new("cli-asm-syscall-listed");
     let source = dir.join("listed.jai");
+
     std::fs::write(&source, LISTED_SYSCALL).unwrap();
     let output = Command::new(JAIC)
         .arg("-check")
@@ -154,6 +162,7 @@ fn asm_syscall_accepts_listed_argument_registers() {
         .args(["-target", "x86_64-linux-gnu"])
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -161,6 +170,7 @@ fn asm_syscall_accepts_listed_argument_registers() {
     );
 
     let bad = dir.join("unpinned.jai");
+
     std::fs::write(
         &bad,
         LISTED_SYSCALL.replace(
@@ -175,6 +185,7 @@ fn asm_syscall_accepts_listed_argument_registers() {
         .args(["-target", "x86_64-linux-gnu"])
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr).contains(
@@ -191,12 +202,14 @@ fn asm_syscall_accepts_listed_argument_registers() {
 fn asm_syscall_listed_arguments_reach_the_kernel() {
     let dir = TempDir::new("cli-asm-syscall-listed-run");
     let source = dir.join("listed.jai");
+
     std::fs::write(&source, LISTED_SYSCALL).unwrap();
     let output = Command::new(JAIC)
         .arg("-interp")
         .arg(&source)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -212,6 +225,7 @@ fn asm_syscall_listed_arguments_reach_the_kernel() {
 fn asm_syscall_sandbox_maps_anonymous_memory() {
     let dir = TempDir::new("cli-asm-syscall-sandbox-mmap");
     let source = dir.join("mmap.jai");
+
     std::fs::write(
         &source,
         r#"#import "Basic";
@@ -249,6 +263,7 @@ main :: () {
         .args(["-os", "wasm"])
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",

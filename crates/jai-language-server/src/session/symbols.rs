@@ -17,14 +17,17 @@ impl Session {
         // A cut by length counts only what is written: blank lines and indentation would
         // otherwise move it, and the same declaration would be quoted to different lengths.
         let mut written = 0;
+
         for (at, c) in declaration.char_indices() {
             if !c.is_whitespace() {
                 written += c.len_utf8();
+
                 if written > MAX_DETAIL {
                     return declaration[..at].trim();
                 }
             }
         }
+
         declaration.trim()
     }
 
@@ -38,11 +41,13 @@ impl Session {
         let rows = &analysis.rows;
         // Children by parent, so the tree is built in one pass over the rows.
         let mut children: Vec<Vec<usize>> = vec![Vec::new(); rows.len()];
+
         for (id, row) in rows.iter().enumerate() {
             if let Some(parent) = row.parent {
                 children[parent].push(id);
             }
         }
+
         fn tree(
             id: usize,
             rows: &[SymbolRow],
@@ -50,6 +55,7 @@ impl Session {
             doc: &Document,
         ) -> Result<DocumentSymbol, Error> {
             let row = &rows[id];
+
             Ok(DocumentSymbol {
                 name: row.name.as_str().into(),
                 detail: Session::source_detail(&doc.text, row).into(),
@@ -62,13 +68,16 @@ impl Session {
                     .collect::<Result<_, _>>()?,
             })
         }
+
         // The sections and the declarations that have no parent, by where they start (a
         // section before what it holds), so a stack of the sections still open nests them.
         enum Item {
             Section(usize),
             Row(usize),
         }
+
         let mut items: Vec<(usize, std::cmp::Reverse<usize>, Item)> = Vec::new();
+
         for (at, section) in analysis.outline.iter().enumerate() {
             items.push((
                 section.location.start,
@@ -76,6 +85,7 @@ impl Session {
                 Item::Section(at),
             ));
         }
+
         for (id, row) in rows.iter().enumerate() {
             if row.parent.is_none() {
                 items.push((
@@ -85,9 +95,11 @@ impl Session {
                 ));
             }
         }
+
         items.sort_by_key(|(start, end, item)| (*start, *end, matches!(item, Item::Row(_))));
         let mut roots: Vec<DocumentSymbol> = Vec::new();
         let mut open: Vec<(usize, DocumentSymbol)> = Vec::new();
+
         fn close(open: &mut Vec<(usize, DocumentSymbol)>, roots: &mut Vec<DocumentSymbol>) {
             if let Some((_, done)) = open.pop() {
                 match open.last_mut() {
@@ -96,13 +108,16 @@ impl Session {
                 }
             }
         }
+
         for (start, _, item) in items {
             while open.last().is_some_and(|(end, _)| *end <= start) {
                 close(&mut open, &mut roots);
             }
+
             match item {
                 Item::Section(at) => {
                     let section = &analysis.outline[at];
+
                     open.push((
                         section.location.end,
                         DocumentSymbol {
@@ -117,6 +132,7 @@ impl Session {
                 }
                 Item::Row(id) => {
                     let symbol = tree(id, rows, &children, doc)?;
+
                     match open.last_mut() {
                         Some((_, parent)) => parent.children.push(symbol),
                         None => roots.push(symbol),
@@ -124,9 +140,11 @@ impl Session {
                 }
             }
         }
+
         while !open.is_empty() {
             close(&mut open, &mut roots);
         }
+
         Ok(roots)
     }
 
@@ -134,16 +152,20 @@ impl Session {
         let mut pending = vec![uri.clone()];
         let mut seen = BTreeSet::new();
         let mut out = vec![];
+
         while let Some(next) = pending.pop() {
             let next = self.document_uri(&next).unwrap_or(next);
+
             if !seen.insert(next.clone()) {
                 continue;
             }
+
             if let Some((key, analysis)) = self.analyses.get_key_value(&next) {
                 out.push(key);
                 pending.extend(analysis.loads.iter().map(|(uri, _)| uri.clone()));
             }
         }
+
         out
     }
 
@@ -163,6 +185,7 @@ impl Session {
         )
         .find(|(_, token)| matches!(token.kind, TokenKind::Ident | TokenKind::Keyword))
         .map(|(at, token)| (at, *token));
+
         // A name in an `@Interpolates` hole is a word of the string's text.
         Ok(found.or_else(|| self.hole_word(uri, byte)))
     }
@@ -180,6 +203,7 @@ impl Session {
         let analysis = &self
             .analysis_for(uri)
             .expect("opened document has analysis");
+
         if let Some(row) = analysis
             .rows
             .iter()
@@ -187,9 +211,11 @@ impl Session {
         {
             return Ok(vec![(uri, row)]);
         }
+
         if at > 0 && analysis.tokens[at - 1].kind == TokenKind::Dot {
             return Ok(vec![]);
         }
+
         if analysis
             .opaque_scopes
             .iter()
@@ -197,6 +223,7 @@ impl Session {
         {
             return Ok(vec![]);
         }
+
         let name = Sym::intern(token.spelling(&doc.text));
         let mut locals = analysis
             .rows
@@ -208,16 +235,20 @@ impl Session {
                     && row.selection.start <= byte
             })
             .collect::<Vec<_>>();
+
         locals.sort_by_key(|row| {
             (
                 row.scope.end - row.scope.start,
                 std::cmp::Reverse(row.selection.start),
             )
         });
+
         if let Some(row) = locals.first() {
             return Ok(vec![(uri, *row)]);
         }
+
         let mut out = vec![];
+
         for candidate in self.reachable(uri) {
             for row in &self.analyses[candidate].rows {
                 if row.parent.is_none()
@@ -229,6 +260,7 @@ impl Session {
                 }
             }
         }
+
         Ok(out)
     }
 }

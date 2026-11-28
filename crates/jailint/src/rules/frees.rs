@@ -18,6 +18,7 @@ pub(super) fn local_of(cx: &Cx, e: &Expr) -> Option<EntityId> {
 pub(super) fn opaque(cx: &Cx, s: &Stmt) -> bool {
     let mut found = false;
     let mut stack = Vec::new();
+
     walk_node(Node::Stmt(s), &mut stack, &mut |n, _| {
         match n {
             Node::Stmt(t) => {
@@ -35,6 +36,7 @@ pub(super) fn opaque(cx: &Cx, s: &Stmt) -> bool {
                 _ => {}
             },
         }
+
         !found
     });
     found

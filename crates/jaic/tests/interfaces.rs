@@ -11,13 +11,16 @@ touch :: () -> int { return 7; }
 
 fn compile(body: &str) -> (Compiler, jaic::sema::Result<()>) {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/Contract/module.jai", MODULE.as_bytes());
     fs.insert("/app/main.jai", body.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec!["/lib".into()];
     let mut c = Compiler::new(options, Rc::new(fs));
     let result = c.compile_program(Path::new("/app/main.jai"));
+
     (c, result)
 }
 
@@ -31,6 +34,7 @@ fn unused_interface_replacement_is_validated_when_module_binds() {
             "{source} M :: #import \"Contract\"(HOOKS=Broken); main :: () {{ result:=M.touch(); }}"
         ));
         let error = result.expect_err("an unused invalid interface must be rejected");
+
         assert!(
             error.message.contains("interface") && error.message.contains("run"),
             "{}",
@@ -46,6 +50,7 @@ fn valid_replacements_and_the_declared_sentinel_bind() {
         "Good :: struct { run :: inline (value: int) {} run :: (value: bool) {} } M :: #import \"Contract\"(HOOKS=Good);",
     ] {
         let (c, result) = compile(&format!("{source} #assert(M.touch()==7); main :: () {{}}"));
+
         if let Err(e) = result {
             panic!("{}", e.render(&c.src.sources));
         }
@@ -73,8 +78,10 @@ fn interfaces_apply_to_procedure_and_struct_type_arguments() {
                 call = call.replace("REPLACEMENT", replacement)
             );
             let (c, result) = compile(&source);
+
             if replacement == "Broken" {
                 let error = result.expect_err("all generic binding paths must enforce interfaces");
+
                 assert!(
                     error.message.contains("interface") && error.message.contains("run"),
                     "{}",
@@ -99,6 +106,7 @@ fn later_variadic_arguments_cannot_bypass_interface_validation() {
     ",
     );
     let error = result.expect_err("later elements must satisfy the contract too");
+
     assert!(
         error.message.contains("interface") && error.message.contains("run"),
         "{}",
@@ -119,6 +127,7 @@ fn unknown_type_values_do_not_silently_bypass_binding_time_validation() {
     "#,
     );
     let error = result.expect_err("runtime type values cannot prove a binding-time interface");
+
     assert_eq!(
         error.code,
         jaic::diagnostics::Code::InterfaceConstraint,

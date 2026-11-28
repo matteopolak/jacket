@@ -90,7 +90,9 @@ impl Host for System {
         if !cfg!(windows) {
             return Vec::new();
         }
+
         let mut dirs: Vec<PathBuf> = Vec::new();
+
         for (var, default) in [
             (jacket_config::env::PROGRAM_FILES, r"C:\Program Files"),
             (
@@ -101,10 +103,12 @@ impl Host for System {
             let dir = var
                 .non_empty()
                 .map_or_else(|| PathBuf::from(default), PathBuf::from);
+
             if !dirs.contains(&dir) {
                 dirs.push(dir);
             }
         }
+
         dirs
     }
 
@@ -127,6 +131,7 @@ impl Host for System {
             .flatten()
             .map(|e| e.path())
             .collect();
+
         entries.sort();
         entries
     }
@@ -154,6 +159,7 @@ impl Host for System {
             String::from_utf8_lossy(&out.stdout),
             String::from_utf8_lossy(&out.stderr)
         );
+
         Some((out.status.success(), text))
     }
 

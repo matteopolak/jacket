@@ -128,10 +128,13 @@ impl Name {
     /// The name `name`, interned on first use.
     pub fn of(name: &'static str) -> Name {
         let key = (name.as_ptr() as usize, name.len());
+
         if let Some(id) = SEEN.with_borrow(|seen| seen.by_address.get(&key).copied()) {
             return id;
         }
+
         let id = Name::find(name).unwrap_or_else(|| Name::add(name));
+
         SEEN.with_borrow_mut(|seen| seen.by_address.insert(key, id));
         id
     }
@@ -146,7 +149,9 @@ impl Name {
         if let Some(id) = SEEN.with_borrow(|seen| seen.by_text.get(name).copied()) {
             return Some(id);
         }
+
         let (&text, &id) = names().by_text.get_key_value(name)?;
+
         SEEN.with_borrow_mut(|seen| seen.by_text.insert(text, id));
         Some(id)
     }
@@ -159,10 +164,13 @@ impl Name {
 
     fn add(name: &'static str) -> Name {
         let mut names = NAMES.write().unwrap_or_else(PoisonError::into_inner);
+
         if let Some(&id) = names.by_text.get(name) {
             return id;
         }
+
         let id = Name(u16::try_from(names.list.len()).expect("too many record field names"));
+
         names.list.push(name);
         names.by_text.insert(name, id);
         id
@@ -171,11 +179,14 @@ impl Name {
     pub fn as_str(self) -> &'static str {
         SEEN.with_borrow_mut(|seen| {
             let at = self.0 as usize;
+
             if at >= seen.list.len() {
                 let names = names();
                 let known = seen.list.len();
+
                 seen.list.extend_from_slice(&names.list[known..]);
             }
+
             seen.list[at]
         })
     }
@@ -189,12 +200,15 @@ impl Name {
                 .map(|key| {
                     let member = format!("{key:?}");
                     let mut field = String::from("__syntax_");
+
                     for (at, c) in member.chars().enumerate() {
                         if c.is_ascii_uppercase() && at > 0 {
                             field.push('_');
                         }
+
                         field.push(c.to_ascii_lowercase());
                     }
+
                     Name::intern(&field)
                 })
                 .collect()
@@ -395,6 +409,7 @@ impl Record {
 
     pub fn str(&mut self, name: impl FieldKey, s: &[u8]) -> &mut Self {
         let at = self.push_extra(Extra::Str(s.into()));
+
         self.push(name.name(), KIND_STRING, at);
         self
     }
@@ -404,17 +419,20 @@ impl Record {
         if id != 0 {
             self.push(name.name(), KIND_REF, id);
         }
+
         self
     }
 
     pub fn list(&mut self, name: impl FieldKey, items: Vec<Item>) -> &mut Self {
         let at = self.push_extra(Extra::List(items));
+
         self.push(name.name(), KIND_LIST, at);
         self
     }
 
     pub fn refs(&mut self, name: impl FieldKey, ids: impl IntoIterator<Item = i64>) -> &mut Self {
         let at = self.push_extra(Extra::Refs(ids.into_iter().collect()));
+
         self.push(name.name(), KIND_LIST, at);
         self
     }
@@ -461,6 +479,7 @@ impl Record {
             Field::List(items) => (KIND_LIST, self.push_extra(Extra::List(items))),
         };
         let id = name.name();
+
         match self.slots.iter_mut().find(|s| s.name == id) {
             Some(slot) => {
                 slot.kind = kind as u8;
@@ -505,6 +524,7 @@ impl Records {
 
     pub fn add(&mut self, record: Record) -> i64 {
         let id = self.last.get() + 1;
+
         self.last.set(id);
         self.put(id, record);
         id as i64
@@ -512,9 +532,11 @@ impl Records {
 
     fn put(&mut self, id: usize, record: Record) {
         let at = id - 1 - self.first;
+
         if self.list.len() <= at {
             self.list.resize_with(at + 1, || None);
         }
+
         self.list[at] = Some(record);
     }
 
@@ -529,6 +551,7 @@ impl Records {
     pub fn get_mut(&mut self, id: i64) -> Option<&mut Record> {
         let at = self.index(id)?;
         let record = self.list.get_mut(at)?.as_mut()?;
+
         self.changes.borrow_mut().push(id);
         Some(record)
     }
@@ -554,6 +577,7 @@ impl Records {
     /// part meanwhile.
     pub fn give_back(slot: &mut Records, records: Records) {
         let part = std::mem::replace(slot, records);
+
         for (at, record) in part.list.into_iter().enumerate() {
             if let Some(record) = record {
                 slot.put(part.first + at + 1, record);
@@ -597,11 +621,15 @@ mod tests {
         let mut deeper = Records::lend(&mut registry);
         let deepest = registry.add(Record::new(RecordTag::CodeBlock));
         let after_nested = deeper.add(Record::new(RecordTag::CodeCase));
+
         Records::give_back(&mut registry, deeper);
         let last = lent.add(Record::new(RecordTag::CodeCast));
+
         Records::give_back(&mut registry, lent);
         let ids = [before, outer, nested, deepest, after_nested, last];
+
         assert_eq!(ids, [1, 2, 3, 4, 5, 6]);
+
         for (id, tag) in ids.into_iter().zip([
             RecordTag::CodeIf,
             RecordTag::CodeWhile,
@@ -612,6 +640,7 @@ mod tests {
         ]) {
             assert_eq!(registry.get(id).map(|r| r.tag), Some(tag), "record {id}");
         }
+
         assert!(registry.get(0).is_none() && registry.get(7).is_none());
     }
 
@@ -619,8 +648,10 @@ mod tests {
     fn stdlib_struct_names(files: &[&str]) -> std::collections::BTreeSet<String> {
         let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let mut names = std::collections::BTreeSet::new();
+
         for file in files {
             let text = std::fs::read_to_string(root.join(file)).unwrap();
+
             for line in text.lines() {
                 if let Some((name, rest)) = line.trim_start().split_once("::")
                     && rest.trim_start().starts_with("struct")
@@ -629,6 +660,7 @@ mod tests {
                 }
             }
         }
+
         names
     }
 
@@ -641,10 +673,12 @@ mod tests {
     #[test]
     fn every_tag_names_a_stdlib_struct() {
         let structs = stdlib_struct_names(TAG_SOURCES);
+
         for tag in RecordTag::ALL {
             if *tag == RecordTag::CodeNodes {
                 continue;
             } // Internal multi-result envelope.
+
             assert!(
                 structs.contains(tag.name()),
                 "{tag} is not a struct in the stdlib"
@@ -671,6 +705,7 @@ mod tests {
     #[test]
     fn every_stdlib_syntax_node_has_a_tag_or_is_listed_unexported() {
         let tags: std::collections::BTreeSet<_> = RecordTag::ALL.iter().map(|t| t.name()).collect();
+
         for name in stdlib_struct_names(&["Compiler/contract-records.jai"]) {
             if name.starts_with("Code_") {
                 assert!(

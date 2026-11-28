@@ -13,6 +13,7 @@ fn expected_tokens(text: &str) -> usize {
 
 pub fn lex(file: FileId, text: &str) -> Result<Vec<Token>, Diagnostic> {
     let mut lx = Lexer::new(file, text, expected_tokens(text));
+
     lx.run()?;
     Ok(lx.out)
 }
@@ -26,6 +27,7 @@ pub fn lex_stoppable(
     stop: &mut dyn FnMut() -> bool,
 ) -> Result<Option<Vec<Token>>, Diagnostic> {
     let mut lx = Lexer::new(file, text, expected_tokens(text));
+
     lx.set_stop(stop);
     lx.run()?;
     Ok((!lx.stopped).then_some(lx.out))
@@ -83,6 +85,7 @@ pub fn lex_for_target(
     target: PlatformTarget,
 ) -> Result<Vec<Token>, Diagnostic> {
     let mut lx = Lexer::new(file, text, expected_tokens(text));
+
     lx.platform = Some(target);
     lx.run()?;
     Ok(lx.out)
@@ -93,6 +96,7 @@ pub fn lex_for_target(
 pub fn lex_ide(file: FileId, text: &str) -> (Vec<Token>, Vec<Diagnostic>) {
     let mut lx = Lexer::new(file, text, expected_tokens(text));
     let errors = lx.recover();
+
     (lx.out, errors)
 }
 
@@ -116,6 +120,7 @@ impl Comment {
     /// The comment's text without its delimiters.
     pub fn body<'t>(&self, text: &'t str) -> &'t str {
         let (s, e) = (self.span.start as usize, self.span.end as usize);
+
         match self.kind {
             CommentKind::Line => &text[s + 2..e],
             CommentKind::Block if self.terminated => &text[s + 2..e - 2],
@@ -129,6 +134,7 @@ impl Comment {
 /// unterminated block comment is returned with `terminated: false` besides its error.
 pub fn lex_with_trivia(file: FileId, text: &str) -> (Vec<Token>, Vec<Comment>, Vec<Diagnostic>) {
     let mut lx = Lexer::new(file, text, expected_tokens(text));
+
     lx.comments = Some(Vec::new());
     let errors = lx.recover();
     (lx.out, lx.comments.unwrap_or_default(), errors)
@@ -146,9 +152,11 @@ pub struct Lexed {
 impl Lexed {
     pub fn new(file: FileId, text: &str) -> Self {
         let (mut tokens, comments, errors) = lex_with_trivia(file, text);
+
         if tokens.last().is_some_and(|t| t.tok == Tok::Eof) {
             tokens.pop();
         }
+
         Self {
             tokens,
             comments,
@@ -161,6 +169,7 @@ impl Lexed {
 /// No tokens or semantic facts from an older version are reused.
 pub fn lexical_regions(file: FileId, text: &str) -> Result<Vec<Span>, Diagnostic> {
     let mut lx = Lexer::new(file, text, 0);
+
     lx.regions = Some(Vec::new());
     lx.run()?;
     Ok(lx.regions.unwrap())

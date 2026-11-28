@@ -159,6 +159,7 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
     let claims = Claims::new(roots.len());
     let wanted = options.workers();
     let jobs = wanted.min(roots.len().max(1));
+
     // The compiler's pool runs the checkers (its threads have the compiler's large stack, which
     // checking recurses on); the job count is its size unless something started it already.
     jaic::pool::configure(wanted);
@@ -174,16 +175,20 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
                 caches: &caches,
                 claims: &claims,
             };
+
             s.spawn(move |_| {
                 loop {
                     let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                     let Some(root) = roots.get(i) else {
                         break;
                     };
+
                     if options.verbose {
                         eprintln!("jailint: checking {}", root.path().display());
                     }
+
                     let result = lint_root(root, i, &shared);
+
                     collected
                         .lock()
                         .expect("no thread panicked holding the lock")
@@ -192,25 +197,31 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
             });
         }
     });
+
     for (i, result) in collected.into_inner().unwrap_or_default() {
         results[i] = Some(result);
     }
+
     let mut lints = Vec::new();
     let mut errors = Vec::new();
     let mut texts: BTreeMap<String, Arc<str>> = BTreeMap::new();
     let mut incomplete = Vec::new();
     let mut owner: BTreeMap<String, usize> = BTreeMap::new();
+
     for (i, r) in results.iter().enumerate() {
         let Some(r) = r else {
             continue;
         };
+
         for path in r.texts.keys() {
             owner.entry(path.clone()).or_insert(i);
         }
+
         if let Some(e) = &r.error {
             incomplete.push((roots[i].path().to_path_buf(), e.clone()));
         }
     }
+
     let mut contexts = Vec::new();
     let mut failed_asserts = Vec::new();
     // A note is read when any root read it, not only the one that lints its file.
@@ -224,33 +235,40 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
         .iter()
         .flat_map(|(path, notes)| notes.problems.iter().map(|p| (path.clone(), p.clone())))
         .collect();
+
     for (i, r) in results.into_iter().enumerate() {
         let Some(r) = r else {
             continue;
         };
+
         contexts.extend(r.contexts);
         failed_asserts.extend(r.failures);
+
         for l in r.lints {
             if l.rule == crate::rules::unused_note::INFO.name
                 && read_notes.contains(&(l.path.clone(), l.start, l.end))
             {
                 continue;
             }
+
             if owner.get(&l.path) == Some(&i) {
                 lints.push(l);
             }
         }
+
         for e in r.errors {
             if owner.get(e.path.to_string_lossy().as_ref()) == Some(&i) {
                 errors.push(e);
             }
         }
+
         for (p, text) in r.texts {
             if owner.get(&p) == Some(&i) {
                 texts.entry(p).or_insert_with(|| Arc::from(text));
             }
         }
     }
+
     keep_dead_in_every_program(&mut lints, &contexts);
     leak::leak_pass(
         (&roots, &report),
@@ -274,16 +292,19 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
         .flat_map(|context| context.visited_files.iter().cloned())
         .collect();
     let unvisited_files: Vec<_> = report.difference(&visited).cloned().collect();
+
     if incomplete.is_empty()
         && let Some(source) = &options.source
     {
         for path in options.paths.iter().filter(|path| path.is_file()) {
             let path = plan::canonical(path);
+
             if unvisited_files.contains(&path) {
                 incomplete.push((source.clone(), format!("context did not visit requested file `{}`; choose its actual enclosing program and target", path.display())));
             }
         }
     }
+
     errors.sort_by(|a, b| (&a.path, a.start, a.code).cmp(&(&b.path, b.start, b.code)));
     Outcome {
         lints,
@@ -304,6 +325,7 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
 /// unreached: a file two programs `#load` is used by what either of them calls.
 fn keep_dead_in_every_program(lints: &mut Vec<Lint>, contexts: &[CheckedContext]) {
     let rule = crate::rules::unreachable_declaration::INFO.name;
+
     lints.retain(|l| {
         l.rule != rule
             || contexts

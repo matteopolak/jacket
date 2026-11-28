@@ -31,9 +31,11 @@ fn run(body: &str) -> Result<(), String> {
     let source = format!("{PRELUDE}\n{body}");
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+
     compiler
         .compile_sources(&[ProgramSource::String(source)])
         .map_err(|e| e.render(&compiler.src.sources))
@@ -122,6 +124,7 @@ x := 1;
 #run describe("a %x", 2);
 "#,
     );
+
     assert!(
         e.contains("a mix of inline holes and positional arguments"),
         "{e}"
@@ -135,6 +138,7 @@ fn an_empty_hole_is_an_error() {
 #run describe("a %( ) b");
 "#,
     );
+
     assert!(e.contains("an inline hole is empty"), "{e}");
 }
 
@@ -145,6 +149,7 @@ fn a_hole_that_is_not_utf8_is_an_error() {
 #run describe("a %(\xff) b");
 "#,
     );
+
     assert!(e.contains("an inline hole must be valid UTF-8 text"), "{e}");
 }
 
@@ -192,12 +197,15 @@ SQL
 fn an_undefined_name_points_into_the_string() {
     // `missing` starts at column 21 of the `#run` line below.
     let e = error("#run describe(\"id = %missing x\");\n");
+
     assert!(e.contains("missing"), "{e}");
     let line = e.lines().find(|l| l.contains('^')).unwrap_or("");
+
     assert!(e.contains("describe(\"id = %missing x\")"), "{e}");
     let caret = line.find('^').unwrap();
     let source_line = e.lines().find(|l| l.contains("describe(")).unwrap();
     let want = source_line.find("missing").unwrap();
+
     assert_eq!(caret, want, "{e}");
 }
 
@@ -209,6 +217,7 @@ fn a_type_error_points_at_the_hole() {
     let from = carets.find('^').unwrap();
     let to = carets.rfind('^').unwrap();
     let hole = source_line.find("1 + ").unwrap();
+
     assert!(
         from >= hole && to < source_line.find(" end").unwrap(),
         "{e}"
@@ -221,6 +230,7 @@ fn escapes_map_to_the_right_columns() {
     let e = error("#run describe(\"a\\tb\\n%nope\");\n");
     let source_line = e.lines().find(|l| l.contains("describe(")).unwrap();
     let line = e.lines().find(|l| l.contains('^')).unwrap();
+
     assert_eq!(
         line.find('^').unwrap(),
         source_line.find("nope").unwrap(),
@@ -244,9 +254,11 @@ fn the_language_fixture_checks_out() {
     let source = include_str!("../../../tests/compiler/semantics/interpolates.jai");
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+
     if let Err(e) = compiler.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&compiler.src.sources));
     }

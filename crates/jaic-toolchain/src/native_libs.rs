@@ -16,6 +16,7 @@ fn platform_name(target: Target) -> String {
     } else {
         ""
     };
+
     format!(
         "{}-{}{mingw}",
         jaic::target::os_name(target.os),
@@ -29,6 +30,7 @@ pub fn cross_lib_dirs(host: &dyn Host, stdlib: &Path, target: Target) -> Vec<Pat
     if target.is_wasm() || target.is_freestanding() {
         return Vec::new();
     }
+
     built_lib_dirs(host, stdlib, &platform_name(target))
 }
 
@@ -41,6 +43,7 @@ pub fn host_lib_dirs(host: &dyn Host, stdlib: &Path) -> Result<Vec<PathBuf>, Str
         .filter(|v| !v.is_empty())
     {
         let dirs: Vec<PathBuf> = std::env::split_paths(&list).collect();
+
         if let Some(gone) = dirs.iter().find(|dir| !host.is_dir(dir)) {
             return Err(format!(
                 "JAIC_NATIVE_LIBS names {}, which is not a folder\n\
@@ -49,12 +52,16 @@ pub fn host_lib_dirs(host: &dyn Host, stdlib: &Path) -> Result<Vec<PathBuf>, Str
                 gone.display()
             ));
         }
+
         return Ok(dirs);
     }
+
     let target = Target::host();
+
     if target.is_wasm() {
         return Ok(Vec::new());
     }
+
     Ok(built_lib_dirs(host, stdlib, &platform_name(target)))
 }
 
@@ -64,10 +71,12 @@ fn built_lib_dirs(host: &dyn Host, stdlib: &Path, platform: &str) -> Vec<PathBuf
     // release package carries `native-libs/` beside `stdlib/`, a checkout builds them under
     // `target/`.
     let mut candidates = Vec::new();
+
     if let Some(output) = host.var(&jacket_config::env::OUTPUT_DIR) {
         // A relative one is below the checkout, as the repository's tools read it.
         candidates.push(stdlib.join("..").join(output).join("native-libs"));
     }
+
     candidates.push(stdlib.join("../native-libs"));
     candidates.push(stdlib.join("../target/native-libs"));
     // A linked git worktree shares the main checkout's builds, where `build_native_libs.py` puts
@@ -96,6 +105,7 @@ fn main_checkout(host: &dyn Host, root: &Path) -> Option<PathBuf> {
     };
     let common = host.read_to_string(&git_dir.join("commondir"))?;
     let common = host.canonicalize(&git_dir.join(common.trim()))?;
+
     common.parent().map(Path::to_path_buf)
 }
 
@@ -115,6 +125,7 @@ mod tests {
     #[test]
     fn a_linked_worktree_finds_the_main_checkout() {
         let mut host = FakeHost::mac();
+
         host.dir("/main/.git/worktrees/w");
         host.text("/main/.git/worktrees/w/commondir", "../..\n");
         host.text(
@@ -122,6 +133,7 @@ mod tests {
             "gitdir: /main/.git/worktrees/w\n",
         );
         let worktree = Path::new("/main/.claude/worktrees/w");
+
         assert_eq!(main_checkout(&host, worktree), Some("/main".into()));
         // The main checkout's `.git` is a folder, and a plain folder has none.
         assert_eq!(main_checkout(&host, Path::new("/main")), None);
@@ -131,8 +143,10 @@ mod tests {
     #[test]
     fn the_configured_list_wins_over_every_built_folder() {
         let mut host = FakeHost::mac();
+
         host.dir(&format!("/jacket/native-libs/{}", host_platform()));
         let built = host_lib_dirs(&host, Path::new(STDLIB)).unwrap();
+
         assert_eq!(
             built,
             [PathBuf::from(format!(
@@ -142,6 +156,7 @@ mod tests {
         );
         host.dir("/a").dir("/b");
         let list = std::env::join_paths(["/a", "/b"]).unwrap();
+
         host.set(&env::NATIVE_LIBS, list.to_str().unwrap());
         assert_eq!(
             host_lib_dirs(&host, Path::new(STDLIB)).unwrap(),
@@ -152,11 +167,14 @@ mod tests {
     #[test]
     fn a_configured_folder_that_is_not_there_is_an_error() {
         let mut host = FakeHost::mac();
+
         host.dir("/a");
         host.dir(&format!("/jacket/native-libs/{}", host_platform()));
         let list = std::env::join_paths(["/a", "/gone"]).unwrap();
+
         host.set(&env::NATIVE_LIBS, list.to_str().unwrap());
         let error = host_lib_dirs(&host, Path::new(STDLIB)).unwrap_err();
+
         assert!(
             error.starts_with("JAIC_NATIVE_LIBS names /gone, which is not a folder"),
             "{error}"
@@ -169,12 +187,14 @@ mod tests {
         let platform = host_platform();
         let mut host = FakeHost::mac();
         let worktree_stdlib = "/main/.claude/worktrees/w/stdlib";
+
         host.text(
             "/main/.claude/worktrees/w/.git",
             "gitdir: /main/.git/worktrees/w\n",
         );
         host.text("/main/.git/worktrees/w/commondir", "../..\n");
         let found = |host: &FakeHost| host_lib_dirs(host, Path::new(worktree_stdlib)).unwrap();
+
         host.dir(&format!("/main/target/native-libs/{platform}"));
         assert_eq!(
             found(&host),
@@ -221,10 +241,12 @@ mod tests {
     #[test]
     fn a_cross_target_has_its_own_folder_and_mingw_its_own_name() {
         let mut host = FakeHost::new(Os::Linux, "x86_64");
+
         host.dir("/jacket/native-libs/windows-x64-mingw");
         host.dir("/jacket/native-libs/windows-x64");
         let dirs =
             |triple: &str| cross_lib_dirs(&host, Path::new(STDLIB), Target::parse(triple).unwrap());
+
         assert_eq!(
             dirs("x86_64-pc-windows-gnu"),
             [PathBuf::from("/jacket/native-libs/windows-x64-mingw")]

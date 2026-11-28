@@ -17,6 +17,7 @@ fn find_line_break(bytes: &[u8]) -> Option<usize> {
     const HIGHS: u64 = u64::from_ne_bytes([0x80; 8]);
     let (words, rest) = bytes.as_chunks::<8>();
     let mut base = 0;
+
     for chunk in words {
         let word = u64::from_ne_bytes(*chunk);
         // A byte of `word ^ pattern` is zero where `word` has that byte; the test below is
@@ -24,12 +25,15 @@ fn find_line_break(bytes: &[u8]) -> Option<usize> {
         let lf = word ^ (ONES * u64::from(b'\n'));
         let cr = word ^ (ONES * u64::from(b'\r'));
         let hit = ((lf.wrapping_sub(ONES) & !lf) | (cr.wrapping_sub(ONES) & !cr)) & HIGHS;
+
         if hit != 0 {
             let within = chunk.iter().position(|&b| b == b'\n' || b == b'\r');
             return within.map(|at| base + at);
         }
+
         base += 8;
     }
+
     rest.iter()
         .position(|&b| b == b'\n' || b == b'\r')
         .map(|at| base + at)
@@ -95,6 +99,7 @@ impl LineIndex {
             starts: vec![0],
             ends: Vec::new(),
         };
+
         index.scan(text);
         index
     }
@@ -104,11 +109,14 @@ impl LineIndex {
     /// `from` keep their entries; that line and every one after it are scanned again.
     pub fn update(&mut self, text: &str, from: usize) {
         let mut from = from.min(text.len());
+
         // A `\n` typed after a `\r` turns that line ending into `\r\n`.
         if from > 0 && text.as_bytes()[from - 1] == b'\r' {
             from -= 1;
         }
+
         let line = self.line_of(from);
+
         self.starts.truncate(line + 1);
         self.ends.truncate(line);
         self.scan(text);
@@ -118,6 +126,7 @@ impl LineIndex {
     fn scan(&mut self, text: &str) {
         let bytes = text.as_bytes();
         let mut at = self.starts.last().map_or(0, |&start| start as usize);
+
         while let Some(found) = find_line_break(&bytes[at..]) {
             let end = at + found;
             let next = if bytes[end] == b'\r' && bytes.get(end + 1) == Some(&b'\n') {
@@ -125,10 +134,12 @@ impl LineIndex {
             } else {
                 end + 1
             };
+
             self.ends.push(end as u32);
             self.starts.push(next as u32);
             at = next;
         }
+
         self.ends.push(text.len() as u32);
     }
 
@@ -176,6 +187,7 @@ impl LineIndex {
         let offset = text.floor_char_boundary(offset.min(text.len()));
         let line = self.line_of(offset);
         let start = self.starts[line] as usize;
+
         (line + 1, text[start..offset].chars().count() + 1)
     }
 
@@ -191,9 +203,11 @@ impl LineIndex {
         if offset > text.len() || !text.is_char_boundary(offset) {
             return None;
         }
+
         let line = self.line_of(offset);
         let end = offset.min(self.ends[line] as usize);
         let column = utf16_len(&text[self.starts[line] as usize..end]);
+
         Some((line as u32, column))
     }
 
@@ -206,12 +220,15 @@ impl LineIndex {
             return text.len();
         };
         let mut units = 0u32;
+
         for (relative, ch) in text[start..end].char_indices() {
             units += ch.len_utf16() as u32;
+
             if units > column {
                 return start + relative;
             }
         }
+
         end
     }
 }
@@ -227,10 +244,12 @@ pub fn utf16_len(text: &str) -> u32 {
 pub fn line_start(text: &str, offset: usize) -> usize {
     let bytes = text.as_bytes();
     let mut end = offset.min(bytes.len());
+
     // The `\n` of a `\r\n` still belongs to the line the `\r` ends.
     if end > 0 && bytes.get(end) == Some(&b'\n') && bytes[end - 1] == b'\r' {
         end -= 1;
     }
+
     bytes[..end]
         .iter()
         .rposition(|&b| b == b'\n' || b == b'\r')
@@ -242,9 +261,11 @@ pub fn line_start(text: &str, offset: usize) -> usize {
 pub fn line_end(text: &str, offset: usize) -> usize {
     let bytes = text.as_bytes();
     let mut from = offset.min(bytes.len());
+
     if from > 0 && bytes.get(from) == Some(&b'\n') && bytes[from - 1] == b'\r' {
         from -= 1;
     }
+
     from + bytes[from..]
         .iter()
         .position(|&b| b == b'\n' || b == b'\r')
@@ -335,6 +356,7 @@ pub struct SourceFile {
 impl SourceFile {
     pub fn new(path: SourcePath, text: Arc<str>) -> Self {
         let lines = LineIndex::new(&text);
+
         Self {
             path,
             text,
@@ -372,6 +394,7 @@ impl SourceFile {
     pub fn offset_of(&self, line: u32, col: u32) -> u32 {
         let index = (line.max(1) as usize - 1).min(self.lines.line_count() - 1);
         let start = self.lines.line_range(index).map_or(0, |r| r.0) as u32;
+
         (start + col.max(1) - 1).min(self.text.len() as u32)
     }
 
@@ -405,6 +428,7 @@ impl FileTable {
         // only appends.
         #[allow(unsafe_code)]
         let files = unsafe { &mut *self.files.get() };
+
         files.push(Rc::new(file));
         FileId(files.len() as u32 - 1)
     }
@@ -415,6 +439,7 @@ impl FileTable {
         #[allow(unsafe_code)]
         let files = unsafe { &*self.files.get() };
         let file = files.get(id.0 as usize)?;
+
         // SAFETY: files are never removed, so the `Rc` outlives `&self`.
         #[allow(unsafe_code)]
         Some(unsafe { &*Rc::as_ptr(file) })
@@ -443,6 +468,7 @@ impl Clone for SourceMap {
         // SAFETY: see `FileTable::push`.
         #[allow(unsafe_code)]
         let files = unsafe { &*self.table.files.get() };
+
         // SAFETY: `copy` is not shared yet.
         #[allow(unsafe_code)]
         unsafe {
@@ -479,6 +505,7 @@ impl TypecheckedState {
 
     fn register(&self, table: &Rc<FileTable>) {
         let mut tables = self.tables.borrow_mut();
+
         if !tables.iter().any(|known| Rc::ptr_eq(known, table)) {
             tables.push(table.clone());
         }
@@ -501,9 +528,11 @@ fn here_string_end(text: &str, at: usize) -> usize {
     let header = rest[..line_end].trim_start_matches(|c: char| c != ' ' && c != '\t');
     let delimiter = header.trim();
     let body = at + "#string".len() + line_end;
+
     if delimiter.is_empty() {
         return text.len();
     }
+
     text[body..]
         .find(delimiter)
         .map_or(text.len(), |found| body + found + delimiter.len())
@@ -516,9 +545,11 @@ fn without_comments(text: &str) -> std::borrow::Cow<'_, str> {
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let (mut i, mut depth, mut in_string) = (0, 0usize, false);
+
     while i < bytes.len() {
         let b = bytes[i];
         let next = bytes.get(i + 1).copied();
+
         if depth > 0 {
             if b == b'/' && next == Some(b'*') {
                 depth += 1;
@@ -529,38 +560,50 @@ fn without_comments(text: &str) -> std::borrow::Cow<'_, str> {
             } else {
                 i += 1;
             }
+
             out.push(b' ');
+
             continue;
         }
+
         if in_string {
             if b == b'\\' && next.is_some() {
                 out.extend_from_slice(&bytes[i..i + 2]);
                 i += 2;
+
                 continue;
             }
+
             in_string = b != b'"';
         } else if b == b'"' {
             in_string = true;
         } else if bytes[i..].starts_with(b"#string") {
             let end = here_string_end(text, i);
+
             out.extend_from_slice(&bytes[i..end]);
             i = end;
+
             continue;
         } else if b == b'/' && next == Some(b'/') {
             while i < bytes.len() && bytes[i] != b'\n' {
                 i += 1;
             }
+
             out.push(b' ');
+
             continue;
         } else if b == b'/' && next == Some(b'*') {
             depth = 1;
             i += 2;
             out.push(b' ');
+
             continue;
         }
+
         out.push(b);
         i += 1;
     }
+
     // Only whole comments were replaced by a space, so what is left is still valid UTF-8.
     String::from_utf8(out).map_or_else(|_| text.into(), Into::into)
 }
@@ -577,20 +620,25 @@ fn can_read_procedure_bodies(text: &str) -> bool {
         "Code_Procedure_Body",
         "PROCEDURE_BODY",
     ];
+
     let names_message = text.contains("Message_Typechecked");
     let candidate = (names_message && text.contains("all"))
         || text.contains(".all")
         || NAMES.iter().any(|name| text.contains(name));
+
     if !candidate {
         return false;
     }
+
     let code = without_comments(text);
     let word = |at: usize, len: usize| {
         let ident = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
         let bytes = code.as_bytes();
         let after = bytes.get(at + len).copied();
+
         !after.is_some_and(ident) && (at == 0 || !ident(bytes[at - 1]))
     };
+
     NAMES.iter().any(|name| code.contains(name))
         || code.match_indices(".all").any(|(at, _)| word(at + 1, 3))
         || (names_message && code.match_indices("all").any(|(at, _)| word(at, 3)))
@@ -600,14 +648,17 @@ fn note_typechecked_name(usage: &TypecheckedUse, path: &SourcePath, text: &str) 
     if usage.get() & TYPECHECKED_NAMED != 0 || !text.contains("Message_Typechecked") {
         return;
     }
+
     // The record type itself and the delivery code of the `Compiler` module.
     let own = crate::paths::to_slash(&path.to_string());
+
     if ["Compiler/contract-records.jai"]
         .iter()
         .any(|file| own.ends_with(file))
     {
         return;
     }
+
     usage.set(usage.get() | TYPECHECKED_NAMED);
 }
 
@@ -618,30 +669,38 @@ impl SourceMap {
     /// `Compiler` module's declarations do not count.
     pub fn reads_procedure_bodies(&self) -> bool {
         let usage = &self.typechecked_use;
+
         usage.register(&self.table);
+
         if usage.get() & TYPECHECKED_BODIES != 0 {
             return true;
         }
+
         for table in usage.tables.borrow().iter() {
             let upto = table.len();
+
             for id in table.scanned.get()..upto {
                 let Some(file) = table.get(FileId(id as u32)) else {
                     continue;
                 };
                 let own = crate::paths::to_slash(&file.path.to_string());
+
                 if ["Compiler/contract-records.jai", "Compiler/workspace.jai"]
                     .iter()
                     .any(|name| own.ends_with(name))
                 {
                     continue;
                 }
+
                 if can_read_procedure_bodies(&file.text) {
                     usage.set(usage.get() | TYPECHECKED_BODIES);
                     return true;
                 }
             }
+
             table.scanned.set(upto);
         }
+
         false
     }
 
@@ -654,6 +713,7 @@ impl SourceMap {
 
     pub fn add(&mut self, path: impl Into<SourcePath>, text: Arc<str>) -> FileId {
         let path = path.into();
+
         note_typechecked_name(&self.typechecked_use, &path, &text);
         self.table.push(SourceFile::new(path, text))
     }

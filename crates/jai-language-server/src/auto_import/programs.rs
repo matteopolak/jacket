@@ -40,9 +40,11 @@ impl Sources<'_> {
             let stamp = self
                 .read(&path)
                 .map(|text| crate::semantic::text_hash(text.as_bytes()));
+
             for (root, facts) in &index.builds {
                 if facts.dependencies.concerns(&path) {
                     let stale = index.stale_source_graphs.entry(root.clone()).or_default();
+
                     if stamp.is_some() && stamp == facts.sources.get(&path).copied() {
                         stale.remove(&path);
                     } else {
@@ -51,6 +53,7 @@ impl Sources<'_> {
                 }
             }
         }
+
         index
             .stale_source_graphs
             .retain(|_, paths| !paths.is_empty());
@@ -65,10 +68,12 @@ impl Sources<'_> {
         } else {
             let files = Listing(self).project_files(dir);
             let files = Rc::new(files);
+
             index.walked.insert(dir.to_path_buf(), files.clone());
             files
         };
         let mut all: BTreeSet<PathBuf> = walked.iter().cloned().collect();
+
         all.extend(
             self.open
                 .keys()
@@ -101,6 +106,7 @@ impl Sources<'_> {
         file: &Path,
     ) -> Option<(PathBuf, ProjectConfig)> {
         let mut dir = file.parent()?.to_path_buf();
+
         loop {
             // A broken file's folder is still the project's, with the entries it would infer.
             // What the settings would have changed is not applied, and no diagnostics are
@@ -110,9 +116,11 @@ impl Sources<'_> {
                 return Some((location.dir, ProjectConfig::default()));
             };
             let loaded = loaded?;
+
             if !loaded.config.project.is_empty() {
                 return Some((loaded.location.dir, loaded.config.project));
             }
+
             dir = loaded.location.dir.parent()?.to_path_buf();
         }
     }
@@ -137,6 +145,7 @@ impl Sources<'_> {
         // A loader next to or above the file also counts when there is no folder to search.
         let options = project::RootOptions::language_server(search);
         let fs = IndexFs::new(self, index);
+
         match project::enclosing_program(
             &fs,
             file,
@@ -160,6 +169,7 @@ impl Sources<'_> {
             .filter(|loaded| loaded.location.dir == base)
             .map(|loaded| loaded.config)
             .unwrap_or_default();
+
         self.project_files(index, base)
             .into_iter()
             .filter(|file| {
@@ -178,51 +188,67 @@ impl Sources<'_> {
         self.refresh_source_graphs(index);
         let mut entries = BTreeSet::new();
         let mut declared = BTreeSet::new();
+
         for folder in folders {
             let config = self.config(index, &folder.join("main.jai"));
             let base = config
                 .as_ref()
                 .map_or(folder.as_path(), |(dir, _)| dir.as_path());
             let found = project::entry_files(base, config.as_ref().map(|(_, c)| c));
+
             for path in found.paths.into_iter().filter(|p| self.is_file(p)) {
                 let path = self.key(&path);
+
                 if found.declared {
                     declared.insert(path.clone());
                 }
+
                 entries.insert(path);
             }
+
             for path in self.test_programs(index, &self.key(base)) {
                 declared.insert(path.clone());
                 entries.insert(path);
             }
         }
+
         let mut fallback = BTreeSet::new();
+
         for path in open {
             let program = self.program(index, path, folders);
+
             if let Some((dir, config)) = self.config(index, path) {
                 let found = project::entry_files(&dir, Some(&config));
+
                 for path in found.paths.into_iter().filter(|p| self.is_file(p)) {
                     let path = self.key(&path);
+
                     if found.declared {
                         declared.insert(path.clone());
                     }
+
                     entries.insert(path);
                 }
+
                 for path in self.test_programs(index, &self.key(&dir)) {
                     declared.insert(path.clone());
                     entries.insert(path);
                 }
             }
+
             if !jaic::paths::is_module_entry(&program.root) {
                 fallback.insert(program.root);
             }
         }
+
         if entries.is_empty() {
             entries = fallback;
         }
+
         // An inferred source already checked by an earlier entry is part of that program.
         // Explicit entries remain independent even when their source graphs overlap.
         let candidates = entries.clone();
+
         entries.retain(|entry| {
             declared.contains(entry)
                 || !candidates.range(..entry.clone()).any(|owner| {
@@ -254,6 +280,7 @@ impl Sources<'_> {
         let entries: BTreeSet<PathBuf> = match &base {
             Some(base) => {
                 let found = project::entry_files(base, config.as_ref().map(|(_, c)| c));
+
                 found
                     .paths
                     .iter()
@@ -263,6 +290,7 @@ impl Sources<'_> {
             }
             None => BTreeSet::new(),
         };
+
         (config, base, entries)
     }
 
@@ -279,6 +307,7 @@ impl Sources<'_> {
         let key = self.key(file);
         let folder_keys: Vec<_> = folders.iter().map(|p| self.key(p)).collect();
         let (_, _, entries) = self.project_entries(index, &key, &folder_keys);
+
         entries
             .into_iter()
             .filter(|entry| {
@@ -304,10 +333,13 @@ impl Sources<'_> {
         folders: &[PathBuf],
     ) -> Option<BTreeSet<PathBuf>> {
         self.refresh_source_graphs(index);
+
         if entries.is_empty() {
             return None;
         }
+
         let mut reached = BTreeSet::new();
+
         for entry in entries {
             // What a build metaprogram added is known from its run; for any other entry the
             // text says it all, so out-of-date facts of a plain entry are not consulted.
@@ -315,6 +347,7 @@ impl Sources<'_> {
                 .closure(index, entry)
                 .iter()
                 .any(|file| self.scan(index, file).adds_build_files);
+
             match index.builds.get(entry) {
                 Some(facts) if !index.stale_source_graphs.contains_key(entry) => {
                     reached.extend(facts.sources.keys().cloned());
@@ -322,6 +355,7 @@ impl Sources<'_> {
                 _ if metaprogram => return None,
                 _ => {}
             }
+
             let (config, base, _) = self.project_entries(index, entry, folders);
             let configured = match (&base, &config) {
                 (Some(base), Some((_, config))) => config.import_dirs(base),
@@ -332,22 +366,28 @@ impl Sources<'_> {
                     .parent()
                     .map_or_else(PathBuf::new, |p| p.join("modules")),
             ];
+
             if let Some(base) = &base {
                 dirs.extend(project::existing_dirs(
                     &Listing(self),
                     &project::import_paths(base, &configured, &[], Path::new("")),
                 ));
             }
+
             dirs.extend(self.import_dirs(index, entry, folders).0);
             let loaded = self.closure_with_modules(index, entry, &dirs);
             let mut pending: Vec<PathBuf> = loaded.into_iter().collect();
+
             while let Some(file) = pending.pop() {
                 if !reached.insert(file.clone()) {
                     continue;
                 }
+
                 let here = file.parent().map_or_else(PathBuf::new, Path::to_path_buf);
+
                 for path in self.scan(index, &file).path_imports.clone() {
                     let target = self.key(&project::normalize(&here.join(&path)));
+
                     if self.is_dir(&target) {
                         pending.extend(self.project_files(index, &target));
                     } else if self.is_file(&target) {
@@ -356,6 +396,7 @@ impl Sources<'_> {
                 }
             }
         }
+
         Some(reached)
     }
 
@@ -379,8 +420,10 @@ impl Sources<'_> {
             )
         };
         let mut out = BTreeSet::new();
+
         for folder in &folders {
             let ours = project(index, &folder.join("main.jai"));
+
             for file in self.project_files(index, folder) {
                 if !reached.contains(&file)
                     && !entries.contains(&file)
@@ -390,6 +433,7 @@ impl Sources<'_> {
                 }
             }
         }
+
         Some(out)
     }
 
@@ -405,6 +449,7 @@ impl Sources<'_> {
         let key = self.key(file);
         let folder_keys: Vec<_> = folders.iter().map(|p| self.key(p)).collect();
         let (_, base, _) = self.project_entries(index, &key, &folder_keys);
+
         base.is_some_and(|base| key.starts_with(base))
             && !entries.contains(&key)
             && self
@@ -420,13 +465,16 @@ impl Sources<'_> {
         let folders = folder_keys.as_slice();
         let (config, base, entries) = self.project_entries(index, file, folders);
         let mut found = None;
+
         for entry in &entries {
             let closure = self.closure(index, entry);
+
             if closure.contains(file) {
                 found = Some((entry.clone(), closure));
                 break;
             }
         }
+
         if found.is_none() {
             for entry in &entries {
                 if !index.stale_source_graphs.contains_key(entry)
@@ -442,6 +490,7 @@ impl Sources<'_> {
                 }
             }
         }
+
         // A file of a module the project keeps in its own folders (`modules/Simp/font.jai`)
         // belongs to the program that imports it: checked there, it sees what the program
         // gives it (`#module_parameters`, names a metaprogram pokes in).
@@ -456,11 +505,15 @@ impl Sources<'_> {
                 &Listing(self),
                 &project::import_paths(base, &configured, &[], Path::new("")),
             );
+
             dirs.retain(|d| file.starts_with(d));
+
             if !dirs.is_empty() {
                 for entry in &entries {
                     let mut entry_dirs = vec![entry.parent().unwrap_or(base).join("modules")];
+
                     entry_dirs.extend(dirs.iter().cloned());
+
                     if self
                         .closure_with_modules(index, entry, &entry_dirs)
                         .contains(file)
@@ -471,6 +524,7 @@ impl Sources<'_> {
                 }
             }
         }
+
         let unattributed: Vec<PathBuf> = match &found {
             None => entries
                 .iter()
@@ -486,6 +540,7 @@ impl Sources<'_> {
             // it sees the names its loader declares or imports.
             let root = self.loader_chain(index, file, base.as_deref());
             let closure = self.closure(index, &root);
+
             (root, closure)
         };
         let root_dir = root.parent().unwrap_or(Path::new("/")).to_path_buf();
@@ -495,6 +550,7 @@ impl Sources<'_> {
         };
         let mut options = (self.env.options)(&root);
         let found = self.import_dirs(index, &root, folders).0;
+
         jaic::project::add_import_dirs(&mut options.import_paths, &found);
         let stdlib = options.stdlib_root().map(Path::to_path_buf);
         let configured = match (&base, &config) {
@@ -515,6 +571,7 @@ impl Sources<'_> {
             .into_iter()
             .filter(|d| Some(d) != stdlib.as_ref().map(|s| self.key(s)).as_ref())
             .collect();
+
         Program {
             root,
             closure,

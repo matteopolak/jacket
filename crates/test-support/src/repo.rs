@@ -21,6 +21,7 @@ pub fn root() -> PathBuf {
 #[must_use]
 pub fn path(relative: &str) -> PathBuf {
     let path = root().join(relative);
+
     path.canonicalize()
         .unwrap_or_else(|error| panic!("{} does not exist: {error}", path.display()))
 }
@@ -32,6 +33,7 @@ pub fn path(relative: &str) -> PathBuf {
 #[must_use]
 pub fn read(relative: &str) -> String {
     let path = path(relative);
+
     std::fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("cannot read {}: {error}", path.display()))
 }

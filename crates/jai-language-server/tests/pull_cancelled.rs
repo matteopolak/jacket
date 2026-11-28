@@ -31,12 +31,14 @@ fn session(with_environment: bool) -> (JsonSession, String) {
     } else {
         JsonSession::new(Limits::default())
     };
+
     send(
         &mut json,
         &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
             "capabilities": {"textDocument": {"diagnostic": {}}}}}),
     );
     let uri = file_uri("/pull/cancelled.jai").as_str().to_string();
+
     send(
         &mut json,
         &json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {
@@ -65,17 +67,21 @@ fn a_pull_whose_check_was_stopped_is_cancelled_with_retrigger() {
     let _guard = LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+
     reset();
     let (mut json, uri) = session(true);
+
     jaic::interrupt::arm();
     jaic::interrupt::stop_after(3);
     let stopped = pull(&mut json, &uri);
+
     reset();
     assert_eq!(stopped["error"]["code"], -32802, "{stopped}");
     assert_eq!(stopped["error"]["data"]["retriggerRequest"], true);
     assert!(stopped.get("result").is_none());
     // The retry, undisturbed, is the full report.
     let again = pull(&mut json, &uri);
+
     assert_eq!(again["result"]["kind"], "full");
     assert!(
         !again["result"]["items"].as_array().unwrap().is_empty(),
@@ -88,9 +94,11 @@ fn a_session_without_an_environment_reports_what_it_has() {
     let _guard = LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+
     reset();
     let (mut json, uri) = session(false);
     let report = pull(&mut json, &uri);
+
     assert_eq!(report["result"]["kind"], "full", "{report}");
     assert!(report.get("error").is_none());
 }
@@ -100,16 +108,20 @@ fn pushed_diagnostics_leave_out_a_document_whose_check_was_stopped() {
     let _guard = LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+
     reset();
     let mut session = test_support::lsp::lean_session();
     let uri = file_uri("/pull/pushed.jai");
+
     session.open(uri.clone(), 1, SOURCE.into()).unwrap();
     jaic::interrupt::arm();
     jaic::interrupt::stop_after(3);
     let stopped = session.publications();
+
     reset();
     assert!(stopped.is_empty(), "{stopped:?}");
     let again = session.publications();
+
     assert_eq!(again.len(), 1);
     assert!(!again[0].2.is_empty());
 }

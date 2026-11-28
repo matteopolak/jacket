@@ -28,7 +28,9 @@ fn jai_files(dir: &Path, out: &mut Vec<PathBuf>) {
         .unwrap()
         .map(|e| e.unwrap().path())
         .collect();
+
     entries.sort();
+
     for path in entries {
         if path.is_dir() {
             jai_files(&path, out);
@@ -48,34 +50,44 @@ fn is_appledouble_metadata(path: &Path) -> bool {
     {
         return false;
     }
+
     let mut file = std::fs::File::open(path)
         .unwrap_or_else(|error| panic!("cannot read source candidate {}: {error}", path.display()));
     let size = file.metadata().unwrap().len();
     let mut header = [0; 26];
+
     if let Err(error) = file.read_exact(&mut header) {
         if error.kind() == std::io::ErrorKind::UnexpectedEof {
             return false;
         }
+
         panic!("cannot read source candidate {}: {error}", path.display());
     }
+
     // RFC1740 appendices A/B: big-endian magic, version, filler and entry count.
     if header[..8] != [0, 5, 0x16, 7, 0, 2, 0, 0] {
         return false;
     }
+
     let count = u16::from_be_bytes([header[24], header[25]]);
     let table_end = 26 + u64::from(count) * 12;
+
     if table_end > size {
         return false;
     }
+
     for _ in 0..count {
         let mut entry = [0; 12];
+
         file.read_exact(&mut entry).unwrap();
         let offset = u64::from(u32::from_be_bytes(entry[4..8].try_into().unwrap()));
         let length = u64::from(u32::from_be_bytes(entry[8..12].try_into().unwrap()));
+
         if length > 0 && (offset < table_end || offset + length > size) {
             return false;
         }
     }
+
     true
 }
 
@@ -93,11 +105,13 @@ fn source_discovery_preserves_source_and_excludes_appledouble_metadata() {
     let named_source = root.join("._legitimate.jai");
     let invalid_source = root.join("invalid.jai");
     let metadata = root.join("._module.jai");
+
     std::fs::write(&source, "main :: () {}").unwrap();
     std::fs::write(&named_source, "value :: 17;").unwrap();
     std::fs::write(&invalid_source, [0xff]).unwrap();
     // RFC1740 AppleDouble v2 header with one opaque binary resource-fork entry.
     let mut header = vec![0; 26];
+
     header[..8].copy_from_slice(&[0, 5, 0x16, 7, 0, 2, 0, 0]);
     header[24..].copy_from_slice(&[0, 1]);
     header.extend_from_slice(&2_u32.to_be_bytes());
@@ -110,6 +124,7 @@ fn source_discovery_preserves_source_and_excludes_appledouble_metadata() {
         std::io::ErrorKind::InvalidData
     );
     let mut found = Vec::new();
+
     jai_files(&root, &mut found);
     assert!(found.contains(&source) && found.contains(&named_source));
     assert!(
@@ -139,9 +154,11 @@ fn source_discovery_retains_invalid_sidecar_named_sources() {
     ));
     let invalid = root.join("._invalid.jai");
     let truncated = root.join("._truncated.jai");
+
     std::fs::write(&invalid, [0xff, 0xfe, 0xfd]).unwrap();
     std::fs::write(&truncated, [0, 5, 0x16, 7, 0, 2, 0, 0]).unwrap();
     let mut found = Vec::new();
+
     jai_files(&root, &mut found);
     assert_eq!(found.len(), 2);
     assert!(found.contains(&invalid) && found.contains(&truncated));
@@ -160,6 +177,7 @@ fn source_discovery_does_not_hide_invalid_metadata_headers_or_plain_sources() {
             .as_nanos()
     ));
     let mut header = vec![0; 26];
+
     header[..8].copy_from_slice(&[0, 5, 0x16, 7, 0, 2, 0, 0]);
     header[24..].copy_from_slice(&[0, 1]);
     std::fs::write(root.join("._missing-table.jai"), &header).unwrap();
@@ -169,6 +187,7 @@ fn source_discovery_does_not_hide_invalid_metadata_headers_or_plain_sources() {
     std::fs::write(root.join("._bad-extent.jai"), &header).unwrap();
     std::fs::write(root.join("ordinary.jai"), &header).unwrap();
     let mut found = Vec::new();
+
     jai_files(&root, &mut found);
     assert_eq!(
         found.len(),
@@ -181,6 +200,7 @@ fn source_discovery_does_not_hide_invalid_metadata_headers_or_plain_sources() {
 /// The end of the string literal that starts at `start` (just past its closing quote).
 fn skip_string(s: &[u8], start: usize) -> usize {
     let mut i = start + 1;
+
     while i < s.len() && s[i] != b'"' {
         i += if s[i] == b'\\' {
             2
@@ -188,6 +208,7 @@ fn skip_string(s: &[u8], start: usize) -> usize {
             1
         };
     }
+
     i + 1
 }
 
@@ -201,11 +222,14 @@ struct Selector {
 fn selectors(text: &str) -> Vec<Selector> {
     let s = text.as_bytes();
     let mut out = Vec::new();
+
     for alias in foreign_aliases(text, "sel_registerName") {
         let call = format!("{alias}(");
         let mut from = 0;
+
         while let Some(found) = text[from..].find(&call) {
             let start = from + found;
+
             from = start + call.len();
             let mut i = from;
             let skip_space = |i: &mut usize| {
@@ -213,27 +237,35 @@ fn selectors(text: &str) -> Vec<Selector> {
                     *i += 1;
                 }
             };
+
             skip_space(&mut i);
+
             if text[i..].starts_with("cast(*u8)") {
                 i += "cast(*u8)".len();
                 skip_space(&mut i);
             }
+
             if s.get(i) != Some(&b'"') {
                 continue; // Not a literal: a selector built at run time.
             }
+
             let close = skip_string(s, i);
             let name = text[i + 1..close - 1].trim_end_matches("\\0").to_string();
             let mut j = close;
+
             skip_space(&mut j);
+
             if s.get(j) != Some(&b')') {
                 continue;
             }
+
             out.push(Selector {
                 name,
                 start,
             });
         }
     }
+
     out.sort_by_key(|selector| selector.start);
     out
 }
@@ -242,10 +274,12 @@ fn selectors(text: &str) -> Vec<Selector> {
 /// explicit aliases instead of depending on the generator's private names.
 fn foreign_aliases(text: &str, symbol: &str) -> BTreeSet<String> {
     let mut names = BTreeSet::from([symbol.to_string()]);
+
     for line in text.lines() {
         let Some((declaration, foreign)) = line.split_once("#foreign") else {
             continue;
         };
+
         if !foreign
             .trim_end_matches(';')
             .trim()
@@ -253,13 +287,16 @@ fn foreign_aliases(text: &str, symbol: &str) -> BTreeSet<String> {
         {
             continue;
         }
+
         if let Some((name, _)) = declaration.split_once("::") {
             let name = name.trim();
+
             if !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || c == '_') {
                 names.insert(name.to_string());
             }
         }
     }
+
     names
 }
 
@@ -267,8 +304,10 @@ fn foreign_aliases(text: &str, symbol: &str) -> BTreeSet<String> {
 fn enclosing_call(s: &[u8], pos: usize) -> Option<usize> {
     let mut depth = 0;
     let mut i = pos;
+
     while i > 0 {
         i -= 1;
+
         match s[i] {
             b')' => depth += 1,
             b'(' if depth == 0 => return Some(i),
@@ -277,6 +316,7 @@ fn enclosing_call(s: &[u8], pos: usize) -> Option<usize> {
             _ => {}
         }
     }
+
     None
 }
 
@@ -287,6 +327,7 @@ fn call_arguments(text: &str, open: usize) -> Vec<(usize, String)> {
     let mut depth = 0;
     let mut start = open + 1;
     let mut i = open + 1;
+
     while i < s.len() {
         match s[i] {
             b'"' => {
@@ -305,8 +346,10 @@ fn call_arguments(text: &str, open: usize) -> Vec<(usize, String)> {
             }
             _ => {}
         }
+
         i += 1;
     }
+
     args
 }
 
@@ -327,14 +370,17 @@ fn enclosing_struct(text: &str, pos: usize) -> Option<String> {
     let s = text.as_bytes();
     let mut depth = 0;
     let mut i = pos;
+
     while i > 0 {
         i -= 1;
+
         match s[i] {
             b'}' => depth += 1,
             b'{' if depth > 0 => depth -= 1,
             b'{' => {
                 let line_start = jaic::source::line_start(text, i);
                 let head = &text[line_start..i];
+
                 if let Some(at) = head.find(":: struct") {
                     return head[..at].split_whitespace().last().map(str::to_string);
                 }
@@ -342,6 +388,7 @@ fn enclosing_struct(text: &str, pos: usize) -> Option<String> {
             _ => {}
         }
     }
+
     None
 }
 
@@ -354,6 +401,7 @@ fn self_type(text: &str, pos: usize) -> Option<String> {
         .split(',')
         .find_map(|p| p.trim().strip_prefix("self:"))?
         .trim();
+
     Some(ty.to_string())
 }
 
@@ -372,15 +420,18 @@ fn receiver(text: &str, call_pos: usize, receiver_arg: &str) -> Option<Receiver>
             let rest = &receiver_arg[at..];
             let quote = rest.find('"')?;
             let name = rest[quote + 1..].split(['"', '\\']).next()?;
+
             return Some(Receiver {
                 class: runtime_class(name).to_string(),
                 instance: false,
             });
         }
     }
+
     if receiver_arg.trim_start_matches("cast(*void)").trim() != "self" {
         return None; // A local object: only its arity is checked.
     }
+
     let declared = self_type(text, call_pos).unwrap_or_default();
     let named = declared
         .strip_prefix('*')
@@ -396,6 +447,7 @@ fn receiver(text: &str, call_pos: usize, receiver_arg: &str) -> Option<Receiver>
         // in, else a method every object has.
         None => enclosing_struct(text, call_pos).unwrap_or_else(|| "NSObject".to_string()),
     };
+
     Some(Receiver {
         class: runtime_class(&class).to_string(),
         instance: true,
@@ -409,20 +461,25 @@ fn table_field(text: &str, sel_start: usize) -> Option<&str> {
     let head = &text[line_start..sel_start];
     let (target, value) = head.split_once('=')?;
     let target = target.trim();
+
     if target.ends_with(':') || value.starts_with('=') {
         return None; // A declaration (`x := ...`) or a comparison.
     }
+
     // What may stand between `=` and the selector: casts and a module prefix.
     let mut rest = value.trim();
+
     while let Some(after) = rest.strip_prefix("cast(") {
         rest = after.split_once(')')?.1.trim();
     }
+
     if !rest
         .chars()
         .all(|c| c.is_alphanumeric() || c == '_' || c == '.')
     {
         return None;
     }
+
     target.rsplit('.').next().filter(|f| !f.is_empty())
 }
 
@@ -437,6 +494,7 @@ struct Uses {
 fn scan() -> Uses {
     let root = stdlib();
     let mut files = Vec::new();
+
     jai_files(&root, &mut files);
     let mut uses = Uses {
         problems: Vec::new(),
@@ -445,6 +503,7 @@ fn scan() -> Uses {
         tables: 0,
         literals: 0,
     };
+
     for file in files {
         let text = std::fs::read_to_string(&file).unwrap_or_else(|error| {
             panic!(
@@ -454,23 +513,29 @@ fn scan() -> Uses {
         });
         let s = text.as_bytes();
         let shown = file.strip_prefix(&root).unwrap().display().to_string();
+
         for sel in selectors(&text) {
             uses.literals += 1;
             let colons = sel.name.matches(':').count();
             let at = format!("stdlib/{shown}:{}", line_of(&text, sel.start));
+
             if let Some(field) = table_field(&text, sel.start) {
                 uses.tables += 1;
+
                 if field != sel.name.replace(':', "_") {
                     uses.problems.push(format!(
                         "{at}: table entry `{field}` holds selector `{}`",
                         sel.name
                     ));
                 }
+
                 continue;
             }
+
             let Some(open) = enclosing_call(s, sel.start) else {
                 continue;
             };
+
             uses.calls += 1;
             let args = call_arguments(&text, open);
             // The argument the selector is in: the last one that starts before it.
@@ -478,12 +543,14 @@ fn scan() -> Uses {
                 continue;
             };
             let after = args.len() - index - 1;
+
             if after != colons {
                 uses.problems.push(format!(
                     "{at}: `{}` takes {colons} argument(s) but is sent with {after}",
                     sel.name
                 ));
             }
+
             if index > 0
                 && let Some(r) = receiver(&text, sel.start, &args[index - 1].1)
             {
@@ -491,12 +558,14 @@ fn scan() -> Uses {
             }
         }
     }
+
     uses
 }
 
 #[test]
 fn selectors_take_the_arguments_they_are_sent_with() {
     let uses = scan();
+
     // Every discovered literal must be checked. Counts from another private
     // declaration/table organization are not a public ABI requirement.
     assert!(
@@ -517,10 +586,12 @@ fn selectors_take_the_arguments_they_are_sent_with() {
 fn native_aliases_keep_selector_and_class_checks() {
     let text = "choose :: (name: *u8) -> *void #foreign runtime \"sel_registerName\";\nclass_lookup :: (name: *u8) -> *void #foreign runtime \"objc_getClass\";\nmain :: () { send(class_lookup(\"NSString\"), choose(\"stringWithBytes:length:encoding:\"), bytes, count, encoding); }";
     let found = selectors(text);
+
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].name, "stringWithBytes:length:encoding:");
     let open = enclosing_call(text.as_bytes(), found[0].start).unwrap();
     let arguments = call_arguments(text, open);
+
     assert_eq!(arguments.len(), 5);
     assert_eq!(
         receiver(text, found[0].start, &arguments[0].1),
@@ -535,12 +606,14 @@ fn native_aliases_keep_selector_and_class_checks() {
 /// runtime lacks, and `unknown <class>` for names that are neither a class nor a protocol.
 fn check_program(receivers: &BTreeSet<(Receiver, String)>) -> String {
     let mut entries = String::new();
+
     for (r, selector) in receivers {
         entries.push_str(&format!(
             "    .{{ \"{}\", \"{selector}\", {} }},\n",
             r.class, r.instance
         ));
     }
+
     format!(
         r#"#import "Basic";
 #import "String";
@@ -652,7 +725,9 @@ fn selectors_exist_in_the_objective_c_runtime() {
     let program = check_program(&uses.receivers);
     let dir = TempDir::new("objc-selectors");
     let source = dir.join("check.jai");
+
     std::fs::write(&source, program).unwrap();
+
     if !cfg!(target_os = "macos") {
         // Elsewhere there is no Objective-C runtime to ask; the program must still type-check.
         let output = std::process::Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -661,19 +736,23 @@ fn selectors_exist_in_the_objective_c_runtime() {
             .args(["-os", "macos"])
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
+
         return;
     }
+
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_jaic"))
         .arg("-interp")
         .arg(&source)
         .output()
         .unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
+
     assert!(
         output.status.success(),
         "{stdout}{}",
@@ -690,14 +769,17 @@ fn selectors_exist_in_the_objective_c_runtime() {
         .collect();
     let found: BTreeSet<String> = stdout.lines().map(str::to_string).collect();
     let mut problems = Vec::new();
+
     for line in found.difference(&listed) {
         problems.push(format!("not in the runtime: {line}"));
     }
+
     for line in listed.difference(&found) {
         problems.push(format!(
             "found now, remove from tests/compiler/objc-selectors.txt: {line}"
         ));
     }
+
     assert!(
         problems.is_empty(),
         "{} of {} selector uses differ from tests/compiler/objc-selectors.txt:\n{}",

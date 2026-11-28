@@ -76,8 +76,10 @@ fn arithmetic_overflow_checks() {
             "",
         ),
     ];
+
     for (name, mode, body, ok, stdout, stderr) in cases {
         let meta = dir.join(format!("{name}.jai"));
+
         std::fs::write(
             &meta,
             format!(
@@ -107,6 +109,7 @@ END
         )
         .unwrap();
         let build = jaic().arg(&meta).current_dir(&dir).output().unwrap();
+
         assert!(
             build.status.success(),
             "{name}: build failed: {}",
@@ -116,6 +119,7 @@ END
             .output()
             .unwrap();
         let err = String::from_utf8_lossy(&run.stderr);
+
         assert_eq!(
             run.status.success(),
             ok,
@@ -124,6 +128,7 @@ END
         );
         assert_eq!(String::from_utf8_lossy(&run.stdout), stdout, "{name}");
         assert!(err.contains(stderr), "{name}: stderr was {err:?}");
+
         if stderr.is_empty() {
             assert!(
                 !err.contains("overflow"),
@@ -178,8 +183,10 @@ fn failed_checks_say_what_and_where() {
             "null pointer dereference: read at address 0x8, just past null (a member of a null struct pointer?)",
         ),
     ];
+
     for (name, body, line, message) in cases {
         let source = dir.join(format!("{name}.jai"));
+
         std::fs::write(
             &source,
             format!("#import \"Basic\";\nColor :: enum {{ RED; GREEN; }}\nPair :: struct {{ a: int; b: int; }}\nmain :: () {{\n    {body}\n}}\n"),
@@ -187,6 +194,7 @@ fn failed_checks_say_what_and_where() {
         .unwrap();
         let output = build_and_run(&source, &dir, name).unwrap();
         let err = String::from_utf8_lossy(&output.stderr);
+
         assert!(!output.status.success(), "{name}: ran to the end\n{err}");
         assert!(
             err.contains(&format!("{name}.jai:{line}: error: {message}\n")),
@@ -198,6 +206,7 @@ fn failed_checks_say_what_and_where() {
     // An `#asm` divide fault is reported even when nothing else in the program has a check
     // (no Basic, no indexing), so it is the only code that needs the reporting procedure.
     let source = dir.join("asm_divide.jai");
+
     std::fs::write(
         &source,
         "divisor: u64;\nmain :: () {\n    hi: u64 = 0;\n    lo: u64 = 7;\n    d := divisor;\n    #asm { div hi, lo, d; }\n}\n",
@@ -205,6 +214,7 @@ fn failed_checks_say_what_and_where() {
     .unwrap();
     let output = build_and_run(&source, &dir, "asm_divide").unwrap();
     let err = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         !output.status.success(),
         "asm_divide: ran to the end\n{err}"
@@ -216,6 +226,7 @@ fn failed_checks_say_what_and_where() {
 
     // .NONFATAL reports a warning and goes on with the low bits.
     let meta = dir.join("nonfatal.jai");
+
     std::fs::write(
         &meta,
         r#"#import "Compiler";
@@ -243,6 +254,7 @@ END
     )
     .unwrap();
     let build = jaic().arg(&meta).current_dir(&dir).output().unwrap();
+
     assert!(
         build.status.success(),
         "nonfatal: build failed: {}",
@@ -252,6 +264,7 @@ END
         .output()
         .unwrap();
     let err = String::from_utf8_lossy(&run.stderr);
+
     assert!(run.status.success(), "nonfatal: {err}");
     assert_eq!(String::from_utf8_lossy(&run.stdout), "45\n");
     assert!(
@@ -305,8 +318,10 @@ fn null_checks_skipped_after_a_check_still_catch_changes() {
             "",
         ),
     ];
+
     for (name, body, line, stdout) in cases {
         let source = dir.join(format!("{name}.jai"));
+
         std::fs::write(
             &source,
             format!("#import \"Basic\";\nPair :: struct {{ a: int; b: int; }}\nmain :: () {{\n    {body}\n}}\n"),
@@ -314,7 +329,9 @@ fn null_checks_skipped_after_a_check_still_catch_changes() {
         .unwrap();
         let output = build_and_run(&source, &dir, name).unwrap();
         let err = String::from_utf8_lossy(&output.stderr);
+
         assert_eq!(String::from_utf8_lossy(&output.stdout), stdout, "{name}");
+
         if line == 0 {
             assert!(output.status.success(), "{name}: failed\n{err}");
         } else {
@@ -334,6 +351,7 @@ fn null_checks_skipped_after_a_check_still_catch_changes() {
 #[test]
 fn simp_window_program_checks_on_desktop_oses() {
     let source = repo_root().join("stdlib/Simp/tests/window-program.jai");
+
     for os in ["linux", "windows", "macos"] {
         let output = jaic()
             .arg("-check")
@@ -341,6 +359,7 @@ fn simp_window_program_checks_on_desktop_oses() {
             .args(["-os", os])
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{os}: {}",

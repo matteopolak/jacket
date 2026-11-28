@@ -32,9 +32,11 @@ fn check_via(
     via: &dyn Fn(&Path) -> Option<PathBuf>,
 ) {
     let mut files = vec![(build_path, build), ("src/main.jai", MAIN)];
+
     if let Some(toml) = toml {
         files.push(("jacket.toml", toml));
     }
+
     let dir = project(name, &files);
     let Some(editor_dir) = via(&dir) else {
         return;
@@ -47,6 +49,7 @@ fn check_via(
         .filter(|d| d.code == DiagnosticCode::Check)
         .map(|d| d.message)
         .collect();
+
     assert_eq!(errors, Vec::<String>::new(), "{name}");
     let hover = s
         .hover(&uri, at(&text, "answer :="))
@@ -54,10 +57,12 @@ fn check_via(
         .unwrap_or_else(|| panic!("{name}: no hover"))
         .contents
         .value;
+
     assert!(hover.contains("answer: s64"), "{name}: {hover}");
     let def = s
         .definition(&uri, at(&text, "helper(21)"))
         .unwrap_or_else(|e| panic!("{name}: {e:?}"));
+
     assert!(format!("{def:?}").contains("main.jai"), "{name}: {def:?}");
 }
 
@@ -99,6 +104,7 @@ fn computed_main_path_with_the_build_file_listed() {
         "add_build_file(\"src/main.jai\", w);",
         "add_build_file(tprint(\"%/src/main.jai\", #filepath), w);",
     );
+
     for (name, toml) in [
         ("computed-none", None),
         (
@@ -118,6 +124,7 @@ fn computed_main_path_with_the_build_file_listed() {
 #[test]
 fn build_file_in_a_subfolder() {
     let build = BUILD.replace("\"src/main.jai\"", "\"../src/main.jai\"");
+
     for (name, toml) in [
         ("sub-none", None),
         (
@@ -145,6 +152,7 @@ fn spellings_of_the_added_path() {
             let leaf = format!("jailsp-buildfile-{name}-{}", std::process::id());
             let path = spelled.replace("{DIR}", &leaf);
             let build = BUILD.replace("\"src/main.jai\"", &format!("\"{path}\""));
+
             check_with(name, toml, "build.jai", &build);
         }
     }
@@ -158,6 +166,7 @@ fn project_opened_through_a_symlink() {
             let leaf = dir.file_name().unwrap().to_string_lossy().into_owned();
             let link = dir.with_file_name(format!("{leaf}-link"));
             let _ = std::fs::remove_file(&link);
+
             std::os::unix::fs::symlink(dir, &link).ok()?;
             Some(link)
         });
@@ -183,5 +192,6 @@ fn computed_untidy_absolute_path() {
         "add_build_file(\"src/main.jai\", w);",
         "path := tprint(\"%/./src//main.jai\", #filepath);\n    add_build_file(path, w);",
     );
+
     check_with("abs-odd", BUILD_TOML, "build.jai", &build);
 }

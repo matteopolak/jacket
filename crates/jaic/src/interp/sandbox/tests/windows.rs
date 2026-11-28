@@ -19,6 +19,7 @@ fn windows_file_round_trip() {
             0,
         ],
     );
+
     assert_ne!(handle, u64::MAX);
     let mut done = 0u32;
     let payload = b"hello windows";
@@ -33,6 +34,7 @@ fn windows_file_round_trip() {
             0,
         ],
     );
+
     assert_eq!((ok, done as usize), (1, payload.len()));
     assert_eq!(call(&mut h, "CloseHandle", &[handle]), 1);
 
@@ -49,6 +51,7 @@ fn windows_file_round_trip() {
             0,
         ],
     );
+
     assert_ne!(handle, u64::MAX);
     let mut buf = [0u8; 32];
     let ok = call(
@@ -62,9 +65,11 @@ fn windows_file_round_trip() {
             0,
         ],
     );
+
     assert_eq!((ok, done as usize), (1, payload.len()));
     assert_eq!(&buf[..payload.len()], payload);
     let mut size = 0u64;
+
     assert_eq!(
         call(&mut h, "GetFileSizeEx", &[handle, &raw mut size as u64]),
         1
@@ -87,6 +92,7 @@ fn windows_file_round_trip() {
             0,
         ],
     );
+
     assert_eq!(bad, u64::MAX);
     assert_eq!(call(&mut h, "GetLastError", &[]), 2);
 }
@@ -98,6 +104,7 @@ fn windows_file_round_trip() {
 )]
 fn windows_find_files_lists_a_directory() {
     let mut h = host();
+
     h.fs.dirs.insert("/tmp/d".to_string());
     h.fs.files
         .insert("/tmp/d/a.txt".to_string(), b"abc".to_vec());
@@ -109,6 +116,7 @@ fn windows_find_files_lists_a_directory() {
         "FindFirstFileW",
         &[pattern.as_ptr() as u64, data.as_mut_ptr() as u64],
     );
+
     assert_ne!(find, u64::MAX);
     let name_of = |data: &[u8]| {
         let units: Vec<u16> = data[44..44 + 520]
@@ -121,14 +129,18 @@ fn windows_find_files_lists_a_directory() {
         String::from_utf16(&units).unwrap()
     };
     let mut names = vec![name_of(&data)];
+
     loop {
         let ok = call(&mut h, "FindNextFileW", &[find, data.as_mut_ptr() as u64]);
+
         if ok == 0 {
             assert_eq!(call(&mut h, "GetLastError", &[]), 18);
             break;
         }
+
         names.push(name_of(&data));
     }
+
     names.sort();
     assert_eq!(names, [".", "..", "a.txt", "b.txt"]);
     assert_eq!(call(&mut h, "FindClose", &[find]), 1);
@@ -139,6 +151,7 @@ fn windows_find_files_lists_a_directory() {
         "FindFirstFileW",
         &[none.as_ptr() as u64, data.as_mut_ptr() as u64],
     );
+
     assert_eq!(bad, u64::MAX);
 }
 
@@ -160,6 +173,7 @@ fn windows_text_conversion_and_current_directory() {
         ],
     );
     let expected: Vec<u16> = text.encode_utf16().collect();
+
     assert_eq!(n as usize, expected.len());
     assert_eq!(&utf16[..expected.len()], &expected[..]);
     // A room of 0 asks for the count only.
@@ -186,6 +200,7 @@ fn windows_text_conversion_and_current_directory() {
             0,
         ],
     );
+
     assert_eq!(&back[..m as usize], text.as_bytes());
 
     let mut cwd = [0u16; 16];
@@ -194,6 +209,7 @@ fn windows_text_conversion_and_current_directory() {
         "GetCurrentDirectoryW",
         &[16, cwd.as_mut_ptr() as u64],
     );
+
     assert_eq!(String::from_utf16(&cwd[..len as usize]).unwrap(), "/tmp");
     // Too small: the size needed, terminator included.
     assert_eq!(
@@ -209,6 +225,7 @@ fn windows_text_conversion_and_current_directory() {
 #[test]
 fn windows_process_creation_is_access_denied() {
     let mut h = host();
+
     for symbol in [
         "CreateProcessW",
         "CreateProcessA",

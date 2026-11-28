@@ -19,6 +19,7 @@ fn the_module_assembly_assembles_for_every_target() {
         ("aarch64-pc-windows-msvc", Arch::Win64Arm, false),
         ("i686-unknown-linux-gnu", Arch::X86, false),
     ];
+
     for (triple, arch, macho) in cases {
         let triple = TargetTriple::create(triple);
         let Ok(target) = Target::from_triple(&triple) else {
@@ -37,11 +38,13 @@ fn the_module_assembly_assembles_for_every_target() {
             .unwrap();
         let context = Context::create();
         let module = context.create_module("fiber");
+
         module.set_triple(&triple);
         module.set_inline_assembly(&jaic::fiber::module_asm(arch, macho).unwrap());
         let object = machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap_or_else(|e| panic!("{triple} does not assemble: {e}"));
+
         assert!(!object.as_slice().is_empty(), "{triple} produced no object");
     }
 }

@@ -5,6 +5,7 @@ use test_support::TempDir;
 #[test]
 fn default_assertions_report_faults_and_custom_callbacks_can_continue() {
     let dir = TempDir::new("interpreter-assertion-callbacks");
+
     for (name, source, status, diagnostic) in [
         (
             "hidden-frame",
@@ -32,20 +33,24 @@ fn default_assertions_report_faults_and_custom_callbacks_can_continue() {
         ),
     ] {
         let file = dir.join(format!("{name}.jai"));
+
         std::fs::write(&file, source).unwrap();
         let result = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(file)
             .args(["-interp", "-no_workspace_output"])
             .output()
             .unwrap();
+
         assert_eq!(result.status.code(), Some(status), "{name}: {result:?}");
         let stderr = String::from_utf8_lossy(&result.stderr);
+
         if status == 0 {
             assert_eq!(result.stdout, b"ok\n");
             assert!(stderr.is_empty(), "{stderr}");
         } else {
             assert!(stderr.contains(diagnostic), "{name}: {stderr}");
             assert!(stderr.contains("error["), "{name}: {stderr}");
+
             if name == "hidden-frame" {
                 assert!(stderr.contains("`visible` at"), "{stderr}");
                 assert!(!stderr.contains("`hidden` at"), "{stderr}");
@@ -74,14 +79,17 @@ main :: () {
 }
 ";
     let file = dir.join("lines.jai");
+
     std::fs::write(&file, source).unwrap();
     let result = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .arg(&file)
         .args(["-interp", "-no_workspace_output"])
         .output()
         .unwrap();
+
     assert_eq!(result.status.code(), Some(1), "{result:?}");
     let stderr = String::from_utf8_lossy(&result.stderr);
+
     assert!(
         stderr.contains("lines.jai:9:9: error[runtime-error]:"),
         "{stderr}"
@@ -97,6 +105,7 @@ main :: () {
 #[test]
 fn the_run_ends_while_a_thread_waits_in_c() {
     let dir = TempDir::new("interpreter-exit-blocked-thread");
+
     for (name, ending, status) in [
         ("returns", "print(\"done\\n\");", 0),
         ("asserts", "assert(false, \"blocked thread marker\");", 1),
@@ -108,6 +117,7 @@ fn the_run_ends_while_a_thread_waits_in_c() {
              thread_init(*t, (t: *Thread) -> s64 {{ wait_for(*sem); return 0; }});\n    \
              thread_start(*t);\n    sleep_milliseconds(50);\n    {ending}\n}}\n"
         );
+
         std::fs::write(&file, source).unwrap();
         let mut child = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(&file)
@@ -121,12 +131,16 @@ fn the_run_ends_while_a_thread_waits_in_c() {
             if let Some(exit) = child.try_wait().unwrap() {
                 break exit.code();
             }
+
             if std::time::Instant::now() > deadline {
                 let _ = child.kill();
+
                 panic!("{name}: the run did not end after main returned");
             }
+
             std::thread::sleep(std::time::Duration::from_millis(50));
         };
+
         assert_eq!(code, Some(status), "{name}");
     }
 }

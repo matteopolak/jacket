@@ -35,6 +35,7 @@ impl Compiler {
         if Some(self.scope(file_scope).module) != self.ns.main_module {
             return;
         }
+
         let Some(start) = import.program_params_start else {
             return;
         };
@@ -42,14 +43,17 @@ impl Compiler {
         let ast::ImportSource::Module(name) = &import.source else {
             return;
         };
+
         if arguments.iter().all(|a| a.name.is_none()) {
             return;
         }
+
         let file = self.scope_file(file_scope);
         let Some(entry) = self.find_module(name, &self.file_dir(file)) else {
             return;
         };
         let path = self.src.canon(&entry);
+
         for arg in arguments {
             if let Some(n) = arg.name {
                 self.ns.program_param_settings.push((
@@ -60,6 +64,7 @@ impl Compiler {
                 ));
             }
         }
+
         let loaded: Vec<ModuleId> = self
             .ns
             .module_cache
@@ -67,6 +72,7 @@ impl Compiler {
             .filter(|((p, _), _)| *p == path)
             .map(|(_, &id)| id)
             .collect();
+
         for id in loaded {
             self.apply_program_params(id);
         }
@@ -78,6 +84,7 @@ impl Compiler {
             return;
         };
         let path = self.src.canon(&path);
+
         for (p, name, value, scope) in self.ns.program_param_settings.clone() {
             if p != path
                 || !self.ns.modules[module.0 as usize]
@@ -86,6 +93,7 @@ impl Compiler {
             {
                 continue;
             }
+
             let entity = self.ns.modules[module.0 as usize]
                 .param_entities
                 .iter()
@@ -94,9 +102,11 @@ impl Compiler {
             let Some(entity) = entity else {
                 continue;
             };
+
             if !matches!(self.entity(entity).state, scope::EntityState::Unresolved) {
                 continue;
             }
+
             // The value is evaluated where the import wrote it; a written parameter type
             // would not resolve there, so typed parameters wait for the import itself.
             if let EntityKind::Decl {
@@ -131,16 +141,20 @@ impl Compiler {
             return Ok(None);
         };
         let module = &self.ns.modules[id.0 as usize];
+
         if !params
             .iter()
             .all(|(n, ..)| module.program_params.contains(n))
         {
             return Ok(None);
         }
+
         if let Some(import) = import {
             self.validate_or_queue_import_groups(id, import)?;
         }
+
         self.ns.module_load_result(id)?;
+
         for (name, value, ty) in params {
             let entity = self.ns.modules[id.0 as usize]
                 .param_entities
@@ -150,9 +164,11 @@ impl Compiler {
             let Some(entity) = entity else {
                 continue;
             };
+
             if let scope::EntityState::Done(resolved) = &self.entity(entity).state {
                 let same =
                     matches!(resolved, scope::Resolved::Const { value: v, .. } if v == value);
+
                 if !same {
                     return err(
                         Code::ModuleParameterInvalid,
@@ -162,8 +178,10 @@ impl Compiler {
                         ),
                     );
                 }
+
                 continue;
             }
+
             // An import may have bound the value without resolving the entity
             // yet. Deferred contract checking must not let a later importer
             // overwrite that explicit binding merely because it is still lazy.
@@ -180,13 +198,16 @@ impl Compiler {
                         ),
                     );
                 }
+
                 continue;
             }
+
             self.entity_mut(entity).kind = EntityKind::Const {
                 value: value.clone(),
                 ty: *ty,
             };
         }
+
         Ok(Some(id))
     }
 
@@ -238,11 +259,13 @@ impl Compiler {
             },
             false,
         );
+
         // Parameter storage belongs to the module; its declaration expressions
         // retain the lexical file environment, just like ordinary declarations.
         self.entity_mut(id).home = eval_scope;
         self.ns.modules[module.0 as usize].param_entities.push(id);
         self.ns.modules[module.0 as usize].arguments_validated = false;
+
         if let Some((Value::String(text), _)) = &provided
             && let Some(member) = std::str::from_utf8(text)
                 .ok()
@@ -256,11 +279,13 @@ impl Compiler {
                 unreachable!()
             };
             let decl = Arc::make_mut(decl);
+
             // `P := Kind.A` has no written type: use the default's (`type_of(Kind.A)`).
             if decl.ty.is_none()
                 && let Some(default) = decl.value.take()
             {
                 let span = default.span;
+
                 decl.ty = Some(ast::Expr {
                     kind: ast::ExprKind::Call {
                         callee: Box::new(ast::Expr {
@@ -281,6 +306,7 @@ impl Compiler {
                     parens: None,
                 });
             }
+
             let span = param.span;
             let member_expr = |name: &str| ast::Expr {
                 kind: ast::ExprKind::InferredMember(ast::Ident {
@@ -292,6 +318,7 @@ impl Compiler {
             };
             let mut names = member.split('|');
             let first = member_expr(names.next().unwrap_or_default());
+
             decl.value = Some(names.fold(first, |left, name| ast::Expr {
                 kind: ast::ExprKind::Binary(
                     ast::BinOp::BitOr,
@@ -301,8 +328,10 @@ impl Compiler {
                 span,
                 parens: None,
             }));
+
             return Ok(());
         }
+
         if let Some((value, _)) = &provided
             && let Some(wanted) = self.module_param_class(param, eval_scope)?
             && let Some(given) = ValueClass::of_value(value)
@@ -318,6 +347,7 @@ impl Compiler {
                 ),
             );
         }
+
         if let Some((value, ty)) = provided {
             // Convert the original constant rather than reconstructing a literal AST:
             // reconstruction loses lexical precision, relocation identity and declared types.
@@ -352,24 +382,29 @@ impl Compiler {
                         "module parameter conversion did not produce a constant",
                     );
                 };
+
                 self.entity_mut(id).kind = EntityKind::Const {
                     value,
                     ty: expected,
                 };
+
                 return Ok(());
             }
+
             // A parameter without a written type is a constant like `NAME :: value`: given an
             // untyped number it stays untyped, so `MAX_FRAMES := 3` passes to a `u64`.
             let untyped = ty == TypeId::VOID
                 && param.ty.is_none()
                 && matches!(value, Value::Int(_) | Value::Float(_, _));
             let entity = self.entity_mut(id);
+
             entity.kind = EntityKind::Const {
                 value,
                 ty,
             };
             entity.untyped_const = untyped;
         }
+
         Ok(())
     }
 
@@ -380,10 +415,13 @@ impl Compiler {
         if self.ns.modules[module.0 as usize].loading {
             return Ok(());
         }
+
         self.apply_program_params(module);
         let mut index = 0;
+
         while index < self.ns.modules[module.0 as usize].parameter_contracts.len() {
             let contract = &self.ns.modules[module.0 as usize].parameter_contracts[index];
+
             match &contract.state {
                 ParameterContractState::Checked | ParameterContractState::Checking => {
                     index += 1;
@@ -392,8 +430,10 @@ impl Compiler {
                 ParameterContractState::Failed(error) => return Err(error.clone()),
                 ParameterContractState::Waiting => {}
             }
+
             let (entity, pattern, eval_scope) =
                 (contract.entity, contract.pattern.clone(), contract.scope);
+
             self.ns.modules[module.0 as usize].parameter_contracts[index].state =
                 ParameterContractState::Checking;
             let result = (|| {
@@ -419,14 +459,18 @@ impl Compiler {
                     ty
                 };
                 let mut bindings = Vec::new();
+
                 self.match_pattern_value(&pattern, actual, &mut bindings, eval_scope, represented)?;
                 let scope = self.ns.modules[module.0 as usize].scope;
+
                 for (name, value, ty) in bindings {
                     self.add_const(scope, name, pattern.span, value, ty);
                 }
+
                 Ok(())
             })();
             let contract = &mut self.ns.modules[module.0 as usize].parameter_contracts[index];
+
             match result {
                 // Resolving the parameter reached an import that forwards this very parameter as
                 // an argument: the import is being resolved, so check the contract again later.
@@ -443,8 +487,10 @@ impl Compiler {
                     return Err(error);
                 }
             }
+
             index += 1;
         }
+
         Ok(())
     }
 }
@@ -462,6 +508,7 @@ enum ValueClass {
 impl ValueClass {
     fn of_type(kind: &crate::types::TypeKind) -> Option<ValueClass> {
         use crate::types::TypeKind as K;
+
         match kind {
             K::Bool => Some(ValueClass::Bool),
             K::String => Some(ValueClass::String),
@@ -478,9 +525,11 @@ impl ValueClass {
     fn of_literal(expr: &ast::Expr) -> Option<ValueClass> {
         use ast::ExprKind as E;
         let mut expr = expr;
+
         while let E::Unary(ast::UnOp::Neg | ast::UnOp::Plus, inner) = &expr.kind {
             expr = inner;
         }
+
         match expr.kind {
             E::Bool(_) => Some(ValueClass::Bool),
             E::Str(_) => Some(ValueClass::String),
@@ -524,9 +573,11 @@ impl Compiler {
         let Some(ty) = &param.ty else {
             return Ok(param.default.as_ref().and_then(ValueClass::of_literal));
         };
+
         if procs::has_poly(ty) {
             return Ok(None);
         }
+
         let ty = self.eval_type(scope, ty)?;
         Ok(ValueClass::of_type(self.ty.types.kind(ty)))
     }
@@ -557,9 +608,11 @@ fn literal_sized_type(param: &ast::Param) -> Option<ast::Expr> {
     else {
         return None;
     };
+
     if !matches!(size.kind, ast::ExprKind::PolyVar { .. }) || procs::has_poly(elem) {
         return None;
     }
+
     Some(ast::Expr {
         kind: ast::ExprKind::ArrayType {
             size: ast::ArraySize::Fixed(Box::new(ast::Expr {

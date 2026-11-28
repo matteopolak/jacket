@@ -30,9 +30,11 @@ impl Compiler {
         let Some(procedure) = self.procs_of_func(callee).next() else {
             return Ok(());
         };
+
         if self.proc(procedure).needs_body() {
             self.lower_body(procedure)?;
         }
+
         Ok(())
     }
 
@@ -48,7 +50,9 @@ impl Compiler {
                 if self.diag.dependencies.bindings.contains_key(placeholder) {
                     return false;
                 }
+
                 let entity = self.entity(*placeholder);
+
                 !self
                     .scope(entity.scope)
                     .names
@@ -77,6 +81,7 @@ impl Compiler {
             .ct
             .interp
             .call_for_compiler(&self.out.program, function, args);
+
         loop {
             match call {
                 CompileCall::Complete(result) => return result,
@@ -93,12 +98,15 @@ impl Compiler {
                                 .interp
                                 .cancel_compiler_call(&self.out.program, continuation);
                             *deferred = Some(error);
+
                             return Err(crate::interp::Trap::new("compile-time dependency failed"));
                         }
                     };
+
                     if callable && ready {
                         self.ct.interp.mark_callable_ready(function);
                     }
+
                     call = self
                         .ct
                         .interp
@@ -122,25 +130,31 @@ impl Compiler {
             );
         };
         let info = self.proc(procedure);
+
         if info.body_state == procs::BodyState::Lowering {
             if optional {
                 // An unrelated foreign call inside this body's generator does
                 // not constitute an invocation of the callback being lowered.
                 return Ok(false);
             }
+
             return err(
                 Code::CyclicCompileTime,
                 info.span,
                 format!("cyclic compile-time body dependency for `{}`", info.name),
             );
         }
+
         self.diag.dependencies.controllers.push(procedure);
         let result = self.satisfy_body_dependency_inner(procedure, function, callable, optional);
         let popped = self.diag.dependencies.controllers.pop();
+
         debug_assert_eq!(popped, Some(procedure));
+
         if result.is_ok() && self.reaches_type_table(function) {
             self.refresh_type_table();
         }
+
         result
     }
 
@@ -155,11 +169,13 @@ impl Compiler {
             if !callable && self.proc(procedure).body_state == procs::BodyState::Done {
                 return Ok(true);
             }
+
             let traps = self.ct.traps;
             let executions = self.ct.executions;
             let lowered = if callable {
                 self.diag.dependencies.begin_body(procedure);
                 let failure = self.lower_reachable_from(function);
+
                 self.diag
                     .dependencies
                     .end_body(procedure, failure.is_some());
@@ -171,35 +187,46 @@ impl Compiler {
                 Ok(()) => return Ok(true),
                 Err(error) => error,
             };
+
             if self.ct.traps != traps {
                 return Err(error);
             }
+
             let placeholders = self.unresolved_body_placeholders(procedure);
+
             if placeholders.is_empty() || self.ct.executions != executions {
                 // A completed generator cannot be replayed merely because a
                 // later stage of the body encounters another dependency.
                 return Err(error);
             }
+
             if optional {
                 // A retained deferred value must not stall an unrelated C call.
                 // Direct callback arguments require readiness; opaque memory
                 // receives a nonblocking readiness inspection instead.
                 return Ok(false);
             }
+
             let sources = self.pull_workspace_sources()?;
+
             if sources {
                 continue;
             }
+
             let completed = self.ct.runs_done;
+
             self.service_top_level_runs()?;
+
             if self.ct.runs_done == completed {
                 let info = self.proc(procedure);
                 let mut diagnostic = Diagnostic::new(Code::CompileTimeDependencyDeadlock, info.span, format!(
                     "compile-time dependency deadlock: body of `{}` awaits an unresolved #placeholder",
                     info.name
                 )).with_note(error.span, error.message);
+
                 for placeholder in placeholders {
                     let entity = self.entity(placeholder);
+
                     diagnostic = diagnostic.with_note(
                         entity.span,
                         format!(
@@ -208,6 +235,7 @@ impl Compiler {
                         ),
                     );
                 }
+
                 return Err(Box::new(diagnostic));
             }
         }
@@ -219,6 +247,7 @@ impl Compiler {
 /// intrinsic or another call. No instruction is executed by this preflight.
 fn initial_direct_callee(function: &ir::Func) -> Option<ir::FuncId> {
     let mut slots = HashSet::default();
+
     for instruction in &function.blocks.first()?.insts {
         match instruction {
             ir::Inst::SlotAddr {
@@ -256,6 +285,7 @@ fn initial_direct_callee(function: &ir::Func) -> Option<ir::FuncId> {
             _ => return None,
         }
     }
+
     None
 }
 
@@ -274,7 +304,9 @@ impl Dependencies {
 
     pub fn end_body(&mut self, procedure: ProcId, failed: bool) {
         let (owner, reads) = self.lowering.pop().expect("paired body lowering");
+
         debug_assert_eq!(owner, procedure);
+
         if failed && !reads.is_empty() {
             self.bodies.insert(procedure, reads);
         } else {
@@ -306,20 +338,24 @@ mod tests {
         let mut b = builder();
         let local = b.alloca(8, 8);
         let zero = b.iconst(ir::Ty::I64, 0);
+
         b.store(ir::Ty::I64, local, zero);
         let value = b.load(ir::Ty::I64, local);
+
         b.call(ir::Callee::Func(ir::FuncId(2)), vec![value], &[]);
         assert_eq!(initial_direct_callee(&b.func), Some(ir::FuncId(2)));
 
         let mut b = builder();
         let global = b.global_addr(ir::GlobalId(0));
         let zero = b.iconst(ir::Ty::I64, 0);
+
         b.store(ir::Ty::I64, global, zero);
         b.call(ir::Callee::Func(ir::FuncId(2)), vec![], &[]);
         assert_eq!(initial_direct_callee(&b.func), None);
 
         let mut b = builder();
         let later = b.new_block();
+
         b.jump(later);
         b.switch_to(later);
         b.call(ir::Callee::Func(ir::FuncId(2)), vec![], &[]);

@@ -37,6 +37,7 @@ fn site() -> Site {
         String::new(),
         false,
     );
+
     site.categories = vec![
         Category {
             name: "Library".into(),
@@ -75,6 +76,7 @@ fn binding_site() -> Site {
         docs: "Ours.".into(),
         ..Item::default()
     };
+
     Site::new(
         vec![Module {
             id: "Vendor".into(),
@@ -103,6 +105,7 @@ fn search_results_carry_the_flag() {
         .iter()
         .map(|r| r[6].as_i64().unwrap())
         .collect();
+
     // Each module, then its items: moving, steady. Above the low three bits, one more than the
     // index of the category whose badge they carry.
     assert_eq!(flags, [17, 17, 17, 0, 1, 0]);
@@ -120,6 +123,7 @@ fn native_declarations_are_searchable_but_flagged() {
         .iter()
         .map(|r| r[6].as_i64().unwrap())
         .collect();
+
     // The module, then own, MAX, Mode.
     assert_eq!(flags, [0, 0, 2, 2]);
 }
@@ -153,6 +157,7 @@ fn generated_declarations_carry_their_own_flag() {
         .iter()
         .map(|r| r[6].as_i64().unwrap())
         .collect();
+
     // The module, then hand_written, made.
     assert_eq!(flags, [0, 0, 4]);
 }
@@ -182,10 +187,12 @@ fn every_definition_of_a_name_is_searchable() {
         ..Item::default()
     };
     let mut handle = def("s32");
+
     handle.variants = vec![def("*void")];
     let index: serde_json::Value =
         serde_json::from_str(&super::super::search::index(&files_site(handle))).unwrap();
     let line = index["items"][1][4].as_str().unwrap();
+
     assert!(line.contains("s32") && line.contains("*void"), "{line}");
 }
 
@@ -205,10 +212,12 @@ fn a_procedure_is_found_by_the_types_of_every_definition() {
         ..Item::default()
     };
     let mut open = def("int");
+
     open.variants = vec![def("string")];
     let index: serde_json::Value =
         serde_json::from_str(&super::super::search::index(&files_site(open))).unwrap();
     let shapes = index["items"][1][5].as_array().unwrap();
+
     assert_eq!(shapes.len(), 2, "{shapes:?}");
 }
 
@@ -232,5 +241,6 @@ fn a_result_shows_every_overload_signature() {
     let index: serde_json::Value =
         serde_json::from_str(&super::super::search::index(&files_site(write))).unwrap();
     let line = index["items"][1][4].as_str().unwrap();
+
     assert!(line.contains("int") && line.contains("string"), "{line}");
 }

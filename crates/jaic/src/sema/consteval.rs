@@ -27,6 +27,7 @@ impl Compiler {
             c_abi: None,
         };
         let mut f = FnCtx::new(origin.thunk_name().into(), sig, file);
+
         f.b.func.origin = origin;
         f.compile_time = true;
         f.set_context(Some(f.b.param(0)));
@@ -38,11 +39,14 @@ impl Compiler {
         if let Some(&s) = self.ns.thunk_scopes.get(&scope) {
             return s;
         }
+
         let module = self.scope(scope).module;
         let s = self.new_scope(scope::ScopeKind::Proc, Some(scope), module, None);
+
         if !self.note_thunk_scope(scope, s) {
             self.ns.thunk_scopes.insert(scope, s);
         }
+
         s
     }
 
@@ -61,6 +65,7 @@ impl Compiler {
             Operand::Multi(values) => values,
             other => {
                 let ty = other.ty();
+
                 if ty == TypeId::VOID {
                     Vec::new()
                 } else {
@@ -69,6 +74,7 @@ impl Compiler {
             }
         };
         let mut out = Vec::new();
+
         for operand in values {
             let parameters = self.callable_operand_parameters(&operand)?;
             let (ty, v) = self.rvalue(&mut f, operand, span)?;
@@ -85,12 +91,15 @@ impl Compiler {
                 section: None,
             });
             let addr = f.b.global_addr(g);
+
             self.store_value(&mut f, ty, addr, v, span)?;
             out.push((ty, g, parameters));
         }
+
         f.b.ret(Vec::new());
         self.call_thunk(f, span)?;
         let mut results = Vec::new();
+
         for (ty, g, parameters) in out {
             let addr = self
                 .ct
@@ -103,6 +112,7 @@ impl Compiler {
                         t.into_message(),
                     ))
                 })?;
+
             results.push(
                 (match self.read_value(addr, ty, span)? {
                     Value::Type(t) => Operand::Type(t),
@@ -119,6 +129,7 @@ impl Compiler {
                 .with_callable(parameters),
             );
         }
+
         Ok(results)
     }
 
@@ -131,6 +142,7 @@ impl Compiler {
                 "contextual type inference requires compile-time execution",
             );
         }
+
         // The one place compile-time code starts running (`#run`, computed `#insert`,
         // `#modify`, build metaprograms): an untrusted workspace's code never does.
         if self.ed.refuse_untrusted(span) {
@@ -140,27 +152,34 @@ impl Compiler {
                 "compile-time code is not run in an untrusted workspace",
             )));
         }
+
         if self.ct.interp.host.stop_requested() {
             return Err(Box::new(super::trap_report::stopped(span)));
         }
+
         let func = f.b.finish();
+
         self.preflight_thunk_entry(&func)?;
         let id = self.out.program.reserve_func(func.name.clone());
+
         self.out.program.funcs[id.0 as usize] = Some(func);
         // The entry thunk is ready. Callee bodies are compiled when execution
         // actually requests them; taking a procedure value does not need a body.
         let nested = self.pr.lowering_depth > 0;
         let mut deferred = None;
         let ctx = self.compile_time_context(span)?;
+
         // The trace layout needs the Context type. When it could not be laid out yet (its
         // declarations wait on an import that fails), asking again would expand every pending
         // item once more, re-entrantly and for each thunk below it: exponential in their depth.
         if self.ty.context_type.is_some() {
             self.enable_stack_traces(span);
         }
+
         if !nested && self.reaches_type_table(id) {
             self.refresh_type_table();
         }
+
         self.ct.interp.compile_time = true;
         self.ide_watch_notes();
         let effects = self.ct.interp.effects;
@@ -181,21 +200,26 @@ impl Compiler {
         let outermost = !self.meta.perf.running() && !self.ct.interp.nested_eval;
         let blocks_at_start = self.ct.interp.begin_evaluation();
         let clock = self.meta.perf.start_run();
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::CtExecutions);
         self.ct.executions += 1;
         let mut result = self.call_with_dependencies(id, &[ctx], &mut deferred);
+
         elapsed += self.meta.perf.finish_run(clock);
+
         // Typed-code exports retain their existing effect-free retry protocol.
         // Body dependencies above resume retained frames and never replay a run.
         for _ in 0..10_000 {
             if result.is_ok() || self.ct.interp.run_effects != Some(self.ct.interp.effects) {
                 break;
             }
+
             if let Some(code) = self.ct.interp.export_request.take() {
                 self.export_code_typed(code);
             } else {
                 break;
             }
+
             // The earlier attempt may have edited the nodes it got (built once per record):
             // the next one gets them exported anew.
             let counts: Vec<(usize, usize)> = self
@@ -205,29 +229,36 @@ impl Compiler {
                 .iter()
                 .map(|(&code, exports)| (code, exports.len()))
                 .collect();
+
             self.ct.interp.code_exports.clear();
+
             for (code, n) in counts {
                 for _ in 0..n {
                     self.export_code_typed(code);
                 }
             }
+
             self.ct.interp.run_effects = Some(self.ct.interp.effects);
             self.ct.interp.code_export_cursor.clear();
             self.ct.interp.run_codes.1 = 0;
             stalls += 1;
             let clock = self.meta.perf.start_run();
+
             result = self.call_with_dependencies(id, &[ctx], &mut deferred);
             elapsed += self.meta.perf.finish_run(clock);
         }
+
         let blocks = blocks_at_start
             .zip(self.ct.interp.block_budget)
             .map(|(start, left)| start.saturating_sub(left));
+
         if outermost && crate::interp::profile::run_costs() {
             let file = self.src.sources.try_get(span.file);
             let place = file.map_or_else(
                 || "(compiler-made code)".to_string(),
                 |file| {
                     let (line, column) = file.line_col(span.start);
+
                     format!(
                         "{}:{line}:{column}",
                         crate::display_path(&file.path.to_path())
@@ -241,8 +272,10 @@ impl Compiler {
                         .canon(&file.path.to_path())
                         .starts_with(self.src.canon(root))
                 });
+
             crate::interp::profile::record_run(place, blocks.unwrap_or(0), elapsed, library);
         }
+
         self.meta.perf.runs.push(super::perf::RunStat {
             span,
             callee,
@@ -260,6 +293,7 @@ impl Compiler {
         self.ct.interp.missing_func = None;
         self.ct.interp.run_effects = outer;
         self.ide_note_reads();
+
         for data in std::mem::take(&mut self.ct.interp.pending_data_globals) {
             let init = self
                 .ct
@@ -274,17 +308,22 @@ impl Compiler {
                 export: None,
                 section: None,
             });
+
             self.out
                 .registered_data_segments
                 .insert(global, data.segment_tag);
+
             if !data.read_only {
                 self.out.program.reset_globals.push(global);
             }
+
             self.ct.interp.adopt_data_global(global, data);
         }
+
         if !self.ct.interp.pending_type_flags.is_empty() {
             self.apply_type_info_flags(span)?;
         }
+
         match result {
             Ok(values) => Ok(values),
             Err(_) if deferred.is_some() => {
@@ -296,6 +335,7 @@ impl Compiler {
                 self.src.load_reported_file(&trap);
                 let d =
                     self.trap_diagnostic(&trap, "error during compile-time execution", Some(span));
+
                 self.note_unknown(&d, span);
                 Err(Box::new(d))
             }
@@ -307,6 +347,7 @@ impl Compiler {
         if let Some(addr) = self.ct.context {
             return Ok(addr);
         }
+
         let ty = match self.context_type(span) {
             Ok(ty) => ty,
             // Once the runtime support is loaded the context can be built, so a failure is a
@@ -334,6 +375,7 @@ impl Compiler {
             export: None,
             section: None,
         });
+
         // Temporary storage backed by a static buffer.
         if let Some(rs) = self.ns.runtime_support
             && let Ok(ts_ty) = self.module_type(rs, lang_items::modules::TEMPORARY_STORAGE, span)
@@ -352,11 +394,13 @@ impl Compiler {
                 export: None,
                 section: None,
             });
+
             self.ct.temporary_buffer = Some(buf);
             let mut agg = Aggregate {
                 bytes: vec![0; ts_size as usize],
                 relocs: Vec::new(),
             };
+
             for (field, value) in [
                 ("data", None),
                 ("original_data", None),
@@ -374,6 +418,7 @@ impl Compiler {
                             }
                         })
                         .sum();
+
                     match value {
                         Some(v) => self
                             .options
@@ -387,6 +432,7 @@ impl Compiler {
                     }
                 }
             }
+
             let ts = self.out.program.add_global(ir::Global {
                 name: "compile_time_temporary_storage".into(),
                 size: ts_size,
@@ -397,6 +443,7 @@ impl Compiler {
                 export: None,
                 section: None,
             });
+
             if let Some((path, _)) = self.find_member(ty, Sym::intern("temporary_storage"), span)? {
                 let off: u64 = path
                     .iter()
@@ -409,9 +456,11 @@ impl Compiler {
                     })
                     .sum();
                 let global = &mut self.out.program.globals[g.0 as usize];
+
                 if global.init.len() < size as usize {
                     global.init.resize(size as usize, 0);
                 }
+
                 global.relocs.push(ir::Reloc {
                     offset: off,
                     target: ir::RelocTarget::Global(ts),
@@ -419,6 +468,7 @@ impl Compiler {
                 });
             }
         }
+
         // Materializing a procedure value in the context needs its signature,
         // not its body. Actual calls use the owning dependency controller.
         let addr = self
@@ -432,6 +482,7 @@ impl Compiler {
                     t.into_message(),
                 ))
             })?;
+
         self.ct.context = Some(addr);
         self.ct.context_global = Some(g);
         Ok(addr)
@@ -447,6 +498,7 @@ impl Compiler {
                 format!("`{name}` not found"),
             );
         };
+
         match self.resolve_entity(id)? {
             scope::Resolved::Const {
                 value: Value::Type(t),
@@ -472,27 +524,34 @@ impl Compiler {
                 "contextual type inference requires compile-time execution",
             );
         }
+
         if flags.iter().any(|flag| flag.name.as_str() == "host") && self.options.is_cross_build() {
             let results = self.check_isolated_host_run_all(body, span)?;
             return Ok(results.into_iter().next().unwrap_or(Operand::Void));
         }
+
         if let Some(results) = self.run_on_host_twin(scope, body, flags, span)? {
             return Ok(results.into_iter().next().unwrap_or(Operand::Void));
         }
+
         if self.meta.twin {
             let results = self.run_once_in_twin(scope, body, span, |c| {
                 c.check_run_inner_all(scope, body, expected, span)
             })?;
             return Ok(results.into_iter().next().unwrap_or(Operand::Void));
         }
+
         if !self.ed.is_live() {
             return self.check_run_inner(scope, body, expected, span);
         }
+
         let mark = self.ide_output_mark();
         let result = self.check_run_inner(scope, body, expected, span);
+
         if let Ok(op) = &result {
             self.ide_note_run(span, op, mark);
         }
+
         result
     }
 
@@ -512,9 +571,11 @@ impl Compiler {
     /// Sources a run adds to this workspace are loaded immediately after it.
     pub(super) fn service_top_level_runs(&mut self) -> Result<()> {
         let mut progress = !self.meta.twin;
+
         while progress {
             progress = false;
             let mut index = 0;
+
             while index < self.ct.top_level_runs.len() {
                 if self.diag.dependencies.running_runs.contains(&index)
                     || self.diag.dependencies.finished_runs.contains(&index)
@@ -522,13 +583,17 @@ impl Compiler {
                     index += 1;
                     continue;
                 }
+
                 let (expr, scope) = self.ct.top_level_runs[index].clone();
                 let misses = self.epochs.placeholder_misses;
                 let traps = self.ct.traps;
                 let executions = self.ct.executions;
+
                 self.diag.dependencies.running_runs.insert(index);
                 let result = self.eval_const(scope, &expr, None);
+
                 self.diag.dependencies.running_runs.remove(&index);
+
                 // Only an unexecuted thunk may be retried. Executed callers retain
                 // frames in the dependency controller or fail terminally.
                 if result.is_err()
@@ -540,6 +605,7 @@ impl Compiler {
                     index += 1;
                     continue;
                 }
+
                 result?;
                 self.diag.dependencies.finished_runs.insert(index);
                 self.ct.runs_done += 1;
@@ -548,35 +614,44 @@ impl Compiler {
                 index += 1;
             }
         }
+
         Ok(())
     }
 
     /// Execute the remaining top-level runs, then their final assertions.
     pub fn run_top_level(&mut self) -> Result<()> {
         self.service_top_level_runs()?;
+
         if self.diag.dependencies.finished_runs.len() != self.ct.top_level_runs.len() {
             return Ok(());
         }
+
         while self.ct.asserts_done < self.ct.asserts.len() {
             let (cond, message, args, scope) = self.ct.asserts[self.ct.asserts_done].clone();
             let misses = self.epochs.placeholder_misses;
             let holds = self.eval_static_condition_as(scope, &cond, None);
+
             if holds.is_err()
                 && !self.epochs.placeholders_final
                 && self.epochs.placeholder_misses != misses
             {
                 return Ok(());
             }
+
             self.ct.asserts_done += 1;
+
             if !holds? {
                 let msg = self.assert_message(scope, message.as_ref(), &args)?;
                 let failure = self.static_assert_failed(&cond, cond.span, msg);
+
                 if self.src.import_trace.keeps_going() {
                     continue;
                 }
+
                 return Err(Box::new(failure));
             }
         }
+
         Ok(())
     }
 
@@ -590,6 +665,7 @@ impl Compiler {
         let value = self.const_value_of_type(scope, expr, ty)?;
         let size = self.size_of(ty, expr.span)?;
         let mut agg = Aggregate::zeroed(size, expr.span)?;
+
         self.write_value(&mut agg, 0, &value, ty, expr.span)?;
         Ok(Arc::new(agg))
     }
@@ -609,6 +685,7 @@ impl Compiler {
             bytes: vec![0; size as usize],
             relocs: Vec::new(),
         };
+
         for (name, value) in [
             (
                 "fully_pathed_filename",
@@ -621,6 +698,7 @@ impl Compiler {
                 self.write_value(&mut agg, off, &value, fty, span)?;
             }
         }
+
         Ok(Value::Bytes(Arc::new(agg)))
     }
 
@@ -636,6 +714,7 @@ impl Compiler {
             } => {
                 let bytes = self.ct.program_bytes(addr, bits as usize / 8, span)?;
                 let raw = self.options.layout.read_uint(&bytes);
+
                 Ok(Value::Int(crate::int_arith::wrap(
                     raw as i128,
                     bits,
@@ -655,9 +734,11 @@ impl Compiler {
             ))),
             TypeKind::Enum(_) | TypeKind::Distinct(_) => {
                 let r = self.ty.types.repr(ty);
+
                 if r != ty && self.ir_ty(r).is_some() && !self.ty.types.is_pointer(r) {
                     return self.read_value(addr, r, span);
                 }
+
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Type => {
@@ -668,6 +749,7 @@ impl Compiler {
                 self.adopt_made_codes();
                 // Any integer can be cast to `Code`; only ids of real code are usable.
                 let id = self.ct.program_ptr(addr, span)?;
+
                 if id >= self.pr.codes.len() as u64 {
                     return err(
                         Code::NotValidCode,
@@ -675,38 +757,46 @@ impl Compiler {
                         format!("{id} is not a valid Code value"),
                     );
                 }
+
                 Ok(Value::Code(value::CodeId(id as u32)))
             }
             TypeKind::String => {
                 let view = self.ty.types.builtins().view;
                 let count = self.ct.program_u64(addr + view.count, span)? as usize;
                 let data = self.ct.program_ptr(addr + view.data, span)?;
+
                 Ok(Value::String(
                     self.ct.program_bytes(data, count, span)?.into(),
                 ))
             }
             TypeKind::Proc(_) => {
                 let p = self.ct.program_ptr(addr, span)?;
+
                 if p == 0 {
                     return Ok(Value::Null);
                 }
+
                 if let Some(func) = self.ct.interp.func_of(p)
                     && let Some(&proc) = self.pr.func_procs.get(&func)
                 {
                     return Ok(Value::Proc(proc));
                 }
+
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Pointer(_) | TypeKind::Null => {
                 let pointer = self.ct.program_ptr(addr, span)?;
+
                 if pointer == 0 {
                     return Ok(Value::Null);
                 }
+
                 if self.ty.types.pointee(ty) == Some(TypeId::VOID)
                     && self.ct.interp.global_at(pointer).is_none()
                 {
                     return Ok(Value::Int(pointer as i128));
                 }
+
                 self.read_aggregate(addr, ty, span)
             }
             TypeKind::Void => Ok(Value::Void),
@@ -729,10 +819,13 @@ impl Compiler {
             return Ok(String::new());
         };
         let text = String::from_utf8_lossy(&text).into_owned();
+
         if args.is_empty() {
             return Ok(text);
         }
+
         let mut shown = Vec::new();
+
         for arg in args {
             shown.push(match self.eval_const_value(scope, arg)? {
                 Value::Int(i) => i.to_string(),
@@ -744,9 +837,11 @@ impl Compiler {
                 _ => "?".to_string(),
             });
         }
+
         let mut out = String::new();
         let mut next = shown.into_iter();
         let mut chars = text.chars().peekable();
+
         while let Some(c) = chars.next() {
             match c {
                 '\\' if chars.peek() == Some(&'%') => out.push(chars.next().unwrap()),
@@ -754,6 +849,7 @@ impl Compiler {
                 _ => out.push(c),
             }
         }
+
         Ok(out)
     }
 }
@@ -802,6 +898,7 @@ impl Compiler {
         self.check_not_stopped(at)?;
         let file = self.src.insert_source(at, text.clone())?;
         let host = &mut self.ct.interp.host;
+
         match crate::parser::parse_file_stoppable(file, &text, &mut || host.stop_requested()) {
             Some(parsed) => parsed.map_err(Box::new),
             None => Err(Box::new(super::trap_report::stopped(at))),
@@ -815,6 +912,7 @@ impl SourceState {
     pub(super) fn insert_source(&mut self, at: Span, text: Arc<str>) -> Result<FileId> {
         const MAX_INSERT_DEPTH: u32 = 256;
         let depth = self.insert_depth.get(&at.file).map_or(1, |d| d + 1);
+
         if depth > MAX_INSERT_DEPTH {
             return err(
                 Code::InsertStringsNested,
@@ -822,6 +920,7 @@ impl SourceState {
                 format!("#insert strings are nested more than {MAX_INSERT_DEPTH} deep"),
             );
         }
+
         // Named after the outermost real file, so nested inserts keep a short path.
         let path = self.sources.get(at.file).path.clone();
         let path = if depth > 1 {
@@ -830,6 +929,7 @@ impl SourceState {
             SourcePath::virtual_source(format!("#insert at {path}"))
         };
         let file = self.sources.add(path, text);
+
         self.insert_depth.insert(file, depth);
         self.insert_sites.insert(file, at);
         Ok(file)

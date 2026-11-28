@@ -8,6 +8,7 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 #[test]
 fn run_reports_the_built_executable_path() {
     let dir = TempDir::new("run-executable-path");
+
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(
         dir.join("src/game.jai"),
@@ -20,6 +21,7 @@ fn run_reports_the_built_executable_path() {
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -33,6 +35,7 @@ fn run_reports_the_built_executable_path() {
     };
     let expected = std::fs::canonicalize(dir.join("src")).unwrap().join(name);
     let expected = jacket_config::slashed(&expected);
+
     assert_eq!(
         printed.trim_start_matches("//?/"),
         expected.trim_start_matches("//?/")

@@ -19,15 +19,19 @@ fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
     if !backend::tools_available() {
         return;
     }
+
     for variant in VARIANTS {
         let dir = TempDir::new(&format!("{name}-{}", variant.label()));
         let mut fs = VirtualFs::default();
+
         fs.insert("/lib/Runtime_Support/module.jai", runtime.as_bytes());
         let mut options = variant.options();
+
         options.runtime_support = true;
         options.import_paths = vec!["/lib".into()];
         options.temporary_storage_size = 1_048_576;
         let mut c = Compiler::new(options, Rc::new(fs));
+
         c.compile_sources(&[ProgramSource::String("main::(){}".into())])
             .map_err(|e| e.render(&c.src.sources))
             .unwrap();
@@ -35,7 +39,9 @@ fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
             .map_err(|e| e.render(&c.src.sources))
             .unwrap();
         let object = dir.join("program.o");
+
         variant.emit(&c, &object, None);
+
         if variant.wasm {
             let module = dir.join("program.wasm");
             let exports: &[&str] = if inspect_storage {
@@ -43,6 +49,7 @@ fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
             } else {
                 &["configuration_startup_check"]
             };
+
             backend::link_wasm(&[&object], &module, exports);
             backend::node_eval(STARTUP_HOST, &[&module]);
         } else {
@@ -52,6 +59,7 @@ fn execute_startup_runtime(name: &str, runtime: &str, inspect_storage: bool) {
                 "extern int configuration_startup_check(void); int main(void){return configuration_startup_check();}\n"
             };
             let exe = backend::link_native(&dir, driver, &[&object]);
+
             process::run(&mut Command::new(exe));
         }
     }
@@ -85,6 +93,7 @@ fn retained_startup_configuration_executes_on_native_and_wasm() {
         #program_export "configuration_startup_check"
         startup :: () -> s32 #c_call {return cast(s32) ifx getter()==1048576 then 0 else 1;}
     "#;
+
     execute_startup_runtime("retained-startup", runtime, false);
 }
 

@@ -5,10 +5,12 @@ use std::rc::Rc;
 
 fn compile(source: &str, cpu: TargetCpu) -> (Compiler, jaic::sema::Result<()>) {
     let mut options = Options::host();
+
     options.cpu = cpu;
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     let result = c.compile_sources(&[ProgramSource::String(source.into())]);
+
     (c, result)
 }
 
@@ -22,9 +24,11 @@ fn raw_pointer_constants_defaults_globals_and_run_results_are_values() {
             ),
             cpu,
         );
+
         if let Err(e) = result {
             panic!("{}", e.render(&c.src.sources));
         }
+
         assert!(
             !c.out.program.globals.iter().any(|g| g.name == "frozen"),
             "raw handles must not acquire fabricated pointee storage"
@@ -40,6 +44,7 @@ fn checked_integer_narrowing_still_rejects_out_of_range_pointer_bits() {
     ] {
         let (c, result) = compile(source, TargetCpu::X64);
         let e = result.expect_err("raw pointer representation must not bypass checked narrowing");
+
         assert!(
             e.message.contains("out of range"),
             "{}",
@@ -58,6 +63,7 @@ fn invalid_pointer_access_still_traps_and_forged_views_cannot_capture_memory() {
         let (c, result) = compile(source, TargetCpu::X64);
         let e =
             result.expect_err("representing a raw pointer cannot license invalid memory access");
+
         assert!(
             e.message.contains("null pointer") || e.message.contains("cannot be read"),
             "{}",
@@ -88,6 +94,7 @@ fn baked_pointer_constants_retain_their_pointer_type() {
     ",
         TargetCpu::X64,
     );
+
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }
@@ -111,6 +118,7 @@ fn pointer_bit_patterns_preserve_full_64_bit_width() {
     ",
         TargetCpu::X64,
     );
+
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }

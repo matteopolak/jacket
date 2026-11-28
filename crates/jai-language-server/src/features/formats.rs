@@ -15,11 +15,14 @@ impl Session {
         let Some(analysis) = self.analysis_for(uri) else {
             return Vec::new();
         };
+
         if analysis.format_calls.is_empty() {
             return Vec::new();
         }
+
         if self.environment.is_none() {
             let local = &analysis.print_like;
+
             return analysis
                 .format_calls
                 .iter()
@@ -27,13 +30,16 @@ impl Session {
                 .cloned()
                 .collect();
         }
+
         let formats = self
             .checked_decorations(uri, |a, f, shift| {
                 let mut formats = std::collections::BTreeSet::new();
+
                 for call in a.compiler.ide_calls(f) {
                     let Some(param) = call.format_param else {
                         continue;
                     };
+
                     for arg in call
                         .args
                         .iter()
@@ -46,9 +52,11 @@ impl Session {
                         }
                     }
                 }
+
                 formats
             })
             .unwrap_or_default();
+
         analysis
             .format_calls
             .iter()
@@ -90,11 +98,13 @@ impl Session {
             &text[call.string.start..call.string.end],
             120,
         ))];
+
         if call.specs.is_empty() {
             blocks.push(Block::Para(vec![Inline::Text(
                 "No format arguments.".into(),
             )]));
         }
+
         let rows = call
             .specs
             .iter()
@@ -104,6 +114,7 @@ impl Session {
                     Some(i) => match call.args.get(i) {
                         Some(arg) => {
                             let source = clip(&text[arg.start..arg.end], 60);
+
                             Inline::Code(match type_of(*arg) {
                                 Some(ty) => format!("{source}: {ty}"),
                                 None => source,
@@ -115,6 +126,7 @@ impl Session {
                         None => Inline::Text(format!("missing argument {}", i + 1)),
                     },
                 };
+
                 FormatRow {
                     current: contains(spec.span, byte) && call.specs.len() > 1,
                     spec: text[spec.span.start..spec.span.end].to_string(),
@@ -122,9 +134,11 @@ impl Session {
                 }
             })
             .collect::<Vec<_>>();
+
         if !rows.is_empty() {
             blocks.push(Block::FormatRows(rows));
         }
+
         Some((call.string.start, call.string.end, HoverText::new(blocks)))
     }
 
@@ -168,15 +182,19 @@ impl Session {
         let body = match e.kind {
             IdeExpansionKind::Run => {
                 let mut out = format!("// Value of {what} ({}):\n", e.detail);
+
                 out.push_str(&e.texts.join("\n"));
+
                 if !e.output.is_empty() {
                     out.push_str("\n\n// Printed at compile time:\n");
+
                     for line in e.output.trim_end().lines() {
                         out.push_str("// ");
                         out.push_str(line);
                         out.push('\n');
                     }
                 }
+
                 out
             }
             IdeExpansionKind::If => format!(
@@ -185,16 +203,20 @@ impl Session {
             ),
             _ => {
                 let mut out = format!("// Expansion of {what}\n");
+
                 for (i, t) in e.texts.iter().enumerate() {
                     if e.texts.len() > 1 {
                         out.push_str(&format!("\n// Instance {}:\n", i + 1));
                     }
+
                     out.push_str(t);
                     out.push('\n');
                 }
+
                 out
             }
         };
+
         Ok(Some(Expansion {
             uri: self.expansion_uri(uri, range.start),
             source: Location {
@@ -216,6 +238,7 @@ impl Session {
             line: line.parse().ok()?,
             character: character.parse().ok()?,
         };
+
         Some(self.expansion(&document, position).ok()??.text)
     }
 }

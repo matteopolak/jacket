@@ -33,19 +33,24 @@ impl SandboxHost {
         } else {
             &self.objc.selectors
         };
+
         if let Some(&ptr) = table.get(&name) {
             return ptr;
         }
+
         let ptr = self.alloc(name.len() + 1);
+
         if ptr == 0 {
             return 0;
         }
+
         write_bytes(ptr, name.as_bytes());
         let table = if class {
             &mut self.objc.classes
         } else {
             &mut self.objc.selectors
         };
+
         table.insert(name.clone(), ptr);
         self.objc.names.insert(ptr, name);
         ptr
@@ -53,11 +58,13 @@ impl SandboxHost {
 
     pub(super) fn objc_foreign(&mut self, fun: ObjcFn, args: &[u64]) -> u64 {
         let arg = |i: usize| word_or_zero(args, i);
+
         match fun {
             ObjcFn::SelRegisterName | ObjcFn::SelGetUid => {
                 if arg(0) == 0 {
                     return 0;
                 }
+
                 self.objc_intern(cstr(arg(0)), false)
             }
             ObjcFn::SelGetName | ObjcFn::ClassGetName | ObjcFn::ObjectGetClassName => {
@@ -74,6 +81,7 @@ impl SandboxHost {
                 if arg(0) == 0 {
                     return 0;
                 }
+
                 self.objc_intern(cstr(arg(0)), true)
             }
             ObjcFn::ClassGetInstanceSize => INSTANCE_SIZE,
@@ -132,9 +140,11 @@ mod tests {
         let mut h = SandboxHost::default();
         let (a, b) = (name("init"), name("setFrame:display:"));
         let init = call(&mut h, "sel_registerName", &[a.as_ptr() as u64]);
+
         assert_ne!(init, 0);
         assert_eq!(init, call(&mut h, "sel_getUid", &[a.as_ptr() as u64]));
         let frame = call(&mut h, "sel_registerName", &[b.as_ptr() as u64]);
+
         assert_ne!(init, frame);
         assert_eq!(
             cstr(call(&mut h, "sel_getName", &[frame])),
@@ -147,6 +157,7 @@ mod tests {
         let mut h = SandboxHost::default();
         let n = name("NSWindow");
         let class = call(&mut h, "objc_getClass", &[n.as_ptr() as u64]);
+
         assert_ne!(class, 0);
         assert_eq!(
             class,
@@ -174,12 +185,14 @@ mod tests {
         let other = call(&mut h, "sel_registerName", &[name("init").as_ptr() as u64]);
         let root = call(&mut h, "objc_getClass", &[o.as_ptr() as u64]);
         let window = call(&mut h, "objc_getClass", &[w.as_ptr() as u64]);
+
         assert_eq!(call(&mut h, "objc_msgSend", &[window, other]), 0);
         assert_eq!(call(&mut h, "objc_msgSend", &[window, class_sel]), window);
         assert_eq!(call(&mut h, "objc_msgSend", &[window, super_sel]), root);
         assert_eq!(call(&mut h, "objc_msgSend", &[root, super_sel]), 0);
         assert_eq!(call(&mut h, "class_getSuperclass", &[window]), root);
         let size = call(&mut h, "class_getInstanceSize", &[window]);
+
         assert_eq!(size, call(&mut h, "class_getInstanceSize", &[root]));
     }
 
@@ -188,6 +201,7 @@ mod tests {
         let mut h = SandboxHost::default();
         let framework = name("/System/Library/Frameworks/AppKit.framework/AppKit");
         let handle = call(&mut h, "dlopen", &[framework.as_ptr() as u64, 1]);
+
         assert_ne!(handle, 0);
         assert_eq!(call(&mut h, "dlclose", &[handle]), 0);
         assert_eq!(

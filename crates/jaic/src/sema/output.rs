@@ -53,6 +53,7 @@ impl Output {
         cpu: crate::target::TargetCpu,
     ) -> Self {
         let mut out = Self::default();
+
         out.program.cross_target = cross_target;
         out.program.target_os = Some(os);
         out.program.target_cpu = Some(cpu);
@@ -70,10 +71,12 @@ impl Output {
             func.trusted = Vec::new();
             func.debug = None;
         }
+
         for global in &mut self.program.globals {
             global.init = Vec::new();
             global.relocs = Vec::new();
         }
+
         self.program.debug_types = HashMap::default();
         self.program.debug_globals = Vec::new();
     }

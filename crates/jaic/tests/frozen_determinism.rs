@@ -6,12 +6,15 @@ use std::{path::PathBuf, rc::Rc};
 fn globals(source: &str) -> Vec<(String, Vec<u8>, Vec<u64>)> {
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
+
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&c.src.sources));
     }
+
     c.out
         .program
         .globals
@@ -31,7 +34,9 @@ fn assert_same_twice(source: &str) {
     // Allocations in between move where the interpreter's next blocks land.
     let _ballast: Vec<Vec<u8>> = (1..64).map(|n| vec![1; n * 997]).collect();
     let second = globals(source);
+
     assert_eq!(first.len(), second.len(), "different globals");
+
     for (a, b) in first.iter().zip(&second) {
         assert_eq!(a, b, "global `{}` differs between builds", a.0);
     }

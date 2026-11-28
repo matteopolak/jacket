@@ -30,6 +30,7 @@ impl PackageManager {
                 ("brew", PackageManager::Brew),
             ],
         };
+
         candidates
             .iter()
             .find(|(tool, _)| lookup.tool(tool).is_some())
@@ -182,6 +183,7 @@ impl Need {
                 target,
             } => {
                 let gnu = crate::pins::gnu_cross_package(*target);
+
                 Row {
                     label: "a Linux linker and C library",
                     apt: gnu.apt,
@@ -251,6 +253,7 @@ impl Need {
                 } else {
                     "qemu-user"
                 };
+
                 Row {
                     label: "QEMU",
                     brew: Some("qemu"),
@@ -356,6 +359,7 @@ impl Need {
             } => return cross_linux_note(*target, manager, self.row()),
             _ => {}
         }
+
         let row = self.row();
         let packages = manager.and_then(|manager| match manager {
             PackageManager::Brew => row.brew,
@@ -364,6 +368,7 @@ impl Need {
             PackageManager::Pacman => row.pacman,
             PackageManager::Winget => row.winget,
         });
+
         match (manager, packages) {
             (Some(manager), Some(packages)) => {
                 format!("install {} with `{}`", row.label, manager.install(packages))
@@ -379,15 +384,18 @@ fn cross_linux_note(target: Target, manager: Option<PackageManager>, row: Row) -
         PackageManager::Dnf => row.dnf,
         _ => None,
     });
+
     if let (Some(manager), Some(package)) = (manager, package) {
         return format!(
             "install a Linux linker and C library with `{}`",
             manager.install(package)
         );
     }
+
     if crate::pins::sysroot(target).is_some() {
         return format!("run `jacket toolchain add {target}` to fetch its C library");
     }
+
     format!("{} for `{target}`", row.elsewhere)
 }
 
@@ -398,6 +406,7 @@ fn builtins_note(target: Target, os: Os, manager: Option<PackageManager>) -> Str
         _ => None,
     };
     let add = format!("run `jacket toolchain add {target}` to build its builtins");
+
     match system {
         Some(system) => format!("{add}, or {}", system.note(os, manager)),
         None => add,
@@ -416,20 +425,25 @@ mod tests {
     #[test]
     fn the_manager_is_detected_from_the_tools_on_the_machine() {
         let detect = |host: &FakeHost| PackageManager::detect(&Lookup::new(host));
+
         assert_eq!(detect(&FakeHost::debian()), Some(PackageManager::Apt));
         let mut fedora = FakeHost::new(Os::Linux, "x86_64");
+
         fedora.path = vec!["/usr/bin".into()];
         fedora.file("/usr/bin/dnf");
         assert_eq!(detect(&fedora), Some(PackageManager::Dnf));
         let mut arch = FakeHost::new(Os::Linux, "x86_64");
+
         arch.path = vec!["/usr/bin".into()];
         arch.file("/usr/bin/pacman");
         assert_eq!(detect(&arch), Some(PackageManager::Pacman));
         let mut mac = FakeHost::mac();
+
         assert_eq!(detect(&mac), None);
         mac.file("/opt/homebrew/bin/brew");
         assert_eq!(detect(&mac), Some(PackageManager::Brew));
         let mut windows = FakeHost::new(Os::Windows, "x86_64");
+
         windows.path = vec![r"C:\WindowsApps".into()];
         windows.file(r"C:\WindowsApps/winget.exe");
         assert_eq!(detect(&windows), Some(PackageManager::Winget));
@@ -455,6 +469,7 @@ mod tests {
     #[test]
     fn embedded_toolchains_use_the_right_package_names() {
         let arm = |manager| note(&Need::ArmEmbedded, Os::Linux, Some(manager));
+
         assert_eq!(
             arm(PackageManager::Brew),
             "install the GNU Arm embedded toolchain with `brew install --cask gcc-arm-embedded`"
@@ -482,6 +497,7 @@ mod tests {
                 Some(PackageManager::Apt),
             )
         };
+
         assert!(qemu("qemu-system-arm").ends_with("`apt install qemu-system-arm`"));
         assert!(qemu("qemu-system-avr").ends_with("`apt install qemu-system-misc`"));
         assert!(qemu("qemu-arm").ends_with("`apt install qemu-user`"));
@@ -500,6 +516,7 @@ mod tests {
     #[test]
     fn builtins_name_the_toolchain_add_command_and_the_system_package() {
         let target = Target::parse("thumbv7em-none-eabihf").unwrap();
+
         assert_eq!(
             note(
                 &Need::Builtins {
@@ -511,6 +528,7 @@ mod tests {
             "run `jacket toolchain add thumbv7em-none-eabihf` to build its builtins, or install the GNU Arm embedded toolchain with `brew install --cask gcc-arm-embedded`"
         );
         let target = Target::parse("aarch64-none-elf").unwrap();
+
         assert_eq!(
             note(
                 &Need::Builtins {
@@ -562,6 +580,7 @@ mod tests {
                 program: "x".into(),
             },
         ];
+
         for need in &all {
             match need {
                 Need::CDriver
@@ -596,6 +615,7 @@ mod tests {
                 } => {}
             }
         }
+
         all.to_vec()
     }
 
@@ -609,16 +629,19 @@ mod tests {
             Some(PackageManager::Pacman),
             Some(PackageManager::Winget),
         ];
+
         for need in every_need() {
             for os in [Os::MacOs, Os::Linux, Os::Windows] {
                 for manager in managers {
                     let text = note(&need, os, manager);
+
                     assert!(
                         !text.trim().is_empty(),
                         "{need:?} on {os:?} with {manager:?} has no note"
                     );
                 }
             }
+
             // A manager with no package for it falls back to where to get the piece: the row's
             // own text, which is what says why there is no command.
             if !matches!(
@@ -636,6 +659,7 @@ mod tests {
     #[test]
     fn the_programs_jacket_starts_have_a_command_per_manager() {
         let apt = Some(PackageManager::Apt);
+
         assert_eq!(
             note(&Need::Git, Os::Linux, apt),
             "install git with `apt install git`"
@@ -659,6 +683,7 @@ mod tests {
         // Without a manager the note says where to get it; a Mac has these in the Xcode tools.
         assert!(note(&Need::Git, Os::Linux, None).contains("git-scm.com"));
         assert!(note(&Need::Git, Os::MacOs, None).contains("xcode-select --install"));
+
         // Homebrew's llvm is keg-only: the Xcode tools are the way to get `dsymutil` on a Mac.
         for manager in [None, Some(PackageManager::Brew)] {
             assert!(note(&Need::Dsymutil, Os::MacOs, manager).contains("xcode-select --install"));

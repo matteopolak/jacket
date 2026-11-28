@@ -57,15 +57,18 @@ fn generated_items_are_documented_tagged_and_searchable() {
         return;
     };
     let temp = TempDir::new("doc-generated");
+
     temp.write("jacket.toml", "[doc]\npath = 'lib'\nname = 'Lib'\n");
     temp.write("lib/Made/module.jai", MADE);
     temp.write("lib/Quiet/module.jai", QUIET);
     temp.write("lib/Broken/module.jai", BROKEN);
     let output = run(&jacket, &temp, &["--out", "site"]);
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "{stderr}");
     // Only the insert that fails is a warning, and it says why.
     let warnings: Vec<&str> = stderr.lines().filter(|l| l.contains("#insert")).collect();
+
     assert_eq!(warnings.len(), 1, "{stderr}");
     assert!(
         warnings[0].contains("Broken: what the #insert at") && warnings[0].contains("missing_name"),
@@ -74,14 +77,17 @@ fn generated_items_are_documented_tagged_and_searchable() {
     let read = |path: &str| std::fs::read_to_string(temp.join("site").join(path)).unwrap();
     // The page of a generated item carries its docs and the tag; so does its row.
     let page = read("api/Made/Point.html");
+
     assert!(page.contains("A point the generator made."), "{page}");
     assert!(page.contains("<span class=\"badge generated\""), "{page}");
     assert!(read("api/Made/move.html").contains("Moves a point."));
     let module = read("api/Made.html");
+
     assert!(module.contains("badge sm generated"), "{module}");
     assert!(module.contains("href=\"/api/Made/Point\""), "{module}");
     // The item the module writes itself is not tagged.
     let make = read("api/Made/make.html");
+
     assert!(!make.contains("badge generated"), "{make}");
     // Search flags it (bit 4 of the last column).
     let index: serde_json::Value = serde_json::from_str(&read("search-index.json")).unwrap();
@@ -93,6 +99,7 @@ fn generated_items_are_documented_tagged_and_searchable() {
             .find(|row| row[1] == name)
             .map(|row| row[6].as_u64().unwrap())
     };
+
     assert_eq!(flags("Point").map(|f| f & 4), Some(4));
     assert_eq!(flags("move").map(|f| f & 4), Some(4));
     assert_eq!(flags("make").map(|f| f & 4), Some(0));
@@ -101,6 +108,7 @@ fn generated_items_are_documented_tagged_and_searchable() {
     temp.write("lib/Bare/module.jai", BARE);
     let output = run(&jacket, &temp, &["--check"]);
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(!output.status.success(), "{stderr}");
     assert!(
         stderr.contains("Bare.Bare has no docs") && stderr.contains("the text the generator emits"),

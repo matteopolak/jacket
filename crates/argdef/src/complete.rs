@@ -65,6 +65,7 @@ impl Spec {
             .iter()
             .filter(|o| matches!(o.kind, Kind::Flag | Kind::Value) && !o.hidden)
             .collect();
+
         match shell {
             Shell::Bash => self.bash(&options),
             Shell::Zsh => self.zsh(&options),
@@ -77,6 +78,7 @@ impl Spec {
         let function = format!("_{}", name.replace('-', "_"));
         let words: Vec<&str> = options.iter().flat_map(|o| spellings(o)).collect();
         let mut cases = String::new();
+
         for opt in options.iter().filter(|o| o.kind == Kind::Value) {
             let action = match opt.hint {
                 "file" => format!("{function}_reply compgen -f -- \"$cur\""),
@@ -84,11 +86,13 @@ impl Spec {
                 _ => "COMPREPLY=()".to_string(),
             };
             let pattern: Vec<&str> = spellings(opt).collect();
+
             cases.push_str(&format!(
                 "        {})\n            {action}\n            return ;;\n",
                 pattern.join("|")
             ));
         }
+
         // `read` into the array keeps names with spaces and glob characters whole (`mapfile` needs
         // bash 4). Bash splits `-name=value` at the `=`, which then is a word of its own.
         format!(
@@ -124,6 +128,7 @@ impl Spec {
                 .replace(']', "\\]")
         };
         let mut specs = String::new();
+
         for opt in options {
             for spelling in spellings(opt) {
                 let help = escape(first_line(opt));
@@ -133,16 +138,20 @@ impl Spec {
                     (Kind::Value, _) => format!(":{}: ", opt.value),
                     _ => String::new(),
                 };
+
                 specs.push_str(&format!("    '{spelling}[{help}]{action}' \\\n"));
+
                 if opt.kind == Kind::Value {
                     // `-name=value`, and `-Dvalue` for an option that takes its value glued on.
                     specs.push_str(&format!("    '{spelling}=[{help}]{action}' \\\n"));
+
                     if opt.attached {
                         specs.push_str(&format!("    '{spelling}-[{help}]{action}' \\\n"));
                     }
                 }
             }
         }
+
         format!(
             "#compdef {name}\n# zsh completion for {name}: save it as _{name} in a directory of $fpath\n\
              _arguments \\\n{specs}    '*:file:_files'\n"
@@ -154,12 +163,14 @@ impl Spec {
         let mut out = format!(
             "# fish completion for {name}: save it as ~/.config/fish/completions/{name}.fish\n"
         );
+
         for opt in options {
             for spelling in spellings(opt) {
                 let flag = if let Some(long) = spelling.strip_prefix("--") {
                     format!("-l {long}")
                 } else {
                     let short = spelling.trim_start_matches('-');
+
                     if short.chars().count() == 1 {
                         format!("-s {short}")
                     } else {
@@ -173,9 +184,11 @@ impl Spec {
                     _ => "",
                 };
                 let help = first_line(opt).replace('\\', "\\\\").replace('\'', "\\'");
+
                 out.push_str(&format!("complete -c {name} {flag}{value} -d '{help}'\n"));
             }
         }
+
         out
     }
 }

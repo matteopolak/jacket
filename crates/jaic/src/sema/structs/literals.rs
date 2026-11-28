@@ -16,6 +16,7 @@ impl Compiler {
             Some(st) if !self.ty.types.struct_info(st).is_union => {
                 let fields = &self.ty.types.struct_info(st).fields;
                 let inits = &self.ty.struct_asts[&st].inits;
+
                 // Overlays take no positional value, so they do not count toward the position.
                 fields
                     .iter()
@@ -96,6 +97,7 @@ impl Compiler {
                 }
             },
         };
+
         if ty_expr.is_none()
             && matches!(
                 self.ty.types.kind(ty),
@@ -107,8 +109,10 @@ impl Compiler {
         {
             self.warn_struct_literal_as_dynamic_array(scope, span, ty);
         }
+
         let size = self.size_of(ty, span)?;
         let members = self.positional_members(ty, span)?;
+
         if members.is_empty()
             && !args.is_empty()
             && self
@@ -126,16 +130,19 @@ impl Compiler {
                 ),
             );
         }
+
         // Check each argument against its member type.
         let mut values: Vec<(Vec<PathStep>, TypeId, Operand, Span)> = Vec::new();
         let mut positional = 0;
         // `.{a.b = v, xs[1] = w}`: assigned after the ordinary fields.
         let (targeted, args): (Vec<&ast::Arg>, Vec<&ast::Arg>) =
             args.iter().partition(|a| a.target.is_some());
+
         for (k, arg) in args.iter().enumerate() {
             let (path, mty) = if let Some(n) = arg.name {
                 // The type a field name here belongs to, for completing it.
                 self.ed.inferred(n.span, ty);
+
                 match self.find_member(ty, n.name, n.span)? {
                     Some(m) => {
                         self.ide_note_member_use(n.span, ty, n.name);
@@ -150,19 +157,24 @@ impl Compiler {
                 let Some(&(_, mty, off)) = members.get(positional) else {
                     return Err(self.too_many_values(ty, &members, &args, k));
                 };
+
                 positional += 1;
                 (vec![PathStep::Offset(off)], mty)
             };
             let op = self.check_expr(f, scope, &arg.value, Some(mty))?;
             let op = self.convert(f, op, mty, &arg.value)?;
+
             values.push((path, mty, op, arg.value.span));
         }
+
         // A field with no initializer of its own needs a positional value; trailing fields with
         // one may be left out, and an overlay shares another field's storage.
         let needed = self.positional_values_needed(ty);
+
         if positional > 0 && positional < needed && values.len() == positional {
             return Err(self.too_few_values(ty, &members, (positional, needed), span));
         }
+
         // Members past the last one without an initializer may be left to their defaults by
         // name only; the official compiler wants a value for each one in a positional literal.
         if positional > 0
@@ -176,15 +188,18 @@ impl Compiler {
         {
             self.warn_positional_literal_leaves_defaults(scope, &members, positional, span);
         }
+
         let all_const = values.iter().all(|(path, _, op, _)| {
             path.iter().all(|s| matches!(s, PathStep::Offset(_)))
                 && (op.is_const() || matches!(op, Operand::Procs(p) if p.len() == 1))
         });
+
         if all_const && targeted.is_empty() {
             let mut agg = match self.default_initializer(ty, span)? {
                 Some(img) => (*img).clone(),
                 None => Aggregate::zeroed(size, span)?,
             };
+
             for (path, mty, op, vspan) in &values {
                 let offset: u64 = path
                     .iter()
@@ -200,8 +215,10 @@ impl Compiler {
                     Operand::Procs(p) => Value::Proc(p[0]),
                     other => other.const_value().unwrap(),
                 };
+
                 self.write_value(&mut agg, offset, &value, *mty, *vspan)?;
             }
+
             return Ok(Operand::Const {
                 ty,
                 value: Value::Bytes(Arc::new(agg)),
@@ -209,11 +226,15 @@ impl Compiler {
                 origin: Origin::Computed,
             });
         }
+
         let align = self.align_of(ty, span)?;
         let tmp = f.b.alloca(size.max(1), align);
+
         self.init_default(f, ty, tmp, span)?;
+
         for (path, mty, op, vspan) in values {
             let at = self.apply_path(f, tmp, &path);
+
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
                 && let [PathStep::Offset(offset)] = path.as_slice()
@@ -239,9 +260,12 @@ impl Compiler {
                     },
                 );
             }
+
             let (_, v) = self.rvalue(f, op, vspan)?;
+
             self.store_value(f, mty, at, v, vspan)?;
         }
+
         for arg in targeted {
             let target = arg.target.as_ref().unwrap();
             let Operand::Place {
@@ -260,8 +284,10 @@ impl Compiler {
             let op = self.check_expr(f, scope, &arg.value, Some(pty))?;
             let op = self.convert(f, op, pty, &arg.value)?;
             let (_, v) = self.rvalue(f, op, arg.value.span)?;
+
             self.store_value(f, pty, addr, v, arg.value.span)?;
         }
+
         Ok(Operand::Value {
             ty,
             val: tmp,
@@ -287,20 +313,24 @@ impl Compiler {
                     addr: base,
                 };
                 let field = self.member_access(f, scope, whole, *name, target.span)?;
+
                 self.ide_note_member_ref(target.span, *name, field.ty());
                 Ok(field)
             }
             E::Member(inner, member) => {
                 let inner = self.literal_target(f, scope, ty, base, inner)?;
+
                 self.ide_note_receiver(member.span, &inner);
                 self.ide_note_member_use(member.span, inner.ty(), member.name);
                 let field = self.member_access(f, scope, inner, member.name, member.span)?;
+
                 self.ide_note_member_ref(member.span, member.name, field.ty());
                 Ok(field)
             }
             E::Index(inner, index) => {
                 let inner = self.literal_target(f, scope, ty, base, inner)?;
                 let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
+
                 self.index_operand(f, scope, inner, index_op, index.span, target.span)
             }
             _ => err(
@@ -322,12 +352,15 @@ impl Compiler {
         if elem_ty != Some(TypeId::CODE) || !matches!(element.kind, E::Ident(_) | E::Member(..)) {
             return None;
         }
+
         if let Ok(op) = self.check_expr_no_emit(scope, element)
             && op.ty() == TypeId::CODE
         {
             return None;
         }
+
         let id = self.add_code(Arc::new(ast::CodeBody::Expr(element.clone())), scope);
+
         Some(Operand::Const {
             ty: TypeId::CODE,
             value: Value::Code(id),
@@ -355,21 +388,27 @@ impl Compiler {
         };
         let mut ops = Vec::new();
         let mut elem_ty = elem_ty;
+
         for e in elems {
             let op = match self.quoted_code_element(scope, e, elem_ty) {
                 Some(code) => code,
                 None => self.check_expr(f, scope, e, elem_ty)?,
             };
+
             if elem_ty.is_none() {
                 let settled = self.settle_untyped(op.clone(), None);
+
                 elem_ty = Some(match &settled {
                     Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], e.span)?,
                     other => other.ty(),
                 });
             }
+
             let op = self.convert(f, op, elem_ty.unwrap(), e)?;
+
             ops.push((op, e.span));
         }
+
         let Some(elem) = elem_ty else {
             return err(
                 Code::StructCannotInferElement,
@@ -379,6 +418,7 @@ impl Compiler {
         };
         let n = ops.len() as u64;
         let mut ty = self.ty.types.array(elem, ArrayKind::Fixed(n));
+
         // `g: Grid3i = .[1, 4, 9]`: a literal takes a `#type,distinct` variant of its own type.
         if ty_expr.is_none()
             && let Some(e) = expected
@@ -387,19 +427,24 @@ impl Compiler {
         {
             ty = e;
         }
+
         let esize = self.size_of(elem, span)?;
+
         if ops
             .iter()
             .all(|(op, _)| op.is_const() || matches!(op, Operand::Procs(p) if p.len() == 1))
         {
             let mut agg = Aggregate::zeroed(esize.saturating_mul(n), span)?;
+
             for (i, (op, vspan)) in ops.iter().enumerate() {
                 let value = match op {
                     Operand::Procs(p) => Value::Proc(p[0]),
                     other => other.const_value().unwrap(),
                 };
+
                 self.write_value(&mut agg, i as u64 * esize, &value, elem, *vspan)?;
             }
+
             return Ok(Operand::Const {
                 ty,
                 value: Value::Bytes(Arc::new(agg)),
@@ -407,13 +452,17 @@ impl Compiler {
                 origin: Origin::Computed,
             });
         }
+
         let align = self.align_of(elem, span)?;
         let tmp = f.b.alloca((esize * n).max(1), align);
+
         for (i, (op, vspan)) in ops.into_iter().enumerate() {
             let at = f.b.ptr_offset(tmp, i as u64 * esize);
             let (_, v) = self.rvalue(f, op, vspan)?;
+
             self.store_value(f, elem, at, v, vspan)?;
         }
+
         Ok(Operand::Value {
             ty,
             val: tmp,
@@ -434,15 +483,19 @@ impl Compiler {
         let size = self.size_of(ty, span)?;
         let o = offset as usize;
         let r = self.ty.types.repr(ty);
+
         // Overwriting (a literal field over the struct's default): drop the old pointers there.
         agg.relocs
             .retain(|reloc| reloc.offset < offset || reloc.offset >= offset + size);
+
         match value {
             Value::Int(i) => {
                 if self.ty.types.is_float(r) {
                     return self.write_value(agg, offset, &Value::float(*i as f64), ty, span);
                 }
+
                 let n = size.min(8) as usize;
+
                 self.options
                     .layout
                     .write_uint(&mut agg.bytes[o..o + n], *i as u64);
@@ -471,12 +524,16 @@ impl Compiler {
                         ),
                     );
                 }
+
                 let view = self.ty.types.builtins().view;
+
                 self.options
                     .layout
                     .write_u64(&mut agg.bytes[o + view.count as usize..], s.len() as u64);
+
                 if !s.is_empty() {
                     let g = self.out.string_global(s);
+
                     agg.relocs.push(ir::Reloc {
                         offset: offset + view.data,
                         target: ir::RelocTarget::Global(g),
@@ -486,6 +543,7 @@ impl Compiler {
             }
             Value::Type(t) => {
                 let g = self.type_info_global(*t, span)?;
+
                 agg.relocs.push(ir::Reloc {
                     offset,
                     target: ir::RelocTarget::Global(g),
@@ -497,6 +555,7 @@ impl Compiler {
                     procs::ProcTarget::Func(id) => ir::RelocTarget::Func(id),
                     procs::ProcTarget::Foreign(id) => ir::RelocTarget::Foreign(id),
                 };
+
                 agg.relocs.push(ir::Reloc {
                     offset,
                     target,
@@ -509,6 +568,7 @@ impl Compiler {
                 .layout
                 .write_ptr(&mut agg.bytes[o..], c.0 as u64),
         }
+
         Ok(())
     }
 }
@@ -522,15 +582,18 @@ pub(super) fn image_of(
     if slot.is_none() {
         *slot = Some(Aggregate::zeroed(size, span)?);
     }
+
     Ok(slot.as_mut().unwrap())
 }
 
 /// Copy a nested aggregate image into `agg` at `offset`.
 pub fn write_agg(agg: &mut Aggregate, offset: u64, inner: &Aggregate) {
     let o = offset as usize;
+
     agg.bytes[o..o + inner.bytes.len()].copy_from_slice(&inner.bytes);
     agg.relocs
         .retain(|r| r.offset < offset || r.offset >= offset + inner.bytes.len() as u64);
+
     for r in &inner.relocs {
         agg.relocs.push(ir::Reloc {
             offset: r.offset + offset,

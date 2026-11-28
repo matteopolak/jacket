@@ -6,9 +6,11 @@ const DECLS: &str = "black_box :: (value: $T) -> T #intrinsic;\n";
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     let result = c.compile_sources(&[ProgramSource::String(format!("{DECLS}\n{source}"))]);
+
     (c, result)
 }
 
@@ -43,6 +45,7 @@ fn black_box_is_the_identity_for_every_kind_of_value() {
         #assert(check());
     "#,
     );
+
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }

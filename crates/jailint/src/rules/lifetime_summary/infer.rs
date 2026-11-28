@@ -10,6 +10,7 @@ impl Resolver<'_> {
         let body = self.body;
         let live = returning_blocks(body, all, self.targets);
         let mut next = prior.clone();
+
         next.changes_allocator = self.context.changes_allocator;
         next.allocation_effects.clear();
         next.observable = self.observable_calls.infer(all);
@@ -17,6 +18,7 @@ impl Resolver<'_> {
         next.rounded_address = self.rounded_address_base;
         let swap_facts = body.blocks.iter().flat_map(|b| &b.events).any(|e| matches!(e, Event::Call { callee, .. } if super::swap::swaps_arguments(self.compiler, *callee))).then(|| crate::rules::lifetime_movement::facts::Facts::new(self.compiler, body));
         let mut effects = vec![Vec::new(); body.blocks.len()];
+
         for (b, block) in body
             .blocks
             .iter()
@@ -26,16 +28,20 @@ impl Resolver<'_> {
             if jaic::interrupt::should_stop() {
                 return prior.clone();
             }
+
             for (ordinal, event) in block.events.iter().enumerate() {
                 self.infer_allocations(event, (b, ordinal), all, &mut next);
+
                 for (effect, span, definite) in self.temporary_writes(event, all) {
                     if effect.exported() {
                         insert(&mut next.may, effect.clone(), vec![span]);
                     }
+
                     if definite {
                         effects[b].push((effect, vec![span]));
                     }
                 }
+
                 if let Some(effect) = swap_facts.as_ref().and_then(|f| {
                     self.swap_effect(
                         event,
@@ -53,9 +59,11 @@ impl Resolver<'_> {
                         } => *span,
                         _ => Span::NONE,
                     };
+
                     insert(&mut next.may, effect.clone(), vec![span]);
                     effects[b].push((effect, vec![span]));
                 }
+
                 for effect in self.unknown_effects(event, all) {
                     if effect.exported() {
                         insert(
@@ -73,6 +81,7 @@ impl Resolver<'_> {
                         );
                     }
                 }
+
                 if let Some(effect) = self.count_effect(event, all) {
                     let span = match event {
                         Event::Store {
@@ -80,9 +89,11 @@ impl Resolver<'_> {
                         } => *span,
                         _ => Span::NONE,
                     };
+
                     insert(&mut next.may, effect.clone(), vec![span]);
                     effects[b].push((effect, vec![span]));
                 }
+
                 match event {
                     Event::Call {
                         span,
@@ -99,6 +110,7 @@ impl Resolver<'_> {
                                 insert(&mut next.may, effect, chain(*span, &witness));
                             }
                         }
+
                         for (effect, witness) in self.call_effects(event, all, true) {
                             effects[b].push((effect, chain(*span, &witness)));
                         }
@@ -113,6 +125,7 @@ impl Resolver<'_> {
                             if effect.exported() {
                                 insert(&mut next.may, effect.clone(), vec![*span]);
                             }
+
                             effects[b].push((effect, vec![*span]));
                         }
                     }
@@ -120,21 +133,25 @@ impl Resolver<'_> {
                 }
             }
         }
+
         let keys: HashSet<_> = effects
             .iter()
             .flatten()
             .map(|(effect, _)| effect.clone())
             .collect();
+
         for effect in keys {
             if !effect.exported() {
                 continue;
             }
+
             if let Some(witness) = guaranteed(body, &effects, &effect)
                 .or_else(|| self.nullable_guarantee(&effects, &effect, all))
             {
                 insert(&mut next.guaranteed, effect, witness);
             }
         }
+
         self.infer_return_origins(&mut next, all, &live);
         self.infer_provider_allocation(&mut next);
         self.infer_may_returns(&mut next, all, &live);

@@ -37,11 +37,14 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
     };
     let mut out = Vec::new();
     let mut i = 0;
+
     while i < chars.len() {
         let c = chars[i];
+
         // Literal text is data, even when it happens to spell a declaration's name.
         if c == '"' {
             i += 1;
+
             while i < chars.len() {
                 if chars[i] == '\\' {
                     i = (i + 2).min(chars.len());
@@ -52,47 +55,61 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
                     i += 1;
                 }
             }
+
             continue;
         }
+
         // A directive is language syntax, not a same-spelled declaration: #Context
         // must not resolve to a user type named Context. Its operands are still read.
         if c == '#' {
             i += 1;
+
             while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
                 i += 1;
             }
+
             continue;
         }
+
         if c.is_ascii_digit() {
             while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
                 i += 1;
             }
+
             continue;
         }
+
         if !(c.is_alphabetic() || c == '_') {
             i += 1;
             continue;
         }
+
         let baked = i > 0 && chars[i - 1] == '$';
         let first = i;
         // `.NONE` is a member of a type the context knows, not a name of its own; `..T` is variadic.
         let leading_dot = i > 0 && chars[i - 1] == '.' && !(i > 1 && chars[i - 2] == '.');
         let mut path = Vec::new();
+
         loop {
             let start = i;
+
             while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
                 i += 1;
             }
+
             path.push(chars[start..i].iter().collect::<String>());
             let more = chars.get(i) == Some(&'.')
                 && chars
                     .get(i + 1)
                     .is_some_and(|n| n.is_alphabetic() || *n == '_');
+
             if !more {
                 break;
             }
+
             i += 1;
         }
+
         // `a: T` declares `a`; `key = V` names a parameter. `::`, `:=` and `==` are neither.
         let named_argument = matches!(after(i), Some(('=', next)) if next != Some('='))
             && chars[..first]
@@ -102,10 +119,12 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
                 .is_some_and(|c| matches!(c, '(' | ','));
         let declares = matches!(after(i), Some((':', next)) if !matches!(next, Some(':' | '=')))
             || named_argument;
+
         if !baked && !declares && !leading_dot && !bound.contains(&path[0]) {
             out.push(path);
         }
     }
+
     out
 }
 
@@ -113,22 +132,28 @@ pub(super) fn type_paths(ty: &str) -> Vec<Vec<String>> {
 fn bound_names(chars: &[char]) -> Vec<String> {
     let mut names = Vec::new();
     let mut i = 0;
+
     while i < chars.len() {
         if chars[i] != '$' {
             i += 1;
             continue;
         }
+
         while chars.get(i) == Some(&'$') {
             i += 1;
         }
+
         let start = i;
+
         while i < chars.len() && (chars[i].is_alphanumeric() || chars[i] == '_') {
             i += 1;
         }
+
         if i > start {
             names.push(chars[start..i].iter().collect());
         }
     }
+
     names
 }
 
@@ -142,6 +167,7 @@ pub(super) fn refs_named(key: &str, refs: &[TypeRef]) -> String {
     if refs.is_empty() {
         return String::new();
     }
+
     let rows: Vec<String> = refs
         .iter()
         .map(|r| {

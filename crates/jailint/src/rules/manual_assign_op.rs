@@ -28,6 +28,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(s) = n.stmt() else {
                 return true;
@@ -46,6 +47,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let E::Binary(op, a, b) = &value.kind else {
                 return true;
             };
+
             if !matches!(
                 op,
                 BinOp::Add
@@ -62,13 +64,16 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 return true;
             }
+
             let types = &cx.compiler.ty.types;
             let Some(ty) = cx.ty(target) else {
                 return true;
             };
+
             if !(types.is_integer(ty) || types.is_float(ty)) || cx.ty(value) != Some(ty) {
                 return true;
             }
+
             let same = |e: &jaic::ast::Expr| cx.same_tokens(target, e);
             let commutes = matches!(
                 op,
@@ -86,6 +91,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let replacement = format!("{target_text} {}= {other_text}", op_text(*op));
             let (start, end) = cx.whole(value);
             let help = format!("write `{replacement}`");
+
             out.push(replacing(
                 s.span,
                 format!(

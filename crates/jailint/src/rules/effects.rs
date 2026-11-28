@@ -42,17 +42,21 @@ impl Effect {
                         let lifetime_summary::Root::Parameter(n) = e.target.root else {
                             return false;
                         };
+
                         if e.kind != lifetime_summary::Kind::Free
                             || !matches!(self, Self::Cleanup) && n != 0
                         {
                             return false;
                         }
+
                         if e.target.steps.is_empty() {
                             return true;
                         }
+
                         if !lifetime_summary::descriptor_storage(&e.target.steps) {
                             return false;
                         }
+
                         let Some(ty) = cx.compiler.pr.procs[proc.0 as usize]
                             .sig
                             .as_ref()
@@ -72,6 +76,7 @@ impl Effect {
                                     }
                             )
                         };
+
                         descriptor(ty)
                             || !matches!(self, Self::ReleasedFirst)
                                 && cx.compiler.ty.types.pointee(ty).is_some_and(descriptor)
@@ -98,6 +103,7 @@ pub(super) fn calls(cx: &Cx, callee: &Expr, effect: Effect) -> bool {
         if let Some(summary) = summaries.procs.get(&proc) {
             return effect.matches(cx, proc, summary);
         }
+
         let mut instances = cx.compiler.pr.procs[proc.0 as usize]
             .instances
             .values()
@@ -105,8 +111,10 @@ pub(super) fn calls(cx: &Cx, callee: &Expr, effect: Effect) -> bool {
             .peekable();
         instances.peek().is_some() && instances.all(|(id, summary)| effect.matches(cx, id, summary))
     };
+
     if let Some(chosen) = cx.compiler.ide_resolved_overload(span, &procs) {
         return matches(chosen);
     }
+
     !procs.is_empty() && procs.iter().all(|&proc| matches(proc))
 }

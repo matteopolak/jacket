@@ -37,17 +37,23 @@ impl Claims {
     /// Record the files root `index` compiled. Publishing twice does nothing.
     pub(super) fn publish(&self, index: usize, files: impl IntoIterator<Item = PathBuf>) {
         let mut state = self.state.lock().expect("claims lock");
+
         if state.done[index] {
             return;
         }
+
         for file in files {
             let slot = state.owner.entry(file).or_insert(index);
+
             *slot = (*slot).min(index);
         }
+
         state.done[index] = true;
+
         while state.prefix < state.done.len() && state.done[state.prefix] {
             state.prefix += 1;
         }
+
         self.published.notify_all();
     }
 
@@ -55,9 +61,11 @@ impl Claims {
     /// `index` reports.
     pub(super) fn owned(&self, index: usize, files: &BTreeSet<PathBuf>) -> HashSet<PathBuf> {
         let mut state = self.state.lock().expect("claims lock");
+
         while state.prefix < index {
             state = self.published.wait(state).expect("claims lock");
         }
+
         files
             .iter()
             .filter(|file| state.owner.get(*file) == Some(&index))

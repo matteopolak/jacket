@@ -36,6 +36,7 @@ impl Compiler {
         });
         let module = self.scope(parent).module;
         let scope = self.new_scope(ScopeKind::Struct(ty), Some(parent), module, None);
+
         for (n, v, t) in bindings {
             // A parameter is declared where it is written, so a use goes there.
             let param = lit
@@ -54,11 +55,14 @@ impl Compiler {
                 && matches!(v, Value::Int(_))
                 && matches!(self.ty.types.kind(t), TypeKind::Int { .. });
             let id = self.add_const(scope, n, at, v, t);
+
             // An integer argument converts to the integer type a use wants when it fits, as
             // the literal it was written as would.
             self.entity_mut(id).untyped_const = integer;
         }
+
         let file_scope = scope;
+
         for stmt in &lit.body {
             match &stmt.kind {
                 ast::StmtKind::Decl(decl) if decl.kind == ast::DeclKind::Var => {
@@ -98,7 +102,9 @@ impl Compiler {
                 _ => {}
             }
         }
+
         let s = self.ty.types.as_struct(ty).unwrap();
+
         self.ty.struct_asts.insert(
             s,
             StructSource {
@@ -126,9 +132,11 @@ impl Compiler {
         if ty == TypeId::TYPE {
             return self.operand_as_type(op, span).map(Value::Type);
         }
+
         if ty != TypeId::VOID {
             return self.const_value_of_operand(scope, op, ty, span);
         }
+
         match op {
             Operand::Type(t) => Ok(Value::Type(t)),
             Operand::Const {
@@ -163,6 +171,7 @@ impl Compiler {
             None => lit.params.get(index)?,
         };
         let ty = param.ty.as_ref()?;
+
         self.eval_type(scope, ty).ok()
     }
 
@@ -190,6 +199,7 @@ impl Compiler {
         else {
             return false;
         };
+
         matches!(size, ast::ArraySize::Fixed(_))
             && matches!(&elem.kind, ast::ExprKind::Ident(word) if word.as_str() == "Code")
     }
@@ -226,6 +236,7 @@ impl Compiler {
         };
         let layout = self.ty.types.builtins().view;
         let mut image = value::Aggregate::zeroed(layout.size, span)?;
+
         self.write_value(&mut image, 0, view, *ty, span)?;
         let global = self.out.program.add_global(crate::ir::Global {
             name: "constant.view".into(),
@@ -252,11 +263,15 @@ impl Compiler {
         let data = self.ct.program_ptr(addr + layout.data, span)?;
         let esize = self.size_of(elem, span)?;
         let mut array = value::Aggregate::zeroed(esize.saturating_mul(count), span)?;
+
         for k in 0..count {
             let item = self.read_value(data + k * esize, elem, span)?;
+
             self.write_value(&mut array, k * esize, &item, elem, span)?;
         }
+
         let fixed = self.ty.types.array(elem, ArrayKind::Fixed(count));
+
         Ok(Some(Operand::Const {
             ty: fixed,
             value: Value::Bytes(Arc::new(array)),
@@ -276,9 +291,11 @@ impl Compiler {
             let p = &self.ty.poly_structs[ps.0 as usize];
             (p.name, p.lit.clone(), p.scope)
         };
+
         if let Some(origin) = self.ty.poly_structs[ps.0 as usize].origin {
             // Name the arguments for the origin and add the baked ones.
             let mut named = Vec::new();
+
             for (i, (n, v)) in args.into_iter().enumerate() {
                 let n = n.or_else(|| {
                     lit.params
@@ -287,15 +304,20 @@ impl Compiler {
                         .and_then(|p| p.name)
                         .map(|p| p.name)
                 });
+
                 named.push((n, v));
             }
+
             for (n, value, ty) in self.ty.poly_structs[ps.0 as usize].baked.clone() {
                 named.push((Some(n), const_operand(value, ty)));
             }
+
             return self.instantiate_struct(origin, named, span);
         }
+
         let module = self.scope(def_scope).module;
         let param_scope = self.new_scope(ScopeKind::StructParams, Some(def_scope), module, None);
+
         self.scope_mut(param_scope).order_site = Some(span);
         let mut values: Vec<Option<Operand>> = vec![None; lit.params.len()];
         // `struct(types: ..Type)`: the positional arguments from the variadic parameter on
@@ -303,11 +325,13 @@ impl Compiler {
         let variadic = lit.params.iter().position(|p| p.variadic);
         let mut pack: Vec<Operand> = Vec::new();
         let mut next = 0;
+
         for (n, v) in args {
             if n.is_none() && variadic.is_some_and(|vi| next >= vi) {
                 pack.push(v);
                 continue;
             }
+
             let index = if let Some(n) = n {
                 lit.params
                     .iter()
@@ -321,9 +345,11 @@ impl Compiler {
                     })?
             } else {
                 let i = next;
+
                 next += 1;
                 i
             };
+
             if index >= values.len() {
                 return err(
                     Code::StructTooManyArguments,
@@ -331,13 +357,17 @@ impl Compiler {
                     format!("too many arguments for `{name}`"),
                 );
             }
+
             values[index] = Some(v);
         }
+
         let mut bindings = self.ty.poly_structs[ps.0 as usize].baked.clone();
         let mut key = Vec::new();
         let mut cases = Vec::new();
+
         for (i, p) in lit.params.iter().enumerate() {
             let pname = p.name.map_or_else(|| Sym::intern("_"), |n| n.name);
+
             // `x: $T`: the argument's type binds `T` (also `[$N] $T` and other patterns).
             if let Some(t) = &p.ty
                 && crate::sema::procs::has_poly(t)
@@ -345,6 +375,7 @@ impl Compiler {
             {
                 // A constant view given for `[$N] T` has the fixed length it was built with.
                 let op = self.constant_view_as_fixed(t, &op, span)?.unwrap_or(op);
+
                 values[i] = Some(op.clone());
                 let op = &op;
                 let arg_ty = match op {
@@ -363,17 +394,21 @@ impl Compiler {
                     Some(Value::Type(t)) => Some(t),
                     _ => None,
                 };
+
                 self.match_pattern_value(t, arg_ty, &mut found, param_scope, represented)?;
+
                 for (n, v, vty) in found {
                     self.add_const(param_scope, n, p.span, v.clone(), vty);
                     key.push(v.clone());
                     bindings.push((n, v, vty));
                 }
             }
+
             let ty = match &p.ty {
                 Some(t) => self.eval_type(param_scope, t)?,
                 None => TypeId::VOID,
             };
+
             if Some(i) == variadic {
                 let elem = if ty == TypeId::VOID {
                     TypeId::TYPE
@@ -381,9 +416,11 @@ impl Compiler {
                     ty
                 };
                 let mut items = std::mem::take(&mut pack);
+
                 if let Some(op) = values[i].take() {
                     items.insert(0, op);
                 }
+
                 let count = items.len() as u64;
                 let esize = self.size_of(elem, p.span)?;
                 let mut array =
@@ -391,30 +428,39 @@ impl Compiler {
                 // A pointer to a type that is still being declared does not need its size, so
                 // a case's descriptor may wait until the type exists.
                 let outer = (self.ty.defer_infos, self.ty.strict_sizes);
+
                 (self.ty.defer_infos, self.ty.strict_sizes) = (true, true);
                 let written = (|| -> Result<()> {
                     for (k, op) in items.into_iter().enumerate() {
                         let v = self.struct_arg_value(param_scope, op, elem, span)?;
+
                         if let Value::Type(case) = v {
                             cases.push(case);
                         }
+
                         let v = match (v, self.ty.types.is_float(elem)) {
                             (Value::Int(i), true) => Value::float(i as f64),
                             (v, _) => v,
                         };
+
                         self.write_value(&mut array, k as u64 * esize, &v, elem, p.span)?;
                     }
+
                     Ok(())
                 })();
+
                 (self.ty.defer_infos, self.ty.strict_sizes) = outer;
                 written?;
                 let value = self.const_pack(elem, array, count, p.span)?;
                 let ty = self.ty.types.array(elem, ArrayKind::View);
+
                 self.add_const(param_scope, pname, p.span, value.clone(), ty);
                 key.push(crate::sema::instance_key_value(&self.ty.types, &value, ty).value);
                 bindings.push((pname, value, ty));
+
                 continue;
             }
+
             // An argument that does not fit is the caller's to fix, so it is reported at the use.
             let given = values[i].is_some();
             let argument = match values[i].take() {
@@ -464,30 +510,36 @@ impl Compiler {
             } else {
                 ty
             };
+
             self.add_const(param_scope, pname, p.span, value.clone(), ty);
             key.push(value.clone());
             bindings.push((pname, value, ty));
         }
+
         if let Some(block) = &lit.modify {
             let baked = self.ty.poly_structs[ps.0 as usize].baked.len();
             let params = bindings.split_off(baked);
             let modified = self.run_struct_modify(def_scope, name, block, params, span)?;
+
             key = modified
                 .iter()
                 .map(|(_, v, t)| crate::sema::instance_key_value(&self.ty.types, v, *t).value)
                 .collect();
             bindings.extend(modified);
         }
+
         let cache_key = bindings
             .iter()
             .map(|(_, value, ty)| crate::sema::instance_key_value(&self.ty.types, value, *ty))
             .collect::<Vec<_>>();
+
         if let Some(&t) = self.ty.poly_structs[ps.0 as usize]
             .instances
             .get(&cache_key)
         {
             return Ok(t);
         }
+
         if self.ty.poly_structs[ps.0 as usize].instances.len() >= crate::sema::MAX_INSTANCES {
             return err(
                 Code::TooManyInstances,
@@ -495,10 +547,13 @@ impl Compiler {
                 crate::sema::too_many_instances(name),
             );
         }
+
         let t = self.new_struct_type(name, lit, def_scope, bindings, Some((ps, key.clone())));
+
         if !cases.is_empty() {
             self.ty.variadic_cases.insert(t, cases);
         }
+
         self.ty.poly_structs[ps.0 as usize]
             .instances
             .insert(cache_key, t);
@@ -510,6 +565,7 @@ impl TypeState {
     /// The `Type` value standing for a polymorphic struct that has no arguments yet.
     pub fn poly_struct_type(&mut self, ps: PolyStructId) -> TypeId {
         let name = self.poly_structs[ps.0 as usize].name;
+
         self.types.intern(TypeKind::PolyStruct {
             id: ps,
             name,

@@ -9,6 +9,7 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 
 fn run_on(dir: &Path, command: &str, source: &str) -> Output {
     let path = dir.join("case.jai");
+
     std::fs::write(&path, source).unwrap();
     Command::new(JAIC)
         .arg(command)
@@ -37,6 +38,7 @@ fn route_program(defs: &str, route: &str) -> String {
 fn rejected(name: &str, defs: &str, route: &str, message: &str) {
     let dir = TempDir::new(name);
     let output = run_on(&dir, "-check", &route_program(defs, route));
+
     assert_eq!(
         output.status.code(),
         Some(1),
@@ -44,6 +46,7 @@ fn rejected(name: &str, defs: &str, route: &str, message: &str) {
     );
     let text = String::from_utf8_lossy(&output.stderr).into_owned();
     let first = text.lines().next().unwrap_or("");
+
     assert!(
         first.starts_with("case.jai:")
             && first.contains(":5: error[metaprogram-report]: Http: route `GET "),
@@ -67,6 +70,7 @@ fn a_valid_route_compiles() {
         "\"/users/{id}\", h",
     );
     let output = run_on(&dir, "-check", &source);
+
     assert_eq!(
         output.status.code(),
         Some(0),
@@ -175,6 +179,7 @@ fn baked_caller_location_is_the_call_site() {
         "-interp",
         "#import \"Basic\";\nwhere :: ($loc := #caller_location) {\n    print(\"%:%\\n\", loc.line_number, loc.character_number);\n}\nmain :: () {\n    where();\n    where();\n}\n",
     );
+
     assert_eq!(output.status.code(), Some(0));
     assert_eq!(String::from_utf8_lossy(&output.stdout), "6:5\n7:5\n");
 }

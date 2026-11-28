@@ -9,14 +9,17 @@ pub fn report() {
     if !enabled() || !body_probe::enabled() {
         return;
     }
+
     STATS.with(|s| {
         let s = s.borrow();
         let aborted: u64 = s.aborted.values().map(|a| a.0).sum();
+
         eprintln!(
             "== speculative bodies: {} batches, {} bodies batched, {} committed, {} abandoned",
             s.batches, s.batched, s.committed, aborted
         );
         let pct = |n: u64| 100.0 * n as f64 / s.batched.max(1) as f64;
+
         eprintln!(
             "  committed {:.1}% of batched; moved {} scopes, {} entities",
             pct(s.committed),
@@ -32,7 +35,9 @@ pub fn report() {
         );
         eprintln!("-- abandoned by first blocker:");
         let mut rows: Vec<_> = s.aborted.iter().collect();
+
         rows.sort_by_key(|(_, (n, _))| std::cmp::Reverse(*n));
+
         for (reason, (n, time)) in rows {
             let name = match reason {
                 Reason::Wrote(i) => format!("wrote {}", body_probe::write_name(*i)),
@@ -46,12 +51,15 @@ pub fn report() {
                 Reason::LoweredMeanwhile => "lowered on demand by an earlier body".into(),
                 Reason::Unsupported => "not eligible".into(),
             };
+
             eprintln!(
                 "  {name:<44} {n:>8} ({:>4.1}%)  wasted {time:>10.3?}",
                 pct(*n)
             );
         }
+
         let per = |t: Duration, n: u64| t.as_secs_f64() * 1e6 / n.max(1) as f64;
+
         eprintln!("-- time:");
         eprintln!(
             "  view path, committed   {:>10.3?} ({:.1} us/body)",
@@ -97,6 +105,7 @@ pub(in crate::sema) fn force(on: bool) {
 pub(in crate::sema) fn counts() -> Counts {
     STATS.with(|s| {
         let s = s.borrow();
+
         Counts {
             batched: s.batched,
             committed: s.committed,

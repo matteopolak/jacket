@@ -21,6 +21,7 @@ fn check(fixture: &str, os: &str, cpu: &str) {
         .args(["-check", "-no_dce", "-os", os, "-cpu", cpu])
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{fixture} for {os}-{cpu}:\n{}",

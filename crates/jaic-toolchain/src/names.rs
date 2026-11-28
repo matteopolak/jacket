@@ -15,6 +15,7 @@ fn stem(program: &str) -> String {
 /// prefixed one such as `x86_64-w64-mingw32-clang`.
 pub fn is_clang(program: &str) -> bool {
     let name = stem(program);
+
     matches!(name.as_str(), "clang" | "clang++" | "clang-cl")
         || name.ends_with("-clang")
         || name.ends_with("-clang++")

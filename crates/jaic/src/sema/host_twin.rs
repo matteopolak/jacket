@@ -83,10 +83,12 @@ impl Compiler {
     ) -> Result<Vec<Operand>> {
         let tscope = self.thunk_scope(scope);
         let file = self.scope_file(scope);
+
         match body {
             ast::RunBody::Expr(e) => {
                 let mut f = self.thunk_ctx(ir::FuncOrigin::Run, file);
                 let op = self.check_expr(&mut f, tscope, e, expected)?;
+
                 match op {
                     Operand::Const {
                         ..
@@ -95,15 +97,19 @@ impl Compiler {
                     | Operand::Procs(_) => Ok(vec![op]),
                     other => {
                         let ty = other.ty();
+
                         if let Some(gate) = gate
                             && !gate(self, ty)
                         {
                             return Ok(Vec::new());
                         }
+
                         let result = self.run_thunk_all(f, other, span);
+
                         if result.is_err() {
                             self.ed.run_failed(span, ty);
                         }
+
                         result
                     }
                 }
@@ -111,11 +117,14 @@ impl Compiler {
             ast::RunBody::Block(block) => {
                 let mut f = self.thunk_ctx(ir::FuncOrigin::Run, file);
                 let inner = self.new_block_scope(tscope, block.span);
+
                 self.check_block_stmts(&mut f, inner, &block.stmts)?;
                 self.ide_require_parsed_body(block.span)?;
+
                 if !f.b.is_terminated() {
                     self.emit_defers(&mut f, 0, span)?;
                 }
+
                 self.run_thunk_all(f, Operand::Void, span)
             }
         }
@@ -131,12 +140,15 @@ impl Compiler {
         if self.meta.twin || !self.is_cross_build() {
             return;
         }
+
         // Sources that name target-side ids (`Code`, a file or module of this compiler) have no
         // counterpart in the twin.
         if !matches!(source, ProgramSource::File(_) | ProgramSource::String(_)) {
             return;
         }
+
         self.src.program_sources.push(source.clone());
+
         if let Some(twin) = self.ct.twin.compiler.as_mut()
             && twin
                 .add_source(source)
@@ -165,6 +177,7 @@ impl Compiler {
         let host = self.options.host;
         let (os, cpu) = (host.os, host.cpu);
         let mut options: Options = self.options.clone();
+
         options.os = os;
         options.cpu = cpu;
         options.long_double = host.long_double;
@@ -172,6 +185,7 @@ impl Compiler {
         options.layout = host.layout;
         let layout = options.layout;
         let mut twin = Box::new(Compiler::new(options, self.src.fs.clone()));
+
         twin.meta.twin = true;
         twin.meta.workspace = self.meta.workspace;
         // One file table, so a span of either compiler names the same file in both.
@@ -188,16 +202,20 @@ impl Compiler {
                 (Box::new(reason), false)
             })?,
         };
+
         twin.ct.interp = crate::interp::Interp::new(provider, layout).into();
         twin.ct.interp.in_host_twin = true;
+
         if let Some(shared) = workspaces {
             twin.attach_workspaces(shared);
         }
+
         let sources = self.src.program_sources.clone();
         let loaded = twin
             .prepare_sources(&sources)
             .and_then(|()| twin.expand_all())
             .and_then(|()| twin.apply_pokes());
+
         match loaded {
             Ok(()) => Ok(twin),
             Err(reason) => Err((reason, twin.ct.traps != 0)),
@@ -216,6 +234,7 @@ impl Compiler {
         if !self.host_twin_wanted(flags) || self.runs_need_target(span) {
             return Ok(None);
         }
+
         if self.ed.type_probe {
             return err(
                 Code::ContextualTypeInference,
@@ -223,6 +242,7 @@ impl Compiler {
                 "contextual type inference requires compile-time execution",
             );
         }
+
         let mut twin = match self.ct.twin.compiler.take() {
             Some(twin) => twin,
             None => match self.build_twin() {
@@ -237,14 +257,18 @@ impl Compiler {
                     if jacket_config::env::HOST_TWIN_DEBUG.os().is_some() {
                         eprintln!("jaic: no host twin: {}", self.render(&reason));
                     }
+
                     self.ct.twin.unavailable = true;
+
                     return Ok(None);
                 }
             },
         };
         let result = self.run_in_twin(&mut twin, scope, body, span);
+
         // The twin ran this evaluation instead of the target compiler: its cost is recorded here.
         self.meta.perf.runs.append(&mut twin.meta.perf.runs);
+
         if twin.ct.interp.twin_declined {
             // The run needed state of the target program, which the twin holds its own copy
             // of; whatever it wrote there is meaningless. Every later run stays on the target,
@@ -252,6 +276,7 @@ impl Compiler {
             self.ct.twin.unavailable = true;
             return Ok(None);
         }
+
         self.ct.twin.compiler = Some(twin);
         result
     }
@@ -264,15 +289,20 @@ impl Compiler {
     ///   (a call inside a procedure is caught when the twin's interpreter makes it).
     fn runs_need_target(&mut self, span: Span) -> bool {
         let sources = &self.src.sources;
+
         while (self.ct.twin.scanned as usize) < sources.len() {
             let file = sources.get(crate::source::FileId(self.ct.twin.scanned));
+
             self.ct.twin.no_reset_declared |= file.text.contains("#no_reset");
             self.ct.twin.scanned += 1;
         }
+
         if self.ct.twin.no_reset_declared {
             return true;
         }
+
         let text = self.src.sources.snippet(span);
+
         words(text)
             .iter()
             .any(|word| TARGET_STATE_OPERATIONS.contains(word))
@@ -292,6 +322,7 @@ impl Compiler {
         let key = self
             .twin_run_key(scope, body, span)
             .map(|(_, start, end)| (twin_scope, start, end));
+
         if let Some(found) = key.and_then(|key| twin.ct.twin.results.get(&key).cloned()) {
             // The twin ran it while loading the program, or for an earlier request.
             if !found
@@ -300,10 +331,14 @@ impl Compiler {
             {
                 return Ok(None);
             }
+
             self.load_twin_sources(twin)?;
+
             return self.import_host_results(twin, found, span).map(Some);
         }
+
         let nested = self.meta.perf.running();
+
         self.ct.interp.lend_budget(&mut twin.ct.interp, nested);
         let before = (
             twin.ct.executions,
@@ -314,32 +349,38 @@ impl Compiler {
         let result = {
             let mut gate = |twin: &mut Compiler, ty: TypeId| {
                 let importable = self.can_import_host_type(twin, ty, span);
+
                 declined = !importable;
                 importable
             };
             twin.check_run_gated(twin_scope, body, None, span, Some(&mut gate))
         };
+
         if declined {
             // Nothing ran: the target compiler runs it.
             return Ok(None);
         }
+
         if result.is_err() && twin.ct.executions == before.0 {
             // The run failed to check before anything ran: it names something the host program
             // does not have (a member a module exports only for the target's OS, say). The
             // target compiler checks it against the target and reports what is really wrong.
             return Ok(None);
         }
+
         self.ct.interp.take_back_budget(&twin.ct.interp);
         // A retry decision must see that code ran, and what it was waiting for.
         self.ct.executions += twin.ct.executions - before.0;
         self.ct.traps += twin.ct.traps - before.1;
         self.epochs.placeholder_misses += twin.epochs.placeholder_misses - before.2;
         self.load_twin_sources(twin)?;
+
         match result {
             Ok(operands) => {
                 if let Some(key) = key {
                     twin.ct.twin.results.insert(key, operands.clone());
                 }
+
                 self.import_host_results(twin, operands, span).map(Some)
             }
             Err(diagnostic) => Err(diagnostic),
@@ -351,11 +392,13 @@ impl Compiler {
     /// a procedure has none, since it may run once for each instance of the procedure.
     fn top_level_file_scope(&self, scope: ScopeId) -> Option<ScopeId> {
         let found = self.scope(scope);
+
         match found.kind {
             ScopeKind::File => Some(scope),
             ScopeKind::Proc => {
                 let parent = found.parent?;
                 let thunk = self.ns.thunk_scopes.get(&parent) == Some(&scope);
+
                 (thunk && self.scope(parent).kind == ScopeKind::File).then_some(parent)
             }
             _ => None,
@@ -382,13 +425,17 @@ impl Compiler {
         run: impl FnOnce(&mut Compiler) -> Result<Vec<Operand>>,
     ) -> Result<Vec<Operand>> {
         let key = self.twin_run_key(scope, body, span);
+
         if let Some(found) = key.and_then(|key| self.ct.twin.results.get(&key)) {
             return Ok(found.clone());
         }
+
         let results = run(self)?;
+
         if let Some(key) = key {
             self.ct.twin.results.insert(key, results.clone());
         }
+
         Ok(results)
     }
 
@@ -404,8 +451,10 @@ impl Compiler {
                             "add_build_string: the Code scope has no counterpart in the target program",
                         );
                     };
+
                     self.src.added += 1;
                     let label = format!("added code string {}", self.src.added);
+
                     self.load_string_in_scope(&label, text, own)?;
                 }
                 (ProgramSource::ModuleString(..), _) => {
@@ -418,6 +467,7 @@ impl Compiler {
                 _ => self.add_source_local(&source)?,
             }
         }
+
         self.expand_all()
     }
 
@@ -426,6 +476,7 @@ impl Compiler {
         let info = twin.src.files.iter().find(|file| file.scope == scope)?;
         let host = &twin.ns.modules[info.module.0 as usize];
         let main = twin.ns.main_module == Some(info.module);
+
         self.src
             .files
             .iter()
@@ -433,9 +484,11 @@ impl Compiler {
                 if file.path != info.path {
                     return false;
                 }
+
                 if main || self.ns.main_module == Some(file.module) {
                     return main && self.ns.main_module == Some(file.module);
                 }
+
                 let own = &self.ns.modules[file.module.0 as usize];
                 own.path == host.path && own.params == host.params
             })
@@ -449,9 +502,11 @@ impl Compiler {
             return Ok(false);
         };
         let added = crate::build::take_own_sources(&workspaces, self.meta.workspace);
+
         if added.is_empty() {
             return Ok(false);
         }
+
         for source in added {
             self.add_source_local(&source)?;
             let scope = match &source {
@@ -460,8 +515,10 @@ impl Compiler {
                 }
                 _ => None,
             };
+
             self.src.twin_outbox.push((source, scope));
         }
+
         self.expand_all()?;
         Ok(true)
     }
@@ -475,14 +532,18 @@ impl Compiler {
         span: Span,
     ) -> Option<ScopeId> {
         let text = self.src.sources.snippet(span).to_owned();
+
         // A `#code` literal in the run names a scope of the target program.
         if text.contains("#code") {
             return None;
         }
+
         let used = words(&text);
         let mut current = scope;
+
         loop {
             let found = self.scope(current);
+
             match found.kind {
                 ScopeKind::File => break,
                 ScopeKind::Block | ScopeKind::Proc => {
@@ -493,11 +554,13 @@ impl Compiler {
                     {
                         return None;
                     }
+
                     current = found.parent?;
                 }
                 _ => return None,
             }
         }
+
         let (path, module) = {
             let info = self.src.files.iter().find(|file| file.scope == current)?;
             (info.path.clone(), info.module)
@@ -517,8 +580,10 @@ impl Compiler {
         // The file's names live in its scope and, up to the module, in the scopes above it.
         let declared = |compiler: &Compiler, mut scope: ScopeId| -> HashSet<String> {
             let mut names = HashSet::<String>::default();
+
             loop {
                 let found = compiler.scope(scope);
+
                 names.extend(found.names.keys().map(|name| name.as_str().to_owned()));
                 names.extend(
                     found
@@ -527,6 +592,7 @@ impl Compiler {
                         .filter_map(|entry| entry.import.name)
                         .map(|name| name.name.as_str().to_owned()),
                 );
+
                 match (found.kind, found.parent) {
                     (ScopeKind::File, Some(parent)) => scope = parent,
                     _ => return names,
@@ -537,6 +603,7 @@ impl Compiler {
         let missing = declared(self, current)
             .iter()
             .any(|name| used.contains(name.as_str()) && !host_names.contains(name));
+
         (!missing).then_some(twin_scope)
     }
 
@@ -545,6 +612,7 @@ impl Compiler {
         if Some(module) == self.ns.main_module {
             return twin.ns.main_module;
         }
+
         let found = &self.ns.modules[module.0 as usize];
         let path = found.path.clone()?;
         let params = found.params.clone();
@@ -560,13 +628,17 @@ impl Compiler {
                         | super::Value::Float(..)
                 )
         });
+
         if !portable {
             return None;
         }
+
         let key = (twin.src.canon(&path), params.clone());
+
         if let Some(&id) = twin.ns.module_cache.get(&key) {
             return Some(id);
         }
+
         twin.load_module(&name, &path, params, Span::NONE).ok()
     }
 }

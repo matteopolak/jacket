@@ -43,18 +43,23 @@ fn own_files(dir: &Path, top: bool, out: &mut Vec<PathBuf>) {
         return;
     };
     let mut paths: Vec<PathBuf> = entries.flatten().map(|e| e.path()).collect();
+
     paths.sort();
+
     for path in paths {
         if crate::paths::is_hidden(&path) {
             continue;
         }
+
         if path.is_dir() {
             let name = path
                 .file_name()
                 .is_some_and(|n| n == "tests" || n == "benches");
+
             if (top && name) || crate::paths::module_entry(&path).is_file() {
                 continue;
             }
+
             own_files(&path, false, out);
         } else if path.extension().is_some_and(|e| e == "jai") {
             out.push(path);
@@ -71,16 +76,20 @@ fn canonical(path: &Path) -> PathBuf {
 /// `stdlib`.
 pub fn library_docs(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<LibraryDoc> {
     let mut own = Vec::new();
+
     own_files(dir, true, &mut own);
     let module_file = canonical(&crate::paths::module_entry(dir));
     let mut queue: VecDeque<PathBuf> = own.into_iter().collect();
     let mut seen = BTreeSet::new();
     let mut out = Vec::new();
+
     while let Some(file) = queue.pop_front() {
         let file = canonical(&file);
+
         if !seen.insert(file.clone()) {
             continue;
         }
+
         let Ok(text) = std::fs::read_to_string(&file) else {
             continue;
         };
@@ -88,6 +97,7 @@ pub fn library_docs(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<L
         let base = file.parent().unwrap_or(Path::new("."));
         let mut documented_from = None;
         let mut files = forward::Files::new(stdlib).with_import_dirs(import_dirs);
+
         for item in ide_facts::top_level(&parsed.file) {
             match item.kind {
                 TopLevelKind::Decl(decl) if decl.kind == crate::ast::DeclKind::Const => {
@@ -95,6 +105,7 @@ pub fn library_docs(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<L
                     let Some(name) = decl.names.first() else {
                         continue;
                     };
+
                     if let Some(found) = docs::located_above(&text, start) {
                         documented_from = Some(found.line);
                         out.push(LibraryDoc {
@@ -110,6 +121,7 @@ pub fn library_docs(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<L
                         let target = files
                             .text(&site)
                             .filter(|_| (&site, at) != (&file, name.span.start as usize));
+
                         if let Some(found) = target.and_then(|t| docs::located_above(&t, at)) {
                             out.push(LibraryDoc {
                                 file: file.clone(),
@@ -123,6 +135,7 @@ pub fn library_docs(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<L
                 }
                 TopLevelKind::Load(path, _) => {
                     let loaded = base.join(path);
+
                     if loaded.is_file() {
                         queue.push_back(loaded);
                     }
@@ -138,12 +151,14 @@ pub fn library_docs(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<L
                         ]
                         .into_iter()
                         .find(|p| p.is_file());
+
                         queue.extend(found);
                     }
                 }
                 _ => {}
             }
         }
+
         // Only the module's own file documents the module, and a comment that sits directly
         // above its first declaration documents that declaration instead.
         if file == module_file
@@ -159,6 +174,7 @@ pub fn library_docs(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<L
             });
         }
     }
+
     out
 }
 
@@ -166,6 +182,7 @@ pub fn library_docs(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Vec<L
 /// line of tab-separated fields.
 fn escape(field: &str) -> String {
     let mut out = String::with_capacity(field.len());
+
     for c in field.chars() {
         match c {
             '\\' => out.push_str("\\\\"),
@@ -175,6 +192,7 @@ fn escape(field: &str) -> String {
             c => out.push(c),
         }
     }
+
     out
 }
 
@@ -184,6 +202,7 @@ fn escape(field: &str) -> String {
 /// docs shown on an alias (the name it renames).
 pub fn records(docs: &[LibraryDoc]) -> String {
     let mut out = String::new();
+
     for doc in docs {
         out.push_str(&escape(&doc.file.to_string_lossy()));
         out.push('\t');
@@ -196,6 +215,7 @@ pub fn records(docs: &[LibraryDoc]) -> String {
         out.push_str(&escape(doc.forwarded.as_deref().unwrap_or("")));
         out.push('\n');
     }
+
     out
 }
 
@@ -211,11 +231,14 @@ mod tests {
             NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
         ));
         let _ = std::fs::remove_dir_all(&dir);
+
         for (name, text) in files {
             let path = dir.join(name);
+
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, text).unwrap();
         }
+
         dir
     }
 
@@ -234,6 +257,7 @@ mod tests {
             .iter()
             .map(|d| (d.symbol.as_deref(), d.text.as_str()))
             .collect();
+
         assert_eq!(
             described,
             [
@@ -269,6 +293,7 @@ mod tests {
         ]);
         let found = library_docs(&dir, &std, &[]);
         let names: Vec<_> = found.iter().filter_map(|d| d.symbol.as_deref()).collect();
+
         assert_eq!(names, ["outer_part", "inner_item"]);
         let _ = std::fs::remove_dir_all(dir);
         let _ = std::fs::remove_dir_all(std);
@@ -279,6 +304,7 @@ mod tests {
             .iter()
             .filter_map(|d| {
                 let file = d.file.file_name()?.to_string_lossy().into_owned();
+
                 Some((
                     format!("{file}:{}", d.symbol.as_deref()?),
                     d.text.lines().next()?,
@@ -301,6 +327,7 @@ mod tests {
             ),
         ]);
         let found = library_docs(&dir, Path::new("/nowhere"), &[]);
+
         assert_eq!(
             described(&found),
             [
@@ -339,6 +366,7 @@ mod tests {
             .lines()
             .filter(|r| r.split('\t').nth(4).is_some_and(str::is_empty))
             .collect();
+
         assert_eq!(runnable.iter().map(fences).sum::<usize>(), 1, "{records}");
         assert_eq!(
             records.lines().map(|r| fences(&r)).sum::<usize>(),
@@ -357,6 +385,7 @@ mod tests {
             text: "one\ttwo\nthree\\".into(),
             forwarded: None,
         };
+
         assert_eq!(records(&[doc]), "/a.jai\t3\tf\tone\\ttwo\\nthree\\\\\t\n");
     }
 
@@ -371,8 +400,10 @@ mod tests {
         ]);
         let (lib, more) = (dir.join("lib"), vec![dir.join("more")]);
         let without = library_docs(&lib, Path::new("/nowhere"), &[]);
+
         assert!(without.iter().all(|d| d.symbol.is_none()), "{without:?}");
         let found = library_docs(&lib, Path::new("/nowhere"), &more);
+
         assert_eq!(
             described(&found),
             [(

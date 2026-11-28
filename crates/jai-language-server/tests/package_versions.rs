@@ -37,6 +37,7 @@ fn errors(main: &str) -> Vec<String> {
         ],
     );
     let (s, uri, _) = open_file(&dir, "main.jai");
+
     s.diagnostics(&uri)
         .unwrap()
         .into_iter()
@@ -48,11 +49,13 @@ fn errors(main: &str) -> Vec<String> {
 #[test]
 fn a_package_imports_the_copy_its_range_admits() {
     let found = errors("#import \"c\";\nmain :: () { c_two(); }\n");
+
     assert_eq!(found, Vec::<String>::new());
 }
 
 #[test]
 fn the_program_itself_still_gets_the_shared_copy() {
     let found = errors("#import \"foo\";\nmain :: () { only_in_two(); }\n");
+
     assert!(!found.is_empty(), "the shared copy is version 1");
 }

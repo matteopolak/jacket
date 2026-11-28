@@ -16,9 +16,11 @@ main :: () { x := one_line(1) + split(2); }
 #[test]
 fn a_modify_block_is_named_not_quoted() {
     let s = open(PROGRAM);
+
     for name in ["one_line ::", "split ::"] {
         let hover = s.hover(&uri(), at(PROGRAM, name)).unwrap().expect("hover");
         let text = hover.contents.value;
+
         assert!(text.contains("-> s64 #modify"), "{text}");
         assert!(!text.contains("return"), "{text}");
     }

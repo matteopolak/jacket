@@ -15,6 +15,7 @@ fn session() -> Session {
 /// Completion at the end of `marker` in `text`, opened as `path`.
 fn complete_at(s: &mut Session, path: &Path, text: &str, marker: &str) -> CompletionList {
     let uri = uri_of(path);
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     s.completion(&uri, end_of(text, marker)).unwrap()
 }
@@ -52,6 +53,7 @@ fn public_alias_documentation_resolves_loaded_overloads_and_private_qualifiers()
         .find(|item| item.label_description.as_deref() == Some("Facade"))
         .unwrap();
     let doc = facade.documentation.as_deref().unwrap();
+
     assert!(doc.contains("measure :: (count:int=7) -> int"), "{doc}");
     assert!(doc.contains("measure :: (text:string) -> int"), "{doc}");
     assert!(
@@ -77,6 +79,7 @@ fn alias_documentation_renames_headers_without_leaking_private_names_or_looping(
             ),
         ],
     );
+
     for (prefix, expected, forbidden) in [
         ("good", "good :: (value:u8=2) -> u8", "hidden ::"),
         ("broken", "broken :: Impl.hidden", "value:u8"),
@@ -91,6 +94,7 @@ fn alias_documentation_renames_headers_without_leaking_private_names_or_looping(
             .find(|item| item.label_description.as_deref() == Some("Facade"))
             .unwrap();
         let doc = item.documentation.as_deref().unwrap();
+
         assert!(doc.contains(expected), "{doc}");
         assert!(!doc.contains(forbidden), "{doc}");
     }
@@ -117,6 +121,7 @@ fn unloaded_project_file_alias_keeps_its_own_declaration_environment() {
     );
     let item = auto(&list, "public_call")[0];
     let doc = item.documentation.as_deref().unwrap();
+
     assert!(
         doc.contains("public_call :: (number:int=12) -> int"),
         "{doc}"
@@ -134,8 +139,10 @@ fn offers_stdlib_names_with_the_import() {
     let text = "main :: () {\n    prin\n}\n";
     let list = complete_at(&mut s, Path::new("/auto-import/a/main.jai"), text, "prin");
     let print = auto(&list, "print");
+
     assert_eq!(print.len(), 1, "{:#?}", list.items);
     let print = print[0];
+
     assert_eq!(print.label_description.as_deref(), Some("Basic"));
     assert_eq!(print.detail, "auto-import from Basic");
     assert!(print.sort_text.as_deref().unwrap().starts_with("~print"));
@@ -147,6 +154,7 @@ fn offers_stdlib_names_with_the_import() {
             .contains("print :: (")
     );
     let edit = &print.additional_edits[0];
+
     assert_eq!(edit.new_text, "#import \"Basic\";\n\n");
     assert_eq!(
         edit.range.start,
@@ -182,10 +190,13 @@ fn facade_aliases_show_underlying_overloads_without_exporting_helpers() {
     let mut s = session();
     let list = complete_at(&mut s, &dir.join("main.jai"), "main :: () { emi }", "emi");
     let items = auto(&list, "emit");
+
     assert_eq!(items.len(), 1);
     let item = items[0];
+
     assert_eq!(item.kind, jai_language_server::CompletionKind::Function);
     let doc = item.documentation.as_deref().unwrap();
+
     assert!(doc.contains("emit :: (number: s64)"), "{doc}");
     assert!(doc.contains("emit :: (text: string)"), "{doc}");
     assert!(doc.contains("Writes a number."), "{doc}");
@@ -216,6 +227,7 @@ fn facade_metadata_alias_cycles_terminate_and_chains_keep_the_public_name() {
     let mut s = session();
     let list = complete_at(&mut s, &dir.join("main.jai"), "main :: () { emi }", "emi");
     let items = auto(&list, "emit");
+
     assert_eq!(items.len(), 1);
     assert!(
         items[0]
@@ -242,6 +254,7 @@ fn import_goes_after_the_existing_imports() {
         "    prin",
     );
     let edit = &auto(&list, "print")[0].additional_edits[0];
+
     // On the line after `#import "Math";`, not inside the `#if` block.
     assert_eq!(
         edit.range.start,
@@ -263,6 +276,7 @@ fn leaves_out_imported_modules_and_visible_names() {
         text,
         "    prin",
     );
+
     assert!(auto(&list, "print").is_empty(), "print is visible");
     assert!(list.items.iter().any(|i| i.label == "print"));
     assert!(
@@ -272,6 +286,7 @@ fn leaves_out_imported_modules_and_visible_names() {
     );
     let uri = uri_of(Path::new("/auto-import/c/main.jai"));
     let list = s.completion(&uri, end_of(text, "    sqr")).unwrap();
+
     // Math is imported under a name: not offered again.
     assert!(
         list.items
@@ -298,6 +313,7 @@ fn ranks_after_names_in_scope_and_common_modules_first() {
         .find(|i| i.label == "logarithm_table")
         .unwrap();
     let logs = auto(&list, "log");
+
     assert!(
         logs.iter()
             .all(|i| local.sort_text.as_deref().unwrap() < i.sort_text.as_deref().unwrap())
@@ -306,11 +322,13 @@ fn ranks_after_names_in_scope_and_common_modules_first() {
         .iter()
         .map(|i| i.label_description.as_deref().unwrap())
         .collect();
+
     assert_eq!(&modules[..2], ["Basic", "Math"]);
     let sort: Vec<&str> = logs
         .iter()
         .map(|i| i.sort_text.as_deref().unwrap())
         .collect();
+
     assert!(sort[0] < sort[1]);
     // In-scope names sort by label, before every `~` sort text.
     assert!("logarithm_table" < sort[0]);
@@ -321,6 +339,7 @@ fn needs_two_characters_and_caps_the_list() {
     let mut s = session();
     let text = "main :: () {\n    p\n    ge\n}\n";
     let list = complete_at(&mut s, Path::new("/auto-import/e/main.jai"), text, "    p");
+
     assert!(list.items.iter().all(|i| i.additional_edits.is_empty()));
     assert!(
         list.is_incomplete,
@@ -333,6 +352,7 @@ fn needs_two_characters_and_caps_the_list() {
         .iter()
         .filter(|i| !i.additional_edits.is_empty())
         .count();
+
     assert_eq!(count, 50);
     assert!(list.is_incomplete);
 }
@@ -343,6 +363,7 @@ fn only_modules_for_the_target_os() {
     let path = Path::new("/auto-import/f/main.jai");
     let mut linux = session();
     let list = complete_at(&mut linux, path, text, "GetModuleHandl");
+
     assert_eq!(
         auto(&list, "GetModuleHandleW"),
         [] as [&jai_language_server::CompletionItem; 0]
@@ -352,6 +373,7 @@ fn only_modules_for_the_target_os() {
         modules_environment(Some(jaic::target::TargetOs::Windows)),
     );
     let list = complete_at(&mut windows, path, text, "GetModuleHandl");
+
     assert_eq!(
         auto(&list, "GetModuleHandleW")[0]
             .label_description
@@ -363,9 +385,11 @@ fn only_modules_for_the_target_os() {
 #[test]
 fn the_setting_turns_it_off() {
     let mut s = session();
+
     s.set_auto_import(false);
     let text = "main :: () {\n    prin\n}\n";
     let list = complete_at(&mut s, Path::new("/auto-import/g/main.jai"), text, "prin");
+
     assert!(list.items.iter().all(|i| i.additional_edits.is_empty()));
 }
 
@@ -388,11 +412,13 @@ fn user_module_and_project_files() {
         ],
     );
     let mut s = session();
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let main = dir.join("main.jai");
     let text = "#import \"Basic\";\n#load \"loaded.jai\";\n\nmain :: () {\n    greet\n    shout\n    tool_o\n}\n";
     let list = complete_at(&mut s, &main, text, "    greet");
     let greet = &auto(&list, "greet_world")[0];
+
     assert_eq!(greet.label_description.as_deref(), Some("Greeting"));
     assert_eq!(
         greet.additional_edits[0].new_text,
@@ -409,8 +435,10 @@ fn user_module_and_project_files() {
     let uri = uri_of(&main);
     let list = s.completion(&uri, end_of(text, "    shout")).unwrap();
     let shout = &auto(&list, "shout_text")[0];
+
     assert_eq!(shout.label_description.as_deref(), Some("util/strings.jai"));
     let edit = &shout.additional_edits[0];
+
     // After the last `#load`.
     assert_eq!(
         edit.range.start,
@@ -422,6 +450,7 @@ fn user_module_and_project_files() {
     assert_eq!(edit.new_text, "#load \"util/strings.jai\";\n");
     // A file with its own `main` is another program.
     let list = s.completion(&uri, end_of(text, "    tool_o")).unwrap();
+
     assert!(list.items.iter().all(|i| i.label != "tool_only"));
 }
 
@@ -449,6 +478,7 @@ fn sources_of(list: &CompletionList, name: &str) -> Vec<(String, String)> {
             )
         })
         .collect();
+
     found.sort();
     found
 }
@@ -470,10 +500,12 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
         ],
     );
     let mut s = session_with_stdlib(dir.join("stdlib"));
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let text = "main :: () {\n    prin\n}\n";
     // A loose file of the stdlib imports the module, and loads no stdlib file.
     let list = complete_at(&mut s, &dir.join("stdlib/zz.jai"), text, "prin");
+
     assert_eq!(
         sources_of(&list, "print"),
         [("Basic".into(), "#import \"Basic\";\n\n".into())]
@@ -489,6 +521,7 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
     // A file of the module sees what the module loads without an edit, and its unloaded sibling
     // by `#load`.
     let list = complete_at(&mut s, &dir.join("stdlib/Basic/part.jai"), text, "prin");
+
     assert_eq!(
         sources_of(&list, "print_scalar"),
         [("scalar.jai".into(), String::new())]
@@ -503,6 +536,7 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
     );
     // Outside the stdlib, the workspace's files by `#load` and the stdlib by module.
     let list = complete_at(&mut s, &dir.join("tools/main.jai"), text, "prin");
+
     assert_eq!(
         sources_of(&list, "print"),
         [("Basic".into(), "#import \"Basic\";\n\n".into())]
@@ -518,6 +552,7 @@ fn a_workspace_holding_the_stdlib_offers_it_by_module() {
         text,
         "prin",
     );
+
     assert_eq!(
         sources_of(&list, "print"),
         [("Basic".into(), "#import \"Basic\";\n\n".into())]
@@ -544,9 +579,11 @@ fn sessions_share_the_stdlib_index_until_a_buffer_or_the_disk_changes_it() {
     let none: [(String, String); 0] = [];
     let mut first = session_with_stdlib(dir.join("stdlib"));
     let list = complete_at(&mut first, &main, text, "prin");
+
     assert_eq!(sources_of(&list, "print_scalar"), basic());
     // Another session with the stdlib file open reads the buffer, not what the first one read.
     let mut editing = session_with_stdlib(dir.join("stdlib"));
+
     editing
         .open(
             uri_of(&dir.join("stdlib/Basic/scalar.jai")),
@@ -555,11 +592,13 @@ fn sessions_share_the_stdlib_index_until_a_buffer_or_the_disk_changes_it() {
         )
         .unwrap();
     let list = complete_at(&mut editing, &main, text, "prin");
+
     assert_eq!(sources_of(&list, "print_edited"), basic());
     assert_eq!(sources_of(&list, "print_scalar"), none);
     // The buffer is that session's own: a new one still sees the disk.
     let mut fresh = session_with_stdlib(dir.join("stdlib"));
     let list = complete_at(&mut fresh, &main, text, "prin");
+
     assert_eq!(sources_of(&list, "print_scalar"), basic());
     assert_eq!(sources_of(&list, "print_edited"), none);
     // A change on disk is seen by the next session.
@@ -570,6 +609,7 @@ fn sessions_share_the_stdlib_index_until_a_buffer_or_the_disk_changes_it() {
     .unwrap();
     let mut after = session_with_stdlib(dir.join("stdlib"));
     let list = complete_at(&mut after, &main, text, "prin");
+
     assert_eq!(sources_of(&list, "print_changed_on_disk"), basic());
     assert_eq!(sources_of(&list, "print_scalar"), none);
 }
@@ -592,12 +632,15 @@ fn names_of_files_the_program_already_loads_need_no_edit() {
         ],
     );
     let mut s = session();
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let text = "use_them :: () {\n    from_\n}\n";
     let list = complete_at(&mut s, &dir.join("src/b.jai"), text, "from_");
     let a = list.items.iter().find(|i| i.label == "from_a").unwrap();
+
     assert_eq!(a.additional_edits, [] as [jai_language_server::TextEdit; 0]);
     let c = &auto(&list, "from_c")[0];
+
     assert_eq!(
         c.additional_edits[0].new_text,
         "#load \"../extra/c.jai\";\n\n"
@@ -626,17 +669,20 @@ fn jacket_toml_names_the_entry_and_import_path() {
     let path = dir.join("app/part.jai");
     let list = complete_at(&mut s, &path, text, "widget_c");
     let widget = &auto(&list, "widget_count")[0];
+
     assert_eq!(
         widget.additional_edits[0].new_text,
         "#import \"Widgets\";\n\n"
     );
     let uri = uri_of(&path);
     let list = s.completion(&uri, end_of(text, "other_t")).unwrap();
+
     assert_eq!(
         auto(&list, "other_thing")[0].additional_edits[0].new_text,
         "#load \"other.jai\";\n\n"
     );
     let list = s.completion(&uri, end_of(text, "root_t")).unwrap();
+
     assert_eq!(
         auto(&list, "root_thing")[0].additional_edits[0].new_text,
         "#load \"../main.jai\";\n\n"
@@ -647,10 +693,12 @@ fn jacket_toml_names_the_entry_and_import_path() {
 fn files_changed_on_disk_are_read_again() {
     let dir = project("watch", &[("main.jai", "main :: () {}\n")]);
     let mut s = session();
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let text = "#load \"helpers.jai\";\nmain :: () {\n    fresh_\n}\n";
     let main = dir.join("main.jai");
     let list = complete_at(&mut s, &main, text, "fresh_");
+
     assert!(list.items.iter().all(|i| i.label != "fresh_name"));
     std::fs::write(dir.join("helpers.jai"), "fresh_name :: 1;\n").unwrap();
     s.file_changed(&dir.join("helpers.jai"), true);
@@ -658,12 +706,14 @@ fn files_changed_on_disk_are_read_again() {
         .completion(&uri_of(&main), end_of(text, "fresh_"))
         .unwrap();
     let fresh = list.items.iter().find(|i| i.label == "fresh_name").unwrap();
+
     assert!(fresh.additional_edits.is_empty(), "main.jai loads it");
 }
 
 fn request(session: &mut JsonSession, id: i64, method: &str, params: Value) -> Value {
     let message = json!({ "jsonrpc": "2.0", "id": id, "method": method, "params": params });
     let out = session.handle_json(&message.to_string()).unwrap();
+
     out.iter()
         .map(|m| serde_json::from_str::<Value>(m).unwrap())
         .find(|m| m["id"] == json!(id))
@@ -672,6 +722,7 @@ fn request(session: &mut JsonSession, id: i64, method: &str, params: Value) -> V
 
 fn notify(session: &mut JsonSession, method: &str, params: Value) {
     let message = json!({ "jsonrpc": "2.0", "method": method, "params": params });
+
     session.handle_json(&message.to_string()).unwrap();
 }
 
@@ -681,6 +732,7 @@ fn json_protocol_and_settings() {
         Limits::default(),
         modules_environment(Some(jaic::target::TargetOs::Linux)),
     );
+
     request(
         &mut s,
         1,
@@ -689,6 +741,7 @@ fn json_protocol_and_settings() {
     );
     notify(&mut s, "initialized", json!({}));
     let uri = "file:///auto-import/json/main.jai";
+
     notify(
         &mut s,
         "textDocument/didOpen",
@@ -710,6 +763,7 @@ fn json_protocol_and_settings() {
         .find(|i| i["label"] == "print" && i["additionalTextEdits"].is_array())
         .unwrap()
         .clone();
+
     assert_eq!(print["labelDetails"]["description"], "Basic");
     assert_eq!(
         print["additionalTextEdits"][0]["newText"],
@@ -726,6 +780,7 @@ fn json_protocol_and_settings() {
         json!({ "settings": { "jai": { "completion": { "autoImport": false } } } }),
     );
     let result = complete(&mut s, 3);
+
     assert!(
         result["result"]["items"]
             .as_array()
@@ -748,6 +803,7 @@ fn workspace_symbols_include_project_files_that_are_not_open() {
         ],
     );
     let mut s = session();
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     s.open(uri_of(&dir.join("main.jai")), 1, main.into())
         .unwrap();
@@ -763,9 +819,11 @@ fn workspace_symbols_include_project_files_that_are_not_open() {
                 )
             })
             .collect();
+
         found.sort();
         found
     };
+
     assert_eq!(
         names(&s, "CIRCLE"),
         [
@@ -786,6 +844,7 @@ fn workspace_symbols_include_project_files_that_are_not_open() {
         },
         modules_environment(Some(jaic::target::TargetOs::Linux)),
     );
+
     small.set_workspace_folders(vec![dir.to_path_buf()]);
     small
         .open(uri_of(&dir.join("main.jai")), 1, main.into())
@@ -806,13 +865,16 @@ fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
     );
     let alias = dir.with_extension("alias");
     let _ = std::fs::remove_file(&alias);
+
     std::os::unix::fs::symlink(&dir, &alias).unwrap();
     let mut s = session();
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let text =
         "#load \"loaded.jai\"; #load \"new.jai\"; main :: () { loaded_n; extra_n; fresh_n; }";
     let main = alias.join("main.jai");
     let list = complete_at(&mut s, &main, text, "loaded_n");
+
     assert_eq!(
         list.items
             .iter()
@@ -823,16 +885,19 @@ fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
     );
     let uri = jai_language_server::DocumentUri::from_path(&main).unwrap();
     let list = s.completion(&uri, end_of(text, "extra_n")).unwrap();
+
     assert!(
         auto(&list, "extra_name")[0].additional_edits[0]
             .new_text
             .contains("#load \"extra.jai\";")
     );
     let list = s.completion(&uri, end_of(text, "fresh_n")).unwrap();
+
     assert!(!list.items.iter().any(|i| i.label == "fresh_name"));
     std::fs::write(dir.join("new.jai"), "fresh_name :: 3;").unwrap();
     s.file_changed(&dir.join("new.jai"), true);
     let list = s.completion(&uri, end_of(text, "fresh_n")).unwrap();
+
     assert_eq!(
         list.items
             .iter()
@@ -844,6 +909,7 @@ fn filesystem_aliases_keep_relative_loads_and_refresh_missing_files() {
     std::fs::write(dir.join("extra.jai"), "extra_changed :: 4;").unwrap();
     s.file_changed(&alias.join("extra.jai"), false);
     let list = s.completion(&uri, end_of(text, "extra_n")).unwrap();
+
     assert!(!list.items.iter().any(|i| i.label == "extra_name"));
     std::fs::remove_file(alias).unwrap();
 }
@@ -885,6 +951,7 @@ fn locals_of_every_block_are_offered_without_an_import() {
         ),
     ];
     let mut missing = Vec::new();
+
     for (name, text, marker, local) in cases {
         let mut s = session();
         let path = PathBuf::from(format!("/auto-import/locals-{name}/main.jai"));
@@ -893,10 +960,12 @@ fn locals_of_every_block_are_offered_without_an_import() {
             .items
             .iter()
             .any(|i| i.label == local && i.additional_edits.is_empty());
+
         if !offered {
             missing.push(name);
         }
     }
+
     assert!(missing.is_empty(), "local not offered in {missing:?}");
 }
 
@@ -930,6 +999,7 @@ fn a_module_that_reexports_another_offers_its_names() {
     let list = complete_at(&mut s, &main, text, "reexported");
     let facade = || [("Facade".to_string(), "#import \"Facade\";\n\n".to_string())];
     let none: [(String, String); 0] = [];
+
     assert_eq!(sources_of(&list, "reexported_proc"), facade());
     assert_eq!(sources_of(&list, "reexported_more"), facade());
     assert_eq!(sources_of(&list, "reexported_skipped"), facade());
@@ -938,6 +1008,7 @@ fn a_module_that_reexports_another_offers_its_names() {
     assert_eq!(sources_of(&list, "reexported_private"), none);
     // Editing the re-exported module's file updates the facade's names.
     let mut editing = session_with_stdlib(dir.join("stdlib"));
+
     editing
         .open(
             uri_of(&dir.join("stdlib/internal/bindings/real/parts.jai")),
@@ -946,6 +1017,7 @@ fn a_module_that_reexports_another_offers_its_names() {
         )
         .unwrap();
     let list = complete_at(&mut editing, &main, text, "reexported");
+
     assert_eq!(sources_of(&list, "reexported_renamed"), facade());
     assert_eq!(sources_of(&list, "reexported_proc"), none);
 }
@@ -970,6 +1042,7 @@ fn prefixed_alias_completion_keeps_forwarded_docs_and_case_insensitive_matching(
     let text = "#import \"Facade\";\nmain :: () { MeAs }";
     let list = complete_at(&mut s, &dir.join("main.jai"), text, "MeAs");
     let item = list.items.iter().find(|i| i.label == "measure").unwrap();
+
     assert!(
         item.documentation
             .as_deref()
@@ -986,29 +1059,37 @@ fn first_completion_scans_each_stdlib_file_once() {
     use std::cell::RefCell;
     use std::collections::BTreeMap;
     use std::rc::Rc;
+
     #[derive(Default)]
     struct Counting(RefCell<BTreeMap<PathBuf, usize>>);
+
     impl FileSystem for Counting {
         fn read(&self, path: &Path) -> Option<Vec<u8>> {
             *self.0.borrow_mut().entry(path.to_path_buf()).or_default() += 1;
             NativeFs.read(path)
         }
+
         fn is_file(&self, path: &Path) -> bool {
             NativeFs.is_file(path)
         }
+
         fn is_dir(&self, path: &Path) -> bool {
             NativeFs.is_dir(path)
         }
+
         fn canonical(&self, path: &Path) -> PathBuf {
             NativeFs.canonical(path)
         }
+
         fn list_dir(&self, path: &Path) -> Vec<(String, bool)> {
             NativeFs.list_dir(path)
         }
+
         fn stamp(&self, path: &Path) -> Option<u64> {
             NativeFs.stamp(path)
         }
     }
+
     let dir = project(
         "scan-once",
         &[
@@ -1020,17 +1101,21 @@ fn first_completion_scans_each_stdlib_file_once() {
     );
     let fs = Rc::new(Counting::default());
     let mut environment = environment_at(dir.join("stdlib"), None);
+
     environment.fs = fs.clone();
     let mut s = Session::with_environment(Limits::default(), environment);
     let text = "#import \"Used\";\nmain :: () { alp }";
     let list = complete_at(&mut s, &dir.join("main.jai"), text, "alp");
+
     assert!(!auto(&list, "alpha_symbol").is_empty());
     let reads = fs.0.borrow();
+
     for (path, count) in reads.iter() {
         if path.starts_with(dir.join("stdlib")) && path.extension().is_some_and(|e| e == "jai") {
             assert_eq!(*count, 1, "{} read {count} times", path.display());
         }
     }
+
     assert!(
         reads.keys().any(|p| p.ends_with("Used/more.jai")),
         "{reads:?}"

@@ -48,14 +48,17 @@ struct State {
 impl State {
     fn merge(&mut self, other: &Self) -> bool {
         let before = self.clone();
+
         self.values
             .retain(|key, value| other.values.get(key) == Some(value));
         self.slots.retain(|k, v| other.slots.get(k) == Some(v));
         self.contexts
             .retain(|k, v| other.contexts.get(k) == Some(v));
+
         if self.current != other.current {
             self.current = None;
         }
+
         *self != before
     }
 }
@@ -73,9 +76,11 @@ impl Context {
             return out;
         };
         let relevant = body.blocks.iter().flat_map(|b| &b.events).any(|e| matches!(e, Event::Field {result_ty:ty,..} | Event::Load {ty,..} | Event::Store {ty,..} | Event::Parameter{ty,..} if *ty == allocator_ty) || matches!(e, Event::Call {callee,..} if all.get(callee).is_some_and(|s|s.changes_allocator)));
+
         if !relevant {
             return out;
         }
+
         let context_ty = body.context_types.first().copied();
         let constants: HashMap<_, _> = body
             .globals
@@ -83,19 +88,24 @@ impl Context {
             .filter_map(|(v, g)| allocators.constants.get(g).copied().map(|s| (*v, s)))
             .collect();
         let mut states = vec![None; body.blocks.len()];
+
         if states.is_empty() {
             return out;
         }
+
         states[0] = Some(State {
             values: constants,
             ..State::default()
         });
         let mut queue = std::collections::VecDeque::from([0]);
         let mut queued = vec![false; body.blocks.len()];
+
         queued[0] = true;
+
         while let Some(block) = queue.pop_front() {
             queued[block] = false;
             let mut state = states[block].clone().unwrap();
+
             for (ordinal, event) in body.blocks[block].events.iter().enumerate() {
                 match event {
                     Event::Parameter {
@@ -106,6 +116,7 @@ impl Context {
                         ..
                     } if *ty == allocator_ty => {
                         let role = Selection::Parameter(*formal);
+
                         state.values.insert(*incoming, role);
                         state.slots.insert(places.place(*place, *ty), role);
                     }
@@ -115,9 +126,11 @@ impl Context {
                         if let Some(ty) = context_ty {
                             let id = places.place(*value, ty);
                             let id = context_root(places, id);
+
                             if *value == Val(0) {
                                 state.contexts.entry(id).or_insert(Selection::Caller);
                             }
+
                             state.current = Some(id);
                         }
                     }
@@ -137,6 +150,7 @@ impl Context {
                             } else {
                                 Selection::Unknown
                             };
+
                             state.values.insert(result, role);
                         }
                     }
@@ -160,6 +174,7 @@ impl Context {
                                 .or_else(|| state.values.get(place).copied())
                                 .unwrap_or_default(),
                         };
+
                         state.values.insert(*value, role);
                     }
                     Event::Load {
@@ -170,6 +185,7 @@ impl Context {
                     } => {
                         let id = places.place(*place, *ty);
                         let root = places.root_of(id);
+
                         if matches!(places.paths[id].1.as_slice(), [Projection::Field(n)] if n.as_str() == "proc")
                             && places.paths[root].0.1 == allocator_ty
                         {
@@ -179,6 +195,7 @@ impl Context {
                                 .copied()
                                 .or_else(|| state.values.get(&places.paths[root].0.0).copied())
                                 .unwrap_or_default();
+
                             state.values.insert(*value, role);
                         }
                     }
@@ -190,8 +207,10 @@ impl Context {
                     } if *ty == allocator_ty => {
                         let id = places.place(*place, *ty);
                         let role = state.values.get(value).copied().unwrap_or_default();
+
                         state.slots.insert(id, role);
                         state.values.insert(*place, role);
+
                         if matches!(places.paths[id].1.as_slice(), [Projection::Field(n)] if n.as_str() == "allocator")
                         {
                             state.contexts.insert(context_root(places, id), role);
@@ -210,6 +229,7 @@ impl Context {
                             .get(&context_root(places, source))
                             .copied()
                             .unwrap_or_default();
+
                         state.contexts.insert(context_root(places, target), role);
                     }
                     Event::Copy {
@@ -232,22 +252,29 @@ impl Context {
                             .and_then(|p| state.contexts.get(&p).copied())
                             .unwrap_or(Selection::Caller);
                         let site = (block, ordinal);
+
                         join(&mut out.sites, site, role);
+
                         for arg in args.iter().filter(|a| a.ty == allocator_ty) {
                             let arg_role = operand(arg.operand)
                                 .and_then(|v| state.values.get(&v).copied())
                                 .unwrap_or_default();
+
                             join(&mut out.site_arguments, (site, arg.formal), arg_role);
                         }
+
                         for &(_, v, _) in results {
                             join(&mut out.calls, v, role);
+
                             for arg in args.iter().filter(|a| a.ty == allocator_ty) {
                                 let arg_role = operand(arg.operand)
                                     .and_then(|v| state.values.get(&v).copied())
                                     .unwrap_or_default();
+
                                 join(&mut out.arguments, (v, arg.formal), arg_role);
                             }
                         }
+
                         if all.get(callee).is_some_and(|s| s.changes_allocator)
                             && let Some(p) = state.current
                         {
@@ -260,6 +287,7 @@ impl Context {
                         ..
                     } => {
                         let role = state.values.get(callee).copied().unwrap_or_default();
+
                         join(&mut out.indirect, *callee, role);
                     }
                     Event::Return {
@@ -268,6 +296,7 @@ impl Context {
                         if let Some(ty) = context_ty {
                             let entry = places.place(Val(0), ty);
                             let entry = context_root(places, entry);
+
                             out.changes_allocator |= c.pr.procs[body.procedure.0 as usize]
                                 .sig
                                 .as_ref()
@@ -283,6 +312,7 @@ impl Context {
                     _ => {}
                 }
             }
+
             for &next in &body.blocks[block].successors {
                 let changed = if let Some(old) = &mut states[next] {
                     old.merge(&state)
@@ -290,12 +320,14 @@ impl Context {
                     states[next] = Some(state.clone());
                     true
                 };
+
                 if changed && !queued[next] {
                     queue.push_back(next);
                     queued[next] = true;
                 }
             }
         }
+
         out
     }
 }

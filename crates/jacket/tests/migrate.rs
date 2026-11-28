@@ -13,6 +13,7 @@ fn stdlib() -> PathBuf {
 /// A scratch directory of its own, so tests do not share files.
 fn scratch(name: &str) -> test_support::TempDir {
     let dir = test_support::TempDir::new(&format!("jacket-test-{name}"));
+
     std::fs::create_dir_all(&dir).expect("create the scratch directory");
     dir
 }
@@ -49,12 +50,14 @@ fn git(dir: &Path, args: &[&str]) {
         .current_dir(dir)
         .status()
         .expect("run git");
+
     assert!(status.success(), "git {args:?}");
 }
 
 /// A git repository holding `main.jai` with `text`, committed.
 fn repository(name: &str, text: &str) -> test_support::TempDir {
     let dir = scratch(name);
+
     std::fs::write(dir.join("main.jai"), text).unwrap();
     git(&dir, &["init", "-q"]);
     git(&dir, &["add", "main.jai"]);
@@ -66,8 +69,10 @@ fn repository(name: &str, text: &str) -> test_support::TempDir {
 fn a_dry_run_prints_the_diff_and_writes_nothing() {
     let dir = repository("migrate-dry", OLD);
     let out = migrate(&dir, &[]);
+
     assert!(out.status.success(), "{}", text(&out));
     let shown = text(&out);
+
     assert!(shown.contains("\n-    c: Context;\n"), "{shown}");
     assert!(shown.contains("\n+    c: #Context;\n"), "{shown}");
     assert!(
@@ -82,9 +87,11 @@ fn a_dry_run_prints_the_diff_and_writes_nothing() {
 fn apply_writes_files_git_can_give_back() {
     let dir = repository("migrate-apply", OLD);
     let out = migrate(&dir, &["--apply"]);
+
     assert!(out.status.success(), "{}", text(&out));
     assert_eq!(std::fs::read_to_string(dir.join("main.jai")).unwrap(), NEW);
     let again = migrate(&dir, &[]);
+
     assert!(
         text(&again).contains("nothing to migrate"),
         "{}",
@@ -96,8 +103,10 @@ fn apply_writes_files_git_can_give_back() {
 fn apply_refuses_uncommitted_changes_unless_allowed() {
     let dir = repository("migrate-dirty", OLD);
     let edited = format!("{OLD}// mine\n");
+
     std::fs::write(dir.join("main.jai"), &edited).unwrap();
     let out = migrate(&dir, &["--apply"]);
+
     assert_eq!(out.status.code(), Some(2), "{}", text(&out));
     assert!(
         text(&out).contains("commit or stash them first"),
@@ -112,6 +121,7 @@ fn apply_refuses_uncommitted_changes_unless_allowed() {
     git(&dir, &["add", "main.jai"]);
     assert_eq!(migrate(&dir, &["--apply"]).status.code(), Some(2));
     let out = migrate(&dir, &["--apply", "--allow-dirty"]);
+
     assert!(out.status.success(), "{}", text(&out));
     assert_eq!(
         std::fs::read_to_string(dir.join("main.jai")).unwrap(),
@@ -122,8 +132,10 @@ fn apply_refuses_uncommitted_changes_unless_allowed() {
 #[test]
 fn apply_refuses_untracked_files() {
     let dir = repository("migrate-untracked", "main :: () {}\n");
+
     std::fs::write(dir.join("old.jai"), OLD).unwrap();
     let out = migrate(&dir, &["old.jai", "--apply"]);
+
     assert_eq!(out.status.code(), Some(2), "{}", text(&out));
     assert_eq!(std::fs::read_to_string(dir.join("old.jai")).unwrap(), OLD);
 }
@@ -131,11 +143,14 @@ fn apply_refuses_untracked_files() {
 #[test]
 fn apply_outside_git_needs_allow_no_vcs() {
     let dir = scratch("migrate-no-vcs");
+
     std::fs::write(dir.join("main.jai"), OLD).unwrap();
     let out = migrate(&dir, &["--apply"]);
+
     assert_eq!(out.status.code(), Some(2), "{}", text(&out));
     assert!(text(&out).contains("--allow-no-vcs"), "{}", text(&out));
     let out = migrate(&dir, &["--apply", "--allow-no-vcs"]);
+
     assert!(out.status.success(), "{}", text(&out));
     assert_eq!(std::fs::read_to_string(dir.join("main.jai")).unwrap(), NEW);
 }
@@ -143,8 +158,10 @@ fn apply_outside_git_needs_allow_no_vcs() {
 #[test]
 fn a_mistyped_migration_name_gets_a_suggestion() {
     let dir = scratch("migrate-only");
+
     std::fs::write(dir.join("main.jai"), OLD).unwrap();
     let out = migrate(&dir, &["--only", "context-type-directiv"]);
+
     assert_eq!(out.status.code(), Some(2));
     assert!(
         text(&out).contains("did you mean `context-type-directive`?"),
@@ -156,6 +173,7 @@ fn a_mistyped_migration_name_gets_a_suggestion() {
 #[test]
 fn list_names_every_migration() {
     let out = migrate(Path::new("."), &["--list"]);
+
     assert!(out.status.success());
     assert!(
         text(&out).contains("context-type-directive"),
@@ -167,8 +185,10 @@ fn list_names_every_migration() {
 /// `old` migrated with `--apply --allow-no-vcs`, with what the command printed.
 fn migrated(name: &str, old: &str) -> (String, String) {
     let dir = scratch(name);
+
     std::fs::write(dir.join("main.jai"), old).unwrap();
     let out = migrate(&dir, &["--apply", "--allow-no-vcs"]);
+
     assert!(out.status.success(), "{}", text(&out));
     (
         std::fs::read_to_string(dir.join("main.jai")).unwrap(),
@@ -201,6 +221,7 @@ main :: () {
 }
 "#;
     let (after, shown) = migrated("migrate-each", old);
+
     assert_eq!(after, new, "{shown}");
 }
 
@@ -218,6 +239,7 @@ main :: () {
 }
 "#;
     let (after, shown) = migrated("migrate-valid", old);
+
     assert_eq!(after, old, "{shown}");
     assert!(shown.contains("nothing to migrate"), "{shown}");
 }
@@ -225,8 +247,10 @@ main :: () {
 /// `old` migrates to `new`, and `new` is then left alone.
 fn assert_migrates(name: &str, old: &str, new: &str) {
     let (after, shown) = migrated(name, old);
+
     assert_eq!(after, new, "{shown}");
     let (again, shown) = migrated(&format!("{name}-again"), new);
+
     assert_eq!(again, new, "second run changed the code: {shown}");
     assert!(shown.contains("nothing to migrate"), "{shown}");
 }
@@ -277,6 +301,7 @@ main :: () {
 }
 "#;
     let (after, shown) = migrated("migrate-own-names", old);
+
     assert_eq!(after, old, "{shown}");
 }
 
@@ -352,6 +377,7 @@ main :: () {
 fn a_removed_module_gets_a_note_and_no_rewrite() {
     let old = "#import \"Basic\";\n#import \"Render\";\nmain :: () {}\n";
     let (after, shown) = migrated("migrate-removed-module", old);
+
     assert_eq!(after, old);
     assert!(
         shown.contains("main.jai:2:1: removed-modules: the `Render` module was removed"),
@@ -362,9 +388,11 @@ fn a_removed_module_gets_a_note_and_no_rewrite() {
 #[test]
 fn a_file_that_is_not_utf8_is_left_alone_with_a_note() {
     let dir = scratch("migrate-not-utf8");
+
     std::fs::write(dir.join("main.jai"), format!("#load \"other.jai\";\n{OLD}")).unwrap();
     std::fs::write(dir.join("other.jai"), b"x :: \"\xff\";\n").unwrap();
     let out = migrate(&dir, &["--apply", "--allow-no-vcs", "main.jai"]);
+
     assert!(out.status.success(), "{}", text(&out));
     assert!(
         text(&out).contains("note: `other.jai` is not UTF-8 text"),
@@ -372,6 +400,7 @@ fn a_file_that_is_not_utf8_is_left_alone_with_a_note() {
         text(&out)
     );
     let main = std::fs::read_to_string(dir.join("main.jai")).unwrap();
+
     assert!(main.contains("c: #Context;"), "{main}");
 }
 

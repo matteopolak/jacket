@@ -50,15 +50,20 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let [name] = decl.names.as_slice() else {
             return;
         };
+
         // `using` brings the members into scope unqualified, where the prefix tells them apart.
         if decl.kind != DeclKind::Const || decl.using {
             return;
         }
+
         let mut members = Vec::new();
+
         if !collect(&lit.items, &mut members) || members.len() < 2 {
             return;
         }
+
         let stem = normalize(name.name.as_str());
+
         if stem.is_empty()
             || !members.iter().all(|m| {
                 let m = normalize(m);
@@ -67,6 +72,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         {
             return;
         }
+
         out.push(finding(
             name.span,
             format!(
@@ -99,6 +105,7 @@ fn collect<'a>(items: &'a [EnumItem], out: &mut Vec<&'a str>) -> bool {
             EnumItem::Insert(_) | EnumItem::Using(_) => return false,
         }
     }
+
     true
 }
 

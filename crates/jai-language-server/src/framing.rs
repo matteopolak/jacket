@@ -77,22 +77,29 @@ impl FrameDecoder {
     /// that took.
     fn skip(&mut self, bytes: &[u8]) -> usize {
         let skipped = self.discarding.min(bytes.len());
+
         self.discarding -= skipped;
+
         if let Some(message) = &mut self.skipping {
             let room = HEAD_LIMIT.saturating_sub(message.head.len());
+
             message.head.extend_from_slice(&bytes[..skipped.min(room)]);
+
             if message.head.len() >= HEAD_LIMIT || self.discarding == 0 {
                 self.oversized.extend(self.skipping.take());
             }
         }
+
         skipped
     }
 
     pub fn push(&mut self, bytes: &[u8]) -> Result<Vec<String>, FrameError> {
         let skipped = self.skip(bytes);
         let bytes = &bytes[skipped..];
+
         self.buffer.extend_from_slice(bytes);
         let mut messages = vec![];
+
         loop {
             let length = match self.expected {
                 Some(length) => length,
@@ -106,28 +113,36 @@ impl FrameDecoder {
                         });
                         let buffered = std::mem::take(&mut self.buffer);
                         let skipped = self.skip(&buffered);
+
                         self.buffer = buffered[skipped..].to_vec();
+
                         continue;
                     }
                     Some(length) => *self.expected.insert(length),
                 },
             };
+
             if self.buffer.len() < length {
                 break;
             }
+
             let body = std::str::from_utf8(&self.buffer[..length])
                 .map_err(|_| FrameError::InvalidUtf8)?
                 .to_owned();
+
             self.buffer.drain(..length);
             self.expected = None;
             messages.push(body);
         }
+
         // What is left is one incomplete message: its body (at most the limit, checked when its
         // header was read) or its header. Complete messages in the same chunk do not count.
         let limit = self.body_limit.saturating_add(HEADER_LIMIT);
+
         if self.buffer.len() > limit {
             return Err(FrameError::BodyLimit);
         }
+
         Ok(messages)
     }
 
@@ -138,23 +153,31 @@ impl FrameDecoder {
             if self.buffer.len() > HEADER_LIMIT {
                 return Err(FrameError::HeaderLimit);
             }
+
             return Ok(None);
         };
+
         if at + 4 > HEADER_LIMIT {
             return Err(FrameError::HeaderLimit);
         }
+
         // Blank lines between messages are skipped, not an empty header.
         let blanks = self.buffer.len() - self.buffer.trim_ascii_start().len();
+
         if blanks > 0 {
             self.buffer.drain(..blanks);
             return self.header();
         }
+
         let header = &self.buffer[..at];
+
         if !header.is_ascii() {
             return Err(FrameError::InvalidHeader);
         }
+
         let text = std::str::from_utf8(header).map_err(|_| FrameError::InvalidHeader)?;
         let length = content_length(text)?;
+
         self.buffer.drain(..at + 4);
         Ok(Some(length))
     }
@@ -172,14 +195,18 @@ impl FrameDecoder {
 /// UTF-8.
 fn content_length(header: &str) -> Result<usize, FrameError> {
     let mut length = None;
+
     for line in header.split("\r\n") {
         let (name, value) = line.split_once(':').ok_or(FrameError::InvalidHeader)?;
         let value = value.trim();
+
         if name.eq_ignore_ascii_case("Content-Length") {
             let digits = !value.is_empty() && value.bytes().all(|c| c.is_ascii_digit());
+
             if length.is_some() || !digits {
                 return Err(FrameError::InvalidLength);
             }
+
             length = Some(
                 value
                     .parse::<usize>()
@@ -189,6 +216,7 @@ fn content_length(header: &str) -> Result<usize, FrameError> {
             return Err(FrameError::UnsupportedEncoding);
         }
     }
+
     length.ok_or(FrameError::InvalidLength)
 }
 
@@ -205,6 +233,7 @@ fn utf8_charset(content_type: &str) -> bool {
 
 pub fn encode(message: &str) -> Vec<u8> {
     let mut output = format!("Content-Length: {}\r\n\r\n", message.len()).into_bytes();
+
     output.extend_from_slice(message.as_bytes());
     output
 }

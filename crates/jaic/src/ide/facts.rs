@@ -310,18 +310,23 @@ impl IdeFacts {
     /// The references whose span holds `offset` in `file`, in the order they were recorded.
     pub fn refs_at(&self, file: FileId, offset: u32) -> Vec<&IdeRef> {
         let mut index = self.by_position.borrow_mut();
+
         if self.refs.len() < index.built {
             *index = RefIndex::default();
         }
+
         if self.refs.len() > index.built {
             let from = index.built;
             let mut unsorted: Vec<FileId> = Vec::new();
+
             for (i, r) in self.refs.iter().enumerate().skip(from) {
                 let (short, long) = index.files.entry(r.span.file).or_default();
+
                 if r.span.end.saturating_sub(r.span.start) > SHORT_REF {
                     long.push(i as u32);
                     continue;
                 }
+
                 if short
                     .last()
                     .is_some_and(|&j| self.refs[j as usize].span.start > r.span.start)
@@ -329,16 +334,20 @@ impl IdeFacts {
                 {
                     unsorted.push(r.span.file);
                 }
+
                 short.push(i as u32);
             }
+
             // Stable, so equal starts keep the order recorded; the list is two sorted runs.
             for file in unsorted {
                 if let Some((short, _)) = index.files.get_mut(&file) {
                     short.sort_by_key(|&i| self.refs[i as usize].span.start);
                 }
             }
+
             index.built = self.refs.len();
         }
+
         let Some((list, long)) = index.files.get(&file) else {
             return Vec::new();
         };
@@ -356,6 +365,7 @@ impl IdeFacts {
             .filter(|&i| holds(i))
             .chain(long.iter().copied().filter(|&i| holds(i)))
             .collect();
+
         // In the order recorded, which breaks ties as a scan of `refs` would.
         found.sort_unstable();
         found.into_iter().map(|i| &self.refs[i as usize]).collect()
@@ -365,24 +375,31 @@ impl IdeFacts {
     /// declaration it names.
     pub fn member_use_at(&self, file: FileId, offset: u32) -> Option<(Span, Span)> {
         let mut index = self.members_by_position.borrow_mut();
+
         if index.built != self.member_uses.len() {
             let mut files: HashMap<FileId, (Vec<(Span, Span)>, u32)> = HashMap::default();
+
             for &(u, d) in &self.member_uses {
                 let (uses, longest) = files.entry(u.file).or_default();
+
                 uses.push((u, d));
                 *longest = (*longest).max(u.end.saturating_sub(u.start));
             }
+
             for (uses, _) in files.values_mut() {
                 uses.sort_unstable_by_key(|(u, d)| (u.start, u.end, d.file.0, d.start, d.end));
             }
+
             *index = MemberIndex {
                 built: self.member_uses.len(),
                 files,
             };
         }
+
         let (uses, longest) = index.files.get(&file)?;
         let past = uses.partition_point(|(u, _)| u.start <= offset);
         let earliest = offset.saturating_sub(*longest);
+
         uses[..past]
             .iter()
             .rev()
@@ -418,6 +435,7 @@ impl IdeFacts {
 
     pub fn new(roots: Vec<IdeRoot>) -> Self {
         let mut facts = Self::default();
+
         for root in roots {
             match root {
                 IdeRoot::Under(path) => {
@@ -426,6 +444,7 @@ impl IdeFacts {
                 IdeRoot::Virtual => facts.virtual_root = true,
             }
         }
+
         facts
     }
 }
@@ -520,6 +539,7 @@ impl IdeCall {
             ),
             _ => None,
         };
+
         Self {
             parameterless: headers.iter().all(|h| h.params.is_empty()),
             required,

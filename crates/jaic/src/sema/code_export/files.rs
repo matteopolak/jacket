@@ -10,17 +10,24 @@ impl Compiler {
     /// loaded since the last call.
     pub fn export_file_events(&mut self, r: &mut Records) -> Vec<FileEvent> {
         let mut events = Vec::new();
+
         while self.meta.export.files_announced < self.src.files.len() {
             let info = &self.src.files[self.meta.export.files_announced];
             let (file, module) = (info.id, info.module);
+
             self.meta.export.files_announced += 1;
+
             if !self.meta.export.modules.contains_key(&module) {
                 let id = self.module_record(r, module);
+
                 events.push((message_kind::IMPORT, id));
             }
+
             let id = self.file_record_in(r, file, module);
+
             events.push((message_kind::FILE, id));
         }
+
         events
     }
 
@@ -30,6 +37,7 @@ impl Compiler {
             .into_iter()
             .map(|(host, target)| {
                 let mut rec = Record::new(RecordTag::MessageFailedImport);
+
                 rec.int("kind", message_kind::FAILED_IMPORT)
                     .int("workspace", self.meta.workspace)
                     .int("status", 2) // NOT_FOUND
@@ -44,6 +52,7 @@ impl Compiler {
         if let Some(&id) = self.meta.export.modules.get(&m) {
             return id;
         }
+
         let module_type = if Some(m) == self.ns.preload {
             1
         } else if Some(m) == self.ns.runtime_support {
@@ -66,6 +75,7 @@ impl Compiler {
             })
             .unwrap_or_default();
         let mut rec = Record::new(RecordTag::MessageImport);
+
         rec.int("kind", message_kind::IMPORT)
             .int("workspace", self.meta.workspace)
             .int("module_type", module_type)
@@ -76,6 +86,7 @@ impl Compiler {
             )
             .int("__module", m.0 as i64);
         let id = r.add(rec);
+
         self.meta.export.modules.insert(m, id);
         id
     }
@@ -84,6 +95,7 @@ impl Compiler {
         if let Some(&id) = self.meta.export.files.get(&file) {
             return id;
         }
+
         let module = self.src.file_module(file);
         self.file_record_in(r, file, module)
     }
@@ -98,10 +110,12 @@ impl Compiler {
         if let Some(&id) = self.meta.export.files.get(&file) {
             return id;
         }
+
         let import = self.module_record(r, module);
         let virtual_source = self.src.sources.get(file).is_virtual();
         let path = self.src.sources.get(file).path.to_string();
         let mut rec = Record::new(RecordTag::MessageFile);
+
         rec.int("kind", message_kind::FILE)
             .int("workspace", self.meta.workspace)
             .str(
@@ -112,6 +126,7 @@ impl Compiler {
             .int("from_a_string", virtual_source as i64)
             .int("__file", file.0 as i64);
         let id = r.add(rec);
+
         self.meta.export.files.insert(file, id);
         id
     }
@@ -120,6 +135,7 @@ impl Compiler {
         if Some(m) == self.ns.preload || Some(m) == self.ns.runtime_support {
             return true;
         }
+
         if self.meta.export.system_dir.is_none() {
             let dir = self
                 .options
@@ -129,11 +145,14 @@ impl Compiler {
                     self.runtime_support_entry()
                         .and_then(|p| p.parent().map(|d| self.src.canon(d)))
                 });
+
             self.meta.export.system_dir = Some(dir);
         }
+
         if let Some(&system) = self.meta.export.system_modules.get(&m) {
             return system;
         }
+
         let system = match (
             &self.meta.export.system_dir,
             &self.ns.modules[m.0 as usize].path,
@@ -141,6 +160,7 @@ impl Compiler {
             (Some(Some(dir)), Some(path)) => self.src.canon(path).starts_with(dir),
             _ => false,
         };
+
         self.meta.export.system_modules.insert(m, system);
         system
     }

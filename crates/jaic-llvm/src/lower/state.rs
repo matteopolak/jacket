@@ -74,6 +74,7 @@ impl NullFacts {
             slot_version: vec![0; func.slots.len()],
             escaped: vec![false; func.slots.len()],
         };
+
         for block in &func.blocks {
             for inst in &block.insts {
                 match inst {
@@ -90,12 +91,14 @@ impl NullFacts {
                 }
             }
         }
+
         for block in &func.blocks {
             let mut escape = |v: Val| {
                 if let Some(slot) = facts.slot_addr[v.0 as usize].checked_sub(1) {
                     facts.escaped[slot as usize] = true;
                 }
             };
+
             for inst in &block.insts {
                 match inst {
                     Inst::Load {
@@ -107,8 +110,10 @@ impl NullFacts {
                     _ => inst_vals(inst, &mut |_| {}, &mut escape),
                 }
             }
+
             term_uses(&block.term, &mut escape);
         }
+
         facts
     }
 
@@ -137,19 +142,24 @@ impl FnState<'_> {
     pub(super) fn known_nonnull(&self, v: Val) -> bool {
         let facts = &self.facts;
         let mut v = v.0 as usize;
+
         loop {
             if self.nonnull.get(v).copied().unwrap_or(false)
                 || facts.checked.get(v) == Some(&facts.epoch)
             {
                 return true;
             }
+
             let (slot, version) = facts.loaded_from.get(v).copied().unwrap_or((0, 0));
+
             if let Some(slot) = slot.checked_sub(1) {
                 let slot = slot as usize;
+
                 if facts.slot_version[slot] == version && facts.slot_checked[slot] == facts.epoch {
                     return true;
                 }
             }
+
             match facts.derived.get(v).and_then(|d| d.checked_sub(1)) {
                 Some(base) => v = base as usize,
                 None => return false,

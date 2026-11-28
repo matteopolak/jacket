@@ -31,6 +31,7 @@ pub fn managed_by(exe: &Path) -> Option<Managed> {
     if exe.starts_with("/nix/store") {
         return Some(Managed::Nix);
     }
+
     let names: Vec<String> = exe
         .components()
         .filter_map(|c| match c {
@@ -38,16 +39,20 @@ pub fn managed_by(exe: &Path) -> Option<Managed> {
             _ => None,
         })
         .collect();
+
     if names.iter().any(|n| n == "Cellar") {
         return Some(Managed::Homebrew);
     }
+
     let extension = |n: &str| {
         let n = n.to_ascii_lowercase();
         n == "matteopolak.jacket" || n.starts_with("matteopolak.jacket-")
     };
+
     if names.iter().any(|n| extension(n)) {
         return Some(Managed::VsCode);
     }
+
     None
 }
 

@@ -36,14 +36,17 @@ impl Cx<'_> {
             let (a, b) = stmt_extent(self.text, s);
             // The cursor is on the first line, where `ifx` is.
             let (x, y) = (a, line_end(self.text, a).min(b));
+
             Some(((s, &**cond, &**then, &**otherwise), (x, y)))
         }) else {
             return;
         };
         let (sa, sb) = stmt_extent(self.text, stmt);
+
         if !in_list(&parents) || !starts_line(self.text, sa) {
             return;
         }
+
         let (c, t, o) = (
             self.slice(self.ex(cond)),
             self.slice(self.ex(then)),
@@ -62,6 +65,7 @@ impl Cx<'_> {
                     AssignOp::Assign => "=",
                     AssignOp::Op(_) => self.slice((self.ex(&lhs[0]).1, self.ex(&rhs[0]).0)).trim(),
                 };
+
                 (
                     String::new(),
                     format!("{} {operator}", self.slice(self.ex(&lhs[0]))),
@@ -82,6 +86,7 @@ impl Cx<'_> {
                     return;
                 };
                 let name = d.names[0].name.as_str();
+
                 (format!("{name}: {ty};{nl}{indent}"), format!("{name} ="))
             }
             _ => return,
@@ -89,6 +94,7 @@ impl Cx<'_> {
         let replacement = format!(
             "{prefix}if {c} {{{nl}{indent}{unit}{target} {t};{nl}{indent}}} else {{{nl}{indent}{unit}{target} {o};{nl}{indent}}}"
         );
+
         out.extend(self.action(
             "Convert ifx to if/else".into(),
             REWRITE,
@@ -109,6 +115,7 @@ impl Cx<'_> {
                 return None;
             };
             let (a, b) = stmt_extent(self.text, s);
+
             Some((
                 (s, cond, &**then_branch, &**otherwise),
                 (a, line_end(self.text, a).min(b)),
@@ -117,9 +124,11 @@ impl Cx<'_> {
             return;
         };
         let (sa, sb) = stmt_extent(self.text, stmt);
+
         if !in_list(&parents) || !starts_line(self.text, sa) {
             return;
         }
+
         let (Some(t), Some(o)) = (only(then), only(otherwise)) else {
             return;
         };
@@ -138,13 +147,16 @@ impl Cx<'_> {
                 },
             ) if op1 == op2 && l1.len() == 1 && l2.len() == 1 && r1.len() == 1 && r2.len() == 1 => {
                 let target = self.slice(self.ex(&l1[0]));
+
                 if target != self.slice(self.ex(&l2[0])) {
                     return;
                 }
+
                 let operator = match op1 {
                     AssignOp::Assign => "=",
                     AssignOp::Op(_) => self.slice((self.ex(&l1[0]).1, self.ex(&r1[0]).0)).trim(),
                 };
+
                 format!(
                     "{target} {operator} ifx {c} then {} else {};",
                     self.slice(self.ex(&r1[0])),
@@ -169,6 +181,7 @@ impl Cx<'_> {
             }
             _ => return,
         };
+
         out.extend(self.action(
             "Convert if/else to ifx".into(),
             REWRITE,

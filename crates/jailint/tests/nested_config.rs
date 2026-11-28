@@ -10,9 +10,11 @@ const PROGRAM: &str = "main :: () { total := 12345 + 6789; }\n";
 
 fn tree(name: &str) -> TempDir {
     let root = TempDir::new(name);
+
     for dir in ["stdlib/prelude", "stdlib/Runtime_Support", "top", "nested"] {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }
+
     std::fs::write(root.join("stdlib/prelude/module.jai"), "").unwrap();
     std::fs::write(
         root.join("stdlib/Runtime_Support/module.jai"),
@@ -38,6 +40,7 @@ fn tree(name: &str) -> TempDir {
 fn flagged(root: &Path, paths: &[&str]) -> Vec<String> {
     let paths: Vec<PathBuf> = paths.iter().map(|p| root.join(p)).collect();
     let mut config = Config::find_on_disk(&paths[0]).unwrap().unwrap();
+
     config.discover = true;
     let outcome = run(&Options {
         compiler_options: jaic::sema::Options::host(),
@@ -52,6 +55,7 @@ fn flagged(root: &Path, paths: &[&str]) -> Vec<String> {
         limits: jaic::ide::lint_compile::CheckLimits::default(),
         overlay: std::collections::BTreeMap::new(),
     });
+
     assert!(outcome.incomplete.is_empty(), "{:?}", outcome.incomplete);
     assert!(outcome.config_errors.is_empty());
     let mut files: Vec<String> = outcome
@@ -66,6 +70,7 @@ fn flagged(root: &Path, paths: &[&str]) -> Vec<String> {
                 .into_owned()
         })
         .collect();
+
     files.sort();
     files.dedup();
     files
@@ -74,6 +79,7 @@ fn flagged(root: &Path, paths: &[&str]) -> Vec<String> {
 #[test]
 fn a_nested_config_applies_when_its_root_is_listed_after_another() {
     let root = tree("nested-config-two-roots");
+
     assert_eq!(flagged(&root, &["top", "nested"]), ["top/main.jai"]);
     assert_eq!(flagged(&root, &["nested", "top"]), ["top/main.jai"]);
 }
@@ -81,12 +87,14 @@ fn a_nested_config_applies_when_its_root_is_listed_after_another() {
 #[test]
 fn a_nested_config_applies_when_it_is_under_a_listed_root() {
     let root = tree("nested-config-one-root");
+
     assert_eq!(flagged(&root, &["."]), ["top/main.jai"]);
 }
 
 #[test]
 fn a_nested_config_applies_when_listed_alone() {
     let root = tree("nested-config-alone");
+
     assert!(flagged(&root, &["nested"]).is_empty());
 }
 
@@ -94,6 +102,7 @@ fn a_nested_config_applies_when_listed_alone() {
 #[test]
 fn nested_lifetime_mode_and_invocation_override() {
     let root = tree("nested-lifetime-modes");
+
     std::fs::write(
         root.join("jacket.toml"),
         "[lint.lifetimes]\nmode = \"must\"\n",
@@ -107,8 +116,10 @@ fn nested_lifetime_mode_and_invocation_override() {
     let mut base = Config::find_on_disk(&root.join("top/main.jai"))
         .unwrap()
         .unwrap();
+
     base.discover = true;
     let configs = jailint::config::Configs::new(&base);
+
     assert_eq!(
         configs.at(&root.join("top/main.jai")).lifetime_mode,
         Some(jacket_config::LifetimeMode::Must)
@@ -119,6 +130,7 @@ fn nested_lifetime_mode_and_invocation_override() {
     );
     base.flag_lifetime_mode = Some(jacket_config::LifetimeMode::Must);
     let configs = jailint::config::Configs::new(&base);
+
     assert_eq!(
         configs.at(&root.join("nested/main.jai")).lifetime_mode,
         Some(jacket_config::LifetimeMode::Must)

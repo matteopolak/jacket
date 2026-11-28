@@ -19,14 +19,18 @@ pub fn add(target: Target, host: &dyn Host, say: &dyn Fn(&str)) -> Result<PathBu
         .join("downloads");
     let work = entry.join("sysroot.partial");
     let _ = std::fs::remove_dir_all(&work);
+
     std::fs::create_dir_all(&work).map_err(|e| format!("{}: {e}", work.display()))?;
     let result = unpack_all(&packages, &downloads, &work, say);
+
     if let Err(error) = result {
         let _ = std::fs::remove_dir_all(&work);
         return Err(error);
     }
+
     let sysroot = entry.join("sysroot");
     let _ = std::fs::remove_dir_all(&sysroot);
+
     std::fs::rename(&work, &sysroot).map_err(|e| format!("{}: {e}", sysroot.display()))?;
     Ok(sysroot)
 }
@@ -46,6 +50,7 @@ fn unpack_all(
             packages.packages.len()
         ));
         let deb = downloads.join(format!("{}.deb", pin.sha256));
+
         super::fetch::pinned(
             &format!("{}/{}", packages.mirror, pin.path),
             pin.sha256,
@@ -53,9 +58,12 @@ fn unpack_all(
         )?;
         super::fetch::unpack_deb(&deb, &work.join(".unpack"), work)?;
     }
+
     let _ = std::fs::remove_dir_all(work.join(".unpack"));
+
     if !work.join("usr").is_dir() {
         return Err("the packages unpacked no `usr` folder".into());
     }
+
     Ok(())
 }

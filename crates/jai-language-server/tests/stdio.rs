@@ -38,13 +38,16 @@ fn native_stdio_serves_the_same_core_and_shuts_down_cleanly() {
         json!({ "jsonrpc": "2.0", "id": 3, "method": "shutdown" }),
         json!({ "jsonrpc": "2.0", "method": "exit" }),
     ];
+
     for request in requests {
         for part in encode(&request.to_string()).chunks(7) {
             input.write_all(part).unwrap();
         }
     }
+
     drop(input);
     let output = child.wait_with_output().unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -57,6 +60,7 @@ fn native_stdio_serves_the_same_core_and_shuts_down_cleanly() {
         .iter()
         .map(|s| serde_json::from_str::<Value>(s).unwrap())
         .collect::<Vec<_>>();
+
     decoder.finish().unwrap();
     assert!(
         messages
@@ -81,8 +85,10 @@ fn command_line_mistakes_explain_what_jailsp_is() {
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
+
         child.stdin.take().unwrap().write_all(input).unwrap();
         let output = child.wait_with_output().unwrap();
+
         (
             output.status.code(),
             String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -90,21 +96,25 @@ fn command_line_mistakes_explain_what_jailsp_is() {
         )
     };
     let (code, _, stderr) = run(&["main.jai"], b"");
+
     assert_eq!(code, Some(2));
     assert!(
         stderr.contains("help: to check `main.jai` from a terminal, use `jaic main.jai -check`"),
         "{stderr}"
     );
     let (code, _, stderr) = run(&["--bogus"], b"");
+
     assert_eq!(code, Some(2));
     assert!(
         stderr.starts_with("error: unknown option `--bogus`"),
         "{stderr}"
     );
     let (code, stdout, _) = run(&["--help"], b"");
+
     assert_eq!(code, Some(0));
     assert!(stdout.starts_with("usage: jailsp"), "{stdout}");
     let (code, _, stderr) = run(&["--stdio"], b"hello\r\n\r\n");
+
     assert_eq!(code, Some(1));
     assert!(stderr.contains("expected `Content-Length: N`"), "{stderr}");
 }
@@ -119,6 +129,7 @@ fn a_missing_stdlib_stops_jailsp_with_the_fix() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert_eq!(output.status.code(), Some(1), "{stderr}");
     assert!(output.stdout.is_empty());
     assert!(

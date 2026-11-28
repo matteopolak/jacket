@@ -14,9 +14,11 @@ impl Analysis {
         context: &Context,
     ) {
         let whole = Span::new(0, context.text.len());
+
         for item in ide_facts::top_level(file) {
             let span = span_of(item.span);
             let private = item.visibility == Visibility::File;
+
             match item.kind {
                 TopLevelKind::Decl(decl) => {
                     self.declaration(
@@ -92,6 +94,7 @@ impl Analysis {
             private,
         } = place;
         let (kind, readonly) = Self::kind_of(decl);
+
         for name in &decl.names {
             let Some(id) = self.add(
                 SymbolRow {
@@ -112,9 +115,11 @@ impl Analysis {
             let Some(value) = &decl.value else {
                 continue;
             };
+
             match &value.kind {
                 ExprKind::Proc(lit) => {
                     let inner = span_of(lit.header.span.to(value.span));
+
                     for param in &lit.header.params {
                         if let Some(param_name) = param.name {
                             self.add(
@@ -133,6 +138,7 @@ impl Analysis {
                             );
                         }
                     }
+
                     if let Some(body) = &lit.body {
                         self.block(body, Some(id), context);
                     }
@@ -140,6 +146,7 @@ impl Analysis {
                 ExprKind::Struct(record) => self.record(record, id, context),
                 ExprKind::Enum(lit) => {
                     let mut pending: Vec<&EnumItem> = lit.items.iter().rev().collect();
+
                     while let Some(item) = pending.pop() {
                         match item {
                             EnumItem::Member(member) => {
@@ -178,6 +185,7 @@ impl Analysis {
     pub(super) fn record(&mut self, record: &StructLit, parent: usize, context: &Context) {
         let scope = span_of(record.span);
         let mut pending: Vec<&Stmt> = record.body.iter().rev().collect();
+
         while let Some(stmt) = pending.pop() {
             match &stmt.kind {
                 StmtKind::Decl(decl) => {
@@ -187,12 +195,14 @@ impl Analysis {
                     {
                         self.bases.push((parent, base));
                     }
+
                     let (kind, readonly) = Self::kind_of(decl);
                     let kind = if kind == SymbolKind::Variable {
                         SymbolKind::Property
                     } else {
                         kind
                     };
+
                     for name in &decl.names {
                         let Some(id) = self.add(
                             SymbolRow {
@@ -210,6 +220,7 @@ impl Analysis {
                         ) else {
                             continue;
                         };
+
                         if let Some(ExprKind::Struct(nested)) = decl.value.as_ref().map(|v| &v.kind)
                         {
                             self.record(nested, id, context);
@@ -222,6 +233,7 @@ impl Analysis {
                         else_branch,
                         ..
                     } = &**boxed;
+
                     pending.extend(else_branch.iter().rev());
                     pending.extend(then_branch.iter().rev());
                 }
@@ -248,6 +260,7 @@ impl Analysis {
 
     pub(super) fn nested(&mut self, stmt: &Stmt, parent: Option<usize>, context: &Context) {
         let scope = span_of(stmt.span);
+
         match &stmt.kind {
             StmtKind::Block(block) => self.statements(&block.stmts, scope, parent, context),
             _ => self.statement(stmt, scope, parent, context),
@@ -281,6 +294,7 @@ impl Analysis {
                 ..
             } => {
                 self.nested(then_branch, parent, context);
+
                 if let Some(branch) = else_branch {
                     self.nested(branch, parent, context);
                 }
@@ -295,6 +309,7 @@ impl Analysis {
             StmtKind::PushContext(p) => self.nested(&p.body, parent, context),
             StmtKind::For(for_loop) => {
                 let span = span_of(stmt.span);
+
                 for name in [for_loop.it, for_loop.index].into_iter().flatten() {
                     self.add(
                         SymbolRow {
@@ -311,12 +326,14 @@ impl Analysis {
                         context,
                     );
                 }
+
                 self.nested(&for_loop.body, parent, context);
             }
             StmtKind::Switch(boxed) => {
                 let jaic::ast::SwitchStmt {
                     cases, ..
                 } = &**boxed;
+
                 for case in cases {
                     self.statements(&case.body, span_of(case.span), parent, context);
                 }

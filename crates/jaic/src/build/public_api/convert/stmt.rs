@@ -43,12 +43,14 @@ impl Convert<'_, '_> {
                 .into_iter()
                 .map(|note| c.note(note))
                 .collect::<R<Vec<_>>>()?;
+
             c.word(";");
             let mut stmt = Stmt {
                 kind,
                 span: c.since(start),
                 notes: ast::Notes::default(),
             };
+
             // Notes after a declaration are the declaration's.
             match &mut stmt.kind {
                 StmtKind::Decl(decl) | StmtKind::AddContext(decl) => Arc::get_mut(decl)
@@ -57,6 +59,7 @@ impl Convert<'_, '_> {
                     .extend(notes),
                 _ => stmt.notes.extend(notes),
             }
+
             Ok(stmt)
         })
     }
@@ -77,9 +80,11 @@ impl Convert<'_, '_> {
                 };
                 let child = self.ptr(at, ty, "left")?;
                 let lhs = self.comma_exprs(child)?;
+
                 self.word("=");
                 let child = self.ptr(at, ty, "right")?;
                 let rhs = self.comma_exprs(child)?;
+
                 StmtKind::Assign {
                     op,
                     lhs,
@@ -96,6 +101,7 @@ impl Convert<'_, '_> {
                 let bind_label = self.flag(at, SyntaxKey::BindLabel)?;
                 let backtick_label = self.flag(at, SyntaxKey::BacktickLabel)?;
                 let cond = self.child(at, ty, "condition")?;
+
                 StmtKind::While(Box::new(WhileStmt {
                     label,
                     bind_label,
@@ -107,12 +113,14 @@ impl Convert<'_, '_> {
             "FOR" => StmtKind::For(Box::new(self.for_loop(at, ty)?)),
             "LOOP_CONTROL" => {
                 let control = self.num(at, ty, "control_type")?;
+
                 self.word(match control {
                     0 => "break",
                     1 => "continue",
                     _ => "remove",
                 });
                 let target = self.opt_name(at, ty, "target_ident")?;
+
                 match control {
                     0 => StmtKind::Break(target),
                     1 => StmtKind::Continue(target),
@@ -121,6 +129,7 @@ impl Convert<'_, '_> {
             }
             "RETURN" => {
                 let backtick = self.num(at, ty, "return_flags")? & 1 != 0;
+
                 self.word("return");
                 StmtKind::Return {
                     values: self.arguments(at, ty, "arguments_unsorted")?,
@@ -129,6 +138,7 @@ impl Convert<'_, '_> {
             }
             "DEFER" => {
                 let backtick = self.num(at, ty, "is_backticked")? != 0;
+
                 self.word("defer");
                 StmtKind::Defer {
                     body: Box::new(self.branch(at, ty, "block")?),
@@ -137,6 +147,7 @@ impl Convert<'_, '_> {
             }
             "USING" => {
                 let filter = self.using_filter(at, ty)?;
+
                 StmtKind::Using(Box::new(UsingStmt {
                     value: self.child(at, ty, "expression")?,
                     filter,
@@ -150,6 +161,7 @@ impl Convert<'_, '_> {
                 self.word("#load");
                 let path = self.text(at, ty, "short_name")?;
                 let span = self.word(&super::quote_bytes(path.as_bytes()));
+
                 StmtKind::Load {
                     path: path.into(),
                     span,
@@ -186,12 +198,14 @@ impl Convert<'_, '_> {
             "DIRECTIVE_ADD_CONTEXT" => {
                 self.word("#add_context");
                 let decl = self.ptr(at, ty, "expression")?;
+
                 StmtKind::AddContext(Arc::new(self.node(decl, |c, name, ty| {
                     if name != "DECLARATION" {
                         return Err(Trap::new(format!(
                             "#add_context requires a declaration, got {name}"
                         )));
                     }
+
                     c.decl(decl, ty)
                 })?))
             }
@@ -207,6 +221,7 @@ impl Convert<'_, '_> {
                 } else {
                     Some(self.block(common)?)
                 };
+
                 StmtKind::ModuleParameters(Box::new(ast::ModuleParametersStmt {
                     params,
                     runtime_params,
@@ -223,34 +238,43 @@ impl Convert<'_, '_> {
         if at == 0 {
             return Ok(Vec::new());
         }
+
         let nodes = self.comma_nodes(at)?;
         let mut values = Vec::new();
+
         for (index, node) in nodes.into_iter().enumerate() {
             if index > 0 {
                 self.word(",");
             }
+
             values.push(self.expr(node)?);
         }
+
         Ok(values)
     }
 
     fn conditional(&mut self, at: u64, name: &str, ty: TypeId) -> R<StmtKind> {
         let flags = self.num(at, ty, "if_flags")?;
+
         if flags & 2 != 0 {
             return Ok(StmtKind::Expr(self.expr_node(at, name, ty)?));
         }
+
         let start = self.mark();
+
         self.word(if flags & 4 != 0 {
             "#if"
         } else {
             "if"
         });
         let cond = self.child(at, ty, "condition")?;
+
         if flags & 1 != 0 {
             self.word("==");
             let header = self.since(start);
             let block = self.ptr(at, ty, "then_block")?;
             let mut cases = Vec::new();
+
             if block != 0 {
                 for case in self.list(block, self.ty("Code_Block")?, "statements")? {
                     cases.push(self.node(case, |c, name, ty| {
@@ -259,22 +283,26 @@ impl Convert<'_, '_> {
                                 "a switch holds only CASE nodes, got {name}"
                             )));
                         }
+
                         c.case(case, ty)
                     })?);
                 }
             }
+
             let switch = Box::new(SwitchStmt {
                 value: cond,
                 cases,
                 complete: flags & 4 == 0 && flags & 8 != 0,
                 header,
             });
+
             return Ok(if flags & 4 != 0 {
                 StmtKind::StaticSwitch(switch)
             } else {
                 StmtKind::Switch(switch)
             });
         }
+
         if flags & 4 != 0 {
             let then_block = self.ptr(at, ty, "then_block")?;
             let then_branch = if then_block == 0 {
@@ -288,10 +316,12 @@ impl Convert<'_, '_> {
                 (Vec::new(), None)
             } else {
                 let start = self.mark();
+
                 self.word("else");
                 let stmts = self.block(else_block)?.stmts;
                 (stmts, Some(self.since(start)))
             };
+
             return Ok(StmtKind::StaticIf(Box::new(StaticIfStmt {
                 cond,
                 then_branch,
@@ -300,6 +330,7 @@ impl Convert<'_, '_> {
                 else_arm,
             })));
         }
+
         let then_branch = Box::new(self.branch(at, ty, "then_block")?);
         let else_block = self.ptr(at, ty, "else_block")?;
         let else_branch = if else_block == 0 {
@@ -308,6 +339,7 @@ impl Convert<'_, '_> {
             self.word("else");
             Some(Box::new(self.stmt(else_block)?))
         };
+
         Ok(StmtKind::If {
             cond: Box::new(cond),
             then_branch,
@@ -317,6 +349,7 @@ impl Convert<'_, '_> {
 
     fn case(&mut self, at: u64, ty: TypeId) -> R<Case> {
         let start = self.mark();
+
         self.word("case");
         let child = self.ptr(at, ty, "condition")?;
         let values = self.comma_exprs(child)?;
@@ -327,6 +360,7 @@ impl Convert<'_, '_> {
             self.statements(block)?
         };
         let through = self.num(at, ty, "marked_as_fallthrough")? != 0;
+
         Ok(Case {
             values,
             body,
@@ -341,6 +375,7 @@ impl Convert<'_, '_> {
         {
             return Err(Trap::new("cannot serialize expanded iterator"));
         }
+
         self.word("for");
         let flags = self.flag_names(at, SyntaxKey::Flags)?;
         let iterator = self.attribute(at, SyntaxKey::Iterator)?;
@@ -349,13 +384,16 @@ impl Convert<'_, '_> {
         } else {
             let start = self.mark();
             let mut path: Option<ast::Expr> = None;
+
             for part in iterator.split('.') {
                 let name = self.name(part);
+
                 path = Some(match path {
                     None => mk(ExprKind::Ident(name.name), name.span),
                     Some(base) => mk(ExprKind::Member(Box::new(base), name), self.since(start)),
                 });
             }
+
             path
         };
         let pointer_if = self.opt_expr(at, ty, "want_pointer_expression")?;
@@ -365,22 +403,28 @@ impl Convert<'_, '_> {
         let ident = self.ty("Code_Ident")?;
         let mut backticks = [false; 2];
         let mut names = [None, None];
+
         for (i, field) in ["ident_it", "ident_it_index"].into_iter().enumerate() {
             let name = self.ptr(at, ty, field)?;
+
             if name != 0 {
                 names[i] = Some(self.ident_name(name)?);
                 backticks[i] = self.num(name, ident, "flags")? & 0x40 != 0;
             }
         }
+
         let [it, index] = names;
+
         if it.is_none() && index.is_some() {
             return Err(Trap::new("for index requires an iterator identifier"));
         }
+
         let first = self.child(at, ty, "iteration_expression")?;
         let over = match self.opt_expr(at, ty, "iteration_expression_right")? {
             Some(last) => ForOver::Range(first, last),
             None => ForOver::Collection(first),
         };
+
         Ok(For {
             it,
             index,
@@ -399,6 +443,7 @@ impl Convert<'_, '_> {
     fn push_context(&mut self, at: u64, ty: TypeId) -> R<StmtKind> {
         let start = self.mark();
         let backtick = self.has(at, ty, "push_context_flags", "IS_BACKTICKED")?;
+
         self.word("push_context");
         let original = self.extra(at, SyntaxKey::OriginalContext)?;
         let to_push = self.ptr(at, ty, "to_push")?;
@@ -408,6 +453,7 @@ impl Convert<'_, '_> {
         } else {
             self.expr(to_push)?
         };
+
         Ok(if self.has(at, ty, "push_context_flags", "DEFER_POP")? {
             StmtKind::PushContextDefer(Box::new(PushContextDeferStmt {
                 context,
@@ -440,22 +486,28 @@ impl Convert<'_, '_> {
                 .into_iter()
                 .map(|arg| self.expr(arg))
                 .collect::<R<Vec<_>>>()?;
+
             return Ok(StmtKind::Assert(Box::new(ast::AssertStmt {
                 cond,
                 message,
                 args,
             })));
         }
+
         // `#run f();` at statement level keeps the `#run` expression it runs.
         let body = self.extra(at, SyntaxKey::RunBody)?;
+
         if body != 0 {
             let (name, ty) = self.node_type(body)?;
+
             if name == "DIRECTIVE_RUN" && self.num(body, ty, "flags")? & 1 == 0 {
                 return Ok(StmtKind::Run(Box::new(self.expr(body)?)));
             }
         }
+
         let start = self.mark();
         let (body, flags) = self.run(at, ty)?;
+
         Ok(StmtKind::Run(Box::new(mk(
             ExprKind::Run {
                 body: Arc::new(body),

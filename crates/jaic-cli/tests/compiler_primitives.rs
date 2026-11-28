@@ -7,6 +7,7 @@ use test_support::process::succeeded as success;
 fn fixture(name: &str, text: &str) -> (TempDir, PathBuf) {
     let directory = TempDir::new(name);
     let source = directory.join("main.jai");
+
     std::fs::write(&source, text).unwrap();
     (directory, source)
 }
@@ -37,6 +38,7 @@ compiler_create_workspace :: (name := "") -> Workspace #compiler;
 main :: () {}
 "#,
     );
+
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -60,6 +62,7 @@ create :: (name := "") -> Workspace #compiler "compiler_create_workspace" {retur
 main :: () {assert(create("runtime implementation") == -77);}
 "#,
     );
+
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(&source)
@@ -70,6 +73,7 @@ main :: () {assert(create("runtime implementation") == -77);}
     } else {
         "runtime"
     });
+
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(&source)
@@ -97,6 +101,7 @@ fn malformed_compiler_signatures_report_an_error_instead_of_entering_a_handler()
                 declaration.split_whitespace().next().unwrap()
             ),
         );
+
         // Referencing the procedure forces signature binding, without supplying invalid arguments.
         std::fs::write(
             &source,
@@ -111,8 +116,10 @@ fn malformed_compiler_signatures_report_an_error_instead_of_entering_a_handler()
             .arg("-interp")
             .output()
             .unwrap();
+
         assert!(!output.status.success());
         let diagnostic = String::from_utf8_lossy(&output.stderr);
+
         assert!(
             diagnostic.contains("incompatible signature for compiler operation"),
             "{diagnostic}"
@@ -134,8 +141,10 @@ main :: () { workspace := compiler_create_workspace(); }
         .arg("-interp")
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     let diagnostic = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         diagnostic.contains("runs only at compile time"),
         "{diagnostic}"
@@ -168,6 +177,7 @@ version :: (result: *Version) -> string #compiler "compiler_get_version_info";
 main :: () {}
 "#,
     );
+
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -190,6 +200,7 @@ main :: () {}
         .arg("-interp")
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("unsupported compiler operation"));
 }
@@ -218,6 +229,7 @@ get_options :: (w: Workspace = -1) -> My_Options #compiler "get_build_options";
 main :: () {}
 "#,
     );
+
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -242,8 +254,10 @@ main :: () {}
         .arg("-interp")
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     let diagnostic = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         diagnostic.contains("more than one `Code_Node`"),
         "{diagnostic}"
@@ -273,8 +287,10 @@ fn records_missing_what_an_operation_uses_are_rejected_when_bound() {
             .arg("-interp")
             .output()
             .unwrap();
+
         assert!(!output.status.success());
         let diagnostic = String::from_utf8_lossy(&output.stderr);
+
         assert!(
             diagnostic
                 .contains("incompatible records for compiler operation compiler_get_version_info")

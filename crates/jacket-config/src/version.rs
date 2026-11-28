@@ -125,14 +125,17 @@ pub fn parse_tag(scheme: Scheme, prefix: Option<&str>, tag: &str) -> Option<Vers
         Some(prefix) => tag.strip_prefix(prefix)?,
         None => tag,
     };
+
     match scheme {
         Scheme::Semver => {
             let rest = rest.strip_prefix(['v', 'V']).unwrap_or(rest);
             let (core, tail) = rest.split_at(rest.find(['-', '+']).unwrap_or(rest.len()));
             let fields = numbers(core)?;
+
             if !(2..=3).contains(&fields.len()) {
                 return None;
             }
+
             let full = format!(
                 "{}{tail}",
                 (0..3)
@@ -145,6 +148,7 @@ pub fn parse_tag(scheme: Scheme, prefix: Option<&str>, tag: &str) -> Option<Vers
         Scheme::Calendar => {
             let rest = rest.strip_prefix(['v', 'V']).unwrap_or(rest);
             let fields = numbers(rest)?;
+
             (2..=4)
                 .contains(&fields.len())
                 .then_some(Version::Parts(fields))
@@ -152,6 +156,7 @@ pub fn parse_tag(scheme: Scheme, prefix: Option<&str>, tag: &str) -> Option<Vers
         Scheme::Integer => {
             let rest = rest.strip_prefix(['v', 'V', 'r', 'R']).unwrap_or(rest);
             let fields = numbers(rest)?;
+
             (fields.len() == 1).then_some(Version::Parts(fields))
         }
     }
@@ -175,6 +180,7 @@ pub enum Range {
 
 pub fn parse_range(scheme: Scheme, text: &str) -> Result<Range, String> {
     let text = text.trim();
+
     match scheme {
         Scheme::Semver => semver::VersionReq::parse(text)
             .map(Range::Semver)
@@ -183,7 +189,9 @@ pub fn parse_range(scheme: Scheme, text: &str) -> Result<Range, String> {
             if text == "*" {
                 return Ok(Range::Compare(Vec::new()));
             }
+
             let mut all = Vec::new();
+
             for part in text.split(',') {
                 let part = part.trim();
                 let (op, rest) = [
@@ -202,8 +210,10 @@ pub fn parse_range(scheme: Scheme, text: &str) -> Result<Range, String> {
                         "`{part}` is not a comparison: calendar and integer versions take `>=`, `>`, `<=`, `<`, `=` and `*`"
                     )
                 })?;
+
                 all.push((op, fields));
             }
+
             Ok(Range::Compare(all))
         }
     }
@@ -215,6 +225,7 @@ impl Range {
             (Self::Semver(req), Version::Semver(v)) => req.matches(v),
             (Self::Compare(all), Version::Parts(parts)) => all.iter().all(|(op, wanted)| {
                 let order = cmp_parts(parts, wanted);
+
                 match op {
                     Op::Eq => order.is_eq(),
                     Op::Gt => order.is_gt(),
@@ -279,6 +290,7 @@ mod tests {
     #[test]
     fn semver_reads_prefixes_two_part_tags_and_prereleases() {
         let s = Scheme::Semver;
+
         assert_eq!(v(s, None, "1.2.3").as_deref(), Some("1.2.3"));
         assert_eq!(v(s, None, "v1.2.3").as_deref(), Some("1.2.3"));
         assert_eq!(v(s, None, "0.8").as_deref(), Some("0.8.0"));
@@ -292,6 +304,7 @@ mod tests {
             v(s, Some("version-"), "version-1.0").as_deref(),
             Some("1.0.0")
         );
+
         for bad in [
             "latest",
             "v1",
@@ -302,6 +315,7 @@ mod tests {
         ] {
             assert_eq!(v(s, None, bad), None, "{bad}");
         }
+
         assert_eq!(
             v(s, Some("alpha-"), "1.0.0"),
             None,
@@ -312,13 +326,16 @@ mod tests {
     #[test]
     fn calendar_and_integer_versions_compare_field_by_field() {
         let c = Scheme::Calendar;
+
         assert!(parse_tag(c, None, "2024.5").unwrap() < parse_tag(c, None, "2024.05.01").unwrap());
         assert!(parse_tag(c, None, "24.05").unwrap() < parse_tag(c, None, "24.10").unwrap());
         assert_eq!(v(c, None, "v1"), None);
         let i = Scheme::Integer;
+
         for tag in ["42", "r42", "v42"] {
             assert_eq!(v(i, None, tag).as_deref(), Some("42"), "{tag}");
         }
+
         assert!(parse_tag(i, None, "r9").unwrap() < parse_tag(i, None, "r10").unwrap());
         assert_eq!(v(i, None, "1.2"), None);
     }
@@ -331,6 +348,7 @@ mod tests {
                 .unwrap()
                 .matches(&parse_tag(s, None, tag).unwrap())
         };
+
         assert!(pick("^1.2", "1.9.0") && !pick("^1.2", "2.0.0") && !pick("^1.2", "1.1.9"));
         assert!(pick("~1.2.3", "1.2.9") && !pick("~1.2.3", "1.3.0"));
         assert!(pick(">=1.0, <2.0", "1.5.0") && !pick(">=1.0, <2.0", "2.0.0"));
@@ -349,6 +367,7 @@ mod tests {
     fn calendar_ranges_take_comparisons_only() {
         let c = Scheme::Calendar;
         let range = parse_range(c, ">=2024.1, <2025.1").unwrap();
+
         assert!(range.matches(&parse_tag(c, None, "2024.05.01").unwrap()));
         assert!(!range.matches(&parse_tag(c, None, "2025.01.01").unwrap()));
         assert!(parse_range(c, "^2024.1").is_err());

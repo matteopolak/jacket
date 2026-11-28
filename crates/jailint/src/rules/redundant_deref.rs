@@ -23,10 +23,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -43,9 +45,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let TypeKind::Pointer(target) = types.kind(ty) else {
                 return true;
             };
+
             if !matches!(types.kind(*target), TypeKind::Struct(_)) {
                 return true;
             }
+
             let gap = jaic::source::Span::new(
                 cx.file,
                 pointer.span.end as usize,
@@ -71,6 +75,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 .src(gap)
                 .find('*')
                 .map_or(gap.end as usize, |i| gap.start as usize + i + 1);
+
             out.push(Finding {
                 secondary: Vec::new(),
                 start: gap.start as usize,

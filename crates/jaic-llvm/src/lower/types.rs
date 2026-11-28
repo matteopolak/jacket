@@ -33,6 +33,7 @@ impl<'ctx> Backend<'ctx, '_> {
         f: inkwell::values::FunctionValue<'ctx>,
     ) -> inkwell::values::PointerValue<'ctx> {
         let address = f.as_global_value().as_pointer_value();
+
         match self.code_space() {
             Some(_) => address.const_address_space_cast(self.ptr_ty()),
             None => address,
@@ -124,17 +125,21 @@ impl<'ctx> Backend<'ctx, '_> {
                 } else {
                     if !after_this {
                         attrs.push((0, ParamAttr::Sret(layout.size)));
+
                         if abi::sret_is_inreg(self.arch, forced_sret) {
                             attrs.push((0, ParamAttr::InReg));
                         }
+
                         llvm_params.push(self.ptr_ty().into());
                     }
+
                     RetPlan::Sret
                 }
             }
             None => RetPlan::Scalars(sig.returns.clone()),
         };
         let mut sret_at = 0;
+
         // FastISel on AArch64 hands any function whose result is a bare `i8` or `i16` to the
         // slow instruction selector. Both sides of a Jai-convention call are ours, so the
         // callee can promise the extension. C results are left alone: a C callee need not
@@ -145,6 +150,7 @@ impl<'ctx> Backend<'ctx, '_> {
         {
             attrs.push((RET_INDEX, ParamAttr::ZeroExt));
         }
+
         let mut params = Vec::new();
         let mut budget = abi::RegBudget::new(
             self.arch,
@@ -153,26 +159,34 @@ impl<'ctx> Backend<'ctx, '_> {
         );
         // Variadic arguments are not part of the LLVM function type.
         let mut fixed = None;
+
         for (i, &ty) in sig.params.iter().enumerate() {
             if after_this && i == 1 && matches!(ret, RetPlan::Sret) {
                 sret_at = llvm_params.len() as u32;
                 let size = ret_agg.as_ref().map_or(0, |l| l.size);
+
                 attrs.push((sret_at, ParamAttr::Sret(size)));
+
                 // AArch64 passes an `sret` pointer in x8 unless it is `inreg`; after `this` it is an
                 // ordinary argument (x1).
                 if self.arch.is_aarch64() {
                     attrs.push((sret_at, ParamAttr::InReg));
                 }
+
                 llvm_params.push(self.ptr_ty().into());
             }
+
             if sig.c_varargs && i == sig.c_fixed as usize {
                 fixed = Some(llvm_params.len());
             }
+
             if ret_agg.is_some() && i == sig.out_index() {
                 params.push(ParamPlan::Dropped);
                 continue;
             }
+
             let layout = cabi.and_then(|c| c.params.get(i).cloned().flatten());
+
             if let Some(layout) = layout {
                 let passing = if sig.c_varargs {
                     abi::classify_vararg(self.arch, &layout, &self.layout)
@@ -181,11 +195,14 @@ impl<'ctx> Backend<'ctx, '_> {
                 };
                 let passing = budget.aggregate(passing);
                 let array = passing.as_array(self.arch, sig.c_varargs);
+
                 match &passing {
                     Passing::Registers(pieces) if array => {
                         let elem = self.piece_ty(pieces[0].ty);
+
                         llvm_params.push(elem.array_type(pieces.len() as u32).into());
                         params.push(ParamPlan::AggArray(layout, pieces.clone()));
+
                         continue;
                     }
                     Passing::Registers(pieces) => {
@@ -202,6 +219,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     }
                     Passing::Indirect => llvm_params.push(self.ptr_ty().into()),
                 }
+
                 params.push(ParamPlan::Agg(layout, passing));
             } else {
                 budget.scalar(ty);
@@ -209,6 +227,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 params.push(ParamPlan::Scalar(ty));
             }
         }
+
         let fixed_params = &llvm_params[..fixed.unwrap_or(llvm_params.len())];
         let fn_ty = match &ret {
             RetPlan::Scalars(tys) => self.fn_type(self.ret_type(tys), fixed_params, sig.c_varargs),
@@ -218,6 +237,7 @@ impl<'ctx> Backend<'ctx, '_> {
             }
             RetPlan::Sret => self.fn_type(None, fixed_params, sig.c_varargs),
         };
+
         Lowered {
             fn_ty,
             params,
@@ -261,31 +281,38 @@ impl<'ctx> Backend<'ctx, '_> {
             let (name, size, align) = match attr {
                 ParamAttr::ZeroExt => {
                     let kind = Attribute::get_named_enum_kind_id("zeroext");
+
                     add(
                         AttributeLoc::Return,
                         self.ctx.create_enum_attribute(kind, 0),
                     );
+
                     continue;
                 }
                 ParamAttr::Sret(size) => ("sret", size, 0),
                 ParamAttr::ByVal(size, align) => ("byval", size, align),
                 ParamAttr::InReg => {
                     let kind = Attribute::get_named_enum_kind_id("inreg");
+
                     add(
                         AttributeLoc::Param(index),
                         self.ctx.create_enum_attribute(kind, 0),
                     );
+
                     continue;
                 }
             };
             let kind = Attribute::get_named_enum_kind_id(name);
             let ty = self.bytes_ty(size).as_any_type_enum();
+
             add(
                 AttributeLoc::Param(index),
                 self.ctx.create_type_attribute(kind, ty),
             );
+
             if align > 0 {
                 let kind = Attribute::get_named_enum_kind_id("align");
+
                 add(
                     AttributeLoc::Param(index),
                     self.ctx.create_enum_attribute(kind, align),

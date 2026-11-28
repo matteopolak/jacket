@@ -42,6 +42,7 @@ pub(crate) fn units_for(module: &Module, forced: Option<usize>) -> usize {
     if let Some(n) = forced {
         return n.max(1);
     }
+
     let insts: usize = functions(module.as_mut_ptr()).into_iter().map(weight).sum();
     (insts / INSTS_PER_UNIT).clamp(1, jaic::pool::threads().min(MAX_UNITS))
 }
@@ -59,6 +60,7 @@ pub(crate) fn emit(
     machine: &(dyn Fn() -> Result<TargetMachine, String> + Sync),
 ) -> Result<Vec<PathBuf>, String> {
     let m = module.as_mut_ptr();
+
     // COFF has no hidden visibility; on MinGW, LLVM turns it into `-exclude-symbols:` linker
     // directives with the names unquoted, which breaks on names with spaces or commas.
     expose_locals(m, !coff);
@@ -68,28 +70,37 @@ pub(crate) fn emit(
         .filter(|&f| is_definition(f))
         .map(|f| (name(f), weight(f)))
         .collect();
+
     defs.sort_by_key(|d| std::cmp::Reverse(d.1));
     let mut load = vec![0usize; units];
+
     load[0] = globals(m).len() / 4;
     let mut owner: HashMap<String, usize> = HashMap::default();
+
     for (name, w) in defs {
         let unit = (0..units).min_by_key(|&u| load[u]).unwrap_or(0);
+
         load[unit] += w;
         owner.insert(name, unit);
     }
+
     // The program's module assembly (a board's reset code) is unit 0's alone, and stays out of
     // the bitcode the other units read: writing bitcode parses it for its symbols with the
     // target's baseline CPU, which rejects instructions of a CPU feature (AVR's `lpm r0, Z+`).
     let asm = module_asm(m);
+
     set_module_asm(m, b"");
     let bitcode = module.write_bitcode_to_memory().as_slice().to_vec();
+
     set_module_asm(m, &asm);
     let paths: Vec<PathBuf> = (0..units)
         .map(|u| {
             if u == 0 {
                 return path.to_path_buf();
             }
+
             let mut name = path.to_path_buf().into_os_string();
+
             name.push(format!(".{u}.o"));
             PathBuf::from(name)
         })
@@ -111,14 +122,18 @@ pub(crate) fn emit(
                 let buffer = MemoryBuffer::create_from_memory_range_copy(&bitcode, "jai");
                 let module = Module::parse_bitcode_from_buffer(&buffer, &context)
                     .map_err(|e| e.to_string())?;
+
                 keep_unit(&module, &owner, u);
+
                 if let Some(text) = fibers
                     && calls_fiber_routines(module.as_mut_ptr())
                 {
                     set_module_asm(module.as_mut_ptr(), text.as_bytes());
                 }
+
                 module
             };
+
             write(&module, machine, &paths[u])
         },
         || {
@@ -127,6 +142,7 @@ pub(crate) fn emit(
             first = write(module, machine, path);
         },
     );
+
     rest.into_iter()
         .chain([first])
         .collect::<Result<Vec<()>, String>>()?;
@@ -147,14 +163,17 @@ fn write(
 /// unit 0 so does the data.
 fn keep_unit(module: &Module, owner: &HashMap<String, usize>, unit: usize) {
     let m = module.as_mut_ptr();
+
     for f in functions(m) {
         if is_definition(f) && owner.get(&name(f)).copied().unwrap_or(0) != unit {
             strip_body(f);
         }
     }
+
     if unit == 0 {
         return;
     }
+
     for g in globals(m) {
         // SAFETY: `g` is a global of `m`, which the caller owns, and no other thread touches the
         // module while it is being cut down.
@@ -178,6 +197,7 @@ fn calls_fiber_routines(m: LLVMModuleRef) -> bool {
         .iter()
         .any(|routine| {
             let name = std::ffi::CString::new(*routine).expect("no NUL in a routine name");
+
             // SAFETY: `m` is a live module the caller owns; the name is NUL-terminated.
             unsafe {
                 let f = llvm::LLVMGetNamedFunction(m, name.as_ptr());
@@ -189,12 +209,15 @@ fn calls_fiber_routines(m: LLVMModuleRef) -> bool {
 /// The module's inline assembly.
 fn module_asm(m: LLVMModuleRef) -> Vec<u8> {
     let mut len = 0usize;
+
     // SAFETY: `m` is a live module; LLVM returns `len` bytes it owns, copied before returning.
     unsafe {
         let text = llvm::LLVMGetModuleInlineAsm(m, &raw mut len);
+
         if text.is_null() {
             return Vec::new();
         }
+
         std::slice::from_raw_parts(text.cast::<u8>(), len).to_vec()
     }
 }
@@ -206,9 +229,11 @@ fn set_module_asm(m: LLVMModuleRef, text: &[u8]) {
 
 fn functions(m: LLVMModuleRef) -> Vec<LLVMValueRef> {
     let mut out = Vec::new();
+
     // SAFETY: `m` is a live module and the walk follows its own function list.
     unsafe {
         let mut f = llvm::LLVMGetFirstFunction(m);
+
         while !f.is_null() {
             out.push(f);
             f = llvm::LLVMGetNextFunction(f);
@@ -219,9 +244,11 @@ fn functions(m: LLVMModuleRef) -> Vec<LLVMValueRef> {
 
 fn globals(m: LLVMModuleRef) -> Vec<LLVMValueRef> {
     let mut out = Vec::new();
+
     // SAFETY: `m` is a live module and the walk follows its own global list.
     unsafe {
         let mut g = llvm::LLVMGetFirstGlobal(m);
+
         while !g.is_null() {
             out.push(g);
             g = llvm::LLVMGetNextGlobal(g);
@@ -237,13 +264,16 @@ fn is_definition(f: LLVMValueRef) -> bool {
 
 fn name(v: LLVMValueRef) -> String {
     let mut len = 0usize;
+
     // SAFETY: `v` is a live value; LLVM returns a name of `len` bytes that outlives this call
     // and is copied before returning.
     unsafe {
         let p = llvm::LLVMGetValueName2(v, &raw mut len);
+
         if p.is_null() {
             return String::new();
         }
+
         String::from_utf8_lossy(std::slice::from_raw_parts(p.cast::<u8>(), len)).into_owned()
     }
 }
@@ -251,16 +281,20 @@ fn name(v: LLVMValueRef) -> String {
 /// Instructions in a function body.
 fn weight(f: LLVMValueRef) -> usize {
     let mut n = 0;
+
     // SAFETY: `f` is a function of a live module and the walk follows its own block and
     // instruction lists.
     unsafe {
         let mut b = llvm::LLVMGetFirstBasicBlock(f);
+
         while !b.is_null() {
             let mut i = llvm::LLVMGetFirstInstruction(b);
+
             while !i.is_null() {
                 n += 1;
                 i = llvm::LLVMGetNextInstruction(i);
             }
+
             b = llvm::LLVMGetNextBasicBlock(b);
         }
     }
@@ -279,23 +313,29 @@ fn expose_locals(m: LLVMModuleRef, hidden: bool) {
                 // SAFETY: `g` is a global of the live module `m`.
                 .filter(|&g| unsafe { !llvm::LLVMGetInitializer(g).is_null() }),
         );
+
     for v in defs.collect::<Vec<_>>() {
         // SAFETY: each `v` is a function or global of the live module `m`, collected before any
         // of them is changed; renaming and relinking invalidate none of the others.
         unsafe {
             let linkage = llvm::LLVMGetLinkage(v);
+
             if !matches!(
                 linkage,
                 LLVMLinkage::LLVMInternalLinkage | LLVMLinkage::LLVMPrivateLinkage
             ) {
                 continue;
             }
+
             if name(v).is_empty() {
                 let fresh = format!("jaic.local.{unnamed}");
+
                 unnamed += 1;
                 llvm::LLVMSetValueName2(v, fresh.as_ptr().cast(), fresh.len());
             }
+
             llvm::LLVMSetLinkage(v, LLVMLinkage::LLVMExternalLinkage);
+
             if hidden {
                 llvm::LLVMSetVisibility(v, LLVMVisibility::LLVMHiddenVisibility);
             }
@@ -311,10 +351,12 @@ fn strip_body(f: LLVMValueRef) {
     unsafe {
         let mut blocks = Vec::new();
         let mut b = llvm::LLVMGetFirstBasicBlock(f);
+
         while !b.is_null() {
             blocks.push(b);
             b = llvm::LLVMGetNextBasicBlock(b);
         }
+
         // Cut every use of an instruction, and point every branch at its own block, so that
         // nothing outside a block refers into it; then delete whole blocks. Erasing the
         // instructions one by one instead moves their debug records onto the next
@@ -325,27 +367,36 @@ fn strip_body(f: LLVMValueRef) {
         // (`DwarfDebug::finalizeModuleInfo`) at random.
         for &b in &blocks {
             let mut i = llvm::LLVMGetFirstInstruction(b);
+
             while !i.is_null() {
                 let ty = llvm::LLVMTypeOf(i);
+
                 if llvm::LLVMGetTypeKind(ty) != inkwell::llvm_sys::LLVMTypeKind::LLVMVoidTypeKind {
                     llvm::LLVMReplaceAllUsesWith(i, llvm::LLVMGetPoison(ty));
                 }
+
                 i = llvm::LLVMGetNextInstruction(i);
             }
+
             let term = llvm::LLVMGetBasicBlockTerminator(b);
+
             if !term.is_null() {
                 for k in 0..llvm::LLVMGetNumSuccessors(term) {
                     llvm::LLVMSetSuccessor(term, k, b);
                 }
             }
         }
+
         for b in blocks {
             llvm::LLVMDeleteBasicBlock(b);
         }
+
         llvm::LLVMSetLinkage(f, LLVMLinkage::LLVMExternalLinkage);
+
         if llvm::LLVMHasPersonalityFn(f) != 0 {
             llvm::LLVMSetPersonalityFn(f, std::ptr::null_mut());
         }
+
         erase_debug_attachment(f);
     }
 }
@@ -354,11 +405,13 @@ fn strip_body(f: LLVMValueRef) {
 /// subprogram).
 fn erase_debug_attachment(v: LLVMValueRef) {
     let kind: &CStr = c"dbg";
+
     // SAFETY: `v` is a global of a live module, so its parent module and context exist; `kind`
     // is a NUL-terminated string whose given length of 3 excludes the terminator.
     unsafe {
         let context = llvm::LLVMGetModuleContext(llvm::LLVMGetGlobalParent(v));
         let id = llvm::LLVMGetMDKindIDInContext(context, kind.as_ptr(), 3);
+
         llvm::LLVMGlobalEraseMetadata(v, id);
     }
 }

@@ -46,6 +46,7 @@ pub trait FileSystem {
 pub fn content_stamp(bytes: &[u8]) -> u64 {
     use std::hash::Hasher;
     let mut hasher = crate::fxhash::FxHasher::default();
+
     hasher.write(bytes);
     hasher.write_usize(bytes.len());
     hasher.finish()
@@ -83,6 +84,7 @@ impl FileSystem for NativeFs {
         let Ok(entries) = std::fs::read_dir(path) else {
             return Vec::new();
         };
+
         entries
             .filter_map(std::result::Result::ok)
             .map(|e| {
@@ -98,6 +100,7 @@ impl FileSystem for NativeFs {
     fn stamp(&self, path: &Path) -> Option<u64> {
         use std::hash::{Hash, Hasher};
         let mut hasher = crate::fxhash::FxHasher::default();
+
         match std::fs::metadata(path) {
             Ok(meta) => {
                 meta.len().hash(&mut hasher);
@@ -110,6 +113,7 @@ impl FileSystem for NativeFs {
             }
             Err(_) => u64::MAX.hash(&mut hasher),
         }
+
         Some(hasher.finish())
     }
 }
@@ -131,6 +135,7 @@ impl VirtualFs {
         let path = normalize(&path.into());
         let parts: Vec<_> = path.components().collect();
         let mut dir = PathBuf::new();
+
         for (i, part) in parts.iter().enumerate() {
             if matches!(
                 part,
@@ -139,6 +144,7 @@ impl VirtualFs {
                 dir.push(part);
                 continue;
             }
+
             let name = part.as_os_str().to_string_lossy().into_owned();
             let nested = i + 1 < parts.len();
             let entry = self
@@ -147,9 +153,11 @@ impl VirtualFs {
                 .or_default()
                 .entry(name)
                 .or_insert(false);
+
             *entry |= nested;
             dir.push(part);
         }
+
         self.stamps.get_mut().clear();
         self.files.insert(path, bytes.into());
     }
@@ -184,18 +192,22 @@ impl FileSystem for VirtualFs {
     fn stamp(&self, path: &Path) -> Option<u64> {
         use std::hash::{Hash, Hasher};
         let path = normalize(path);
+
         if let Some(stamp) = self.stamps.borrow().get(&path) {
             return Some(*stamp);
         }
+
         let stamp = if let Some(bytes) = self.files.get(&path) {
             content_stamp(bytes)
         } else if let Some(names) = self.dirs.get(&path) {
             let mut hasher = crate::fxhash::FxHasher::default();
+
             names.hash(&mut hasher);
             hasher.finish()
         } else {
             u64::MAX
         };
+
         self.stamps.borrow_mut().insert(path, stamp);
         Some(stamp)
     }
@@ -208,6 +220,7 @@ mod tests {
     #[test]
     fn virtual_listing_names_files_and_folders_directly_inside() {
         let mut fs = VirtualFs::default();
+
         fs.insert("/lib/a.jai", b"".to_vec());
         fs.insert("/lib/b/module.jai", b"".to_vec());
         fs.insert("/lib/b/deep/c.jai", b"".to_vec());

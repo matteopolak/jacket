@@ -13,11 +13,14 @@ fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {
     let mut state = vec![0u8; nodes.len()];
     let mut values = vec![0; nodes.len()];
     let mut stack = Vec::new();
+
     for root in 0..nodes.len() {
         if state[root] == 2 {
             continue;
         }
+
         stack.push(root);
+
         while let Some(&at) = stack.last() {
             state[at] = 1;
             let node = nodes[at];
@@ -42,6 +45,7 @@ fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {
             } else {
                 0u64
             };
+
             values[at] = base
                 .checked_add(node.addend)
                 .and_then(|n| n.checked_next_multiple_of(node.align))
@@ -57,6 +61,7 @@ fn solve_offsets(nodes: &[OffsetNode]) -> Result<Vec<u64>> {
             stack.pop();
         }
     }
+
     Ok(values)
 }
 
@@ -74,14 +79,17 @@ impl Compiler {
         self.out.begin_runtime_storage_dependencies();
         let result = self.layout_struct_with_runtime_dependencies(s, span);
         let values = self.out.end_runtime_storage_dependencies()?;
+
         if result.is_ok() {
             self.finish_runtime_storage_layout(s, &values);
+
             // Descriptors that pointers to this struct were waiting for.
             if !self.ty.deferred_infos.is_empty() && self.ty.building_infos.is_empty() {
                 let _ =
                     self.flush_deferred_infos(span, crate::sema::typeinfo::InfoFlush::AfterLayout);
             }
         }
+
         result
     }
 
@@ -94,12 +102,14 @@ impl Compiler {
             }
             layout => layout,
         };
+
         match layout {
             LayoutState::Done => return Ok(()),
             LayoutState::InProgress => {
                 crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsInProgressMisses);
                 self.epochs.in_progress_misses += 1;
                 let name = self.ty.types.struct_info(s).name;
+
                 return err(
                     Code::StructContainsItselfUse,
                     span,
@@ -108,12 +118,15 @@ impl Compiler {
             }
             LayoutState::Pending => {}
         }
+
         crate::sema::body_probe::bump(crate::sema::body_probe::C::Layout);
         self.ty.types.struct_info_mut(s).layout = LayoutState::InProgress;
         let result = self.layout_struct_inner(s);
+
         if result.is_err() {
             self.ty.types.struct_info_mut(s).layout = LayoutState::Pending;
         }
+
         result
     }
 
@@ -127,19 +140,24 @@ impl Compiler {
         if let Some(members) = self.ty.struct_members.get(&s) {
             return Ok(Some(members.clone()));
         }
+
         if self.ty.types.struct_info(s).layout != LayoutState::Pending
             || self.ty.members_collecting.contains(&s)
         {
             return Ok(None);
         }
+
         let Some(src) = self.ty.struct_asts.get(&s).cloned() else {
             return Ok(None);
         };
+
         self.ty.members_collecting.insert(s);
         let items = self.struct_field_items(&src);
+
         self.ty.members_collecting.remove(&s);
         let items = items?;
         let members = Arc::new(StructMembers::of(&items));
+
         self.ty.struct_members.insert(s, members.clone());
         self.ty.collected_fields.insert(s, CollectedFields(items));
         Ok(Some(members))
@@ -152,6 +170,7 @@ impl Compiler {
         if let Some(collected) = self.ty.collected_fields.remove(&s) {
             return Ok(collected.0);
         }
+
         self.struct_field_items(src)
     }
 
@@ -159,8 +178,10 @@ impl Compiler {
     /// with the field declarations of `using` members resolved.
     fn struct_field_items(&mut self, src: &StructSource) -> Result<Vec<FieldItem>> {
         let mut items = Vec::new();
+
         self.ty.field_types.remove(&src.scope);
         self.ty.field_using_order.remove(&src.scope);
+
         if let Some(ast::UnionTag {
             name: tag,
             ty,
@@ -175,6 +196,7 @@ impl Compiler {
                     return err(Code::StructUnionTag, tag.span, "union tag needs a type");
                 }
             };
+
             // `.A ,, a: int;`: each member's tag value names a member of the tag's enum.
             if self.ed.is_live() {
                 for stmt in &src.lit.body {
@@ -187,7 +209,9 @@ impl Compiler {
                     }
                 }
             }
+
             let mut members = (*src.lit).clone();
+
             members.id = ast::AstId::fresh();
             members.tag = None;
             members.params = Vec::new();
@@ -200,6 +224,7 @@ impl Compiler {
                 None,
             );
             let tag_init = value.as_deref().cloned();
+
             for (name, ty, using, init) in [
                 (Some(tag.name), tag_ty, false, tag_init),
                 (None, members, true, None),
@@ -220,10 +245,13 @@ impl Compiler {
         } else {
             self.collect_fields(src.scope, &src.lit.body, &mut items)?;
         }
+
         for (decl, scope) in &src.extra {
             self.ty.collect_decl_fields(*scope, decl, &mut items)?;
         }
+
         let mut using_order = Vec::new();
+
         for item in &mut items {
             match item {
                 FieldItem::Declaration(scope, decl) if decl.using => {
@@ -242,14 +270,17 @@ impl Compiler {
                         },
                         None => ast::UsingFilter::None,
                     };
+
                     d.filter = Some(filter.clone());
                     using_order.push(FieldUsing::Inline(d.ty, filter));
                 }
                 _ => {}
             }
         }
+
         self.ty.field_using_order.insert(src.scope, using_order);
         let mut typed_items = Vec::with_capacity(items.len());
+
         for item in items {
             match item {
                 FieldItem::Declaration(scope, decl) => {
@@ -258,6 +289,7 @@ impl Compiler {
                 other => typed_items.push(other),
             }
         }
+
         Ok(typed_items)
     }
 
@@ -282,6 +314,7 @@ impl Compiler {
         let mut layout = Vec::new();
         let mut names = HashMap::default();
         let mut declared_at: HashMap<Sym, Span> = HashMap::default();
+
         for item in items {
             match item {
                 FieldItem::Default(stmt, scope) => overrides.push((stmt, scope)),
@@ -300,8 +333,10 @@ impl Compiler {
                         Some(n) if n > 0 => n,
                         _ => self.align_of(d.ty, d.span)?,
                     };
+
                     align = align.max(a);
                     let index = fields.len();
+
                     // `_` is a placeholder: it can repeat and is not a name to anchor `#place` on.
                     if let Some(name) = d.name
                         && name.as_str() != "_"
@@ -313,13 +348,17 @@ impl Compiler {
                                 format!("member `{name}` is declared more than once"),
                             )
                             .with_label("declared again here");
+
                             if let Some(&first) = declared_at.get(&name) {
                                 e = e.with_note(first, format!("`{name}` is first declared here"));
                             }
+
                             return Err(Box::new(e));
                         }
+
                         declared_at.insert(name, d.span);
                     }
+
                     if d.using
                         && let Some(filter) = d.filter.clone()
                     {
@@ -333,8 +372,10 @@ impl Compiler {
                             scope::UsingEntry::Filtered(_, filter) => (*filter).clone(),
                             _ => filter,
                         };
+
                         filters.push(index, filter);
                     }
+
                     fields.push(Field {
                         name: d.name,
                         ty: d.ty,
@@ -347,6 +388,7 @@ impl Compiler {
                         span: d.span,
                     });
                     self.pr.callable_fields.remove(&(s, index));
+
                     if matches!(self.ty.types.kind(d.ty), TypeKind::Proc(_))
                         && let Some(declaration) = d
                             .name
@@ -360,14 +402,17 @@ impl Compiler {
                         let parameters =
                             Self::callable_declared_notes(Some(parameters), &declaration.notes)
                                 .unwrap();
+
                         self.pr.callable_fields.insert((s, index), parameters);
                     }
+
                     sizes.push(size);
                     inits.push((d.init, d.scope));
                     layout.push(LayoutItem::Field(index));
                 }
             }
         }
+
         // Node zero is the initial cursor, nodes 1..=fields.len() are field offsets.
         let zero = OffsetNode {
             dependency: None,
@@ -379,11 +424,13 @@ impl Compiler {
         let mut cursor = 0;
         let mut overlay = None;
         let mut targets: HashMap<Vec<Sym>, (usize, u64, Vec<AnchorNote>)> = HashMap::default();
+
         for item in layout {
             match item {
                 LayoutItem::Field(index) => {
                     let field = &mut fields[index];
                     let overlaid = overlay.take();
+
                     field.overlay = overlaid.is_some();
                     nodes[index + 1] = OffsetNode {
                         dependency: Some(overlaid.unwrap_or(if is_union {
@@ -399,6 +446,7 @@ impl Compiler {
                         },
                         span: field.span,
                     };
+
                     if !field.overlay && !is_union {
                         cursor = nodes.len();
                         nodes.push(OffsetNode {
@@ -414,13 +462,16 @@ impl Compiler {
                     if !targets.contains_key(path) {
                         let target =
                             self.layout_anchor(s, &fields, &filters, &names, path, span)?;
+
                         targets.insert(path.clone(), target);
                     }
+
                     let (index, relative, notes) = targets[path].clone();
                     let node = if relative == 0 {
                         index + 1
                     } else {
                         let node = nodes.len();
+
                         nodes.push(OffsetNode {
                             dependency: Some(index + 1),
                             addend: relative,
@@ -429,6 +480,7 @@ impl Compiler {
                         });
                         node
                     };
+
                     for (note, &at) in notes.into_iter().zip(name_spans) {
                         match note {
                             AnchorNote::Field {
@@ -442,6 +494,7 @@ impl Compiler {
                             } => self.ide_note_member_use(at, owner, name),
                         }
                     }
+
                     if matches!(item, LayoutItem::Place(..)) {
                         cursor = node;
                     } else {
@@ -450,6 +503,7 @@ impl Compiler {
                 }
             }
         }
+
         if overlay.is_some() {
             return err(
                 Code::StructOverlayNeedsFollowing,
@@ -457,7 +511,9 @@ impl Compiler {
                 "#overlay needs a following stored member",
             );
         }
+
         let offsets = solve_offsets(&nodes)?;
+
         for (index, field) in fields.iter_mut().enumerate() {
             field.offset = offsets[index + 1];
             let extent = field
@@ -471,17 +527,22 @@ impl Compiler {
                         format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
                     ))
                 })?;
+
             end = end.max(extent);
         }
+
         if let Some(a) = &src.lit.flags.align {
             let a = self.eval_align(src.scope, a)?;
+
             align = align.max(a);
         }
+
         let size = if no_padding {
             end
         } else {
             end.next_multiple_of(align.max(1))
         };
+
         if size > MAX_SIZE {
             return err(
                 Code::StructTooLargeLimit,
@@ -489,24 +550,32 @@ impl Compiler {
                 format!("struct is too large (the limit is {MAX_SIZE} bytes)"),
             );
         }
+
         self.check_using_clashes(&fields, &filters)?;
         let info = self.ty.types.struct_info_mut(s);
+
         info.fields = fields.into();
+
         if !filters.is_empty() {
             self.ty.using_filters.insert(s, filters);
         }
+
         if !aliases.is_empty() {
             self.ty.member_aliases.insert(s, aliases);
         }
+
         info.size = size;
         info.align = align;
         info.layout = LayoutState::Done;
         let source = self.ty.struct_asts.get_mut(&s).unwrap();
+
         source.inits = inits;
         source.overrides = overrides;
+
         if self.ed.is_live() {
             self.ide_note_layout(s);
         }
+
         Ok(())
     }
 
@@ -525,6 +594,7 @@ impl Compiler {
         let (index, mut relative, mut ty, first) =
             self.layout_anchor_head(owner, fields, filters, names, *head, span)?;
         let mut notes = vec![first];
+
         for &name in rest {
             let Some((steps, member_ty, _)) =
                 self.find_promoted_member(vec![(ty, 0, name)], span, &mut vec![owner])?
@@ -535,6 +605,7 @@ impl Compiler {
                     format!("no member named `{name}` to anchor on"),
                 );
             };
+
             relative = Self::anchor_offset(relative, &steps, name, span)?;
             notes.push(AnchorNote::Member {
                 owner: ty,
@@ -542,6 +613,7 @@ impl Compiler {
             });
             ty = member_ty;
         }
+
         Ok((index, relative, notes))
     }
 
@@ -564,10 +636,12 @@ impl Compiler {
             };
             return Ok((index, 0, fields[index].ty, note));
         }
+
         for (index, field) in fields.iter().enumerate().filter(|(_, f)| f.using) {
             let Some(target) = filters.target(index, name) else {
                 continue;
             };
+
             if let Some((steps, ty, _)) =
                 self.find_promoted_member(vec![(field.ty, 0, target)], span, &mut vec![owner])?
             {
@@ -576,9 +650,11 @@ impl Compiler {
                     owner: field.ty,
                     name: target,
                 };
+
                 return Ok((index, relative, ty, note));
             }
         }
+
         err(
             Code::StructNoFieldNamed,
             span,
@@ -589,6 +665,7 @@ impl Compiler {
     /// `base` plus the inline offsets of a member path; a pointer step has no inline storage.
     fn anchor_offset(base: u64, steps: &[PathStep], name: Sym, span: Span) -> Result<u64> {
         let mut relative = base;
+
         for step in steps {
             match *step {
                 PathStep::Offset(at) => {
@@ -614,6 +691,7 @@ impl Compiler {
                 }
             }
         }
+
         Ok(relative)
     }
 
@@ -624,18 +702,23 @@ impl Compiler {
         if !fields.iter().any(|f| f.using) {
             return Ok(());
         }
+
         // Where each name came from: the `using` member that brought it in. A field of the
         // struct itself may share the name: the direct member shadows the promoted ones.
         let mut seen: HashMap<Sym, (Span, Option<Sym>)> = HashMap::default();
+
         for (i, f) in fields.iter().enumerate() {
             if !f.using {
                 continue;
             }
+
             let filter = filters.get(i);
             let mut names = Vec::new();
+
             if !self.exposed_names(f.ty, filter, &mut Vec::new(), &mut names) {
                 continue;
             }
+
             for name in names {
                 match seen.get(&name) {
                     Some(&(first, via)) if first != f.span => {
@@ -646,6 +729,7 @@ impl Compiler {
                         let member = f.name.map_or("this `using` member".to_string(), |n| {
                             format!("`using {n}`")
                         });
+
                         return Err(Box::new(
                             Diagnostic::new(Code::StructNameBroughtTwice,
                                 f.span,
@@ -663,6 +747,7 @@ impl Compiler {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -681,21 +766,27 @@ impl Compiler {
             return true;
         };
         let info = self.ty.types.struct_info(s);
+
         if searched.contains(&s) || info.layout != LayoutState::Done {
             return !searched.is_empty();
         }
+
         searched.push(s);
         let own_filters = self.ty.using_filters.get(&s);
         let mut names = Vec::new();
+
         for (i, f) in info.fields.iter().enumerate() {
             names.extend(f.name);
+
             if f.using {
                 let inner = own_filters.and_then(|l| l.get(i));
+
                 if !self.exposed_names(f.ty, inner, searched, &mut names) {
                     return false;
                 }
             }
         }
+
         match filter {
             None | Some(ast::UsingFilter::None) => {}
             Some(ast::UsingFilter::Only(keep)) => {
@@ -706,6 +797,7 @@ impl Compiler {
             }
             Some(_) => return false,
         }
+
         out.extend(names);
         true
     }
@@ -715,6 +807,7 @@ impl Compiler {
     pub(super) fn eval_align(&mut self, scope: ScopeId, expr: &ast::Expr) -> Result<u64> {
         const MAX_ALIGN: i128 = 1 << 30;
         let n = self.eval_int(scope, expr)?;
+
         if !(0..=MAX_ALIGN).contains(&n) {
             return err(
                 Code::StructAlignmentOutRange,
@@ -722,6 +815,7 @@ impl Compiler {
                 format!("alignment {n} is out of range (0 to {MAX_ALIGN})"),
             );
         }
+
         Ok(n as u64)
     }
 }

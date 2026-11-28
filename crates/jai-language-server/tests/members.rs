@@ -52,10 +52,12 @@ fn starts(refs: &[Location]) -> Vec<Position> {
 #[test]
 fn field_references_follow_the_struct_not_the_name() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let refs = s
         .references(&uri(), at_nth(PROGRAM, "x: float", 0, 0), true)
         .unwrap();
+
     assert_eq!(
         starts(&refs),
         [
@@ -70,11 +72,13 @@ fn field_references_follow_the_struct_not_the_name() {
     let uses = s
         .references(&uri(), at_nth(PROGRAM, "x + 1", 0, 0), false)
         .unwrap();
+
     assert_eq!(uses.len(), 3, "{uses:?}");
     // The other struct's `x`.
     let other = s
         .references(&uri(), at_nth(PROGRAM, "x: int", 0, 0), true)
         .unwrap();
+
     assert_eq!(
         starts(&other),
         [
@@ -89,10 +93,12 @@ fn field_references_follow_the_struct_not_the_name() {
 #[test]
 fn fields_through_pointers_and_using() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let refs = s
         .references(&uri(), at_nth(PROGRAM, "id: int", 0, 0), true)
         .unwrap();
+
     assert_eq!(
         starts(&refs),
         [
@@ -108,10 +114,13 @@ fn fields_through_pointers_and_using() {
 #[test]
 fn rename_a_field() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let position = at_nth(PROGRAM, "x = 1", 0, 0);
+
     s.prepare_rename(&uri(), position).unwrap().unwrap();
     let edits = s.rename(&uri(), position, "px").unwrap().unwrap();
+
     assert_eq!(edits.len(), 1);
     assert_eq!(edits[0].1.len(), 4, "{edits:?}");
     assert!(edits[0].1.iter().all(|e| e.new_text == "px"));
@@ -120,10 +129,12 @@ fn rename_a_field() {
 #[test]
 fn enum_member_references_and_rename() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let refs = s
         .references(&uri(), at_nth(PROGRAM, "Kind.ONE", 0, 5), true)
         .unwrap();
+
     assert_eq!(
         starts(&refs),
         [
@@ -137,20 +148,24 @@ fn enum_member_references_and_rename() {
         .rename(&uri(), at_nth(PROGRAM, ".TWO;", 0, 1), "SECOND")
         .unwrap()
         .unwrap();
+
     assert_eq!(edits[0].1.len(), 2, "{edits:?}");
     // The other enum's `ONE`.
     let pick = s
         .references(&uri(), at_nth(PROGRAM, "ONE; }", 0, 0), true)
         .unwrap();
+
     assert_eq!(pick.len(), 2, "{pick:?}");
 }
 
 #[test]
 fn references_reach_project_files_that_are_not_open() {
     let dir = TempDir::new("jailsp-members");
+
     std::fs::create_dir_all(&dir).unwrap();
     let util = "Point :: struct { x: int; }\n";
     let main = "#load \"util.jai\";\nmain :: () { p: Point; p.x = 1; }\n";
+
     std::fs::write(dir.join("util.jai"), util).unwrap();
     std::fs::write(dir.join("main.jai"), main).unwrap();
     std::fs::write(
@@ -160,10 +175,12 @@ fn references_reach_project_files_that_are_not_open() {
     .unwrap();
     let util_uri = DocumentUri::from_path(&dir.join("util.jai")).unwrap();
     let mut s = session();
+
     s.open(util_uri.clone(), 1, util.into()).unwrap();
     let refs = s
         .references(&util_uri, at_nth(util, "x:", 0, 0), true)
         .unwrap();
+
     assert_eq!(refs.len(), 2, "{refs:?}");
     assert!(
         refs.iter().any(|r| r.uri.ends_with("/main.jai")),
@@ -175,6 +192,7 @@ fn references_reach_project_files_that_are_not_open() {
 fn members_of_modules_cannot_be_renamed() {
     let mut s = session();
     let text = "#import \"Basic\";\nmain :: () { a: [..] int; a.count = 0; }\n";
+
     s.open(uri(), 1, text.into()).unwrap();
     assert!(
         s.prepare_rename(&uri(), at_nth(text, "count", 0, 0))
@@ -226,6 +244,7 @@ fn definition(s: &Session, text: &str, marker: &str, offset: usize) -> Vec<Posit
 #[test]
 fn definition_of_struct_members() {
     let mut s = session();
+
     s.open(uri(), 1, GOTO.into()).unwrap();
     assert_eq!(
         definition(&s, GOTO, "stuff_a = 1", 0),
@@ -249,10 +268,12 @@ fn definition_of_struct_members() {
     let refs = s
         .references(&uri(), at_nth(GOTO, "name);", 0, 0), true)
         .unwrap();
+
     assert_eq!(refs.len(), 3, "{refs:?}");
     let refs = s
         .references(&uri(), at_nth(GOTO, "anon_c = 2", 0, 0), true)
         .unwrap();
+
     assert_eq!(refs.len(), 2, "{refs:?}");
     s.prepare_rename(&uri(), at_nth(GOTO, "anon_c = 2", 0, 0))
         .unwrap()
@@ -262,6 +283,7 @@ fn definition_of_struct_members() {
 #[test]
 fn definition_of_enum_members() {
     let mut s = session();
+
     s.open(uri(), 1, GOTO.into()).unwrap();
     assert_eq!(
         definition(&s, GOTO, "Color.RED", 6),
@@ -270,5 +292,6 @@ fn definition_of_enum_members() {
     let refs = s
         .references(&uri(), at_nth(GOTO, "Color.RED", 0, 6), true)
         .unwrap();
+
     assert_eq!(refs.len(), 2, "{refs:?}");
 }

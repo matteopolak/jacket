@@ -33,14 +33,17 @@ const HELP: &str = "a pointer is 4 bytes on 32-bit targets: keep tags in the low
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
             };
+
             match &e.kind {
                 E::Cast {
                     value, ..
@@ -51,6 +54,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     let Some(target) = types.pointee(to) else {
                         return true;
                     };
+
                     if let Some((64, _)) = types.int_info(target)
                         && let Some(from) = cx.ty(value)
                         && let Some(held) = types.pointee(from)
@@ -62,6 +66,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             Some("read the pointer through its own type".into()),
                         ));
                     }
+
                     if let Some(k) = super::int_literal(uncast(value))
                         && !(0..=i128::from(u32::MAX)).contains(&k)
                     {
@@ -82,6 +87,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 }
                 _ => {}
             }
+
             true
         });
     }
@@ -103,6 +109,7 @@ fn tagged(cx: &Cx, e: &Expr, op: BinOp, a: &Expr, b: &Expr) -> Option<Finding> {
         _ => return None,
     };
     let from_pointer = cx.ty(uncast(value)).is_some_and(|t| types.is_pointer(t));
+
     (reaches && from_pointer).then(|| {
         finding(
             e.span,

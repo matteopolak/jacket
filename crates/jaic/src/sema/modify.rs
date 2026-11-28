@@ -29,20 +29,26 @@ impl Compiler {
     /// constant bake them, and the block runs for those instances.
     pub(super) fn check_proc_modify(&mut self, id: ProcId) -> Result<()> {
         let p = self.proc(id);
+
         if p.lit.header.modify.is_none() || p.is_poly || p.bindings.is_some() {
             return Ok(());
         }
+
         let header = p.lit.header.clone();
         let name = p.name;
+
         if header.params.iter().any(|p| p.auto_bake)
             || self.pr.auto_bake_variants.values().any(|&v| v == id)
         {
             return Ok(());
         }
+
         self.refresh_implicit_poly(id)?;
+
         if self.proc(id).is_poly {
             return Ok(());
         }
+
         let Some(block) = &header.modify else {
             return Ok(());
         };
@@ -56,10 +62,12 @@ impl Compiler {
             .params
             .iter()
             .find_map(|p| Some((p.name?, p.ty.as_ref()?)));
+
         match runtime {
             Some((param, ty)) => {
                 let ty = self.src.sources.snippet(ty.span).to_string();
                 let pname = param.name;
+
                 d = d
                     .with_replacement(
                         format!(
@@ -81,6 +89,7 @@ impl Compiler {
                 );
             }
         }
+
         Err(Box::new(d))
     }
 
@@ -89,14 +98,17 @@ impl Compiler {
         let Some(block) = &lit.modify else {
             return Ok(());
         };
+
         if !lit.params.is_empty() {
             return Ok(());
         }
+
         let what = if name.as_str() == "struct" || name.as_str() == "anonymous" {
             "this struct".to_string()
         } else {
             format!("`{name}`")
         };
+
         Err(Box::new(
             Diagnostic::new(Code::ModifyWithoutPolymorphs,
                 self.src.modify_directive_span(block),
@@ -122,12 +134,14 @@ impl Compiler {
         let mut variables: Vec<(Sym, Value, TypeId)> = Vec::new();
         let mut constants = Vec::new();
         let mut type_vars: Vec<Sym> = super::calls::header_poly_names(header);
+
         for (name, value, ty) in &bindings {
             // A `$x := false` parameter is a variable of the block like a type is.
             let baked_param = header
                 .params
                 .iter()
                 .any(|p| p.baked && p.name.is_some_and(|n| n.name == *name));
+
             if *ty == TypeId::TYPE {
                 type_vars.push(*name);
             } else if baked_param {
@@ -136,6 +150,7 @@ impl Compiler {
                 constants.push((*name, value.clone(), *ty));
             }
         }
+
         for name in type_vars {
             // An inferred value variable (`$N` in `Vec($T, $N)`) is already a constant.
             if variables.iter().any(|(n, _, _)| *n == name)
@@ -143,12 +158,15 @@ impl Compiler {
             {
                 continue;
             }
+
             let initial = match bindings.iter().find(|(n, _, _)| *n == name) {
                 Some((_, Value::Type(t), _)) => *t,
                 _ => TypeId::VOID,
             };
+
             variables.push((name, Value::Type(initial), TypeId::TYPE));
         }
+
         let scope = self.proc(proc).scope;
         let what = format!("`{}`", self.proc(proc).name);
         // A parameter is declared where the header writes it (`$n: int`, `x: $T`, `-> $R`).
@@ -163,14 +181,17 @@ impl Compiler {
             declared,
         };
         let results = self.run_modify_block(scope, block, names, &what, span)?;
+
         for (name, value, ty) in results {
             // A type variable left `void` stays unbound.
             if matches!(value, Value::Type(TypeId::VOID)) {
                 continue;
             }
+
             bindings.retain(|(n, _, _)| *n != name);
             bindings.push((name, value, ty));
         }
+
         Ok(bindings)
     }
 
@@ -190,6 +211,7 @@ impl Compiler {
             constants: Vec::new(),
             declared: Vec::new(),
         };
+
         self.run_modify_block(def_scope, block, names, &what, span)
     }
 
@@ -227,6 +249,7 @@ impl Compiler {
         };
         // The block's lines are in the file it is written in; a definition scope may name none.
         let mut f = FnCtx::new("modify".into(), sig, block.span.file);
+
         f.compile_time = true;
         f.set_context(Some(f.b.param(0)));
         // `return false, "message"`: the optional message goes to a global (empty by default).
@@ -241,15 +264,19 @@ impl Compiler {
             section: None,
         });
         let message_addr = f.b.global_addr(message);
+
         f.return_types = vec![TypeId::BOOL, TypeId::STRING];
         f.return_outs = vec![None, Some(message_addr)];
         f.named_results = vec![None, Some(message_addr)];
         let scope = self.new_scope(ScopeKind::Proc, Some(def_scope), module, None);
         let depth = self.scope(scope).proc_depth;
+
         for (name, value, ty) in constants {
             self.add_const(scope, name, declared_at(name), value, ty);
         }
+
         let mut globals = Vec::new();
+
         for (name, value, ty) in variables {
             let size = self.size_of(ty, span)?.max(8);
             let global = self.out.program.add_global(ir::Global {
@@ -264,6 +291,7 @@ impl Compiler {
             });
             let addr = f.b.global_addr(global);
             let val = self.materialize(&mut f, &value, ty, span)?;
+
             self.store_value(&mut f, ty, addr, val, span)?;
             self.add_entity(
                 scope,
@@ -280,12 +308,17 @@ impl Compiler {
         }
 
         let inner = self.new_block_scope(scope, block.span);
+
         self.check_block_stmts(&mut f, inner, &block.stmts)?;
+
         if !f.b.is_terminated() {
             let accept = f.b.iconst(Ty::I8, 1);
+
             f.b.ret(vec![accept]);
         }
+
         let results = self.call_thunk(f, span)?;
+
         if results.first().copied().unwrap_or(0).trailing_zeros() >= 8 {
             let addr = self
                 .ct
@@ -302,13 +335,16 @@ impl Compiler {
                 Value::String(s) if !s.is_empty() => format!(": {}", String::from_utf8_lossy(&s)),
                 _ => String::new(),
             };
+
             return err(
                 Code::ModifyRejectedArguments,
                 span,
                 format!("#modify rejected the arguments to {what}{text}"),
             );
         }
+
         let mut out = Vec::new();
+
         for (name, ty, global) in globals {
             let addr = self
                 .ct
@@ -321,8 +357,10 @@ impl Compiler {
                         t.into_message(),
                     ))
                 })?;
+
             out.push((name, self.read_value(addr, ty, span)?, ty));
         }
+
         Ok(out)
     }
 }
@@ -335,6 +373,7 @@ impl SourceState {
             return span;
         };
         let text = &file.text;
+
         match text
             .get(..span.start as usize)
             .and_then(|t| t.rfind("#modify"))

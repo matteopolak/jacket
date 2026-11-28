@@ -19,9 +19,12 @@ fn lower_locs(ops: &mut Vec<Op>, pool: &mut [u32], blocks: &mut [CodeBlock]) -> 
     let mut marks = Vec::new();
     let mut current = NO_LOC;
     let mut kept = Vec::with_capacity(ops.len());
+
     for block in blocks.iter_mut() {
         let (start, end) = (block.start as usize, block.end as usize);
+
         block.start = kept.len() as u32;
+
         for &op in &ops[start..end] {
             match op {
                 Op::Loc {
@@ -30,6 +33,7 @@ fn lower_locs(ops: &mut Vec<Op>, pool: &mut [u32], blocks: &mut [CodeBlock]) -> 
                     col,
                 } => {
                     let loc = (file, line, col);
+
                     current = *index.entry(loc).or_insert_with(|| {
                         locs.push(loc);
                         locs.len() as u32 - 1
@@ -54,8 +58,10 @@ fn lower_locs(ops: &mut Vec<Op>, pool: &mut [u32], blocks: &mut [CodeBlock]) -> 
                 _ => kept.push(op),
             }
         }
+
         block.end = kept.len() as u32;
     }
+
     *ops = kept;
     (locs, marks)
 }
@@ -81,8 +87,10 @@ fn switches() -> &'static Switches {
 /// in effect at the end of a block that branches to it (the first such block, in block order).
 fn entry_locs(func: &ir::Func) -> Vec<Option<(u32, u32, u32)>> {
     let mut entry: Vec<Option<(u32, u32, u32)>> = vec![None; func.blocks.len()];
+
     for (bi, block) in func.blocks.iter().enumerate() {
         let mut here = entry[bi];
+
         for inst in &block.insts {
             if let Inst::Loc {
                 file,
@@ -94,22 +102,27 @@ fn entry_locs(func: &ir::Func) -> Vec<Option<(u32, u32, u32)>> {
                 here = Some((file, line, col));
             }
         }
+
         let Some(here) = here else {
             continue;
         };
+
         for next in block.term.successors() {
             let slot = &mut entry[next.0 as usize];
+
             if slot.is_none() && next.0 as usize != bi {
                 *slot = Some(here);
             }
         }
     }
+
     // A block that sets a location first needs no inherited one.
     for (bi, block) in func.blocks.iter().enumerate() {
         if matches!(block.insts.first(), Some(Inst::Loc { .. })) {
             entry[bi] = None;
         }
     }
+
     entry
 }
 
@@ -177,18 +190,23 @@ pub(in crate::interp) fn build(
     let n = func.vals.len();
     let mut defs = vec![0u32; n];
     let mut uses = vec![0u32; n];
+
     for d in defs.iter_mut().take(func.sig.params.len()) {
         *d += 1;
     }
+
     for block in &func.blocks {
         for inst in &block.insts {
             inst_vals(inst, &mut |v| defs[v.0 as usize] += 1, &mut |v| {
                 uses[v.0 as usize] += 1;
             });
         }
+
         term_uses(&block.term, &mut |v| uses[v.0 as usize] += 1);
     }
+
     let mut known = vec![Known::Nothing; n];
+
     for block in &func.blocks {
         for inst in &block.insts {
             match *inst {
@@ -219,6 +237,7 @@ pub(in crate::interp) fn build(
                     b,
                 } if defs[dst.0 as usize] == 1 => {
                     let ty = addresses.int_ty(ty);
+
                     if let (Known::Int(x), Known::Int(y)) =
                         (known[a.0 as usize], known[b.0 as usize])
                         && let Some(value) = fold_bin(op, ty, x, y)
@@ -230,17 +249,21 @@ pub(in crate::interp) fn build(
             }
         }
     }
+
     let plan = if switches().no_sink {
         None
     } else {
         sink::plan(func, &defs, read_only)
     };
+
     if let Some(plan) = &plan {
         for &(block, inst) in &plan.deleted {
             let inst = &func.blocks[block as usize].insts[inst as usize];
+
             inst_vals(inst, &mut |_| {}, &mut |v| uses[v.0 as usize] -= 1);
         }
     }
+
     let mut b = Builder {
         func,
         late_value,
@@ -258,13 +281,16 @@ pub(in crate::interp) fn build(
     };
     let mut blocks = Vec::with_capacity(func.blocks.len());
     let entry_locs = entry_locs(func);
+
     for (bi, block) in func.blocks.iter().enumerate() {
         let start = b.ops.len() as u32;
+
         b.block_start_mark = b.ops.len();
         // A block with no location of its own (the failure path of a `#no_debug` macro such as
         // `assert`) reports where the code that branched to it was, not whatever block happens
         // to be laid out before it.
         let inherited = entry_locs[bi];
+
         if let Some((file, line, col)) = inherited {
             b.push(
                 Op::Loc {
@@ -275,6 +301,7 @@ pub(in crate::interp) fn build(
                 None,
             );
         }
+
         if let Some(plan) = &plan {
             for &(from, ii) in &plan.front[bi] {
                 b.inst(
@@ -284,13 +311,17 @@ pub(in crate::interp) fn build(
                 );
             }
         }
+
         for (ii, inst) in block.insts.iter().enumerate() {
             if plan.as_ref().is_some_and(|plan| plan.skip[bi][ii]) {
                 continue;
             }
+
             b.inst(bi, ii, inst);
         }
+
         b.end(bi, block);
+
         // Where nothing in the block can fail or call, the location would only keep it from
         // being seen as empty.
         if let Some((file, line, col)) = inherited
@@ -303,40 +334,51 @@ pub(in crate::interp) fn build(
             b.ops.remove(start as usize);
             b.pure_def.remove(start as usize);
         }
+
         // Offsets are only trusted inside the block that computed them.
         for v in std::mem::take(&mut b.offset_vals) {
             b.offsets[v as usize] = None;
         }
+
         blocks.push(CodeBlock {
             start,
             end: b.ops.len() as u32,
         });
     }
+
     // Drop definitions nobody reads any more (which may leave their operands unread too),
     // and renumber the block ranges.
     let mut dropped = vec![false; b.ops.len()];
+
     loop {
         let mut changed = false;
+
         for i in (0..b.ops.len()).rev() {
             if !dropped[i] && b.pure_def[i].is_some_and(|v| b.uses[v as usize] == 0) {
                 dropped[i] = true;
                 changed = true;
+
                 for src in op_srcs(&b.ops[i]).into_iter().flatten() {
                     b.uses[src as usize] -= 1;
                 }
             }
         }
+
         if !changed {
             break;
         }
     }
+
     let mut ops = Vec::with_capacity(b.ops.len());
+
     for block in &mut blocks {
         let (start, end) = (block.start as usize, block.end as usize);
+
         block.start = ops.len() as u32;
         ops.extend((start..end).filter(|&i| !dropped[i]).map(|i| b.ops[i]));
         block.end = ops.len() as u32;
     }
+
     let nregs = promote::promote(
         func,
         frame_offsets,
@@ -346,15 +388,19 @@ pub(in crate::interp) fn build(
         &mut blocks,
         layout,
     );
+
     for op in &mut ops {
         *op = specialize(*op, layout, addresses);
     }
+
     if straighten && !switches().no_flow {
         flow::straighten(&mut ops, &mut blocks);
     }
+
     let (locs, loc_marks) = lower_locs(&mut ops, &mut b.pool, &mut blocks);
     // Endings named blocks; now they name ops.
     let mut regs = nregs;
+
     for op in &mut ops {
         match op {
             Op::Jump {
@@ -381,23 +427,29 @@ pub(in crate::interp) fn build(
             _ => {}
         }
     }
+
     let mut block_at = vec![0u32; ops.len() + 1];
+
     for (i, block) in blocks.iter().enumerate() {
         block_at[block.start as usize] = i as u32 + 1;
     }
+
     if switches()
         .dump_ops
         .as_ref()
         .is_some_and(|v| func.name.contains(v.as_str()))
     {
         eprintln!("== {}\n{}", func.name, func.listing());
+
         for (bi, bl) in blocks.iter().enumerate() {
             eprintln!(" block {bi}");
+
             for i in bl.start..bl.end {
                 eprintln!("  {i}: {:?}", ops[i as usize]);
             }
         }
     }
+
     Code {
         ops,
         blocks,
@@ -478,6 +530,7 @@ fn specialize(op: Op, layout: &DataLayout, addresses: AddressMap) -> Op {
         },
         op => op,
     };
+
     match op {
         Op::Load {
             ty,
@@ -623,13 +676,16 @@ impl Builder<'_> {
             self.fold(addr);
             return Address::Frame(off);
         }
+
         if let Some(o) = self.offsets[addr.0 as usize]
             && let Ok(off) = i32::try_from(o.off)
         {
             self.fold(addr);
             self.uses[o.base as usize] += 1;
+
             return Address::Reg(o.base, off);
         }
+
         Address::Reg(self.v(addr), 0)
     }
 }
@@ -755,6 +811,7 @@ mod tests {
             &layout,
             narrow(4),
         );
+
         assert!(
             matches!(
                 load,
@@ -774,6 +831,7 @@ mod tests {
             &layout,
             narrow(4),
         );
+
         assert!(
             matches!(
                 store,
@@ -796,6 +854,7 @@ mod tests {
             &avr,
             narrow(2),
         );
+
         assert!(
             matches!(
                 load,

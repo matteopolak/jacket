@@ -5,6 +5,7 @@ use jaic::intern::Sym;
 
 pub(in crate::rules) fn swaps_arguments(c: &Compiler, id: ProcId) -> bool {
     let proc = &c.pr.procs[id.0 as usize];
+
     if proc.body_state != jaic::sema::procs::BodyState::Done
         || !c
             .ed
@@ -14,9 +15,11 @@ pub(in crate::rules) fn swaps_arguments(c: &Compiler, id: ProcId) -> bool {
     {
         return false;
     }
+
     let Some(sig) = &proc.sig else {
         return false;
     };
+
     if sig.params.len() != 2
         || !sig.returns.is_empty()
         || sig.params[0].ty != sig.params[1].ty
@@ -24,6 +27,7 @@ pub(in crate::rules) fn swaps_arguments(c: &Compiler, id: ProcId) -> bool {
     {
         return false;
     }
+
     let Some(body) = &proc.lit.body else {
         return false;
     };
@@ -37,12 +41,15 @@ pub(in crate::rules) fn swaps_arguments(c: &Compiler, id: ProcId) -> bool {
     let Some(b) = params.next().and_then(|p| p.name).map(|n| n.name) else {
         return false;
     };
+
     if a == b {
         return false;
     }
+
     let S::Decl(d) = &save.kind else {
         return false;
     };
+
     if d.kind != DeclKind::Var
         || d.names.len() != 1
         || d.using
@@ -53,6 +60,7 @@ pub(in crate::rules) fn swaps_arguments(c: &Compiler, id: ProcId) -> bool {
     {
         return false;
     }
+
     let assign = |stmt: &jaic::ast::Stmt, target, source, deref| {
         let S::Assign {
             op: AssignOp::Assign,
@@ -62,6 +70,7 @@ pub(in crate::rules) fn swaps_arguments(c: &Compiler, id: ProcId) -> bool {
         else {
             return false;
         };
+
         lhs.len() == 1
             && rhs.len() == 1
             && dereference(&lhs[0]) == Some(target)

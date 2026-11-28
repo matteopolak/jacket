@@ -51,7 +51,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro || changes_allocator(cx, p.header, &p.body.stmts) {
             continue;
         }
+
         let mut decls: Vec<(&Decl, &Expr)> = Vec::new();
+
         walk(&p.body.stmts, &mut |n, _| {
             if let Some(Stmt {
                 kind: S::Decl(d), ..
@@ -60,8 +62,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 decls.push((d, call));
             }
+
             true
         });
+
         for (d, call) in decls {
             let name = d.names[0];
             let Some(var) = (if let [only] = &*cx.locals(name.span) {
@@ -71,6 +75,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             }) else {
                 continue;
             };
+
             if leaks(cx, p.body, d, var) {
                 let callee = match &call.kind {
                     E::Call {
@@ -91,9 +96,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     .as_ref()
                     .and_then(|v| cx.ty(v))
                     .is_some_and(|t| cx.compiler.ty.types.is_pointer(t));
+
                 out.push(if pointer {
                     let end = statement_range(cx, d.span).1;
                     let (_, indent) = cx.line_start(d.span.start as usize);
+
                     suggesting(
                         name.span,
                         message,
@@ -118,13 +125,16 @@ fn allocation<'a>(cx: &Cx, d: &'a Decl) -> Option<&'a Expr> {
     if d.names.len() != 1 || d.rare.is_some() || d.using || d.backtick {
         return None;
     }
+
     let mut value = d.value.as_ref()?;
+
     while let E::Cast {
         value: inner, ..
     } = &value.kind
     {
         value = inner;
     }
+
     let E::Call {
         callee,
         args,
@@ -133,6 +143,7 @@ fn allocation<'a>(cx: &Cx, d: &'a Decl) -> Option<&'a Expr> {
     else {
         return None;
     };
+
     (effects::calls(cx, callee, Effect::OwnedReturn) && !args.iter().any(|a| a.context))
         .then_some(value)
 }
@@ -142,7 +153,9 @@ pub(super) fn changes_allocator(cx: &Cx, header: &ProcHeader, body: &[Stmt]) -> 
     if header.params.iter().any(|q| q.using) {
         return true;
     }
+
     let mut found = false;
+
     walk(body, &mut |n, _| {
         match n {
             Node::Stmt(s) => match &s.kind {
@@ -168,6 +181,7 @@ pub(super) fn changes_allocator(cx: &Cx, header: &ProcHeader, body: &[Stmt]) -> 
                 _ => {}
             },
         }
+
         !found
     });
     found
@@ -190,19 +204,24 @@ fn leaks(cx: &Cx, body: &Block, decl: &Decl, var: EntityId) -> bool {
     let after = decl.span.end;
     let mut handled = false;
     let mut seen = 0usize;
+
     walk(&body.stmts, &mut |n, chain| {
         if handled {
             return false;
         }
+
         let Node::Expr(e) = n else {
             return true;
         };
+
         if matches!(e.kind, E::Ident(sym) if sym == name) && e.span.start >= after {
             seen += 1;
+
             if cx.entities(e.span).contains(&var) && !harmless(cx, e, chain) {
                 handled = true;
             }
         }
+
         true
     });
     // A mention the walk did not reach (a nested procedure, a code block) may free or keep it.
@@ -216,19 +235,24 @@ fn leaks(cx: &Cx, body: &Block, decl: &Decl, var: EntityId) -> bool {
 fn harmless(cx: &Cx, e: &Expr, chain: &[Node<'_>]) -> bool {
     let mut cur = e;
     let mut i = chain.len();
+
     while i > 0 {
         let Node::Expr(p) = chain[i - 1] else {
             break;
         };
+
         match &p.kind {
             E::Member(base, _) | E::Index(base, _) if base.span == cur.span => cur = p,
             E::Unary(UnOp::Deref, inner) if inner.span == cur.span => cur = p,
             _ => break,
         }
+
         i -= 1;
     }
+
     let projected = cur.span != e.span;
     let parent = i.checked_sub(1).map(|k| chain[k]);
+
     match parent {
         Some(Node::Stmt(s)) => match &s.kind {
             S::Assign {
@@ -256,6 +280,7 @@ fn harmless(cx: &Cx, e: &Expr, chain: &[Node<'_>]) -> bool {
 /// The expression is a number, bool or enum: copying it keeps nothing alive.
 fn scalar(cx: &Cx, e: &Expr) -> bool {
     let types = &cx.compiler.ty.types;
+
     cx.ty(e).is_some_and(|t| {
         matches!(
             types.kind(types.repr(t)),

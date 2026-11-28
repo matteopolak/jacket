@@ -60,6 +60,7 @@ pub(super) struct Rig<'a, C: Choices> {
 pub(super) fn here_strings(text: &str) -> Vec<(usize, usize)> {
     let mut out = Vec::new();
     let mut from = 0;
+
     while let Some(at) = text[from..].find("#string ") {
         let start = from + at;
         let rest = &text[start + "#string ".len()..];
@@ -69,14 +70,17 @@ pub(super) fn here_strings(text: &str) -> Vec<(usize, usize)> {
             .lines()
             .scan(body, |offset, line| {
                 let at = *offset;
+
                 *offset += line.len() + 1;
                 Some((at, line))
             })
             .find(|(_, line)| !name.is_empty() && line.trim() == name)
             .map_or(text.len(), |(at, _)| start + "#string ".len() + at);
+
         out.push((start, end));
         from = end.max(start + 1);
     }
+
     out
 }
 
@@ -87,14 +91,17 @@ pub(super) fn procedure_bodies(text: &str) -> Vec<Region> {
     let mut out = Vec::new();
     let mut open: Option<usize> = None;
     let mut offset = 0;
+
     for line in text.split_inclusive('\n') {
         let trimmed = line.trim_end();
         let start = offset;
+
         offset += line.len();
         let header = trimmed.ends_with('{')
             && !strings.iter().any(|&(a, b)| a <= start && start < b)
             && trimmed.contains(" :: (")
             && !trimmed.starts_with([' ', '\t', '#', '/']);
+
         match open {
             None if header && line.ends_with('\n') => open = Some(offset - 1),
             Some(from) if trimmed == "}" && start > from => {
@@ -108,6 +115,7 @@ pub(super) fn procedure_bodies(text: &str) -> Vec<Region> {
             _ => {}
         }
     }
+
     out
 }
 
@@ -116,6 +124,7 @@ impl<'a, C: Choices> Rig<'a, C> {
         let texts: Vec<String> = input.docs.iter().map(|(_, t)| t.clone()).collect();
         let session = open_session(input, &texts)?;
         let mut clock = Clock::new(config.budget, config.hang);
+
         clock.recording = true;
         let docs = input
             .docs
@@ -135,13 +144,17 @@ impl<'a, C: Choices> Rig<'a, C> {
         // from the first is oracle h's.
         let mut docs: Vec<Doc> = docs;
         let mut asked_twice = Vec::new();
+
         for d in &mut docs {
             let again = Snapshot::take(&mut clock, &session, &d.uri, &d.orig, config.full_probes);
+
             if let Some(message) = snapshot_difference(&d.baseline, &again) {
                 asked_twice.push((d.uri.as_str().to_string(), message));
             }
+
             d.baseline = again;
         }
+
         let mut rig = Self {
             input,
             config,
@@ -158,17 +171,20 @@ impl<'a, C: Choices> Rig<'a, C> {
             initial_log: Vec::new(),
             hard_failures: 0,
         };
+
         for (uri, message) in asked_twice {
             rig.report.failures.push(format!(
                 "oracle h in {uri}: the same requests answered differently the second time:\n{message}"
             ));
         }
+
         Ok(rig)
     }
 
     /// File the requests logged so far under the version they were made on.
     pub(super) fn flush_log(&mut self) {
         let queries: Vec<Query> = std::mem::take(&mut self.clock.log);
+
         match self.last_step {
             Some(doc) => {
                 if let Some(step) = self.docs[doc].history.last_mut() {
@@ -187,17 +203,21 @@ impl<'a, C: Choices> Rig<'a, C> {
         if oracle != "h" {
             self.hard_failures += 1;
         }
+
         let recent: Vec<_> = self.trace.iter().rev().take(6).rev().cloned().collect();
         let text: String = self.docs[doc].text.chars().take(1500).collect();
+
         // `TYPING_FUZZ_DUMP=dir` keeps every document's whole text at each failure, to replay it.
         if let Some(dir) = jacket_config::env::TYPING_FUZZ_DUMP.os() {
             let n = self.report.failures.len();
+
             for (k, d) in self.docs.iter().enumerate() {
                 let name = d.uri.as_str().rsplit('/').next().unwrap_or("doc");
                 let path = std::path::Path::new(&dir).join(format!("{n}-{k}-{name}"));
                 let _ = std::fs::write(path, &d.text);
             }
         }
+
         if oracle == "d" {
             self.flush_log();
             self.report.histories.push((
@@ -208,6 +228,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 },
             ));
         }
+
         self.report.failures.push(format!(
             "oracle {oracle} in {} (scenario {}, version {}, {} edits so far):\n{detail}\nlast edits:\n  {}\ntext:\n{text}",
             self.docs[doc].uri.as_str(),
@@ -235,8 +256,10 @@ impl<'a, C: Choices> Rig<'a, C> {
         self.last_step = Some(doc);
         let d = &mut self.docs[doc];
         let mut changes = Vec::new();
+
         for e in edits {
             let end = e.at + e.removed.len();
+
             assert_eq!(&d.text[e.at..end], e.removed, "checker edit out of sync");
             changes.push(TextChange {
                 range: Some(Range {
@@ -247,24 +270,29 @@ impl<'a, C: Choices> Rig<'a, C> {
                 text: e.inserted.clone(),
             });
             d.text.replace_range(e.at..end, &e.inserted);
+
             if let Some(r) = &mut d.region {
                 assert!(e.at >= r.start && end <= r.end, "edit left its region");
                 r.end = r.end - e.removed.len() + e.inserted.len();
             }
+
             self.trace.push(format!(
                 "doc {doc} at {} remove {:?} insert {:?}",
                 e.at, e.removed, e.inserted
             ));
         }
+
         d.version += 1;
         d.history.push(Step {
             text: d.text.clone(),
             queries: Vec::new(),
         });
         let (uri, version) = (d.uri.clone(), d.version);
+
         if let Err(e) = self.session.change(&uri, version, &changes) {
             self.fail("f", doc, format!("change rejected: {e:?}"));
         }
+
         self.report.versions += 1;
         self.counter += 1;
     }
@@ -282,6 +310,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 inserted: e.removed.clone(),
             })
             .collect();
+
         self.apply_inner(doc, &inverse);
         self.forget_regions();
         true
@@ -294,6 +323,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 d.region = None;
             }
         }
+
         if self.at_baseline() {
             self.journal.clear();
         }
@@ -312,6 +342,7 @@ impl<'a, C: Choices> Rig<'a, C> {
 
     pub(super) fn remove(&mut self, doc: usize, at: usize, len: usize) {
         let removed = self.docs[doc].text[at..at + len].to_string();
+
         self.apply(
             doc,
             vec![Edit {
@@ -329,13 +360,17 @@ impl<'a, C: Choices> Rig<'a, C> {
         if self.failed() {
             return;
         }
+
         self.check_light();
+
         if self.config.diff_every > 0 && self.counter.is_multiple_of(self.config.diff_every) {
             self.check_fresh();
         }
+
         if self.at_baseline() {
             self.check_baseline();
         }
+
         for slow in std::mem::take(&mut self.clock.slow) {
             self.fail("a", 0, format!("slow request: {slow}"));
         }
@@ -356,6 +391,7 @@ impl<'a, C: Choices> Rig<'a, C> {
         let Some(r) = d.region else {
             return Some(byte);
         };
+
         if byte < r.start || (is_end && byte == r.start) {
             Some(byte)
         } else if byte >= r.orig_end {
@@ -369,6 +405,7 @@ impl<'a, C: Choices> Rig<'a, C> {
         let d = &self.docs[doc];
         let byte = byte_of(&d.orig, p)?;
         let mapped = self.map_byte(doc, byte, is_end)?;
+
         Some(pos_of(&d.text, mapped))
     }
 
@@ -383,6 +420,7 @@ impl<'a, C: Choices> Rig<'a, C> {
         let Some(target) = self.docs.iter().position(|d| d.uri.as_str() == l.uri) else {
             return Some(l.clone());
         };
+
         Some(Location {
             uri: l.uri.clone(),
             range: self.map_range(target, l.range)?,
@@ -394,15 +432,18 @@ impl<'a, C: Choices> Rig<'a, C> {
         let (Some(a), Some(b)) = (byte_of(text, range.start), byte_of(text, range.end)) else {
             return true;
         };
+
         if a == b {
             return lo < a && a <= hi;
         }
+
         a < hi && b > lo
     }
 
     /// Whether a current-text range touches the region of `doc`.
     pub(super) fn in_region(&self, doc: usize, range: Range) -> bool {
         let d = &self.docs[doc];
+
         d.region
             .is_some_and(|r| Self::touches(&d.text, range, r.start, r.end))
     }
@@ -420,6 +461,7 @@ impl<'a, C: Choices> Rig<'a, C> {
             (&d.text, r.end)
         };
         let line = text[..r.start].rfind('\n').map_or(0, |i| i + 1);
+
         Self::touches(text, range, line, end)
     }
 
@@ -429,8 +471,10 @@ impl<'a, C: Choices> Rig<'a, C> {
             .iter()
             .map(|d| (d.uri.clone(), d.text.clone()))
             .collect();
+
         for (i, (uri, text)) in texts.iter().enumerate() {
             let seen = self.session.document_text(uri).map(str::to_owned);
+
             if seen.as_deref() != Ok(text.as_str()) {
                 self.fail(
                     "f",
@@ -439,9 +483,11 @@ impl<'a, C: Choices> Rig<'a, C> {
                 );
                 return;
             }
+
             let diagnostics = self.clock.run(Query::Diagnostics(uri.clone()), || {
                 self.session.diagnostics(uri)
             });
+
             match diagnostics {
                 Ok(list) => {
                     if let Some(message) = sanity(text, &list) {
@@ -450,8 +496,10 @@ impl<'a, C: Choices> Rig<'a, C> {
                 }
                 Err(e) => self.fail("e", i, format!("diagnostics failed: {e:?}")),
             }
+
             self.cursor_queries(i);
         }
+
         if self.config.outside && self.all_balanced() && !self.failed() {
             for i in 0..self.docs.len() {
                 if let Some(message) = self.outside_difference(i) {
@@ -473,6 +521,7 @@ impl<'a, C: Choices> Rig<'a, C> {
         let at = text.floor_char_boundary(at);
         let p = pos_of(&text, at);
         let s = &self.session;
+
         for query in [
             Query::Hover(uri.clone(), p),
             Query::Definition(uri.clone(), p),
@@ -498,6 +547,7 @@ impl<'a, C: Choices> Rig<'a, C> {
             (self.counter * 5) % n
         };
         let mut found = None;
+
         for k in 0..take {
             let probe = &base.probes[(from + k) % n];
             let Some(byte) = self.map_byte(doc, probe.byte, false) else {
@@ -512,6 +562,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 continue;
             };
             let now = probe_at(&mut self.clock, &self.session, &uri, &text, byte);
+
             if now.definition.as_ref() != Ok(&expected) && !self.fresh_probe_agrees(doc, byte, &now)
             {
                 found = Some(format!(
@@ -520,6 +571,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 ));
                 break;
             }
+
             let expected_hover = old_hover.as_ref().map(|h| {
                 self.map_range(doc, h.range).map(|range| Hover {
                     contents: h.contents.clone(),
@@ -545,6 +597,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                         _ => true,
                     };
                 }
+
                 // A syntax hover quotes the declaration, which may enclose the edited region: it
                 // keeps its range and quotes the declaration as the document now reads.
                 if let (Some(a), Ok(Some(b))) = (expected, now)
@@ -555,9 +608,11 @@ impl<'a, C: Choices> Rig<'a, C> {
                 {
                     return false;
                 }
+
                 // A macro call's hover shows the macro's body, which may be the edited region:
                 // the header stays, and each line it shows is one the document now has.
                 const EXPANDS: &str = "\n─── expands to ───\n";
+
                 if let (Some(a), Ok(Some(b))) = (expected, now)
                     && a.range == b.range
                     && let (Some((head_a, _)), Some((head_b, lines))) = (
@@ -569,8 +624,10 @@ impl<'a, C: Choices> Rig<'a, C> {
                 {
                     return false;
                 }
+
                 now.as_ref() != Ok(expected)
             };
+
             if let Some(expected_hover) = comparable
                 && differs(&expected_hover, &now.hover)
                 && !self.fresh_probe_agrees(doc, byte, &now)
@@ -582,9 +639,11 @@ impl<'a, C: Choices> Rig<'a, C> {
                 break;
             }
         }
+
         if found.is_some() {
             return found;
         }
+
         self.outside_lists(doc)
     }
 
@@ -599,6 +658,7 @@ impl<'a, C: Choices> Rig<'a, C> {
             answer(session.semantic_tokens(&uri))
         });
         let d = &self.docs[doc];
+
         if let (Ok(now), Ok(was)) = (&diagnostics, &d.baseline.diagnostics) {
             // An error in another document that names a declaration here is also shown here,
             // with its note (`check` is declared here): it follows that document's edits.
@@ -637,6 +697,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 .filter(|x| !mirrored(x))
                 .cloned()
                 .collect();
+
             // The edit may legitimately change what is reported elsewhere: a first use of a
             // procedure checks its header, a callee that stops returning makes its callers'
             // rest unreachable. A fresh session on the same text then reports the same.
@@ -647,6 +708,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 ));
             }
         }
+
         if let (Ok(now), Ok(was)) = (&tokens, &d.baseline.tokens) {
             let expected: Vec<_> = was
                 .iter()
@@ -664,6 +726,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                         line: t.position.line,
                         character: t.position.character + t.length,
                     };
+
                     !self.in_region(
                         doc,
                         Range {
@@ -674,6 +737,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 })
                 .copied()
                 .collect();
+
             if sorted_debug(&expected) != sorted_debug(&actual) {
                 let (x, y) = (sorted_debug(&expected), sorted_debug(&actual));
                 let first = x
@@ -685,6 +749,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                             .find(|t| !x.contains(t))
                             .map(|t| format!("gained {t}"))
                     });
+
                 return Some(format!(
                     "semantic tokens outside the edited region changed: {first:?} ({} -> {})",
                     expected.len(),
@@ -692,6 +757,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 ));
             }
         }
+
         let _ = text;
         None
     }
@@ -704,11 +770,14 @@ impl<'a, C: Choices> Rig<'a, C> {
         let Ok(fresh) = open_session(self.input, &texts) else {
             return false;
         };
+
         for query in &self.clock.log {
             query.execute(&fresh);
         }
+
         let (uri, text) = (&self.docs[doc].uri, &self.docs[doc].text);
         let position = pos_of(text, byte);
+
         answer(fresh.definition(uri, position)) == now.definition
             && answer(fresh.hover(uri, position)) == now.hover
     }
@@ -737,6 +806,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 })
             })
             .collect();
+
         sorted_debug(&reference) == sorted_debug(actual)
     }
 
@@ -745,7 +815,9 @@ impl<'a, C: Choices> Rig<'a, C> {
         if self.failed() {
             return;
         }
+
         self.report.baseline_comparisons += 1;
+
         for i in 0..self.docs.len() {
             let d = &self.docs[i];
             let (uri, text) = (d.uri.clone(), d.text.clone());
@@ -756,6 +828,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 &text,
                 self.config.full_probes,
             );
+
             if let Some(message) = snapshot_difference(&self.docs[i].baseline, &now) {
                 self.fail(
                     "c",
@@ -778,21 +851,27 @@ impl<'a, C: Choices> Rig<'a, C> {
                 return;
             }
         };
+
         // What the facts of a broken declaration hold depends on which requests were made on this
         // text, so the fresh session is asked the same ones first: only state carried over from
         // earlier versions can then make it differ.
         for query in &self.clock.log {
             query.execute(&fresh);
         }
+
         let omits = any_omits_literal(&self.session, self.docs.iter().map(|d| &d.uri));
+
         for i in 0..self.docs.len() {
             let d = &self.docs[i];
             let (uri, text) = (d.uri.clone(), d.text.clone());
             let cap = self.config.full_probes;
             let now = Snapshot::take(&mut self.clock, &self.session, &uri, &text, cap);
+
             self.clock.recording = false;
             let reference = Snapshot::take(&mut self.clock, &fresh, &uri, &text, cap);
+
             self.clock.recording = true;
+
             if stale_damage(&now, &text) {
                 self.fail(
                     "g",
@@ -801,9 +880,11 @@ impl<'a, C: Choices> Rig<'a, C> {
                 );
                 return;
             }
+
             if omits || omits_literal(&now) {
                 continue;
             }
+
             if let Some(message) = snapshot_difference(&reference, &now) {
                 self.fail(
                     "d",
@@ -819,6 +900,7 @@ impl<'a, C: Choices> Rig<'a, C> {
 
     pub(super) fn pick_doc(&mut self) -> usize {
         let n = self.docs.len();
+
         // Mostly the first document; the others get a third of the sessions between them.
         if n > 1 && self.choices.chance(1, 3) {
             1 + self.choices.below(n - 1)
@@ -832,6 +914,7 @@ impl<'a, C: Choices> Rig<'a, C> {
         if self.docs[doc].region.is_some() {
             return;
         }
+
         let targets = self.docs[doc].targets.len();
         let end = self.docs[doc].orig.len();
         let region = if targets > 0 && !self.choices.chance(1, 6) {
@@ -843,6 +926,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 end,
             }
         };
+
         self.docs[doc].region = Some(region);
     }
 
@@ -853,6 +937,7 @@ impl<'a, C: Choices> Rig<'a, C> {
         let mut out: Vec<usize> = (r.start..r.end)
             .filter(|&i| d.text.as_bytes()[i] == b'\n')
             .collect();
+
         out.push(r.end);
         out
     }
@@ -880,8 +965,10 @@ impl<'a, C: Choices> Rig<'a, C> {
             "a: [4] int;",
             "p := *__ty;",
         ];
+
         let name = format!("__ty{}", self.counter);
         let mut statement = SNIPPETS[self.choices.below(SNIPPETS.len())].replace("__ty", &name);
+
         // Sometimes a call or use of a name the file already resolves.
         if self.choices.chance(1, 3) {
             let words: Vec<&str> = self.docs[0]
@@ -894,11 +981,14 @@ impl<'a, C: Choices> Rig<'a, C> {
                     let end = rest
                         .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
                         .unwrap_or(rest.len());
+
                     &rest[..end]
                 })
                 .collect();
+
             if !words.is_empty() {
                 let word = words[self.choices.below(words.len())];
+
                 statement = if self.choices.chance(1, 2) {
                     format!("{word}(1, 2);")
                 } else {
@@ -906,6 +996,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 };
             }
         }
+
         format!("    {statement}")
     }
 
@@ -922,11 +1013,14 @@ impl<'a, C: Choices> Rig<'a, C> {
             if self.failed() {
                 break;
             }
+
             let after = self.docs[doc].text[cursor..].chars().next();
+
             if autoclose && matches!(ch, ')' | ']' | '}' | '"') && after == Some(ch) {
                 cursor += 1;
                 continue;
             }
+
             let closer = match ch {
                 '(' => Some(')'),
                 '[' => Some(']'),
@@ -935,13 +1029,16 @@ impl<'a, C: Choices> Rig<'a, C> {
                 _ => None,
             };
             let mut typed = ch.to_string();
+
             if let Some(closer) = closer.filter(|_| autoclose) {
                 typed.push(closer);
             }
+
             self.insert(doc, cursor, &typed);
             cursor += ch.len_utf8();
             self.after_edit();
         }
+
         cursor
     }
 
@@ -963,10 +1060,12 @@ impl<'a, C: Choices> Rig<'a, C> {
             } else {
                 (cursor - len, len)
             };
+
             self.remove(doc, at, total);
             cursor -= len;
             self.after_edit();
         }
+
         cursor
     }
 
@@ -978,12 +1077,14 @@ impl<'a, C: Choices> Rig<'a, C> {
         } else {
             ends[self.choices.below(ends.len())]
         };
+
         // Open the new line first, as Enter does.
         self.insert(doc, site, "\n");
         self.after_edit();
         let statement = self.statement();
         let autoclose = self.choices.chance(1, 2);
         let cursor = self.type_text(doc, site + 1, &statement, autoclose);
+
         if self.choices.chance(1, 2) {
             // Backspace part of it, or all of it and the new line.
             let keep = if self.choices.chance(1, 2) {
@@ -992,6 +1093,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                 site + 1 + (cursor - site - 1) / 2
             };
             let cursor = self.backspace(doc, cursor, keep);
+
             if keep == site + 1 && !self.failed() {
                 self.backspace(doc, cursor, site);
             }
@@ -1006,10 +1108,13 @@ impl<'a, C: Choices> Rig<'a, C> {
             .map(|w| (w[0] + 1, w[1]))
             .filter(|&(s, e)| s < e && !self.docs[doc].text[s..e].trim().is_empty())
             .collect();
+
         if lines.is_empty() {
             return self.scenario_type(doc);
         }
+
         let (mut start, mut end) = lines[self.choices.below(lines.len())];
+
         if self.choices.chance(1, 2) {
             // Just one token of the line.
             let text = &self.docs[doc].text;
@@ -1020,20 +1125,25 @@ impl<'a, C: Choices> Rig<'a, C> {
                     let len = rest
                         .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_'))
                         .unwrap_or(rest.len());
+
                     (start + i, start + i + len)
                 })
                 .collect();
+
             if !words.is_empty() {
                 (start, end) = words[self.choices.below(words.len())];
             }
         }
+
         let original = self.docs[doc].text[start..end].to_string();
+
         if self.choices.chance(1, 2) {
             self.remove(doc, start, end - start);
             self.after_edit();
         } else {
             self.backspace(doc, end, start);
         }
+
         self.type_text(doc, start, &original, false);
     }
 
@@ -1045,17 +1155,22 @@ impl<'a, C: Choices> Rig<'a, C> {
             // The region's own text again.
             let d = &self.docs[doc];
             let r = d.region.expect("region");
+
             d.text[r.start..r.end].to_string()
         } else {
             let first = self.statement();
             let second = self.statement();
+
             format!("\n{first}\n{second}")
         };
+
         if block.is_empty() {
             return;
         }
+
         self.insert(doc, site, &block);
         self.after_edit();
+
         if self.choices.chance(1, 2) {
             self.undo_one();
             self.after_edit();
@@ -1076,17 +1191,22 @@ impl<'a, C: Choices> Rig<'a, C> {
             ("/*", ""),
             ("\"", ""),
         ][self.choices.below(8)];
+
         // Open it at the end of a line, check, then close it at the end of the region.
         self.insert(doc, site, open);
         self.after_edit();
+
         if self.choices.chance(1, 2) {
             // Type something while it is open.
             let statement = self.statement();
             let cursor = site + open.len();
+
             self.type_text(doc, cursor, &format!("\n{statement}"), false);
         }
+
         if !close.is_empty() && !self.failed() {
             let end = self.docs[doc].region.expect("region").end;
+
             self.insert(doc, end, close);
             self.after_edit();
         }
@@ -1094,10 +1214,12 @@ impl<'a, C: Choices> Rig<'a, C> {
 
     pub(super) fn scenario_undo(&mut self) {
         let steps = 1 + self.choices.below(self.journal.len().max(1));
+
         for _ in 0..steps {
             if self.failed() || !self.undo_one() {
                 break;
             }
+
             self.after_edit();
         }
     }
@@ -1108,9 +1230,11 @@ impl<'a, C: Choices> Rig<'a, C> {
             if self.docs[i].text == self.docs[i].orig {
                 continue;
             }
+
             self.flush_log();
             self.last_step = Some(i);
             let d = &mut self.docs[i];
+
             d.version += 1;
             d.text = d.orig.clone();
             d.history.push(Step {
@@ -1124,20 +1248,24 @@ impl<'a, C: Choices> Rig<'a, C> {
                 range_length: None,
                 text,
             };
+
             if let Err(e) = self.session.change(&uri, version, &[change]) {
                 self.fail("f", i, format!("whole-document change rejected: {e:?}"));
             }
+
             self.trace
                 .push(format!("doc {i} replaced by the original text"));
             self.report.versions += 1;
             self.counter += 1;
         }
+
         self.journal.clear();
         self.after_edit();
     }
 
     pub(super) fn run_scenario(&mut self) {
         let doc = self.pick_doc();
+
         match self.choices.below(10) {
             0..=3 => self.scenario_type(doc),
             4 | 5 => self.scenario_retype(doc),
@@ -1145,6 +1273,7 @@ impl<'a, C: Choices> Rig<'a, C> {
             7 | 8 => self.scenario_unbalanced(doc),
             _ => self.scenario_type(doc),
         }
+
         // Sometimes carry on from the edited text; otherwise go back.
         match self.choices.below(4) {
             0 => {}
@@ -1156,6 +1285,7 @@ impl<'a, C: Choices> Rig<'a, C> {
                         self.after_edit();
                     }
                 }
+
                 self.after_edit();
             }
         }
@@ -1166,9 +1296,11 @@ impl<'a, C: Choices> Rig<'a, C> {
             if self.failed() || self.choices.exhausted() {
                 break;
             }
+
             self.scenario = scenario;
             self.run_scenario();
         }
+
         if !self.failed() {
             // End where the document began, by the editor's undo.
             while self.undo_one() {
@@ -1176,9 +1308,11 @@ impl<'a, C: Choices> Rig<'a, C> {
                     self.after_edit();
                 }
             }
+
             self.revert_whole();
             self.after_edit();
         }
+
         self.report
     }
 }

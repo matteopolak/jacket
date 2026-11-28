@@ -22,10 +22,12 @@ impl Compiler {
         let Some(error) = error else {
             return Diagnostic::new(Code::CallFailed, span, format!("in call to `{name}`"));
         };
+
         // A name that does not exist is the argument's own problem, not the call's.
         if error.code == Code::UnknownIdentifier {
             return error;
         }
+
         let header = self.proc(proc).lit.header.span;
         let within = |outer: Span| {
             error.span.file == outer.file
@@ -51,12 +53,15 @@ impl Compiler {
         };
         let overlaps =
             header.file == span.file && header.start < span.end && span.start < header.end;
+
         if header != Span::NONE && !overlaps {
             d.notes.push((header, format!("`{name}` is declared here")));
         }
+
         if d.code == Code::ArgumentCount {
             d = self.with_signature_note(d, name, header);
         }
+
         d
     }
 
@@ -68,6 +73,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Candidate> {
         let header = self.proc(proc).lit.header.clone();
+
         self.refresh_implicit_poly(proc)?;
         let poly_vars = if self.proc(proc).is_poly {
             header_poly_names(&header)
@@ -75,13 +81,16 @@ impl Compiler {
             Vec::new()
         };
         let slots = assign_slots(&SlotParam::of(&header.params), args, &poly_vars, span)?;
+
         // `$$x` parameters receiving a constant argument: match a variant with them baked.
         if header.params.iter().any(|p| p.auto_bake) {
             let mut mask = vec![AutoBake::Runtime; header.params.len()];
+
             for (i, p) in header.params.iter().enumerate() {
                 if !p.auto_bake {
                     continue;
                 }
+
                 // An omitted argument takes the default, baked when that is a constant.
                 if matches!(slots[i], Slot::Default) {
                     if let Some(default) = &p.default
@@ -89,12 +98,15 @@ impl Compiler {
                     {
                         mask[i] = AutoBake::Baked;
                     }
+
                     continue;
                 }
+
                 let Slot::Arg(a) = &slots[i] else {
                     continue;
                 };
                 let arg = &args[*a];
+
                 mask[i] = match &arg.op {
                     Some(op) if op.is_const() || matches!(op, Operand::Procs(_)) => AutoBake::Baked,
                     Some(op) => match &arg.expr {
@@ -106,14 +118,17 @@ impl Compiler {
                     None => AutoBake::Runtime,
                 };
             }
+
             if mask.iter().any(|&b| b != AutoBake::Runtime) {
                 let variant = self.auto_bake_variant(proc, mask);
                 return self.match_candidate(variant, args, span);
             }
         }
+
         let mut proc_id = proc;
         let mut extra = 0;
         let mut specificity = 0;
+
         if self.proc(proc).is_poly {
             specificity = header
                 .params
@@ -122,17 +137,21 @@ impl Compiler {
                 .map(|ty| pattern_specificity(ty, &poly_vars))
                 .sum();
             let bindings = self.infer_bindings(proc, &header, &slots, args, span)?;
+
             proc_id = self.instantiate(proc, bindings, span)?;
             self.note_call_instance(span, proc_id);
             // Only inferring a type costs; fixing a constant (`$text: string`) infers nothing.
             let inferred = u32::from(!header_poly_names(&header).is_empty());
+
             extra =
                 inferred + self.as_base_matches(proc, &header, &slots, args)? * convert::SUBTYPE;
         }
+
         let sig = self.signature(proc_id, span)?;
         let runtime_params: Vec<usize> = (0..header.params.len())
             .filter(|&i| !header.params[i].baked)
             .collect();
+
         if runtime_params.len() != sig.params.len() {
             return err(
                 Code::CallInternalSignatureParameter,
@@ -140,11 +159,14 @@ impl Compiler {
                 "internal: signature/parameter mismatch",
             );
         }
+
         let mut cost = extra;
         let mut fit = 0;
         let is_macro = self.proc(proc).is_macro;
+
         for (k, &i) in runtime_params.iter().enumerate() {
             let param = &sig.params[k];
+
             if sig.c_varargs
                 && param.variadic
                 && match &slots[i] {
@@ -159,10 +181,12 @@ impl Compiler {
                     "a runtime spread cannot determine a C variadic ABI",
                 );
             }
+
             match &slots[i] {
                 Slot::Default => {
                     if param.default.is_none() && !param.variadic {
                         let name = param.name.map(|n| n.to_string()).unwrap_or_default();
+
                         return Err(Box::new(
                             Diagnostic::new(Code::ArgumentCount,
                                 span,
@@ -189,21 +213,25 @@ impl Compiler {
                     } else {
                         self.ty.jai_variadic_element(param.ty, span)?
                     };
+
                     for &a in list {
                         if sig.c_varargs {
                             continue;
                         }
+
                         let target = if args[a].spread {
                             param.ty
                         } else {
                             elem
                         };
+
                         cost +=
                             self.arg_cost_for((&header, &slots, args), i, a, target, is_macro)?;
                     }
                 }
             }
         }
+
         Ok(Candidate {
             proc: proc_id,
             slots,
@@ -225,6 +253,7 @@ impl Compiler {
     ) -> Result<u32> {
         let param = &header.params[at];
         let arg = &args[arg_at];
+
         self.arg_cost(arg, ty, macro_call).map_err(|d| {
             if d.message.starts_with(CANNOT_INFER) {
                 Box::new(self.with_literal_param_notes(*d, param, arg, ty))
@@ -247,11 +276,14 @@ impl Compiler {
         if self.proc(c.proc).is_macro {
             return Ok(None);
         }
+
         let header = self.proc(c.proc).lit.header.clone();
         let sig = self.signature(c.proc, span)?;
         let runtime = (0..header.params.len()).filter(|&i| !header.params[i].baked);
+
         for (k, i) in runtime.enumerate() {
             let param = &sig.params[k];
+
             match &c.slots[i] {
                 Slot::Arg(a) | Slot::Spread(a) if *a == arg => return Ok(Some(param.ty)),
                 Slot::Variadic(list) if list.contains(&arg) && !sig.c_varargs => {
@@ -260,6 +292,7 @@ impl Compiler {
                 _ => {}
             }
         }
+
         Ok(None)
     }
 
@@ -276,6 +309,7 @@ impl Compiler {
     ) -> Result<u32> {
         let scope = self.proc(proc).scope;
         let mut count = 0;
+
         for (i, param) in header.params.iter().enumerate() {
             let (Some(pattern), Slot::Arg(a)) = (&param.ty, &slots[i]) else {
                 continue;
@@ -285,16 +319,20 @@ impl Compiler {
             };
             let mut pattern = pattern;
             let mut ty = op.ty();
+
             while let E::Unary(ast::UnOp::Star, inner) = &pattern.kind {
                 let Some(p) = self.ty.types.pointee(ty) else {
                     break;
                 };
+
                 pattern = inner;
                 ty = p;
             }
+
             let E::Ident(name) = &pattern.kind else {
                 continue;
             };
+
             if let Some(ps) = self.ident_poly_struct(scope, *name)?
                 && let Some(base) = self.instance_or_as_base(ps, ty)
                 && base != ty
@@ -302,6 +340,7 @@ impl Compiler {
                 count += 1;
             }
         }
+
         Ok(count)
     }
 
@@ -315,6 +354,7 @@ impl Compiler {
         let file = self.scope_file(scope);
         let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
         let scope = self.thunk_scope(scope);
+
         matches!(self.check_expr(&mut f, scope, default, None), Ok(op) if op.is_const())
     }
 
@@ -323,11 +363,13 @@ impl Compiler {
         if let Some(&v) = self.pr.auto_bake_variants.get(&(proc, mask.clone())) {
             return v;
         }
+
         let p = self.proc(proc);
         let (name, lit, scope, span) =
             (p.name, p.lit.clone(), p.bindings.unwrap_or(p.scope), p.span);
         let mut header = (*lit.header).clone();
         let mut consts = Vec::new();
+
         for (param, &bake) in header.params.iter_mut().zip(&mask) {
             match bake {
                 AutoBake::Baked => {
@@ -336,6 +378,7 @@ impl Compiler {
                 }
                 AutoBake::ConstRuntime => {
                     param.auto_bake = false;
+
                     if let Some(n) = param.name {
                         consts.push((const_marker(n.name), Value::Bool(true), TypeId::BOOL));
                     }
@@ -343,6 +386,7 @@ impl Compiler {
                 AutoBake::Runtime => {}
             }
         }
+
         header.flags.program_export = None;
         let lit = Arc::new(ast::ProcLit {
             header: Arc::new(header),
@@ -354,6 +398,7 @@ impl Compiler {
             self.const_scope(scope, consts, span)
         };
         let v = self.new_proc(name, lit, scope, span);
+
         self.pr.auto_bake_variants.insert((proc, mask), v);
         v
     }

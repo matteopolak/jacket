@@ -33,12 +33,15 @@ fn scan(bytes: &[u8], start: usize, end: usize, escapes: bool) -> Vec<Spec> {
     let mut at = start;
     let mut next = 0usize;
     let mut out = Vec::new();
+
     while at < end {
         match bytes[at] {
             b'\\' if escapes => at += 2,
             b'%' => {
                 let from = at;
+
                 at += 1;
+
                 if at + 1 < end && bytes[at] == b'0' && bytes[at + 1] == b'0' {
                     at += 2;
                     out.push(Spec {
@@ -46,23 +49,29 @@ fn scan(bytes: &[u8], start: usize, end: usize, escapes: bool) -> Vec<Spec> {
                         end: at,
                         index: None,
                     });
+
                     continue;
                 }
+
                 let index = if at < end && bytes[at].is_ascii_digit() && bytes[at] != b'0' {
                     let mut n = 0usize;
+
                     while at < end && bytes[at].is_ascii_digit() {
                         n = n
                             .saturating_mul(10)
                             .saturating_add((bytes[at] - b'0') as usize);
                         at += 1;
                     }
+
                     n.saturating_sub(1).min(MAX_INDEX)
                 } else {
                     if at < end && bytes[at] == b'0' {
                         at += 1;
                     }
+
                     next
                 };
+
                 next = (index + 1).min(MAX_INDEX);
                 out.push(Spec {
                     start: from,
@@ -73,6 +82,7 @@ fn scan(bytes: &[u8], start: usize, end: usize, escapes: bool) -> Vec<Spec> {
             _ => at += 1,
         }
     }
+
     out
 }
 
@@ -103,6 +113,7 @@ mod tests {
 
     fn indices(source: &str) -> Vec<Option<usize>> {
         let text = format!("\"{source}\"");
+
         specs(&text, 0, text.len())
             .into_iter()
             .map(|s| s.index)
@@ -134,8 +145,10 @@ mod tests {
     #[test]
     fn huge_argument_numbers_are_clamped() {
         let huge = indices("%77777777777777777777777777 % %");
+
         assert_eq!(huge, [Some(MAX_INDEX); 3]);
         let text = "\"%77777777777777777777777777 %\"";
+
         assert_eq!(required(&specs(text, 0, text.len())), MAX_INDEX + 1);
     }
 }

@@ -18,12 +18,15 @@ const SOURCE: &str = r#"
 fn private_runtime_size_is_real_target_data_with_workspace_isolation() {
     for size in [0, 65536, 131_072] {
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.temporary_storage_size = size;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         if let Err(error) = c.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
             panic!("{}", error.render(&c.src.sources));
         }
+
         let index = c
             .out
             .program
@@ -36,6 +39,7 @@ fn private_runtime_size_is_real_target_data_with_workspace_isolation() {
             })
             .unwrap();
         let func = jaic::ir::FuncId(index as u32);
+
         assert_eq!(
             c.ct.interp.call(&c.out.program, func, &[]).unwrap(),
             vec![size as u64]
@@ -46,16 +50,21 @@ fn private_runtime_size_is_real_target_data_with_workspace_isolation() {
 #[test]
 fn final_runtime_size_replaces_previously_interpreted_configuration_data() {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     let source = format!("{SOURCE}\n#assert(configured_size()==32768);");
+
     if let Err(error) = c.begin_sources(&[ProgramSource::String(source)]) {
         panic!("{}", error.render(&c.src.sources));
     }
+
     c.options.temporary_storage_size = 65536;
+
     if let Err(error) = c.finish_program() {
         panic!("{}", error.render(&c.src.sources));
     }
+
     for name in ["configured_size", "wrapped_size"] {
         let index = c
             .out
@@ -67,6 +76,7 @@ fn final_runtime_size_replaces_previously_interpreted_configuration_data() {
                     .is_some_and(|f| f.linkage == jaic::ir::Linkage::Export(name.into()))
             })
             .unwrap();
+
         assert_eq!(
             c.ct.interp
                 .call(&c.out.program, jaic::ir::FuncId(index as u32), &[])
@@ -83,25 +93,30 @@ fn private_runtime_configuration_preserves_invalid_signature_and_size_diagnostic
         "__jaic_runtime_temporary_storage_size :: (ignored:int) -> s64 #intrinsic; main :: () { __jaic_runtime_temporary_storage_size(1); }",
     ] {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         let error = c
             .compile_sources(&[ProgramSource::String(declaration.into())])
             .expect_err("incorrect private ABI must reject");
+
         assert!(
             error.message.contains("signature"),
             "{}",
             error.render(&c.src.sources)
         );
     }
+
     for size in [-1, i32::MAX as i64 + 1] {
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.temporary_storage_size = size;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         let error = c
             .compile_sources(&[ProgramSource::String(SOURCE.into())])
             .expect_err("unallocatable runtime size must reject");
+
         assert!(
             error.message.contains("temporary_storage_size"),
             "{}",
@@ -117,8 +132,10 @@ fn compile_time_reads_and_unused_getters_cannot_opt_in_an_old_target_runtime() {
         "unused :: () -> s64 { return __jaic_runtime_temporary_storage_size(); }",
     ] {
         let mut fs = VirtualFs::default();
+
         fs.insert("/lib/Runtime_Support/module.jai","#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);".as_bytes());
         let mut options = Options::host();
+
         options.import_paths = vec!["/lib".into()];
         options.temporary_storage_size = 65536;
         let mut c = Compiler::new(options, Rc::new(fs));
@@ -128,6 +145,7 @@ fn compile_time_reads_and_unused_getters_cannot_opt_in_an_old_target_runtime() {
         let error = c
             .compile_sources(&[ProgramSource::String(source)])
             .expect_err("old target runtime must keep its configuration diagnostic");
+
         assert!(
             error.message.contains("target runtime"),
             "{}",
@@ -138,15 +156,18 @@ fn compile_time_reads_and_unused_getters_cannot_opt_in_an_old_target_runtime() {
 
 fn startup_reader(runtime: &str, size: i64) -> (Compiler, jaic::sema::Result<()>) {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/Runtime_Support/module.jai", format!(
         "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);
 {runtime}"
     ).as_bytes());
     let mut options = Options::host();
+
     options.import_paths = vec!["/lib".into()];
     options.temporary_storage_size = size;
     let mut c = Compiler::new(options, Rc::new(fs));
     let result = c.compile_sources(&[ProgramSource::String("main::(){}".into())]);
+
     (c, result)
 }
 
@@ -162,8 +183,10 @@ fn ordinary_private_target_startup_reads_nondefault_configuration() {
     "#,
         1_048_576,
     );
+
     result.map_err(|e| e.render(&c.src.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
+
     assert_eq!(
         c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
@@ -184,8 +207,10 @@ fn retained_startup_callback_relocation_reads_nondefault_configuration() {
     "#,
         1_048_576,
     );
+
     result.map_err(|e| e.render(&c.src.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
+
     assert_eq!(
         c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
@@ -209,6 +234,7 @@ fn unreachable_or_reset_callback_reads_do_not_opt_in_target_startup() {
         let (c, result) = startup_reader(&runtime, 1_048_576);
         let error = result
             .expect_err("compile-time-only callback storage must not authorize target startup");
+
         assert!(
             error.message.contains("target runtime"),
             "{}",
@@ -233,6 +259,7 @@ fn overwritten_retained_callback_cannot_claim_its_old_configuration_read() {
         1_048_576,
     );
     let error = result.expect_err("final retained target state replaced the old reader");
+
     assert!(
         error.message.contains("target runtime"),
         "{}",
@@ -257,9 +284,11 @@ fn retained_startup_aggregate_and_global_cycles_preserve_reachability() {
     "#,
         1_048_576,
     );
+
     result.map_err(|e| e.render(&c.src.sources)).unwrap();
     c.finalize_runtime_configuration().unwrap();
     let entry = c.exported_func("main").unwrap();
+
     assert_eq!(
         c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
@@ -286,8 +315,10 @@ fn reviewed_public_constant_configures_target_storage_and_keeps_alias_values() {
         "#
         );
         let (mut c, result) = startup_reader(&runtime, 1_048_576);
+
         result.map_err(|e| e.render(&c.src.sources)).unwrap();
         let entry = c.exported_func("main").unwrap();
+
         assert_eq!(
             c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
             vec![1_048_576]
@@ -312,8 +343,10 @@ fn cached_record_layout_preserves_its_public_constant_binding_dependency() {
     "#,
         1_048_576,
     );
+
     result.map_err(|e| e.render(&c.src.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
+
     assert_eq!(
         c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
@@ -331,8 +364,10 @@ fn runtime_scalar_public_constant_and_alias_reads_are_real_target_dependencies()
     "#,
         1_048_576,
     );
+
     result.map_err(|e| e.render(&c.src.sources)).unwrap();
     let entry = c.exported_func("main").unwrap();
+
     assert_eq!(
         c.ct.interp.call(&c.out.program, entry, &[]).unwrap(),
         vec![1_048_576]
@@ -356,6 +391,7 @@ fn public_constant_inspection_unused_storage_and_shadowed_names_do_not_opt_in() 
         let (c, result) = startup_reader(&runtime, 1_048_576);
         let error = result
             .expect_err("compile-time inspection or a coincident number is not target consumption");
+
         assert!(
             error.message.contains("target runtime"),
             "{}",
@@ -374,18 +410,22 @@ fn changing_final_size_cannot_leave_a_consumed_public_constant_at_an_old_value()
     "#,
         1_048_576,
     );
+
     result.map_err(|e| e.render(&c.src.sources)).unwrap();
+
     for size in [0, 32768, 2_097_152] {
         c.options.temporary_storage_size = size;
         let error = c
             .finalize_runtime_configuration()
             .expect_err("structural target storage cannot silently retain the old size");
+
         assert!(
             error.message.contains("TEMPORARY_STORAGE_SIZE") && error.message.contains("1048576"),
             "{}",
             error.render(&c.src.sources)
         );
     }
+
     c.options.temporary_storage_size = 1_048_576;
     c.finalize_runtime_configuration().unwrap();
 }
@@ -404,11 +444,13 @@ fn private_dynamic_reader_does_not_mask_a_stale_public_storage_extent() {
     "#,
         1_048_576,
     );
+
     result.map_err(|e| e.render(&c.src.sources)).unwrap();
     c.options.temporary_storage_size = 2_097_152;
     let error = c
         .finalize_runtime_configuration()
         .expect_err("a dynamic reader cannot repair already-sized static storage");
+
     assert!(
         error.message.contains("TEMPORARY_STORAGE_SIZE"),
         "{}",

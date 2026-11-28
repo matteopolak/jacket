@@ -37,24 +37,31 @@ fn emit_module(
         }) {
         let mut selected = options.clone();
         let features = selected.features.get_or_insert_default();
+
         if features.split(',').rev().find(|f| matches!(f.trim(), "+atomics" | "-atomics"))
             .is_some_and(|f| f.trim() == "-atomics") {
             return Err("atomic operations require the WebAssembly atomics target feature".into());
         }
+
         if !features.is_empty() { features.push(','); }
         features.push_str("+atomics");
         atomic_options = selected;
         &atomic_options
     } else { options };
+
     if options.sanitize.any() {
         check_sanitizer_target(options.target)?;
     }
+
     let (machine, triple, build_target, arch) = target_machine(options)?;
     let context = Context::create();
+
     if !wants_ir_text(options) {
         discard_value_names(&context);
     }
+
     let module = context.create_module("jai");
+
     module.set_triple(&triple);
     module.set_data_layout(&machine.get_target_data().get_data_layout());
     let debug = options.debug_info.then(|| {
@@ -63,6 +70,7 @@ fn emit_module(
             options.opt_level != OptLevel::O0,
         )
     });
+
     lower::lower_program(
         &context,
         &module,
@@ -84,19 +92,24 @@ fn emit_module(
     )?;
     apply_abi_unwind_attributes(&context, &module, arch)?;
     let unit = shard.map_or(0, |s| s.index);
+
     if let Some(ir_path) = &options.emit_ir {
         module
             .print_to_file(unit_path(ir_path, unit))
             .map_err(|e| e.to_string())?;
     }
+
     if verify_ir(options) {
         module
             .verify()
             .map_err(|e| format!("invalid LLVM IR: {e}"))?;
     }
+
     apply_codegen_attributes(&context, &module, &options.codegen, build_target);
+
     for name in options.opt_level.size_attributes() {
         let kind = Attribute::get_named_enum_kind_id(name);
+
         for function in module.get_functions() {
             if function.count_basic_blocks() > 0 {
                 function.add_attribute(
@@ -106,15 +119,18 @@ fn emit_module(
             }
         }
     }
+
     if let Some(path) = &options.codegen.bitcode_before
         && !module.write_bitcode_to_path(unit_path(path, unit))
     {
         return Err(format!("could not write `{}`", path.display()));
     }
+
     if options.sanitize.address {
         // ASan instruments only functions with this attribute (Clang adds it to each
         // definition it emits); declarations are left alone.
         let kind = Attribute::get_named_enum_kind_id("sanitize_address");
+
         for function in module.get_functions() {
             if function.count_basic_blocks() > 0 {
                 function.add_attribute(
@@ -124,54 +140,70 @@ fn emit_module(
             }
         }
     }
+
     if options.sanitize.coverage || options.sanitize.fuzzer {
         set_coverage_options(options.sanitize.fuzzer);
     }
+
     let mut passes: Vec<&str> = options.opt_level.pipeline().into_iter().collect();
+
     passes.extend(options.sanitize.passes(options.opt_level));
+
     if options.opt_level == OptLevel::O0
         && let Some(p) = &options.codegen.o0_passes
     {
         passes.push(p);
     }
+
     if !passes.is_empty() {
         let pass_options = PassBuilderOptions::create();
         let c = &options.codegen;
+
         if let Some(on) = c.loop_unrolling {
             pass_options.set_loop_unrolling(on);
         }
+
         if let Some(on) = c.loop_vectorization {
             pass_options.set_loop_vectorization(on);
             pass_options.set_loop_interleaving(on);
         }
+
         if let Some(on) = c.slp_vectorization {
             pass_options.set_loop_slp_vectorization(on);
         }
+
         if let Some(on) = c.merge_functions {
             pass_options.set_merge_functions(on);
         }
+
         module
             .run_passes(&passes.join(","), &machine, pass_options)
             .map_err(|e| e.to_string())?;
     }
+
     // Instrumentation/optimization can introduce definitions. They have the same ABI
     // obligations as source functions, including when a pass ignores synthesis defaults.
     apply_abi_unwind_attributes(&context, &module, arch)?;
+
     if let Some(path) = &options.codegen.ir_after {
         module
             .print_to_file(unit_path(path, unit))
             .map_err(|e| e.to_string())?;
     }
+
     if let Some(path) = &options.codegen.bitcode_after
         && !module.write_bitcode_to_path(unit_path(path, unit))
     {
         return Err(format!("could not write `{}`", path.display()));
     }
+
     if split_after_opt && !options.sanitize.any() {
         let units = split::units_for(&module, options.codegen.split_units);
+
         if units > 1 {
             let make = || target_machine(options).map(|(machine, ..)| machine);
             let fibers = jaic::fiber::module_asm(arch, build_target.is_apple());
+
             return split::emit(
                 &module,
                 units,
@@ -182,9 +214,11 @@ fn emit_module(
             );
         }
     }
+
     machine
         .write_to_file(&module, FileType::Object, path)
         .map_err(|e| e.to_string())?;
+
     if leak {
         // The process links and exits next: tearing down a large module takes about as long as
         // writing its object (`docs/compiler/compile-speed.md`).
@@ -192,6 +226,7 @@ fn emit_module(
         std::mem::forget(context);
         std::mem::forget(machine);
     }
+
     Ok(vec![path.to_path_buf()])
 }
 
@@ -203,12 +238,16 @@ pub(super) fn unit_path(path: &Path, unit: u32) -> PathBuf {
     if unit == 0 {
         return path.to_path_buf();
     }
+
     let mut name = path.file_stem().unwrap_or_default().to_os_string();
+
     name.push(format!(".{unit}"));
+
     if let Some(extension) = path.extension() {
         name.push(".");
         name.push(extension);
     }
+
     path.with_file_name(name)
 }
 
@@ -216,6 +255,7 @@ pub(super) fn unit_path(path: &Path, unit: u32) -> PathBuf {
 /// easier to follow with the value and block names lowering gives.
 fn wants_ir_text(options: &Options) -> bool {
     let c = &options.codegen;
+
     options.emit_ir.is_some()
         || c.ir_after.is_some()
         || c.bitcode_after.is_some()
@@ -245,6 +285,7 @@ pub(super) fn apply_abi_unwind_attributes<'ctx>(
     if !arch.is_windows() {
         return Ok(());
     }
+
     // LLVM UWTableKind::Async = 2 (llvm/Support/CodeGen.h). A module default also
     // covers functions synthesized by instrumentation and outlining passes.
     if module.get_flag("uwtable").is_none() {
@@ -255,11 +296,14 @@ pub(super) fn apply_abi_unwind_attributes<'ctx>(
             context.metadata_string("uwtable").into(),
             context.i32_type().const_int(2, false).into(),
         ]);
+
         module
             .add_global_metadata("llvm.module.flags", &flag)
             .map_err(|error| error.to_string())?;
     }
+
     let kind = Attribute::get_named_enum_kind_id("uwtable");
+
     for function in module.get_functions() {
         if function.count_basic_blocks() > 0 {
             function.add_attribute(
@@ -268,6 +312,7 @@ pub(super) fn apply_abi_unwind_attributes<'ctx>(
             );
         }
     }
+
     Ok(())
 }
 
@@ -279,6 +324,7 @@ pub(super) fn set_section_name(value: impl inkwell::values::AsValueRef, name: &s
     let Ok(name) = std::ffi::CString::new(name) else {
         return;
     };
+
     // SAFETY: `value` is a live function or global of the module and `name` is a NUL-terminated
     // string that LLVM copies.
     unsafe { inkwell::llvm_sys::core::LLVMSetSection(value.as_value_ref(), name.as_ptr()) };
@@ -315,14 +361,18 @@ pub(super) fn apply_codegen_attributes(
     let enum_attr =
         |name: &str| context.create_enum_attribute(Attribute::get_named_enum_kind_id(name), 0);
     let always_inline = Attribute::get_named_enum_kind_id("alwaysinline");
+
     for function in module.get_functions() {
         if function.count_basic_blocks() == 0 {
             continue;
         }
+
         if codegen.function_sections == Some(true) && elf {
             let section = format!(".text.{}", function.get_name().to_string_lossy());
+
             set_section_name(function, &section);
         }
+
         if let Some(value) = frame_pointer {
             function.remove_string_attribute(AttributeLoc::Function, "frame-pointer");
             function.add_attribute(
@@ -330,9 +380,11 @@ pub(super) fn apply_codegen_attributes(
                 context.create_string_attribute("frame-pointer", value),
             );
         }
+
         if codegen.no_red_zone {
             function.add_attribute(AttributeLoc::Function, enum_attr("noredzone"));
         }
+
         if codegen.disable_inlining == Some(true)
             && function
                 .get_enum_attribute(AttributeLoc::Function, always_inline)
@@ -340,6 +392,7 @@ pub(super) fn apply_codegen_attributes(
         {
             function.add_attribute(AttributeLoc::Function, enum_attr("noinline"));
         }
+
         if codegen.tail_calls == Some(false) {
             function.add_attribute(
                 AttributeLoc::Function,
@@ -359,6 +412,7 @@ pub fn emit_object(program: &Program, options: &Options, path: &Path) -> Result<
             .data_layout(),
     );
     let program = instrumented.as_ref().unwrap_or(program);
+
     emit_module(
         program,
         options,
@@ -413,9 +467,11 @@ fn codegen_units(program: &Program, options: &Options, cold_weight: usize) -> us
     if options.sanitize.any() || options.codegen.single_unit {
         return 1;
     }
+
     if let Some(n) = options.codegen.units {
         return n.max(1);
     }
+
     if options.emit_ir.is_some()
         || options.codegen.ir_after.is_some()
         || options.codegen.bitcode_after.is_some()
@@ -423,6 +479,7 @@ fn codegen_units(program: &Program, options: &Options, cold_weight: usize) -> us
     {
         return 1;
     }
+
     // The cold module (`can_carve_cold`) is not optimized and not counted.
     let insts: usize = program
         .funcs
@@ -432,10 +489,12 @@ fn codegen_units(program: &Program, options: &Options, cold_weight: usize) -> us
         .sum::<usize>()
         .saturating_sub(cold_weight);
     let cores = jaic::pool::threads();
+
     if options.opt_level == OptLevel::O0 {
         if options.codegen.split_modules == Some(false) {
             return 1;
         }
+
         // A program past `MAX_UNIT_INSTS` per core gets more units than threads, so a module
         // is written and dropped (`emit_objects`) before all of the program is in memory.
         let most = if cores > 1 {
@@ -444,14 +503,18 @@ fn codegen_units(program: &Program, options: &Options, cold_weight: usize) -> us
             1
         };
         let by_size = (insts / INSTS_PER_UNIT).clamp(1, most);
+
         return by_size.max(insts / MAX_UNIT_INSTS).min(MAX_UNOPT_UNITS);
     }
+
     // Optimized builds split before the optimizer only when it is worth the code it loses
     // (`partition.rs`); wasm modules stay whole.
     let wasm = options.target.is_some_and(jaic::target::Target::is_wasm);
+
     if wasm {
         return 1;
     }
+
     (insts / OPT_INSTS_PER_UNIT).clamp(1, cores.min(MAX_OPT_UNITS))
 }
 
@@ -479,6 +542,7 @@ pub(super) fn inline_cuts(program: &Program, options: &Options) -> Vec<bool> {
     if options.opt_level == OptLevel::O0 {
         return Vec::new();
     }
+
     partition::inline_cuts(program, partition::INLINE_CAP)
 }
 
@@ -510,6 +574,7 @@ pub fn emit_objects(
         });
     let cold_weight = graph.as_ref().map_or(0, |g| g.cold_weight);
     let units = codegen_units(program, options, cold_weight);
+
     if units == 1 && cold_weight == 0 {
         // A program too small to divide before the optimizer is optimized whole and only
         // machine code generation is split, unless `-codegen_units` asked for exactly one
@@ -520,6 +585,7 @@ pub fn emit_objects(
             && options.codegen.units.is_none();
         return emit_module(program, options, path, None, split, true, &cuts);
     }
+
     let plan = match graph {
         Some(graph) => partition::plan(program, &graph, units),
         None => partition::flat(program, units),
@@ -528,6 +594,7 @@ pub fn emit_objects(
     // does not apply to it.
     let cold_options = plan.cold_unit.map(|_| {
         let mut cold = options.clone();
+
         cold.opt_level = OptLevel::O0;
         cold.codegen.o0_passes = None;
         cold
@@ -538,9 +605,11 @@ pub fn emit_objects(
             if u == 0 {
                 return path.to_path_buf();
             }
+
             // `split::emit` names the pieces of unit 0 `path.1.o`, `path.2.o`...
             let cold = plan.cold_unit == Some(u as u32);
             let mut name = path.to_path_buf().into_os_string();
+
             name.push(if cold {
                 ".cold.o".to_string()
             } else {
@@ -566,6 +635,7 @@ pub fn emit_objects(
                 _ => options,
             };
             let split = split_hot && u == 0 && plan.cold_unit.is_some();
+
             emit_module(program, options, &paths[u], Some(shard), split, leak, &cuts)
         },
         || {},
@@ -573,5 +643,6 @@ pub fn emit_objects(
     .into_iter()
     .collect::<Result<Vec<Vec<PathBuf>>, String>>()?;
     let paths: Vec<PathBuf> = written.into_iter().flatten().collect();
+
     Ok(paths)
 }

@@ -18,6 +18,7 @@ fn progress_values(files: &[(&str, &str)]) -> Vec<Value> {
     let dir = project("progress", files);
     let mut json = JsonSession::with_environment(Limits::default(), environment());
     let root = uri_of(dir.path());
+
     messages(
         &mut json,
         &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
@@ -29,11 +30,14 @@ fn progress_values(files: &[(&str, &str)]) -> Vec<Value> {
         &json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
     );
     let mut values = Vec::new();
+
     for _ in 0..200 {
         let working = json.indexing_pending();
         let (awaiting, out) = json.indexing_progress(working).unwrap();
+
         for message in out {
             let message: Value = serde_json::from_str(&message).unwrap();
+
             if message["method"] == "window/workDoneProgress/create" {
                 messages(
                     &mut json,
@@ -43,17 +47,21 @@ fn progress_values(files: &[(&str, &str)]) -> Vec<Value> {
                 values.push(message["params"]["value"].clone());
             }
         }
+
         if awaiting {
             // The transport serves input only until the client acknowledges the token.
             continue;
         }
+
         if !working {
             break;
         }
+
         if json.has_background_work() {
             json.background_work().unwrap();
         }
     }
+
     values
 }
 
@@ -68,6 +76,7 @@ fn progress_counts_entries_and_never_goes_back() {
         ("b.jai", "b :: () {}\nmain :: () { b(); }\n"),
         ("c.jai", "c :: () {}\nmain :: () { c(); }\n"),
     ]);
+
     assert_eq!(
         values.first().map(|v| v["kind"].clone()),
         Some(json!("begin"))
@@ -82,6 +91,7 @@ fn progress_counts_entries_and_never_goes_back() {
                 .expect("every begin and report has a percentage")
         })
         .collect();
+
     assert_eq!(percentages[0], 0, "begin starts at zero: {values:?}");
     assert!(
         percentages.windows(2).all(|w| w[0] <= w[1]),
@@ -96,6 +106,7 @@ fn progress_counts_entries_and_never_goes_back() {
         .iter()
         .filter_map(|v| v["message"].as_str())
         .collect();
+
     assert!(
         texts.iter().any(|m| {
             m.split_once('/')

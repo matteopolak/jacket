@@ -43,6 +43,7 @@ impl ModuleRanking {
             MAX_FIELD - u64::from(counts.get(module).copied().unwrap_or(0)).min(MAX_FIELD)
         };
         let extension = u64::from(module.contains('/'));
+
         10 + (extension << (2 * FIELD)) + (count(&self.project) << FIELD) + count(&self.importers)
     }
 }
@@ -55,8 +56,10 @@ where
     P: IntoIterator<Item = &'a str>,
 {
     let mut counts: HashMap<String, u32> = HashMap::default();
+
     for (module, imports) in modules {
         let mut seen: Vec<&str> = Vec::new();
+
         for path in imports {
             if path != module && !seen.contains(&path) {
                 seen.push(path);
@@ -64,6 +67,7 @@ where
             }
         }
     }
+
     counts
 }
 
@@ -82,6 +86,7 @@ mod tests {
             counts(&[("Basic", 40), ("Math", 9), ("Extensions/Pool", 99)]),
         );
         let mut modules = vec!["Extensions/Pool", "Math", "Hash", "Unseen", "Basic"];
+
         modules.sort_by_key(|m| (ranking.rank(m), *m));
         assert_eq!(
             modules,
@@ -93,6 +98,7 @@ mod tests {
     fn importers_are_counted_once_per_module_and_not_for_itself() {
         let importers =
             count_importers([("A", vec!["B", "B", "A"]), ("C", vec!["B"]), ("B", vec![])]);
+
         assert_eq!(importers.get("B"), Some(&2));
         assert_eq!(importers.get("A"), None);
     }

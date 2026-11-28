@@ -63,8 +63,10 @@ fn scaffold(dir: &Path, name: &str, lib: bool) -> Result<Vec<&'static str>, Stri
         "\n[toolchain]\nversion = \"{}\"\n",
         env!("CARGO_PKG_VERSION")
     );
+
     write(&dir.join(FILE_NAME), &format!("{manifest}{toolchain}"))?;
     let mut made = vec![FILE_NAME];
+
     if lib {
         write(&dir.join("module.jai"), &module_jai(name))?;
         made.push("module.jai");
@@ -73,6 +75,7 @@ fn scaffold(dir: &Path, name: &str, lib: bool) -> Result<Vec<&'static str>, Stri
         write(&dir.join("main.jai"), &main_jai(name))?;
         made.extend(["build.jai", "main.jai"]);
     }
+
     Ok(made)
 }
 
@@ -89,14 +92,17 @@ pub fn new(name: &str, lib: bool) -> ExitCode {
     let name = dir
         .file_name()
         .map_or(String::new(), |n| n.to_string_lossy().into_owned());
+
     if !valid_name(&name) {
         return fail(format!(
             "`{name}` is not a project name\nhelp: use letters, digits, `_` and `-`"
         ));
     }
+
     if dir.exists() {
         return fail(format!("`{}` already exists", dir.display()));
     }
+
     finish_scaffold(&dir, &name, lib)
 }
 
@@ -107,11 +113,13 @@ pub fn init(lib: bool) -> ExitCode {
     let name = dir
         .file_name()
         .map_or(String::new(), |n| n.to_string_lossy().into_owned());
+
     if !valid_name(&name) {
         return fail(format!(
             "`{name}` is not a project name\nhelp: use letters, digits, `_` and `-`; `jacket new <name>` makes a directory"
         ));
     }
+
     for file in [FILE_NAME, "build.jai", "main.jai", "module.jai"] {
         if dir.join(file).exists() {
             return fail(format!(
@@ -119,6 +127,7 @@ pub fn init(lib: bool) -> ExitCode {
             ));
         }
     }
+
     finish_scaffold(&dir, &name, lib)
 }
 
@@ -183,13 +192,16 @@ pub fn toolchain(action: Option<ToolchainAction>, cwd: &Path) -> ExitCode {
                     for path in removed {
                         crate::status::print("Removed", &path, false);
                     }
+
                     ExitCode::SUCCESS
                 }
                 Err(error) => fail(error),
             };
         }
     };
+
     print!("{}", report.text);
+
     if report.complete {
         ExitCode::SUCCESS
     } else {
@@ -215,8 +227,10 @@ fn config_show(cwd: &Path) -> ExitCode {
         }
         Err(error) => return fail(error),
     };
+
     println!("# effective configuration from {}", loaded.file().display());
     println!("# CLI flags override it; settings not listed have their defaults\n");
+
     match toml::to_string(&loaded.config) {
         Ok(text) => {
             print!("{text}");
@@ -247,11 +261,13 @@ pub fn clean(cwd: &Path) -> ExitCode {
     let Some(exe) = crate::compile::executable(&argv, cwd) else {
         return ExitCode::SUCCESS;
     };
+
     match std::fs::remove_file(&exe) {
         Ok(()) => println!("removed {}", exe.display()),
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => println!("nothing to clean"),
         Err(e) => return fail(format!("could not remove {}: {e}", exe.display())),
     }
+
     ExitCode::SUCCESS
 }
 
@@ -271,6 +287,7 @@ fn tool_version(tool: &str) -> String {
         .arg(flag)
         .stdin(Stdio::null())
         .output();
+
     match output {
         Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout)
             .lines()
@@ -298,14 +315,17 @@ pub fn explain(code: Option<&str>) -> ExitCode {
         .trim_start_matches("error[")
         .trim_start_matches("warning[")
         .trim_end_matches(']');
+
     if let Some(code) = Code::parse(name) {
         print!("{}", explain_one(code));
         return ExitCode::SUCCESS;
     }
+
     if let Some(rule) = jailint::RULES.iter().find(|r| r.name == name) {
         print!("{}", rule.explanation());
         return ExitCode::SUCCESS;
     }
+
     let near = jaic::suggest::closest(
         name,
         Code::ALL
@@ -313,6 +333,7 @@ pub fn explain(code: Option<&str>) -> ExitCode {
             .map(|code| code.name())
             .chain(jailint::RULES.iter().map(|r| r.name)),
     );
+
     match near {
         Some(near) => fail(format!(
             "no diagnostic code `{name}`\nhelp: did you mean `{near}`?"
@@ -331,31 +352,38 @@ fn explain_one(code: jaic::diagnostics::Code) -> String {
         code.area(),
         wrap(code.summary())
     );
+
     if code.is_leniency() {
         text.push_str(&format!("\n{}\n", wrap(jaic::diagnostics::LENIENCY_NOTE)));
     }
+
     if let Some(explanation) = code.explanation() {
         text.push('\n');
         text.push_str(&wrap(explanation));
         text.push('\n');
     }
+
     if let Some(example) = code.example() {
         text.push_str("\nExample:\n\n");
+
         for line in example.lines() {
             text.push_str(&format!("    {line}\n"));
         }
     }
+
     text
 }
 
 fn explain_list() -> String {
     use jaic::diagnostics::Code;
     let mut areas: Vec<&str> = Vec::new();
+
     for code in Code::ALL {
         if !areas.contains(&code.area()) {
             areas.push(code.area());
         }
     }
+
     areas.sort_unstable();
     let width = Code::ALL
         .iter()
@@ -363,6 +391,7 @@ fn explain_list() -> String {
         .max()
         .unwrap_or(0);
     let mut text = String::new();
+
     for area in areas {
         text.push_str(&format!("{area}\n"));
         let mut codes: Vec<Code> = Code::ALL
@@ -370,19 +399,26 @@ fn explain_list() -> String {
             .copied()
             .filter(|code| code.area() == area)
             .collect();
+
         codes.sort_by_key(|code| code.name());
+
         for code in codes {
             text.push_str(&format!("  {:width$}  {}\n", code.name(), code.summary()));
         }
+
         text.push('\n');
     }
+
     text.push_str("lint rules\n");
     let mut rules: Vec<_> = jailint::RULES.iter().collect();
+
     rules.sort_by_key(|r| r.name);
     let width = rules.iter().map(|r| r.name.len()).max().unwrap_or(0);
+
     for rule in rules {
         text.push_str(&format!("  {:width$}  {}\n", rule.name, rule.summary));
     }
+
     text.push_str("\n`jacket explain <code>` says more about one.\n");
     text
 }
@@ -390,25 +426,32 @@ fn explain_list() -> String {
 /// Breaks `text` at 90 columns, keeping its own line breaks.
 fn wrap(text: &str) -> String {
     let mut out = Vec::new();
+
     for paragraph in text.split('\n') {
         let mut line = String::new();
+
         for word in paragraph.split_whitespace() {
             if !line.is_empty() && line.len() + 1 + word.len() > 90 {
                 out.push(std::mem::take(&mut line));
             }
+
             if !line.is_empty() {
                 line.push(' ');
             }
+
             line.push_str(word);
         }
+
         out.push(line);
     }
+
     out.join("\n")
 }
 
 /// `jacket completions`: the script for `tool` in `shell` on standard output.
 pub fn completions(shell: argdef::Shell, tool: CompletionTool) -> ExitCode {
     use clap::CommandFactory;
+
     match tool {
         CompletionTool::Jacket => {
             let shell = match shell {
@@ -417,6 +460,7 @@ pub fn completions(shell: argdef::Shell, tool: CompletionTool) -> ExitCode {
                 argdef::Shell::Fish => clap_complete::Shell::Fish,
             };
             let mut command = crate::cli::Cli::command();
+
             clap_complete::generate(shell, &mut command, "jacket", &mut std::io::stdout());
         }
         CompletionTool::Jaic => {
@@ -426,13 +470,16 @@ pub fn completions(shell: argdef::Shell, tool: CompletionTool) -> ExitCode {
             );
         }
     }
+
     ExitCode::SUCCESS
 }
 
 pub fn version() -> ExitCode {
     println!("jacket {}", env!("CARGO_PKG_VERSION"));
+
     for tool in tools::ALL {
         println!("{tool}: {}", tool_version(tool));
     }
+
     ExitCode::SUCCESS
 }

@@ -37,6 +37,7 @@ impl Compiler {
                 else {
                     return Ok(None);
                 };
+
                 match &decl.value {
                     Some(value) if decl.kind == ast::DeclKind::Const => {
                         self.restriction_type_list(home, value, depth + 1)

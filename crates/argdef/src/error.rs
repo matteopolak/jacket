@@ -41,14 +41,17 @@ impl Error {
     /// An argument that is not UTF-8 where only an `os` option's value may be anything.
     pub(crate) fn not_utf8(arg: &std::ffi::OsStr, os_options: &[&str]) -> Self {
         let mut error = Error::invalid(format!("argument `{}` is not valid UTF-8", arg.display()));
+
         if let Some((last, first)) = os_options.split_last() {
             let list = if first.is_empty() {
                 (*last).to_string()
             } else {
                 format!("{} and {last}", first.join(", "))
             };
+
             error = error.help(format!("only the values of {list} may be any bytes"));
         }
+
         error
     }
 
@@ -67,6 +70,7 @@ impl Error {
         } else {
             needs
         };
+
         Error {
             kind: ErrorKind::Missing,
             subject: name.to_string(),

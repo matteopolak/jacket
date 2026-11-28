@@ -17,24 +17,29 @@ impl Compiler {
         span: Span,
     ) -> ScopeId {
         let mut scope = def_scope;
+
         if !bindings.is_empty() {
             // One scope per set of bindings, so a lambda default
             // (`$compare := (a, b) => a == b`) is the same procedure on every
             // call and the instance is found again.
             let key = (def_scope, bindings.iter().map(|b| b.1.clone()).collect());
+
             scope = if let Some(&s) = self.ns.default_scopes.get(&key) {
                 s
             } else {
                 let s = self.new_hidden_scope(def_scope);
+
                 // Not written at the call: recording them there would make the call's
                 // text look like a declaration of `T` to hover and go to definition.
                 for (n, v, t) in bindings {
                     self.new_const(s, *n, span, v.clone(), *t);
                 }
+
                 self.ns.default_scopes.insert(key, s);
                 s
             };
         }
+
         scope
     }
 
@@ -53,6 +58,7 @@ impl Compiler {
         if matches!(d.kind, E::CallerLocation) {
             let file = self.scope_file(def_scope);
             let mut f = self.thunk_ctx(ir::FuncOrigin::ConstInit, file);
+
             if let Operand::Const {
                 ty,
                 value,
@@ -62,6 +68,7 @@ impl Compiler {
                 return Ok((value, ty));
             }
         }
+
         let scope = self.bindings_scope(def_scope, bindings, span);
         let declared = match &param.ty {
             Some(t) if !procs::has_poly(t) => Some(self.eval_type(scope, t)?),
@@ -73,6 +80,7 @@ impl Compiler {
             let ty = self.eval_const(scope, d, None)?.ty();
             (self.const_value_of_type(scope, d, ty)?, ty)
         };
+
         Ok((v, ty))
     }
 
@@ -89,6 +97,7 @@ impl Compiler {
         ) {
             return None;
         }
+
         let expr = arg.expr.as_ref()?;
         let named = match &expr.kind {
             ast::ExprKind::Ident(_) | ast::ExprKind::Member(..) => {
@@ -102,6 +111,7 @@ impl Compiler {
             }
             _ => None,
         };
+
         Some(match named {
             Some(code) => code,
             None => self.add_code(Arc::new(ast::CodeBody::Expr(expr.clone())), arg.scope),
@@ -127,6 +137,7 @@ impl Compiler {
             (None, None) => return err(Code::CallMissingValue, arg.span, "missing value"),
         };
         let value = self.const_value_of_operand(arg.scope, op, ty, arg.span)?;
+
         Ok((value, ty))
     }
 
@@ -146,12 +157,16 @@ impl Compiler {
         let esize = self.size_of(elem, span)?;
         let mut array = value::Aggregate::zeroed(0, span)?;
         let mut count = 0u64;
+
         for arg in args {
             if arg.spread {
                 let (view, _) = self.baked_spread(def_scope, param, arg)?;
+
                 self.append_constant_spread(&mut array, &mut count, elem, view, arg.span)?;
+
                 continue;
             }
+
             let size = (count + 1)
                 .checked_mul(esize)
                 .filter(|&n| n <= value::MAX_IMAGE)
@@ -162,6 +177,7 @@ impl Compiler {
                         "baked variadic pack is too large",
                     ))
                 })?;
+
             array.bytes.resize(size as usize, 0);
             let value = if elem == TypeId::CODE
                 && let Some(id) = self.quote_code_arg(arg)
@@ -175,9 +191,11 @@ impl Compiler {
                 };
                 self.const_value_of_operand(arg.scope, op, elem, arg.span)?
             };
+
             self.write_value(&mut array, count * esize, &value, elem, arg.span)?;
             count += 1;
         }
+
         let view = self.const_pack(elem, array, count, span)?;
         Ok((view, self.ty.types.array(elem, ArrayKind::View)))
     }
@@ -194,6 +212,7 @@ impl Compiler {
     ) -> Result<()> {
         let ty = self.ty.types.array(elem, ArrayKind::View);
         let mut image = value::Aggregate::zeroed(16, span)?;
+
         self.write_value(&mut image, 0, &view, ty, span)?;
         let g = self.out.program.add_global(ir::Global {
             name: "baked.spread.view".into(),
@@ -240,7 +259,9 @@ impl Compiler {
                     "baked variadic pack is too large",
                 ))
             })?;
+
         array.bytes.resize(size as usize, 0);
+
         for i in 0..n {
             let at = data.checked_add(i * esize).ok_or_else(|| {
                 Box::new(Diagnostic::new(
@@ -250,8 +271,10 @@ impl Compiler {
                 ))
             })?;
             let value = self.read_value(at, elem, span)?;
+
             self.write_value(array, (*count + i) * esize, &value, elem, span)?;
         }
+
         *count = total;
         Ok(())
     }
@@ -276,6 +299,7 @@ impl Compiler {
                 .collect(),
         );
         let found = self.out.packs.get(&key).copied();
+
         crate::sema::body_probe::lookup(crate::sema::body_probe::Lookup::Packs, found.is_some());
         let data = if let Some(g) = found {
             g
@@ -290,6 +314,7 @@ impl Compiler {
                 export: None,
                 section: None,
             });
+
             self.out.packs.insert(key, g);
             g
         };
@@ -302,6 +327,7 @@ impl Compiler {
                 addend: 0,
             }],
         };
+
         self.options
             .layout
             .write_u64(&mut view.bytes[layout.view.count as usize..], count);
@@ -323,6 +349,7 @@ impl Compiler {
 
     pub(super) fn is_scalar_constant_type(&self, ty: TypeId) -> bool {
         let repr = self.ty.types.repr(ty);
+
         repr == TypeId::BOOL
             || self.ty.types.is_integer(repr)
             || self.ty.types.is_float(repr)

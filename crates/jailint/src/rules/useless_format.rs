@@ -33,6 +33,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -48,6 +49,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let [format, value] = args.as_slice() else {
                 return true;
             };
+
             if !matches!(&format.value.kind, E::Str(s) if &**s == b"%")
                 || format.name.is_some()
                 || value.name.is_some()
@@ -58,6 +60,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 return true;
             }
+
             let name = cx.src(callee.span).trim();
             let shown = cx.whole_src(&value.value).trim();
             let owned = effects::calls(cx, callee, Effect::OwnedReturn);
@@ -68,6 +71,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } else {
                 format!("({shown})")
             };
+
             out.push(suggesting(
                 e.span,
                 format!("`{name}(\"%\", {shown})` only copies a string"),

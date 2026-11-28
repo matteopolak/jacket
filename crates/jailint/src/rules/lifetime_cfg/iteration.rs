@@ -16,17 +16,23 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         )
     });
     let mut bodies: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
+
     bodies.sort_by_key(|b| b.procedure.0);
+
     for body in bodies {
         let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
+
         if proc.body_state != BodyState::Done || !std::sync::Arc::ptr_eq(&proc.lit, &body.syntax) {
             continue;
         }
+
         let prepared = Prepared::for_body(cx.compiler, body, summaries);
         let blocks = &shared(cx, body, &prepared, summaries).blocks;
+
         if jaic::interrupt::fired() {
             return;
         }
+
         for (start, b) in blocks.iter().enumerate() {
             let Op::Iteration {
                 region,
@@ -43,11 +49,14 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let mut seen = HashSet::default();
             let mut queue = VecDeque::from([(start, None)]);
             let mut bad = HashSet::default();
+
             while let Some((at, removed)) = queue.pop_front() {
                 if !seen.insert((at, removed)) {
                     continue;
                 }
+
                 let mut removed = removed;
+
                 match blocks[at].op {
                     Op::IndexWrite(p) if p == index => {
                         removed = None;
@@ -60,6 +69,7 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         if let Some(call) = removed {
                             bad.insert(call);
                         }
+
                         continue;
                     }
                     Op::IterationMutation(r, m, call)
@@ -73,10 +83,14 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     }
                     _ => {}
                 }
+
                 queue.extend(blocks[at].next.iter().map(|&next| (next, removed)));
             }
+
             let mut bad: Vec<Span> = bad.into_iter().collect();
+
             bad.sort_unstable_by_key(|s| (s.file.0, s.start, s.end));
+
             for call in bad {
                 let at = if call.file == cx.file {
                     call
@@ -93,10 +107,12 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         "the element moved into the freed slot is skipped; use `remove {name};` (or loop backwards with `for < {array}`)"
                     )),
                 );
+
                 report.secondary.push((
                     span,
                     "this collection's cursor advances after removal".into(),
                 ));
+
                 if standalone_current(cx, call, name, index_name) {
                     report.fix = Some(crate::Fix {
                         title: format!("use `remove {name}`"),
@@ -108,6 +124,7 @@ pub(in crate::rules) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         machine_applicable: false,
                     });
                 }
+
                 if !out
                     .iter()
                     .any(|f| f.start == report.start && f.end == report.end)
@@ -130,7 +147,9 @@ fn standalone_current(
         ExprKind as E, StmtKind as S,
         walk::{Node, walk},
     };
+
     let mut found = false;
+
     for proc in &cx.procs {
         walk(&proc.body.stmts, &mut |node, chain| {
             if let Node::Expr(expr) = node
@@ -144,8 +163,10 @@ fn standalone_current(
             {
                 found = true;
             }
+
             !found
         });
     }
+
     found
 }

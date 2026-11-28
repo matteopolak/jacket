@@ -55,6 +55,7 @@ const EXPECTED: &str = "f a=1 b=0\nf a=1 b=0\nf a=1 b=0\ng a=2 b=2 c=3\nf a=2 b=
 fn source(name: &str, extra: &str) -> (TempDir, std::path::PathBuf) {
     let dir = TempDir::new("argument-order");
     let file = dir.join(format!("{name}.jai"));
+
     std::fs::write(&file, format!("{PROBE}{extra}")).unwrap();
     (dir, file)
 }
@@ -67,6 +68,7 @@ fn interpreted_calls_evaluate_arguments_left_to_right() {
         .arg(&file)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -84,6 +86,7 @@ fn compile_time_calls_evaluate_arguments_left_to_right() {
         .arg(&file)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -100,6 +103,7 @@ fn compile_time_calls_evaluate_arguments_left_to_right() {
 fn native_calls_evaluate_arguments_left_to_right() {
     let (_dir, file) = source("native", "");
     let exe = file.with_file_name(format!("native_exe{}", std::env::consts::EXE_SUFFIX));
+
     for level in ["-O0", "-O2"] {
         let build = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(&file)
@@ -107,12 +111,14 @@ fn native_calls_evaluate_arguments_left_to_right() {
             .arg(&exe)
             .output()
             .unwrap();
+
         assert!(
             build.status.success(),
             "{}",
             String::from_utf8_lossy(&build.stderr)
         );
         let run = Command::new(&exe).output().unwrap();
+
         assert_eq!(String::from_utf8_lossy(&run.stdout), EXPECTED, "{level}");
     }
 }

@@ -17,7 +17,9 @@ impl Compiler {
         if self.ns.preload.is_some() {
             return self.preload_type(PreludeType::Reg, span);
         }
+
         let id = self.scope(self.ns.root_scope).names[&Sym::intern("__reg")][0];
+
         match self.resolve_entity(id)? {
             scope::Resolved::Const {
                 value: Value::Type(ty),
@@ -45,6 +47,7 @@ impl Compiler {
                 "a SIMD register operand has no standalone storage or runtime ABI; use #asm and expanded parameters",
             );
         }
+
         match self.ty.types.kind(ty).clone() {
             crate::types::TypeKind::Array {
                 elem, ..
@@ -67,6 +70,7 @@ impl Compiler {
             self.asm_declare(f, cx, decl, "gpr")?;
             return Ok(());
         }
+
         // `x === a` pins an existing variable.
         match self.lookup_full(cx.scope, decl.name.name)? {
             Found::Entities(ids) if !ids.is_empty() => {
@@ -78,6 +82,7 @@ impl Compiler {
                 {
                     self.pr.asm_record_pin(decl, addr);
                 }
+
                 Ok(())
             }
             _ => Err(Box::new(
@@ -110,6 +115,7 @@ impl Compiler {
             );
         };
         let name = decl.name.name;
+
         if let Some(ids) = self.scope(cx.scope).names.get(&name)
             && let Some(&existing) = ids.last()
             && self.pr.asm_regs.get(&existing) == Some(&kind)
@@ -120,13 +126,18 @@ impl Compiler {
             if kind == AsmReg::Gpr {
                 self.pr.asm_record_pin(decl, addr);
             }
+
             return Ok((kind, addr));
         }
+
         let addr = f.b.alloca(size, 8);
+
         f.b.zero(addr, size);
+
         if kind == AsmReg::Gpr {
             self.pr.asm_record_pin(decl, addr);
         }
+
         let depth = self.scope(cx.scope).proc_depth;
         let ty = if kind == AsmReg::Vec {
             self.register_operand_type(decl.name.span)?
@@ -144,6 +155,7 @@ impl Compiler {
             },
             false,
         );
+
         self.pr.asm_regs.insert(id, kind);
         Ok((kind, addr))
     }
@@ -205,6 +217,7 @@ impl Compiler {
         depth: u32,
     ) -> Result<Opd> {
         let mut is_gpr = false;
+
         if let E::Ident(name) = &e.kind
             && let Found::Entities(ids) = self.lookup_full(scope, *name)?
             && let Some(&id) = ids.last()
@@ -213,7 +226,9 @@ impl Compiler {
             is_gpr = true;
             Self::asm_require_gpr(kind, e.span)?;
         }
+
         let op = self.check_expr(f, scope, e, None)?;
+
         match op {
             Operand::Place {
                 ty,
@@ -231,8 +246,10 @@ impl Compiler {
                         "#asm register argument is nested too deeply",
                     );
                 }
+
                 let body = self.pr.codes[code.0 as usize].clone();
                 let code_scope = self.pr.code_scopes[code.0 as usize];
+
                 match &*body {
                     CodeBody::Expr(inner) => self.asm_value(f, code_scope, inner, depth + 1),
                     CodeBody::Block(_) | CodeBody::Stmt(_) => err(
@@ -262,6 +279,7 @@ impl Compiler {
                 let span = e.span;
                 let (ty, val) = self.rvalue(f, other, span)?;
                 let addr = self.spill(f, ty, val, span)?;
+
                 self.asm_place(ty, addr, true, span)
             }
             _ => err(
@@ -301,6 +319,7 @@ impl Compiler {
             }
         };
         let signed = self.ty.types.int_info(ty).is_some_and(|(_, s)| s);
+
         Ok(Opd::Reg(RegPlace {
             addr,
             storage,
@@ -313,6 +332,7 @@ impl Compiler {
     pub(super) fn asm_mem(&mut self, f: &mut FnCtx, scope: ScopeId, m: &AsmMem) -> Result<Val> {
         let mut acc: Option<Val> = None;
         let mut disp: i128 = 0;
+
         for term in &m.terms {
             let scale = match &term.scale {
                 Some(e) => match self.asm_value(f, scope, e, 0)? {
@@ -332,14 +352,18 @@ impl Compiler {
             } else {
                 1
             };
+
             match self.asm_value(f, scope, &term.value, 0)? {
                 Opd::Imm(Imm::Int(c)) => disp = disp.wrapping_add(c.wrapping_mul(scale) * sign),
                 Opd::Reg(r) => {
                     let mut v = Self::asm_load_i64(f, r);
+
                     if scale != 1 {
                         let s = konst(f, Ty::I64, scale as u64);
+
                         v = bin(f, BinOp::Mul, Ty::I64, v, s);
                     }
+
                     acc = Some(match acc {
                         None if sign < 0 => {
                             let z = konst(f, Ty::I64, 0);
@@ -359,6 +383,7 @@ impl Compiler {
                 }
             }
         }
+
         Ok(match acc {
             None => konst(f, Ty::I64, disp as u64),
             Some(a) if disp == 0 => a,
@@ -372,9 +397,11 @@ impl Compiler {
     /// Load a variable as a 64-bit integer (extended by its own signedness).
     fn asm_load_i64(f: &mut FnCtx, r: RegPlace) -> Val {
         let v = f.b.load(r.storage, r.addr);
+
         if r.storage == Ty::Ptr {
             return f.b.conv(ConvOp::Bitcast, Ty::Ptr, Ty::I64, v);
         }
+
         resize(f, v, r.storage, Ty::I64, r.signed)
     }
 
@@ -384,6 +411,7 @@ impl Compiler {
                 let n = bits(sz) as u32;
                 let min = -(1i128 << (n - 1));
                 let max = (1i128 << n) - 1;
+
                 if v < min || v > max {
                     return err(
                         Code::AsmImmediate,
@@ -393,6 +421,7 @@ impl Compiler {
                         ),
                     );
                 }
+
                 let mask = if n == 64 {
                     u64::MAX
                 } else {
@@ -421,6 +450,7 @@ impl Compiler {
                 } else {
                     (v, r.storage)
                 };
+
                 resize(f, v, from, sz, false)
             }
             Opd::Imm(imm) => {
@@ -464,6 +494,7 @@ impl Compiler {
                     let mask = konst(f, st, (1u64 << bits(sz)) - 1);
                     let keep = f.b.un(UnOp::Not, st, mask);
                     let kept = bin(f, BinOp::And, st, old, keep);
+
                     bin(f, BinOp::Or, st, kept, low)
                 };
                 let new = if r.storage == Ty::Ptr {
@@ -471,11 +502,13 @@ impl Compiler {
                 } else {
                     new
                 };
+
                 f.b.store(r.storage, r.addr, new);
                 Ok(())
             }
             Opd::Mem(addr) => {
                 let p = ptr_of(f, addr);
+
                 f.b.store(sz, p, v);
                 Ok(())
             }
@@ -504,10 +537,12 @@ impl Compiler {
         if lock && let Opd::Mem(addr) = dst {
             let retry = f.b.new_block();
             let exit = f.b.new_block();
+
             f.b.jump(retry);
             f.b.switch_to(retry);
             let ptr = ptr_of(f, addr);
             let old = f.b.load(sz, ptr);
+
             return Ok((
                 Rmw {
                     dst,
@@ -517,7 +552,9 @@ impl Compiler {
                 old,
             ));
         }
+
         let old = self.asm_read(f, dst, sz, span)?;
+
         Ok((
             Rmw {
                 dst,
@@ -537,6 +574,7 @@ impl Compiler {
                     vec![ptr, old, new, width],
                     &[Ty::I8, rmw.sz],
                 );
+
                 f.b.branch(r[0], exit, retry);
                 f.b.switch_to(exit);
                 Ok(())
@@ -557,6 +595,7 @@ impl ProcState {
             AsmPin::Index(_) => return,
             AsmPin::Name(name) => {
                 let name = name.name.as_str();
+
                 match name.strip_prefix('r').unwrap_or(name) {
                     "a" | "ax" => 0,
                     "c" | "cx" => 1,
@@ -573,6 +612,7 @@ impl ProcState {
                 }
             }
         };
+
         self.asm_pins.push((reg, addr));
     }
 }

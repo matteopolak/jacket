@@ -30,6 +30,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -53,9 +54,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
+
             if cx.constant(value) {
                 return true;
             }
+
             let min: i128 = if signed {
                 -(1i128 << (bits - 1))
             } else {
@@ -75,6 +78,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } else {
                 format!("`{ty_name}` is unsigned and holds nothing below 0")
             };
+
             // Writing the answer down is offered, not applied by `--fix`: the check is
             // usually a bug to understand (a wrapping countdown), not text to simplify.
             out.push(replacing(

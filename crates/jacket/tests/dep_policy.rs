@@ -20,10 +20,12 @@ impl World {
         let project = Project::new(&format!("[resolver]\n{resolver}"));
         let origin = Origin::new(&project.root, "lib", &[("module.jai", "x :: 0;\n")]);
         let forge = Forge::start();
+
         for (tag, age) in tags {
             origin.release(tag, &[("module.jai", &format!("x :: {};\n", tag.len()))]);
             forge.release("someone/lib", tag, *age);
         }
+
         project.rewrite("https://github.com/someone/lib", &origin.url());
         Self {
             project,
@@ -45,6 +47,7 @@ fn a_named_version_that_is_too_new_is_refused_with_the_override_in_the_note() {
         &[("v1.2.0", 10 * DAY), ("v1.3.0", 20 * HOUR)],
     );
     let run = world.run(&["dep", "add", "someone/lib@v1.3.0"]);
+
     assert_eq!(run.code, 2, "{}{}", run.out, run.err);
     assert!(
         run.err
@@ -75,6 +78,7 @@ fn a_range_skips_versions_that_are_too_new_and_a_waiver_accepts_one() {
         &[("v1.2.0", 10 * DAY), ("v1.3.0", 20 * HOUR)],
     );
     let run = world.run(&["dep", "add", "someone/lib@^1.0"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.out.contains("v1.2.0"), "{}", run.out);
     assert!(
@@ -87,8 +91,10 @@ fn a_range_skips_versions_that_are_too_new_and_a_waiver_accepts_one() {
         "version = \"^1.0\"",
         "version = \"^1.0\", min-release-age = \"0\"",
     );
+
     std::fs::write(world.project.dir.join("jacket.toml"), toml).unwrap();
     let run = world.run(&["dep", "update", "lib"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.out.contains("v1.3.0"), "{}", run.out);
 }
@@ -97,6 +103,7 @@ fn a_range_skips_versions_that_are_too_new_and_a_waiver_accepts_one() {
 fn nothing_old_enough_is_an_error_naming_the_newest() {
     let world = World::new("min-release-age = \"3d\"\n", &[("v1.0.0", 5 * HOUR)]);
     let run = world.run(&["dep", "add", "someone/lib"]);
+
     assert_eq!(run.code, 2, "{}{}", run.out, run.err);
     assert!(
         run.err.contains("lib v1.0.0 was published 5 hours ago"),
@@ -110,8 +117,10 @@ fn nothing_old_enough_is_an_error_naming_the_newest() {
 fn an_age_that_cannot_be_checked_is_an_error_with_the_same_note() {
     // A tag without a release, a host that keeps no times, and a commit pin all have no age.
     let world = World::new("min-release-age = \"3d\"\n", &[]);
+
     world.origin.release("v1.0.0", &[]);
     let run = world.run(&["dep", "add", "someone/lib@v1.0.0"]);
+
     assert_eq!(run.code, 2, "{}{}", run.out, run.err);
     assert!(
         run.err.contains("lib v1.0.0's age can't be checked")
@@ -123,13 +132,16 @@ fn an_age_that_cannot_be_checked_is_an_error_with_the_same_note() {
 
     let plain = Project::new("[resolver]\nmin-release-age = \"3d\"\n");
     let local = Origin::new(&plain.root, "local", &[("module.jai", "")]);
+
     local.release("v1.0.0", &[]);
     let run = plain.jacket(&["dep", "add", &format!("{}@v1.0.0", local.url())]);
+
     assert_eq!(run.code, 2);
     assert!(run.err.contains("age can't be checked"), "{}", run.err);
 
     let rev = world.origin.commit("tip");
     let run = world.run(&["dep", "add", &format!("someone/lib@{}", &rev[..7])]);
+
     assert_eq!(run.code, 2);
     assert!(
         run.err.contains("age can't be checked") && run.err.contains("rev = "),
@@ -142,6 +154,7 @@ fn an_age_that_cannot_be_checked_is_an_error_with_the_same_note() {
 fn with_the_policy_off_nothing_asks_a_forge() {
     let world = World::new("min-release-age = \"0\"\n", &[("v1.0.0", HOUR)]);
     let run = world.run(&["dep", "add", "someone/lib@v1.0.0"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(world.forge.log().is_empty());
 }
@@ -149,6 +162,7 @@ fn with_the_policy_off_nothing_asks_a_forge() {
 #[test]
 fn times_are_cached_and_lists_are_asked_for_with_their_etag() {
     let world = World::new("min-release-age = \"1d\"\n", &[("v1.0.0", 5 * DAY)]);
+
     assert_eq!(world.run(&["dep", "add", "someone/lib"]).code, 0);
     assert_eq!(world.forge.log().len(), 1);
     // The same tag at the same commit: answered from the cache.
@@ -163,6 +177,7 @@ fn times_are_cached_and_lists_are_asked_for_with_their_etag() {
     world.forge.clear();
     assert_eq!(world.run(&["dep", "update", "lib"]).code, 0);
     let log = world.forge.log();
+
     assert_eq!(log.len(), 1);
     assert!(log[0].conditional && log[0].status == 200, "{log:?}");
     // The tag moves to a new commit: the time cached for the old one does not apply, so the
@@ -171,8 +186,10 @@ fn times_are_cached_and_lists_are_asked_for_with_their_etag() {
     world.origin.tag("v1.1.0");
     world.forge.clear();
     let run = world.run(&["dep", "add", "someone/lib@v1.1.0", "--name", "again"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let log = world.forge.log();
+
     assert!(
         log.len() == 1 && log[0].conditional && log[0].status == 304,
         "{log:?}"
@@ -182,8 +199,10 @@ fn times_are_cached_and_lists_are_asked_for_with_their_etag() {
 #[test]
 fn a_rate_limit_is_reported_with_the_token_to_set() {
     let world = World::new("min-release-age = \"1d\"\n", &[("v1.0.0", 5 * DAY)]);
+
     world.forge.limit(true);
     let run = world.run(&["dep", "add", "someone/lib"]);
+
     assert_eq!(run.code, 2, "{}{}", run.out, run.err);
     assert!(
         run.err.contains("rate limit") && run.err.contains("GITHUB_TOKEN"),
@@ -200,6 +219,7 @@ fn tokens_go_only_to_their_own_forge() {
         ("GITHUB_TOKEN", "gh-secret"),
         ("GITLAB_TOKEN", "gl-secret"),
     ];
+
     assert_eq!(
         world
             .project
@@ -208,6 +228,7 @@ fn tokens_go_only_to_their_own_forge() {
         0
     );
     let log = world.forge.log();
+
     assert_eq!(
         log[0].authorization.as_deref(),
         Some("Bearer gh-secret"),
@@ -217,6 +238,7 @@ fn tokens_go_only_to_their_own_forge() {
     // GitLab and Codeberg repositories.
     world.forge.release("grp/sub/lib2", "v1.0.0", 5 * DAY);
     let second = Origin::new(&world.project.root, "lib2", &[("module.jai", "")]);
+
     second.release("v1.0.0", &[]);
     world
         .project
@@ -230,6 +252,7 @@ fn tokens_go_only_to_their_own_forge() {
         0
     );
     let log = world.forge.log();
+
     assert_eq!(
         log[0].private_token.as_deref(),
         Some("gl-secret"),
@@ -238,6 +261,7 @@ fn tokens_go_only_to_their_own_forge() {
     assert_eq!(log[0].authorization, None);
     world.forge.release("me/lib3", "v1.0.0", 5 * DAY);
     let third = Origin::new(&world.project.root, "lib3", &[("module.jai", "")]);
+
     third.release("v1.0.0", &[]);
     world
         .project
@@ -251,6 +275,7 @@ fn tokens_go_only_to_their_own_forge() {
         0
     );
     let log = world.forge.log();
+
     assert!(
         log[0].authorization.is_none() && log[0].private_token.is_none(),
         "{log:?}"
@@ -264,6 +289,7 @@ fn update_asks_github_once_for_every_dependency() {
         &[("v1.0.0", 5 * DAY)],
     );
     let other = Origin::new(&world.project.root, "other", &[("module.jai", "")]);
+
     other.release("v1.0.0", &[]);
     world
         .project
@@ -273,6 +299,7 @@ fn update_asks_github_once_for_every_dependency() {
         ("JACKET_FORGE_API", world.forge.base.as_str()),
         ("GITHUB_TOKEN", "t"),
     ];
+
     assert_eq!(
         world
             .project
@@ -297,6 +324,7 @@ fn update_asks_github_once_for_every_dependency() {
     // With no cached lists, one GraphQL query answers for both repositories.
     std::fs::remove_dir_all(world.project.root.join("cache")).unwrap();
     let run = world.project.jacket_env(&["dep", "update"], &envs);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let posts: Vec<_> = world
         .forge
@@ -304,6 +332,7 @@ fn update_asks_github_once_for_every_dependency() {
         .into_iter()
         .filter(|r| r.method == "POST")
         .collect();
+
     assert_eq!(posts.len(), 1, "{:?}\n{}", world.forge.log(), run.err);
     assert!(
         world
@@ -324,6 +353,7 @@ fn the_first_add_writes_a_seed() {
         &[("v1.0.0", 30 * DAY)],
     );
     let run = world.run(&["dep", "add", "someone/lib"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(!run.err.contains("warning"), "{}", run.err);
     assert!(
@@ -338,6 +368,7 @@ fn the_same_seed_gives_the_same_wait_and_another_seed_another() {
     // A release just past the floor is accepted or not depending on the seed alone.
     let age = DAY + 12 * HOUR;
     let mut verdicts = Vec::new();
+
     for seed in ["a", "b", "c", "d", "e", "f", "g", "h"] {
         let verdict = || {
             let world = World::new(
@@ -349,9 +380,11 @@ fn the_same_seed_gives_the_same_wait_and_another_seed_another() {
             world.run(&["dep", "add", "someone/lib@v1.0.0"])
         };
         let (first, again) = (verdict(), verdict());
+
         assert_eq!(first.code, again.code, "seed {seed} is stable");
         verdicts.push(first.code);
     }
+
     assert!(
         verdicts.contains(&0) && verdicts.contains(&2),
         "seeds differ: {verdicts:?}"
@@ -361,6 +394,7 @@ fn the_same_seed_gives_the_same_wait_and_another_seed_another() {
 #[test]
 fn init_lists_adopted_versions_that_break_the_policy() {
     let world = World::new("min-release-age = \"3d\"\n", &[("v1.0.0", 10 * HOUR)]);
+
     dep_support::git(
         &world.project.dir,
         &[
@@ -389,6 +423,7 @@ fn init_lists_adopted_versions_that_break_the_policy() {
         ],
     );
     let run = world.run(&["dep", "init"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(
         run.err.contains("lib v1.0.0 was published 10 hours ago")
@@ -404,6 +439,7 @@ fn init_lists_adopted_versions_that_break_the_policy() {
 fn with_no_settings_a_version_must_be_two_weeks_old() {
     let world = World::new("", &[("v1.2.0", 30 * DAY), ("v1.3.0", 10 * DAY)]);
     let run = world.run(&["dep", "add", "someone/lib@v1.3.0"]);
+
     assert_eq!(run.code, 2, "{}{}", run.out, run.err);
     assert!(
         run.err
@@ -412,6 +448,7 @@ fn with_no_settings_a_version_must_be_two_weeks_old() {
         run.err
     );
     let run = world.run(&["dep", "add", "someone/lib@v1.2.0"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
 }
 
@@ -419,5 +456,6 @@ fn with_no_settings_a_version_must_be_two_weeks_old() {
 fn a_zero_resolver_age_turns_the_default_policy_off() {
     let world = World::new("min-release-age = \"0\"\n", &[("v1.3.0", HOUR)]);
     let run = world.run(&["dep", "add", "someone/lib@v1.3.0"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
 }

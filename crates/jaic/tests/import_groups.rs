@@ -33,6 +33,7 @@ fn exported_calls_preserve_presence_and_separate_argument_counts() {
         let jaic::records::Item::Ref(import) = stmts.iter().next().unwrap() else {
             panic!("import")
         };
+
         for (field, expected) in ["module_parameters_call", "program_parameters_call"]
             .into_iter()
             .zip(expected)
@@ -45,6 +46,7 @@ fn exported_calls_preserve_presence_and_separate_argument_counts() {
                 },
                 _ => panic!("call"),
             };
+
             assert_eq!(actual, expected, "{source}: {field}");
         }
     }

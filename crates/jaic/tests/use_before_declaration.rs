@@ -6,11 +6,14 @@ use std::{path::Path, rc::Rc};
 
 fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> {
     let mut fs = VirtualFs::default();
+
     for (name, source) in modules {
         fs.insert(format!("/modules/{name}/module.jai"), source.as_bytes());
     }
+
     fs.insert("/main.jai", main.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec![Path::new("/modules").to_path_buf()];
     options.preload_stdlib = Some(Path::new("/modules").to_path_buf());
@@ -20,6 +23,7 @@ fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> 
 
 fn rejected(main: &str) -> Diagnostic {
     let d = compile(main, &[]).expect_err("must be rejected");
+
     assert_eq!(d.code, Code::UseBeforeDeclaration, "{d:?}");
     *d
 }
@@ -28,6 +32,7 @@ fn rejected(main: &str) -> Diagnostic {
 #[test]
 fn a_procedure_called_above_its_declaration_is_an_error() {
     let d = rejected("main :: () { foo(); foo :: () { } }");
+
     assert_eq!(d.message, "`foo` is used above its declaration");
     assert_eq!(d.code.name(), "use-before-declaration");
     assert!(d.notes.iter().any(|(_, n)| n == "declared here"));
@@ -89,6 +94,7 @@ fn the_same_error_is_reported_in_an_imported_module() {
         &[("Lib", "go :: () { foo(); foo :: () { } }")],
     )
     .expect_err("must be rejected");
+
     assert_eq!(d.code, Code::UseBeforeDeclaration, "{d:?}");
 }
 
@@ -100,6 +106,7 @@ fn struct_bodies_are_declarative_even_inside_ordered_procedures() {
         } else {
             "Box(1)"
         };
+
         for before in [true, false] {
             let declaration = "later :: 3; make :: ()->string {return \"value:int = 42;\";}";
             let object = format!("box:{instance};");
@@ -108,6 +115,7 @@ fn struct_bodies_are_declarative_even_inside_ordered_procedures() {
             } else {
                 format!("{declaration} {object}")
             };
+
             compile(&format!("main :: () {{ Box :: struct{parameter} {{ cells:[later]int; #insert #run make(); }} {tail} }}"), &[]).unwrap();
         }
     }
@@ -133,5 +141,6 @@ fn declarative_scopes_do_not_relax_order_inside_methods_or_enums() {
         &[],
     )
     .unwrap_err();
+
     assert_eq!(error.code, Code::LocalNotAccessible, "{error:?}");
 }

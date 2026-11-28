@@ -7,6 +7,7 @@ fn definition(source: &str) -> (Vec<Location>, String) {
     let (text, at) = cursor(source);
     let mut session = lean_session();
     let uri = file_uri("/definition-generated/main.jai");
+
     session.open(uri.clone(), 1, text.clone()).unwrap();
     (session.definition(&uri, at).unwrap(), text)
 }
@@ -27,6 +28,7 @@ fn a_member_reached_through_a_using_path() {
          Tex2D :: struct { texture: Tex; using,only(width, height) texture.desc; }\n\
          main :: () { t: Tex2D; t.|height = 7; }",
     );
+
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(
         line_of(&found[0], &text).starts_with("Desc ::"),
@@ -42,6 +44,7 @@ fn a_field_an_insert_in_a_struct_body_generates() {
          }\n\
          main :: () { f: Fields; f.|alpha = 3; }",
     );
+
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(line_of(&found[0], &text).contains("#insert"), "{found:?}");
 }
@@ -53,6 +56,7 @@ fn a_procedure_a_file_scope_insert_generates() {
          #insert #run generate();\n\
          main :: () { |update(1); }",
     );
+
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(line_of(&found[0], &text).contains("#insert"), "{found:?}");
 }

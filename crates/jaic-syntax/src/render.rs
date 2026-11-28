@@ -58,6 +58,7 @@ pub fn set_style(style: Style) {
         Layout::Unicode => 2,
         Layout::Msvc => 3,
     };
+
     STYLE.store(layout | (u8::from(style.color) << 2), Ordering::Relaxed);
 }
 
@@ -70,11 +71,13 @@ thread_local! {
 /// are unaffected, so concurrent callers each get their own.
 pub fn with_style<T>(style: Style, f: impl FnOnce() -> T) -> T {
     struct Restore(Option<Style>);
+
     impl Drop for Restore {
         fn drop(&mut self) {
             SCOPED.with(|scoped| scoped.set(self.0));
         }
     }
+
     let _restore = Restore(SCOPED.with(|scoped| scoped.replace(Some(style))));
     f()
 }
@@ -84,7 +87,9 @@ pub fn style() -> Style {
     if let Some(style) = SCOPED.with(Cell::get) {
         return style;
     }
+
     let bits = STYLE.load(Ordering::Relaxed);
+
     Style {
         layout: match bits & 3 {
             1 => Layout::Ascii,
@@ -122,16 +127,19 @@ impl ColorChoice {
     pub fn from_args(args: &[String], names: &[&str]) -> ColorChoice {
         let mut choice = ColorChoice::Auto;
         let mut args = args.iter().take_while(|a| *a != "-" && *a != "--");
+
         while let Some(arg) = args.next() {
             let value = match arg.split_once('=') {
                 Some((name, value)) if names.contains(&name) => Some(value),
                 None if names.contains(&arg.as_str()) => args.next().map(String::as_str),
                 _ => None,
             };
+
             if let Some(c) = value.and_then(ColorChoice::parse) {
                 choice = c;
             }
         }
+
         choice
     }
 }
@@ -165,6 +173,7 @@ pub fn color_with(
     env: impl Fn(&str) -> Option<String>,
 ) -> bool {
     let forced = |key: &str| env(key).is_some_and(|v| !v.is_empty() && v != "0");
+
     match choice {
         ColorChoice::Always => true,
         ColorChoice::Never => false,
@@ -217,6 +226,7 @@ pub fn detect_with(
         _ if utf8 || env("WT_SESSION").is_some() => Layout::Unicode,
         _ => Layout::Ascii,
     };
+
     Style {
         layout,
         color,
@@ -348,6 +358,7 @@ impl<'a> Report<'a> {
     pub fn from_text(code: Code, text: &str) -> Self {
         let mut report = Report::new(code, "");
         let mut message: Vec<&str> = Vec::new();
+
         for line in text.trim_end().lines() {
             if let Some(help) = line.strip_prefix("help: ").filter(|_| !message.is_empty()) {
                 report = report.help(help);
@@ -361,6 +372,7 @@ impl<'a> Report<'a> {
                 *last = format!("{last}\n{line}");
             }
         }
+
         report.message = message.join("\n");
         report
     }
@@ -406,6 +418,7 @@ impl<'a> Report<'a> {
             severity_color: Tone::from(self.severity).color(),
             out: String::new(),
         };
+
         if style.layout == Layout::Msvc {
             r.msvc(self);
         } else if r.plain && self.compact {
@@ -413,6 +426,7 @@ impl<'a> Report<'a> {
         } else {
             r.block(self);
         }
+
         r.out
     }
 }
@@ -521,6 +535,7 @@ impl Renderer {
             Some(code) => format!("{}[{code}]", severity.as_str()),
             None => severity.as_str().to_string(),
         };
+
         format!(
             "{}{}",
             self.paint.on(severity.color(), &head),
@@ -543,21 +558,26 @@ impl Renderer {
                 Some(l),
             )
         }));
+
         for (n, (severity, message, label)) in items.into_iter().enumerate() {
             let code = (n == 0).then(|| report.shown_name());
             let Some(label) = label else {
                 let head = self.header(severity, code, message);
+
                 self.line(&head);
+
                 continue;
             };
             let lines = label.index();
             let (line, col) = lines.line_col(label.text, label.start);
             let head = self.header(severity, code, message);
             let location = format!("{}:{line}:{col}: ", shown(label.path));
+
             self.line(&format!("{location}{head}"));
             // A label past the end of its text (a stale span) still renders, with an empty line.
             let (start, end) = lines.line_range(line - 1).unwrap_or((0, 0));
             let source = &label.text[start..end];
+
             self.line(&format!("    {source}"));
             let pad: String = source
                 .chars()
@@ -576,14 +596,19 @@ impl Renderer {
                 .count();
             let width = width.clamp(1, (source.chars().count() + 1).saturating_sub(col).max(1));
             let carets = self.paint.on(severity.color(), &"^".repeat(width));
+
             self.line(&format!("    {pad}{carets}"));
         }
+
         for note in &report.notes {
             let head = self.header(Tone::Note, None, note);
+
             self.line(&head);
         }
+
         for help in &report.help {
             let head = self.header(Tone::Help, None, &help.message);
+
             self.line(&head);
         }
     }
@@ -600,14 +625,19 @@ impl Renderer {
         let flat = |text: &str| text.replace('\n', " ");
         let head = format!("{}[{}]", report.severity.as_str(), report.shown_name());
         let at = place(report.primary.as_ref());
+
         self.line(&format!("{at}{head}: {}", flat(&report.message)));
+
         for label in &report.secondary {
             let message = label.message.as_ref().unwrap_or(&report.message);
+
             self.line(&format!("{}note: {}", place(Some(label)), flat(message)));
         }
+
         for note in &report.notes {
             self.line(&format!("{at}note: {}", flat(note)));
         }
+
         for help in &report.help {
             self.line(&format!("{at}note: help: {}", flat(&help.message)));
         }
@@ -621,20 +651,25 @@ impl Renderer {
             Some(report.shown_name()),
             &report.message,
         );
+
         self.line(&head);
         let mut labels: Vec<(&Label, bool)> = report.primary.iter().map(|l| (l, true)).collect();
+
         labels.extend(report.secondary.iter().map(|l| (l, false)));
         let width = self.gutter_width(&labels);
         // One section per file, the primary label's first.
         let mut files: Vec<&SourcePath> = Vec::new();
+
         for (label, _) in &labels {
             if !files.contains(&label.path) {
                 files.push(label.path);
             }
         }
+
         let g = self.glyphs;
         let blank = " ".repeat(width);
         let bar = self.paint.on(GUTTER, g.bar);
+
         for (i, path) in files.iter().enumerate() {
             let in_file: Vec<(&Label, bool)> = labels
                 .iter()
@@ -644,12 +679,14 @@ impl Renderer {
             let (first, _) = in_file[0];
             let (line, col) = first.index().line_col(first.text, first.start);
             let path = shown(path);
+
             if self.plain || g.close.is_empty() {
                 let arrow = if i == 0 {
                     g.open
                 } else {
                     ":::"
                 };
+
                 self.line(&format!(
                     "{blank}{} {path}:{line}:{col}",
                     self.paint.on(GUTTER, arrow)
@@ -657,18 +694,22 @@ impl Renderer {
                 self.line(&format!("{blank} {bar}"));
             } else {
                 let open = self.paint.on(GUTTER, g.open);
+
                 self.line(&format!(
                     "{blank} {open}{path}:{line}:{col}{}",
                     self.paint.on(GUTTER, "]")
                 ));
             }
+
             self.snippet(&in_file, width);
+
             if self.plain || g.close.is_empty() {
                 self.line(&format!("{blank} {bar}"));
             } else {
                 self.line(&format!("{blank} {}", self.paint.on(GUTTER, g.close)));
             }
         }
+
         let note_head = |r: &Renderer, severity: Tone, text: &str| {
             let indent = if labels.is_empty() {
                 String::new()
@@ -682,13 +723,16 @@ impl Renderer {
                 r.paint.on("1", severity.as_str()),
                 lines.next().unwrap_or("")
             );
+
             for rest in lines {
                 out.push('\n');
                 out.push_str(&continuation);
                 out.push_str(rest);
             }
+
             out
         };
+
         for help in &report.help {
             match &help.fix {
                 Some(fix) if !fix.edits.is_empty() && !labels.is_empty() => {
@@ -698,6 +742,7 @@ impl Renderer {
                         help.message
                     ));
                     self.line(&format!("{blank} {bar}"));
+
                     for (n, mark, code) in
                         changed_lines(fix.text, &lines_of(fix.text, fix.lines), &fix.edits)
                     {
@@ -711,22 +756,27 @@ impl Renderer {
                         } else {
                             expand_tabs(&code)
                         };
+
                         self.line(&format!(
                             "{} {} {code}",
                             self.paint.on(GUTTER, &format!("{n:>width$}")),
                             self.paint.on(paint, &mark.to_string())
                         ));
                     }
+
                     self.line(&format!("{blank} {bar}"));
                 }
                 _ => {
                     let text = note_head(self, Tone::Help, &help.message);
+
                     self.line(&text);
                 }
             }
         }
+
         for note in &report.notes {
             let text = note_head(self, Tone::Note, note);
+
             self.line(&text);
         }
     }
@@ -738,12 +788,14 @@ impl Renderer {
         } else {
             CONTEXT_LINES
         };
+
         labels
             .iter()
             .map(|(l, _)| {
                 let lines = l.index();
                 let (line, _) = lines.line_col(l.text, l.start);
                 let (end, _) = lines.line_col(l.text, l.end.max(l.start));
+
                 end.max(line + MAX_FIX_LINES) + context
             })
             .max()
@@ -771,6 +823,7 @@ impl Renderer {
                 let (a, ac) = lines.line_col(text, l.start);
                 let (b, bc) =
                     lines.line_col(text, l.end.max(l.start + 1).saturating_sub(1).max(l.start));
+
                 (a, ac, b, bc)
             })
             .collect();
@@ -781,6 +834,7 @@ impl Renderer {
         };
         // The lines to show: around each label; a long multi-line label shows its edges.
         let mut shown: Vec<usize> = Vec::new();
+
         for (i, s) in spans.iter().enumerate() {
             let end = if Some(i) == multi {
                 s.2
@@ -792,6 +846,7 @@ impl Renderer {
                     shown.push(n);
                 }
             };
+
             if end - s.0 > 2 * SPAN_EDGE_LINES + 1 {
                 add(s.0.saturating_sub(context), s.0 + SPAN_EDGE_LINES - 1);
                 add(end + 1 - SPAN_EDGE_LINES, end + context);
@@ -799,6 +854,7 @@ impl Renderer {
                 add(s.0.saturating_sub(context), end + context);
             }
         }
+
         shown.sort_unstable();
         shown.dedup();
         let bar = self.paint.on(GUTTER, g.bar);
@@ -810,6 +866,7 @@ impl Renderer {
             0
         };
         let mut previous = 0;
+
         for &n in &shown {
             if previous != 0 && n > previous + 1 {
                 self.line(&format!(
@@ -818,6 +875,7 @@ impl Renderer {
                     self.paint.on(GUTTER, g.gap)
                 ));
             }
+
             previous = n;
             let (start, end) = lines
                 .line_range(n.max(1) - 1)
@@ -826,17 +884,22 @@ impl Renderer {
             // Labels on this line: (first column, last column + 1, label, primary), columns
             // in characters of the shown text.
             let mut marks: Vec<(usize, usize, &Label, bool)> = Vec::new();
+
             for (i, (label, primary)) in labels.iter().enumerate() {
                 let s = spans[i];
+
                 if Some(i) == multi || s.0 != n {
                     continue;
                 }
+
                 let from = label.start.clamp(start, end);
                 let to = label.end.clamp(from, end);
                 let a = display_width(&text[start..from], self.plain);
                 let b = a + display_width(&text[from..to], self.plain).max(1);
+
                 marks.push((a, b, label, *primary));
             }
+
             let (shown_text, offset) = if self.plain {
                 (source.trim_end().to_string(), 0)
             } else {
@@ -852,9 +915,11 @@ impl Renderer {
             };
             let number = self.paint.on(GUTTER, &format!("{n:>width$}"));
             let line = format!("{number} {bar} {connector}{shown_text}");
+
             self.line(line.trim_end());
             // Primary label first, then the others left to right.
             marks.sort_by_key(|m| (!m.3, m.0));
+
             for (a, b, label, primary) in marks {
                 let (a, b) = (a.saturating_sub(offset), b.saturating_sub(offset));
                 let pad: String = if self.plain {
@@ -892,10 +957,12 @@ impl Renderer {
                     )
                 };
                 let mut underline = self.paint.on(color, &mark.to_string().repeat(b - a));
+
                 if let Some(message) = &label.message {
                     underline.push(' ');
                     underline.push_str(&self.paint.on(color, message));
                 }
+
                 let side = if self.plain {
                     &bar
                 } else {
@@ -911,8 +978,10 @@ impl Renderer {
                 } else {
                     String::new()
                 };
+
                 self.line(&format!("{blank} {side} {lead}{pad}{underline}"));
             }
+
             // After a multi-line label's last line: close it, under its end.
             if let Some(m) = multi
                 && spans[m].2 == n
@@ -928,10 +997,12 @@ impl Renderer {
                 };
                 let mut close =
                     format!("{}{}", g.span_end, g.span_line.to_string().repeat(last + 1));
+
                 if let Some(message) = &label.message {
                     close.push(' ');
                     close.push_str(message);
                 }
+
                 self.line(&format!(
                     "{blank} {note_bar} {}",
                     self.paint.on(color, &close)
@@ -971,9 +1042,11 @@ fn trim_line(
 ) -> (String, usize) {
     let line = line.trim_end();
     let chars: Vec<char> = line.chars().collect();
+
     if chars.len() <= MAX_LINE_WIDTH {
         return (line.to_string(), 0);
     }
+
     let first = marks.iter().map(|m| m.0).min().unwrap_or(0);
     let last = marks.iter().map(|m| m.1).max().unwrap_or(0);
     let margin = MAX_LINE_WIDTH.saturating_sub(last.saturating_sub(first)) / 2;
@@ -981,14 +1054,18 @@ fn trim_line(
     let to = (last + margin.max(8)).min(chars.len());
     let mut out = String::new();
     let mut offset = from;
+
     if from > 0 {
         out.push_str(ellipsis);
         offset = from.saturating_sub(ellipsis.chars().count());
     }
+
     out.extend(&chars[from..to]);
+
     if to < chars.len() {
         out.push_str(ellipsis);
     }
+
     (out, offset)
 }
 
@@ -997,8 +1074,10 @@ fn indent_width(text: &str, colored: bool) -> usize {
     if !colored {
         return text.chars().count();
     }
+
     let mut width = 0;
     let mut chars = text.chars();
+
     while let Some(c) = chars.next() {
         if c == '\x1b' {
             for c in chars.by_ref() {
@@ -1010,6 +1089,7 @@ fn indent_width(text: &str, colored: bool) -> usize {
             width += 1;
         }
     }
+
     width
 }
 
@@ -1039,21 +1119,26 @@ pub fn changed_lines(
         .map(|(a, b, new)| (a - start, b - start, new.clone()))
         .collect();
     let mut out = changed_lines_in(&text[start..end], &window);
+
     for (line, _, _) in &mut out {
         if let Ok(n) = line.parse::<usize>() {
             *line = (n + base).to_string();
         }
     }
+
     out
 }
 
 fn changed_lines_in(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String, char, String)> {
     let mut edits = edits.to_vec();
+
     edits.sort_by_key(|e| e.0);
     let mut fixed = text.to_string();
+
     for (start, end, new) in edits.iter().rev() {
         fixed.replace_range(*start..*end, new);
     }
+
     // Compare line contents, not their terminators: a deletion can leave an unchanged
     // boundary line at the end of this window, without its original newline.
     let old: Vec<&str> = text.lines().collect();
@@ -1073,16 +1158,19 @@ fn changed_lines_in(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String
     } else {
         similar::capture_diff_slices(similar::Algorithm::Myers, &old, &new)
     };
+
     for op in hunks {
         if op.tag() == similar::DiffTag::Equal {
             continue;
         }
+
         let old_range = op.old_range();
         let new_range = op.new_range();
         // Keep the compact replacement form for a hunk with the same line count.
         let replacement = old_range.len() == new_range.len();
         let old_start = old_range.start;
         let new_start = new_range.start;
+
         if !replacement {
             for n in old_range {
                 if removed < MAX_FIX_LINES {
@@ -1090,43 +1178,53 @@ fn changed_lines_in(text: &str, edits: &[(usize, usize, String)]) -> Vec<(String
                 } else if removed == MAX_FIX_LINES {
                     out.push(("...".into(), '-', String::new()));
                 }
+
                 removed += 1;
             }
         }
+
         for n in new_range {
             if replacement && old[old_start + n - new_start] == new[n] {
                 continue;
             }
+
             let mark = if replacement {
                 '~'
             } else {
                 '+'
             };
+
             if added < MAX_FIX_LINES {
                 out.push(((n + 1).to_string(), mark, new[n].trim_end().to_string()));
             } else if added == MAX_FIX_LINES {
                 out.push(("...".into(), mark, String::new()));
             }
+
             added += 1;
         }
     }
+
     // Line-ending-only edits still need a preview (for example, adding the final newline).
     // They have no changed line contents, so show just their touched lines as replacements.
     if out.is_empty() && text != fixed {
         let index = LineIndex::new(text);
         let mut touched = Vec::new();
+
         for (start, end, _) in &edits {
             touched
                 .extend(index.line_of(*start)..=index.line_of(end.saturating_sub(1).max(*start)));
         }
+
         touched.sort_unstable();
         touched.dedup();
+
         for n in touched.into_iter().take(MAX_FIX_LINES) {
             if let Some(line) = old.get(n) {
                 out.push(((n + 1).to_string(), '~', line.trim_end().to_string()));
             }
         }
     }
+
     out
 }
 

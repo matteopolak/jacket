@@ -72,14 +72,18 @@ impl Table {
     fn find(&self, hash: u64, text: &str) -> Option<Entry> {
         let mask = self.entries.len().checked_sub(1)?;
         let mut at = self.home(hash);
+
         loop {
             let entry = &self.entries[at];
+
             if entry.sym.0 == FREE {
                 return None;
             }
+
             if entry.hash == hash && entry.text == text {
                 return Some(*entry);
             }
+
             at = (at + 1) & mask;
         }
     }
@@ -96,6 +100,7 @@ impl Table {
         if (self.len + 1) * 2 > self.entries.len() {
             self.grow();
         }
+
         self.place(entry);
         self.len += 1;
     }
@@ -103,9 +108,11 @@ impl Table {
     fn place(&mut self, entry: Entry) {
         let mask = self.entries.len() - 1;
         let mut at = self.home(entry.hash);
+
         while self.entries[at].sym.0 != FREE {
             at = (at + 1) & mask;
         }
+
         self.entries[at] = entry;
     }
 
@@ -117,6 +124,7 @@ impl Table {
         };
         let capacity = (self.entries.len() * 2).max(64);
         let old = std::mem::replace(&mut self.entries, vec![free; capacity]);
+
         for entry in old.into_iter().filter(|entry| entry.sym.0 != FREE) {
             self.place(entry);
         }
@@ -149,14 +157,18 @@ impl Sym {
 
     fn lookup(text: &str, leak: impl FnOnce() -> &'static str) -> Sym {
         let hash = BuildHasherDefault::<FxHasher>::new().hash_one(text);
+
         LOCAL.with_borrow_mut(|local| {
             if let Some(entry) = local.find(hash, text) {
                 return entry.sym;
             }
+
             let entry = global(hash, text, leak);
+
             if local.len >= LOCAL_LIMIT {
                 local.clear();
             }
+
             local.insert(entry);
             entry.sym
         })
@@ -165,6 +177,7 @@ impl Sym {
     pub fn as_str(self) -> &'static str {
         let i = self.0 as usize;
         let segment = TABLE[i / SEGMENT].load(Ordering::Acquire);
+
         debug_assert!(!segment.is_null());
         // SAFETY: a `Sym` exists only once its slot is written and published (module docs), and
         // segments are never freed.
@@ -175,6 +188,7 @@ impl Sym {
                 slot.ptr.load(Ordering::Relaxed),
                 slot.len.load(Ordering::Relaxed),
             );
+
             std::str::from_utf8_unchecked(std::slice::from_raw_parts(ptr, len as usize))
         }
     }
@@ -189,16 +203,21 @@ fn global(hash: u64, text: &str, leak: impl FnOnce() -> &'static str) -> Entry {
     let mut shard = SHARD[(hash >> 58) as usize % SHARDS]
         .lock()
         .unwrap_or_else(PoisonError::into_inner);
+
     if let Some(entry) = shard.find(hash, text) {
         return entry;
     }
+
     let spelling = leak();
     let mut gap = 0;
+
     if let Some(seed) = crate::knobs::sym_scramble() {
         gap = crate::knobs::scramble_gap(seed, hash, 4);
     }
+
     let index = NEXT.fetch_add(1 + gap, Ordering::Relaxed) + gap;
     let slot = slot(index as usize);
+
     slot.ptr
         .store(spelling.as_ptr().cast_mut(), Ordering::Relaxed);
     slot.len.store(spelling.len() as u32, Ordering::Relaxed);
@@ -207,6 +226,7 @@ fn global(hash: u64, text: &str, leak: impl FnOnce() -> &'static str) -> Entry {
         text: spelling,
         sym: Sym(index),
     };
+
     shard.insert(entry);
     entry
 }
@@ -217,6 +237,7 @@ fn slot(index: usize) -> &'static Slot {
         panic!("more than {} distinct identifiers", SEGMENT * SEGMENTS);
     };
     let mut segment = entry.load(Ordering::Acquire);
+
     if segment.is_null() {
         let slots: Box<[Slot]> = (0..SEGMENT)
             .map(|_| Slot {
@@ -226,6 +247,7 @@ fn slot(index: usize) -> &'static Slot {
             .collect();
         let fresh =
             Box::into_raw(Box::<Segment>::try_from(slots).unwrap_or_else(|_| unreachable!()));
+
         segment =
             match entry.compare_exchange(null_mut(), fresh, Ordering::AcqRel, Ordering::Acquire) {
                 Ok(_) => fresh,
@@ -237,6 +259,7 @@ fn slot(index: usize) -> &'static Slot {
                 }
             };
     }
+
     // SAFETY: installed segments live for the rest of the process.
     #[allow(unsafe_code)]
     unsafe {
@@ -283,6 +306,7 @@ mod tests {
                                 format!("thread_{t}_{i}")
                             };
                             let sym = Sym::intern(&text);
+
                             assert_eq!(sym.as_str(), text);
                             (text, sym)
                         })
@@ -291,6 +315,7 @@ mod tests {
             })
             .collect();
         let results: Vec<_> = threads.into_iter().map(|t| t.join().unwrap()).collect();
+
         for result in &results {
             for (text, sym) in result {
                 assert_eq!(Sym::intern(text), *sym);

@@ -40,6 +40,7 @@ impl Compiler {
                 None => name.to_string(),
             });
         let id = ProcId(self.pr.procs.len() as u32);
+
         self.pr.procs.push(ProcInfo {
             name,
             lit,
@@ -56,9 +57,11 @@ impl Compiler {
             bindings: None,
             export,
         });
+
         if self.pr.procs[id.0 as usize].export.is_some() {
             self.pr.exports.push(id);
         }
+
         id
     }
 
@@ -72,14 +75,17 @@ impl Compiler {
         if self.proc(id).poly_checked {
             return Ok(());
         }
+
         // Set while resolving, so the names it resolves cannot start the same decision again.
         self.proc_memo_mut(id).poly_checked = true;
         let header = self.proc(id).lit.header.clone();
         let scope = self.proc(id).scope;
+
         for p in &header.params {
             let Some(t) = &p.ty else {
                 continue;
             };
+
             match self.mentions_poly_struct_resolved(scope, t) {
                 Ok(true) => {
                     self.proc_memo_mut(id).is_poly = true;
@@ -92,6 +98,7 @@ impl Compiler {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -149,9 +156,11 @@ impl Compiler {
         let [id] = ids[..] else {
             return Ok(None);
         };
+
         if matches!(self.entity(id).kind, EntityKind::Local { .. }) {
             return Ok(None);
         }
+
         Ok(match self.resolve_entity(id)? {
             Resolved::PolyStruct(ps) => Some(ps),
             _ => None,
@@ -176,13 +185,17 @@ impl Compiler {
         // Every call asks this of each parameter of each candidate, and a name that resolved to
         // a type keeps meaning it.
         let key = (proc, ty.span, name);
+
         if let Some(&is_code) = self.caches.param_is_code.get(&key) {
             return is_code;
         }
+
         let scope = self.proc(proc).scope;
+
         match self.eval_type(scope, ty) {
             Ok(ty) => {
                 let is_code = ty == TypeId::CODE;
+
                 self.caches.param_is_code.insert(key, is_code);
                 is_code
             }
@@ -194,6 +207,7 @@ impl Compiler {
         if let Some(sig) = &self.proc(id).sig {
             return Ok(sig.clone());
         }
+
         self.first_use(FirstUse::Signature(id), |c| c.make_signature(id, span))
     }
 
@@ -203,6 +217,7 @@ impl Compiler {
         // A parameter naming a polymorphic struct bare (`f: *Table`) makes it polymorphic,
         // which must be known before its types are: `*Table` alone is a type too.
         self.refresh_implicit_poly(id)?;
+
         if self.proc(id).is_poly {
             return err(
                 Code::ProcPolymorphicProcedure,
@@ -213,16 +228,20 @@ impl Compiler {
                 ),
             );
         }
+
         if self.proc(id).sig_resolving {
             crate::sema::body_probe::write(crate::sema::body_probe::W::EpochsInProgressMisses);
             self.epochs.in_progress_misses += 1;
+
             return err(
                 Code::ProcSignatureDependsItself,
                 self.proc(id).span,
                 format!("signature of `{}` depends on itself", self.proc(id).name),
             );
         }
+
         let mut seen: Vec<(Sym, Span)> = Vec::new();
+
         for param in &self.proc(id).lit.header.params {
             if let Some(name) = param.name
                 && name.name.as_str() != "_"
@@ -238,13 +257,17 @@ impl Compiler {
                         .with_note(first, format!("`{}` is first declared here", name.name)),
                     ));
                 }
+
                 seen.push((name.name, name.span));
             }
         }
+
         self.proc_memo_mut(id).sig_resolving = true;
         let result = self.build_signature(id);
+
         self.proc_memo_mut(id).sig_resolving = false;
         let sig = Arc::new(result?);
+
         crate::sema::speculative::keep_signature_movable(&sig);
         self.proc_memo_mut(id).sig = Some(sig.clone());
         Ok(sig)
@@ -261,11 +284,13 @@ impl Compiler {
         let inner = self.new_hidden_scope(scope);
         let mut scratch = self.scratch_ctx(inner);
         let depth = self.scope(inner).proc_depth;
+
         for param in params {
             let Some(name) = param.name else {
                 continue;
             };
             let addr = scratch.b.iconst(ir::Ty::Ptr, 0);
+
             self.add_entity(
                 inner,
                 name,
@@ -278,6 +303,7 @@ impl Compiler {
                 false,
             );
         }
+
         let op = self.check_expr(&mut scratch, inner, t, Some(TypeId::TYPE))?;
         self.operand_as_type(op, t.span)
     }
@@ -286,6 +312,7 @@ impl Compiler {
         self.check_proc_modify(id)?;
         let p = self.proc(id);
         let header = p.lit.header.clone();
+
         validate_c_variadic_header(&header)?;
         let scope = p.bindings.unwrap_or(p.scope);
         // Baked (`$x`) parameters are constants of the instance, not runtime parameters.
@@ -297,6 +324,7 @@ impl Compiler {
                 (t.span.file.0 as usize) < c.src.sources.len() && {
                     let text = c.src.sources.snippet(t.span);
                     let word = |ch: char| ch.is_alphanumeric() || ch == '_';
+
                     text.split(|ch: char| !word(ch)).any(|w| {
                         runtime[i + 1..]
                             .iter()
@@ -307,15 +335,19 @@ impl Compiler {
         };
         let deferred: Vec<bool> = (0..runtime.len()).map(|i| names_later(self, i)).collect();
         let mut slots: Vec<Option<ParamInfo>> = vec![None; runtime.len()];
+
         for pass in [false, true] {
             for (i, param) in runtime.iter().enumerate() {
                 if deferred[i] != pass {
                     continue;
                 }
+
                 let params: Vec<ParamInfo> = slots.iter().flatten().cloned().collect();
+
                 slots[i] = Some(self.param_info(scope, &header, param, &params)?);
             }
         }
+
         let params: Vec<ParamInfo> = slots.into_iter().flatten().collect();
         self.finish_signature(id, scope, &header, params)
     }
@@ -342,6 +374,7 @@ impl Compiler {
                 (None, Some(d)) => {
                     // Only the type matters; defaults like `context.allocator` are runtime values.
                     let op = self.check_expr_no_emit(scope, d)?;
+
                     match op {
                         Operand::Const {
                             ty,
@@ -367,6 +400,7 @@ impl Compiler {
             } else {
                 ty
             };
+
             Ok(ParamInfo {
                 name: param.name.map(|n| n.name),
                 ty,
@@ -401,10 +435,12 @@ impl Compiler {
             return None;
         };
         let mut shape = param.ty.as_ref()?;
+
         while let ast::ExprKind::Unary(ast::UnOp::Star, inner) = &shape.kind {
             ty = self.ty.types.pointer(ty);
             shape = inner;
         }
+
         Some(ty)
     }
 
@@ -418,6 +454,7 @@ impl Compiler {
         let mut returns = Vec::new();
         let mut return_callables = Vec::new();
         let mut return_names = Vec::new();
+
         for r in &header.returns {
             let ty = match (&r.ty, &r.default) {
                 (Some(t), _) if self.src.mentions_param(t, &params) => {
@@ -437,11 +474,13 @@ impl Compiler {
                     return err(Code::ProcResultNeedsType, r.span, "result needs a type");
                 }
             };
+
             if let Some(n) = r.name
                 && self.ed.is_live()
             {
                 self.ide_note_param_name(n.span, n.name, ty);
             }
+
             // A lone `void` result means no result; next to others it is a value of its own.
             if ty != TypeId::VOID || header.returns.len() > 1 {
                 returns.push(ty);
@@ -456,6 +495,7 @@ impl Compiler {
                 return_names.push(r.name.map(|n| n.name));
             }
         }
+
         if let Some(ty) = self.lambda_return_type(id, scope, &params)?
             && ty != TypeId::VOID
         {
@@ -463,14 +503,17 @@ impl Compiler {
             return_callables.push(None);
             return_names.push(None);
         }
+
         if !self.proc(id).is_macro {
             for param in &params {
                 self.ensure_storage_type(param.ty, param.span)?;
             }
         }
+
         for &ty in &returns {
             self.ensure_storage_type(ty, self.proc(id).span)?;
         }
+
         let c_call = header.uses_c_abi();
         let c_varargs = c_call && params.last().is_some_and(|p| p.variadic);
         let has_context = !c_call && !header.flags.no_context() && !header.flags.intrinsic();
@@ -489,6 +532,7 @@ impl Compiler {
             cpp_method: header.flags.cpp_method(),
         };
         let ty = self.ty.types.intern(TypeKind::Proc(Arc::new(proc_type)));
+
         Ok(Signature {
             params,
             returns,
@@ -513,10 +557,12 @@ impl Compiler {
         if self.ns.overload_sets_checked.contains(ids) {
             return Ok(());
         }
+
         let mut seen: Vec<(EntityId, ProcId, Arc<[TypeId]>, bool)> = Vec::new();
         // A member that cannot be resolved yet (a `#placeholder` in its parameters) reports
         // its own error; the set is checked again once it can be compared.
         let mut complete = true;
+
         for &id in ids {
             let Ok(
                 Resolved::Proc(proc)
@@ -529,9 +575,11 @@ impl Compiler {
                 complete = false;
                 continue;
             };
+
             if self.proc(proc).is_poly || self.proc(proc).lit.body.is_none() {
                 continue;
             }
+
             let span = self.entity(id).span;
             let Ok(sig) = self.signature(proc, span) else {
                 complete = false;
@@ -540,18 +588,22 @@ impl Compiler {
             let TypeKind::Proc(ty) = self.ty.types.kind(sig.ty).clone() else {
                 continue;
             };
+
             // Two aliases of one procedure are the same overload, not a clash.
             if seen.iter().any(|(_, other, ..)| *other == proc) {
                 continue;
             }
+
             let scope = self.binding_scope(self.entity(id).scope);
             let params: Arc<[TypeId]> = ty.params.iter().copied().collect();
+
             if let Some((first, ..)) = seen.iter().find(|(other, _, p, v)| {
                 self.binding_scope(self.entity(*other).scope) == scope
                     && **p == *params
                     && *v == ty.variadic
             }) {
                 let first = self.entity(*first).span;
+
                 return Err(Box::new(
                     Diagnostic::new(
                         Code::ProcTwoProceduresName,
@@ -563,13 +615,16 @@ impl Compiler {
                     .with_help("change a parameter's type, or remove one of them"),
                 ));
             }
+
             seen.push((id, proc, params, ty.variadic));
         }
+
         // Only a clean, fully compared set is remembered: a caller that swallows the error (a
         // speculative lookup) must not hide it from the next check.
         if complete {
             self.ns.overload_sets_checked.insert(ids.to_vec());
         }
+
         Ok(())
     }
 }
@@ -580,8 +635,10 @@ impl SourceState {
         if (t.span.file.0 as usize) >= self.sources.len() {
             return false;
         }
+
         let text = self.sources.snippet(t.span);
         let word = |c: char| c.is_alphanumeric() || c == '_';
+
         text.split(|c: char| !word(c)).any(|w| {
             params
                 .iter()

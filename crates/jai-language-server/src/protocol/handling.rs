@@ -114,6 +114,7 @@ impl JsonSession {
     /// supports: what was answered while edits were typed lacked the type checker.
     pub(super) fn compile_refreshes(&mut self) -> Vec<Value> {
         let mut out = Vec::new();
+
         for (wanted, method) in [
             (self.refresh_inlay_hints, "workspace/inlayHint/refresh"),
             (
@@ -125,6 +126,7 @@ impl JsonSession {
                 out.extend(self.refresh_request(method));
             }
         }
+
         out
     }
 
@@ -147,8 +149,10 @@ impl JsonSession {
         let mut messages = match changed {
             Ok(changed) => {
                 self.lenses_changed |= changed;
+
                 if indexing && changed && !self.session.indexing_pending() {
                     let mut messages = self.compile_refreshes();
+
                     messages.extend(self.workspace_diagnostics_ready());
                     messages
                 } else {
@@ -157,10 +161,12 @@ impl JsonSession {
             }
             Err((_, message)) => vec![log_error(&message)],
         };
+
         if self.lenses_changed && !self.session.has_background_work() {
             self.lenses_changed = false;
             messages.extend(self.code_lens_refresh());
         }
+
         self.encode_unprompted(messages)
     }
 
@@ -169,6 +175,7 @@ impl JsonSession {
         if !self.refresh_code_lenses {
             return None;
         }
+
         self.refresh_request("workspace/codeLens/refresh")
     }
 
@@ -180,8 +187,10 @@ impl JsonSession {
             self.refresh_dirty.insert(method);
             return None;
         }
+
         self.refreshes += 1;
         let id = format!("jai-refresh-{}", self.refreshes);
+
         self.refresh_outstanding.insert(id.clone(), method);
         Some(json!({"jsonrpc": "2.0", "id": id, "method": method}))
     }
@@ -192,21 +201,26 @@ impl JsonSession {
         if self.refresh_outstanding.is_empty() {
             return Vec::new();
         }
+
         let Ok(value) = serde_json::from_str::<Value>(input) else {
             return Vec::new();
         };
+
         if value.get("method").is_some() {
             return Vec::new();
         }
+
         let Some(method) = value["id"]
             .as_str()
             .and_then(|id| self.refresh_outstanding.remove(id))
         else {
             return Vec::new();
         };
+
         if self.refresh_dirty.remove(method) && self.lifecycle == Lifecycle::Running {
             return self.refresh_request(method).into_iter().collect();
         }
+
         Vec::new()
     }
 
@@ -233,6 +247,7 @@ impl JsonSession {
         if !self.session.take_dependency_arrivals() || !self.refresh_inlay_hints {
             return Ok(Vec::new());
         }
+
         let messages: Vec<_> = self
             .refresh_request("workspace/inlayHint/refresh")
             .into_iter()
@@ -246,6 +261,7 @@ impl JsonSession {
         if !self.session.take_service_arrivals() {
             return Ok(Vec::new());
         }
+
         let messages = self.edited(true);
         self.encode_unprompted(messages)
     }
@@ -259,9 +275,11 @@ impl JsonSession {
     /// edits since the last flush. Empty for a client that pulls.
     pub fn flush_publications(&mut self) -> Result<Vec<String>, ProtocolError> {
         self.lints_pending = false;
+
         if !std::mem::take(&mut self.publications_pending) {
             return Ok(Vec::new());
         }
+
         let messages = self.publications_now();
         self.encode_unprompted(messages)
     }
@@ -274,14 +292,17 @@ impl JsonSession {
         if !self.publications_pending {
             return Ok(Vec::new());
         }
+
         // The compiler's diagnostics go out as soon as the compile is done; the lints follow
         // from `flush_lints_unless_interrupted` when input is quiet.
         let Some(publications) = self.session.staged_unless_interrupted(Stage::Compile) else {
             return Ok(Vec::new());
         };
+
         self.publications_pending = false;
         self.lints_pending = true;
         let mut messages = Self::publication_messages(publications);
+
         messages.extend(self.compile_refreshes());
         self.encode_unprompted(messages)
     }
@@ -299,9 +320,11 @@ impl JsonSession {
         if !self.lints_pending() {
             return Ok(Vec::new());
         }
+
         let Some(publications) = self.session.staged_unless_interrupted(Stage::Full) else {
             return Ok(Vec::new());
         };
+
         self.lints_pending = false;
         self.encode_unprompted(Self::publication_messages(publications))
     }
@@ -310,7 +333,9 @@ impl JsonSession {
         if input.len() > self.session.limits().message_bytes {
             return Err(ProtocolError::MessageLimit);
         }
+
         self.progress_reply(input);
+
         match incoming(input) {
             Err(error) => self.encode(vec![error], None),
             // The client's answer to a request of ours (a refresh).
@@ -337,12 +362,15 @@ impl JsonSession {
     pub fn handle_batch(&mut self, inputs: &[String]) -> Result<Vec<Vec<String>>, ProtocolError> {
         self.note_cancellations(inputs);
         let mut answers = Vec::with_capacity(inputs.len());
+
         for input in inputs {
             answers.push(self.handle_json(input)?);
+
             if self.exit_status().is_some() {
                 break;
             }
         }
+
         Ok(answers)
     }
 
@@ -358,6 +386,7 @@ impl JsonSession {
         if input.len() > self.session.limits().message_bytes || !input.contains("$/cancelRequest") {
             return;
         }
+
         if let Ok(Some(Incoming {
             id: None,
             method,
@@ -377,16 +406,20 @@ impl JsonSession {
         params: Value,
     ) -> Result<Vec<String>, ProtocolError> {
         let identifier = json!(id);
+
         if let Some(at) = self.cancelled.iter().position(|cancelled| *cancelled == id) {
             self.cancelled.remove(at);
             self.remember(id);
             let cancelled = failure(identifier, ErrorCode::RequestCancelled, "Request cancelled");
+
             return self.encode(vec![cancelled], None);
         }
+
         let result = self.guarded(method, |this| {
             debug_panic(method);
             this.request(method, params)
         });
+
         self.remember(id);
         let (mut output, tail) = match result {
             Ok(Reply::Value(result)) => (
@@ -401,7 +434,9 @@ impl JsonSession {
             ),
             Err((code, message)) => (vec![failure(identifier.clone(), code, &message)], None),
         };
+
         output.extend(self.shown_messages());
+
         match self.encode(output, tail) {
             // A response over the output cap is that request's error, not the end of the session.
             Err(ProtocolError::OutputLimit) => self.encode(
@@ -418,21 +453,26 @@ impl JsonSession {
         params: Value,
     ) -> Result<Vec<String>, ProtocolError> {
         let notification = Notification::parse(method);
+
         match notification {
             Some(Notification::Cancel) => {
                 let result = serde_json::from_value::<CancelParams>(params)
                     .map_err(|_| Error::InvalidEdit("invalid cancellation parameters"))
                     .and_then(|params| self.cancel_request(params.id));
                 let errors = result.err().map(|e| log_error(&e.to_string()));
+
                 return self.encode(errors.into_iter().collect(), None);
             }
             Some(Notification::Exit) => {
                 let code = u8::from(self.lifecycle != Lifecycle::Shutdown);
+
                 self.lifecycle = Lifecycle::Exited(code);
+
                 return Ok(vec![]);
             }
             _ => {}
         }
+
         let result = self.guarded(method, |this| {
             debug_panic(method);
             this.notification(notification, params)
@@ -443,7 +483,9 @@ impl JsonSession {
             Err(_) if self.lifecycle == Lifecycle::New => vec![],
             Err((_, message)) => vec![log_error(&message)],
         };
+
         output.extend(self.shown_messages());
+
         match self.encode(output, None) {
             Err(ProtocolError::OutputLimit) => self.encode(vec![log_error(OUTPUT_LIMIT)], None),
             other => other,
@@ -463,6 +505,7 @@ impl JsonSession {
                     .map(std::string::ToString::to_string)
                     .or_else(|| payload.downcast_ref::<String>().cloned())
                     .unwrap_or_else(|| "unknown panic".into());
+
                 eprintln!("jailsp: internal error in `{method}`: {what}");
                 self.session.reset_caches();
                 Err(fail(
@@ -483,6 +526,7 @@ impl JsonSession {
                 "params": { "type": 3, "message": message },
             })
         });
+
         self.session
             .take_messages()
             .into_iter()
@@ -502,32 +546,41 @@ impl JsonSession {
         if !valid_id(&id) {
             return Err(Error::InvalidEdit("invalid cancellation id"));
         }
+
         if self.completed.contains(&id) {
             return Ok(());
         }
+
         if self.cancelled.contains(&id) {
             return Ok(());
         }
+
         // A cancellation whose request never comes would sit here for good: the oldest goes.
         let limit = self.session.limits().cancelled_requests;
+
         if limit == 0 {
             return Ok(());
         }
+
         if self.cancelled.len() >= limit {
             self.cancelled.pop_front();
         }
+
         self.cancelled.push_back(id);
         Ok(())
     }
 
     fn remember(&mut self, id: RequestId) {
         let limit = self.session.limits().cancelled_requests;
+
         if limit == 0 {
             return;
         }
+
         if self.completed.len() >= limit {
             self.completed.pop_front();
         }
+
         self.completed.push_back(id);
     }
 
@@ -558,14 +611,17 @@ impl JsonSession {
                     .map_err(|e| ProtocolError::Serialization(e.to_string()))
             })
             .chain(tail.map(Ok));
+
         for text in texts {
             let text = text?;
+
             bytes = bytes
                 .checked_add(text.len())
                 .filter(|n| *n <= self.session.limits().output_bytes)
                 .ok_or(ProtocolError::OutputLimit)?;
             out.push(text);
         }
+
         Ok(out)
     }
 

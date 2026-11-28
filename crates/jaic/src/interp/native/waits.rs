@@ -29,16 +29,19 @@ fn host_address(symbol: &str) -> Option<u64> {
     if symbol == "sem_wait" {
         return Some(sem_wait as *const () as usize as u64);
     }
+
     #[cfg(any(target_os = "linux", target_os = "android"))]
     if symbol == "sem_timedwait" {
         return Some(sem_timedwait as *const () as usize as u64);
     }
+
     #[cfg(target_os = "macos")]
     match symbol {
         "semaphore_wait" => return Some(semaphore_wait as *const () as usize as u64),
         "semaphore_timedwait" => return Some(semaphore_timedwait as *const () as usize as u64),
         _ => {}
     }
+
     let _ = symbol;
     None
 }
@@ -68,9 +71,11 @@ pub(in crate::interp) fn prepare() {
     static PREPARED: std::sync::OnceLock<()> = std::sync::OnceLock::new();
     PREPARED.get_or_init(|| {
         let _error = crate::interp::last_error::keep();
+
         for (index, symbol) in SYMBOLS.iter().enumerate() {
             VERIFIED[index].get_or_init(|| host_address(symbol).and_then(ProviderAddress::verify));
         }
+
         provider::clear_inspection_error();
     });
 }
@@ -85,6 +90,7 @@ pub(in crate::interp) fn known(
     let Some(index) = SYMBOLS.iter().position(|name| *name == symbol) else {
         return false;
     };
+
     library.is_some_and(|library| {
         library.system
             && matches!(library.name.as_str(), "c" | "libc" | "pthread")
@@ -115,10 +121,12 @@ mod tests {
         extern "C" fn user_wait(_: *mut std::ffi::c_void) -> i32 {
             0
         }
+
         let interposed = user_wait as *const () as usize as u64;
         // Model both imports resolving to the same interposer, then query its real image origin.
         let imported_address = interposed;
         let resolved_address = interposed;
+
         assert!(!accepted_binding(
             resolved_address,
             ProviderAddress::verify(imported_address)
@@ -131,6 +139,7 @@ mod tests {
         unsafe extern "C" {
             fn dlerror() -> *const std::ffi::c_char;
         }
+
         let _interp = crate::interp::Interp::native(crate::layout::DataLayout::host());
         let system = library("libc", true);
         let symbol = "sem_wait";
@@ -142,16 +151,19 @@ mod tests {
                 c"jaic_missing_wait_provenance_probe".as_ptr(),
             )
         };
+
         assert!(missing.is_null());
         let _ = known(Some(&system), symbol, address);
         // SAFETY: read this calling thread's pending loader error before any further query.
         let error = unsafe { dlerror() };
+
         assert!(
             !error.is_null(),
             "classification cleared the guest's dlerror state"
         );
         // SAFETY: a non-null dlerror result is a loader-owned NUL-terminated string.
         let message = unsafe { std::ffi::CStr::from_ptr(error) };
+
         assert!(
             message
                 .to_string_lossy()
@@ -163,6 +175,7 @@ mod tests {
     fn only_the_host_sdk_address_and_system_binding_select_a_wait() {
         prepare();
         let system = library("libc", true);
+
         for symbol in [
             "sem_wait",
             "sem_timedwait",
@@ -172,6 +185,7 @@ mod tests {
             let Some(address) = host_address(symbol) else {
                 continue;
             };
+
             assert_eq!(
                 known(Some(&system), symbol, address),
                 provider::trusted(address)
@@ -182,8 +196,10 @@ mod tests {
             assert!(!known(None, symbol, address));
             // Native loading must resolve the same implementation whose address the SDK names.
             let loaded = super::super::Library::open("libc", true, "").unwrap();
+
             assert_eq!(super::super::lookup(Some(&loaded), symbol), Some(address));
         }
+
         assert!(!known(Some(&system), "sem_trywait", 17));
         assert!(!known(Some(&system), "opaque_user_wait", 17));
     }

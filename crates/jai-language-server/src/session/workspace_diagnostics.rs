@@ -40,6 +40,7 @@ pub(super) struct WorkspaceDiagnostics {
 pub(super) fn not_in_program(text: &str) -> Diagnostic {
     let end = text.find('\n').unwrap_or(text.len());
     let lines = LineIndex::new(text);
+
     Diagnostic {
         range: lines.range(text, Span::new(0, end)).unwrap_or_default(),
         severity: DiagnosticSeverity::Information,
@@ -68,17 +69,21 @@ impl WorkspaceDiagnostics {
     pub(super) fn invalidate(&mut self, path: &Path, topology: bool) {
         let mut reach = false;
         let mut in_program = false;
+
         for snapshot in self.roots.values_mut() {
             in_program |= snapshot.files.remove(path).is_some();
             let hit = topology
                 || path.extension().is_some_and(|e| e == "toml")
                 || snapshot.dependencies.concerns(path);
+
             snapshot.stale |= hit;
             reach |= hit;
         }
+
         // A file no program holds can be one no program reaches: opening, closing or editing
         // it changes what is said of it.
         let loose = !in_program && path.extension().is_some_and(|e| e == "jai");
+
         if reach || loose {
             self.unreached_fresh = false;
         }
@@ -88,6 +93,7 @@ impl WorkspaceDiagnostics {
         for snapshot in self.roots.values_mut() {
             snapshot.stale = true;
         }
+
         self.unreached_fresh = false;
     }
 
@@ -111,11 +117,14 @@ impl Session {
         syntax: &[Diagnostic],
     ) -> Option<Vec<Diagnostic>> {
         let mut items = Vec::new();
+
         analysis.focus(path);
+
         for finding in analysis.check_findings(path) {
             let Ok(range) = lines.range(text, Span::new(finding.start, finding.end)) else {
                 continue;
             };
+
             if syntax.iter().any(|d| {
                 matches!(d.code, DiagnosticCode::Lexer | DiagnosticCode::Parser)
                     && d.range.start == range.start
@@ -123,8 +132,10 @@ impl Session {
             }) {
                 continue;
             }
+
             items.push(self.check_finding_at(finding, range).diagnostic);
         }
+
         for (start, end) in analysis.unreachable(path) {
             if let Ok(range) = lines.range(text, Span::new(start, end)) {
                 items.push(Diagnostic {
@@ -136,6 +147,7 @@ impl Session {
                 });
             }
         }
+
         if let Some(config) = self.lint_config(path) {
             for lint in analysis.lints(path, &config)? {
                 if let Ok(range) = lines.range(text, Span::new(lint.start, lint.end)) {
@@ -143,6 +155,7 @@ impl Session {
                 }
             }
         }
+
         Some(items)
     }
 
@@ -157,9 +170,11 @@ impl Session {
             return Ok(Vec::new());
         };
         let roots = self.sibling_roots(uri);
+
         if roots.is_empty() {
             return Ok(Vec::new());
         }
+
         let (files, ..) = self
             .compile_inputs(uri, &doc.text)
             .ok_or(Error::CheckUnavailable)?;
@@ -170,11 +185,13 @@ impl Session {
         let lines = LineIndex::new(&doc.text);
         let path = Path::new(uri.path());
         let mut found = Vec::new();
+
         for root in roots {
             // An untrusted workspace does not run the metaprogram that would build the file.
             if !self.trusted() && self.is_build_metaprogram(&root) {
                 continue;
             }
+
             let dirs = self.import_dirs(&root);
             let mut cache = self.semantic.borrow_mut();
             let analysis = cache
@@ -183,9 +200,11 @@ impl Session {
             let items = self
                 .semantic_items(analysis, path, &doc.text, &lines, syntax)
                 .ok_or(Error::CheckUnavailable)?;
+
             self.sync_builds(&cache);
             merge(&mut found, &items);
         }
+
         Ok(found)
     }
 
@@ -199,6 +218,7 @@ impl Session {
         let mut old = std::mem::take(&mut self.workspace_diagnostics.borrow_mut().unreached);
         let mut now = BTreeMap::new();
         let mut changed = false;
+
         for path in wanted {
             let Some(uri) = self.client_uri(&path) else {
                 continue;
@@ -221,9 +241,11 @@ impl Session {
                     } else {
                         let lines = LineIndex::new(&text);
                         let mut built = Analysis::build(&text, &uri, self.limits);
+
                         self.warn_unreadable_loads(&mut built, &lines, &text);
                         built.diagnostics
                     };
+
                     items.push(not_in_program(&text));
                     FileDiagnostics {
                         stamp,
@@ -231,11 +253,14 @@ impl Session {
                     }
                 }
             };
+
             now.insert(path, file);
         }
+
         changed |= !old.is_empty();
         let epoch = self.index.borrow().epoch();
         let mut state = self.workspace_diagnostics.borrow_mut();
+
         state.unreached = now;
         state.unreached_fresh = true;
         state.unreached_epoch = Some(epoch);
@@ -251,6 +276,7 @@ impl Session {
         if !self.workspace_diagnostics.borrow().active || !self.trusted() {
             return None;
         }
+
         let env = self.environment.as_ref()?;
         Some(self.workspace_entry_set(env).iter().cloned().collect())
     }
@@ -260,6 +286,7 @@ impl Session {
             return false;
         };
         let state = self.workspace_diagnostics.borrow();
+
         state.roots.keys().any(|root| !entries.contains(root))
             || entries
                 .iter()
@@ -275,6 +302,7 @@ impl Session {
         let removed = {
             let mut state = self.workspace_diagnostics.borrow_mut();
             let old = state.roots.len();
+
             state.roots.retain(|root, _| entries.contains(root));
             old != state.roots.len()
         };
@@ -290,8 +318,10 @@ impl Session {
             .cloned();
         let Some(root) = root else {
             let counts = (entries.len(), entries.len());
+
             self.record_diagnostic_counts(counts);
             let unreached = self.refresh_unreached();
+
             return (removed || unreached).then_some(counts);
         };
         let env = self.environment.as_ref()?;
@@ -308,6 +338,7 @@ impl Session {
         );
         let dirs = self.import_dirs(&root);
         let _background = self.background();
+
         jaic::interrupt::arm();
         let snapshot = (|| {
             let mut cache = self.semantic.borrow_mut();
@@ -327,6 +358,7 @@ impl Session {
                 .collect();
             let mut groups: BTreeMap<PathBuf, (jailint::config::Config, Vec<PathBuf>)> =
                 BTreeMap::new();
+
             for path in sources.keys() {
                 if let Some(config) = self.lint_config(path) {
                     groups
@@ -336,14 +368,18 @@ impl Session {
                         .push(path.clone());
                 }
             }
+
             if !analysis.warm_lints(&groups.into_values().collect::<Vec<_>>()) {
                 return None;
             }
+
             let mut files = BTreeMap::new();
+
             for (path, compiled_text) in sources {
                 if jaic::interrupt::should_stop() {
                     return None;
                 }
+
                 let uri = self.client_uri(&path)?;
                 let text = self
                     .document(&uri)
@@ -352,10 +388,12 @@ impl Session {
                 let syntax = self.analysis_for(&uri).cloned().unwrap_or_else(|| {
                     // A closed file is warned about unreadable loads like an open one.
                     let mut built = Analysis::build(&text, &uri, self.limits);
+
                     self.warn_unreadable_loads(&mut built, &lines, &text);
                     Rc::new(built)
                 });
                 let mut items = syntax.diagnostics.clone();
+
                 items.extend(self.semantic_items(
                     analysis,
                     &path,
@@ -371,7 +409,9 @@ impl Session {
                     },
                 );
             }
+
             let (dependencies, _) = analysis.inputs_read();
+
             self.sync_builds(&cache);
             Some(Snapshot {
                 dependencies,
@@ -380,12 +420,15 @@ impl Session {
             })
         })();
         let interrupted = jaic::interrupt::disarm();
+
         if !interrupted && let Some(snapshot) = snapshot {
             let mut state = self.workspace_diagnostics.borrow_mut();
+
             state.roots.insert(root, snapshot);
             // What the programs record decides what none of them reaches.
             state.unreached_fresh = false;
         }
+
         let done = self
             .workspace_diagnostics
             .borrow()
@@ -393,6 +436,7 @@ impl Session {
             .values()
             .filter(|s| !s.stale)
             .count();
+
         self.record_diagnostic_counts((done, entries.len()));
         Some((done, entries.len()))
     }
@@ -404,6 +448,7 @@ impl Session {
         if self.workspace_folders.is_empty() && self.documents.is_empty() {
             return None;
         }
+
         let env = self.environment.as_ref()?;
         let path = jaic::paths::file_identity(&*env.fs, Path::new(uri.path()));
         let state = self.workspace_diagnostics.borrow();
@@ -412,6 +457,7 @@ impl Session {
             .ok()
             .map(|doc| text_hash(doc.text.as_bytes()));
         let mut found: Option<Vec<Diagnostic>> = None;
+
         for snapshot in state.roots.values().filter(|s| !s.stale) {
             if let Some(file) = snapshot.files.get(&path)
                 && current.is_none_or(|stamp| stamp == file.stamp)
@@ -419,6 +465,7 @@ impl Session {
                 merge(found.get_or_insert_with(Vec::new), &file.items);
             }
         }
+
         found
     }
 
@@ -429,10 +476,12 @@ impl Session {
         if self.workspace_folders.is_empty() && self.documents.is_empty() {
             return None;
         }
+
         let env = self.environment.as_ref()?;
         let path = jaic::paths::file_identity(&*env.fs, Path::new(uri.path()));
         let state = self.workspace_diagnostics.borrow();
         let mut found: Option<Vec<Diagnostic>> = None;
+
         for file in state
             .roots
             .values()
@@ -441,24 +490,30 @@ impl Session {
         {
             merge(found.get_or_insert_with(Vec::new), &file.items);
         }
+
         found
     }
 
     /// Cached reports for all included workspace files, without starting foreground lint work.
     pub(crate) fn workspace_reports(&self) -> Option<Vec<WorkspaceReport>> {
         let state = self.workspace_diagnostics.borrow();
+
         if !state.active {
             return None;
         }
+
         let mut files: BTreeMap<&PathBuf, Vec<&FileDiagnostics>> = BTreeMap::new();
+
         for snapshot in state.roots.values() {
             for (path, file) in &snapshot.files {
                 files.entry(path).or_default().push(file);
             }
         }
+
         for (path, file) in &state.unreached {
             files.entry(path).or_default().push(file);
         }
+
         Some(
             files
                 .into_iter()
@@ -470,12 +525,14 @@ impl Session {
                     };
                     let mut items = Vec::new();
                     let mut any = false;
+
                     for file in programs {
                         if current.is_none_or(|stamp| stamp == file.stamp) {
                             any = true;
                             merge(&mut items, &file.items);
                         }
                     }
+
                     any.then(|| (uri.as_str().into(), version, items))
                 })
                 .collect(),

@@ -217,6 +217,7 @@ impl Toolchain {
         if !system || !self.linker.is_windows() {
             return false;
         }
+
         if self.is_runtime(name) {
             match self.runtime_data {
                 DataImport::Direct => false,
@@ -238,6 +239,7 @@ impl Toolchain {
     pub fn import_module<'a>(&self, library: &'a str) -> Option<&'a str> {
         let modules = self.foreign_modules?;
         let name = library.rsplit(['/', '\\']).next().unwrap_or(library);
+
         Some(if name.is_empty() || modules.runtime.contains(&name) {
             modules.default
         } else {
@@ -249,11 +251,13 @@ impl Toolchain {
     pub fn runtime_args(&self, driver: Driver) -> RuntimeArgs {
         let runtime = &self.runtime;
         let mut args = RuntimeArgs::default();
+
         match driver {
             Driver::MsvcLink | Driver::ClangCl => {
                 if driver == Driver::ClangCl {
                     args.compile.extend(runtime.cl_flag.map(String::from));
                 }
+
                 args.link.extend(
                     runtime
                         .libs
@@ -266,6 +270,7 @@ impl Toolchain {
                 if self.runtime.libs.is_empty() {
                     return args;
                 }
+
                 args.link.extend(runtime.cc_flag.map(String::from));
                 args.link.extend(
                     runtime
@@ -273,6 +278,7 @@ impl Toolchain {
                         .iter()
                         .map(|n| format!("-Wl,/NODEFAULTLIB:{n}")),
                 );
+
                 for lib in runtime.libs {
                     match lib.default {
                         Some(CcSpelling::DefaultLib) => {
@@ -284,12 +290,14 @@ impl Toolchain {
                 }
             }
         }
+
         args
     }
 
     /// The option that reserves the main thread's stack, written for `driver`.
     pub fn stack_arg(&self, driver: Driver) -> Option<String> {
         let bytes = self.main_stack?;
+
         Some(match (driver, self.linker) {
             (Driver::MsvcLink | Driver::ClangCl, _) => format!("/STACK:{bytes}"),
             (Driver::C, Linker::Msvc) => format!("-Wl,/STACK:{bytes}"),

@@ -12,17 +12,20 @@ fn corpus_sweep() {
         PathBuf::from,
     );
     let mut files = Vec::new();
+
     for dir in ["corpus/upstream", "stdlib"] {
         files.extend(jaic::paths::jai_files_under(&root.join(dir), &mut |_| {
             false
         }));
     }
+
     files.sort();
     let stage = jacket_config::env::CORPUS_STAGE
         .get()
         .unwrap_or_else(|| "parse".into());
     let mut sources = jaic::source::SourceMap::default();
     let mut failures = Vec::new();
+
     for path in &files {
         let bytes = std::fs::read(path).unwrap();
         let text: Arc<str> = String::from_utf8_lossy(&bytes).into();
@@ -32,13 +35,16 @@ fn corpus_sweep() {
         } else {
             jaic::parser::parse_file(id, &text).map(|_| ())
         };
+
         if let Err(diagnostic) = result {
             failures.push(diagnostic.render(&sources));
         }
     }
+
     for failure in &failures {
         eprint!("{failure}");
     }
+
     eprintln!(
         "{stage}: {} / {} files ok",
         files.len() - failures.len(),

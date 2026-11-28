@@ -20,6 +20,7 @@ use std::path::Path;
 /// ```
 pub fn assert_every_test_file_is_built(manifest_dir: &str) {
     let missing = unbuilt_test_files(Path::new(manifest_dir));
+
     assert!(
         missing.is_empty(),
         "these test files are never compiled; add each to tests/main.rs:\n{}",
@@ -37,20 +38,26 @@ pub fn unbuilt_test_files(crate_dir: &Path) -> Vec<String> {
     let tests = crate_dir.join("tests");
     let read = |path: &Path| std::fs::read_to_string(path).unwrap_or_default();
     let mut built: BTreeSet<String> = path_attributes(&read(&tests.join("main.rs")));
+
     built.insert("main.rs".into());
+
     for line in read(&crate_dir.join("Cargo.toml")).lines() {
         if let Some(rest) = line.trim().strip_prefix("path = \"tests/") {
             built.insert(rest.trim_end_matches('"').to_string());
         }
     }
+
     let mut candidates = Vec::new();
     let mut support = BTreeSet::new();
     let mut entries: Vec<_> = std::fs::read_dir(&tests)
         .map(|dir| dir.flatten().map(|entry| entry.path()).collect())
         .unwrap_or_default();
+
     entries.sort();
+
     for path in entries {
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
+
         if path.is_dir() {
             if path.join("main.rs").is_file() {
                 candidates.push((format!("{name}/main.rs"), name));
@@ -62,6 +69,7 @@ pub fn unbuilt_test_files(crate_dir: &Path) -> Vec<String> {
             candidates.push((name.clone(), stem.to_string()));
         }
     }
+
     candidates
         .into_iter()
         .filter(|(file, stem)| {
@@ -90,11 +98,13 @@ fn path_attributes(text: &str) -> BTreeSet<String> {
 fn declared_modules(text: &str) -> BTreeSet<String> {
     let mut names = BTreeSet::new();
     let mut after_path = false;
+
     for line in text.lines().map(str::trim) {
         let unqualified = line
             .strip_prefix("pub(crate) ")
             .or_else(|| line.strip_prefix("pub "))
             .unwrap_or(line);
+
         if let Some(name) = unqualified
             .strip_prefix("mod ")
             .and_then(|r| r.strip_suffix(';'))
@@ -102,8 +112,10 @@ fn declared_modules(text: &str) -> BTreeSet<String> {
         {
             names.insert(name.to_string());
         }
+
         after_path = line.starts_with("#[path = ");
     }
+
     names
 }
 
@@ -115,6 +127,7 @@ mod tests {
     fn a_test_file_missing_from_main_is_reported() {
         let dir = crate::TempDir::new("layout");
         let tests = dir.path().join("tests");
+
         std::fs::create_dir_all(tests.join("folder")).unwrap();
         std::fs::write(
             dir.path().join("Cargo.toml"),

@@ -130,6 +130,7 @@ impl Cache {
         let parsed: Option<Value> = file
             .and_then(|f| std::fs::read_to_string(f).ok())
             .and_then(|t| serde_json::from_str(&t).ok());
+
         if let Some(Value::Object(root)) = parsed {
             if let Some(Value::Object(times)) = root.get("times") {
                 for (k, v) in times {
@@ -138,6 +139,7 @@ impl Cache {
                     }
                 }
             }
+
             if let Some(Value::Object(lists)) = root.get("lists") {
                 for (k, v) in lists {
                     let etag = v.get("etag").and_then(Value::as_str).map(str::to_string);
@@ -155,10 +157,12 @@ impl Cache {
                                 .collect()
                         })
                         .unwrap_or_default();
+
                     cache.lists.insert(k.clone(), (etag, releases));
                 }
             }
         }
+
         cache
     }
 
@@ -174,6 +178,7 @@ impl Cache {
                     .iter()
                     .map(|r| serde_json::json!([r.tag, r.published]))
                     .collect();
+
                 (
                     k.clone(),
                     serde_json::json!({ "etag": etag, "releases": rows }),
@@ -181,9 +186,11 @@ impl Cache {
             })
             .collect();
         let body = serde_json::json!({ "times": self.times, "lists": lists });
+
         if let Some(parent) = file.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
+
         let _ = std::fs::write(file, body.to_string());
     }
 
@@ -234,6 +241,7 @@ pub fn published(
     if let Some(time) = cache.known(repo, tag, commit) {
         return Ok(time);
     }
+
     let Some(kind) = kind_of(&repo.host) else {
         return Err(Unknown::NoRecord(format!(
             "{} keeps no release times jacket can read",
@@ -245,6 +253,7 @@ pub fn published(
         Some((_, list)) if cache.fresh.contains(&repo.key()) => list,
         held => {
             let etag = held.as_ref().and_then(|(etag, _)| etag.clone());
+
             match forge.releases(kind, repo, etag.as_deref()) {
                 Ok(Fetched::Fresh {
                     etag,
@@ -261,6 +270,7 @@ pub fn published(
             }
         }
     };
+
     match releases.iter().find(|r| r.tag == tag) {
         Some(release) => {
             cache
@@ -282,9 +292,11 @@ pub fn prefetch(forge: &dyn Forge, cache: &mut Cache, repos: &[Repo]) {
         .filter_map(|r| kind_of(&r.host).map(|k| (k, r.clone())))
         .filter(|(_, r)| cache.list(r).is_none())
         .collect();
+
     if asked.len() < 2 {
         return;
     }
+
     for (repo, result) in forge.releases_many(&asked) {
         if let Ok(Fetched::Fresh {
             etag,
@@ -312,6 +324,7 @@ impl Http {
                 .map(|t| t.trim().to_string())
                 .filter(|t| !t.is_empty())
         };
+
         Self {
             base: jacket_config::env::FORGE_API
                 .get()
@@ -340,19 +353,25 @@ impl Http {
             .include()
             .max_time(30)
             .header("Accept: application/json");
+
         if self.base.is_some() {
             curl = curl.allow_http();
         }
+
         if let Some(etag) = etag {
             curl = curl.header(format!("If-None-Match: {etag}"));
         }
+
         if let Some((header, value)) = token {
             curl = curl.secret_header(header, value);
         }
+
         if let Some(body) = post {
             curl = curl.post_json(body);
         }
+
         let output = curl.run().map_err(ForgeError::Failed)?;
+
         parse_response(&String::from_utf8_lossy(&output)).ok_or_else(|| {
             ForgeError::Failed(format!("{url} answered with something that is not HTTP"))
         })
@@ -363,6 +382,7 @@ impl Http {
 fn missing() -> DepError {
     let text =
         crate::prerequisite::missing(&jaic_toolchain::package::Need::Curl, "curl", "jacket dep");
+
     match text.split_once("\nnote: ") {
         Some((message, note)) => DepError::new(message).note(note),
         None => DepError::new(text),
@@ -390,6 +410,7 @@ impl Http {
                 let value: Value = serde_json::from_str(body).map_err(|e| {
                     ForgeError::Failed(format!("the release list is not JSON: {e}"))
                 })?;
+
                 Ok(Fetched::Fresh {
                     etag: header(headers, "etag").map(str::to_string),
                     releases: releases_from(kind, &value),
@@ -404,12 +425,14 @@ impl Http {
                     Kind::GitLab => "GITLAB_TOKEN",
                     Kind::Gitea => "",
                 };
+
                 if limited {
                     let hint = if token.is_empty() {
                         String::new()
                     } else {
                         format!("; set {token} to lift the limit")
                     };
+
                     Err(ForgeError::RateLimited(format!(
                         "the forge's rate limit is reached{hint}"
                     )))
@@ -435,6 +458,7 @@ pub fn releases_from(kind: Kind, value: &Value) -> Vec<Release> {
         Kind::GitHub | Kind::Gitea => ("tag_name", "published_at"),
         Kind::GitLab => ("tag_name", "released_at"),
     };
+
     value
         .as_array()
         .map(|list| {
@@ -454,6 +478,7 @@ pub fn releases_from(kind: Kind, value: &Value) -> Vec<Release> {
 impl Forge for Http {
     fn preflight(&self) -> Result<(), DepError> {
         let host = jaic_toolchain::System;
+
         match jaic_toolchain::Lookup::new(&host).which("curl") {
             Some(_) => Ok(()),
             None => Err(missing()),
@@ -493,6 +518,7 @@ impl Forge for Http {
         };
         let token = token.as_ref().map(|(h, v)| (*h, v.as_str()));
         let (status, headers, body) = self.request(&url, etag, token, None)?;
+
         self.finish(kind, status, &headers, &body)
     }
 
@@ -504,15 +530,19 @@ impl Forge for Http {
             .collect();
         let mut out = Vec::new();
         let batched = github.len() > 1 && self.github_token.is_some();
+
         if batched && let Some(done) = self.github_graphql(&github) {
             out.extend(done);
         }
+
         for (kind, repo) in repos {
             if batched && *kind == Kind::GitHub && out.iter().any(|(r, _)| r == repo) {
                 continue;
             }
+
             out.push((repo.clone(), self.releases(*kind, repo, None)));
         }
+
         out
     }
 }
@@ -522,12 +552,15 @@ impl Http {
     fn github_graphql(&self, repos: &[&Repo]) -> Option<Vec<(Repo, Result<Fetched, ForgeError>)>> {
         let token = self.github_token.as_deref()?;
         let mut query = String::from("query {");
+
         for (i, repo) in repos.iter().enumerate() {
             let (owner, name) = repo.path.split_once('/')?;
+
             query.push_str(&format!(
                 " r{i}: repository(owner: {owner:?}, name: {name:?}) {{ releases(first: 100, orderBy: {{field: CREATED_AT, direction: DESC}}) {{ nodes {{ tagName publishedAt isDraft }} }} }}"
             ));
         }
+
         query.push_str(" }");
         let body = serde_json::json!({ "query": query }).to_string();
         let url = format!("{}/graphql", self.api("https://api.github.com"));
@@ -535,12 +568,15 @@ impl Http {
         let (status, _, text) = self
             .request(&url, None, Some(("Authorization", &auth)), Some(&body))
             .ok()?;
+
         if status != 200 {
             return None;
         }
+
         let value: Value = serde_json::from_str(&text).ok()?;
         let data = value.get("data")?;
         let mut out = Vec::new();
+
         for (i, repo) in repos.iter().enumerate() {
             let nodes = data
                 .get(format!("r{i}"))?
@@ -557,6 +593,7 @@ impl Http {
                     })
                 })
                 .collect();
+
             out.push((
                 (*repo).clone(),
                 Ok(Fetched::Fresh {
@@ -565,6 +602,7 @@ impl Http {
                 }),
             ));
         }
+
         Some(out)
     }
 }
@@ -610,6 +648,7 @@ mod tests {
             asked: RefCell::new(vec![]),
         };
         let mut cache = Cache::in_memory();
+
         assert_eq!(
             published(&forge, &mut cache, &repo(), "v1", &CommitId::numbered(1)),
             Ok(100)
@@ -646,6 +685,7 @@ mod tests {
             host: "git.example.org".into(),
             path: "a/b".into(),
         };
+
         assert!(matches!(
             published(&forge, &mut cache, &other, "v1", &CommitId::numbered(3)),
             Err(Unknown::NoRecord(_))
@@ -656,6 +696,7 @@ mod tests {
         ));
         // No etag held and the list is cached, so the failure comes on the next fresh ask.
         let mut empty = Cache::in_memory();
+
         assert_eq!(
             published(&forge, &mut empty, &repo(), "v1", &CommitId::numbered(3)),
             Err(Unknown::Failed("slow down".into()))
@@ -668,6 +709,7 @@ mod tests {
             r#"[{"tag_name":"v2","published_at":"2024-05-01T12:00:00Z"},{"tag_name":"v3","published_at":null,"draft":true},{"tag_name":"v1","published_at":"1970-01-02T00:00:00Z"}]"#,
         )
         .unwrap();
+
         assert_eq!(
             releases_from(Kind::GitHub, &github),
             [
@@ -684,6 +726,7 @@ mod tests {
         let gitlab: Value =
             serde_json::from_str(r#"[{"tag_name":"v1","released_at":"1970-01-02T00:00:00Z"}]"#)
                 .unwrap();
+
         assert_eq!(releases_from(Kind::GitLab, &gitlab).len(), 1);
     }
 }

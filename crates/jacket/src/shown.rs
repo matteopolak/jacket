@@ -14,6 +14,7 @@ pub fn path(path: &Path, base: &Path) -> String {
         .as_deref()
         .and_then(|base| path.strip_prefix(base).ok())
         .or_else(|| path.strip_prefix(base).ok());
+
     match below {
         Some(below) if below.as_os_str().is_empty() => ".".to_string(),
         Some(below) => below.to_string_lossy().replace('\\', "/"),

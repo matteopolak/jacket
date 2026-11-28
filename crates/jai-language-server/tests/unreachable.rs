@@ -19,15 +19,19 @@ fn faded_in(mut s: jai_language_server::Session, source: &str) -> Vec<String> {
             + character as usize
     };
     let mut found = Vec::new();
+
     for d in s.diagnostics(&uri()).unwrap() {
         if d.code != DiagnosticCode::Unreachable {
             continue;
         }
+
         assert_eq!(d.severity, DiagnosticSeverity::Hint);
         let start = offset(d.range.start.line, d.range.start.character);
         let end = offset(d.range.end.line, d.range.end.character);
+
         found.push(source[start..end].trim().trim_end_matches(';').to_string());
     }
+
     found
 }
 
@@ -47,6 +51,7 @@ fn statements_after_return_break_and_continue_fade_once_per_block() {
 }
 ",
     );
+
     assert_eq!(
         faded,
         [
@@ -66,6 +71,7 @@ fn a_return_in_one_branch_leaves_the_rest_reachable() {
 }
 main :: () { f(true); }
 ";
+
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
@@ -77,6 +83,7 @@ fn code_after_an_if_whose_branches_both_exit_fades() {
 }
 main :: () { f(true); }
 ";
+
     assert_eq!(faded(source), ["dead := 3"]);
 }
 
@@ -104,6 +111,7 @@ inner_break_only :: () {
 }
 main :: () { leaves(); leaves_deep(true); }
 ";
+
     assert_eq!(
         faded(source),
         ["after_spin := 1", "after_int := 1", "after_inner := 1"]
@@ -122,6 +130,7 @@ fn a_labelled_break_counts_for_the_loop_it_names() {
     after_outer := 2;
 }
 ";
+
     assert_eq!(faded(source), ["never := 1"]);
 }
 
@@ -134,6 +143,7 @@ fn defer_bodies_are_not_after_the_return() {
     dead := 1;
 }
 ";
+
     assert_eq!(faded(source), ["dead := 1"]);
 }
 
@@ -155,6 +165,7 @@ fn static_if_fades_the_arm_that_was_not_taken_with_its_header() {
     #if false { g := 11; } else #if false { h := 12; } else { i := 13; }
 }
 ";
+
     assert_eq!(
         faded(source),
         [
@@ -179,6 +190,7 @@ fn an_inactive_os_branch_fades_with_its_header() {
     let source = format!(
         "#if OS == .{other} {{\n    only_there :: 1;\n}}\nmain :: () {{\n    #if OS == .{other} {{\n        x := 1;\n    }}\n}}\n"
     );
+
     assert_eq!(
         faded_in(session(), &source),
         [
@@ -201,6 +213,7 @@ main :: (flag: bool) {
     while false { never_runs := 5; }
 }
 ";
+
     assert_eq!(
         faded(source),
         ["a := 1", "b := 2", "c_else := 3", "2", "never_runs := 5"]
@@ -220,6 +233,7 @@ fn comparisons_a_type_decides_fade_the_branch_they_rule_out() {
     if u >= other { h := 8; } else { h_else := 8; }
 }
 ";
+
     assert_eq!(
         faded(source),
         [
@@ -247,6 +261,7 @@ fn intervals_follow_arithmetic_and_casts() {
     if z < 0 || x < 0 { either := 8; }
 }
 ";
+
     assert_eq!(
         faded(source),
         [
@@ -277,6 +292,7 @@ fn a_branch_narrows_the_locals_its_condition_constrains() {
     }
 }
 ";
+
     assert_eq!(
         faded(source),
         ["impossible := 1", "also_impossible := 3", "in_loop := 4"]
@@ -297,6 +313,7 @@ main :: (x: s64, y: s64) {
     }
 }
 ";
+
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
@@ -320,6 +337,7 @@ narrow :: (x: s64) {
 }
 main :: () { pick(.A); narrow(1); }
 ";
+
     assert_eq!(faded(source), ["dead_after := 3", "excluded := 1"]);
 }
 
@@ -334,6 +352,7 @@ fn a_through_case_flows_into_the_next() {
     }
 }
 ";
+
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
@@ -352,6 +371,7 @@ main :: () {
     only_unsigned(cast(u16) 1);
 }
 ";
+
     assert_eq!(faded(source), ["never_negative := 2"]);
 }
 
@@ -369,7 +389,9 @@ fn faded_branches_keep_hover_and_definition() {
 }
 ";
     let mut s = lean_session();
+
     s.open(uri(), 1, source.into()).unwrap();
+
     for (needle, expected) in [
         ("inside_false", "inside_false: s64"),
         ("inside_else", "inside_else: s64"),
@@ -378,13 +400,17 @@ fn faded_branches_keep_hover_and_definition() {
             .hover(&uri(), at_offset(source, needle, 2))
             .unwrap()
             .expect(needle);
+
         assert!(hover.contents.value.contains(expected), "{hover:?}");
     }
+
     for needle in ["outer + 1", "outer * 2"] {
         let defs = s.definition(&uri(), at_offset(source, needle, 1)).unwrap();
+
         assert_eq!(defs.len(), 1, "{needle}");
         assert_eq!(defs[0].range.start.line, 1);
     }
+
     let errors: Vec<_> = s
         .diagnostics(&uri())
         .unwrap()
@@ -392,6 +418,7 @@ fn faded_branches_keep_hover_and_definition() {
         // `u >= 0` is the always-true condition under test, so its lint is expected.
         .filter(|d| d.severity == DiagnosticSeverity::Error && d.code == DiagnosticCode::Check)
         .collect();
+
     assert!(errors.is_empty(), "{errors:?}");
 }
 
@@ -410,6 +437,7 @@ fn an_early_exit_narrows_the_rest_of_the_block() {
     if z < 0 { reassigned_live := 4; }
 }
 ";
+
     assert_eq!(faded(source), ["after_return := 1", "after_break := 2"]);
 }
 
@@ -427,6 +455,7 @@ main :: (z: s64) {
     x, y := pair();
 }
 ";
+
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
@@ -437,6 +466,7 @@ fn an_if_else_where_one_side_exits_narrows_too() {
     if x < 2 { impossible := 1; }
 }
 ";
+
     assert_eq!(faded(source), ["impossible := 1"]);
 }
 
@@ -448,6 +478,7 @@ fn a_for_over_an_empty_range_fades_its_body() {
     for 5..n { unknown := 3; }
 }
 ";
+
     assert_eq!(faded(source), ["empty := 1"]);
 }
 
@@ -459,12 +490,14 @@ fn the_editor_does_not_warn_of_a_missing_return_the_walk_rules_out() {
 main :: () { f(1); }
 ";
     let mut s = lean_session();
+
     s.open(uri(), 1, source.into()).unwrap();
     let warned = s
         .diagnostics(&uri())
         .unwrap()
         .iter()
         .any(|d| d.message.contains("not all control paths"));
+
     assert!(!warned);
 }
 
@@ -472,8 +505,10 @@ main :: () { f(1); }
 fn an_inactive_static_if_branch_still_has_syntax_tokens() {
     let source = "main :: () {\n    #if false {\n        value := 1 + other;\n    }\n}\n";
     let mut s = lean_session();
+
     s.open(uri(), 1, source.into()).unwrap();
     let tokens = s.semantic_tokens(&uri()).unwrap();
+
     assert!(tokens.iter().any(|t| t.position.line == 2), "{tokens:?}");
 }
 
@@ -488,6 +523,7 @@ fn code_after_a_call_to_exit_fades() {
 }}
 "
     );
+
     assert_eq!(faded(&source), ["dead := 1"]);
 }
 
@@ -509,6 +545,7 @@ other :: () {{
 }}
 "
     );
+
     assert_eq!(
         faded(&source),
         ["after_both := 1", "after_fatal := 2", "after_wrapper := 3"]
@@ -530,6 +567,7 @@ main :: () {{
 }}
 "
     );
+
     assert_eq!(faded(&source), Vec::<String>::new());
 }
 
@@ -546,6 +584,7 @@ main :: () {{
 }}
 "
     );
+
     assert_eq!(faded(&source), Vec::<String>::new());
 }
 
@@ -562,6 +601,7 @@ main :: () {{
 }}
 "
     );
+
     assert_eq!(faded(&source), ["dead := 2"]);
 }
 
@@ -570,6 +610,7 @@ main :: () {{
 fn os_tests_without_a_prelude_do_not_crash() {
     // Builtins are declared in no file; looking one up as a file must not crash.
     let source = "#if OS == .WINDOWS {\n    only_there :: 1;\n}\nmain :: () {\n    #if OS == .WINDOWS {\n        x := 1;\n    }\n}\n";
+
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
@@ -595,6 +636,7 @@ main :: () {
     after_calls := 3;
 }
 ";
+
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
@@ -611,6 +653,7 @@ fn an_empty_through_case_can_enter_an_otherwise_excluded_case() {
     }
 }
 ";
+
     assert_eq!(faded(source), Vec::<String>::new());
 }
 
@@ -626,6 +669,7 @@ fn excluded_empty_cases_do_not_make_terminating_switches_fall_through() {
     }
 }
 ";
+
     assert_eq!(faded(source), ["after_terminating_switch := 1"]);
 }
 
@@ -641,6 +685,7 @@ pick :: (mode: Mode) -> int {
 main :: () { pick(.A); }
 ";
     let mut session = lean_session();
+
     session.open(uri(), 1, source.into()).unwrap();
     assert!(
         session
@@ -671,6 +716,7 @@ main :: () {
     plain();
 }
 ";
+
     // Only `int` instantiates `describe`, which makes the `else` arm look dead; `plain` has
     // no type to vary, so its dead arm fades as before.
     assert_eq!(faded(source), ["#if false {\n        return 3;\n    }"]);

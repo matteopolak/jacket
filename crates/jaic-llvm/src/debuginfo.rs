@@ -74,6 +74,7 @@ mod raw {
     pub fn file(b: LLVMDIBuilderRef, name: &str, dir: &str) -> Md {
         let (n, nl) = s(name);
         let (d, dl) = s(dir);
+
         // SAFETY: `b` is a live DIBuilder; the name and directory are (pointer, length) pairs that
         // LLVM copies, so they need no terminator and may be dropped after the call.
         unsafe { di::LLVMDIBuilderCreateFile(b, n, nl, d, dl) }
@@ -82,6 +83,7 @@ mod raw {
     pub fn compile_unit(b: LLVMDIBuilderRef, file: Md, optimized: bool) -> Md {
         let (p, pl) = s("jaic");
         let empty = s("");
+
         // SAFETY: `b` is a live DIBuilder and `file` its file metadata; the producer and the empty
         // strings are (pointer, length) pairs that LLVM copies.
         unsafe {
@@ -133,6 +135,7 @@ mod raw {
         } = *desc;
         let (n, nl) = s(name);
         let (l, ll) = s(linkage);
+
         // SAFETY: `b`, `file` and `ty` are live metadata of one builder; the name and linkage name
         // are (pointer, length) pairs that LLVM copies.
         unsafe {
@@ -249,6 +252,7 @@ mod raw {
     ) -> Md {
         let (n, nl) = s(name);
         let empty = s("");
+
         // SAFETY: `b`, `scope` and `file` are live metadata of one builder; the name and the empty
         // identifier are (pointer, length) pairs that LLVM copies.
         unsafe {
@@ -275,6 +279,7 @@ mod raw {
             align_bits,
         } = layout;
         let (n, nl) = s(name);
+
         // SAFETY: `b`, `scope`, `file` and `ty` are live metadata of one builder; the name is a
         // (pointer, length) pair that LLVM copies.
         unsafe {
@@ -313,6 +318,7 @@ mod raw {
         let (n, nl) = s(name);
         let empty = s("");
         let count = members.len() as u32;
+
         // SAFETY: `b`, `scope` and `file` are live metadata of one builder, and `members` is a live
         // array of its member metadata whose length is passed as the count; the name and identifier
         // are (pointer, length) pairs that LLVM copies.
@@ -399,6 +405,7 @@ mod raw {
             })
             .collect();
         let (n, nl) = s(name);
+
         // SAFETY: `b`, `scope`, `file` and `base` are live metadata of one builder, and `elements`
         // is a live array of enumerator metadata whose length is passed as the count; the name is a
         // (pointer, length) pair that LLVM copies.
@@ -435,6 +442,7 @@ mod raw {
         ty: Md,
     ) -> Md {
         let (n, nl) = s(name);
+
         // SAFETY: `b`, `scope`, `file` and `ty` are live metadata of one builder; the name is a
         // (pointer, length) pair that LLVM copies.
         unsafe {
@@ -483,6 +491,7 @@ mod raw {
         } = *var;
         let (n, nl) = s(name);
         let (l, ll) = s(linkage);
+
         // SAFETY: `b`, `scope`, `file`, `ty` and `expr` are live metadata of one builder; the name
         // and linkage name are (pointer, length) pairs that LLVM copies.
         unsafe {
@@ -555,11 +564,13 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
         optimized: bool,
     ) -> Self {
         let i32t = ctx.i32_type();
+
         module.add_basic_value_flag(
             "Debug Info Version",
             FlagBehavior::Warning,
             i32t.const_int(inkwell::debug_info::debug_metadata_version() as u64, false),
         );
+
         match format {
             DebugFormat::Dwarf(version) => module.add_basic_value_flag(
                 "Dwarf Version",
@@ -572,6 +583,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                 i32t.const_int(1, false),
             ),
         }
+
         let builder = raw::create(module);
         let mut this = DebugInfo {
             ctx,
@@ -589,6 +601,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
             .flatten()
             .find(|f| f.name == "main")
             .map_or(0, |f| f.source_file);
+
         this.cu_file = this.unit_file(main_file);
         raw::compile_unit(builder, this.cu_file, optimized);
         this.subroutine_type = raw::subroutine_type(builder, this.cu_file);
@@ -619,6 +632,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
         let dir = absolute
             .parent()
             .map_or_else(String::new, |d| d.to_string_lossy().into_owned());
+
         raw::file(self.builder, &absolute.to_string_lossy(), &dir)
     }
 
@@ -626,6 +640,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
         if let Some(&f) = self.files.borrow().get(&id) {
             return f;
         }
+
         let path = self
             .program
             .file_paths
@@ -639,6 +654,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
             .parent()
             .map_or_else(String::new, |d| d.to_string_lossy().into_owned());
         let f = raw::file(self.builder, &name, &dir);
+
         self.files.borrow_mut().insert(id, f);
         f
     }
@@ -648,6 +664,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
         if let Some(&t) = self.types.borrow().get(&key) {
             return t;
         }
+
         let b = self.builder;
         let Some(t) = self.program.debug_types.get(&key) else {
             self.types.borrow_mut().insert(key, None);
@@ -701,6 +718,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                     })
                 );
                 let base = self.ty(*base).unwrap_or(std::ptr::null_mut());
+
                 Some(raw::enumeration(
                     b,
                     raw::Place {
@@ -726,8 +744,10 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                 // Insert a forward declaration first so self-referential fields resolve.
                 let temp =
                     raw::forward_struct(b, tag, &t.name, scope, self.cu_file, bits, align_bits);
+
                 self.types.borrow_mut().insert(key, Some(temp));
                 let mut members = Vec::with_capacity(fields.len());
+
                 for f in fields {
                     let Some(fty) = self.ty(f.ty) else {
                         continue;
@@ -741,6 +761,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                         bits: size * 8,
                         align_bits: (align * 8) as u32,
                     };
+
                     members.push(raw::member(
                         b,
                         raw::Place {
@@ -753,6 +774,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                         fty,
                     ));
                 }
+
                 let real = raw::composite(
                     b,
                     *union,
@@ -764,10 +786,12 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                     layout,
                     &mut members,
                 );
+
                 raw::replace(temp, real);
                 Some(real)
             }
         };
+
         self.types.borrow_mut().insert(key, md);
         md
     }
@@ -801,6 +825,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                 expr,
             },
         );
+
         raw::attach_global(gv, self.ctx.get_kind_id("dbg"), gve);
     }
 
@@ -836,6 +861,7 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
                 optimized: self.optimized,
             },
         );
+
         raw::set_subprogram(function, sp);
         // The entry block (allocas, parameter binding; `declare_vars` also stores scalar
         // parameters to their slots there) is where LLVM puts the end of the prologue, so it
@@ -846,10 +872,12 @@ impl<'ctx, 'p> DebugInfo<'ctx, 'p> {
         // where they are used and would attribute that code to the entry line.
         let first = first_line(func).unwrap_or(line);
         let entry = raw::location(self.ctx, first, 0, sp);
+
         raw::set_location(builder, entry);
         raw::set_location(allocas, std::ptr::null_mut());
         let scope_count = debug.map_or(1, |d| d.scopes.len().max(1));
         let mut scopes = vec![None; scope_count];
+
         scopes[0] = Some(sp);
         FnDebug {
             file,
@@ -899,9 +927,11 @@ pub struct FnDebug<'ctx> {
 impl<'ctx> FnDebug<'ctx> {
     fn scope(&mut self, di: &DebugInfo<'ctx, '_>, func: &Func, index: u32) -> Md {
         let index = index as usize;
+
         if let Some(Some(s)) = self.scopes.get(index) {
             return *s;
         }
+
         let Some(info) = func
             .debug
             .as_ref()
@@ -915,6 +945,7 @@ impl<'ctx> FnDebug<'ctx> {
             self.scope(di, func, info.parent)
         };
         let block = raw::lexical_block(di.builder, parent, self.file, info.line, info.col);
+
         self.scopes[index] = Some(block);
         block
     }
@@ -922,6 +953,7 @@ impl<'ctx> FnDebug<'ctx> {
     fn apply(&mut self, di: &DebugInfo<'ctx, '_>, func: &Func, builder: &Builder<'ctx>) {
         let (line, col, scope) = self.current;
         let scope = self.scope(di, func, scope);
+
         raw::set_location(builder, raw::location(di.ctx, line, col, scope));
     }
 
@@ -957,10 +989,12 @@ impl<'ctx> FnDebug<'ctx> {
     pub fn leave_block(&mut self, term: &Term) {
         let mut mark = |b: jaic::ir::BlockId| {
             let entry = &mut self.block_entry[b.0 as usize];
+
             if entry.is_none() {
                 *entry = Some(self.current);
             }
         };
+
         match term {
             Term::Jump(b) => mark(*b),
             Term::Branch {
@@ -979,6 +1013,7 @@ impl<'ctx> FnDebug<'ctx> {
                 for (_, b) in cases {
                     mark(*b);
                 }
+
                 mark(*default);
             }
             Term::Ret(_) | Term::Unreachable => {}
@@ -1000,10 +1035,13 @@ impl<'ctx> FnDebug<'ctx> {
         let Some(debug) = func.debug.as_deref() else {
             return;
         };
+
         if debug.vars.is_empty() {
             return;
         }
+
         let mut slot_of: HashMap<u32, u32> = HashMap::default();
+
         for inst in func.blocks.iter().flat_map(|b| &b.insts) {
             if let Inst::SlotAddr {
                 dst,
@@ -1013,10 +1051,12 @@ impl<'ctx> FnDebug<'ctx> {
                 slot_of.insert(dst.0, slot.0);
             }
         }
+
         // (slot, value) pairs the body stores as a scalar. An aggregate parameter arrives as
         // a pointer that the body copies from; storing that pointer into the parameter's slot
         // would write the address, not the value, and past the end of a slot under 8 bytes.
         let mut scalar_stores = jaic::fxhash::HashSet::default();
+
         for inst in func.blocks.iter().flat_map(|b| &b.insts) {
             if let Inst::Store {
                 addr,
@@ -1028,22 +1068,26 @@ impl<'ctx> FnDebug<'ctx> {
                 scalar_stores.insert((slot, value.0));
             }
         }
+
         // The stores below have no location: they belong to the prologue, so LLVM ends the
         // prologue after them, where a breakpoint on the procedure sees the parameters.
         let deref = raw::expression(di.builder, &mut [DW_OP_DEREF]);
         let direct = raw::expression(di.builder, &mut []);
         let ptr_ty = di.ctx.ptr_type(inkwell::AddressSpace::default());
         let mut seen = jaic::fxhash::HashSet::default();
+
         for var in &debug.vars {
             if !seen.insert((var.name.as_str(), var.scope, var.line, var.col, var.arg)) {
                 continue;
             }
+
             let Some(ty) = di.ty(var.ty) else {
                 continue;
             };
             let scope = self.scope(di, func, var.scope);
             let (storage, expr) = if let Some(&slot_id) = slot_of.get(&var.addr.0) {
                 let slot = slots[slot_id as usize];
+
                 // A scalar parameter spilled to its slot: store it already in the entry
                 // block, where a breakpoint on the procedure stops (the body stores it again).
                 if var.arg > 0
@@ -1052,11 +1096,13 @@ impl<'ctx> FnDebug<'ctx> {
                 {
                     let _ = allocas.build_store(slot, value);
                 }
+
                 (slot, direct)
             } else {
                 let Ok(spill) = allocas.build_alloca(ptr_ty, "dbg.addr") else {
                     continue;
                 };
+
                 match vals.get(var.addr.0 as usize).copied().flatten() {
                     Some(value) => {
                         if allocas.build_store(spill, value).is_err() {
@@ -1065,12 +1111,14 @@ impl<'ctx> FnDebug<'ctx> {
                     }
                     None => self.watch.push((var.addr, spill)),
                 }
+
                 (spill, deref)
             };
             let dvar = raw::variable(
                 di.builder, scope, &var.name, var.arg, self.file, var.line, ty,
             );
             let loc = raw::location(di.ctx, var.line, var.col, scope);
+
             raw::declare(di.builder, storage, dvar, expr, loc, alloca_block);
         }
     }

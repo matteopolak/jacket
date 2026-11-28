@@ -13,10 +13,12 @@ impl Resolver<'_> {
         all: &HashMap<ProcId, Summary>,
     ) -> Vec<(Effect, Vec<super::Span>)> {
         let mut out = Vec::new();
+
         for (effect, witness) in &summary.may {
             if !matches!(effect.kind, Kind::Free | Kind::Resize) {
                 continue;
             }
+
             let Root::Parameter(formal) = effect.target.root else {
                 continue;
             };
@@ -26,12 +28,14 @@ impl Resolver<'_> {
             let Some(actual) = value(arg) else {
                 continue;
             };
+
             if self
                 .substitute(&effect.target, args, all, &mut HashSet::default(), 0)
                 .is_some_and(|p| !matches!(p.root, Root::Local(_)))
             {
                 continue;
             }
+
             let guard = if let Some((formal, expected)) = effect.guard {
                 let Some(arg) = args.iter().find(|a| a.formal == formal) else {
                     continue;
@@ -39,21 +43,26 @@ impl Resolver<'_> {
                 let Some(guard) = self.mode_guard(arg, expected, all) else {
                     continue;
                 };
+
                 guard
             } else {
                 None
             };
+
             for mut target in self.possible_value(actual, all, &mut HashSet::default(), 0) {
                 let mut steps = effect.target.steps.clone();
+
                 if effect.kind == Kind::Free
                     && steps.is_empty()
                     && self.compiler.ir_ty(arg.ty).is_none()
                 {
                     steps.push(Step::Storage);
                 }
+
                 let Some(path) = target.append(&steps) else {
                     continue;
                 };
+
                 target = path;
                 out.push((
                     Effect {
@@ -65,6 +74,7 @@ impl Resolver<'_> {
                 ));
             }
         }
+
         out
     }
 
@@ -78,15 +88,20 @@ impl Resolver<'_> {
         if depth > 24 || !seen.insert(v) {
             return HashSet::default();
         }
+
         let mut out = HashSet::default();
+
         if let Some(path) = self.trace(v, all, &mut HashSet::default(), 0) {
             let exact = !matches!(path.root, Root::Local(_));
+
             out.insert(path);
+
             if exact {
                 seen.remove(&v);
                 return out;
             }
         }
+
         for def in self.values.get(&v).into_iter().flatten() {
             let paths = match def {
                 Def::Copy(source) => self.possible_value(*source, all, seen, depth + 1),
@@ -97,12 +112,15 @@ impl Resolver<'_> {
                         // the address of the pointer slot itself. Multiple writes
                         // remain alternatives instead of becoming a fictitious owner.
                         let mut paths = HashSet::default();
+
                         for source in self.writes.get(p).into_iter().flatten() {
                             paths.extend(self.possible_value(*source, all, seen, depth + 1));
                         }
+
                         paths
                     } else {
                         let mut paths = self.possible_location(*p, all, seen, depth + 1);
+
                         if self.compiler.ty.types.is_pointer(*ty)
                             && !self.places.paths[*p].1.is_empty()
                         {
@@ -111,17 +129,21 @@ impl Resolver<'_> {
                                 .filter_map(|p| p.append(&[Step::Deref]))
                                 .collect();
                         }
+
                         paths
                     }
                 }
                 Def::Address(p) => self.possible_location(*p, all, seen, depth + 1),
                 _ => HashSet::default(),
             };
+
             out.extend(paths);
+
             if out.len() > 32 {
                 break;
             }
         }
+
         seen.remove(&v);
         out
     }
@@ -136,15 +158,20 @@ impl Resolver<'_> {
         if depth > 24 {
             return HashSet::default();
         }
+
         let mut out = HashSet::default();
+
         if let Some(path) = self.location(p, all, &mut HashSet::default(), 0) {
             out.insert(path);
         }
+
         let root = self.places.root_of(p);
         let mut projections = self.places.paths[p].1.as_slice();
+
         if projections.first() == Some(&Projection::Deref) {
             projections = &projections[1..];
         }
+
         let Some(steps) = projections
             .iter()
             .map(|p| match p {
@@ -157,16 +184,19 @@ impl Resolver<'_> {
         else {
             return out;
         };
+
         for v in self.writes.get(&root).into_iter().flatten() {
             for path in self.possible_value(*v, all, seen, depth + 1) {
                 if let Some(path) = path.append(&steps) {
                     out.insert(path);
                 }
+
                 if out.len() > 32 {
                     return out;
                 }
             }
         }
+
         out
     }
 }

@@ -60,6 +60,7 @@ fn header_name(line: &str) -> Option<String> {
     let rest = line.trim_start().strip_prefix('[')?;
     let rest = rest.strip_prefix('[').unwrap_or(rest);
     let name = rest.split(']').next()?;
+
     Some(
         name.split('.')
             .map(|part| part.trim().trim_matches('"'))
@@ -71,8 +72,10 @@ fn header_name(line: &str) -> Option<String> {
 /// `(start of line, line without its newline)` for each line of `text`.
 fn lines(text: &str) -> impl Iterator<Item = (usize, &str)> {
     let mut start = 0;
+
     text.split_inclusive('\n').map(move |raw| {
         let at = start;
+
         start += raw.len();
         (
             at,
@@ -113,6 +116,7 @@ fn scan(before: &str, base: usize) -> State {
     let mut word = String::new();
     let mut last_key: Option<String> = None;
     let mut chars = before.char_indices().peekable();
+
     while let Some((i, c)) = chars.next() {
         if state.in_string.is_some() {
             match c {
@@ -122,25 +126,31 @@ fn scan(before: &str, base: usize) -> State {
                 '"' => state.in_string = None,
                 _ => {}
             }
+
             continue;
         }
+
         if is_key_char(c) {
             word.push(c);
             continue;
         }
+
         if !word.is_empty() && state.expect_key && !c.is_whitespace() && c != '=' {
             word.clear();
         }
+
         match c {
             '"' => state.in_string = Some(base + i),
             '#' => break,
             '=' => {
                 if state.expect_key && !word.is_empty() {
                     state.key = Some(std::mem::take(&mut word));
+
                     if !state.inline {
                         last_key.clone_from(&state.key);
                     }
                 }
+
                 state.expect_key = false;
             }
             '{' => {
@@ -161,10 +171,12 @@ fn scan(before: &str, base: usize) -> State {
             }
             _ => {}
         }
+
         if !is_key_char(c) && !c.is_whitespace() {
             word.clear();
         }
     }
+
     state
 }
 
@@ -185,6 +197,7 @@ pub(super) fn place(text: &str, at: usize) -> Place {
     let table = table_at(text, line_start);
     let before = &line[..at - line_start];
     let after = &line[at - line_start..];
+
     if line.trim_start().starts_with('[') {
         let open = line.find('[').unwrap_or(0);
         let name_start = line_start + line[open..].find(|c| c != '[').map_or(open, |n| open + n);
@@ -193,18 +206,21 @@ pub(super) fn place(text: &str, at: usize) -> Place {
             + text[typed_end..line_start + line.len()]
                 .find(|c: char| !(is_key_char(c) || c == '.'))
                 .unwrap_or(line_start + line.len() - typed_end);
+
         return Place::Header {
             start: name_start,
             end: word_end,
             prefix: text[name_start..typed_end].to_string(),
         };
     }
+
     let state = scan(before, line_start);
     let word_end = at + after.find(|c: char| !is_key_char(c)).unwrap_or(after.len());
     let table_here = match (&state.outer, state.inline) {
         (Some(outer), true) => format!("{table}.{outer}"),
         _ => table.clone(),
     };
+
     if let Some(quote) = state.in_string {
         let key = state.key.as_deref().unwrap_or("");
         let Some(kind) = path_kind(&table_here, key) else {
@@ -213,6 +229,7 @@ pub(super) fn place(text: &str, at: usize) -> Place {
         let typed = &text[quote + 1..at];
         let (folder, partial) = typed.rsplit_once('/').unwrap_or(("", typed));
         let end = at + after.find('"').unwrap_or(after.len());
+
         return Place::Path {
             start: at - partial.len(),
             end,
@@ -220,12 +237,15 @@ pub(super) fn place(text: &str, at: usize) -> Place {
             kind,
         };
     }
+
     if !state.expect_key {
         return Place::Nothing;
     }
+
     let start = at - before.len() + before.rfind(|c: char| !is_key_char(c)).map_or(0, |n| n + 1);
     let start = start.min(at);
     let mut present: Vec<String> = Vec::new();
+
     if state.inline {
         present.extend(
             keys_of_line(line_start, line, &table)
@@ -237,7 +257,9 @@ pub(super) fn place(text: &str, at: usize) -> Place {
             if start_of == line_start {
                 continue;
             }
+
             let (header, in_table) = (header_name(other), table_at(text, start_of));
+
             if header.is_none() && in_table == table {
                 present.extend(
                     keys_of_line(start_of, other, &table)
@@ -248,6 +270,7 @@ pub(super) fn place(text: &str, at: usize) -> Place {
             }
         }
     }
+
     Place::Key {
         start,
         end: word_end,
@@ -273,11 +296,13 @@ fn keys_of_line(line_start: usize, line: &str, table: &str) -> Vec<KeyAt> {
     let mut i = 0;
     let mut depth = 0usize;
     let mut outer: Option<String> = None;
+
     while i < bytes.len() {
         match bytes[i] {
             b'#' => break,
             b'"' => {
                 i += 1;
+
                 while i < bytes.len() && bytes[i] != b'"' {
                     i += if bytes[i] == b'\\' {
                         2
@@ -290,19 +315,24 @@ fn keys_of_line(line_start: usize, line: &str, table: &str) -> Vec<KeyAt> {
             b'}' => depth = depth.saturating_sub(1),
             c if is_key_char(c as char) => {
                 let start = i;
+
                 while i < bytes.len() && is_key_char(bytes[i] as char) {
                     i += 1;
                 }
+
                 let rest = line[i..].trim_start();
+
                 if rest.starts_with('=') {
                     let key = line[start..i].to_string();
                     let owner = match (&outer, depth) {
                         (Some(outer), 1..) => format!("{table}.{outer}"),
                         _ => table.to_string(),
                     };
+
                     if depth == 0 {
                         outer = Some(key.clone());
                     }
+
                     found.push(KeyAt {
                         start: line_start + start,
                         end: line_start + i,
@@ -310,12 +340,15 @@ fn keys_of_line(line_start: usize, line: &str, table: &str) -> Vec<KeyAt> {
                         table: owner,
                     });
                 }
+
                 continue;
             }
             _ => {}
         }
+
         i += 1;
     }
+
     found
 }
 
@@ -323,23 +356,31 @@ fn keys_of_line(line_start: usize, line: &str, table: &str) -> Vec<KeyAt> {
 pub(super) fn describe_at(text: &str, at: usize) -> Option<(Span, String, &'static str)> {
     let (line_start, line) =
         lines(text).find(|(start, line)| at >= *start && at <= start + line.len())?;
+
     if let Some(name) = header_name(line) {
         let open = line.find(|c| c != ' ' && c != '[')?;
         let mut cursor = line_start + open;
         let mut path = Vec::new();
+
         for part in name.split('.') {
             let raw = text[cursor..].find(part)? + cursor;
             let (start, end) = (raw, raw + part.len());
+
             path.push(part);
+
             if (start..=end).contains(&at) {
                 let table = path.join(".");
                 let text = jacket_config::schema::describe_table(&table)?;
+
                 return Some((Span::new(start, end), table, text));
             }
+
             cursor = end;
         }
+
         return None;
     }
+
     let table = table_at(text, line_start);
     let key = keys_of_line(line_start, line, &table)
         .into_iter()
@@ -350,6 +391,7 @@ pub(super) fn describe_at(text: &str, at: usize) -> Option<(Span, String, &'stat
     } else {
         format!("{}.{}", key.table, key.key)
     };
+
     Some((Span::new(key.start, key.end), name, description))
 }
 
@@ -369,6 +411,7 @@ pub(super) fn table_names() -> Vec<String> {
 /// or its `name = ...` line under `[dependencies]`.
 pub(super) fn dependency_line_end(text: &str, name: &str) -> Option<usize> {
     let header = format!("dependencies.{name}");
+
     lines(text).find_map(|(start, line)| {
         let defines = match header_name(line) {
             Some(found) => found == header,

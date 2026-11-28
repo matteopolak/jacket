@@ -11,12 +11,14 @@ use std::collections::BTreeSet;
 pub(super) fn check(ctx: &mut Ctx, project: &Project, offline: bool) -> Result<bool> {
     let known = ctx.git.submodules(&project.dir)?;
     let mut problems: Vec<String> = Vec::new();
+
     for (name, entry) in &project.config.dependencies {
         let path = path_of(name, entry)?;
         let Some(sub) = known.iter().find(|s| s.path == path) else {
             problems.push(format!("{name}: {path} is not a submodule"));
             continue;
         };
+
         if let Some(url) = &sub.url
             && !source_of(entry).is_ok_and(|own| own.same_repo(url))
         {
@@ -25,12 +27,14 @@ pub(super) fn check(ctx: &mut Ctx, project: &Project, offline: bool) -> Result<b
                 entry.git
             ));
         }
+
         if !ctx.git.initialised(&project.dir, &path)? {
             problems.push(format!(
                 "{name}: {path} is not checked out; run `jacket dep sync`"
             ));
             continue;
         }
+
         match ctx.git.head(&project.dir, &path) {
             Ok(head) if head != sub.commit => problems.push(format!(
                 "{name}: {path} is at {}, the pin is {}; run `jacket dep sync`",
@@ -40,8 +44,10 @@ pub(super) fn check(ctx: &mut Ctx, project: &Project, offline: bool) -> Result<b
             Err(error) => problems.push(format!("{name}: {error}")),
             Ok(_) => {}
         }
+
         check_pin(ctx, project, name, entry, sub, offline, &mut problems);
     }
+
     let managed: BTreeSet<SubPath> = project
         .config
         .dependencies
@@ -49,6 +55,7 @@ pub(super) fn check(ctx: &mut Ctx, project: &Project, offline: bool) -> Result<b
         .map(|(n, e)| path_of(n, e))
         .collect::<Result<_>>()?;
     let folders = module_folders(project);
+
     for sub in &known {
         if !managed.contains(&sub.path)
             && folders.iter().any(|f| f == sub.path.parent().unwrap_or(""))
@@ -59,7 +66,9 @@ pub(super) fn check(ctx: &mut Ctx, project: &Project, offline: bool) -> Result<b
             ));
         }
     }
+
     problems.extend(dedupe::problems(ctx, project)?);
+
     if problems.is_empty() {
         say(
             ctx,
@@ -70,9 +79,11 @@ pub(super) fn check(ctx: &mut Ctx, project: &Project, offline: bool) -> Result<b
         );
         return Ok(true);
     }
+
     for problem in problems {
         let _ = writeln!(ctx.err, "error: {problem}");
     }
+
     Ok(false)
 }
 
@@ -98,6 +109,7 @@ fn check_pin(
                     short(&sub.commit)
                 ));
             }
+
             return;
         }
         Ok(Asked::Unpinned) => return,
@@ -114,6 +126,7 @@ fn check_pin(
                 Ok(None) => problems.push(format!("{name}: the checkout has no tag {tag}")),
                 _ => {}
             }
+
             tag
         }
         Ok(Asked::Range(requirement)) => {
@@ -132,6 +145,7 @@ fn check_pin(
                         .is_some_and(|v| requirement.range().matches(&v))
                 })
                 .collect();
+
             if admitted.is_empty() {
                 problems.push(format!(
                     "{name}: the pinned commit {} has no tag satisfying {requirement}; run `jacket dep update {name}`",
@@ -139,16 +153,20 @@ fn check_pin(
                 ));
                 return;
             }
+
             match resolve::resolved(&reading, &admitted) {
                 Some(tag) => tag.clone(),
                 None => return,
             }
         }
     };
+
     if offline {
         return;
     }
+
     let asked = url_of(project, entry).and_then(|u| ctx.git.remote_tags(&u));
+
     match asked {
         Ok(remote) => match remote.iter().find(|t| t.name == tag) {
             Some(t) if t.commit != sub.commit => {

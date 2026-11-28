@@ -37,9 +37,11 @@ pub fn strict() -> bool {
 #[must_use]
 pub fn find(name: &str) -> Option<PathBuf> {
     let direct = Path::new(name);
+
     if direct.components().count() > 1 {
         return direct.is_file().then(|| direct.to_path_buf());
     }
+
     lookup().which(name)
 }
 
@@ -65,23 +67,28 @@ pub fn buildable(triple: &str) -> bool {
     let lookup = lookup();
     let overrides = Overrides::from_env();
     let mut problems = Vec::new();
+
     if let Err(missing) = find_linker(&lookup, Some(target), &overrides) {
         problems.push(missing);
     }
+
     if target.is_freestanding()
         && !target.is_wasm()
         && let Err(missing) = find_builtins(&lookup, target, &overrides)
     {
         problems.push(missing);
     }
+
     if problems.is_empty() {
         return true;
     }
+
     let text: Vec<String> = problems
         .iter()
         .map(|m| format!("{}\n{}", m.what, m.notes.join("\n")))
         .collect();
     let text = text.join("\n");
+
     assert!(!strict(), "cannot build for {triple} on this host:\n{text}");
     skip(&format!("cannot build for {triple}:\n{text}"));
     false
@@ -130,15 +137,18 @@ pub fn optional(name: &str) -> Option<PathBuf> {
 
 fn resolve(name: &str, must_exist: bool) -> Option<PathBuf> {
     let found = find(name);
+
     if found.is_none() {
         let lookup = lookup();
         let note = Need::for_program(name).note(lookup.host.os(), PackageManager::detect(&lookup));
+
         assert!(
             !must_exist,
             "required test tool `{name}` is not installed\nnote: {note}"
         );
         skip(&format!("`{name}` is not installed"));
     }
+
     found
 }
 
@@ -149,10 +159,12 @@ pub fn jaic_beside(jacket: &Path) -> Option<PathBuf> {
     let jaic = jacket
         .parent()?
         .join(format!("jaic{}", std::env::consts::EXE_SUFFIX));
+
     if !jaic.is_file() {
         skip("build `jaic` first (`cargo build -p jaic-cli`)");
         return None;
     }
+
     Some(jaic)
 }
 
@@ -163,6 +175,7 @@ pub fn host_cc() -> Option<PathBuf> {
     if let Some(cc) = jacket_config::env::CC.os().filter(|v| !v.is_empty()) {
         return Some(PathBuf::from(cc));
     }
+
     require(if cfg!(windows) {
         "clang"
     } else {
@@ -191,15 +204,18 @@ pub fn build_shared_library(source: &Path, dir: &Path, name: &str) -> Option<Pat
         std::env::consts::DLL_SUFFIX
     ));
     let mut command = Command::new(clang);
+
     command.args(["-std=c11", "-Wall", "-Wextra", "-Werror"]);
     command.arg(if cfg!(target_os = "macos") {
         "-dynamiclib"
     } else {
         "-shared"
     });
+
     if !cfg!(windows) {
         command.arg("-fPIC");
     }
+
     crate::process::run(command.arg(source).arg("-o").arg(&library));
     Some(library)
 }
@@ -241,10 +257,13 @@ pub fn node() -> Option<Command> {
     optional("node")?;
     let major = node_major()?;
     let mut command = Command::new("node");
+
     command.arg("--no-warnings");
+
     if major < 24 {
         command.arg("--experimental-wasm-memory64");
     }
+
     Some(command)
 }
 
@@ -256,6 +275,7 @@ mod tests {
     fn a_path_is_used_as_given() {
         let dir = crate::tmp::TempDir::new("toolchain-direct");
         let file = dir.write("tool", "");
+
         assert_eq!(find(file.to_str().unwrap()), Some(file));
     }
 
@@ -264,8 +284,10 @@ mod tests {
         let dir = crate::tmp::TempDir::new("toolchain-jaic");
         let suffix = std::env::consts::EXE_SUFFIX;
         let jacket = dir.join(format!("jacket{suffix}"));
+
         assert_eq!(jaic_beside(&jacket), None);
         let jaic = dir.write(&format!("jaic{suffix}"), "");
+
         assert_eq!(jaic_beside(&jacket), Some(jaic));
     }
 

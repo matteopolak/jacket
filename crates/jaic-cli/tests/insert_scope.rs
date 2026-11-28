@@ -62,6 +62,7 @@ fn explicit_block_privacy_preinsert_constants_and_duplicates_reject() {
                 .arg(mode)
                 .output()
                 .unwrap();
+
             assert!(!output.status.success(), "{name} {mode} must reject");
             assert!(
                 String::from_utf8_lossy(&output.stderr).contains(diagnostic),
@@ -76,6 +77,7 @@ fn explicit_block_privacy_preinsert_constants_and_duplicates_reject() {
 #[test]
 fn insertion_scope_runs_native_o0_o2_and_wasi() {
     let dir = TempDir::new("insert-scope");
+
     for &(name, diagnostic) in NEGATIVE {
         for opt in ["-O0", "-O2"] {
             let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -84,6 +86,7 @@ fn insertion_scope_runs_native_o0_o2_and_wasi() {
                 .arg(dir.join(format!("reject-{name}{opt}")))
                 .output()
                 .unwrap();
+
             assert!(!output.status.success(), "{name} {opt} must reject");
             assert!(
                 String::from_utf8_lossy(&output.stderr).contains(diagnostic),
@@ -92,9 +95,11 @@ fn insertion_scope_runs_native_o0_o2_and_wasi() {
             );
         }
     }
+
     for &(name, expected) in POSITIVE {
         for opt in ["-O0", "-O2"] {
             let executable = dir.join(format!("{name}{opt}"));
+
             success(
                 Command::new(env!("CARGO_BIN_EXE_jaic"))
                     .arg(source(name))
@@ -106,6 +111,7 @@ fn insertion_scope_runs_native_o0_o2_and_wasi() {
             );
             success(Command::new(executable).output().unwrap(), expected);
             let module = dir.join(format!("{name}{opt}.wasm"));
+
             success(
                 Command::new(env!("CARGO_BIN_EXE_jaic"))
                     .arg(source(name))

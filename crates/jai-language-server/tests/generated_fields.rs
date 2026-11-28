@@ -35,15 +35,18 @@ fn generated_fields_complete_and_hover() {
     let (mut s, uri, text) = open_file(&dir, "main.jai");
 
     let after_it = labels(&mut s, &uri, at_offset(&text, "it.na", 3));
+
     assert!(
         after_it.contains(&"id".to_string()) && after_it.contains(&"name".to_string()),
         "{after_it:?}"
     );
 
     let after_first = labels(&mut s, &uri, at_offset(&text, "first.id", 6));
+
     assert!(after_first.contains(&"name".to_string()), "{after_first:?}");
 
     let hover = s.hover(&uri, at_offset(&text, "first.id", 6)).unwrap();
     let shown = format!("{hover:?}");
+
     assert!(shown.contains("s64"), "{shown}");
 }

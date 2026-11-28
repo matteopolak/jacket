@@ -45,7 +45,9 @@ pub(in crate::sema) fn validate_c_variadic_header(header: &ast::ProcHeader) -> R
     if !header.uses_c_abi() {
         return Ok(());
     }
+
     let mut runtime = header.params.iter().filter(|p| !p.baked).peekable();
+
     while let Some(param) = runtime.next() {
         if param.variadic && runtime.peek().is_some() {
             return err(
@@ -55,6 +57,7 @@ pub(in crate::sema) fn validate_c_variadic_header(header: &ast::ProcHeader) -> R
             );
         }
     }
+
     Ok(())
 }
 
@@ -99,6 +102,7 @@ impl ProcInfo {
 /// Does a type expression contain `$T` binders?
 pub fn has_poly(expr: &ast::Expr) -> bool {
     use ast::ExprKind as E;
+
     match &expr.kind {
         E::PolyVar {
             ..
@@ -139,6 +143,7 @@ pub fn has_poly(expr: &ast::Expr) -> bool {
 /// source reflection binds these symbolically; instances bind concrete values.
 pub(in crate::sema) fn for_poly_binders(expr: &ast::Expr, visit: &mut impl FnMut(Sym)) {
     use ast::ExprKind as E;
+
     match &expr.kind {
         E::PolyVar {
             name, ..
@@ -157,6 +162,7 @@ pub(in crate::sema) fn for_poly_binders(expr: &ast::Expr, visit: &mut impl FnMut
             if let ast::ArraySize::Fixed(n) = size {
                 for_poly_binders(n, visit);
             }
+
             for_poly_binders(elem, visit);
         }
         E::Call {
@@ -165,6 +171,7 @@ pub(in crate::sema) fn for_poly_binders(expr: &ast::Expr, visit: &mut impl FnMut
             ..
         } => {
             for_poly_binders(callee, visit);
+
             for arg in args {
                 for_poly_binders(&arg.value, visit);
             }

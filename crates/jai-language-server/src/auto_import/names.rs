@@ -17,6 +17,7 @@ pub(super) fn module_of(file: &Path, dir: &Path) -> Option<String> {
         .iter()
         .map(|c| c.to_string_lossy().into_owned())
         .collect();
+
     match parts.as_slice() {
         [extensions, name, _, ..] if extensions == jaic::STDLIB_EXTENSIONS_DIR => {
             Some(format!("{extensions}/{name}"))

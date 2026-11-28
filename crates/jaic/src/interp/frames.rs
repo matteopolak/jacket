@@ -31,10 +31,12 @@ impl Frame {
 #[cfg(debug_assertions)]
 pub(super) fn poison_registers(registers: &mut [u64]) {
     const BLOCK: [u64; 32] = [0xdead_beef_dead_beef; 32];
+
     if registers.len() <= BLOCK.len() {
         registers.copy_from_slice(&BLOCK[..registers.len()]);
         return;
     }
+
     for chunk in registers.chunks_mut(BLOCK.len()) {
         chunk.copy_from_slice(&BLOCK[..chunk.len()]);
     }
@@ -47,9 +49,11 @@ mod register_poison_tests {
     fn every_register_keeps_the_exact_debug_pattern_and_slice_boundaries() {
         for size in [0, 1, 7, 8, 31, 32, 33, 63, 64, 65, 127, 128, 129, 1024] {
             let mut guarded = vec![0x1234_5678_9abc_def0; size + 2];
+
             super::poison_registers(&mut guarded[1..=size]);
             assert_eq!(guarded[0], 0x1234_5678_9abc_def0);
             assert_eq!(guarded[size + 1], 0x1234_5678_9abc_def0);
+
             for word in &guarded[1..=size] {
                 assert_eq!(word.to_ne_bytes(), 0xdead_beef_dead_beefu64.to_ne_bytes());
             }
@@ -93,6 +97,7 @@ impl ValueStack {
     /// `len` zeroed words from the heap.
     pub(super) fn heap(len: usize) -> Self {
         let words = Box::into_raw(vec![0u64; len].into_boxed_slice());
+
         ValueStack {
             words: words.cast(),
             len,
@@ -110,6 +115,7 @@ impl ValueStack {
             return Some(Self::heap(len));
         };
         let block = super::ZeroedBlock::in_window(Some(window), len * 8, 4096)?;
+
         Some(ValueStack {
             words: window.addresses().host(block.addr()) as *mut u64,
             len,
@@ -211,6 +217,7 @@ impl Interp {
         func: &ir::Func,
     ) -> &'f Frame {
         let i = id.0 as usize;
+
         if let Some(Some(f)) = self.frames.get(i)
             && f.code.source == code::fingerprint(func)
         {
@@ -218,6 +225,7 @@ impl Interp {
             // SAFETY: see above.
             return unsafe { &*frame };
         }
+
         self.make_frame(program, id, func)
     }
 
@@ -229,13 +237,16 @@ impl Interp {
         let mut offsets = Vec::with_capacity(func.slots.len());
         let mut size = 0u64;
         let mut frame_align = 16u64;
+
         for slot in &func.slots {
             let align = slot.align.clamp(8, 4096);
+
             frame_align = frame_align.max(align);
             size = size.next_multiple_of(align);
             offsets.push(size);
             size += slot.size.max(1);
         }
+
         // `#c_call` procedures may be thunks (`proc_value`).
         let native = self.host.native_linking();
         let late_value = |f: FuncId| {
@@ -272,13 +283,17 @@ impl Interp {
             code,
             trace_info: std::cell::Cell::new(0),
         });
+
         if self.frames.len() <= i {
             self.frames.resize_with(i + 1, || None);
         }
+
         let ptr: *const Frame = &raw const *frame;
+
         if let Some(old) = self.frames[i].replace(frame) {
             self.retired.push(old);
         }
+
         // SAFETY: see `frame`.
         unsafe { &*ptr }
     }
@@ -299,11 +314,13 @@ impl Interp {
     pub(super) fn put_exec_state(&mut self, state: ExecState) {
         // What was left behind is almost always the placeholder, which owns nothing: skip the drop.
         let old = std::mem::replace(&mut self.stack, state.stack);
+
         if old.is_placeholder() {
             std::mem::forget(old);
         } else {
             drop(old);
         }
+
         self.sp = state.sp;
         self.depth = state.depth;
         self.calls = state.calls;

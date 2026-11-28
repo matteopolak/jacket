@@ -39,15 +39,18 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if p.is_macro || !p.typed() {
             continue;
         }
+
         statement_lists(&p.body.stmts, &mut |list: &[Stmt]| {
             for (k, s) in list.iter().enumerate() {
                 let Some((var, name)) = deferred_free(cx, s) else {
                     continue;
                 };
                 let rest = &list[k + 1..];
+
                 if changed(cx, rest, var) {
                     continue;
                 }
+
                 walk(rest, &mut |n, _| {
                     let Some(S::Return {
                         values,
@@ -56,12 +59,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     else {
                         return true;
                     };
+
                     for v in values {
                         let value = uncast(&v.value);
+
                         if matches!(value.kind, E::Ident(_))
                             && cx.entities(value.span).contains(&var)
                         {
                             let (start, end) = cx.statement_removal(s.span);
+
                             out.push(suggesting(
                                 value.span,
                                 format!("`{name}` is returned, but the `defer` above frees it"),
@@ -77,6 +83,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                             ));
                         }
                     }
+
                     true
                 });
             }
@@ -104,19 +111,24 @@ fn deferred_free<'a>(cx: &'a Cx, s: &Stmt) -> Option<(EntityId, &'a str)> {
     else {
         return None;
     };
+
     if !effects::calls(cx, callee, Effect::ReleasedFirst) {
         return None;
     }
+
     let first = args.first()?;
+
     if first.spread || first.context || !matches!(first.value.kind, E::Ident(_)) {
         return None;
     }
+
     Some((local_of(cx, &first.value)?, cx.src(first.value.span).trim()))
 }
 
 /// Something in `stmts` assigns `var` or takes its address.
 fn changed(cx: &Cx, stmts: &[Stmt], var: EntityId) -> bool {
     let mut found = false;
+
     walk(stmts, &mut |n, chain| {
         if let Node::Expr(e) = n
             && matches!(e.kind, E::Ident(_))
@@ -125,6 +137,7 @@ fn changed(cx: &Cx, stmts: &[Stmt], var: EntityId) -> bool {
         {
             found = true;
         }
+
         !found
     });
     found

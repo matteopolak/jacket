@@ -21,6 +21,7 @@ const SOURCE: &str = "#import \"Basic\";\n\
 
 fn specifiers(s: &Session, text: &str) -> Vec<(Position, u32)> {
     let _ = text;
+
     s.semantic_tokens(&uri())
         .unwrap()
         .into_iter()
@@ -32,6 +33,7 @@ fn specifiers(s: &Session, text: &str) -> Vec<(Position, u32)> {
 #[test]
 fn directives_follow_the_print_like_note_not_the_name() {
     let mut s = Session::with_environment(Limits::default(), environment());
+
     s.open(uri(), 1, SOURCE.into()).unwrap();
     let found = specifiers(&s, SOURCE);
     let mark = |line_marker: &str, nth: usize| {
@@ -41,8 +43,10 @@ fn directives_follow_the_print_like_note_not_the_name() {
             .nth(nth)
             .map(|(i, _)| i)
             .unwrap();
+
         at_offset(SOURCE, line_marker, rel)
     };
+
     // The two `%` of the noted `shout` and the one of the library's `print` (itself noted).
     assert!(
         found.contains(&(mark("shout(\"x % y %\"", 0), 1)),
@@ -66,6 +70,7 @@ fn directives_follow_the_print_like_note_not_the_name() {
 #[test]
 fn count_mismatches_warn_only_for_print_like_callees() {
     let mut s = Session::with_environment(Limits::default(), environment());
+
     s.open(uri(), 1, SOURCE.into()).unwrap();
     let warnings: Vec<_> = s
         .diagnostics(&uri())
@@ -74,6 +79,7 @@ fn count_mismatches_warn_only_for_print_like_callees() {
         .filter(|d| d.code == DiagnosticCode::Check && d.severity == DiagnosticSeverity::Warning)
         .collect();
     let lines: Vec<u32> = warnings.iter().map(|d| d.range.start.line).collect();
+
     // `shout("x % y %", 1, 2)` is right; `shout("only %", 1, 2)` and the library's
     // `print("two %%", 1)` are not; `plain` is not a formatter.
     assert!(lines.contains(&5), "{warnings:?}");
@@ -91,6 +97,7 @@ fn count_mismatches_warn_only_for_print_like_callees() {
 #[test]
 fn hovering_a_directive_names_its_argument() {
     let mut s = Session::with_environment(Limits::default(), environment());
+
     s.open(uri(), 1, SOURCE.into()).unwrap();
     let base = SOURCE.find("shout(\"x % y %\"").unwrap();
     let second = base + SOURCE[base..].match_indices('%').nth(1).unwrap().0;
@@ -100,10 +107,12 @@ fn hovering_a_directive_names_its_argument() {
         .expect("hover")
         .contents
         .value;
+
     assert!(hover.contains('2'), "{hover}");
     // And a directive of an unmarked callee has no format hover.
     let base = SOURCE.find("plain(\"p % q %\"").unwrap();
     let hover = s.hover(&uri(), position(SOURCE, base + 9)).unwrap();
+
     assert!(
         hover.is_none_or(|h| !h.contents.value.contains("No format arguments")
             && !h.contents.value.contains("missing argument")),
@@ -117,8 +126,10 @@ fn without_a_compile_the_documents_own_declarations_decide() {
     let text = "shout :: (what: string, parts: ..Any) { } @PrintLike\n\
         plain :: (what: string, parts: ..Any) { }\n\
         main :: () {\n    shout(\"a % b\", 1);\n    plain(\"a % b\", 1);\n}\n";
+
     s.open(uri(), 1, text.into()).unwrap();
     let found = specifiers(&s, text);
+
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(found[0].0.line, 3);
 }

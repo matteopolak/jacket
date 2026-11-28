@@ -35,8 +35,10 @@ pub struct ImportSite {
 fn import_chain(edges: &[ImportEdge], file: &Path) -> Vec<ImportSite> {
     let mut chain = Vec::new();
     let mut seen: HashSet<&Path> = HashSet::default();
+
     seen.insert(file);
     let mut at = file;
+
     while let Some(edge) = edges
         .iter()
         .find(|e| e.to == at && !seen.contains(e.from.as_path()))
@@ -49,6 +51,7 @@ fn import_chain(edges: &[ImportEdge], file: &Path) -> Vec<ImportSite> {
         seen.insert(&edge.from);
         at = &edge.from;
     }
+
     chain.reverse();
     chain
 }
@@ -57,6 +60,7 @@ fn import_chain(edges: &[ImportEdge], file: &Path) -> Vec<ImportSite> {
 pub(super) fn failures_of(compiler: &Compiler, root: &Path) -> Vec<AssertFailure> {
     let edges = compiler.import_edges();
     let mut seen = HashSet::default();
+
     compiler
         .failed_asserts()
         .into_iter()

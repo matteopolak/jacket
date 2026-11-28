@@ -23,9 +23,11 @@ fn checks(s: &Session) -> Vec<(u32, String)> {
 #[test]
 fn independent_errors_are_all_reported() {
     let mut s = session();
+
     s.open(uri(), 1, TWO_BODIES.into()).unwrap();
     let found = checks(&s);
     let mut lines: Vec<u32> = found.iter().map(|(l, _)| *l).collect();
+
     lines.sort_unstable();
     lines.dedup();
     assert_eq!(lines, [1, 2, 4], "{found:?}");
@@ -45,8 +47,10 @@ main :: () { helper(); }
 #[test]
 fn a_declaration_whose_initializer_fails_still_declares_its_name() {
     let mut s = session();
+
     s.open(uri(), 1, FAILED_INITIALIZER.into()).unwrap();
     let found = checks(&s);
+
     assert!(
         found.iter().all(|(_, m)| !m.contains("`owner`")
             && !m.contains("`size`")
@@ -54,6 +58,7 @@ fn a_declaration_whose_initializer_fails_still_declares_its_name() {
         "{found:?}"
     );
     let mut lines: Vec<u32> = found.iter().map(|(l, _)| *l).collect();
+
     lines.dedup();
     assert_eq!(lines, [2, 5], "{found:?}");
 }
@@ -73,6 +78,7 @@ fn initialized(capabilities: serde_json::Value) -> (JsonSession, serde_json::Val
         serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize",
             "params": {"capabilities": capabilities}}),
     );
+
     (json, init[0]["result"]["capabilities"].clone())
 }
 
@@ -90,6 +96,7 @@ fn pull_diagnostics_replace_pushed_ones_for_clients_that_pull() {
         "textDocument": {"diagnostic": {"dynamicRegistration": false}},
         "workspace": {"diagnostics": {"refreshSupport": true}}
     }));
+
     assert_eq!(
         capabilities["diagnosticProvider"]["workspaceDiagnostics"],
         true
@@ -101,6 +108,7 @@ fn pull_diagnostics_replace_pushed_ones_for_clients_that_pull() {
         serde_json::json!({"jsonrpc": "2.0", "id": 2, "method": "textDocument/diagnostic",
             "params": {"textDocument": {"uri": uri().as_str()}}}),
     )[0]["result"];
+
     assert_eq!(report["kind"], "full");
     let lines: std::collections::BTreeSet<u64> = report["items"]
         .as_array()
@@ -108,6 +116,7 @@ fn pull_diagnostics_replace_pushed_ones_for_clients_that_pull() {
         .iter()
         .map(|d| d["range"]["start"]["line"].as_u64().unwrap())
         .collect();
+
     assert_eq!(lines, [1, 2, 4].into());
     // The same result id: nothing changed.
     let again = &messages(
@@ -115,6 +124,7 @@ fn pull_diagnostics_replace_pushed_ones_for_clients_that_pull() {
         serde_json::json!({"jsonrpc": "2.0", "id": 3, "method": "textDocument/diagnostic",
             "params": {"textDocument": {"uri": uri().as_str()}, "previousResultId": report["resultId"]}}),
     )[0]["result"];
+
     assert_eq!(again["kind"], "unchanged");
     // The workspace report covers the open documents.
     let workspace = &messages(
@@ -122,6 +132,7 @@ fn pull_diagnostics_replace_pushed_ones_for_clients_that_pull() {
         serde_json::json!({"jsonrpc": "2.0", "id": 4, "method": "workspace/diagnostic",
             "params": {"previousResultIds": []}}),
     )[0]["result"];
+
     assert_eq!(workspace["items"][0]["uri"], uri().as_str());
     assert_eq!(workspace["items"][0]["kind"], "full");
     assert_eq!(workspace["items"][0]["version"], 1);
@@ -131,22 +142,27 @@ fn pull_diagnostics_replace_pushed_ones_for_clients_that_pull() {
         serde_json::json!({"jsonrpc": "2.0", "method": "workspace/didChangeConfiguration",
             "params": {"settings": {}}}),
     );
+
     assert_eq!(refresh[0]["method"], "workspace/diagnostic/refresh");
     let answer = serde_json::json!({"jsonrpc": "2.0", "id": refresh[0]["id"], "result": null});
+
     assert_eq!(messages(&mut json, answer), [] as [serde_json::Value; 0]);
 }
 
 #[test]
 fn clients_that_do_not_pull_get_pushed_diagnostics() {
     let (mut json, capabilities) = initialized(serde_json::json!({}));
+
     assert!(capabilities.get("diagnosticProvider").is_none());
     let published = open(&mut json, TWO_BODIES);
+
     assert_eq!(published[0]["method"], "textDocument/publishDiagnostics");
     let request = messages(
         &mut json,
         serde_json::json!({"jsonrpc": "2.0", "id": 2, "method": "textDocument/diagnostic",
             "params": {"textDocument": {"uri": uri().as_str()}}}),
     );
+
     assert_eq!(request[0]["error"]["code"], -32601);
 }
 
@@ -154,6 +170,7 @@ fn clients_that_do_not_pull_get_pushed_diagnostics() {
 fn a_clean_program_has_no_check_errors() {
     let mut s = session();
     let text = "#import \"Basic\";\nmain :: () { print(\"hi\\n\"); }\n";
+
     s.open(uri(), 1, text.into()).unwrap();
     assert_eq!(checks(&s), [] as [(u32, std::string::String); 0]);
 }
@@ -164,6 +181,7 @@ fn a_clean_program_has_no_check_errors() {
 fn inserted_declarations_resolve_in_the_inserting_scope() {
     let mut s = session();
     let text = "#import \"Basic\";\nmain :: () {\n    a :: #code b := 2;\n    #insert a;\n    #insert \"c := b + 1; d := c;\";\n    print(\"b: % %\\n\", b, d);\n}\n";
+
     s.open(uri(), 1, text.into()).unwrap();
     assert!(checks(&s).is_empty(), "{:?}", checks(&s));
 }
@@ -174,6 +192,7 @@ fn inserted_declarations_resolve_in_the_inserting_scope() {
 fn a_format_argument_count_mismatch_is_a_warning() {
     let mut s = session();
     let text = "#import \"Basic\";\nmain :: () {\n    print(\"done\\n\", 1);\n}\n";
+
     s.open(uri(), 1, text.into()).unwrap();
     let found: Vec<_> = s
         .diagnostics(&uri())
@@ -181,6 +200,7 @@ fn a_format_argument_count_mismatch_is_a_warning() {
         .into_iter()
         .filter(|d| d.code == DiagnosticCode::Check)
         .collect();
+
     assert_eq!(found.len(), 1, "{found:?}");
     // The compiler's warning is the only report: the editor adds none of its own.
     assert_eq!(s.diagnostics(&uri()).unwrap().len(), 1);

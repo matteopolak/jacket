@@ -26,15 +26,20 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         if p.header.uses_c_abi() {
             continue;
         }
+
         let count = p.header.params.iter().filter(|q| is_bool(q)).count();
+
         if count <= cx.max_bools {
             continue;
         }
+
         let (span, name) = proc_label(p);
+
         out.push(super::finding(
             span,
             format!(
@@ -53,6 +58,7 @@ fn is_bool(param: &Param) -> bool {
     if param.variadic {
         return false;
     }
+
     match (&param.ty, &param.default) {
         (Some(ty), _) => matches!(&ty.kind, E::Ident(n) if n.as_str() == "bool"),
         (None, Some(value)) => matches!(value.kind, E::Bool(_)),

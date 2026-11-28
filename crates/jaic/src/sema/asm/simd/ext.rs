@@ -48,17 +48,21 @@ fn op32k(f: &mut FnCtx, op: BinOp, a: Val, k: u64) -> Val {
 
 fn add_all(f: &mut FnCtx, vals: &[Val]) -> Val {
     let mut acc = vals[0];
+
     for &v in &vals[1..] {
         acc = op32(f, BinOp::Add, acc, v);
     }
+
     acc
 }
 
 fn xor_all(f: &mut FnCtx, vals: &[Val]) -> Val {
     let mut acc = vals[0];
+
     for &v in &vals[1..] {
         acc = op32(f, BinOp::Xor, acc, v);
     }
+
     acc
 }
 
@@ -79,6 +83,7 @@ fn sigma(f: &mut FnCtx, x: Val, a: u64, b: u64, c: u64, shift_last: bool) -> Val
     } else {
         rotr(f, x, c)
     };
+
     xor_all(f, &[p, q, r])
 }
 
@@ -87,6 +92,7 @@ fn choose(f: &mut FnCtx, x: Val, y: Val, z: Val) -> Val {
     let xy = op32(f, BinOp::And, x, y);
     let nx = f.b.un(UnOp::Not, Ty::I32, x);
     let nxz = op32(f, BinOp::And, nx, z);
+
     op32(f, BinOp::Xor, xy, nxz)
 }
 
@@ -95,6 +101,7 @@ fn majority(f: &mut FnCtx, x: Val, y: Val, z: Val) -> Val {
     let xy = op32(f, BinOp::And, x, y);
     let xz = op32(f, BinOp::And, x, z);
     let yz = op32(f, BinOp::And, y, z);
+
     xor_all(f, &[xy, xz, yz])
 }
 
@@ -145,6 +152,7 @@ fn half_to_single(f: &mut FnCtx, h: Val) -> Val {
     let exp_max = cmp(f, CmpOp::Eq, Ty::I32, exp, max);
     let r = select(f, Ty::I32, exp_max, special, normal);
     let r = select(f, Ty::I32, exp_zero, sub, r);
+
     op32(f, BinOp::Or, r, sign)
 }
 
@@ -198,6 +206,7 @@ fn single_to_half(f: &mut FnCtx, x: Val, mode: char) -> Val {
             let odd = op32k(f, BinOp::And, q, 1);
             let odd = resize(f, odd, Ty::I32, Ty::I8, false);
             let tie_up = flag_and(f, tie, odd);
+
             flag_or(f, above, tie_up)
         }
     };
@@ -234,6 +243,7 @@ fn single_to_half(f: &mut FnCtx, x: Val, mode: char) -> Val {
 
     let s = op32k(f, BinOp::Shl, neg, 15);
     let r = op32(f, BinOp::Or, mag, s);
+
     resize(f, r, Ty::I32, Ty::I16, false)
 }
 
@@ -241,6 +251,7 @@ fn single_to_half(f: &mut FnCtx, x: Val, mode: char) -> Val {
 fn gf_mul(f: &mut FnCtx, a: Val, b: Val) -> Val {
     let mut acc = konst(f, Ty::I8, 0);
     let mut a = a;
+
     for bit in 0..8 {
         let at = konst(f, Ty::I8, bit);
         let take = bin(f, BinOp::LShr, Ty::I8, b, at);
@@ -249,11 +260,14 @@ fn gf_mul(f: &mut FnCtx, a: Val, b: Val) -> Val {
         let zero = konst(f, Ty::I8, 0);
         let all = bin(f, BinOp::Sub, Ty::I8, zero, take);
         let term = bin(f, BinOp::And, Ty::I8, a, all);
+
         acc = bin(f, BinOp::Xor, Ty::I8, acc, term);
+
         if bit < 7 {
             a = xtime(f, a);
         }
     }
+
     acc
 }
 
@@ -261,6 +275,7 @@ fn gf_mul(f: &mut FnCtx, a: Val, b: Val) -> Val {
 /// `rows[7 - i] & x`, then XOR the constant `c`.
 fn gf_affine(f: &mut FnCtx, rows: &[Val; 8], x: Val, c: u64) -> Val {
     let mut r = konst(f, Ty::I8, c);
+
     for i in 0..8 {
         let t = bin(f, BinOp::And, Ty::I8, rows[7 - i], x);
         let n = bit_intrinsic(f, Intrinsic::Popcount, Ty::I8, t);
@@ -268,8 +283,10 @@ fn gf_affine(f: &mut FnCtx, rows: &[Val; 8], x: Val, c: u64) -> Val {
         let parity = bin(f, BinOp::And, Ty::I8, n, one);
         let at = konst(f, Ty::I8, i as u64);
         let bit = bin(f, BinOp::Shl, Ty::I8, parity, at);
+
         r = bin(f, BinOp::Xor, Ty::I8, r, bit);
     }
+
     r
 }
 
@@ -290,8 +307,10 @@ impl Compiler {
                 if !vex && bytes < 64 {
                     let keep = lane_addr(f, tmp, bytes);
                     let old = lane_addr(f, reg, bytes);
+
                     f.b.copy(keep, old, 64 - bytes);
                 }
+
                 self.vec_store(f, cx, dst, tmp, 64, span)
             }
             _ => self.vec_store(f, cx, dst, tmp, bytes, span),
@@ -312,6 +331,7 @@ impl Compiler {
         let name = inst.mnemonic.name.as_str();
         let lanes = width / 4;
         let dst = ops[0];
+
         if !to_half {
             if ops.len() != 2 {
                 return err(
@@ -320,15 +340,20 @@ impl Compiler {
                     format!("`{name}` takes dst, src"),
                 );
             }
+
             let (s, _) = self.simd_args(f, ops, 1, false, span)?;
+
             for i in 0..lanes {
                 let h = load_lane(f, s[0], i, Ty::I16);
                 let r = half_to_single(f, h);
+
                 store_lane(f, tmp, i, Ty::I32, r);
             }
+
             // F16C only exists VEX/EVEX encoded.
             return self.ext_store(f, cx, (dst, tmp), (width, true), span);
         }
+
         if ops.len() != 3 {
             return err(
                 Code::AsmOperandForm,
@@ -336,6 +361,7 @@ impl Compiler {
                 format!("`{name}` takes dst, src, imm8"),
             );
         }
+
         let (s, k) = self.simd_args(f, ops, 1, true, span)?;
         // imm8[2] defers to MXCSR.RC, which is always round-to-nearest here.
         let mode = if k & 4 != 0 {
@@ -343,22 +369,28 @@ impl Compiler {
         } else {
             ['n', 'd', 'u', 'z'][(k & 3) as usize]
         };
+
         for i in 0..lanes {
             let x = load_lane(f, s[0], i, Ty::I32);
             let h = single_to_half(f, x, mode);
+
             store_lane(f, tmp, i, Ty::I16, h);
         }
+
         // The EVEX form masks half-sized elements of a narrower destination, so the
         // generic merge (which works on the full vector width) is done here instead.
         if let Some(wm) = wm {
             match dst {
                 VOpd::Mem(addr) => {
                     let p = ptr_of(f, addr);
+
                     for i in 0..lanes {
                         let on = mask_bit(f, wm.bits, i);
                         let v = load_lane(f, tmp, i, Ty::I16);
+
                         when(f, on, |f| store_lane(f, p, i, Ty::I16, v));
                     }
+
                     return Ok(());
                 }
                 VOpd::Reg(reg) => {
@@ -371,12 +403,14 @@ impl Compiler {
                             load_lane(f, reg, i, Ty::I16)
                         };
                         let v = select(f, Ty::I16, on, new, old);
+
                         store_lane(f, tmp, i, Ty::I16, v);
                     }
                 }
                 _ => {}
             }
         }
+
         self.ext_store(f, cx, (dst, tmp), (lanes * 2, true), span)
     }
 
@@ -392,6 +426,7 @@ impl Compiler {
     ) -> Result<()> {
         let span = inst.span;
         let name = inst.mnemonic.name.as_str();
+
         if inst.evex.mask.is_some() {
             return err(
                 Code::AsmMaskOperand,
@@ -399,6 +434,7 @@ impl Compiler {
                 format!("`{name}` cannot be masked"),
             );
         }
+
         if sha == ShaOp::Sha256Rnds2 && !matches!(ops.len(), 3 | 4) {
             return err(
                 Code::AsmOperandForm,
@@ -406,6 +442,7 @@ impl Compiler {
                 format!("`{name}` takes dst, src, wk (the implicit xmm0 as an operand)"),
             );
         }
+
         let (s, k) = match sha {
             ShaOp::Sha1Rnds4 => self.simd_args(f, ops, 2, true, span)?,
             ShaOp::Sha256Rnds2 => self.simd_args(f, ops, 3, false, span)?,
@@ -432,6 +469,7 @@ impl Compiler {
                 ][(k & 3) as usize];
                 let [mut a, mut b, mut c, mut d] = x;
                 let mut e = None;
+
                 for &w in &y {
                     let mix = match fun {
                         0 => choose(f, b, c, d),
@@ -442,20 +480,24 @@ impl Compiler {
                     let kk = c32(f, konst_k);
                     // The first word already has E folded in (see sha1nexte).
                     let mut t = add_all(f, &[a5, mix, w, kk]);
+
                     if let Some(e) = e {
                         t = op32(f, BinOp::Add, t, e);
                     }
+
                     e = Some(d);
                     d = c;
                     c = rotl(f, b, 30);
                     b = a;
                     a = t;
                 }
+
                 [a, b, c, d]
             }
             ShaOp::Sha1Nexte => {
                 let e = rotl(f, x[0], 30);
                 let top = op32(f, BinOp::Add, y[0], e);
+
                 [top, y[1], y[2], y[3]]
             }
             ShaOp::Sha1Msg1 => [
@@ -466,6 +508,7 @@ impl Compiler {
             ],
             ShaOp::Sha1Msg2 => {
                 let mut w = [Val(0); 4];
+
                 for i in 0..4 {
                     // The fourth word depends on the first result.
                     let other = if i < 3 {
@@ -474,8 +517,10 @@ impl Compiler {
                         w[0]
                     };
                     let t = op32(f, BinOp::Xor, x[i], other);
+
                     w[i] = rotl(f, t, 1);
                 }
+
                 w
             }
             ShaOp::Sha256Rnds2 => {
@@ -485,6 +530,7 @@ impl Compiler {
                 ];
                 let (mut a, mut b, mut c, mut d) = (y[0], y[1], x[0], x[1]);
                 let (mut e, mut ff, mut g, mut h) = (y[2], y[3], x[2], x[3]);
+
                 for w in wk {
                     let ch = choose(f, e, ff, g);
                     let s1 = sigma(f, e, 6, 11, 25, false);
@@ -493,9 +539,11 @@ impl Compiler {
                     let s0 = sigma(f, a, 2, 13, 22, false);
                     let new_a = add_all(f, &[t1, mj, s0]);
                     let new_e = op32(f, BinOp::Add, t1, d);
+
                     (h, g, ff, e) = (g, ff, e, new_e);
                     (d, c, b, a) = (c, b, a, new_a);
                 }
+
                 [a, b, e, ff]
             }
             ShaOp::Sha256Msg1 => {
@@ -503,10 +551,13 @@ impl Compiler {
                 // takes the lowest of src2.
                 let next = [y[3], x[0], x[1], x[2]];
                 let mut out = [Val(0); 4];
+
                 for i in 0..4 {
                     let s0 = sigma(f, next[i], 7, 18, 3, true);
+
                     out[i] = op32(f, BinOp::Add, x[i], s0);
                 }
+
                 out
             }
             ShaOp::Sha256Msg2 => {
@@ -518,12 +569,15 @@ impl Compiler {
                 let w18 = op32(f, BinOp::Add, x[1], s);
                 let s = sigma(f, w17, 17, 19, 10, true);
                 let w19 = op32(f, BinOp::Add, x[0], s);
+
                 [w19, w18, w17, w16]
             }
         };
+
         for (i, v) in out.into_iter().enumerate() {
             store_lane(f, tmp, 3 - i as u64, Ty::I32, v);
         }
+
         self.ext_store(f, cx, (ops[0], tmp), (16, false), span)
     }
 
@@ -539,13 +593,16 @@ impl Compiler {
         let (inst, ops, width, tmp) = (c.inst, c.ops, c.width, c.tmp);
         let span = inst.span;
         let vex = inst.mnemonic.name.as_str().starts_with('v');
+
         match gf {
             GfOp::Mul => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
+
                 for i in 0..width {
                     let a = load_lane(f, s[0], i, Ty::I8);
                     let b = load_lane(f, s[1], i, Ty::I8);
                     let r = gf_mul(f, a, b);
+
                     store_lane(f, tmp, i, Ty::I8, r);
                 }
             }
@@ -557,23 +614,31 @@ impl Compiler {
                 } else {
                     None
                 };
+
                 for q in 0..width / 8 {
                     let mut rows = [Val(0); 8];
+
                     for (j, row) in rows.iter_mut().enumerate() {
                         *row = load_lane(f, s[1], 8 * q + j as u64, Ty::I8);
                     }
+
                     for j in 0..8 {
                         let mut x = load_lane(f, s[0], 8 * q + j, Ty::I8);
+
                         if let Some(table) = inverses {
                             let at = resize(f, x, Ty::I8, Ty::I64, false);
+
                             x = load_dyn(f, table, at, Ty::I8);
                         }
+
                         let r = gf_affine(f, &rows, x, k);
+
                         store_lane(f, tmp, 8 * q + j, Ty::I8, r);
                     }
                 }
             }
         }
+
         self.ext_store(f, cx, (ops[0], tmp), (width, vex), span)
     }
 }

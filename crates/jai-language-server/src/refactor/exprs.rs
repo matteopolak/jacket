@@ -15,12 +15,14 @@ pub(super) fn header_poly(h: &ProcHeader) -> bool {
 /// Is `name` used by an expression in `stmts`?
 pub(super) fn mentioned_in(stmts: &[Stmt], name: Sym) -> bool {
     let mut found = false;
+
     walk(stmts, &mut |n, _| {
         if let Some(x) = n.expr()
             && matches!(x.kind, E::Ident(i) if i == name)
         {
             found = true;
         }
+
         !found
     });
     found
@@ -79,6 +81,7 @@ pub(super) fn type_like(e: &Expr) -> bool {
         E::Member(_, n) => n.name.as_str(),
         _ => return false,
     };
+
     name.starts_with(|c: char| c.is_ascii_uppercase())
         && name.chars().any(|c| c.is_ascii_lowercase())
 }
@@ -100,6 +103,7 @@ pub(super) fn suggest_name(e: &Expr) -> String {
     let valid = name.starts_with(|c: char| c.is_ascii_lowercase() || c == '_')
         && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
         && !jaic::lexicon::is_reserved(name);
+
     if valid && name.len() <= 24 {
         name.to_string()
     } else {
@@ -110,6 +114,7 @@ pub(super) fn suggest_name(e: &Expr) -> String {
 /// Does the expression call a procedure, so that running it twice (or later) matters?
 pub(super) fn has_call(e: &Expr) -> bool {
     let mut found = false;
+
     walk_node(Node::Expr(e), &mut Vec::new(), &mut |node, _| {
         found |= matches!(
             node,
@@ -142,6 +147,7 @@ pub(super) fn atomic(e: &Expr) -> bool {
 /// Does the use `x`, under `parents`, assign to, or take the address of, its variable?
 pub(super) fn changes(parents: &[Node<'_>], x: &Expr) -> bool {
     let mut place = x.span;
+
     for node in parents.iter().rev() {
         match node {
             Node::Expr(up) => match &up.kind {
@@ -164,5 +170,6 @@ pub(super) fn changes(parents: &[Node<'_>], x: &Expr) -> bool {
             }
         }
     }
+
     false
 }

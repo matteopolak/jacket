@@ -86,49 +86,62 @@ impl Compiler {
         } else {
             self.ct.expr_polls -= 1;
         }
+
         let nonuses = f.lifetimes.as_ref().map(|_| f.lifetime_nonuses);
         let comparing = f.lifetime_comparing;
         let metadata_base = f.lifetime_metadata_base;
+
         if nonuses.is_some()
             && let E::Member(base, _) = &expr.kind
         {
             f.lifetime_metadata_base = Some(base.span);
         }
+
         if nonuses.is_some()
             && let E::Binary(BinOp::Eq | BinOp::Ne, a, b) = &expr.kind
         {
             f.lifetime_nonuses = [a, b].map(|e| Some(e.span));
             f.lifetime_comparing = true;
         }
+
         self.ed.sketch_tried(expr.span);
         let mut result = self.check_expr_kind(f, scope, expr, expected);
+
         if matches!(expr.kind, E::Ident(..) | E::Member(..)) {
             result = result.map(Operand::named_constant);
         }
+
         self.ed.expr_checked(expr.span, result.is_ok());
+
         if result.is_err()
             && self.ed.recovers_exprs()
             && let Some(op) = self.ide_sketch_recover(f, scope, expr)
         {
             result = Ok(op);
         }
+
         if let Ok(op) = &result {
             self.record_expression_type(f, expr.span, op.ty(), false);
         }
+
         f.lifetime_metadata_base = metadata_base;
+
         if self.ed.is_live()
             && let Ok(op) = &result
         {
             self.lifetime_expression(f, expr, op);
             self.ide_note_expr(expr, op);
+
             if self.ed.sketching() {
                 self.ide_note_sketch_type(expr.span, op);
             }
         }
+
         if let Some(saved) = nonuses {
             f.lifetime_nonuses = saved;
             f.lifetime_comparing = comparing;
         }
+
         result
     }
 
@@ -223,6 +236,7 @@ impl Compiler {
         expected: Option<TypeId>,
     ) -> Result<Operand> {
         let span = expr.span;
+
         match &expr.kind {
             E::Ident(name) => self.check_ident(f, scope, *name, span),
             E::PolyVar {
@@ -234,6 +248,7 @@ impl Compiler {
             E::Int(v, spelling) => {
                 let v = v.get() as i128;
                 let origin = Origin::Literal(*spelling);
+
                 match expected.map(|t| self.ty.types.repr(t)) {
                     Some(t) if self.ty.types.is_float(t) => Ok(Operand::Const {
                         ty: t,
@@ -288,6 +303,7 @@ impl Compiler {
                         "`context` is not available here (procedure is #c_call or #no_context; use push_context)",
                     );
                 };
+
                 Ok(Operand::Place {
                     ty,
                     addr: ctx,
@@ -305,6 +321,7 @@ impl Compiler {
         expected: Option<TypeId>,
     ) -> Result<Operand> {
         let span = expr.span;
+
         match &expr.kind {
             E::Binary(op, a, b) => {
                 let node = Binary {
@@ -324,6 +341,7 @@ impl Compiler {
                 if let Some(op) = self.enclosing_local_constant(f, scope, base, member)? {
                     return Ok(op);
                 }
+
                 if !self.pr.const_macro_params.is_empty()
                     && member.name.as_str() == "count"
                     && let E::Ident(name) = &base.kind
@@ -331,6 +349,7 @@ impl Compiler {
                     && let Some((Value::String(s), _)) = self.pr.const_macro_params.get(&id)
                 {
                     let count = s.len();
+
                     return Ok(Operand::Const {
                         ty: TypeId::S64,
                         value: Value::Int(count as i128),
@@ -338,6 +357,7 @@ impl Compiler {
                         origin: Origin::Computed,
                     });
                 }
+
                 // Compile-time code may read type-level constants through a runtime local
                 // (`#if table.FLAG`): only the local's type is needed.
                 if f.compile_time
@@ -353,6 +373,7 @@ impl Compiler {
                 {
                     return Ok(op);
                 }
+
                 // Code nested in a procedure may also ask for the count of an enclosing
                 // procedure's fixed array (`#insert -> string { ... result.base.count ... }`):
                 // only its type is read.
@@ -373,6 +394,7 @@ impl Compiler {
                         origin: Origin::Computed,
                     });
                 }
+
                 // A fixed array's count is part of its type, so `variable.count` is constant
                 // although the variable is not: naming it reads no value.
                 if f.constant_only.is_some()
@@ -381,7 +403,9 @@ impl Compiler {
                 {
                     let saved = f.constant_only.take();
                     let named = self.check_expr(f, scope, base, None);
+
                     f.constant_only = saved;
+
                     if let Ok(op) = named
                         && let TypeKind::Array {
                             kind: ArrayKind::Fixed(n),
@@ -396,16 +420,20 @@ impl Compiler {
                         });
                     }
                 }
+
                 // A fixed array's `data` is the address of its storage, constant although the
                 // variable is not: `view : []T = .{ 0, buffer.data }`.
                 let mut fixed_array_base = None;
+
                 if f.constant_only.is_some()
                     && member.name.as_str() == "data"
                     && names_variable_path(base)
                 {
                     let saved = f.constant_only.take();
                     let named = self.check_expr(f, scope, base, None);
+
                     f.constant_only = saved;
+
                     if let Ok(op) = named
                         && matches!(
                             self.ty.types.kind(self.ty.types.repr(op.ty())),
@@ -418,6 +446,7 @@ impl Compiler {
                         fixed_array_base = Some(op);
                     }
                 }
+
                 let checked = match fixed_array_base {
                     Some(op) => Ok(op),
                     None => self.check_expr(f, scope, base, None),
@@ -436,7 +465,9 @@ impl Compiler {
                                 ty,
                                 addr,
                             };
+
                             self.ide_note_receiver(member.span, &stand_in);
+
                             if let Ok(op) =
                                 self.member_access(f, scope, stand_in, member.name, member.span)
                             {
@@ -444,21 +475,26 @@ impl Compiler {
                                 self.ide_note_member_ref(member.span, member.name, op.ty());
                             }
                         }
+
                         return Err(e);
                     }
                 };
+
                 if self.ed.is_live() {
                     self.ide_note_receiver(member.span, &base_op);
                 }
+
                 let note = self.ed.is_live().then(|| match &base_op {
                     Operand::Type(t) => *t,
                     other => other.ty(),
                 });
                 let base_is_type = matches!(base_op, Operand::Type(_));
                 let result = self.member_access(f, scope, base_op, member.name, member.span);
+
                 if let (Some(ty), Ok(_)) = (note, &result) {
                     self.ide_note_member_use(member.span, ty, member.name);
                 }
+
                 // `Struct.field` names the field's type, but a value is wanted here: it is the
                 // field's default value.
                 if base_is_type
@@ -468,11 +504,13 @@ impl Compiler {
                 {
                     return Ok(value);
                 }
+
                 result
             }
             E::InferredMember(name) => self.check_inferred_member(f, scope, name, expected),
             E::Index(base, index) => {
                 let element = self.check_index(f, scope, base, index, span)?;
+
                 // An element of a constant array of types (`types[0]`) names a type, not a
                 // `Type` variable to read.
                 if element.ty() == TypeId::TYPE
@@ -486,6 +524,7 @@ impl Compiler {
                 {
                     return Ok(known);
                 }
+
                 Ok(element)
             }
             E::Cast {
@@ -509,18 +548,22 @@ impl Compiler {
                 // the target {#cast.29}.
                 let operand_expected = cast_operand_needs_target(value).then_some(target);
                 let op = self.check_expr(f, scope, value, operand_expected)?;
+
                 if self.ed.is_live() {
                     self.ide_note_cast(span, target, &op);
                 }
+
                 if ty.is_some() {
                     self.warn_cast_shift_precedence(span, value, op.ty(), target);
                 }
+
                 if self.ty.types.is_integer(target)
                     && (matches!(op, Operand::Procs(_))
                         || matches!(self.ty.types.kind(op.ty()), TypeKind::Proc(_)))
                 {
                     self.warn_procedure_cast_to_integer(scope, span, target);
                 }
+
                 let op = if flags.no_check || flags.truncate || flags.force {
                     op
                 } else {
@@ -533,6 +576,7 @@ impl Compiler {
                 } else {
                     None
                 };
+
                 Ok(result.with_callable(parameters))
             }
             E::Ifx {
@@ -584,6 +628,7 @@ impl Compiler {
         _expected: Option<TypeId>,
     ) -> Result<Operand> {
         let span = expr.span;
+
         match &expr.kind {
             E::ArrayType {
                 size,
@@ -607,6 +652,7 @@ impl Compiler {
                                 _ => None,
                             },
                         };
+
                         match count {
                             Some(n) if n >= 0 => ArrayKind::Fixed(n as u64),
                             _ => {
@@ -622,6 +668,7 @@ impl Compiler {
                         }
                     }
                 };
+
                 Ok(Operand::Type(self.ty.types.array(elem, kind)))
             }
             E::ProcType(header) => Ok(Operand::Type(self.proc_type_from_header(f, scope, header)?)),
@@ -632,15 +679,18 @@ impl Compiler {
                     p
                 } else {
                     let p = self.new_proc(name, lit.clone(), scope, span);
+
                     self.pr.anonymous_procs.insert((key, scope), p);
                     p
                 };
+
                 Ok(Operand::Procs(vec![proc]))
             }
             E::Struct(lit) => {
                 if let Some(&t) = self.ty.anonymous.get(&(lit.id, scope)) {
                     return Ok(Operand::Type(t));
                 }
+
                 self.check_struct_modify(Sym::intern("struct"), lit)?;
                 let t = self.new_struct_type(
                     Sym::intern("struct"),
@@ -649,6 +699,7 @@ impl Compiler {
                     Vec::new(),
                     None,
                 );
+
                 self.ty.anonymous.insert((lit.id, scope), t);
                 Ok(Operand::Type(t))
             }
@@ -656,7 +707,9 @@ impl Compiler {
                 if let Some(&t) = self.ty.anonymous.get(&(lit.id, scope)) {
                     return Ok(Operand::Type(t));
                 }
+
                 let t = self.new_enum_type(Sym::intern("enum"), lit, scope)?;
+
                 self.ty.anonymous.insert((lit.id, scope), t);
                 Ok(Operand::Type(t))
             }
@@ -665,6 +718,7 @@ impl Compiler {
                 ty,
             } => {
                 let base = self.eval_type_in(f, scope, ty)?;
+
                 if modifier == &ast::TypeModifier::Plain {
                     Ok(Operand::Type(base))
                 } else {
@@ -674,6 +728,7 @@ impl Compiler {
                         base,
                         isa,
                     });
+
                     self.ty.nominal_origins.insert(t, (span, scope));
                     Ok(Operand::Type(t))
                 }
@@ -690,6 +745,7 @@ impl Compiler {
         expected: Option<TypeId>,
     ) -> Result<Operand> {
         let span = expr.span;
+
         match &expr.kind {
             E::Run {
                 body,
@@ -697,6 +753,7 @@ impl Compiler {
             } => self.check_run(scope, body, flags, expected, span),
             E::Code(body) => {
                 let id = self.add_code(body.clone(), scope);
+
                 Ok(Operand::Const {
                     ty: TypeId::CODE,
                     value: Value::Code(id),
@@ -727,6 +784,7 @@ impl Compiler {
                             let hidden = self.new_hidden_scope(target);
                             let proc_depth = self.scope(scope).proc_depth;
                             let hidden_scope = &mut self.ns.scopes[hidden.0 as usize];
+
                             hidden_scope.fallbacks = vec![at];
                             hidden_scope.proc_depth = proc_depth;
                             hidden
@@ -742,6 +800,7 @@ impl Compiler {
                     None if flags.iter().any(|fl| fl.name.as_str() == "scope") => scope,
                     None => at,
                 };
+
                 self.check_expr(f, at, &inserted, expected)
             }
             E::Location(target) => {
@@ -759,6 +818,7 @@ impl Compiler {
             E::File => {
                 let path =
                     crate::paths::program_path(&self.src.sources.get(span.file).path.to_string());
+
                 Ok(Operand::Const {
                     ty: TypeId::STRING,
                     value: Value::String(path.as_bytes().into()),
@@ -772,6 +832,7 @@ impl Compiler {
                     .parent()
                     .map(|p| format!("{}/", crate::paths::program_path(&p.display().to_string())))
                     .unwrap_or_default();
+
                 Ok(Operand::Const {
                     ty: TypeId::STRING,
                     value: Value::String(dir.as_bytes().into()),
@@ -788,6 +849,7 @@ impl Compiler {
                     .proc
                     .map(|p| self.proc(p).name.to_string())
                     .unwrap_or_default();
+
                 Ok(Operand::Const {
                     ty: TypeId::STRING,
                     value: Value::String(name.as_bytes().into()),
@@ -798,24 +860,30 @@ impl Compiler {
             E::This => {
                 // In a macro body `#this` is the procedure the macro expanded into.
                 let mut result = self.check_this(scope, span);
+
                 for frame in f.macros.iter().rev() {
                     if result.is_ok() {
                         break;
                     }
+
                     result = self.check_this(frame.caller_scope, span);
                 }
+
                 if let (Err(_), Some(caller)) = (&result, f.backtick_scope) {
                     // A deferred macro statement runs after its frame is gone.
                     result = self.check_this(caller, span);
                 }
+
                 result
             }
             E::CompileTime => {
                 if f.compile_time {
                     return Ok(Operand::bool(true));
                 }
+
                 let v =
                     f.b.intrinsic(ir::Intrinsic::IsCompileTime, Vec::new(), &[Ty::I8]);
+
                 Ok(Operand::Value {
                     ty: TypeId::BOOL,
                     val: v[0],
@@ -833,6 +901,7 @@ impl Compiler {
                         E::Ident(name) => !self.lookup(scope, *name)?.is_empty(),
                         _ => self.check_expr(f, scope, e, None).is_ok(),
                     };
+
                 f.type_only = type_only;
                 other_checked?;
                 Ok(Operand::bool(exists))
@@ -851,11 +920,13 @@ impl Compiler {
                             _ => None,
                         })
                         .collect();
+
                     if bytes == [0xCC] || bytes == [0x20, 0x00, 0x20, 0xD4] {
                         f.b.intrinsic(ir::Intrinsic::DebugBreak, Vec::new(), &[]);
                         return Ok(Operand::Void);
                     }
                 }
+
                 self.check_expr(f, scope, e, expected)
             }
             E::Backtick(inner) => {
@@ -888,6 +959,7 @@ impl Compiler {
                 };
                 let id =
                     self.add_code(Arc::new(ast::CodeBody::Expr((*call).clone())), caller_scope);
+
                 Ok(Operand::Const {
                     ty: TypeId::CODE,
                     value: Value::Code(id),

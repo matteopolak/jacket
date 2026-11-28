@@ -65,11 +65,14 @@ impl<'a> From<&'a Stmt> for Node<'a> {
 /// spans `a + b) * c`).
 pub fn extent(node: Node<'_>) -> crate::source::Span {
     let mut out = body_extent(node);
+
     if let Node::Expr(e) = node {
         let outer = e.outer_span();
+
         out.start = out.start.min(outer.start);
         out.end = out.end.max(outer.end);
     }
+
     out
 }
 
@@ -83,13 +86,16 @@ pub fn body_extent(node: Node<'_>) -> crate::source::Span {
     // A node with one child (or a unary operand) has it as both edges; measuring it twice would
     // double the work at every level of a chain of such nodes.
     let last = last.filter(|l| !first.is_some_and(|f| f.same_node(*l)));
+
     for kid in [first, last].into_iter().flatten() {
         let inner = extent(kid);
+
         if inner.file == out.file {
             out.start = out.start.min(inner.start);
             out.end = out.end.max(inner.end);
         }
     }
+
     out
 }
 
@@ -98,6 +104,7 @@ pub fn body_extent(node: Node<'_>) -> crate::source::Span {
 /// procedure bodies, struct and enum bodies are not entered.
 pub fn walk<'a>(stmts: &'a [Stmt], visit: &mut dyn FnMut(Node<'a>, &[Node<'a>]) -> bool) {
     let mut stack = Vec::new();
+
     for s in stmts {
         walk_node(Node::Stmt(s), &mut stack, visit);
     }
@@ -111,10 +118,13 @@ pub fn walk_node<'a>(
     if !visit(node, stack) {
         return;
     }
+
     stack.push(node);
+
     for child in children(node) {
         walk_node(child, stack, visit);
     }
+
     stack.pop();
 }
 
@@ -155,6 +165,7 @@ fn edge_children(node: Node<'_>) -> (Option<Node<'_>>, Option<Node<'_>>) {
             _ => {}
         }
     }
+
     let kids = children(node);
     (kids.first().copied(), kids.last().copied())
 }
@@ -162,10 +173,12 @@ fn edge_children(node: Node<'_>) -> (Option<Node<'_>>, Option<Node<'_>>) {
 /// The direct children of a node, in source order.
 pub fn children(node: Node<'_>) -> Vec<Node<'_>> {
     let mut out = Vec::new();
+
     match node {
         Node::Stmt(s) => stmt_children(s, &mut out),
         Node::Expr(e) => expr_children(e, &mut out),
     }
+
     out
 }
 
@@ -175,14 +188,17 @@ fn stmts<'a>(list: &'a [Stmt], out: &mut Vec<Node<'a>>) {
 
 fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
     let mut e = |x: &'a Expr| out.push(Node::Expr(x));
+
     match &s.kind {
         S::Decl(d) | S::AddContext(d) => {
             if let Some(t) = &d.ty {
                 e(t);
             }
+
             if let Some(v) = &d.value {
                 e(v);
             }
+
             for v in d.extra_values() {
                 e(v);
             }
@@ -206,6 +222,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
         } => {
             e(cond);
             out.push(Node::Stmt(then_branch));
+
             if let Some(b) = else_branch {
                 out.push(Node::Stmt(b));
             }
@@ -216,11 +233,14 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 cases,
                 ..
             } = &**boxed;
+
             e(value);
+
             for c in cases {
                 for v in &c.values {
                     out.push(Node::Expr(v));
                 }
+
                 stmts(&c.body, out);
             }
         }
@@ -230,6 +250,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 body,
                 ..
             } = &**boxed;
+
             e(cond);
             out.push(Node::Stmt(body));
         }
@@ -241,9 +262,11 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 }
                 ForOver::Collection(c) => e(c),
             }
+
             for x in f.pointer_if.iter().chain(&f.reverse_if) {
                 e(x);
             }
+
             out.push(Node::Stmt(&f.body));
         }
         S::Return {
@@ -260,6 +283,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
             let super::UsingStmt {
                 value, ..
             } = &**boxed;
+
             e(value);
         }
         S::PushContext(boxed) => {
@@ -268,6 +292,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 body,
                 ..
             } = &**boxed;
+
             e(context);
             out.push(Node::Stmt(body));
         }
@@ -278,6 +303,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 else_branch,
                 ..
             } = &**boxed;
+
             e(cond);
             stmts(then_branch, out);
             stmts(else_branch, out);
@@ -289,10 +315,13 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 replacements,
                 ..
             } = &**boxed;
+
             e(value);
+
             if let Some(x) = scope {
                 e(x);
             }
+
             for a in replacements {
                 e(&a.value);
             }
@@ -303,10 +332,13 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
                 message,
                 args,
             } = &**boxed;
+
             e(cond);
+
             if let Some(m) = message {
                 e(m);
             }
+
             for x in args {
                 e(x);
             }
@@ -315,12 +347,14 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
             let super::PushContextDeferStmt {
                 context: x, ..
             } = &**boxed;
+
             e(x);
         }
         S::Directive(boxed) => {
             let super::DirectiveStmt {
                 args, ..
             } = &**boxed;
+
             for x in args {
                 e(x);
             }
@@ -329,6 +363,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
             for v in &c.values {
                 e(v);
             }
+
             stmts(&c.body, out);
         }
         _ => {}
@@ -337,6 +372,7 @@ fn stmt_children<'a>(s: &'a Stmt, out: &mut Vec<Node<'a>>) {
 
 fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
     let mut e = |x: &'a Expr| out.push(Node::Expr(x));
+
     match &x.kind {
         E::Binary(_, a, b) | E::Index(a, b) => {
             e(a);
@@ -346,6 +382,7 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
         E::Bytes(a) => e(a),
         E::Exists(a, other) => {
             e(a);
+
             if let Some(other) = other {
                 e(other);
             }
@@ -364,10 +401,12 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             ..
         } => {
             e(callee);
+
             for a in args {
                 if let Some(t) = &a.target {
                     e(t);
                 }
+
                 e(&a.value);
             }
         }
@@ -379,6 +418,7 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             if let Some(t) = ty {
                 e(t);
             }
+
             e(value);
         }
         E::Ifx {
@@ -388,6 +428,7 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             ..
         } => {
             e(cond);
+
             for v in then_value.iter().chain(else_value) {
                 e(v);
             }
@@ -399,10 +440,12 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             if let Some(t) = ty {
                 e(t);
             }
+
             for a in fields {
                 if let Some(t) = &a.target {
                     e(t);
                 }
+
                 e(&a.value);
             }
         }
@@ -413,6 +456,7 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             if let Some(t) = ty {
                 e(t);
             }
+
             for v in elems {
                 e(v);
             }
@@ -424,6 +468,7 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
             if let super::ArraySize::Fixed(n) = size {
                 e(n);
             }
+
             e(elem);
         }
         E::Block(b) => stmts(&b.stmts, out),
@@ -448,10 +493,13 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
                 replacements,
                 ..
             } = &**boxed;
+
             e(value);
+
             if let Some(s) = scope {
                 e(s);
             }
+
             for a in replacements {
                 e(&a.value);
             }
@@ -467,12 +515,14 @@ fn expr_children<'a>(x: &'a Expr, out: &mut Vec<Node<'a>>) {
                 AsmItem::Inst(inst) => Some(&inst.operands),
                 AsmItem::Decl(_) => None,
             });
+
             for op in operands.flatten() {
                 match op {
                     AsmOperand::Value(v) => e(v),
                     AsmOperand::Mem(m) => {
                         for t in &m.terms {
                             e(&t.value);
+
                             if let Some(s) = &t.scale {
                                 e(s);
                             }
@@ -497,6 +547,7 @@ mod tests {
     fn measure(node: Node<'_>) -> usize {
         let _ = extent(node);
         let own = matches!(node, Node::Expr(e) if matches!(e.kind, E::Unary(..)));
+
         usize::from(own) + children(node).into_iter().map(measure).sum::<usize>()
     }
 
@@ -508,6 +559,7 @@ mod tests {
         let src = format!("x := {}1;\n", "!".repeat(depth));
         let file = parse_file(FileId(0), &src).expect("parses");
         let unary: usize = file.stmts.iter().map(|s| measure(Node::Stmt(s))).sum();
+
         assert_eq!(unary, depth);
     }
 }

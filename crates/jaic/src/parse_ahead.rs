@@ -88,6 +88,7 @@ mod imp {
         /// The tree for a compile that gave the file `file`.
         pub fn finish(self, file: FileId) -> ast::File {
             let mut tree = self.file;
+
             relocate::relocate(&mut tree, file);
             tree
         }
@@ -116,6 +117,7 @@ mod imp {
                     return Some(path);
                 }
             }
+
             None
         }
     }
@@ -154,15 +156,19 @@ mod imp {
         /// compile should parse serially.
         pub fn start(options: &Options, roots: Vec<PathBuf>) -> Option<ParseAhead> {
             let knobs = crate::knobs::get();
+
             if knobs.serial_parse {
                 return None;
             }
+
             let workers = knobs
                 .parse_threads
                 .unwrap_or_else(|| crate::pool::threads().saturating_sub(1).min(4));
+
             if workers == 0 {
                 return None;
             }
+
             let shared = Arc::new(Shared {
                 state: Mutex::new(State {
                     queue: VecDeque::new(),
@@ -182,17 +188,21 @@ mod imp {
                 shared,
             };
             let canonical: Vec<PathBuf> = roots.iter().map(|p| NativeFs.canonical(p)).collect();
+
             ahead.shared.enqueue(canonical);
+
             for _ in 0..workers {
                 let shared = ahead.shared.clone();
                 let spawned = std::thread::Builder::new()
                     .name("jaic-parse".into())
                     .stack_size(WORKER_STACK)
                     .spawn(move || shared.work_loop());
+
                 if spawned.is_err() {
                     break;
                 }
             }
+
             Some(ahead)
         }
 
@@ -200,6 +210,7 @@ mod imp {
         /// for a worker that is parsing it; a file no worker has started is left to the caller.
         pub fn claim(&self, path: &Path) -> Option<Prepared> {
             let mut state = self.shared.state.lock().unwrap();
+
             loop {
                 match state.entries.get_mut(path)? {
                     entry @ Entry::Queued => {
@@ -252,6 +263,7 @@ mod imp {
         fn enqueue(&self, paths: Vec<PathBuf>) {
             let mut state = self.state.lock().unwrap();
             let mut added = 0;
+
             for path in paths {
                 if !state.entries.contains_key(&path) {
                     state.entries.insert(path.clone(), Entry::Queued);
@@ -259,7 +271,9 @@ mod imp {
                     added += 1;
                 }
             }
+
             drop(state);
+
             for _ in 0..added {
                 self.work.notify_one();
             }
@@ -269,13 +283,16 @@ mod imp {
             loop {
                 let path = {
                     let mut state = self.state.lock().unwrap();
+
                     loop {
                         if state.shutdown {
                             return;
                         }
+
                         if let Some(path) = state.next_queued() {
                             break path;
                         }
+
                         state = self.work.wait(state).unwrap();
                     }
                 };
@@ -284,9 +301,11 @@ mod imp {
                         .ok()
                         .flatten();
                 let mut state = self.state.lock().unwrap();
+
                 if let Some(entry) = state.entries.get_mut(&path) {
                     *entry = Entry::Done(prepared.map(Box::new));
                 }
+
                 drop(state);
                 self.done.notify_all();
             }
@@ -302,11 +321,14 @@ mod imp {
                 }
                 None => crate::parser::parse_file(relocate::PLACEHOLDER_FILE, &text),
             };
+
             if let Ok(file) = &parsed {
                 self.discover(file, path);
             }
+
             let file = parsed.ok()?;
             let lines = LineIndex::new(&text);
+
             Some(Prepared {
                 text: text.into(),
                 lines,
@@ -322,6 +344,7 @@ mod imp {
             if !path.starts_with(self.stdlib.as_ref()?) {
                 return None;
             }
+
             Some(crate::parser::PlatformTarget {
                 os: crate::target::os_member(self.os),
                 cpu: crate::target::cpu_member(self.cpu),
@@ -331,7 +354,9 @@ mod imp {
         fn discover(&self, file: &ast::File, path: &Path) {
             let dir = path.parent().unwrap_or(Path::new(""));
             let mut found = Vec::new();
+
             self.collect(&file.stmts, dir, &mut found);
+
             if !found.is_empty() {
                 self.enqueue(found);
             }
@@ -368,6 +393,7 @@ mod imp {
                             }
                             ast::ImportSource::String(_) => None,
                         };
+
                         if let Some(entry) = entry {
                             out.push(NativeFs.canonical(&entry));
                         }
@@ -442,9 +468,11 @@ mod imp {
                         _ => return None,
                     };
                     let wanted = member.name.as_str();
+
                     if !known.contains(&wanted) {
                         return None;
                     }
+
                     Some((current == wanted) == (*op == ast::BinOp::Eq))
                 }
                 _ => None,
@@ -476,11 +504,13 @@ mod tests {
     fn without_ids(tree: &str) -> String {
         let mut out = String::with_capacity(tree.len());
         let mut rest = tree;
+
         while let Some(at) = rest.find("AstId(") {
             out.push_str(&rest[..at + "AstId(".len()]);
             rest = rest[at + "AstId(".len()..].trim_start_matches(|c: char| c.is_ascii_digit());
             out.push('_');
         }
+
         out.push_str(rest);
         out
     }
@@ -488,13 +518,16 @@ mod tests {
     fn relocated_parse_equals_serial_parse_body() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut files = Vec::new();
+
         for dir in ["stdlib", "examples", "tests"] {
             files.extend(crate::paths::jai_files_under(&root.join(dir), &mut |_| {
                 false
             }));
         }
+
         assert!(files.len() > 50);
         let mut compared = 0;
+
         for path in files {
             let text = String::from_utf8_lossy(&std::fs::read(&path).unwrap()).into_owned();
             let Ok(serial) = crate::parser::parse_file(FileId(7), &text) else {
@@ -503,6 +536,7 @@ mod tests {
             let expected = without_ids(&format!("{serial:?}"));
             let prepared = {
                 let path = path.clone();
+
                 std::thread::Builder::new()
                     .stack_size(64 << 20)
                     .spawn(move || prepare_for_test(&path))
@@ -512,6 +546,7 @@ mod tests {
             };
             let (_, _, tree) = prepared.expect("worker parse").into_parts();
             let relocated = tree.finish(FileId(7));
+
             assert_eq!(
                 expected,
                 without_ids(&format!("{relocated:?}")),
@@ -520,6 +555,7 @@ mod tests {
             );
             compared += 1;
         }
+
         assert!(compared > 50);
     }
 }

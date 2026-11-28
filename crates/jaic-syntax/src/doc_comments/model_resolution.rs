@@ -12,23 +12,29 @@ impl Reader<'_> {
     /// `Kind.MEMBER` that is the declaration of `Kind`.
     pub(super) fn type_refs(&mut self, file: &Path, ty: &str) -> Vec<TypeRef> {
         let mut out: Vec<TypeRef> = Vec::new();
+
         for path in type_paths(ty) {
             if path.len() == 1 && BUILTIN_TYPES.contains(&path[0].as_str()) {
                 continue;
             }
+
             for len in (1..=path.len()).rev() {
                 let written = path[..len].join(".");
+
                 if out.iter().any(|r| r.path == written) {
                     break;
                 }
+
                 let key = (file.to_path_buf(), written.clone());
                 let found = if let Some(found) = self.refs.get(&key) {
                     found.clone()
                 } else {
                     let found = self.declaration_of(file, &path[..len]);
+
                     self.refs.insert(key, found.clone());
                     found
                 };
+
                 if !found.is_empty() {
                     for (file, line, private, at) in found {
                         out.push(TypeRef {
@@ -39,10 +45,12 @@ impl Reader<'_> {
                             at,
                         });
                     }
+
                     break;
                 }
             }
         }
+
         out
     }
 
@@ -58,6 +66,7 @@ impl Reader<'_> {
                 .map(crate::paths::module_entry)
                 .find(|entry| entry.is_file() && entry != file)
         });
+
         if let Some(found) = std::iter::once(file)
             .chain(provider.as_deref())
             .chain(std::iter::once(entry.as_path()))
@@ -65,15 +74,19 @@ impl Reader<'_> {
         {
             return Some(found);
         }
+
         let key = path.join(".");
+
         if let Some(found) = self.anywhere.get(&key) {
             return found.clone();
         }
+
         let all = self.library.clone();
         let found = all
             .iter()
             .find_map(|from| self.files.type_site(from, path))
             .or_else(|| self.files.implicit_site(path));
+
         self.anywhere.insert(key, found.clone());
         found
     }
@@ -87,10 +100,12 @@ impl Reader<'_> {
         };
         let mut seen = BTreeSet::new();
         let mut chain = Vec::new();
+
         for _ in 0..MAX_HOPS {
             if !seen.insert(site.clone()) {
                 break;
             }
+
             let Some(text) = self.files.text(&site.0) else {
                 break;
             };
@@ -100,14 +115,17 @@ impl Reader<'_> {
                 || self
                     .parsed(&site.0)
                     .is_some_and(|p| p.private.contains(&site.1));
+
             chain.push((site.0.clone(), self.line_of(&text, site.1), private, site.1));
             let Some(next) =
                 docs::alias_target(&text, site.1).and_then(|path| self.locate(&site.0, &path))
             else {
                 break;
             };
+
             site = next;
         }
+
         chain
     }
 
@@ -116,6 +134,7 @@ impl Reader<'_> {
         if depth == 0 {
             return false;
         }
+
         match &expr.kind {
             ExprKind::Struct(_)
             | ExprKind::Enum(_)
@@ -155,6 +174,7 @@ impl Reader<'_> {
                     return false;
                 };
                 let index = TopIndex::new(&target);
+
                 index
                     .at
                     .get(&at)
@@ -169,9 +189,11 @@ impl Reader<'_> {
     /// declaration has no separate item page, so link to the containing type's page.
     pub(super) fn item_members(&mut self, file: &Path, text: &str, decl: &Decl, item: &mut Item) {
         item.members = members(decl, text);
+
         for member in &mut item.members {
             member.refs = self.type_refs(file, &member.ty);
         }
+
         let Some(Expr {
             kind: ExprKind::Struct(lit),
             ..
@@ -179,6 +201,7 @@ impl Reader<'_> {
         else {
             return;
         };
+
         for member in &mut item.members {
             for path in type_paths(&member.ty) {
                 let nested = lit.body.iter().find_map(|s| match &s.kind {
@@ -190,6 +213,7 @@ impl Reader<'_> {
                     }
                     _ => None,
                 });
+
                 if nested
                     .and_then(|d| d.value.as_ref())
                     .is_some_and(|v| self.value_is_type(file, v, MAX_HOPS))
@@ -213,6 +237,7 @@ impl Reader<'_> {
     /// that can be found).
     pub(super) fn target(&mut self, file: &Path, at: usize) -> (PathBuf, usize) {
         let (mut file, mut at) = (file.to_path_buf(), at);
+
         for _ in 0..MAX_HOPS {
             let Some(text) = self.files.text(&file) else {
                 break;
@@ -220,11 +245,13 @@ impl Reader<'_> {
             let Some(path) = docs::alias_target(&text, at) else {
                 break;
             };
+
             match self.locate(&file, &path) {
                 Some(next) if next != (file.clone(), at) => (file, at) = next,
                 _ => break,
             }
         }
+
         (file, at)
     }
 }

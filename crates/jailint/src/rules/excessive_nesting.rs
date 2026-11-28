@@ -39,12 +39,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         // Inside a block that was already reported: the outer finding covers it.
         let base = enclosing_depth(cx, p);
+
         if base > cx.max_nesting {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, ancestors| {
             let Some(s) = n.stmt() else {
                 return true;
@@ -66,13 +69,17 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 ),
                 _ => (false, s.span),
             };
+
             if !opens {
                 return true;
             }
+
             let depth = base + levels(ancestors) + 1;
+
             if depth <= cx.max_nesting {
                 return true;
             }
+
             out.push(Finding {
                 secondary: Vec::new(),
                 start: header.start as usize,
@@ -118,15 +125,18 @@ fn enclosing_depth(cx: &Cx, p: &ProcSite) -> usize {
         return 0;
     };
     let mut depth = 0;
+
     walk(&outer.body.stmts, &mut |n, ancestors| {
         let span = match n {
             Node::Stmt(s) => s.span,
             Node::Expr(e) => e.span,
         };
         let contains = span.start <= inside.start && inside.end <= span.end;
+
         if contains {
             depth = levels(ancestors);
         }
+
         contains
     });
     enclosing_depth(cx, outer) + depth

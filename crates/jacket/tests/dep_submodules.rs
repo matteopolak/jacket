@@ -8,8 +8,10 @@ const MODULE: &[(&str, &str)] = &[("module.jai", "answer :: 42;\n")];
 fn added() -> (Project, Origin) {
     let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let origin = Origin::new(&project.root, "jaison", MODULE);
+
     origin.release("v1.0.0", &[("module.jai", "answer :: 43;\n")]);
     let run = project.jacket(&["dep", "add", &format!("{}@v1.0.0", origin.url())]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     (project, origin)
 }
@@ -18,16 +20,19 @@ fn added() -> (Project, Origin) {
 fn an_added_dependency_is_a_submodule_git_agrees_with() {
     let (project, origin) = added();
     let status = git(&project.dir, &["submodule", "status"]);
+
     assert!(
         !status.starts_with(['-', '+', 'U']) && status.contains("modules/jaison"),
         "initialised and at the recorded commit: {status:?}"
     );
     let porcelain = git(&project.dir, &["status", "--porcelain"]);
+
     assert!(
         porcelain.contains("A  .gitmodules") && porcelain.contains("A  modules/jaison"),
         "staged: {porcelain}"
     );
     let modules = std::fs::read_to_string(project.dir.join(".gitmodules")).unwrap();
+
     assert!(
         modules.contains("[submodule \"modules/jaison\"]")
             && modules.contains("path = modules/jaison")
@@ -35,6 +40,7 @@ fn an_added_dependency_is_a_submodule_git_agrees_with() {
         "{modules}"
     );
     let sub = project.dir.join("modules/jaison");
+
     assert_eq!(git(&sub, &["status", "--porcelain"]), "");
     assert!(
         git(&sub, &["rev-parse", "--absolute-git-dir"]).ends_with(".git/modules/modules/jaison")
@@ -50,9 +56,11 @@ fn an_added_dependency_is_a_submodule_git_agrees_with() {
 fn remove_leaves_git_with_nothing_of_the_submodule() {
     let (project, _) = added();
     let run = project.jacket(&["dep", "remove", "jaison"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert_eq!(git(&project.dir, &["submodule", "status"]), "");
     let modules = std::fs::read_to_string(project.dir.join(".gitmodules")).unwrap_or_default();
+
     assert!(!modules.contains("jaison"), "{modules}");
     assert!(!project.dir.join(".git/modules/modules/jaison").exists());
     assert!(
@@ -65,9 +73,11 @@ fn remove_leaves_git_with_nothing_of_the_submodule() {
 #[test]
 fn sync_initialises_a_fresh_clone_as_git_would() {
     let (project, _) = added();
+
     git(&project.dir, &["add", "-A"]);
     git(&project.dir, &["commit", "-q", "-m", "deps"]);
     let clone = project.root.join("clone");
+
     git(
         &project.root,
         &[
@@ -78,8 +88,10 @@ fn sync_initialises_a_fresh_clone_as_git_would() {
         ],
     );
     let run = run_in(&clone, project.root.path(), &["dep", "sync"], &[]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let status = git(&clone, &["submodule", "status"]);
+
     assert!(!status.starts_with(['-', '+', 'U']), "{status:?}");
     assert_eq!(
         git(&clone.join("modules/jaison"), &["status", "--porcelain"]),
@@ -92,8 +104,10 @@ fn update_moves_the_checkout_and_stages_the_new_commit() {
     let (project, origin) = added();
     let next = origin.release("v1.1.0", &[("module.jai", "answer :: 44;\n")]);
     let run = project.jacket(&["dep", "update", "--to", "v1.1.0"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let sub = project.dir.join("modules/jaison");
+
     assert_eq!(git(&sub, &["rev-parse", "HEAD"]), next);
     assert_eq!(
         std::fs::read_to_string(sub.join("module.jai")).unwrap(),
@@ -106,10 +120,13 @@ fn update_moves_the_checkout_and_stages_the_new_commit() {
 #[test]
 fn an_edited_dependency_is_not_overwritten_by_an_update() {
     let (project, origin) = added();
+
     origin.release("v1.1.0", &[("module.jai", "answer :: 44;\n")]);
     let file = project.dir.join("modules/jaison/module.jai");
+
     std::fs::write(&file, "answer :: 0;\n").unwrap();
     let run = project.jacket(&["dep", "update", "--to", "v1.1.0"]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert_eq!(std::fs::read_to_string(&file).unwrap(), "answer :: 0;\n");
 }
@@ -118,6 +135,7 @@ fn an_edited_dependency_is_not_overwritten_by_an_update() {
 fn replacing_a_vendored_copy_needs_it_unmodified() {
     let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let origin = Origin::new(&project.root, "jaison", MODULE);
+
     origin.release("v1.0.0", &[]);
     std::fs::create_dir_all(project.dir.join("modules/jaison")).unwrap();
     std::fs::write(project.dir.join("modules/jaison/module.jai"), "old :: 1;\n").unwrap();
@@ -130,6 +148,7 @@ fn replacing_a_vendored_copy_needs_it_unmodified() {
     .unwrap();
     let spec = format!("{}@v1.0.0", origin.url());
     let run = project.jacket(&["dep", "add", &spec, "--name", "jaison"]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.err.contains("uncommitted changes"), "{}", run.err);
     git(
@@ -137,6 +156,7 @@ fn replacing_a_vendored_copy_needs_it_unmodified() {
         &["checkout", "--", "modules/jaison/module.jai"],
     );
     let run = project.jacket(&["dep", "add", &spec, "--name", "jaison"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(git(&project.dir, &["ls-files", "-s"]).contains("160000"));
 }
@@ -152,19 +172,24 @@ fn a_package_that_names_itself_moves_its_submodule_with_git_still_agreeing() {
             ("jacket.toml", "[package]\nname = \"json_lib\"\n"),
         ],
     );
+
     origin.release("v1.0.0", &[]);
     let run = project.jacket(&["dep", "add", &format!("{}@v1.0.0", origin.url())]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(project.dir.join("modules/json_lib/module.jai").is_file());
     assert!(!project.dir.join("modules/jaison").exists());
     let modules = std::fs::read_to_string(project.dir.join(".gitmodules")).unwrap();
+
     assert!(modules.contains("path = modules/json_lib"), "{modules}");
     let status = git(&project.dir, &["submodule", "status"]);
+
     assert!(
         !status.starts_with(['-', '+', 'U']) && status.contains("modules/json_lib"),
         "{status:?}"
     );
     let sub = project.dir.join("modules/json_lib");
+
     assert_eq!(git(&sub, &["status", "--porcelain"]), "");
     assert!(git(&project.dir, &["ls-files", "-s"]).contains("modules/json_lib"));
     assert!(!git(&project.dir, &["ls-files", "-s"]).contains("modules/jaison"));

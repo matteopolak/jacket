@@ -29,25 +29,30 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for t in cx.tokens {
         if !matches!(t.tok, Tok::Int(_)) {
             continue;
         }
+
         let text = cx.src(t.span);
         let Some(digits) = text.strip_prefix("0x") else {
             continue;
         };
         let lower = digits.chars().filter(|c| matches!(c, 'a'..='f')).count();
         let upper = digits.chars().filter(|c| matches!(c, 'A'..='F')).count();
+
         if lower == 0 || upper == 0 || cx.in_macro(t.span.start as usize) {
             continue;
         }
+
         let one_case = if upper > lower {
             digits.to_ascii_uppercase()
         } else {
             digits.to_ascii_lowercase()
         };
         let fixed = format!("0x{one_case}");
+
         out.push(suggesting(
             Span::new(cx.file, t.span.start as usize, t.span.end as usize),
             format!("`{text}` mixes upper and lower case digits"),

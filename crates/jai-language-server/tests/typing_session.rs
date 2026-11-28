@@ -26,26 +26,33 @@ fn check(file: &str, seeds: std::ops::Range<u64>, config: &Config) -> Vec<String
         environment: &environment,
     };
     let mut problems = Vec::new();
+
     for seed in seeds {
         let report = checker::run(&input, config.clone(), Seeded(seed));
+
         assert!(
             report.versions > 20,
             "{file} seed {seed}: {} versions",
             report.versions
         );
+
         for failure in &report.failures {
             let mut text = format!("{file} seed {seed}: {failure}");
+
             for (doc, history) in &report.histories {
                 if let Some(small) = checker::minimise_history(&input, *doc, history, config) {
                     text.push_str("\nminimised edits:");
+
                     for step in &small.steps {
                         text.push_str(&format!("\n  {:?}", step.text));
                     }
                 }
             }
+
             problems.push(text);
         }
     }
+
     problems
 }
 
@@ -70,6 +77,7 @@ fn quick() -> Config {
 /// Each fixture and seed is a test of its own, so the sessions run side by side.
 fn typing_keeps_every_answer(file: &'static str, seed: u64) {
     let problems = on_big_stack(move || check(file, seed..seed + 1, &quick()));
+
     assert!(problems.is_empty(), "{}", problems.join("\n\n"));
 }
 
@@ -108,5 +116,6 @@ fn typing_after_a_switch_keeps_parameter_hovers() {
     };
     let problems =
         on_big_stack(move || check("stdlib/Extensions/Args/tests/help.jai", 0..1, &config));
+
     assert!(problems.is_empty(), "{}", problems.join("\n\n"));
 }

@@ -128,6 +128,7 @@ pub(super) fn callback_addr(
         s.program == program && s.func == func && s.sig == *sig
     })
     .ok_or_else(|| format!("more than {SLOTS} interpreted procedures were passed to C"))?;
+
     table[k] = Some(Slot {
         program,
         gate: gate.clone(),
@@ -149,6 +150,7 @@ unsafe extern "C" fn dispatch(slots: *const u64, xmm: *const u64, k: u32, out: *
             drop(table);
             fatal("C called a procedure of an interpreter that has finished")
         };
+
         (slot.gate.clone(), slot.program, slot.func, slot.sig.clone())
     };
     // SAFETY: `common` passes its caller's argument area and its own spill area; `invoke`
@@ -162,6 +164,7 @@ unsafe extern "C" fn dispatch(slots: *const u64, xmm: *const u64, k: u32, out: *
     let result = enter(&*gate, program, |reenter| {
         invoke(reenter, func, &sig, &incoming)
     });
+
     // SAFETY: `out` is the 16-byte result area in `common`'s frame.
     unsafe { out.write(result) };
 }
@@ -171,6 +174,7 @@ pub(super) fn release(gate: &Arc<dyn Gate>) {
     let mut table = TABLE
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+
     free_slots(&mut table, |s| same_gate(&s.gate, gate));
 }
 
@@ -185,11 +189,13 @@ impl<S: Fn(usize) -> u64, X: Fn(usize) -> u64> Incoming<S, X> {
         if !ty.is_float() {
             return (self.slot)(i);
         }
+
         let bits = if i < 4 {
             (self.xmm)(i)
         } else {
             (self.slot)(i)
         };
+
         if ty == Ty::F32 {
             bits & 0xffff_ffff
         } else {
@@ -220,21 +226,26 @@ fn invoke<S: Fn(usize) -> u64, X: Fn(usize) -> u64>(
     let mut buffers: Vec<Vec<u64>> = Vec::new();
     let mut args = Vec::with_capacity(sig.params.len());
     let count = sig.params.len() - ret_layout.is_some() as usize;
+
     for (i, &param) in sig.params[..count].iter().enumerate() {
         if sret && position == out_slot {
             position += 1;
         }
+
         let Some(layout) = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref) else {
             args.push(incoming.scalar(position, param));
             position += 1;
+
             continue;
         };
         let mut buffer = vec![0u64; layout.size.div_ceil(8).max(1) as usize];
+
         match abi::classify_arg(Arch::Win64, layout, &DataLayout::host()) {
             // An empty struct takes no slot.
             Passing::Registers(pieces) if pieces.is_empty() => {}
             Passing::Registers(_) => {
                 let value = (incoming.slot)(position);
+
                 position += 1;
                 // SAFETY: the buffer holds `layout.size` (at most 8) bytes.
                 unsafe { write_bytes(buffer.as_mut_ptr() as u64, value, layout.size) };
@@ -243,12 +254,15 @@ fn invoke<S: Fn(usize) -> u64, X: Fn(usize) -> u64>(
             Passing::Indirect | Passing::ByVal => {
                 args.push((incoming.slot)(position));
                 position += 1;
+
                 continue;
             }
         }
+
         args.push(buffer.as_ptr() as u64);
         buffers.push(buffer);
     }
+
     let Some(layout) = ret_layout else {
         let value = reenter(func, &args)?.first().copied().unwrap_or(0);
         // The caller reads RAX or XMM0 according to its own declaration; fill both.
@@ -256,17 +270,22 @@ fn invoke<S: Fn(usize) -> u64, X: Fn(usize) -> u64>(
     };
     let mut result = vec![0u64; layout.size.div_ceil(8).max(1) as usize];
     let base = result.as_mut_ptr() as u64;
+
     args.push(base);
     reenter(func, &args)?;
     drop(buffers);
+
     if sret {
         let out = (incoming.slot)(out_slot);
+
         // SAFETY: the caller's result buffer holds `layout.size` bytes.
         unsafe {
             std::ptr::copy_nonoverlapping(base as *const u8, out as *mut u8, layout.size as usize);
         };
+
         return Ok([out, 0]);
     }
+
     // SAFETY: `result` holds `layout.size` (at most 8) bytes.
     Ok([unsafe { read_bytes(base, layout.size) }, 0])
 }

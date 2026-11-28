@@ -11,6 +11,7 @@ pub struct LifetimeControls {
 
 pub(super) fn capture(func: &ir::Func) -> LifetimeControls {
     let mut addresses = HashMap::<ir::SlotId, Vec<Val>>::default();
+
     for inst in func.blocks.iter().flat_map(|b| &b.insts) {
         if let ir::Inst::SlotAddr {
             dst,
@@ -21,6 +22,7 @@ pub(super) fn capture(func: &ir::Func) -> LifetimeControls {
             addresses.entry(*slot).or_default().push(*dst);
         }
     }
+
     let mut private: HashSet<_> = addresses
         .values()
         .filter_map(|v| match v.as_slice() {
@@ -28,6 +30,7 @@ pub(super) fn capture(func: &ir::Func) -> LifetimeControls {
             _ => None,
         })
         .collect();
+
     for block in &func.blocks {
         for inst in &block.insts {
             match inst {
@@ -46,10 +49,12 @@ pub(super) fn capture(func: &ir::Func) -> LifetimeControls {
                 }),
             }
         }
+
         ir::term_uses(&block.term, &mut |v| {
             private.remove(&v);
         });
     }
+
     let mut needed: HashSet<_> = func
         .blocks
         .iter()
@@ -61,8 +66,10 @@ pub(super) fn capture(func: &ir::Func) -> LifetimeControls {
         })
         .collect();
     let mut slots = HashSet::default();
+
     loop {
         let old = (needed.len(), slots.len());
+
         for inst in func.blocks.iter().flat_map(|b| &b.insts) {
             match inst {
                 ir::Inst::Load {
@@ -99,22 +106,28 @@ pub(super) fn capture(func: &ir::Func) -> LifetimeControls {
                 _ => {}
             }
         }
+
         if old == (needed.len(), slots.len()) {
             break;
         }
     }
+
     if slots.is_empty() || needed.len() > 64 {
         return LifetimeControls::default();
     }
+
     let mut out = LifetimeControls {
         slots: slots.iter().copied().collect(),
         values: needed.iter().copied().collect(),
         ..LifetimeControls::default()
     };
+
     out.slots.sort_unstable_by_key(|v| v.0);
     out.values.sort_unstable_by_key(|v| v.0);
+
     for block in &func.blocks {
         let mut insts = Vec::new();
+
         for inst in &block.insts {
             let keep = match inst {
                 ir::Inst::IConst {
@@ -147,12 +160,15 @@ pub(super) fn capture(func: &ir::Func) -> LifetimeControls {
                 } => needed.contains(dst),
                 _ => false,
             };
+
             if keep {
                 insts.push(inst.clone());
             }
         }
+
         out.blocks.push(insts);
     }
+
     out
 }
 

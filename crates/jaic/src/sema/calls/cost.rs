@@ -17,6 +17,7 @@ impl Compiler {
         let expr = arg.expr.as_ref()?;
         let mut fallback = None;
         let typed = self.ifx_branch_operand(arg.scope, expr, &mut fallback);
+
         typed.or(fallback)
     }
 
@@ -36,19 +37,24 @@ impl Compiler {
         else {
             return None;
         };
+
         for branch in [then_value, else_value].into_iter().flatten() {
             if matches!(branch.kind, E::Ifx { .. }) {
                 if let Some(op) = self.ifx_branch_operand(scope, branch, fallback) {
                     return Some(op);
                 }
+
                 continue;
             }
+
             if is_deferred(branch) {
                 continue;
             }
+
             let Ok(op) = self.check_expr_no_emit(scope, branch) else {
                 continue;
             };
+
             match op {
                 Operand::Const {
                     untyped: true, ..
@@ -69,6 +75,7 @@ impl Compiler {
                 _ => {}
             }
         }
+
         None
     }
 
@@ -87,22 +94,27 @@ impl Compiler {
         if self.size_of(param, span).is_err() || fields.is_empty() {
             return Ok(Ok(0));
         }
+
         let members = self.positional_members(param, span)?;
         let mut positional = 0;
         let mut named = 0;
+
         for field in fields {
             if let Some(name) = field.name {
                 let Some((_, member)) = self.find_member(param, name.name, name.span)? else {
                     return Ok(Err(LitMisfit::NoMember(name.name)));
                 };
+
                 if !self.value_fits_member(scope, &field.value, member) {
                     return Ok(Err(LitMisfit::Value(Some(name.name))));
                 }
+
                 named += 1;
             } else if field.target.is_none() {
                 let Some(&(member_name, member, _)) = members.get(positional) else {
                     return Ok(Err(LitMisfit::TooMany));
                 };
+
                 if matches!(field.value.kind, E::ArrayLit { .. })
                     && !matches!(
                         self.ty.types.kind(self.ty.types.repr(member)),
@@ -111,16 +123,20 @@ impl Compiler {
                 {
                     return Ok(Err(LitMisfit::Value(member_name)));
                 }
+
                 if !self.value_fits_member(scope, &field.value, member) {
                     return Ok(Err(LitMisfit::Value(member_name)));
                 }
+
                 positional += 1;
             }
         }
+
         // All values positional and fewer than the fields without initializers: the literal
         // itself would be rejected, so it is not this type.
         if positional > 0 && positional == fields.len() {
             let needed = self.positional_values_needed(param);
+
             if positional < needed {
                 return Ok(Err(LitMisfit::NotEnough {
                     given: positional,
@@ -128,6 +144,7 @@ impl Compiler {
                 }));
             }
         }
+
         // Positional values fill members from the front, so a type with exactly that many
         // members is closer. Named values pick their members, and a member left to its
         // initializer is not a shortfall.
@@ -140,6 +157,7 @@ impl Compiler {
                     .iter()
                     .any(|f| f.name.is_some_and(|n| Some(n.name) == name))
             };
+
             members
                 .iter()
                 .enumerate()
@@ -158,6 +176,7 @@ impl Compiler {
         if is_deferred(value) {
             return true;
         }
+
         let Ok(op) = self.check_expr_no_emit(scope, value) else {
             return true;
         };
@@ -169,6 +188,7 @@ impl Compiler {
             span: value.span,
             scope,
         };
+
         self.arg_cost(&probe, member, false).is_ok()
     }
 
@@ -189,6 +209,7 @@ impl Compiler {
                 .struct_lit_fit(param, fields, arg.scope, arg.span)?
                 .unwrap_or(0));
         }
+
         Ok(0)
     }
 
@@ -202,6 +223,7 @@ impl Compiler {
         if self.is_register_operand_type(param, arg.span) {
             return self.register_arg_cost(arg, macro_call);
         }
+
         let Some(op) = &arg.op else {
             return self.deferred_arg_cost(arg, param, macro_call);
         };
@@ -212,16 +234,21 @@ impl Compiler {
                 ..
             }
         );
+
         if let Some(cost) = self.special_operand_cost(op, arg, param)? {
             return Ok(cost);
         }
+
         let from = op.ty();
+
         if from == TypeId::F32 && untyped && param == TypeId::F32 {
             return Ok(convert::EXACT);
         }
+
         if self.ty.auto_deref_arg(from, param) {
             return Ok(convert::SUBTYPE);
         }
+
         // Code macro parameters may quote a caller variable by name.
         if param == TypeId::CODE
             && macro_call
@@ -231,6 +258,7 @@ impl Compiler {
         {
             return Ok(convert::LITERAL);
         }
+
         self.implicit_cost(from, untyped, param).ok_or_else(|| {
             let d = Diagnostic::new(
                 Code::CallArgumentType,
@@ -254,11 +282,13 @@ impl Compiler {
                 "register operands require an expanded procedure",
             );
         }
+
         if let Some(expr) = &arg.expr
             && self.asm_reg_named(arg.scope, expr)?.is_some()
         {
             return Ok(convert::EXACT);
         }
+
         err(
             Code::CallExpectedAsmRegister,
             arg.span,
@@ -290,10 +320,12 @@ impl Compiler {
                 }
             }
         }
+
         // Any expression converts to a `Code` parameter (plain procedures too).
         if param == TypeId::CODE {
             return Ok(convert::LITERAL);
         }
+
         // `ifx c then a else b`: each branch must fit (`"-->"` does not fit a `u8`).
         if let Some(ast::Expr {
             kind:
@@ -306,10 +338,12 @@ impl Compiler {
         }) = &arg.expr
         {
             let mut cost = convert::LITERAL;
+
             for branch in [then_value, else_value].into_iter().flatten() {
                 if is_deferred(branch) {
                     continue;
                 }
+
                 let Ok(op) = self.check_expr_no_emit(arg.scope, branch) else {
                     continue;
                 };
@@ -319,10 +353,13 @@ impl Compiler {
                     span: branch.span,
                     ..arg.clone()
                 };
+
                 cost = cost.max(self.arg_cost(&probe, param, macro_call)?);
             }
+
             return Ok(cost);
         }
+
         // Deferred arguments fit any plausible target; prefer exact-looking ones.
         let scalar = matches!(
             self.ty.types.kind(self.ty.types.repr_struct(param)),
@@ -364,14 +401,18 @@ impl Compiler {
             }
             _ => true,
         };
+
         if !fits {
             let mut message = format!("{CANNOT_INFER} {}", self.ty.types.name(param));
+
             if let Some(misfit) = misfit {
                 message.push_str(": ");
                 message.push_str(&self.misfit_reason(param, &misfit, arg.span)?);
             }
+
             return err(Code::CallCannotInfer, arg.span, message);
         }
+
         // A bare `xx` names no type, so a scalar parameter is the likelier target than an
         // array or slice one (`Append(*view, xx byte)` beside an `Append(buf, items: []T)`).
         if matches!(
@@ -386,6 +427,7 @@ impl Compiler {
         ) {
             return Ok(convert::WIDEN);
         }
+
         Ok(convert::LITERAL)
     }
 
@@ -417,6 +459,7 @@ impl Compiler {
                             return Ok(Some(convert::EXACT));
                         }
                     }
+
                     for &p in &procs.clone() {
                         if self.proc(p).is_poly
                             && self.instantiate_for_proc_type(p, param, arg.span).is_some()
@@ -424,8 +467,10 @@ impl Compiler {
                             return Ok(Some(convert::WIDEN));
                         }
                     }
+
                     if procs.len() == 1 && !self.proc(procs[0]).is_poly {
                         let pt = self.proc_type(procs[0], arg.span)?;
+
                         if let (TypeKind::Proc(a), TypeKind::Proc(b)) =
                             (self.ty.types.kind(pt), self.ty.types.kind(param))
                             && a.params == b.params
@@ -434,6 +479,7 @@ impl Compiler {
                             return Ok(Some(convert::WIDEN));
                         }
                     }
+
                     return err(
                         Code::CallProcedureNotMatch,
                         arg.span,
@@ -443,6 +489,7 @@ impl Compiler {
                         ),
                     );
                 }
+
                 if param == TypeId::VOID_PTR || param == TypeId::ANY {
                     return Ok(Some(convert::POINTER));
                 }
@@ -460,6 +507,7 @@ impl Compiler {
                 ..
             } if self.ty.types.is_integer(param) => {
                 let (bits, signed) = self.ty.types.int_info(param).unwrap();
+
                 if !convert::int_constant_fits(*v, bits, signed, origin.bit_pattern()) {
                     return err(
                         Code::ConstantOutOfRange,
@@ -467,6 +515,7 @@ impl Compiler {
                         format!("constant {v} does not fit in {}", self.ty.types.name(param)),
                     );
                 }
+
                 // Jai lets an untyped integer constant (`#char ","`, `3`) stand for an
                 // enum value; rank it below every ordinary integer conversion.
                 if matches!(self.ty.types.kind(param), TypeKind::Enum(_))
@@ -474,6 +523,7 @@ impl Compiler {
                 {
                     return Ok(Some(convert::SUBTYPE));
                 }
+
                 return Ok(Some(if param == TypeId::S64 {
                     convert::EXACT
                 } else {
@@ -509,6 +559,7 @@ impl Compiler {
             }
             _ => {}
         }
+
         Ok(None)
     }
 }

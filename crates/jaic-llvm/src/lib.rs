@@ -56,6 +56,7 @@ mod tests {
             );
             let block = context.append_basic_block(function, "entry");
             let builder = context.create_builder();
+
             builder.position_at_end(block);
             builder.build_return(None).unwrap();
             function.add_attribute(
@@ -68,6 +69,7 @@ mod tests {
             let actual = function
                 .get_enum_attribute(AttributeLoc::Function, kind)
                 .map(inkwell::attributes::Attribute::get_enum_value);
+
             assert_eq!(actual, target.is_windows().then_some(2), "target {target}");
             assert!(
                 declaration
@@ -80,6 +82,7 @@ mod tests {
     #[test]
     fn other_units_write_their_own_ir_files() {
         let path = Path::new("out/prog.ll");
+
         assert_eq!(unit_path(path, 0), path);
         assert_eq!(unit_path(path, 2), Path::new("out/prog.2.ll"));
         assert_eq!(unit_path(Path::new("prog"), 1), Path::new("prog.1"));
@@ -93,6 +96,7 @@ mod tests {
     fn builds_target_the_baseline_cpu_not_the_build_machine() {
         let target = |triple: &str| BuildTarget::parse(triple).unwrap();
         let linux = target("x86_64-unknown-linux-gnu");
+
         assert_eq!(
             cpu_and_features(None, None, linux),
             ("x86-64".into(), String::new())
@@ -117,6 +121,7 @@ mod tests {
         // Bare metal runs with the MMU off, where unaligned accesses fault: strict alignment, unless
         // the build says otherwise.
         let none = target("aarch64-none-elf");
+
         assert_eq!(
             cpu_and_features(None, None, none),
             ("generic".into(), "+strict-align".into())
@@ -126,10 +131,12 @@ mod tests {
             "-strict-align"
         );
         let (native, features) = cpu_and_features(Some("native"), None, linux);
+
         assert_eq!(native, TargetMachine::get_host_cpu_name().to_string());
         assert_eq!(features, TargetMachine::get_host_cpu_features().to_string());
         // A host build (no `-target`) gets the baseline too.
         let (machine, _, target, _) = target_machine(&Options::default()).unwrap();
+
         assert_eq!(machine.get_cpu().to_string_lossy(), baseline_cpu(target));
     }
 }

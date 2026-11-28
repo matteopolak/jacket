@@ -17,6 +17,7 @@ fn fixture() -> PathBuf {
 fn workspace_host_clock_produces_a_linux_x64_object() {
     let tests = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/host-runs");
     let directory = TempDir::new("host-clock-object");
+
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(tests.join("host-clock-workspace.jai"))
@@ -30,6 +31,7 @@ fn workspace_host_clock_produces_a_linux_x64_object() {
             ),
     );
     let object = std::fs::read(directory.join("host-clock-target")).unwrap();
+
     assert_eq!(&object[..4], b"\x7fELF");
     assert_eq!(object[4], 2, "64-bit object");
     assert_eq!(
@@ -48,6 +50,7 @@ fn workspace_host_clock_produces_a_linux_x64_object() {
 fn compile_time_clock_reads_the_host_for_every_target_os() {
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/fixtures/host-runs/cross-target-compile-time-clock.jai");
+
     for os in ["linux", "macos", "windows"] {
         success(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -69,6 +72,7 @@ fn foreign_targets() -> Vec<(&'static str, &'static str)> {
         _ => "x64",
     };
     let mut targets = Vec::new();
+
     for os in ["linux", "windows"] {
         for cpu in ["x64", "arm64"] {
             if (os, cpu) != (host_os, host_cpu) {
@@ -76,6 +80,7 @@ fn foreign_targets() -> Vec<(&'static str, &'static str)> {
             }
         }
     }
+
     targets
 }
 
@@ -130,13 +135,16 @@ fn a_result_with_a_host_dependent_layout_is_rejected() {
     if std::env::consts::OS == "windows" {
         return;
     }
+
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .arg(host_run_fixture("cross-target-layout-mismatch.jai"))
         .args(["-check", "-os", "windows", "-cpu", "x64"])
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(stderr.contains("different layout"), "{stderr}");
 }
 
@@ -153,8 +161,10 @@ fn host_values_runs_in_the_interpreter() {
 #[test]
 fn host_values_runs_native_at_o0_and_o2() {
     let dir = TempDir::new("host-values-native");
+
     for opt in ["-O0", "-O2"] {
         let exe = dir.join(format!("host{opt}"));
+
         success(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
                 .arg(fixture())
@@ -171,8 +181,10 @@ fn host_values_runs_as_a_real_wasi_command() {
     if !toolchain::require_all(&["node"]) {
         return;
     }
+
     let dir = TempDir::new("host-values-wasi");
     let module = dir.join("host.wasm");
+
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(fixture())
@@ -181,6 +193,7 @@ fn host_values_runs_as_a_real_wasi_command() {
     );
     let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tools/browser/run_foundations_wasm.ts");
+
     success(toolchain::command("node").arg(runner).arg(module));
 }
 
@@ -197,6 +210,7 @@ fn interpretable_foreign_targets() -> Vec<(&'static str, &'static str)> {
         _ => "x64",
     };
     let mut targets = Vec::new();
+
     for os in ["linux", "macos"] {
         for cpu in ["x64", "arm64"] {
             if (os, cpu) != (host_os, host_cpu) {
@@ -204,6 +218,7 @@ fn interpretable_foreign_targets() -> Vec<(&'static str, &'static str)> {
             }
         }
     }
+
     targets
 }
 
@@ -217,6 +232,7 @@ fn interpret_for_foreign_targets(name: &str) {
             .output()
             .unwrap();
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert!(output.status.success(), "{name} for {os} {cpu}: {stderr}");
         assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n", "{name}");
     }
@@ -249,6 +265,7 @@ fn compile_time_file_system_and_cpu_detection_read_the_host_for_every_target() {
     let original = host_run_fixture("cross-target-compile-time-files.jai");
     let directory = TempDir::new("cross-target-files");
     let source = directory.join("files.jai");
+
     for (os, cpu) in foreign_targets() {
         std::fs::copy(&original, &source).unwrap();
         success(
@@ -299,6 +316,7 @@ fn a_run_naming_a_member_only_the_target_exports_is_checked_on_the_target() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         stderr.contains("fixed array used as a pointer in assignment"),
         "{stderr}"
@@ -314,12 +332,15 @@ fn an_error_reported_while_the_host_twin_loads_is_the_native_builds_error() {
             .args(target)
             .output()
             .unwrap();
+
         assert!(!output.status.success(), "{target:?}");
         let text = |bytes: &[u8]| String::from_utf8_lossy(bytes).into_owned();
         (text(&output.stdout), text(&output.stderr))
     };
     let native = check(&[]);
+
     assert!(native.0.starts_with("generated on "), "{native:?}");
+
     for (os, cpu) in foreign_targets() {
         // The code runs once, on the host, and its report reads as in a native build.
         assert_eq!(check(&["-os", os, "-cpu", cpu]), native, "{os} {cpu}");
@@ -334,8 +355,10 @@ fn a_target_only_foreign_procedure_is_unavailable_at_compile_time() {
             .args(["-check", "-os", os, "-cpu", cpu])
             .output()
             .unwrap();
+
         assert!(!output.status.success(), "{os} {cpu}");
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert!(
             stderr.contains("foreign procedure `target_only_call` is not available here"),
             "{os} {cpu}: {stderr}"

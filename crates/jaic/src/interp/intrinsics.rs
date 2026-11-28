@@ -19,6 +19,7 @@ impl Interp {
                 wide(f64::from_bits(value)).to_bits()
             }
         };
+
         Ok(match op {
             I::Memcpy | I::Memset | I::Memcmp | I::VolatileLoad | I::VolatileStore => {
                 self.memory_intrinsic(op, a)?
@@ -29,11 +30,13 @@ impl Interp {
             | I::AtomicRmw(..)
             | I::AtomicCas(..) => {
                 let result = self.atomic_access(op, a)?;
+
                 // Poll after the indivisible operation, so waiting cooperative
                 // threads can make progress without weakening native atomicity.
                 if self.multi && self.host.cooperative_threads() {
                     self.inline_poll();
                 }
+
                 result
             }
             I::DebugBreak => return self.trap("debug_break() was called"),
@@ -43,9 +46,11 @@ impl Interp {
             }
             I::BoundsCheck => {
                 let (index, count) = (a[0] as i64, a[1] as i64);
+
                 if index < 0 || index >= count {
                     return self.check_trap(ir::CheckReason::Bounds, a[0], a[1]);
                 }
+
                 Rets::default()
             }
             // Needs the program for its location: `step` handles it.
@@ -55,6 +60,7 @@ impl Interp {
             }
             I::CompilerWrite => {
                 let bytes = self.fetch(a[0], a[1] as usize)?;
+
                 self.effects += 1;
                 self.host.write(&bytes, a.get(2).is_some_and(|&v| v != 0));
                 Rets::default()
@@ -93,9 +99,11 @@ impl Interp {
             | I::X86Prefetch(_) => {
                 self.effects += 1;
                 let results = host_insts::execute(op, a)?;
+
                 if op == I::X86Pause && self.multi && self.host.cooperative_threads() {
                     self.inline_poll();
                 }
+
                 results
             }
             I::CpuId => {
@@ -104,12 +112,14 @@ impl Interp {
                 {
                     // CPUID is mandatory on x86-64; the standard wrapper preserves ABI registers.
                     let info = std::arch::x86_64::__cpuid_count(a[0] as u32, a[1] as u32);
+
                     Rets::collect(
                         [info.eax, info.ebx, info.ecx, info.edx]
                             .into_iter()
                             .map(u64::from),
                     )
                 }
+
                 #[cfg(not(target_arch = "x86_64"))]
                 return self.trap("CPUID execution requires an x86-64 interpreter host");
             }
@@ -122,6 +132,7 @@ impl Interp {
                 } else {
                     native::syscall(a)
                 };
+
                 match ret {
                     Some(ret) => Rets::one(ret as u64),
                     None if sandboxed => Rets::one(-1i64 as u64),
@@ -136,9 +147,11 @@ impl Interp {
             I::BlackBoxMemory => Rets::default(),
             I::Pause => {
                 std::hint::spin_loop();
+
                 if self.multi && self.host.cooperative_threads() {
                     self.inline_poll();
                 }
+
                 Rets::default()
             }
             I::Popcount => Rets::one(a[0].count_ones() as u64),
@@ -149,6 +162,7 @@ impl Interp {
                 } else {
                     a[0].leading_zeros()
                 };
+
                 Rets::one((lead - (64 - bits)) as u64)
             }
             I::Cttz => Rets::one((a[0].trailing_zeros()).min(a[1] as u32) as u64),
@@ -164,6 +178,7 @@ impl Interp {
                     _ => x * y,
                 };
                 let limit = 1i128 << (bits - 1);
+
                 Rets::one((r < -limit || r >= limit) as u64)
             }
             I::UAddOverflow | I::USubOverflow | I::UMulOverflow => {
@@ -179,6 +194,7 @@ impl Interp {
                     I::USubOverflow => x - y,
                     _ => x * y,
                 };
+
                 Rets::one((r < 0 || r > keep as i128) as u64)
             }
             I::Wide(op, fmt) => self.wide(op, fmt, a)?.into(),
@@ -195,12 +211,14 @@ impl Interp {
                         }
                     })
                     .collect();
+
                 self.put(a[0], &out)?;
                 Rets::default()
             }
             I::StringCompare(ctl, explicit) => {
                 let mut x = [0u8; 16];
                 let mut y = [0u8; 16];
+
                 x.copy_from_slice(&self.fetch(a[0], 16)?);
                 y.copy_from_slice(&self.fetch(a[1], 16)?);
                 let r = ir::string_compare(ctl, explicit, &x, &y, a[2] as i32, a[3] as i32);
@@ -209,9 +227,11 @@ impl Interp {
             I::SignMask(width) => {
                 let bytes = self.fetch(a[0], width as usize)?;
                 let mut mask = 0u64;
+
                 for (i, b) in bytes.iter().enumerate() {
                     mask |= ((b >> 7) as u64) << i;
                 }
+
                 Rets::one(mask)
             }
         })
@@ -227,13 +247,17 @@ impl Interp {
                     if a[0] < 4096 || a[1] < 4096 {
                         return self.null_trap("memcpy through a null pointer");
                     }
+
                     let Ok(len) = usize::try_from(a[2]) else {
                         return self.trap("memcpy length exceeds the host address space");
                     };
+
                     self.check_writable(a[0], len)?;
+
                     if self.near_note(a[1], a[2]) {
                         self.note_read(a[1], a[2]);
                     }
+
                     // Like a load or store, a copy goes through the program's pointers directly,
                     // so a bad one faults as it would natively.
                     // SAFETY: the program's own memmove.
@@ -245,6 +269,7 @@ impl Interp {
                         );
                     }
                 }
+
                 Rets::default()
             }
             I::Memset => {
@@ -252,15 +277,18 @@ impl Interp {
                     if a[0] < 4096 {
                         return self.null_trap("memset through a null pointer");
                     }
+
                     let Ok(len) = usize::try_from(a[2]) else {
                         return self.trap("memset length exceeds the host address space");
                     };
+
                     self.check_writable(a[0], len)?;
                     // SAFETY: the program's own memset, as for memcpy.
                     unsafe {
                         std::ptr::write_bytes(self.host_addr(a[0]) as *mut u8, a[1] as u8, len);
                     }
                 }
+
                 Rets::default()
             }
             I::Memcmp => {
@@ -274,15 +302,18 @@ impl Interp {
                     if a[0] < 4096 || a[1] < 4096 {
                         return self.null_trap("memcmp through a null pointer");
                     }
+
                     if n > isize::MAX as usize {
                         return self.trap("memcmp length exceeds the host address space");
                     }
+
                     // SAFETY: the program's own memcmp, as for memcpy.
                     let ordering = unsafe {
                         std::slice::from_raw_parts(self.host_addr(a[0]) as *const u8, n).cmp(
                             std::slice::from_raw_parts(self.host_addr(a[1]) as *const u8, n),
                         )
                     };
+
                     // Equal bytes are a read of a note among them; a difference means the code
                     // was after something else.
                     if ordering.is_eq() {
@@ -292,12 +323,14 @@ impl Interp {
                             }
                         }
                     }
+
                     match ordering {
                         std::cmp::Ordering::Less => -1,
                         std::cmp::Ordering::Equal => 0,
                         std::cmp::Ordering::Greater => 1,
                     }
                 };
+
                 Rets::one(r as u16 as u64)
             }
             // Compile-time code reads and writes ordinary memory; an address that is not the
@@ -305,11 +338,13 @@ impl Interp {
             I::VolatileLoad => {
                 let width = a[1] as usize;
                 let bytes = self.fetch(a[0], width)?;
+
                 Rets::one(self.layout.read_uint(&bytes))
             }
             I::VolatileStore => {
                 let width = a[2] as usize;
                 let mut bytes = [0u8; 8];
+
                 self.layout.write_uint(&mut bytes[..width], a[1]);
                 self.put(a[0], &bytes[..width])?;
                 Rets::default()
@@ -326,7 +361,9 @@ impl Interp {
             if addr < 4096 {
                 return s.null_trap(null_access("read", addr));
             }
+
             let mut out = [0u8; 16];
+
             out.copy_from_slice(&s.fetch(addr, 16)?);
             Ok(out)
         };
@@ -334,11 +371,14 @@ impl Interp {
             if addr < 4096 {
                 return s.null_trap(null_access("write", addr));
             }
+
             if !s.write(addr, &v) {
                 return Err(super::Trap::unwritable(addr, 16).at(s.loc));
             }
+
             Ok(Vec::new())
         };
+
         match op {
             W::Arith(kind) => {
                 let r = w::arith(fmt, kind, &value(self, a[1])?, &value(self, a[2])?);
@@ -362,6 +402,7 @@ impl Interp {
                     (CmpOp::FGe, Some(o)) => o != O::Less,
                     _ => return self.trap("invalid long double comparison"),
                 };
+
                 Ok(vec![yes as u64])
             }
             W::FromF64 => put(self, a[0], w::from_f64(fmt, f64::from_bits(a[1]))),

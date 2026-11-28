@@ -66,7 +66,9 @@ impl Suggestion {
         if let Some(action) = &self.action {
             return action.clone();
         }
+
         let mut chars = self.title.chars();
+
         chars
             .next()
             .map(|c| c.to_uppercase().chain(chars).collect())

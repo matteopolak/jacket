@@ -27,9 +27,11 @@ fn a_failed_assert_is_reported_without_a_crash() {
     if toolchain::jaic_beside(Path::new(env!("CARGO_BIN_EXE_jacket"))).is_none() {
         return;
     }
+
     // The project's folder name is the module's.
     let root = TempDir::new("jacket-assert-output");
     let project = root.join("Lib");
+
     std::fs::create_dir_all(project.join("tests")).unwrap();
     std::fs::write(
         project.join("jacket.toml"),
@@ -52,6 +54,7 @@ fn a_failed_assert_is_reported_without_a_crash() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+
     assert!(!out.status.success(), "{text}");
     assert!(
         text.contains("tests/lib.jai:5:\n    assertion failed"),
@@ -62,6 +65,7 @@ fn a_failed_assert_is_reported_without_a_crash() {
         "{text}"
     );
     assert!(text.contains("PASS") && text.contains("after"), "{text}");
+
     for unwanted in ["signal", "stack trace", "native stack", "stderr:"] {
         assert!(!text.contains(unwanted), "{unwanted}: {text}");
     }

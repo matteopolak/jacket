@@ -5,6 +5,7 @@ use test_support::TempDir;
 #[test]
 fn foreign_storage_facades_lint_all_bodies_for_each_target_without_loading_data() {
     let root = TempDir::new("storage-alias-lint");
+
     for dir in [
         "stdlib/prelude",
         "stdlib/Runtime_Support",
@@ -13,6 +14,7 @@ fn foreign_storage_facades_lint_all_bodies_for_each_target_without_loading_data(
     ] {
         std::fs::create_dir_all(root.join(dir)).unwrap();
     }
+
     // Source-only minimal bootstrap. No target/runtime execution is claimed.
     std::fs::write(root.join("stdlib/prelude/module.jai"), "").unwrap();
     std::fs::write(root.join("stdlib/Runtime_Support/module.jai"),"#module_parameters(DEFINE_SYSTEM_ENTRY_POINT:bool, DEFINE_INITIALIZATION:bool, ENABLE_BACKTRACE_ON_CRASH:bool);").unwrap();
@@ -23,7 +25,9 @@ fn foreign_storage_facades_lint_all_bodies_for_each_target_without_loading_data(
     .unwrap();
     let facade =
         include_str!("../../../tests/compiler/semantics/storage-aliases/Facade/module.jai");
+
     std::fs::write(root.join("Facade/module.jai"), facade).unwrap();
+
     for target in [
         "aarch64-apple-darwin",
         "x86_64-pc-windows-msvc",
@@ -60,11 +64,13 @@ fn foreign_storage_facades_lint_all_bodies_for_each_target_without_loading_data(
                 .unwrap();
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
+
             assert_eq!(
                 output.status.code(),
                 Some(i32::from(invalid)),
                 "{target}\n{stderr}\n{stdout}"
             );
+
             if invalid {
                 assert!(
                     stderr.contains("not_declared") || stdout.contains("not_declared"),

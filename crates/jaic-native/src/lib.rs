@@ -42,11 +42,13 @@ pub fn fix_malloc_zone_for_fork() {
 /// `link_always`.
 pub fn used_libraries(program: &Program) -> Vec<Library> {
     let mut used: Vec<bool> = program.libraries.iter().map(|l| l.link_always).collect();
+
     for foreign in &program.foreigns {
         if let Some(i) = foreign.library.filter(|&i| i < used.len()) {
             used[i] = true;
         }
     }
+
     program
         .libraries
         .iter()
@@ -69,6 +71,7 @@ mod tests {
     #[test]
     fn stamp_names_the_sources_and_layouts() {
         let stamp = backend::stamp();
+
         assert!(stamp.starts_with(env!("CARGO_PKG_VERSION")), "{stamp}");
         assert!(stamp.contains("/rustc-"), "{stamp}");
     }
@@ -76,6 +79,7 @@ mod tests {
     #[test]
     fn sanitizer_lists_parse_into_flags_and_passes() {
         let both = Sanitize::parse("address,undefined").unwrap();
+
         assert!(both.address && both.undefined);
         assert_eq!(
             both.driver_flag().as_deref(),
@@ -95,9 +99,11 @@ mod tests {
             Some("-fsanitize=address")
         );
         let coverage = Sanitize::parse("coverage").unwrap();
+
         assert_eq!(coverage.driver_flag(), None);
         assert_eq!(coverage.passes(OptLevel::O0), ["sancov-module"]);
         let fuzz = Sanitize::parse("address,fuzzer").unwrap();
+
         assert!(fuzz.any() && fuzz.fuzzer);
         assert_eq!(
             fuzz.driver_flag().as_deref(),
@@ -117,10 +123,12 @@ mod tests {
     fn windows_targets_pick_windows_linkers() {
         let target = |triple: &str| Some(BuildTarget::parse(triple).unwrap());
         let linker = |triple: &str| toolchain_for(target(triple)).linker;
+
         assert_eq!(linker("x86_64-pc-windows-gnu"), Linker::MinGw);
         assert_eq!(linker("x86_64-pc-windows-msvc"), Linker::Msvc);
         assert_eq!(linker("x86_64-unknown-linux-gnu"), Linker::Unix);
         let cross = Some(BuildTarget::windows(TargetCpu::X64, false));
+
         assert_eq!(output_extension(cross, OutputKind::Executable), Some("exe"));
         assert_eq!(
             output_extension(cross, OutputKind::DynamicLibrary),
@@ -131,13 +139,16 @@ mod tests {
     #[test]
     fn windows_arm64_targets_pick_windows_linkers() {
         let target = |triple: &str| Some(BuildTarget::parse(triple).unwrap());
+
         assert_eq!(
             toolchain_for(target("aarch64-pc-windows-msvc")).linker,
             Linker::Msvc
         );
+
         for mingw in ["aarch64-pc-windows-gnu", "aarch64-w64-mingw32"] {
             assert_eq!(toolchain_for(target(mingw)).linker, Linker::MinGw);
         }
+
         assert_eq!(
             output_extension(target("aarch64-pc-windows-gnu"), OutputKind::Executable),
             Some("exe")
@@ -157,17 +168,22 @@ mod tests {
         let mingw = BuildTarget::windows(TargetCpu::X64, false).toolchain();
         let args =
             |name: &str, toolchain| library_args(&lib(name), toolchain, true, false, &[]).unwrap();
+
         assert_eq!(
             args("kernel32", mingw),
             vec![LinkArg::Lib("kernel32".into())]
         );
+
         for row in msvc.runtime_names {
             let name = row.name;
+
             assert!(args(name, msvc).is_empty(), "{name}");
             assert!(args(name, mingw).is_empty(), "{name}");
         }
+
         assert_eq!(args("Gdi32", mingw), vec![LinkArg::Lib("gdi32".into())]);
         let mut cmd = Command::new("link");
+
         render_link_arg(&mut cmd, &LinkArg::Lib("user32".into()), true);
         assert_eq!(cmd.get_args().next().unwrap(), "user32.lib");
     }
@@ -178,6 +194,7 @@ mod tests {
         let mac_arm = target("aarch64-apple-darwin");
         let mac_x64 = target("x86_64-apple-darwin");
         let linux = target("x86_64-unknown-linux-gnu");
+
         assert!(uses_compiler_helpers(None, mac_arm));
         assert!(uses_compiler_helpers(Some(mac_arm), mac_arm));
         assert!(uses_compiler_helpers(Some(mac_x64), mac_arm));
@@ -208,6 +225,7 @@ mod tests {
         let [LinkArg::Option(flag), LinkArg::File(source)] = args.as_slice() else {
             panic!("{args:?}");
         };
+
         assert_eq!(flag, "-funwind-tables");
         assert!(source.ends_with("crash-native/runtime.c"), "{source}");
     }
@@ -223,6 +241,7 @@ mod tests {
                 LinkArg::Rpath("/dir".into()),
             ],
         ];
+
         order_link_groups(&mut groups);
         assert_eq!(
             groups,

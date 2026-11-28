@@ -14,15 +14,18 @@ fn checkpoint(path: Option<&Path>, value: serde_json::Value) -> Result<(), Strin
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
+
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
             .open(path)
             .map_err(|e| e.to_string())?;
+
         serde_json::to_writer(&mut file, &value).map_err(|e| e.to_string())?;
         file.write_all(b"\n").map_err(|e| e.to_string())?;
         file.sync_data().map_err(|e| e.to_string())?;
     }
+
     Ok(())
 }
 
@@ -30,21 +33,26 @@ fn checkpoint_file(path: Option<&Path>, file: &File) -> Result<(), String> {
     if path.is_none() {
         return Ok(());
     }
+
     let mut file = serde_json::to_value(file).map_err(|e| e.to_string())?;
+
     if let Some(object) = file.as_object_mut() {
         object.remove("path");
     }
+
     for failure in file["failures"].as_array_mut().into_iter().flatten() {
         if let Some(object) = failure.as_object_mut() {
             object.remove("diagnostic");
         }
     }
+
     for gap in file["gaps"].as_array_mut().into_iter().flatten() {
         if let Some(object) = gap.as_object_mut() {
             object.remove("name");
             object.insert("definitions".into(), serde_json::json!([]));
         }
     }
+
     checkpoint(
         path,
         serde_json::json!({"kind":"file","file":file,"redacted":true}),
@@ -69,15 +77,19 @@ fn walk(path: &Path, seen: &mut HashSet<PathBuf>, files: &mut Vec<Result<PathBuf
             return;
         }
     };
+
     if !seen.insert(canonical.clone()) {
         return;
     }
+
     if canonical.is_file() {
         if canonical.extension().is_some_and(|e| e == "jai") {
             files.push(Ok(canonical));
         }
+
         return;
     }
+
     let entries = match std::fs::read_dir(&canonical) {
         Ok(entries) => entries,
         Err(e) => {
@@ -86,13 +98,16 @@ fn walk(path: &Path, seen: &mut HashSet<PathBuf>, files: &mut Vec<Result<PathBuf
         }
     };
     let mut paths = Vec::new();
+
     for entry in entries {
         match entry {
             Ok(entry) => paths.push(entry.path()),
             Err(e) => files.push(Err(e.to_string())),
         }
     }
+
     paths.sort();
+
     for path in paths {
         walk(&path, seen, files);
     }
@@ -147,10 +162,12 @@ fn parse_args() -> Result<Args, String> {
         observation_details: None,
     };
     let mut args = std::env::args().skip(1);
+
     while let Some(arg) = args.next() {
         let next = |args: &mut std::iter::Skip<std::env::Args>| {
             args.next().ok_or_else(|| format!("{arg} requires a value"))
         };
+
         match arg.as_str() {
             "--observation-details" => parsed.observation_details = Some(PathBuf::from(next(&mut args)?)),
             "--order-seed" => { parsed.order_seed = Some(next(&mut args)?.parse().map_err(|_| "invalid order seed")?); }
@@ -162,6 +179,7 @@ fn parse_args() -> Result<Args, String> {
             "--progress" => parsed.progress = Some(PathBuf::from(next(&mut args)?)),
             "--inputs" => {
                 let bytes = std::fs::read(next(&mut args)?).map_err(|e| e.to_string())?;
+
                 parsed.inputs = Some(serde_json::from_slice(&bytes).map_err(|e| e.to_string())?);
             }
             "--only-inputs" => {
@@ -171,6 +189,7 @@ fn parse_args() -> Result<Args, String> {
             "--stdlib" => parsed.stdlib = PathBuf::from(next(&mut args)?),
             "--review" => {
                 let bytes = std::fs::read(next(&mut args)?).map_err(|e| e.to_string())?;
+
                 parsed.manifest = serde_json::from_slice(&bytes).map_err(|e| format!("review: {e}"))?;
             }
             "--os" => {
@@ -186,16 +205,21 @@ fn parse_args() -> Result<Args, String> {
             _ => parsed.dirs.push(PathBuf::from(arg)),
         }
     }
+
     if parsed.dirs.is_empty() {
         return Err("at least one explicit input directory/file is required".into());
     }
+
     parsed.manifest.validate()?;
+
     if parsed.os == Some(TargetOs::Wasm) && parsed.cpu.is_none() {
         parsed.cpu = Some(TargetCpu::Wasm);
     }
+
     if (parsed.os == Some(TargetOs::Wasm)) != (parsed.cpu == Some(TargetCpu::Wasm)) {
         return Err("WASM OS and CPU must be selected together".into());
     }
+
     if (parsed.progress.is_some()
         || parsed.inputs.is_some()
         || parsed.selected.is_some()
@@ -204,14 +228,17 @@ fn parse_args() -> Result<Args, String> {
     {
         return Err("case/progress/input selection requires one explicit project root".into());
     }
+
     if parsed.progress.as_ref().is_some_and(|p| p.exists()) {
         return Err("progress path must be new; preserve prior evidence".into());
     }
+
     if parsed.observation_details.is_some()
         && (parsed.progress.is_none() || parsed.order_seed.is_none())
     {
         return Err("observation details require --progress and --order-seed".into());
     }
+
     if parsed
         .observation_details
         .as_ref()
@@ -219,6 +246,7 @@ fn parse_args() -> Result<Args, String> {
     {
         return Err("observation details path must be new; preserve prior evidence".into());
     }
+
     parsed.stdlib = parsed
         .stdlib
         .canonicalize()
@@ -259,10 +287,12 @@ impl Audit {
             expected_inputs: 0,
             query_selection: args.selected.as_ref().map(|s| {
                 let mut ids = s.iter().cloned().collect::<Vec<_>>();
+
                 ids.sort();
                 ids
             }),
         };
+
         Self {
             used_reviews: vec![false; args.manifest.reviews.len()],
             used_oracles: vec![false; args.manifest.oracles.len()],
@@ -274,14 +304,19 @@ impl Audit {
     /// The Jai files of one input root: the explicit inputs, or everything under it.
     fn discover(&self, dir: &Path) -> Result<Vec<Result<PathBuf, String>>, String> {
         let mut files = Vec::new();
+
         if let Some(inputs) = &self.args.inputs {
             let mut inputs = inputs.clone();
+
             inputs.sort();
+
             if inputs.windows(2).any(|w| w[0] == w[1]) {
                 return Err("duplicate explicit input".into());
             }
+
             for input in inputs {
                 let relative = Path::new(&input);
+
                 if relative.is_absolute()
                     || relative
                         .components()
@@ -289,20 +324,25 @@ impl Audit {
                 {
                     return Err("explicit inputs must be relative to the project root".into());
                 }
+
                 files.push(dir.join(relative).canonicalize().map_err(|e| e.to_string()));
             }
         } else {
             walk(dir, &mut HashSet::default(), &mut files);
         }
+
         if files.is_empty() {
             files.push(Err("input contains no Jai files".into()));
         }
+
         if let Some(selected) = &self.args.selected {
             let known: HashSet<_> = (0..files.len()).map(|i| format!("f{i:06}")).collect();
+
             if selected.is_empty() || !selected.is_subset(&known) {
                 return Err("unknown/empty input selection".into());
             }
         }
+
         Ok(files)
     }
 
@@ -315,9 +355,11 @@ impl Audit {
     ) -> Vec<(File, DocumentUri, String)> {
         let mut opened = Vec::new();
         let mut files: Vec<_> = files.into_iter().enumerate().collect();
+
         if let Some(seed) = self.args.order_seed {
             super::order::shuffle(&mut files, seed);
         }
+
         for (index, path) in files {
             let mut file = File {
                 case_id: id.to_owned(),
@@ -336,9 +378,11 @@ impl Audit {
                 Err(e) => {
                     file.failures.push(failure("discovery", e));
                     self.report.files.push(file);
+
                     continue;
                 }
             };
+
             file.path = Some(path.to_string_lossy().into_owned());
             let text = match std::fs::read(&path) {
                 // Match the compiler and the UTF-8 text an editor sends for legacy sources.
@@ -346,18 +390,22 @@ impl Audit {
                 Err(e) => {
                     file.failures.push(failure("read", e.to_string()));
                     self.report.files.push(file);
+
                     continue;
                 }
             };
+
             file.fingerprint = Some(report::fingerprint(&text));
             let document = match uri(&path) {
                 Ok(uri) => uri,
                 Err(e) => {
                     file.failures.push(failure("uri", e));
                     self.report.files.push(file);
+
                     continue;
                 }
             };
+
             match session.open(document.clone(), 1, text.clone()) {
                 Ok(()) => {
                     if self.args.order_seed.is_some() {
@@ -371,6 +419,7 @@ impl Audit {
                             &text,
                         );
                     }
+
                     opened.push((file, document, text));
                 }
                 Err(e) => {
@@ -379,6 +428,7 @@ impl Audit {
                 }
             }
         }
+
         opened
     }
 
@@ -390,8 +440,10 @@ impl Audit {
             .clone()
             .unwrap_or_else(|| format!("root{root_index:04}"));
         let files = self.discover(&dir)?;
+
         self.report.expected_inputs += files.len();
         let progress = self.args.progress.clone();
+
         checkpoint(
             progress.as_deref(),
             serde_json::json!({"kind":"header","build_id":self.report.build_id,"stdlib_id":self.report.stdlib_id,"target":self.report.target,"runtime_support":self.args.runtime,"case_id":id,"expected_inputs":files.len(),"selection":self.args.selected,"redacted":true}),
@@ -399,22 +451,29 @@ impl Audit {
         let mut env = environment(self.args.stdlib.clone(), self.args.runtime);
         let options = env.options;
         let (os, cpu) = (self.args.os, self.args.cpu);
+
         env.options = Box::new(move |path| {
             let mut options = options(path);
+
             jaic::target::select_os_cpu(&mut options, os, cpu);
             options
         });
         let mut session = Session::with_environment(Limits::default(), env);
+
         session.set_workspace_folders(vec![dir.canonicalize().unwrap_or(dir)]);
+
         if self.args.order_seed.is_some() {
             while session.indexing_pending() {
                 session.index_workspace();
             }
         }
+
         let opened = self.open_files(&mut session, &id, files);
+
         for file in &self.report.files {
             checkpoint_file(progress.as_deref(), file)?;
         }
+
         let plan = report::fingerprint(
             &opened
                 .iter()
@@ -432,10 +491,12 @@ impl Audit {
             .iter()
             .map(|(file, uri, _)| (file.input_id.clone(), uri.as_str().to_owned()))
             .collect();
+
         checkpoint(
             progress.as_deref(),
             serde_json::json!({"kind":"plan","fingerprint":plan,"redacted":true}),
         )?;
+
         for (file, uri, text) in opened {
             if self
                 .args
@@ -445,6 +506,7 @@ impl Audit {
             {
                 continue;
             }
+
             if self.args.order_seed.is_some() {
                 super::order::checkpoint(
                     progress.as_deref(),
@@ -456,8 +518,10 @@ impl Audit {
                     &text,
                 );
             }
+
             self.audit_file(&mut session, file, &uri, &text, &destinations)?;
         }
+
         Ok(())
     }
 
@@ -471,10 +535,12 @@ impl Audit {
         destinations: &std::collections::BTreeMap<String, String>,
     ) -> Result<(), String> {
         let progress = self.args.progress.clone();
+
         checkpoint(
             progress.as_deref(),
             serde_json::json!({"kind":"start","input_id":file.input_id,"redacted":true}),
         )?;
+
         match session.diagnostics(uri) {
             Ok(diagnostics) => {
                 for d in diagnostics.into_iter().filter(|d| {
@@ -490,15 +556,18 @@ impl Audit {
             }
             Err(e) => file.failures.push(failure("diagnostics", format!("{e:?}"))),
         }
+
         let tokens = match jaic::lexer::lex(jaic::source::FileId(0), text) {
             Ok(tokens) => tokens,
             Err(e) => {
                 file.failures.push(failure("lex", e.message));
                 checkpoint_file(progress.as_deref(), &file)?;
                 self.report.files.push(file);
+
                 return Ok(());
             }
         };
+
         file.status = "audited".into();
         self.audit_tokens(session, &mut file, uri, text, &tokens, destinations)?;
         file.semantic = match session.semantic_coverage(uri) {
@@ -509,6 +578,7 @@ impl Audit {
                 None
             }
         };
+
         if file.semantic.as_ref().is_none_or(|s| !s.source_loaded) {
             file.failures.push(failure(
                 "semantic_unreached",
@@ -525,6 +595,7 @@ impl Audit {
                     .into(),
             ));
         }
+
         checkpoint_file(progress.as_deref(), &file)?;
         self.report.files.push(file);
         Ok(())
@@ -542,6 +613,7 @@ impl Audit {
     ) -> Result<(), String> {
         let progress = self.args.progress.clone();
         let lines = jaic::source::LineIndex::new(text);
+
         for (index, token) in tokens.iter().enumerate() {
             if matches!(&token.tok,Tok::Ident(name) if jaic::lexicon::is_reserved(name.as_str()))
                 || using_modifier(tokens, index)
@@ -549,6 +621,7 @@ impl Audit {
                 file.syntax_tokens += 1;
                 continue;
             }
+
             let (name, role) = match &token.tok {
                 Tok::Ident(_)
                     if index >= 2
@@ -564,15 +637,18 @@ impl Audit {
                 Tok::Directive(name) => (format!("#{name}"), Role::Directive),
                 _ => continue,
             };
+
             file.identifiers += 1;
             // Probe the first codepoint, never start+1 (which may split UTF8).
             let at = position(text, &lines, token.span.start as usize);
+
             if file.identifiers % 256 == 1 {
                 checkpoint(
                     progress.as_deref(),
                     serde_json::json!({"kind":"cursor","input_id":file.input_id,"line":at.line,"character":at.character,"queried_before":file.identifiers-1,"redacted":true}),
                 )?;
             }
+
             let hover = match session.hover(uri, at) {
                 Ok(h) => h.is_some_and(|h| !h.contents.value.contains("Source syntax declaration")),
                 Err(e) => {
@@ -600,6 +676,7 @@ impl Audit {
             let builtin = session.semantic_builtin_reference(uri, at).unwrap_or(false);
             let definition = role == Role::Directive || !definitions.is_empty() || builtin;
             let mut wrong = false;
+
             for (i, oracle) in self
                 .args
                 .manifest
@@ -625,11 +702,14 @@ impl Audit {
                         {
                             target.uri = uri.clone();
                         }
+
                         target
                     })
                     .collect::<Vec<_>>();
+
                 wrong = !report::definitions_match(&expected, &definitions);
             }
+
             // The compiler's own scope lookup for the plain name must agree: every target
             // `definition` gives is among what the scope gives that name.
             if !wrong
@@ -645,9 +725,11 @@ impl Audit {
                     })
                 });
             }
+
             if hover && definition && !wrong {
                 continue;
             }
+
             let missing = Missing {
                 hover: !hover,
                 definition: !definition,
@@ -675,6 +757,7 @@ impl Audit {
             } else {
                 None
             };
+
             file.gaps.push(Gap {
                 line: at.line,
                 character: at.character,
@@ -685,23 +768,28 @@ impl Audit {
                 definitions,
             });
         }
+
         Ok(())
     }
 }
 
 fn run() -> Result<(Report, bool, bool), String> {
     let mut audit = Audit::new(parse_args()?);
+
     for (root_index, dir) in std::mem::take(&mut audit.args.dirs).into_iter().enumerate() {
         audit.audit_root(root_index, dir)?;
     }
+
     audit.report.finish(
         &audit.args.manifest.reviews,
         &audit.used_reviews,
         audit.used_oracles.iter().filter(|used| !**used).count(),
     );
+
     if audit.args.redacted {
         audit.report.redact();
     }
+
     Ok((audit.report, audit.args.json, audit.args.strict))
 }
 
@@ -725,6 +813,7 @@ pub fn main() {
                     report.accepted
                 );
             }
+
             if strict && !report.accepted {
                 std::process::exit(1);
             }

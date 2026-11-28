@@ -80,6 +80,7 @@ fn a_child_workspace_services_its_own_sources_while_its_first_run_is_active() {
 fn insertion_dependency_service_does_not_run_final_assertions_before_resumption() {
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/fixtures/deferred-calls/placeholder-scheduling/insert-generator.jai");
+
     expect_success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -94,6 +95,7 @@ fn insertion_dependency_service_does_not_run_final_assertions_before_resumption(
 fn parent_interception_can_define_an_unstarted_generator_dependency_at_phase() {
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/fixtures/deferred-calls/placeholder-defined-by-metaprogram.jai");
+
     expect_success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -108,6 +110,7 @@ fn parent_interception_can_define_an_unstarted_generator_dependency_at_phase() {
 fn a_source_queued_before_an_indirect_call_is_bound_before_body_execution() {
     let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/fixtures/deferred-calls/deferred-body-added-before-indirect-call.jai");
+
     expect_success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(source)
@@ -126,6 +129,7 @@ fn ordinary_native_callbacks_shared_inside_records_are_ready() {
         .parent()
         .unwrap()
         .join(format!("callback-record-{}", std::process::id()));
+
     std::fs::create_dir_all(&scratch).unwrap();
     let c = scratch.join("record.c");
     let library = scratch.join(if cfg!(target_os = "macos") {
@@ -133,6 +137,7 @@ fn ordinary_native_callbacks_shared_inside_records_are_ready() {
     } else {
         "librecord.so"
     });
+
     std::fs::write(&c, "struct Record { int (*callback)(int); }; int invoke_record(struct Record *r) { return r->callback(1); }\n").unwrap();
     let output = toolchain::command("clang")
         .arg(if cfg!(target_os = "macos") {
@@ -146,12 +151,14 @@ fn ordinary_native_callbacks_shared_inside_records_are_ready() {
         .arg(&library)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
     let source = scratch.join("record.jai");
+
     std::fs::write(
         &source,
         format!(
@@ -214,8 +221,10 @@ fn unresolved_cycles_invalid_bodies_duplicates_and_cross_workspace_code_fail() {
         ),
     ] {
         let output = run(name, "-check");
+
         assert!(!output.status.success(), "{name} unexpectedly succeeded");
         let error = String::from_utf8_lossy(&output.stderr);
+
         assert!(error.contains(diagnostic), "{name}: {error}");
     }
 }
@@ -223,12 +232,14 @@ fn unresolved_cycles_invalid_bodies_duplicates_and_cross_workspace_code_fail() {
 #[test]
 fn a_resumed_body_reports_its_real_failure_without_replaying_the_prefix() {
     let output = run("deferred-failure.jai", "-check");
+
     assert!(!output.status.success());
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "failure prefix once\n"
     );
     let error = String::from_utf8_lossy(&output.stderr);
+
     assert!(error.contains("assertion failed"), "{error}");
     assert!(!error.contains("never defined"), "{error}");
 }
@@ -253,9 +264,11 @@ fn failed_insert_and_transitive_generators_are_terminal_without_prefix_replay() 
         ),
     ] {
         let output = run(name, "-check");
+
         assert!(!output.status.success());
         assert_eq!(String::from_utf8_lossy(&output.stdout), expected);
         let error = String::from_utf8_lossy(&output.stderr);
+
         assert!(error.contains(diagnostic), "{name}: {error}");
     }
 }
@@ -268,7 +281,9 @@ fn generated_bodies_execute_in_actual_native_o0_and_o2_programs() {
         .parent()
         .unwrap()
         .join(format!("deferred-calls-{}", std::process::id()));
+
     std::fs::create_dir_all(&scratch).unwrap();
+
     for optimization in ["-O0", "-O2"] {
         for &(name, compile_output, runtime_output) in POSITIVES {
             let executable = scratch.join(format!("{name}{optimization}"));
@@ -278,9 +293,11 @@ fn generated_bodies_execute_in_actual_native_o0_and_o2_programs() {
                 .arg(&executable)
                 .output()
                 .unwrap();
+
             expect_success(output, compile_output);
             expect_success(Command::new(&executable).output().unwrap(), runtime_output);
         }
     }
+
     std::fs::remove_dir_all(scratch).unwrap();
 }

@@ -24,6 +24,7 @@ impl Compiler {
         };
         let ctx_ty = self.context_type(span)?;
         let copy = self.spill(f, ctx_ty, current, span)?;
+
         for o in overrides {
             let name = o.name.map_or_else(|| Sym::intern("allocator"), |n| n.name);
             let Some((path, fty)) = self.find_member(ctx_ty, name, o.value.span)? else {
@@ -33,16 +34,19 @@ impl Compiler {
                     format!("Context has no member `{name}`"),
                 );
             };
+
             if let Some(n) = o.name
                 && self.ed.is_live()
             {
                 self.ide_note_member_use(n.span, ctx_ty, name);
                 self.ide_note_member_ref(n.span, name, fty);
             }
+
             let op = self.check_expr(f, scope, &o.value, Some(fty))?;
             let op = self.convert(f, op, fty, &o.value)?;
             let (_, v) = self.rvalue(f, op, o.value.span)?;
             let addr = self.apply_path(f, copy, &path);
+
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
             {
@@ -61,8 +65,10 @@ impl Compiler {
                     },
                 );
             }
+
             self.store_value(f, fty, addr, v, o.value.span)?;
         }
+
         Ok(copy)
     }
 
@@ -89,6 +95,7 @@ impl Compiler {
                             .find(|p| p.name.map(|pn| pn.name) == Some(n.name)),
                         None => params.get(i),
                     };
+
                     param.is_some_and(|p| p.discard)
                 })
             })
@@ -99,8 +106,10 @@ impl Compiler {
     /// code, not values, so they are not checked before the call is resolved.
     pub(super) fn macro_code_args(&mut self, procs: &[ProcId], args: &[ast::Arg]) -> Vec<bool> {
         let mut code = Vec::with_capacity(args.len());
+
         for (i, arg) in args.iter().enumerate() {
             let mut takes_code = false;
+
             for &p in procs {
                 let lit = self.proc(p).lit.clone();
                 let params = &lit.header.params;
@@ -110,6 +119,7 @@ impl Compiler {
                         .find(|p| p.name.map(|pn| pn.name) == Some(n.name)),
                     None => params.get(i),
                 };
+
                 if let Some(param) = param
                     && self.param_is_code(p, param)
                 {
@@ -117,8 +127,10 @@ impl Compiler {
                     break;
                 }
             }
+
             code.push(takes_code);
         }
+
         code
     }
 
@@ -132,6 +144,7 @@ impl Compiler {
         discard: &[bool],
     ) -> Result<Vec<CallArg>> {
         let mut out = Vec::new();
+
         for (i, a) in args.iter().enumerate() {
             let op = if is_deferred(&a.value) || defer.get(i).copied().unwrap_or(false) {
                 None
@@ -139,6 +152,7 @@ impl Compiler {
                 Some(self.check_expr_no_emit(scope, &a.value)?)
             } else {
                 let op = self.check_expr(f, scope, &a.value, None)?;
+
                 // Arguments are evaluated left to right: a variable read here is a place that
                 // would be loaded when the call is built, after the calls among the arguments
                 // to its right ran. Read it now when one of them can change it.
@@ -151,6 +165,7 @@ impl Compiler {
                     Some(op)
                 }
             };
+
             out.push(CallArg {
                 name: a.name,
                 spread: a.spread,
@@ -160,6 +175,7 @@ impl Compiler {
                 scope,
             });
         }
+
         Ok(out)
     }
 
@@ -174,6 +190,7 @@ impl Compiler {
         else {
             return Ok(op);
         };
+
         if matches!(
             self.ty.types.kind(ty),
             TypeKind::Array {
@@ -186,16 +203,19 @@ impl Compiler {
                 addr,
             });
         }
+
         let val = if let Some(t) = self.ir_ty(ty) {
             f.b.load(t, addr)
         } else {
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
             let copy = f.b.alloca(size.max(1), align);
+
             f.lifetime_store(copy, addr, ty, span);
             f.b.copy(copy, addr, size);
             copy
         };
+
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
         {
@@ -209,6 +229,7 @@ impl Compiler {
                 },
             );
         }
+
         Ok(Operand::Value {
             ty,
             val,
@@ -224,6 +245,7 @@ impl Compiler {
     ) -> (Vec<Candidate>, Vec<Diagnostic>) {
         let mut best: Vec<Candidate> = Vec::new();
         let mut errors: Vec<Diagnostic> = Vec::new();
+
         for &proc in procs {
             match self.match_candidate(proc, args, span) {
                 Ok(c) => {
@@ -236,8 +258,10 @@ impl Compiler {
                         let header = &self.proc(c.proc).lit.header;
                         let mild = super::slots::header_poly_names(header).is_empty()
                             && c.cost < crate::sema::convert::INT_TO_FLOAT;
+
                         (u32::from(!mild), c.cost, c.fit)
                     };
+
                     match best.first() {
                         Some(b) if key(&c) > key(b) => {}
                         Some(b) if key(&c) == key(b) => best.push(c),
@@ -247,6 +271,7 @@ impl Compiler {
                 Err(e) => errors.push(*e),
             }
         }
+
         (best, errors)
     }
 }
@@ -256,6 +281,7 @@ impl Compiler {
 /// changes its operands is the one case this does not see).
 fn may_have_effects(expr: &ast::Expr) -> bool {
     use ast::ExprKind as E;
+
     match &expr.kind {
         E::Ident(_)
         | E::Int(..)

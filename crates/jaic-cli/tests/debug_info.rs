@@ -12,9 +12,11 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 /// pins its own count passes the flag again later, and the last one wins.
 fn jaic() -> Command {
     let mut command = Command::new(JAIC);
+
     if let Some(units) = jacket_config::env::TEST_CODEGEN_UNITS.os() {
         command.arg("-codegen_units").arg(units);
     }
+
     command
 }
 
@@ -34,6 +36,7 @@ fn build(
 ) -> (TempDir, PathBuf) {
     let dir = TempDir::new(dir);
     let exe = build_in(&dir, name, args, units, collect);
+
     (dir, exe)
 }
 
@@ -43,18 +46,23 @@ fn build_in(dir: &Path, name: &str, args: &[&str], units: Option<&str>, collect:
     let _ = std::fs::remove_dir_all(dsym(&exe));
     let source = fixture();
     let mut cmd = jaic();
+
     cmd.arg(&source)
         .arg("-exe")
         .arg(&exe)
         .args(args)
         .current_dir(source.parent().unwrap());
+
     if let Some(units) = units {
         cmd.args(["-codegen_units", units]);
     }
+
     if collect {
         cmd.env("JAIC_DSYM", "1");
     }
+
     let out = cmd.output().unwrap();
+
     assert!(
         out.status.success(),
         "build failed: {}",
@@ -65,6 +73,7 @@ fn build_in(dir: &Path, name: &str, args: &[&str], units: Option<&str>, collect:
 
 fn dsym(exe: &Path) -> PathBuf {
     let mut name = exe.as_os_str().to_owned();
+
     name.push(".dSYM");
     PathBuf::from(name)
 }
@@ -82,9 +91,11 @@ fn debug_file(exe: &Path) -> PathBuf {
 
 fn dwarfdump() -> Option<PathBuf> {
     let mut candidates = Vec::new();
+
     for dir in jacket_config::llvm::bin_dirs(None) {
         candidates.push(dir.join("llvm-dwarfdump"));
     }
+
     candidates.push(PathBuf::from("/opt/homebrew/opt/llvm/bin/llvm-dwarfdump"));
     candidates.push(PathBuf::from("llvm-dwarfdump"));
     candidates.into_iter().find(|c| {
@@ -98,6 +109,7 @@ fn dwarfdump() -> Option<PathBuf> {
 fn run_dwarfdump(tool: &Path, args: &[&str], file: &Path) -> (bool, String) {
     let out = Command::new(tool).args(args).arg(file).output().unwrap();
     let mut text = String::from_utf8_lossy(&out.stdout).into_owned();
+
     text.push_str(&String::from_utf8_lossy(&out.stderr));
     (out.status.success(), text)
 }
@@ -112,9 +124,11 @@ fn run_dwarfdump(tool: &Path, args: &[&str], file: &Path) -> (bool, String) {
 /// `.debug_str`, still fails.
 fn verify(tool: &Path, file: &Path) -> Result<(), String> {
     let (ok, text) = run_dwarfdump(tool, &["--verify"], file);
+
     if ok {
         return Ok(());
     }
+
     let tail_merged = |line: &str| {
         line.starts_with("error: .debug_str_offsets: contribution ")
             && line.ends_with("is neither zero nor immediately following a null character")
@@ -128,6 +142,7 @@ fn verify(tool: &Path, file: &Path) -> Result<(), String> {
     let tolerated = !cfg!(target_os = "macos")
         && errors().any(tail_merged)
         && errors().all(|l| tail_merged(l) || summary(l));
+
     if tolerated {
         Ok(())
     } else {
@@ -143,10 +158,13 @@ fn dwarf_describes_procedures_variables_and_types() {
     };
     let (_dir, exe) = build("debug-info-dwarf", "prog", &[], None, true);
     let file = debug_file(&exe);
+
     if let Err(text) = verify(&tool, &file) {
         panic!("llvm-dwarfdump --verify failed:\n{text}");
     }
+
     let (_, info) = run_dwarfdump(&tool, &["--debug-info", "--debug-line"], &file);
+
     for expected in [
         // Procedures, with polymorph instances under their written name.
         "DW_AT_name\t(\"main\")",
@@ -184,10 +202,13 @@ fn dwarf_is_valid_with_split_codegen() {
     };
     let (_dir, exe) = build("debug-info-split", "prog", &[], Some("3"), true);
     let file = debug_file(&exe);
+
     if let Err(text) = verify(&tool, &file) {
         panic!("llvm-dwarfdump --verify failed:\n{text}");
     }
+
     let (_, info) = run_dwarfdump(&tool, &["--debug-info"], &file);
+
     assert_eq!(info.matches("DW_TAG_compile_unit").count(), 3, "{info}");
 }
 
@@ -201,6 +222,7 @@ fn files_named_like_the_main_file_keep_their_own_line_table_entry() {
         return;
     };
     let dir = TempDir::new("debug-info-same-name");
+
     std::fs::create_dir_all(dir.join("lib")).unwrap();
     std::fs::write(
         dir.join("module.jai"),
@@ -221,6 +243,7 @@ fn files_named_like_the_main_file_keep_their_own_line_table_entry() {
         .current_dir(&*dir)
         .output()
         .unwrap();
+
     assert!(
         out.status.success(),
         "build failed: {}",
@@ -230,6 +253,7 @@ fn files_named_like_the_main_file_keep_their_own_line_table_entry() {
     let in_lib = lines.lines().any(|l| {
         l.trim_start().starts_with("include_directories[") && l.trim_end().ends_with("/lib\"")
     });
+
     assert!(in_lib, "lib/module.jai has no entry in:\n{lines}");
 }
 
@@ -242,6 +266,7 @@ fn a_modify_body_is_in_the_file_it_is_written_in() {
         return;
     };
     let dir = TempDir::new("debug-info-modify");
+
     std::fs::write(
         dir.join("main.jai"),
         "#load \"helper.jai\";\nmain :: () { x := widen(2); if x != 2 { x = 0; } }\n",
@@ -261,6 +286,7 @@ fn a_modify_body_is_in_the_file_it_is_written_in() {
         .current_dir(&*dir)
         .output()
         .unwrap();
+
     assert!(
         out.status.success(),
         "build failed: {}",
@@ -272,16 +298,19 @@ fn a_modify_body_is_in_the_file_it_is_written_in() {
         .split("\n\n")
         .find(|e| e.contains("\"modify\"") && e.contains("DW_AT_decl_line") && e.contains("(4)"))
         .unwrap_or_else(|| panic!("no `modify` on line 4 in:\n{info}"));
+
     assert!(entry.contains("helper.jai"), "not in helper.jai:\n{entry}");
 }
 
 #[test]
 fn no_debug_info_flag_omits_it() {
     let (_dir, exe) = build("debug-info-off", "prog", &["-no_debug_info"], None, true);
+
     if cfg!(target_os = "macos") {
         assert!(!dsym(&exe).exists());
     } else if let Some(tool) = dwarfdump() {
         let (_, info) = run_dwarfdump(&tool, &["--debug-info"], &exe);
+
         assert!(!info.contains("DW_TAG_compile_unit"), "{info}");
     }
 }
@@ -294,16 +323,20 @@ fn macos_debug_builds_keep_objects_and_optimized_builds_write_a_dsym() {
     if !cfg!(target_os = "macos") {
         return;
     }
+
     let (dir, exe) = build("debug-info-objects", "prog", &[], None, false);
     let kept = exe.parent().unwrap().join(".build");
+
     assert!(!dsym(&exe).exists());
     assert!(kept.join("prog.o").exists());
     assert!(!exe.with_extension("o").exists());
     let stale = kept.join("prog.o.9.o");
+
     std::fs::write(&stale, b"").unwrap();
     build_in(&dir, "prog", &[], None, false);
     assert!(!stale.exists());
     let (_dir, exe) = build("debug-info-optimized", "prog", &["-O2"], None, false);
+
     assert!(dsym(&exe).exists());
     assert!(!exe.with_extension("o").exists());
     assert!(!exe.parent().unwrap().join(".build").exists());
@@ -327,6 +360,7 @@ fn lldb_breakpoints_backtraces_and_variables() {
         eprintln!("skipped: lldb not found");
         return;
     }
+
     let (_dir, exe) = build("debug-info-lldb", "prog", &[], None, false);
     // Without permission to debug, lldb can wait forever: run the program under it once, plainly,
     // and skip only when that fails or hangs. A hang after this is a failure.
@@ -337,6 +371,7 @@ fn lldb_breakpoints_backtraces_and_variables() {
             .arg(&exe),
         LLDB_LIMIT,
     );
+
     match launched {
         None => {
             eprintln!(
@@ -352,6 +387,7 @@ fn lldb_breakpoints_backtraces_and_variables() {
         }
         Some(_) => {}
     }
+
     let mut lldb = toolchain::command("lldb");
     // User startup scripts/formatters are outside the compiler's test inputs.
     let Some(out) = test_support::process::output_within(
@@ -367,16 +403,19 @@ fn lldb_breakpoints_backtraces_and_variables() {
         panic!("lldb did not finish the debug session in {LLDB_LIMIT:?}");
     };
     let text = String::from_utf8_lossy(&out.stdout).into_owned();
+
     if text.contains("error: process launch failed") {
         eprintln!("skipped: lldb cannot launch processes here:\n{text}");
         return;
     }
+
     // In the polymorphic procedure, called from main (multi-file backtrace).
     let at_first = text
         .split("breakpoint delete")
         .next()
         .unwrap_or_default()
         .to_string();
+
     for expected in [
         "total_of(xs=",
         "at shapes.jai:25",
@@ -390,7 +429,9 @@ fn lldb_breakpoints_backtraces_and_variables() {
             "missing {expected:?} in:\n{text}"
         );
     }
+
     let at_second = text.split("breakpoint delete").nth(1).unwrap_or_default();
+
     for expected in [
         "at main.jai:27",
         "(s64) a = 42",

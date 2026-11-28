@@ -14,8 +14,10 @@ impl Exporter<'_> {
             // 0: a local with no declaration record (a loop's `it`).
             return (decl != 0).then_some(decl);
         }
+
         let scope = self.scope;
         let c = self.c.as_deref_mut()?;
+
         c.meta.export.refresh_name_caches(c.ns.entities.len());
         let id = if let Some(&cached) = c.meta.export.name_lookups.get(&(scope, name)) {
             cached?
@@ -24,12 +26,15 @@ impl Exporter<'_> {
                 .lookup(scope, name)
                 .ok()
                 .and_then(|ids| ids.first().copied());
+
             c.meta.export.name_lookups.insert((scope, name), found);
             found?
         };
+
         if let Some(&decl) = c.meta.export.resolved_decls.get(&id) {
             return Some(decl);
         }
+
         let entity = c.entity(id);
         let span = entity.span;
         let (ty, header, flags) = match entity.kind.clone() {
@@ -72,9 +77,11 @@ impl Exporter<'_> {
                 .collect::<Vec<_>>(),
             _ => Vec::new(),
         };
+
         if !header_notes.is_empty() {
             self.r.get_mut(decl).unwrap().refs("notes", header_notes);
         }
+
         self.c
             .as_deref_mut()?
             .meta
@@ -100,9 +107,11 @@ impl Exporter<'_> {
             node::TYPE_INSTANTIATION,
             span,
         );
+
         inst.ptr("result", ty).ptr("type", ty);
         let inst = self.r.add(inst);
         let mut rec = self.node(RecordTag::CodeDeclaration, node::DECLARATION, span);
+
         rec.str("name", name.as_str().as_bytes())
             .ptr("type", ty)
             .ptr(
@@ -116,6 +125,7 @@ impl Exporter<'_> {
             .ptr("expression", expression)
             .int("flags", flags);
         let id = self.r.reserve(rec.tag);
+
         rec.int("serial", id);
         *self.r.get_mut(id).unwrap() = rec;
         id
@@ -136,18 +146,23 @@ impl Exporter<'_> {
                 );
                 let id = self.r.reserve(rec.tag);
                 let mut rec = rec;
+
                 rec.int("serial", id);
                 *self.r.get_mut(id).unwrap() = rec;
+
                 if let Some(d) = self.r.get_mut(decl) {
                     d.set("type_inst", Field::Item(Item::Ref(id)));
                 }
+
                 id
             };
+
         if let Some(rec) = self.r.get_mut(inst) {
             let existing = match rec.field("inst_flags") {
                 Some(FieldRef::Int(flags)) => flags,
                 _ => 0,
             };
+
             rec.set(
                 "inst_flags",
                 Field::Item(Item::Int(existing | inst_flags::VARARGS)),
@@ -162,19 +177,25 @@ impl Exporter<'_> {
         let Some(c) = self.c.as_deref_mut() else {
             return 0;
         };
+
         if let Some(&h) = c.meta.export.resolved_headers.get(&(p, own)) {
             return h;
         }
+
         let id = self.r.reserve(RecordTag::CodeProcedureHeader);
+
         c.meta.export.resolved_headers.insert((p, own), id);
         let info = c.proc(p);
         let (name, lit, span, is_poly) = (info.name, info.lit.clone(), info.span, info.is_poly);
+
         // Called ordinary procedures and polymorph instances both need a body
         // event once lowered, regardless of where their declarations live.
         if !own && !is_poly && !info.is_macro && lit.body.is_some() {
             let scope = info.bindings.unwrap_or(info.scope);
+
             c.meta.export.schedule_body(p, id, scope);
         }
+
         let sig = if is_poly {
             None
         } else {
@@ -183,21 +204,28 @@ impl Exporter<'_> {
         let h = &lit.header;
         let mut arguments = Vec::new();
         let mut runtime_index = 0;
+
         for param in &h.params {
             let ty = self.parameter_type(Some(p), param, sig.as_deref(), &mut runtime_index);
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
             let arg = self.reference_decl(name, ty, 0, 0, param.span);
+
             if param.variadic {
                 self.mark_varargs(arg, param.span);
             }
+
             arguments.push(arg);
         }
+
         let mut returns = Vec::new();
+
         for (i, ret) in h.returns.iter().enumerate() {
             let ty = sig.as_ref().and_then(|s| s.returns.get(i)).copied();
             let name = ret.name.map_or(Sym::intern(""), |n| n.name);
+
             returns.push(self.reference_decl(name, ty, 0, 0, ret.span));
         }
+
         let flags = procedure_flags(h, is_poly);
         let ty = sig.as_ref().map_or(0, |s| self.ty(s.ty));
         // Checkers such as MetaThreadSafe read the callee's notes (`@thread`).
@@ -205,13 +233,16 @@ impl Exporter<'_> {
             .and_then(|c| c.pr.proc_decl_notes.get(&p).cloned())
             .unwrap_or_default();
         let mut notes: Vec<&ast::Note> = h.notes.iter().collect();
+
         for n in &decl_notes {
             if !notes.iter().any(|m| m.span == n.span) {
                 notes.push(n);
             }
         }
+
         let notes = self.notes(&notes);
         let mut rec = self.node(RecordTag::CodeProcedureHeader, node::PROCEDURE_HEADER, span);
+
         rec.refs("arguments", arguments)
             .refs("returns", returns)
             .refs("notes", notes)
@@ -229,10 +260,13 @@ impl Exporter<'_> {
         let Some(c) = self.c.as_deref() else {
             return p;
         };
+
         if !c.proc(p).is_poly {
             return p;
         }
+
         let made = c.meta.export.call_instances.get(&span);
+
         made.and_then(|list| {
             list.iter()
                 .rev()
@@ -252,12 +286,16 @@ impl Exporter<'_> {
     ) -> Option<TypeId> {
         if !param.baked {
             let index = *runtime_index;
+
             *runtime_index += 1;
+
             return signature.and_then(|s| s.params.get(index)).map(|p| p.ty);
         }
+
         let c = self.c.as_deref_mut()?;
         let bindings = c.proc(procedure?).bindings?;
         let entities = c.lookup(bindings, param.name?.name).ok()?;
+
         match c.resolve_entity(*entities.first()?).ok()? {
             Resolved::Const {
                 ty, ..
@@ -273,16 +311,20 @@ impl Exporter<'_> {
             return None;
         };
         let name = *name;
+
         if self.locals.iter().any(|(n, _)| *n == name) {
             return None;
         }
+
         let scope = self.scope;
         let c = self.c.as_deref_mut()?;
         let mut procs = Vec::new();
+
         for id in c.lookup(scope, name).ok()? {
             if matches!(c.entity(id).kind, EntityKind::Builtin(_)) {
                 continue;
             }
+
             match c.resolve_entity(id) {
                 Ok(
                     Resolved::Proc(p)
@@ -295,9 +337,11 @@ impl Exporter<'_> {
                 _ => {}
             }
         }
+
         if procs.len() <= 1 {
             return procs.first().copied();
         }
+
         procs.into_iter().find(|&p| {
             let params = &c.proc(p).lit.header.params;
             let required = params
@@ -305,6 +349,7 @@ impl Exporter<'_> {
                 .filter(|p| p.default.is_none() && !p.variadic)
                 .count();
             let variadic = params.iter().any(|p| p.variadic);
+
             args >= required && (variadic || args <= params.len())
         })
     }

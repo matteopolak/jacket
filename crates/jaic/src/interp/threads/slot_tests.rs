@@ -9,12 +9,15 @@ use std::rc::Rc;
 /// count.
 fn slots_after(source: &str) -> usize {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     let source = format!("{source}\n#assert check();\n");
+
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     let shared = compiler.ct.interp.shared.as_ref().unwrap().clone();
     shared.lock().threads.len()
 }
@@ -58,6 +61,7 @@ pub(in crate::interp) fn posix_warmed(entries: &[&str], body: &str) -> String {
         .iter()
         .map(|entry| format!("    reap(spawn_on(cast(*void){entry},0));\n"))
         .collect();
+
     format!(
         "{POSIX}\ncheck :: ()->bool #no_context {{\n    if reap(0)!=0 return false;\n{warm}{body}\n}}\n"
     )
@@ -310,6 +314,7 @@ check :: ()->bool #no_context {{
 }}
 "
     );
+
     assert_eq!(
         slots_after(&source),
         3,
@@ -335,6 +340,7 @@ check :: ()->bool #no_context {{
 }}
 "
     );
+
     assert_eq!(
         slots_after(&source),
         2,
@@ -362,5 +368,6 @@ check :: ()->bool #no_context {{
 "
     );
     let slots = slots_after(&source);
+
     assert!(slots <= 4, "{slots} slots for 50 closed threads");
 }

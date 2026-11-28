@@ -31,30 +31,38 @@ fn closed_workspace_callers_outside_the_library_tree_are_merged_and_cached() {
         ("/shared/Lib/module.jai", GENERIC),
     ];
     let mut s = virtual_session(&files, &["/shared"], None);
+
     s.set_workspace_folders(vec!["/workspace".into()]);
     let uri = uri_of(Path::new("/shared/Lib/module.jai"));
+
     s.open(uri.clone(), 1, GENERIC.into()).unwrap();
     let lenses = s.code_lenses(&uri).unwrap();
     let at = lenses[0].range.start;
+
     assert_eq!(
         s.polymorphs(&uri, at),
         ["T = u16", "T = u32", "T = u64", "T = u8"]
     );
     assert_eq!(lenses[1].command.title, "no polymorphs yet");
     let before = s.compile_counts();
+
     assert!(before.0 >= 4);
+
     for _ in 0..3 {
         assert_eq!(s.polymorphs(&uri, at).len(), 4);
     }
+
     assert_eq!(
         before,
         s.compile_counts(),
         "summaries must survive compiler eviction"
     );
     let caller = uri_of(Path::new("/workspace/a.jai"));
+
     s.open(caller.clone(), 1, files[1].1.into()).unwrap();
     s.polymorphs(&uri, at);
     let before = s.compile_counts().0;
+
     s.change(
         &caller,
         2,
@@ -81,8 +89,10 @@ fn sketch_instances_and_rejected_overloads_do_not_count() {
     let text = "pick :: (x:$T) -> T { return x; }\npick :: (x:u32) -> u32 { return x; }\nwrap1 :: (x:$T) {pick(x);}\nwrap2 :: (x:$T) {pick(x);}\nmain :: () {x:u32; pick(x);}";
     let mut s = virtual_session(&[("/app/main.jai", text)], &[], None);
     let uri = uri_of(Path::new("/app/main.jai"));
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     let lenses = s.code_lenses(&uri).unwrap();
+
     assert_eq!(lenses[0].command.title, "no polymorphs yet");
 }
 
@@ -108,8 +118,10 @@ fn nominal_types_with_the_same_name_are_not_deduplicated_by_display() {
         ("/shared/Lib/module.jai", GENERIC),
     ];
     let mut s = virtual_session(&files, &["/shared"], None);
+
     s.set_workspace_folders(vec!["/app".into()]);
     let uri = uri_of(Path::new("/shared/Lib/module.jai"));
+
     s.open(uri.clone(), 1, GENERIC.into()).unwrap();
     let values = s.polymorphs(
         &uri,
@@ -118,11 +130,13 @@ fn nominal_types_with_the_same_name_are_not_deduplicated_by_display() {
             character: 0,
         },
     );
+
     assert_eq!(
         values.len(),
         3,
         "these are three real nominal types: {values:?}"
     );
+
     for path in ["a.jai", "b.jai", "c.jai"] {
         assert!(
             values
@@ -145,8 +159,10 @@ fn baked_values_and_many_instantiations_are_not_truncated() {
         &["/shared"],
         None,
     );
+
     s.set_workspace_folders(vec!["/app".into()]);
     let uri = uri_of(Path::new("/shared/Lib/module.jai"));
+
     s.open(uri.clone(), 1, lib.into()).unwrap();
     let values = s.polymorphs(
         &uri,
@@ -155,6 +171,7 @@ fn baked_values_and_many_instantiations_are_not_truncated() {
             character: 0,
         },
     );
+
     assert_eq!(values.len(), 48);
     assert!(values.contains(&"N = 47".into()));
     assert!(
@@ -170,6 +187,7 @@ fn partial_analysis_is_not_reported_as_zero_known_instances() {
     let text = "id :: (x:$T)->T {return x;} main :: () { missing(); }";
     let mut s = virtual_session(&[("/app/main.jai", text)], &[], None);
     let uri = uri_of(Path::new("/app/main.jai"));
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     assert!(
         s.code_lenses(&uri).unwrap()[0]
@@ -193,10 +211,13 @@ fn shared_nominal_types_deduplicate_across_entry_programs() {
         &["/shared"],
         None,
     );
+
     s.set_workspace_folders(vec!["/app".into()]);
     let uri = uri_of(Path::new("/shared/Lib/module.jai"));
+
     s.open(uri.clone(), 1, lib.into()).unwrap();
     let lens = s.code_lenses(&uri).unwrap();
+
     assert_eq!(s.polymorphs(&uri, lens[0].range.start), ["T = T"]);
 }
 
@@ -210,11 +231,13 @@ fn stdlib_instances_include_closed_callers() {
         )],
     );
     let mut s = test_support::lsp::session();
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let path = test_support::lsp::stdlib().join("internal/basic/arrays.jai");
     // Find the declaration in our own stdlib, independent of its implementation file name.
     let source = std::fs::read_to_string(&path).unwrap();
     let uri = uri_of(&path);
+
     s.open(uri.clone(), 1, source.clone()).unwrap();
     let lenses = s.code_lenses(&uri).unwrap();
     let declaration = source
@@ -229,6 +252,7 @@ fn stdlib_instances_include_closed_callers() {
         .find(|l| l.range.start.line == line)
         .expect("array_add item overload");
     let values = s.polymorphs(&uri, row.range.start);
+
     assert!(
         values.contains(&"T = u32".into()) && values.contains(&"T = s64".into()),
         "{values:?}"
@@ -260,17 +284,21 @@ fn all_child_workspaces_of_a_build_contribute() {
         jai_language_server::Limits::default(),
         test_support::lsp::modules_environment(None),
     );
+
     s.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("modules/Lib/module.jai"));
+
     s.open(uri.clone(), 1, lib.into()).unwrap();
     let lenses = s.code_lenses(&uri).unwrap();
     let values = s.polymorphs(&uri, lenses[0].range.start);
+
     assert_eq!(values, ["T = u32", "T = u64"], "{lenses:?}");
     assert!(
         !lenses[0].command.title.contains("incomplete"),
         "{lenses:?}"
     );
     let before = s.compile_counts();
+
     assert_eq!(
         before.0, 1,
         "only the build is compiled: the programs it builds are not compiled on their own"
@@ -288,13 +316,18 @@ fn nested_calls_preserve_parameterized_module_type_identity() {
         &["/shared"],
         None,
     );
+
     s.set_workspace_folders(vec!["/app".into()]);
     let uri = uri_of(Path::new("/shared/Lib/module.jai"));
+
     s.open(uri.clone(), 1, lib.into()).unwrap();
     let lenses = s.code_lenses(&uri).unwrap();
+
     assert_eq!(lenses.len(), 2);
+
     for lens in lenses {
         let values = s.polymorphs(&uri, lens.range.start);
+
         assert_eq!(
             values.len(),
             2,
@@ -333,16 +366,20 @@ fn an_edit_recompiles_only_the_programs_that_read_it() {
         ("/shared/Lib/module.jai", GENERIC),
     ];
     let mut s = virtual_session(&files, &["/shared"], None);
+
     s.set_workspace_folders(vec!["/app".into()]);
     let lib = uri_of(Path::new("/shared/Lib/module.jai"));
     let a_file = uri_of(Path::new("/app/only_a.jai"));
     let b_file = uri_of(Path::new("/app/b_lib.jai"));
+
     s.open(lib.clone(), 1, GENERIC.into()).unwrap();
     s.open(a_file.clone(), 1, only_a.into()).unwrap();
     s.open(b_file.clone(), 1, b_lib.into()).unwrap();
     let identity = s.code_lenses(&lib).unwrap()[0].range.start;
+
     assert_eq!(s.polymorphs(&lib, identity), ["T = u16", "T = u8"]);
     let lenses = s.code_lenses(&b_file).unwrap();
+
     assert_eq!(lenses[0].command.title, "1 polymorph: T = u16");
     let before = s.compile_counts().0;
     let edit = |s: &mut jai_language_server::Session, version, text: &str| {
@@ -357,10 +394,12 @@ fn an_edit_recompiles_only_the_programs_that_read_it() {
         )
         .unwrap();
     };
+
     edit(&mut s, 2, "helper :: () -> u32 { return 1; }\n");
     // b.jai never read only_a.jai, and a.jai never read b_lib.jai: nothing compiles, and the
     // answer says a.jai's part is not known yet.
     let lenses = s.code_lenses(&b_file).unwrap();
+
     assert_eq!(
         s.compile_counts().0,
         before,
@@ -377,16 +416,19 @@ fn an_edit_recompiles_only_the_programs_that_read_it() {
     // Recompiling a.jai for the library answered the work that was waiting.
     assert!(!s.background_work());
     let lenses = s.code_lenses(&b_file).unwrap();
+
     assert_eq!(lenses[0].command.title, "1 polymorph: T = u16");
     assert_eq!(s.compile_counts().0, before + 1);
     // Left for later, the stale program compiles in the background, once.
     edit(&mut s, 3, "helper :: () -> s8 { return 1; }\n");
     let lenses = s.code_lenses(&b_file).unwrap();
+
     assert!(lenses[0].command.title.ends_with("(analysis incomplete)"));
     assert!(s.background_work());
     assert!(!s.background_work());
     assert_eq!(s.compile_counts().0, before + 2);
     let lenses = s.code_lenses(&b_file).unwrap();
+
     assert_eq!(lenses[0].command.title, "1 polymorph: T = u16");
     assert_eq!(s.polymorphs(&lib, identity), ["T = s8", "T = u16"]);
     assert_eq!(s.compile_counts().0, before + 2);
@@ -414,15 +456,19 @@ fn lens_compiles_keep_the_open_programs_analyses() {
         ("/shared/Lib/module.jai", GENERIC),
     ];
     let mut s = virtual_session(&files, &["/shared"], None);
+
     s.set_workspace_folders(vec!["/app".into()]);
     let a = uri_of(Path::new("/app/a.jai"));
     let lib = uri_of(Path::new("/shared/Lib/module.jai"));
+
     s.open(a.clone(), 1, files[1].1.into()).unwrap();
     s.open(lib.clone(), 1, GENERIC.into()).unwrap();
     s.diagnostics(&a).unwrap();
     let at = s.code_lenses(&lib).unwrap()[0].range.start;
+
     assert_eq!(s.polymorphs(&lib, at), ["T = u16", "T = u32", "T = u8"]);
     let before = s.compile_counts().0;
+
     s.diagnostics(&a).unwrap();
     assert_eq!(
         s.compile_counts().0,
@@ -459,6 +505,7 @@ fn background_summaries_refresh_code_lenses() {
             .collect()
     };
     let folder = uri_of(&dir);
+
     send(
         &mut s,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
@@ -468,6 +515,7 @@ fn background_summaries_refresh_code_lenses() {
     );
     let only_a = uri_of(&dir.join("only_a.jai"));
     let b_lib = uri_of(&dir.join("b_lib.jai"));
+
     for (uri, text) in [
         (&only_a, "helper :: () {}\n"),
         (&b_lib, "twice :: (x: $T) -> T { return x + x; }\n"),
@@ -479,6 +527,7 @@ fn background_summaries_refresh_code_lenses() {
             } } }),
         );
     }
+
     let lenses = |s: &mut JsonSession, id: i32| {
         let out = send(
             s,
@@ -487,11 +536,13 @@ fn background_summaries_refresh_code_lenses() {
             } }),
         );
         let reply = out.iter().find(|m| m["id"] == id).unwrap();
+
         reply["result"][0]["command"]["title"]
             .as_str()
             .unwrap()
             .to_owned()
     };
+
     assert_eq!(lenses(&mut s, 2), "1 polymorph: T = u16");
     assert!(!s.has_background_work());
     send(
@@ -512,6 +563,7 @@ fn background_summaries_refresh_code_lenses() {
         .iter()
         .map(|m| serde_json::from_str(m).unwrap())
         .collect();
+
     assert_eq!(messages.len(), 1, "{messages:?}");
     assert_eq!(messages[0]["method"], "workspace/codeLens/refresh");
     assert!(!s.has_background_work());

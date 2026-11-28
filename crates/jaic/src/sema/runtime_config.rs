@@ -38,14 +38,17 @@ impl Compiler {
         if self.speculative_storage_entity(id, values) {
             return;
         }
+
         let known = self
             .out
             .runtime_storage_dependencies
             .entities
             .entry(id)
             .or_default();
+
         merge_values(known, values);
         let values = known.clone();
+
         self.out.note_runtime_storage_dependencies(&values);
     }
 
@@ -53,14 +56,17 @@ impl Compiler {
         if self.speculative_storage_layout(id, values) {
             return;
         }
+
         let known = self
             .out
             .runtime_storage_dependencies
             .layouts
             .entry(id)
             .or_default();
+
         merge_values(known, values);
         let values = known.clone();
+
         self.out.note_runtime_storage_dependencies(&values);
     }
 
@@ -76,6 +82,7 @@ impl Compiler {
         };
         let name = Sym::intern(name);
         let mut found = Vec::new();
+
         for file in &self.src.files {
             if file.module == runtime
                 && let Some(ids) = self.scope(file.scope).names.get(&name)
@@ -83,6 +90,7 @@ impl Compiler {
                 found.extend(ids.iter().copied());
             }
         }
+
         let entity = match found.as_slice() {
             [] => return Ok(None),
             [entity] => *entity,
@@ -94,6 +102,7 @@ impl Compiler {
                 );
             }
         };
+
         self.ide_note_use(entity);
         let Resolved::Proc(proc) = self.resolve_entity(entity)? else {
             return err(
@@ -114,6 +123,7 @@ impl Compiler {
         };
         let signature = self.signature(proc, span)?;
         let location = self.preload_type(PreludeType::SourceCodeLocation, span)?;
+
         if !signature.has_context
             || signature.c_call
             || signature.c_varargs
@@ -129,7 +139,9 @@ impl Compiler {
                 "private interpreter assertion handler requires (Source_Code_Location, string) -> bool with Jai context",
             );
         }
+
         let header = &self.proc(proc).lit.header;
+
         if self.proc(proc).lit.body.is_none()
             || header.flags.compiler()
             || header.flags.intrinsic()
@@ -141,6 +153,7 @@ impl Compiler {
                 "private interpreter assertion handler must have an ordinary Jai body for native execution",
             );
         }
+
         self.pr.runtime_interpreter_assertion = Some(proc);
         Ok(())
     }
@@ -173,6 +186,7 @@ impl Compiler {
                 "private runtime size intrinsic requires signature () -> s64 without context",
             );
         }
+
         let global = if let Some(global) = self.out.runtime_storage_global {
             global
         } else {
@@ -187,10 +201,12 @@ impl Compiler {
                 export: None,
                 section: None,
             });
+
             self.out.runtime_storage_global = Some(global);
             global
         };
         let address = f.b.global_addr(global);
+
         Ok(Operand::Value {
             ty: TypeId::S64,
             val: f.b.load(ir::Ty::I64, address),
@@ -201,6 +217,7 @@ impl Compiler {
     /// when the size is not the default, or some dependency was captured at another size.
     fn runtime_storage_usage_matters(&self, size: i64) -> bool {
         let dependencies = &self.out.runtime_storage_dependencies;
+
         size != DEFAULT_TEMPORARY_STORAGE_SIZE
             || !self.out.no_reset_globals.is_empty()
             || dependencies
@@ -220,6 +237,7 @@ impl Compiler {
         // Keep declaration provenance separate from structurally interned array
         // types: an unrelated same-sized buffer must not inherit an opt-in.
         let mut global_constants: HashMap<ir::GlobalId, Vec<(i64, Span)>> = HashMap::default();
+
         for (index, entity) in self.ns.entities.iter().enumerate() {
             let scope::EntityState::Done(Resolved::Global {
                 storage: ir::Storage::Data(global),
@@ -228,6 +246,7 @@ impl Compiler {
             else {
                 continue;
             };
+
             if let Some(values) = self
                 .out
                 .runtime_storage_dependencies
@@ -242,6 +261,7 @@ impl Compiler {
                 }
             }
         }
+
         // Retained globals execute with their settled interpreter state, not
         // their declaration-time initializer. Use the same canonical snapshot
         // serializer as target emission; it also materializes pointed-to target
@@ -271,17 +291,21 @@ impl Compiler {
             .collect();
         let mut seen_functions = HashSet::default();
         let mut seen_globals = HashSet::default();
+
         while !functions.is_empty() || !globals.is_empty() {
             while let Some(global) = globals.pop() {
                 if Some(global) == self.out.runtime_storage_global {
                     usage.dynamic = true;
                 }
+
                 if !seen_globals.insert(global) {
                     continue;
                 }
+
                 if let Some(values) = global_constants.get(&global) {
                     usage.constants.extend(values.iter().copied());
                 }
+
                 let relocations = match retained.get(&global).and_then(|ty| {
                     self.ct
                         .interp
@@ -301,6 +325,7 @@ impl Compiler {
                     }
                     None => self.out.program.globals[global.0 as usize].relocs.clone(),
                 };
+
                 for relocation in relocations {
                     match relocation.target {
                         ir::RelocTarget::Func(func) => functions.push(func.0 as usize),
@@ -309,10 +334,12 @@ impl Compiler {
                     }
                 }
             }
+
             while let Some(index) = functions.pop() {
                 if !seen_functions.insert(index) {
                     continue;
                 }
+
                 if let Some((values, span)) = self
                     .out
                     .runtime_storage_dependencies
@@ -323,9 +350,11 @@ impl Compiler {
                         .constants
                         .extend(values.iter().map(|&value| (value, *span)));
                 }
+
                 let Some(function) = &self.out.program.funcs[index] else {
                     continue;
                 };
+
                 for instruction in function.blocks.iter().flat_map(|block| &block.insts) {
                     match instruction {
                         ir::Inst::Call(call) => {
@@ -344,6 +373,7 @@ impl Compiler {
                 }
             }
         }
+
         Ok(usage)
     }
 
@@ -351,6 +381,7 @@ impl Compiler {
     /// target execution or emission. This Rust driver API adds no Jai export.
     pub fn finalize_runtime_configuration(&mut self) -> Result<()> {
         let (has_runtime, size) = self.runtime_storage_settings();
+
         if has_runtime && !(0..=i32::MAX as i64).contains(&size) {
             return err(
                 Code::RuntimeConfigurationInvalid,
@@ -358,6 +389,7 @@ impl Compiler {
                 "temporary_storage_size must be nonnegative and fit s32",
             );
         }
+
         let target_runtime =
             has_runtime && self.options.runtime_support && self.options.runtime_initialization;
         let usage = if target_runtime && self.runtime_storage_usage_matters(size) {
@@ -365,6 +397,7 @@ impl Compiler {
         } else {
             RuntimeStorageUsage::default()
         };
+
         if let Some(&(captured, at)) = usage
             .constants
             .iter()
@@ -374,6 +407,7 @@ impl Compiler {
                 "target TEMPORARY_STORAGE_SIZE was bound to {captured}, but the final workspace temporary_storage_size is {size}"
             )).with_help("set the workspace size before resolving target declarations that consume this compiler constant; static target storage cannot be resized by a late setting")));
         }
+
         if target_runtime
             && size != DEFAULT_TEMPORARY_STORAGE_SIZE
             && !usage.dynamic
@@ -387,6 +421,7 @@ impl Compiler {
                 .flatten()
                 .filter(|function| matches!(function.linkage, ir::Linkage::Export(_)))
                 .count();
+
             return Err(Box::new(Diagnostic::new(Code::RuntimeConfigurationInvalid,
                 Span::NONE,
                 "nondefault temporary_storage_size requires the target runtime to consume TEMPORARY_STORAGE_SIZE or the private runtime configuration getter",
@@ -397,6 +432,7 @@ impl Compiler {
                 self.out.runtime_storage_global.is_some(),
             ))));
         }
+
         if let Some(global) = self.out.runtime_storage_global {
             self.out.program.globals[global.0 as usize].init = self.options.layout.s64_bytes(size);
             self.ct
@@ -410,6 +446,7 @@ impl Compiler {
                     ))
                 })?;
         }
+
         // Native target startup reads the private data; interpreter entry
         // context allocation uses the same finalized workspace setting.
         self.options.temporary_storage_size = size;

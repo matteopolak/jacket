@@ -25,11 +25,13 @@ impl Compiler {
             TypeKind::Array { .. } | TypeKind::String
         );
         let result = self.member_access_inner(f, scope, base, name, span);
+
         if !f.type_only
             && let Ok(op) = &result
             && let Some(record) = &mut f.lifetimes
         {
             use crate::ide::lifetimes::{LifetimeEvent, LifetimeOperand};
+
             if self
                 .ty
                 .types
@@ -41,12 +43,15 @@ impl Compiler {
             {
                 record.push(f.b.current, LifetimeEvent::Barrier);
             }
+
             let field = LifetimeOperand::of(op);
+
             if let (LifetimeOperand::Place(base), LifetimeOperand::Place(field)) = (receiver, field)
                 && let Some(region) = record.elements.get(&base).copied()
             {
                 record.elements.insert(field, region);
             }
+
             record.push(
                 f.b.current,
                 LifetimeEvent::Field {
@@ -61,6 +66,7 @@ impl Compiler {
                 },
             );
         }
+
         result
     }
 
@@ -82,12 +88,14 @@ impl Compiler {
                     }
                     Found::Entities(ids) => {
                         let result = self.entities_operand(f, scope, &ids, span);
+
                         // Preserve the actual lookup identity for IDE references, just
                         // as check_ident does. Set it after operand resolution because
                         // an initializer may itself resolve other named expressions.
                         if result.is_ok() {
                             self.ed.resolved(span, ids[0]);
                         }
+
                         result
                     }
                 };
@@ -119,6 +127,7 @@ impl Compiler {
                     } => self.ty.default_untyped(ty, &value),
                     other => other.ty(),
                 };
+
                 return Ok(Operand::Type(ty));
             }
             Operand::Const {
@@ -142,11 +151,14 @@ impl Compiler {
             }
             _ => {}
         }
+
         let ty = base.ty();
+
         // `value.MEMBER` on an enum value yields the member constant (`flags.POLYMORPHIC`).
         if matches!(self.ty.types.kind(ty), TypeKind::Enum(_)) && self.type_has_member(ty, name)? {
             return self.type_member(f, scope, ty, name, span);
         }
+
         // Fixed arrays: count is constant, data is the base address.
         if let TypeKind::Array {
             elem,
@@ -157,6 +169,7 @@ impl Compiler {
                 "count" => return Ok(Operand::untyped_int(n as i128)),
                 "data" => {
                     let p = self.ty.types.pointer(elem);
+
                     // An empty array has no storage: its data is null, as for an empty view.
                     if n == 0 {
                         return Ok(Operand::Const {
@@ -166,7 +179,9 @@ impl Compiler {
                             origin: Origin::Computed,
                         });
                     }
+
                     let (_, addr) = self.address_of(f, base, span)?;
+
                     return Ok(Operand::Value {
                         ty: p,
                         val: addr,
@@ -181,6 +196,7 @@ impl Compiler {
                 }
             }
         }
+
         // Auto-dereference one level of pointer to struct.
         let (target, addr) = match self.ty.types.pointee(ty) {
             Some(p)
@@ -197,10 +213,12 @@ impl Compiler {
                 if let Some(ids) = self.struct_constant(ty, name)? {
                     return self.constant_operand(f, scope, &ids, span);
                 }
+
                 let (_, addr) = self.address_of(f, base, span)?;
                 (ty, addr)
             }
         };
+
         // Pointer to fixed array: `p.count`.
         if let TypeKind::Array {
             kind: ArrayKind::Fixed(n),
@@ -211,6 +229,7 @@ impl Compiler {
                 "count" => Ok(Operand::untyped_int(n as i128)),
                 "data" => {
                     let p = self.ty.types.pointer(elem);
+
                     Ok(Operand::Value {
                         ty: p,
                         val: addr,
@@ -223,6 +242,7 @@ impl Compiler {
                 ),
             };
         }
+
         if let Some((path, mty, origin)) =
             self.find_member_in(target, name, span, &mut Vec::new())?
         {
@@ -230,21 +250,25 @@ impl Compiler {
             let parameters = origin
                 .and_then(|origin| self.pr.callable_fields.get(&origin))
                 .cloned();
+
             return Ok(Operand::Place {
                 ty: mty,
                 addr: a,
             }
             .with_callable(parameters));
         }
+
         if let Some(ids) = self.struct_constant(target, name)? {
             return self.constant_operand(f, scope, &ids, span);
         }
+
         if self.is_stand_in(target) {
             // The value is unknown because an earlier error already said why: its members
             // are unknown too, not wrong.
             let ty = self.ide_stand_in_member(target, name, span);
             return Ok(self.ide_sketch_value(f, ty, span));
         }
+
         Err(Box::new(self.no_member(target, name, span)))
     }
 
@@ -258,9 +282,11 @@ impl Compiler {
             return Ok(None);
         };
         let key = (scope, decl.id);
+
         if let Some(filter) = self.ty.field_filter_cache.get(&key) {
             return Ok(Some(filter.clone()));
         }
+
         if !self.ty.field_filter_pending.insert(key) {
             return err(
                 Code::UsingFilterInvalid,
@@ -268,12 +294,15 @@ impl Compiler {
                 "cycle in struct using filters",
             );
         }
+
         let result = self.filter_using_entry(scope, scope::UsingEntry::Type(ty), filter, decl.span);
+
         self.ty.field_filter_pending.remove(&key);
         let resolved = match result? {
             scope::UsingEntry::Filtered(_, filter) => (*filter).clone(),
             _ => filter.clone(),
         };
+
         self.ty.field_filter_cache.insert(key, resolved.clone());
         Ok(Some(resolved))
     }
@@ -322,6 +351,7 @@ impl Compiler {
                     })
                     .collect()
             });
+
         for candidate in candidates {
             let (ty, filter) = match candidate {
                 FieldUsing::Declaration(home, decl) => {
@@ -329,6 +359,7 @@ impl Compiler {
                     let filter = self
                         .field_using_filter(home, &decl, ty)?
                         .unwrap_or(ast::UsingFilter::None);
+
                     (ty, filter)
                 }
                 FieldUsing::Inline(ty, filter) => (ty, filter),
@@ -336,11 +367,13 @@ impl Compiler {
             let Some(target) = crate::sema::using::filter_target(&filter, name) else {
                 continue;
             };
+
             if let Some(member_ty) = self.declared_member_type(ty, target, span, searched)? {
                 self.ide_note_member_use(span, self.ty.types.pointee(ty).unwrap_or(ty), target);
                 return Ok(Some(member_ty));
             }
         }
+
         Ok(None)
     }
 
@@ -354,9 +387,11 @@ impl Compiler {
     ) -> Result<Option<TypeId>> {
         let ty = self.ty.types.pointee(ty).unwrap_or(ty);
         let ty = self.ty.types.repr_struct(ty);
+
         if searched.contains(&(ty, name)) {
             return Ok(None);
         }
+
         let Some(record) = self.ty.types.as_struct(ty) else {
             return Ok(self
                 .builtin_members(ty, span)?
@@ -364,12 +399,17 @@ impl Compiler {
                 .find(|(member, _, _)| *member == name)
                 .map(|(_, ty, _)| ty));
         };
+
         searched.push((ty, name));
+
         if let Some(members) = self.struct_members(record)? {
             let result = self.collected_member_type(ty, &members, name, span, searched);
+
             searched.pop();
+
             return result;
         }
+
         // Its members are being collected: only what is declared so far.
         let scope = self.ty.struct_asts[&record].scope;
         let result = if let Some(decl) = self
@@ -383,6 +423,7 @@ impl Compiler {
         } else {
             self.declared_promoted_field_type_inner(scope, name, span, searched)
         };
+
         searched.pop();
         result
     }
@@ -400,29 +441,35 @@ impl Compiler {
         if let Some(field) = members.fields.iter().find(|f| f.name == Some(name)) {
             return Ok(Some(field.ty));
         }
+
         for field in members.fields.iter().filter(|f| f.using) {
             let Some(target) = crate::sema::using::filter_target(&field.filter, name) else {
                 continue;
             };
+
             if let Some(ty) = self.declared_member_type(field.ty, target, span, searched)? {
                 return Ok(Some(ty));
             }
         }
+
         'aliases: for alias in &members.aliases {
             let Some(target) = alias.target_name(name) else {
                 continue;
             };
             let mut at = owner;
+
             for &step in &alias.path {
                 match self.declared_member_type(at, step, span, &mut Vec::new())? {
                     Some(ty) => at = ty,
                     None => continue 'aliases,
                 }
             }
+
             if let Some(ty) = self.declared_member_type(at, target, span, &mut Vec::new())? {
                 return Ok(Some(ty));
             }
         }
+
         Ok(None)
     }
 
@@ -435,9 +482,11 @@ impl Compiler {
         let Some(s) = self.ty.types.as_struct(self.ty.types.repr_struct(ty)) else {
             return Ok(None);
         };
+
         if self.ty.types.struct_info(s).layout != LayoutState::InProgress {
             return Ok(None);
         }
+
         let scope = self.ty.struct_asts[&s].scope;
         let Some(decl) = self
             .ty
@@ -454,6 +503,7 @@ impl Compiler {
             .iter()
             .find(|n| n.name == name)
             .map_or(decl.span, |n| n.span);
+
         self.ide_note_named_field(span, name, declared, ty);
         Ok(Some(ty))
     }
@@ -469,11 +519,13 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let operand = self.entities_operand(f, scope, ids, span);
+
         if operand.is_ok()
             && let Some(&first) = ids.first()
         {
             self.ed.resolved(span, first);
         }
+
         operand
     }
 
@@ -492,6 +544,7 @@ impl Compiler {
         {
             return self.constant_operand(f, scope, &ids, span);
         }
+
         match self.ty.types.kind(t).clone() {
             TypeKind::Enum(_) if name.as_str() == "loose" => {
                 self.warn_lenient_loose_enum(scope, span, t);
@@ -506,6 +559,7 @@ impl Compiler {
                 {
                     return self.entities_operand(f, member_scope, &ids, span);
                 }
+
                 if let Some(&(_, v)) = self
                     .ty
                     .types
@@ -521,6 +575,7 @@ impl Compiler {
                         origin: Origin::Computed,
                     });
                 }
+
                 if let Some(&(_, borrowed)) = self
                     .ty
                     .enum_borrowed
@@ -534,6 +589,7 @@ impl Compiler {
                     else {
                         unreachable!()
                     };
+
                     return Ok(Operand::Const {
                         ty: t,
                         value: Value::Int(v),
@@ -541,20 +597,24 @@ impl Compiler {
                         origin: Origin::Computed,
                     });
                 }
+
                 Err(Box::new(self.no_member(t, name, span)))
             }
             TypeKind::Struct(_) => {
                 if let Some(ids) = self.struct_constant(t, name)? {
                     return self.constant_operand(f, scope, &ids, span);
                 }
+
                 if let Some(ty) = self.pending_struct_field_type(t, name, span)? {
                     return Ok(Operand::Type(ty));
                 }
+
                 // `Type.field` without an instance names the field's type, for reaching its
                 // constants (`Anim.joint_map.Entry`).
                 if let Some((_, field_ty)) = self.find_member(t, name, span)? {
                     return Ok(Operand::Type(field_ty));
                 }
+
                 err(
                     Code::StructTypeNoConstant,
                     span,

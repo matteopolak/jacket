@@ -77,6 +77,7 @@ impl Compiler {
         if file == FileId(u32::MAX) {
             return None;
         }
+
         self.src.sources.get(file).path.as_file().map(PathBuf::from)
     }
 
@@ -126,6 +127,7 @@ mod tests {
 
     fn compile(keep_going: bool) -> (Compiler, bool) {
         let mut fs = VirtualFs::default();
+
         fs.insert(
             "/p/main.jai",
             b"#load \"a.jai\";\nmain :: () {}\n".as_slice(),
@@ -135,11 +137,14 @@ mod tests {
             b"#assert false, \"first\";\n#assert false, \"second\";\n".as_slice(),
         );
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut compiler = Compiler::new(options, Rc::new(fs));
+
         if keep_going {
             compiler.keep_going_past_asserts();
         }
+
         let result = compiler.compile_sources(&[ProgramSource::File("/p/main.jai".into())]);
         (compiler, result.is_ok())
     }
@@ -147,8 +152,10 @@ mod tests {
     #[test]
     fn an_ordinary_compile_stops_at_the_first_failed_assert_and_notes_no_imports() {
         let (compiler, ok) = compile(false);
+
         assert!(!ok);
         let failed = compiler.failed_asserts();
+
         assert_eq!(failed.len(), 1, "{failed:?}");
         assert_eq!(failed[0].path, PathBuf::from("/p/a.jai"));
         assert_eq!(failed[0].message, "#assert failed: first");
@@ -159,6 +166,7 @@ mod tests {
     fn a_failed_assert_is_noted_with_the_load_that_brought_in_its_file() {
         let (compiler, _) = compile(true);
         let edges = compiler.import_edges();
+
         assert_eq!(edges.len(), 1, "{edges:?}");
         assert_eq!(edges[0].from, PathBuf::from("/p/main.jai"));
         assert_eq!(edges[0].to, PathBuf::from("/p/a.jai"));
@@ -168,12 +176,14 @@ mod tests {
     #[test]
     fn keeping_going_notes_every_failed_assert() {
         let (compiler, ok) = compile(true);
+
         assert!(ok);
         let messages: Vec<_> = compiler
             .failed_asserts()
             .into_iter()
             .map(|f| f.message)
             .collect();
+
         assert_eq!(
             messages,
             ["#assert failed: first", "#assert failed: second"]

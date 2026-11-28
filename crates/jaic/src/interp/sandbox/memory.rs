@@ -16,14 +16,17 @@ impl SandboxHost {
             LibcFn::Realloc => {
                 let (old, size) = (arg(0), arg(1) as usize);
                 let new = self.alloc(size);
+
                 if new == 0 {
                     // The old block stays valid when growing fails.
                     return Some(0);
                 }
+
                 if let Some((_, old_size)) = self.allocations.get(&old) {
                     copy(new, old, (*old_size).min(size));
                     self.allocations.remove(&old);
                 }
+
                 new
             }
             LibcFn::Free => {
@@ -43,6 +46,7 @@ impl SandboxHost {
                     read_bytes(arg(0), arg(2) as usize),
                     read_bytes(arg(1), arg(2) as usize),
                 );
+
                 match a.cmp(&b) {
                     std::cmp::Ordering::Less => -1i64 as u64,
                     std::cmp::Ordering::Equal => 0,
@@ -51,9 +55,11 @@ impl SandboxHost {
             }
             LibcFn::Strlen => {
                 let mut n = 0;
+
                 while read_u8(arg(0) + n) != 0 {
                     n += 1;
                 }
+
                 n
             }
             LibcFn::Strcmp | LibcFn::Strncmp => {
@@ -64,17 +70,22 @@ impl SandboxHost {
                 };
                 let (mut a, mut b) = (arg(0), arg(1));
                 let mut seen = 0;
+
                 loop {
                     if seen == limit {
                         break 0;
                     }
+
                     let (x, y) = (read_u8(a), read_u8(b));
+
                     if x != y {
                         break (x as i64 - y as i64) as u64;
                     }
+
                     if x == 0 {
                         break 0;
                     }
+
                     a += 1;
                     b += 1;
                     seen += 1;
@@ -82,9 +93,11 @@ impl SandboxHost {
             }
             LibcFn::Strerror => {
                 let code = arg(0) as u32 as u64;
+
                 if let Some(&text) = self.error_texts.get(&code) {
                     return Some(text);
                 }
+
                 let message = match code {
                     0 => "Success".to_string(),
                     ENOENT => "No such file or directory".to_string(),
@@ -97,10 +110,12 @@ impl SandboxHost {
                     other => format!("Unknown error {other}"),
                 };
                 let text = self.alloc(message.len() + 1);
+
                 if text != 0 {
                     write_bytes(text, message.as_bytes());
                     self.error_texts.insert(code, text);
                 }
+
                 text
             }
             LibcFn::Setlocale => {
@@ -111,10 +126,12 @@ impl SandboxHost {
                     // can hold when its pointers are narrower.
                     if self.locale_name == 0 {
                         self.locale_name = self.alloc(2);
+
                         if self.locale_name != 0 {
                             write_bytes(self.locale_name, b"C\0");
                         }
                     }
+
                     self.locale_name
                 } else {
                     0
@@ -125,6 +142,7 @@ impl SandboxHost {
                 if self.errno_cell == 0 {
                     self.errno_cell = self.alloc(8);
                 }
+
                 self.errno_cell
             }
             _ => return None,

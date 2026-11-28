@@ -87,6 +87,7 @@ impl StdlibView {
             .map(|(i, _)| i)
             .collect();
         let importers = index.importers_without(&excluded);
+
         Self {
             index,
             excluded,
@@ -119,12 +120,15 @@ impl StdlibView {
     /// The modules that export `name`, in no particular order.
     pub fn modules_exporting_name(&self, name: &str, fs: &dyn FileSystem) -> Vec<usize> {
         let mut found: Vec<usize> = Vec::new();
+
         // A name with other characters is no declaration in the library.
         if !name.chars().all(is_name_char) {
             return found;
         }
+
         for &file in self.index.declaring.get(name).into_iter().flatten() {
             let module = self.index.files[file].module;
+
             if self.is_first(module)
                 && !found.contains(&module)
                 && self.index.file_exports(file, name, fs)
@@ -132,6 +136,7 @@ impl StdlibView {
                 found.push(module);
             }
         }
+
         found
     }
 
@@ -147,6 +152,7 @@ impl StdlibView {
         if op.is_empty() || op.contains(char::is_whitespace) || op.contains("::") {
             return Vec::new();
         }
+
         self.index
             .operators
             .get(op)
@@ -180,19 +186,24 @@ impl StdlibIndex {
                     .collect()
             })
             .unwrap_or_default();
+
         if let Some(found) = candidates.into_iter().find(|index| index.is_current(fs)) {
             return found;
         }
+
         let built = Arc::new(Self::build(fs, stdlib));
+
         if built.deps.is_some()
             && let Ok(mut kept) = KEPT_INDEXES.lock()
         {
             kept.retain(|(root, old)| root != stdlib || old.is_current(fs));
             kept.push((stdlib.to_path_buf(), built.clone()));
+
             if kept.len() > KEPT {
                 kept.remove(0);
             }
         }
+
         built
     }
 
@@ -222,9 +233,11 @@ impl StdlibIndex {
             operators: HashMap::default(),
             importers: Mutex::new(HashMap::default()),
         };
+
         for (name, is_dir) in listed {
             let (entry, files) = if is_dir {
                 let mut files = Vec::new();
+
                 module_files(&recorder, &stdlib.join(&name), &mut files, 0);
                 (crate::paths::module_entry(&stdlib.join(&name)), files)
             } else {
@@ -233,14 +246,17 @@ impl StdlibIndex {
             };
             let module = index.modules.len();
             let mut imports = Vec::new();
+
             for path in files {
                 let Some(bytes) = recorder.read(&path) else {
                     continue;
                 };
                 let text = String::from_utf8_lossy(&bytes);
+
                 imports.extend(imported_modules(&text));
                 index.add_file(module, path, &text);
             }
+
             index.by_name.entry(name.clone()).or_default().push(module);
             index.modules.push(ModuleEntry {
                 name,
@@ -248,6 +264,7 @@ impl StdlibIndex {
                 imports,
             });
         }
+
         index.deps = recorder.finish();
         index
     }
@@ -256,36 +273,46 @@ impl StdlibIndex {
         let file = self.files.len();
         let mut names: Vec<&str> = Vec::new();
         let mut ops: Vec<&str> = Vec::new();
+
         eligible_lines(text, |line| {
             let end = line.find(|c: char| !is_name_char(c)).unwrap_or(line.len());
+
             if end > 0 && line[end..].trim_start().starts_with(':') {
                 names.push(&line[..end]);
             }
+
             if let Some(rest) = line.strip_prefix("operator") {
                 ops.extend(operator_texts(rest.trim_start()));
             }
         });
         names.sort_unstable();
         names.dedup();
+
         for name in names {
             self.declaring
                 .entry(name.to_string())
                 .or_default()
                 .push(file);
         }
+
         ops.sort_unstable();
         ops.dedup();
+
         for op in ops {
             let heads = operator_heads(text, op);
+
             if heads.is_empty() {
                 continue;
             }
+
             let found = self.operators.entry(op.to_string()).or_default();
+
             match found.last_mut() {
                 Some((m, all)) if *m == module => all.extend(heads),
                 _ => found.push((module, heads)),
             }
         }
+
         self.files.push(FileEntry {
             module,
             path,
@@ -303,6 +330,7 @@ impl StdlibIndex {
                 None => Parsed::Unparsed,
             },
         });
+
         match parsed {
             Parsed::Names(names) => names.contains(name),
             Parsed::Unparsed => true,
@@ -316,6 +344,7 @@ impl StdlibIndex {
             .importers
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+
         memo.entry(excluded.to_vec())
             .or_insert_with(|| {
                 Arc::new(super::module_rank::count_importers(
@@ -343,6 +372,7 @@ pub(super) fn modules_under(
     } else {
         format!("{folder}/")
     };
+
     fs.list_dir(&dir)
         .into_iter()
         .filter_map(|(entry, is_dir)| {
@@ -356,8 +386,10 @@ fn module_files(fs: &dyn FileSystem, dir: &Path, files: &mut Vec<PathBuf>, depth
     if depth > 3 {
         return;
     }
+
     for (entry, is_dir) in fs.list_dir(dir) {
         let path = dir.join(&entry);
+
         if is_dir {
             if !matches!(entry.as_str(), "tests" | "examples" | "modules") {
                 module_files(fs, &path, files, depth + 1);
@@ -384,6 +416,7 @@ impl<'a> Recorder<'a> {
 
     fn note(&self, path: &Path) {
         let mut seen = self.seen.borrow_mut();
+
         if seen.0.insert(path.to_path_buf()) {
             seen.1.push((path.to_path_buf(), self.fs.stamp(path)));
         }
@@ -435,8 +468,10 @@ fn is_name_char(c: char) -> bool {
 /// module start their line).
 fn eligible_lines<'a>(text: &'a str, mut f: impl FnMut(&'a str)) {
     let mut file_scope = false;
+
     for line in text.lines() {
         let trimmed = line.trim_start();
+
         if trimmed.starts_with("#scope_file") {
             file_scope = true;
         } else if trimmed.starts_with("#scope_export") || trimmed.starts_with("#scope_module") {
@@ -453,6 +488,7 @@ fn operator_texts(rest: &str) -> Vec<&str> {
     let Some(first) = rest.find("::") else {
         return Vec::new();
     };
+
     (0..=first)
         .filter(|&k| rest.is_char_boundary(k) && rest[k..].trim_start().starts_with("::"))
         .map(|k| &rest[..k])
@@ -467,8 +503,10 @@ fn operator_heads(text: &str, op: &str) -> Vec<Vec<String>> {
     let mut heads = Vec::new();
     let mut file_scope = false;
     let mut lines = text.lines();
+
     while let Some(line) = lines.next() {
         let trimmed = line.trim_start();
+
         if trimmed.starts_with("#scope_file") {
             file_scope = true;
         } else if trimmed.starts_with("#scope_export") || trimmed.starts_with("#scope_module") {
@@ -481,12 +519,14 @@ fn operator_heads(text: &str, op: &str) -> Vec<Vec<String>> {
                 .is_some_and(|rest| rest.trim_start().starts_with("::"))
         {
             let mut head = trimmed.to_string();
+
             while !head.contains('{') && !head.contains("->") && head.len() < 400 {
                 match lines.next() {
                     Some(next) => head.push_str(next),
                     None => break,
                 }
             }
+
             let end = head
                 .find("->")
                 .or_else(|| head.find('{'))
@@ -495,11 +535,13 @@ fn operator_heads(text: &str, op: &str) -> Vec<Vec<String>> {
                 .split(|c: char| !is_name_char(c))
                 .map(str::to_string)
                 .collect();
+
             words.sort_unstable();
             words.dedup();
             heads.push(words);
         }
     }
+
     heads
 }
 
@@ -520,6 +562,7 @@ fn exported_names(text: &str) -> Option<HashSet<String>> {
                         ..
                     } = &**boxed;
                     let (mut then_exported, mut else_exported) = (*exported, *exported);
+
                     collect(then_branch, &mut then_exported, names);
                     collect(else_branch, &mut else_exported, names);
                 }
@@ -527,8 +570,10 @@ fn exported_names(text: &str) -> Option<HashSet<String>> {
             }
         }
     }
+
     let file = crate::parser::parse_file(FileId(u32::MAX), text).ok()?;
     let mut names = HashSet::default();
+
     collect(&file.stmts, &mut true, &mut names);
     Some(names)
 }
@@ -538,9 +583,11 @@ fn imported_modules(text: &str) -> Vec<String> {
     if !text.contains("#import") {
         return Vec::new();
     }
+
     let Ok(tokens) = crate::lexer::lex(FileId(u32::MAX), text) else {
         return Vec::new();
     };
+
     crate::project::scan_directives(&tokens)
         .into_iter()
         .filter_map(|link| match link.source {

@@ -21,11 +21,14 @@ impl Compiler {
         notes: &[ast::Note],
     ) -> Option<Arc<ProcTypeParams>> {
         let info = info?;
+
         if notes.is_empty() || info.declaration.is_none() {
             return Some(info);
         }
+
         let mut info = (*info).clone();
         let mut header = (**info.declaration.as_ref().unwrap()).clone();
+
         header.notes.extend_from_slice(notes);
         info.declaration = Some(Arc::new(header));
         Some(Arc::new(info))
@@ -39,11 +42,14 @@ impl Compiler {
         if let Some(info) = self.pr.callable_entities.get(&entity) {
             return Ok(Some(info.clone()));
         }
+
         if !visiting.insert(entity) {
             return Ok(None);
         }
+
         let source = self.entity(entity);
         let scope = source.home;
+
         if let EntityKind::Decl {
             decl, ..
         } = &source.kind
@@ -62,11 +68,13 @@ impl Compiler {
                 }
                 _ => None,
             };
+
             if let Some(procedure) = procedure {
                 visiting.remove(&entity);
                 return self.callable_procedure_parameters(procedure).map(Some);
             }
         }
+
         let result = match source.kind.clone() {
             EntityKind::Decl {
                 decl, ..
@@ -84,6 +92,7 @@ impl Compiler {
             } => self.callable_procedure_parameters(procedure).map(Some),
             _ => Ok(None),
         };
+
         visiting.remove(&entity);
         result
     }
@@ -110,6 +119,7 @@ impl Compiler {
             E::Proc(procedure) => Some(&procedure.header),
             _ => None,
         };
+
         if let Some(header) = header {
             let c_call = header.uses_c_abi();
             let parameters: Vec<_> = header
@@ -118,6 +128,7 @@ impl Compiler {
                 .filter(|p| !p.baked && (!c_call || !p.variadic))
                 .collect();
             let mut returns = Vec::new();
+
             for result in &header.returns {
                 returns.push(self.callable_expression_parameters_in(
                     scope,
@@ -125,6 +136,7 @@ impl Compiler {
                     visiting,
                 )?);
             }
+
             return Ok(Some(Arc::new(ProcTypeParams {
                 declaration: (!matches!(&expression.kind, E::Proc(p) if p.body.is_some()))
                     .then(|| header.clone()),
@@ -134,9 +146,11 @@ impl Compiler {
                 returns,
             })));
         }
+
         if let Some(entity) = self.callable_source_entity(scope, expression)? {
             return self.callable_entity_parameters_in(entity, visiting);
         }
+
         match &expression.kind {
             E::TypeDirective {
                 modifier: ast::TypeModifier::Plain,
@@ -167,6 +181,7 @@ impl Compiler {
             }
             _ => {}
         }
+
         if let E::Call {
             callee,
             args,
@@ -181,6 +196,7 @@ impl Compiler {
         {
             return self.callable_expression_parameters_in(scope, Some(&args[0].value), visiting);
         }
+
         if let E::Call {
             callee, ..
         } = &expression.kind
@@ -190,6 +206,7 @@ impl Compiler {
         {
             return Ok(parameters.returns[0].clone());
         }
+
         Ok(None)
     }
 
@@ -202,6 +219,7 @@ impl Compiler {
         if matches!(expression.kind, E::Context) {
             return Ok(self.ty.context_type);
         }
+
         if let Some(entity) = self.callable_source_entity(scope, expression)? {
             if let EntityKind::Local {
                 ty, ..
@@ -209,6 +227,7 @@ impl Compiler {
             {
                 return Ok(Some(ty));
             }
+
             return Ok(match self.resolve_entity(entity)? {
                 Resolved::Const {
                     value: Value::Type(ty),
@@ -223,6 +242,7 @@ impl Compiler {
                 _ => None,
             });
         }
+
         if let E::Member(base, member) = &expression.kind
             && let Some(ty) = self.callable_source_type(scope, base)?
         {
@@ -234,6 +254,7 @@ impl Compiler {
                 )?
                 .map(|(_, ty)| ty));
         }
+
         Ok(None)
     }
 
@@ -250,9 +271,11 @@ impl Compiler {
                 let Some(entity) = self.callable_source_entity(scope, base)? else {
                     return Ok(None);
                 };
+
                 if matches!(self.entity(entity).kind, EntityKind::Local { .. }) {
                     return Ok(None);
                 }
+
                 match self.resolve_entity(entity)? {
                     Resolved::Module(module) => self.module_member_lookup(module, member.name)?,
                     Resolved::Const {
@@ -266,6 +289,7 @@ impl Compiler {
             }
             _ => return Ok(None),
         };
+
         Ok(match found {
             Found::Entities(ids) if ids.len() == 1 => Some(ids[0]),
             _ => None,
@@ -279,9 +303,11 @@ impl Compiler {
         let signature = self.signature(procedure, self.proc(procedure).span)?;
         let declaration = if self.proc(procedure).lit.body.is_none() {
             let mut header = (*self.proc(procedure).lit.header).clone();
+
             if let Some(notes) = self.pr.proc_decl_notes.get(&procedure) {
                 header.notes.extend(notes.iter().cloned());
             }
+
             Some(Arc::new(header))
         } else {
             None
@@ -300,6 +326,7 @@ impl Compiler {
                     span: super::Span::NONE,
                 })
         };
+
         Ok(Arc::new(ProcTypeParams {
             declaration,
             names: signature

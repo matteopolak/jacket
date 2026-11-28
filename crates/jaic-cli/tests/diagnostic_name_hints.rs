@@ -13,6 +13,7 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 fn check_in(dir: &Path, source: &str, layout: &str) -> String {
     std::fs::write(dir.join("t.jai"), source).unwrap();
     let mut command = Command::new(JAIC);
+
     command
         .args(["-check", "t.jai", "-no_color"])
         .current_dir(dir)
@@ -20,9 +21,11 @@ fn check_in(dir: &Path, source: &str, layout: &str) -> String {
         .env_remove("CLICOLOR_FORCE")
         .env_remove("NO_COLOR")
         .env_remove("JAIC_DIAGNOSTICS");
+
     if !layout.is_empty() {
         command.env("JAIC_DIAGNOSTICS", layout);
     }
+
     String::from_utf8_lossy(&command.output().unwrap().stderr).into_owned()
 }
 
@@ -33,6 +36,7 @@ fn check(name: &str, source: &str, layout: &str) -> String {
 #[track_caller]
 fn assert_in_order(text: &str, needles: &[&str]) {
     let mut rest = text;
+
     for needle in needles {
         match rest.find(needle) {
             Some(at) => rest = &rest[at + needle.len()..],
@@ -47,6 +51,7 @@ const NAMESPACED: &str =
 #[test]
 fn a_name_a_namespaced_import_exports_is_written_through_it() {
     let plain = check("namespaced-plain", NAMESPACED, "");
+
     assert_in_order(
         &plain,
         &[
@@ -63,6 +68,7 @@ fn a_name_a_namespaced_import_exports_is_written_through_it() {
 #[test]
 fn the_namespaced_fixes_show_the_changed_code() {
     let rich = check("namespaced-rich", NAMESPACED, "unicode");
+
     assert_in_order(
         &rich,
         &[
@@ -81,6 +87,7 @@ fn a_name_no_namespaced_import_exports_still_suggests_the_import() {
         "M :: #import \"Math\";\nmain :: () {\n    print(\"x\");\n}\n",
         "",
     );
+
     assert_in_order(
         &output,
         &["help: `print` is declared in the `Basic` module: add `#import \"Basic\";`"],
@@ -92,6 +99,7 @@ fn a_name_no_namespaced_import_exports_still_suggests_the_import() {
 fn a_misspelled_module_member_suggests_the_closest_export() {
     let source = "B :: #import \"Basic\";\nmain :: () {\n    B.printt(\"x\");\n}\n";
     let plain = check("member-typo-plain", source, "");
+
     assert_in_order(
         &plain,
         &[
@@ -100,6 +108,7 @@ fn a_misspelled_module_member_suggests_the_closest_export() {
         ],
     );
     let rich = check("member-typo-rich", source, "unicode");
+
     assert_in_order(&rich, &[" 3 ~     B.print(\"x\");"]);
 }
 
@@ -110,6 +119,7 @@ fn a_module_member_from_another_module_suggests_that_module() {
         "B :: #import \"Basic\";\nmain :: () {\n    x := B.sqrt(2.0);\n}\n",
         "",
     );
+
     assert_in_order(
         &output,
         &[
@@ -122,6 +132,7 @@ fn a_module_member_from_another_module_suggests_that_module() {
 #[test]
 fn a_private_module_member_is_not_exported() {
     let dir = TempDir::new("member-private");
+
     std::fs::create_dir_all(dir.join("modules/Gadgets")).unwrap();
     std::fs::write(
         dir.join("modules/Gadgets/module.jai"),
@@ -133,6 +144,7 @@ fn a_private_module_member_is_not_exported() {
         "G :: #import \"Gadgets\";\nmain :: () {\n    x := G.hidden;\n}\n",
         "",
     );
+
     assert_in_order(
         &output,
         &[
@@ -174,6 +186,7 @@ fn an_enum_member_suggests_the_closest_member() {
         "E :: enum { first; second; }\nmain :: () {\n    e := E.frist;\n}\n",
         "",
     );
+
     assert_in_order(
         &output,
         &[
@@ -186,6 +199,7 @@ fn an_enum_member_suggests_the_closest_member() {
 #[test]
 fn an_inferred_member_without_a_type_says_to_name_the_type() {
     let output = check("member-inferred", "main :: () {\n    g := .foo;\n}\n", "");
+
     assert_in_order(
         &output,
         &[
@@ -201,6 +215,7 @@ const NAMED: &str =
 #[test]
 fn a_misspelled_named_argument_replaces_only_its_name() {
     let plain = check("named-plain", NAMED, "");
+
     assert_in_order(
         &plain,
         &[
@@ -210,6 +225,7 @@ fn a_misspelled_named_argument_replaces_only_its_name() {
         ],
     );
     let rich = check("named-rich", NAMED, "unicode");
+
     assert_in_order(&rich, &[" 3 ~     f(count = 1, name = \"a\");"]);
 }
 
@@ -220,6 +236,7 @@ fn a_named_argument_far_from_every_parameter_lists_them() {
         "f :: (count: int, name: string) {}\nmain :: () {\n    f(qqqqqqq=1);\n}\n",
         "",
     );
+
     assert_in_order(
         &output,
         &[

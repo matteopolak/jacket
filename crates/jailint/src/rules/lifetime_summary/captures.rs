@@ -16,9 +16,11 @@ impl Summary {
         {
             return false;
         }
+
         let Some(body) = body else {
             return self.memory.is_some();
         };
+
         self.may
             .keys()
             .filter(|e| e.kind == Kind::Write)
@@ -45,16 +47,20 @@ fn scalar_destination(compiler: &Compiler, body: &LifetimeBody, path: &Path) -> 
     else {
         return false;
     };
+
     ty = compiler.ty.types.pointee(ty).unwrap_or(ty);
+
     for step in &path.steps {
         let next = match step {
             Step::Deref => compiler.ty.types.pointee(ty),
             Step::Field(name) => match compiler.ty.types.kind(ty) {
                 TypeKind::Struct(st) => {
                     let info = compiler.ty.types.struct_info(*st);
+
                     if info.is_union {
                         return false;
                     }
+
                     info.fields
                         .iter()
                         .find(|f| f.name == Some(*name))
@@ -76,8 +82,10 @@ fn scalar_destination(compiler: &Compiler, body: &LifetimeBody, path: &Path) -> 
         let Some(next) = next else {
             return false;
         };
+
         ty = next;
     }
+
     compiler.ir_ty(ty).is_some()
         && !compiler.ty.types.is_pointer(ty)
         && !matches!(compiler.ty.types.kind(ty), TypeKind::Proc(_))

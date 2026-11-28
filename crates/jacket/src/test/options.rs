@@ -61,6 +61,7 @@ impl TestOptions {
                 format!("`@{name}` takes a whole number of {what}, as in `@{name}(5)`")
             })
         };
+
         // A note added here goes in `jailint::TOOL_NOTES` too, so `unused_note` skips it.
         match name {
             "timeout" => self.timeout = Some(number("seconds")?),
@@ -72,6 +73,7 @@ impl TestOptions {
             }
             "exit" => {
                 let code = args.and_then(|a| a.trim().parse().ok());
+
                 self.exit =
                     Some(code.ok_or("`@exit` takes the expected status, as in `@exit(3)`")?);
             }
@@ -94,11 +96,13 @@ impl TestOptions {
             "xfail" => self.xfail = Some(text(args)),
             "warns" => {
                 let want = text(args);
+
                 if want.is_empty() {
                     return Err(
                         "`@warns` needs the warning text, as in `@warns(\"not in scope\")`".into(),
                     );
                 }
+
                 self.warns = Some(want);
             }
             "args" => self.args = quoted_list(args.unwrap_or("")),
@@ -109,6 +113,7 @@ impl TestOptions {
                     .map(|name| name.trim().to_string())
                     .filter(|name| !name.is_empty())
                     .collect();
+
                 if self.optional.is_empty() {
                     return Err(
                         "`optional` needs variable names, as in `optional(JAIC_TEST_FONT_PATH)`"
@@ -119,11 +124,13 @@ impl TestOptions {
             "check_only" => self.check_only = true,
             "compile_fail" => {
                 let want = text(args);
+
                 if args.is_some() && want.is_empty() {
                     return Err(
                         "`compile_fail(text)` needs the text the diagnostics contain".into(),
                     );
                 }
+
                 self.diagnostic_contains = (!want.is_empty()).then_some(want);
             }
             // Discovery's own notes.
@@ -140,6 +147,7 @@ impl TestOptions {
             }
             _ => return Err(format!("unknown note `@{note}` (ignored)")),
         }
+
         Ok(())
     }
 
@@ -154,14 +162,17 @@ impl TestOptions {
             .iter()
             .filter_map(|n| {
                 let call = n.split('(').next().unwrap_or("");
+
                 if call == "only" && !std::mem::replace(&mut only, true) {
                     options.target.only.clear();
                 } else if call == "skip_on" && !std::mem::replace(&mut skip_on, true) {
                     options.target.skip_on.clear();
                 }
+
                 options.apply(n).err()
             })
             .collect();
+
         (options, warnings)
     }
 
@@ -170,18 +181,23 @@ impl TestOptions {
         if self.ignore {
             return Some("ignored (`jai,ignore`)".into());
         }
+
         if let Some(reason) = self.target.skip_reason(target) {
             return Some(reason);
         }
+
         let missing: Vec<&String> = self.needs.iter().filter(|n| !have.contains(n)).collect();
+
         if !missing.is_empty() {
             let names: Vec<&str> = missing.iter().map(|s| s.as_str()).collect();
+
             return Some(format!(
                 "needs {} (--needs {})",
                 names.join(", "),
                 names.join(",")
             ));
         }
+
         None
     }
 }
@@ -195,14 +211,17 @@ fn quoted_list(args: &str) -> Vec<String> {
     let mut had_quote = false;
     let mut finish = |current: &mut String, had_quote: &mut bool| {
         let text = std::mem::take(current);
+
         if *had_quote {
             items.push(text);
         } else if !text.trim().is_empty() {
             items.push(text.trim().to_string());
         }
+
         *had_quote = false;
     };
     let mut chars = args.chars().peekable();
+
     while let Some(c) = chars.next() {
         match c {
             '\\' if quoted && matches!(chars.peek(), Some('"' | '\\')) => {
@@ -217,6 +236,7 @@ fn quoted_list(args: &str) -> Vec<String> {
             _ => current.push(c),
         }
     }
+
     finish(&mut current, &mut had_quote);
     items
 }
@@ -258,6 +278,7 @@ mod tests {
         .map(String::from)
         .to_vec();
         let (options, warnings) = TestOptions::default().with_notes(&notes);
+
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(options.timeout, Some(5));
         assert_eq!(options.target.only.len(), 1);
@@ -271,6 +292,7 @@ mod tests {
     fn the_cases_note_is_discoverys() {
         let notes = ["cases(all_values(Color))".to_string(), "xfail".to_string()];
         let (options, warnings) = TestOptions::default().with_notes(&notes);
+
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(options.xfail.as_deref(), Some(""));
     }
@@ -286,6 +308,7 @@ mod tests {
         .map(String::from)
         .to_vec();
         let (options, warnings) = TestOptions::default().with_notes(&notes);
+
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(options, TestOptions::default());
     }
@@ -294,6 +317,7 @@ mod tests {
     fn a_property_count_is_a_positive_number() {
         for bad in ["property(0)", "property(many)", "property()"] {
             let (_, warnings) = TestOptions::default().with_notes(&[bad.to_string()]);
+
             assert_eq!(warnings.len(), 1, "{bad}: {warnings:?}");
             assert!(warnings[0].contains("number of trials"), "{warnings:?}");
         }
@@ -304,6 +328,7 @@ mod tests {
         let source = "// test: should_fail(\"Index out of range\") args(\"a b\", \"$TEMP/Data\") warns(\"not in scope\")\n// test: check_only compile_fail\nmain :: () {}\n";
         let notes = header_notes(source);
         let (options, warnings) = TestOptions::default().with_notes(&notes);
+
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(
             options.should_fail,
@@ -321,6 +346,7 @@ mod tests {
             "only(.LINUX, .MACOS)".to_string(),
         ];
         let (options, warnings) = TestOptions::default().with_notes(&notes);
+
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(options.target.skip_on.len(), 1);
         assert_eq!(
@@ -334,11 +360,14 @@ mod tests {
     fn a_compile_fail_note_can_name_the_text_the_diagnostics_contain() {
         let notes = ["compile_fail(\"tool failed\")".to_string()];
         let (options, warnings) = TestOptions::default().with_notes(&notes);
+
         assert!(warnings.is_empty(), "{warnings:?}");
         assert_eq!(options.diagnostic_contains.as_deref(), Some("tool failed"));
         let (plain, _) = TestOptions::default().with_notes(&["compile_fail".to_string()]);
+
         assert_eq!(plain.diagnostic_contains, None);
         let (_, warnings) = TestOptions::default().with_notes(&["compile_fail()".to_string()]);
+
         assert_eq!(warnings.len(), 1);
     }
 
@@ -346,16 +375,19 @@ mod tests {
     fn a_target_can_name_the_os_and_cpu_together() {
         let notes = ["skip_on(.WINDOWS, cpu = .ARM64)".to_string()];
         let (options, warnings) = TestOptions::default().with_notes(&notes);
+
         assert!(warnings.is_empty(), "{warnings:?}");
         let on = |os: &str, cpu: &str| Target {
             os: os.into(),
             cpu: cpu.into(),
             mode: RunMode::Native,
         };
+
         assert!(options.skip_reason(&on("windows", "arm64"), &[]).is_some());
         assert_eq!(options.skip_reason(&on("windows", "x64"), &[]), None);
         assert_eq!(options.skip_reason(&on("macos", "arm64"), &[]), None);
         let mut only = TestOptions::default();
+
         only.apply("only(.WINDOWS, cpu = .ARM64)").unwrap();
         assert_eq!(only.skip_reason(&on("windows", "arm64"), &[]), None);
         assert!(only.skip_reason(&on("windows", "x64"), &[]).is_some());
@@ -364,11 +396,13 @@ mod tests {
     #[test]
     fn a_target_can_name_the_os_and_mode_together() {
         let mut options = TestOptions::default();
+
         options.apply("skip_on(.WASM, mode = .NATIVE)").unwrap();
         assert!(options.skip_reason(&target("wasm", false), &[]).is_some());
         assert_eq!(options.skip_reason(&target("wasm", true), &[]), None);
         assert_eq!(options.skip_reason(&target("linux", false), &[]), None);
         let mut only = TestOptions::default();
+
         only.apply("only(.WINDOWS, mode = .NATIVE)").unwrap();
         assert_eq!(only.skip_reason(&target("windows", false), &[]), None);
         assert!(only.skip_reason(&target("windows", true), &[]).is_some());
@@ -380,8 +414,10 @@ mod tests {
         let notes = super::header_notes(
             "// test: skip_on(.WASM, reason = \"no threads (WASI), no fibers\") serial\n",
         );
+
         assert_eq!(notes.len(), 2);
         let (with, warnings) = options.with_notes(&notes);
+
         assert_eq!(warnings, Vec::<String>::new());
         assert_eq!(
             with.skip_reason(&target("wasm", false), &[]).as_deref(),
@@ -409,6 +445,7 @@ mod tests {
         };
         // Any of the names, and the mode.
         let mut options = TestOptions::default();
+
         options
             .apply("skip_on(.WASM, .WINDOWS, mode = .NATIVE)")
             .unwrap();
@@ -426,15 +463,18 @@ mod tests {
         assert_eq!(options.skip_reason(&on("linux", "x64", false), &[]), None);
         // No names: any OS.
         let mut any = TestOptions::default();
+
         any.apply("skip_on(mode = .NATIVE)").unwrap();
         assert!(any.skip_reason(&on("linux", "x64", false), &[]).is_some());
         assert_eq!(any.skip_reason(&on("linux", "x64", true), &[]), None);
         let mut cpu = TestOptions::default();
+
         cpu.apply("only(cpu = .X64)").unwrap();
         assert_eq!(cpu.skip_reason(&on("linux", "x64", false), &[]), None);
         assert!(cpu.skip_reason(&on("linux", "arm64", false), &[]).is_some());
         // Both together.
         let mut both = TestOptions::default();
+
         both.apply("only(.MACOS, mode = .INTERP, cpu = .ARM64)")
             .unwrap();
         assert_eq!(both.skip_reason(&on("macos", "arm64", true), &[]), None);
@@ -452,17 +492,20 @@ mod tests {
             "skip_on(.WINDOWS, cpu = .ARM64)".to_string(),
         ];
         let (options, warnings) = TestOptions::default().with_notes(&notes);
+
         assert!(warnings.is_empty(), "{warnings:?}");
         let on = |os: &str, cpu: &str| Target {
             os: os.into(),
             cpu: cpu.into(),
             mode: RunMode::Native,
         };
+
         assert!(options.skip_reason(&on("wasm", "wasm"), &[]).is_some());
         assert!(options.skip_reason(&on("windows", "arm64"), &[]).is_some());
         assert_eq!(options.skip_reason(&on("windows", "x64"), &[]), None);
         // A later batch of notes replaces them.
         let (later, _) = options.with_notes(&["skip_on(.LINUX)".to_string()]);
+
         assert_eq!(later.target.skip_on.len(), 1);
     }
 
@@ -493,6 +536,7 @@ mod tests {
             ("skip_on()", "needs targets"),
         ] {
             let (options, warnings) = TestOptions::default().with_notes(&[note.to_string()]);
+
             assert_eq!(options, TestOptions::default(), "{note}");
             assert_eq!(warnings.len(), 1, "{note}: {warnings:?}");
             assert!(warnings[0].contains(expect), "{note}: {warnings:?}");
@@ -504,6 +548,7 @@ mod tests {
         // `@native` is the native library build's, not the runner's.
         for name in jailint::TOOL_NOTES.iter().filter(|n| **n != "native") {
             let result = TestOptions::default().apply(name);
+
             assert!(
                 !result
                     .as_ref()
@@ -517,9 +562,11 @@ mod tests {
     fn should_fail_takes_one_or_several_texts() {
         let parse = |note: &str| {
             let (options, warnings) = TestOptions::default().with_notes(&[note.to_string()]);
+
             assert!(warnings.is_empty(), "{warnings:?}");
             options.should_fail
         };
+
         assert_eq!(parse("should_fail"), Some(vec![]));
         assert_eq!(parse("should_fail(want:)"), Some(vec!["want:".to_string()]));
         assert_eq!(
@@ -547,6 +594,7 @@ mod tests {
             .map(String::from)
             .to_vec();
         let (options, warnings) = TestOptions::default().with_notes(&notes);
+
         assert_eq!(options, TestOptions::default());
         assert_eq!(warnings.len(), 3);
         assert!(warnings[2].contains("unknown note `@flaky`"));
@@ -555,6 +603,7 @@ mod tests {
     #[test]
     fn targets_and_capabilities_decide_skips() {
         let mut options = TestOptions::default();
+
         options.apply("only(.LINUX, .MACOS)").unwrap();
         assert_eq!(options.skip_reason(&target("macos", false), &[]), None);
         assert!(
@@ -568,6 +617,7 @@ mod tests {
             Some("skipped on arm64")
         );
         let mut network = TestOptions::default();
+
         network.apply("needs(.NETWORK)").unwrap();
         assert!(network.skip_reason(&target("linux", false), &[]).is_some());
         assert_eq!(
@@ -575,13 +625,16 @@ mod tests {
             None
         );
         let mut native = TestOptions::default();
+
         native.apply("native_only").unwrap();
         assert!(native.skip_reason(&target("linux", true), &[]).is_some());
         let mut compiled = TestOptions::default();
+
         compiled.apply("skip_on(.INTERP)").unwrap();
         assert!(compiled.skip_reason(&target("linux", true), &[]).is_some());
         assert_eq!(compiled.skip_reason(&target("linux", false), &[]), None);
         let mut wasm_interp = TestOptions::default();
+
         wasm_interp.apply("only(.WASM, .INTERP)").unwrap();
         assert_eq!(wasm_interp.skip_reason(&target("wasm", true), &[]), None);
         assert!(
@@ -594,6 +647,7 @@ mod tests {
     #[test]
     fn header_comments_hold_notes() {
         let source = "// A golden test.\n// test: only(.LINUX, .MACOS) timeout(10)\n\n#import \"Basic\";\n// test: serial\n";
+
         assert_eq!(
             header_notes(source),
             ["only(.LINUX, .MACOS)", "timeout(10)"]

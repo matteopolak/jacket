@@ -65,6 +65,7 @@ impl Interp {
     ) -> CompileCall {
         let outer = std::mem::replace(&mut self.defer_missing_bodies, true);
         let result = self.call(program, function, args);
+
         self.defer_missing_bodies = outer;
         self.compiler_outcome(result)
     }
@@ -74,8 +75,10 @@ impl Interp {
             && let Some(TrapKind::CompileDependency(function)) = trap.kind
         {
             let frames = std::mem::take(&mut self.captured);
+
             debug_assert!(!frames.is_empty(), "compiler entry thunks have bodies");
             let request = self.callable_request.take();
+
             CompileCall::NeedsBody {
                 function,
                 callable: request.is_some_and(|(id, _)| id == function),
@@ -104,12 +107,14 @@ impl Interp {
         // frames, and must unwind back to this boundary before resumption.
         self.restore_compile_boundary(&continuation);
         let outer = std::mem::replace(&mut self.defer_missing_bodies, true);
+
         self.call_nesting += 1;
         let calls = continuation.calls;
         let frames = continuation.frames;
         let result = self
             .guarded(program, calls, |this| this.resume_frames(program, frames))
             .map(Rets::into_vec);
+
         self.call_nesting -= 1;
         self.defer_missing_bodies = outer;
         self.compiler_outcome(result)

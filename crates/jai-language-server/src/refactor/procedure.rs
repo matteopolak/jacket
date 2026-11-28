@@ -17,9 +17,11 @@ impl Cx<'_> {
     /// parameters, and the ones declared in them and used afterwards are its results.
     pub(super) fn extract_procedure(&self, out: &mut Vec<CodeAction>) {
         let (a, b) = self.sel;
+
         if a >= b {
             return;
         }
+
         // The top-level procedure holding the selection.
         let Some((top, header, body)) = self.file.stmts.iter().find_map(|s| {
             let S::Decl(d) = &s.kind else {
@@ -30,11 +32,13 @@ impl Cx<'_> {
             };
             let body = lit.body.as_ref()?;
             let (ba, bb) = (body.span.start as usize, body.span.end as usize);
+
             (d.names.len() == 1 && ba <= a && b <= bb).then_some((s, &*lit.header, body))
         }) else {
             return;
         };
         let flags = &header.flags;
+
         if flags.c_call()
             || flags.no_context()
             || flags.expand()
@@ -45,13 +49,16 @@ impl Cx<'_> {
         {
             return;
         }
+
         let mut visible: Vec<Local> = Vec::new();
+
         for p in &header.params {
             let Some(name) = p.name else {
                 continue;
             };
             let usable =
                 !p.baked && !p.auto_bake && !p.variadic && !p.using && p.using_filter.is_none();
+
             visible.push(Local {
                 name: name.name,
                 ty: p
@@ -62,6 +69,7 @@ impl Cx<'_> {
                 constant: false,
             });
         }
+
         let Some((list, i, j)) = self.descend(&body.stmts, &mut visible) else {
             return;
         };
@@ -72,9 +80,11 @@ impl Cx<'_> {
         );
         // Whole lines, so the code moves as it is written.
         let (la, lb) = (line_start(self.text, first), line_end(self.text, last));
+
         if !self.text[la..first].trim().is_empty() || !self.text[last..lb].trim().is_empty() {
             return;
         }
+
         let base = &self.text[la..first];
         let Some(code) = self.facts(selected, &list[j + 1..], &visible) else {
             return;
@@ -89,20 +99,26 @@ impl Cx<'_> {
         let args: Vec<&str> = code.params.iter().map(|(n, _)| n.as_str()).collect();
         let names: Vec<&str> = code.results.iter().map(|(n, _)| n.as_str()).collect();
         let mut proc = format!("{name} :: ({})", params.join(", "));
+
         if !results.is_empty() {
             proc.push_str(&format!(" -> {}", results.join(", ")));
         }
+
         proc.push_str(&format!(" {{{}", self.nl));
+
         for line in self.text[la..lb].lines() {
             if line.trim().is_empty() {
                 proc.push_str(self.nl);
                 continue;
             }
+
             let Some(rest) = line.strip_prefix(base) else {
                 return;
             };
+
             proc.push_str(&format!("{}{rest}{}", self.unit, self.nl));
         }
+
         if !names.is_empty() {
             proc.push_str(&format!(
                 "{}return {};{}",
@@ -111,6 +127,7 @@ impl Cx<'_> {
                 self.nl
             ));
         }
+
         proc.push('}');
         let call = format!("{name}({})", args.join(", "));
         let call = if names.is_empty() {
@@ -123,6 +140,7 @@ impl Cx<'_> {
             self.edit(la, lb, call),
             self.edit(top_end, top_end, format!("{}{}{proc}", self.nl, self.nl)),
         ];
+
         out.extend(self.action("Extract into procedure".into(), EXTRACT, edits));
     }
 
@@ -137,19 +155,23 @@ impl Cx<'_> {
         let extents: Vec<(usize, usize)> = list.iter().map(|s| stmt_extent(self.text, s)).collect();
         let i = extents.iter().position(|e| e.0 == a);
         let j = extents.iter().rposition(|e| e.1 == b);
+
         if let (Some(i), Some(j)) = (i, j)
             && i <= j
         {
             for s in &list[..i] {
                 self.declare(s, visible);
             }
+
             return Some((list, i, j));
         }
+
         for (k, s) in list.iter().enumerate() {
             if extents[k].0 <= a && b <= extents[k].1 {
                 for earlier in &list[..k] {
                     self.declare(earlier, visible);
                 }
+
                 let mark = visible.len();
                 let found = match &s.kind {
                     S::Block(blk) => self.descend(&blk.stmts, visible),
@@ -171,6 +193,7 @@ impl Cx<'_> {
                             body,
                             ..
                         } = &**boxed;
+
                         if *bind_label && let Some(l) = label {
                             visible.push(Local {
                                 name: l.name,
@@ -178,6 +201,7 @@ impl Cx<'_> {
                                 constant: false,
                             });
                         }
+
                         self.descend(std::slice::from_ref(body), visible)
                     }
                     S::For(f) => {
@@ -188,6 +212,7 @@ impl Cx<'_> {
                                 constant: false,
                             });
                         }
+
                         self.descend(std::slice::from_ref(&f.body), visible)
                     }
                     S::Switch(boxed) => {
@@ -202,17 +227,21 @@ impl Cx<'_> {
                             else_branch,
                             ..
                         } = &**boxed;
+
                         self.descend(then_branch, visible)
                             .or_else(|| self.descend(else_branch, visible))
                     }
                     _ => None,
                 };
+
                 if found.is_none() {
                     visible.truncate(mark);
                 }
+
                 return found;
             }
         }
+
         None
     }
 
@@ -236,6 +265,7 @@ impl Cx<'_> {
         let mut used: Vec<Sym> = Vec::new();
         let mut written: HashSet<Sym> = HashSet::default();
         let mut ok = true;
+
         walk(selected, &mut |n, parents| {
             match n {
                 Node::Stmt(s) => match &s.kind {
@@ -262,6 +292,7 @@ impl Cx<'_> {
                         let inside = parents.iter().any(|p| {
                             matches!(p.stmt().map(|s| &s.kind), Some(S::While(_) | S::For(_)))
                         });
+
                         ok &= inside && label.is_none();
                     }
                     S::Decl(d) => {
@@ -274,6 +305,7 @@ impl Cx<'_> {
                         {
                             ok = false;
                         }
+
                         declared.extend(d.names.iter().map(|n| n.name));
                     }
                     S::Assign {
@@ -292,8 +324,10 @@ impl Cx<'_> {
                         if f.declares_in_caller() || f.iterator.is_some() {
                             ok = false;
                         }
+
                         declared.push(f.it.map_or_else(|| Sym::intern("it"), |i| i.name));
                         declared.push(f.index.map_or_else(|| Sym::intern("it_index"), |i| i.name));
+
                         if f.by_pointer
                             && let ForOver::Collection(c) = &f.over
                             && let Some(r) = root(c)
@@ -338,26 +372,35 @@ impl Cx<'_> {
                     _ => {}
                 },
             }
+
             ok
         });
+
         if !ok {
             return None;
         }
+
         // Parameters: the outer locals read, once each, in order of use.
         let mut params: Vec<(String, String)> = Vec::new();
+
         for name in &used {
             let Some(local) = visible.iter().rev().find(|l| l.name == *name) else {
                 continue;
             };
+
             if params.iter().any(|(n, _)| n == name.as_str()) {
                 continue;
             }
+
             if local.constant || written.contains(name) || declared.contains(name) {
                 return None;
             }
+
             let ty = local.ty.clone().filter(|t| !t.contains('$'))?;
+
             params.push((name.as_str().to_string(), ty));
         }
+
         // An outer variable assigned but never read as a plain name.
         if written
             .iter()
@@ -365,23 +408,30 @@ impl Cx<'_> {
         {
             return None;
         }
+
         // Results: declared by the selection itself and used after it.
         let mut results: Vec<(String, String)> = Vec::new();
+
         for s in selected {
             let S::Decl(d) = &s.kind else {
                 continue;
             };
+
             for (index, name) in d.names.iter().enumerate() {
                 if !mentioned_in(after, name.name) {
                     continue;
                 }
+
                 if d.kind == DeclKind::Const {
                     return None;
                 }
+
                 let ty = self.type_of_decl(d, index).filter(|t| !t.contains('$'))?;
+
                 results.push((name.name.as_str().to_string(), ty));
             }
         }
+
         Some(Extraction {
             params,
             results,

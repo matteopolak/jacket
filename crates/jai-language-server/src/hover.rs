@@ -67,6 +67,7 @@ impl HoverText {
 
     fn plain(&self) -> String {
         let mut lines: Vec<String> = Vec::new();
+
         for block in &self.blocks {
             match block {
                 Block::Code(text) | Block::Output(text) => lines.push(text.clone()),
@@ -78,12 +79,14 @@ impl HoverText {
                         .map(|r| r.spec.chars().count())
                         .max()
                         .unwrap_or(1);
+
                     for row in rows {
                         let marker = if row.current {
                             "▸"
                         } else {
                             " "
                         };
+
                         lines.push(format!(
                             "{marker} {:<width$} → {}",
                             row.spec,
@@ -95,11 +98,13 @@ impl HoverText {
                 Block::Section(label) => lines.push(format!("─── {label} ───")),
             }
         }
+
         lines.join("\n")
     }
 
     fn markdown(&self) -> String {
         let mut parts: Vec<String> = Vec::new();
+
         for block in &self.blocks {
             match block {
                 Block::Code(text) => parts.push(fenced("jai", text)),
@@ -114,6 +119,7 @@ impl HoverText {
                             } else {
                                 spec
                             };
+
                             format!("- {spec} → {}", markdown_inline(&row.target))
                         })
                         .collect::<Vec<_>>()
@@ -123,6 +129,7 @@ impl HoverText {
                 Block::Section(label) => parts.push(format!("---\n\n*{}*", escape(label))),
             }
         }
+
         parts.join("\n\n")
     }
 }
@@ -138,16 +145,19 @@ fn plain_inline(inline: &[Inline]) -> String {
 
 fn markdown_inline(inline: &[Inline]) -> String {
     let mut out = String::new();
+
     for part in inline {
         match part {
             Inline::Text(t) => out.push_str(&escape(t)),
             Inline::Code(t) => out.push_str(&code_span(t)),
         }
     }
+
     // A paragraph starting with `-`, `+` or `=` could read as a list or a heading underline.
     if out.starts_with(['-', '+', '=']) {
         out.insert(0, '\\');
     }
+
     out
 }
 
@@ -156,6 +166,7 @@ fn markdown_inline(inline: &[Inline]) -> String {
 /// text is unchanged.
 pub(crate) fn escape(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
+
     for c in text.chars() {
         if matches!(
             c,
@@ -163,8 +174,10 @@ pub(crate) fn escape(text: &str) -> String {
         ) {
             out.push('\\');
         }
+
         out.push(c);
     }
+
     out
 }
 
@@ -182,6 +195,7 @@ pub(crate) fn code_span(text: &str) -> String {
     } else {
         ""
     };
+
     format!("{ticks}{pad}{text}{pad}{ticks}")
 }
 
@@ -223,6 +237,7 @@ mod tests {
             Block::Section("expands to".into()),
             Block::Code("x += 1;".into()),
         ]);
+
         assert_eq!(
             hover.render(MarkupKind::PlainText),
             "f :: () #expand\n─── expands to ───\nx += 1;"

@@ -9,8 +9,10 @@ push_copy :: () #expand { copied := context; `push_context,defer_pop copied; }
 
 fn check(source: &str) {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(error) = c.compile_sources(&[ProgramSource::String(format!("{SETUP}{source}"))]) {
         panic!("{}", error.render(&c.src.sources));
     }

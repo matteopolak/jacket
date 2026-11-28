@@ -15,7 +15,9 @@ use std::path::Path;
 /// `from` (a path in `docs/`) joined with the relative `link`, normalised.
 fn repo_path(from: &str, link: &str) -> String {
     let mut parts: Vec<&str> = from.split('/').collect();
+
     parts.pop();
+
     for part in link.split('/') {
         match part {
             "." | "" => {}
@@ -25,6 +27,7 @@ fn repo_path(from: &str, link: &str) -> String {
             part => parts.push(part),
         }
     }
+
     parts.join("/")
 }
 
@@ -74,10 +77,12 @@ fn split(md: &str) -> (String, Vec<Group>) {
     let mut intro = String::new();
     let mut groups: Vec<Group> = Vec::new();
     let mut in_code = false;
+
     for line in md.lines() {
         if fence(line) {
             in_code = !in_code;
         }
+
         let heading = if in_code {
             None
         } else {
@@ -90,6 +95,7 @@ fn split(md: &str) -> (String, Vec<Group>) {
                 line.strip_prefix("### ").map(|h| (3, h))
             }
         });
+
         match heading {
             Some((2, name)) => groups.push(Group {
                 name: name.trim().into(),
@@ -104,7 +110,9 @@ fn split(md: &str) -> (String, Vec<Group>) {
                         entries: Vec::new(),
                     });
                 }
+
                 let g = groups.last_mut().unwrap();
+
                 g.entries.push((name.trim().into(), String::new()));
             }
             None => {
@@ -115,30 +123,38 @@ fn split(md: &str) -> (String, Vec<Group>) {
                         None => &mut g.prose,
                     },
                 };
+
                 to.push_str(line);
                 to.push('\n');
             }
         }
     }
+
     (intro, groups)
 }
 
 /// The first paragraph of `md`, on one line.
 fn first_paragraph(md: &str) -> String {
     let mut out = Vec::new();
+
     for line in md.lines() {
         let t = line.trim();
+
         if t.is_empty() {
             if out.is_empty() {
                 continue;
             }
+
             break;
         }
+
         if t.starts_with(['#', '|', '`', '-', '>']) && out.is_empty() {
             continue;
         }
+
         out.push(t);
     }
+
     out.join(" ")
 }
 
@@ -160,6 +176,7 @@ fn read(dir: &Path, file: &str) -> Result<(String, Consoles), String> {
     let md = std::fs::read_to_string(&path)
         .map_err(|e| format!("cannot read {}: {e}", path.display()))?;
     let consoles = console::rendered(&path, &md);
+
     Ok((md, consoles))
 }
 
@@ -167,17 +184,21 @@ fn read(dir: &Path, file: &str) -> Result<(String, Consoles), String> {
 fn promote(body: &str) -> String {
     let mut out = String::new();
     let mut in_code = false;
+
     for line in body.lines() {
         if fence(line) {
             in_code = !in_code;
         }
+
         let line = match line.strip_prefix("##") {
             Some(rest) if !in_code && (rest.starts_with("## ") || rest.starts_with("### ")) => rest,
             _ => line,
         };
+
         out.push_str(line);
         out.push('\n');
     }
+
     out
 }
 
@@ -191,10 +212,13 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
         files: HashMap::default(),
         anchors: HashMap::default(),
     };
+
     if let Some(file) = home {
         let repo = repo_path(&format!("{prefix}x"), file);
+
         out.files.insert(repo.clone(), site.href(""));
         let (md, consoles) = read(dir, file)?;
+
         out.pages.push(Page {
             name: site.name.clone(),
             md,
@@ -204,17 +228,21 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
             consoles,
         });
     }
+
     if !pages.is_empty() {
         let mut links = Vec::new();
+
         for page in pages {
             let stem = Path::new(&page.file)
                 .file_stem()
                 .map_or_else(|| page.name.clone(), |s| s.to_string_lossy().into_owned());
             let folder = format!("{}/{}", site.pages_dir(), markdown::slug(&stem));
             let repo = repo_path(&format!("{prefix}x"), &page.file);
+
             out.files.insert(repo.clone(), site.href(&folder));
             links.push(link(&site.href(&folder), &page.name));
             let (md, consoles) = read(dir, &page.file)?;
+
             out.pages.push(Page {
                 name: page.name.clone(),
                 md,
@@ -224,6 +252,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
                 consoles,
             });
         }
+
         out.nav.push(NavCategory {
             label: site.pages_title.clone(),
             groups: vec![NavGroup {
@@ -234,12 +263,14 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
             }],
         });
     }
+
     for section in sections {
         let (md, consoles) = read(dir, &section.file)?;
         let repo = repo_path(&format!("{prefix}x"), &section.file);
         let folder = markdown::slug(&section.name);
         let (intro, groups) = split(&md);
         let overview = site.href(&folder);
+
         out.files.insert(repo.clone(), overview.clone());
         let mut nav = NavCategory {
             label: section.name.clone(),
@@ -252,26 +283,34 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
         };
         // The overview: the intro, then each group's text and a list of its pages.
         let mut summary = intro;
+
         for g in &groups {
             if !g.name.is_empty() {
                 let id = markdown::slug(&g.name);
+
                 out.anchors
                     .insert((repo.clone(), id.clone()), format!("{overview}#{id}"));
                 summary.push_str(&format!("## {}\n", g.name));
             }
+
             summary.push_str(&g.prose);
             summary.push('\n');
             let mut links = Vec::new();
+
             for (name, body) in &g.entries {
                 let id = markdown::slug(name);
                 let page = format!("{folder}/{id}");
+
                 out.anchors
                     .insert((repo.clone(), id.clone()), site.href(&page));
                 let lead = first_paragraph(body);
+
                 summary.push_str(&format!("- [{name}](#{id})"));
+
                 if !lead.is_empty() {
                     summary.push_str(&format!(": {lead}"));
                 }
+
                 summary.push('\n');
                 links.push(link(&site.href(&page), name));
                 out.pages.push(Page {
@@ -283,7 +322,9 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
                     consoles: consoles.clone(),
                 });
             }
+
             summary.push('\n');
+
             if !links.is_empty() {
                 nav.groups.push(NavGroup {
                     label: g.name.clone(),
@@ -293,6 +334,7 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
                 });
             }
         }
+
         out.pages.push(Page {
             name: section.name.clone(),
             md: summary,
@@ -303,12 +345,14 @@ pub fn collect(site: &Site, dir: &Path, prefix: &str, doc: &Doc) -> Result<Guide
         });
         out.nav.push(nav);
     }
+
     Ok(out)
 }
 
 /// `nav` with the link to `href` marked, and its group open.
 fn marked(nav: &[NavCategory], href: &str) -> Vec<NavCategory> {
     let mut nav = nav.to_vec();
+
     for g in nav.iter_mut().flat_map(|c| c.groups.iter_mut()) {
         for l in &mut g.links {
             if l.href == href {
@@ -317,6 +361,7 @@ fn marked(nav: &[NavCategory], href: &str) -> Vec<NavCategory> {
             }
         }
     }
+
     nav
 }
 
@@ -324,14 +369,17 @@ fn marked(nav: &[NavCategory], href: &str) -> Vec<NavCategory> {
 fn outline(md: &str) -> Vec<Outline> {
     let mut out = Vec::new();
     let mut in_code = false;
+
     for line in md.lines() {
         if fence(line) {
             in_code = !in_code;
             continue;
         }
+
         if in_code {
             continue;
         }
+
         let (sub, text) = if let Some(t) = line.strip_prefix("## ") {
             (false, t)
         } else if let Some(t) = line.strip_prefix("### ") {
@@ -340,12 +388,14 @@ fn outline(md: &str) -> Vec<Outline> {
             continue;
         };
         let label = text.trim().replace('`', "");
+
         out.push(Outline::Heading {
             id: markdown::slug(text),
             label,
             sub,
         });
     }
+
     out
 }
 
@@ -353,13 +403,16 @@ fn outline(md: &str) -> Vec<Outline> {
 /// commands printed (`consoles`), and is plain text without a capture.
 fn code_html(info: &str, code: &str, consoles: &Consoles) -> String {
     let lang = info.split([' ', ',']).next().unwrap_or("");
+
     if lang == "console" {
         return consoles
             .get(code)
             .cloned()
             .unwrap_or_else(|| escape(code.trim_end()));
     }
+
     let code = code.trim_end();
+
     if lang == "jai" {
         highlight::jai(code, &|_| None)
     } else if lang == "diagnostic" {
@@ -375,6 +428,7 @@ fn code_html(info: &str, code: &str, consoles: &Consoles) -> String {
 fn group(segs: &[Segment], at: usize, consoles: &Consoles) -> (DocSegment, usize) {
     let mut parts = Vec::new();
     let mut used = 0;
+
     while let Some(Segment::Code {
         info,
         code,
@@ -387,12 +441,14 @@ fn group(segs: &[Segment], at: usize, consoles: &Consoles) -> (DocSegment, usize
             (_, Some(&"fixed")) if used > 0 => "Fixed",
             _ => break,
         };
+
         parts.push(GroupPart {
             label: label.to_owned(),
             code_html: code_html(info, code, consoles),
         });
         used += 1;
     }
+
     (
         DocSegment::Group {
             parts,
@@ -406,6 +462,7 @@ fn group(segs: &[Segment], at: usize, consoles: &Consoles) -> (DocSegment, usize
 fn segments(segs: &[Segment], consoles: &Consoles) -> Vec<DocSegment> {
     let mut out = Vec::new();
     let mut i = 0;
+
     while i < segs.len() {
         match &segs[i] {
             Segment::Html(h) => out.push(DocSegment::Html {
@@ -423,9 +480,11 @@ fn segments(segs: &[Segment], consoles: &Consoles) -> Vec<DocSegment> {
                     } => Some((info, code)),
                     Segment::Html(_) => None,
                 });
+
                 match (words.get(1), next) {
                     (Some(&"example"), _) => {
                         let (group, used) = group(segs, i, consoles);
+
                         out.push(group);
                         i += used - 1;
                     }
@@ -433,6 +492,7 @@ fn segments(segs: &[Segment], consoles: &Consoles) -> Vec<DocSegment> {
                         if after_info.split_whitespace().nth(1) == Some("after") =>
                     {
                         let settings: Vec<&str> = after_info.split_whitespace().skip(2).collect();
+
                         out.push(DocSegment::Compare {
                             before_html: code_html(info, code, consoles),
                             after_html: code_html(after_info, after, consoles),
@@ -448,8 +508,10 @@ fn segments(segs: &[Segment], consoles: &Consoles) -> Vec<DocSegment> {
                 }
             }
         }
+
         i += 1;
     }
+
     out
 }
 
@@ -458,6 +520,7 @@ impl Guides {
     /// section named like `pages-title`.
     pub fn first_href(&self, site: &Site) -> Option<String> {
         let overview = format!("{}.html", site.pages_dir());
+
         self.pages
             .iter()
             .find(|p| p.heading == site.pages_title && p.path != overview)
@@ -475,12 +538,14 @@ impl Guides {
                     if dest.contains("://") || dest.starts_with('/') {
                         return Some(dest.to_owned());
                     }
+
                     let (target, anchor) = dest.split_once('#').unwrap_or((dest, ""));
                     let target = if target.is_empty() {
                         here.clone()
                     } else {
                         repo_path(here, target)
                     };
+
                     if let Some(to) = self.anchors.get(&(target.clone(), anchor.to_owned())) {
                         return Some(if *to == href {
                             format!("#{anchor}")
@@ -488,36 +553,45 @@ impl Guides {
                             to.clone()
                         });
                     }
+
                     let anchor = if anchor.is_empty() {
                         String::new()
                     } else {
                         format!("#{anchor}")
                     };
+
                     if target == *here {
                         return Some(anchor);
                     }
+
                     if let Some(to) = self.files.get(&target) {
                         return Some(format!("{to}{anchor}"));
                     }
+
                     // A module's folder or its `module.jai` opens its API page.
                     let module = site.modules.iter().find(|m| {
                         let file = format!("{}{}", site.source_prefix, m.file);
+
                         file == target
                             || file
                                 .rsplit_once('/')
                                 .is_some_and(|(dir, _)| dir == target.trim_end_matches('/'))
                     });
+
                     if let Some(m) = module {
                         return Some(format!("{}{anchor}", site.module_href(&m.id)));
                     }
+
                     let at = if site.source_ref.is_empty() {
                         site.commit.as_deref()?
                     } else {
                         site.source_ref.as_str()
                     };
+
                     if site.repo.is_empty() {
                         return None;
                     }
+
                     Some(format!("{}/blob/{at}/{target}{anchor}", site.repo))
                 };
                 let segs = markdown::segments(
@@ -537,6 +611,7 @@ impl Guides {
                         _ => None,
                     })
                     .unwrap_or_default();
+
                 PageView {
                     head: PageHead::default(),
                     not_found: false,
@@ -577,6 +652,7 @@ mod tests {
             code("jai"),
         ];
         let out = segments(&segs, &super::Consoles::default());
+
         assert_eq!(out.len(), 2);
         let DocSegment::Group {
             parts,
@@ -585,6 +661,7 @@ mod tests {
             panic!("the first three fences are a group");
         };
         let labels: Vec<_> = parts.iter().map(|p| p.label.as_str()).collect();
+
         assert_eq!(labels, ["Example", "Diagnostic", "Fixed"]);
         assert!(matches!(out[1], DocSegment::Code { .. }));
         // Without an example before it, a diagnostic is a plain block.
@@ -611,11 +688,13 @@ mod tests {
         let (intro, groups) = split(
             "# T\n\nIntro.\n\n## A\n\nAbout A.\n\n### one\n\nOne.\n\n```\n### not\n```\n\n### two\n\nTwo.\n",
         );
+
         assert_eq!(intro, "# T\n\nIntro.\n\n");
         assert_eq!(groups.len(), 1);
         assert_eq!(groups[0].name, "A");
         assert_eq!(groups[0].prose, "\nAbout A.\n\n");
         let names: Vec<_> = groups[0].entries.iter().map(|(n, _)| n.as_str()).collect();
+
         assert_eq!(names, ["one", "two"]);
         assert!(groups[0].entries[0].1.contains("### not"));
     }

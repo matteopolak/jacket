@@ -63,6 +63,7 @@ impl Mapping {
             }
         } else {
             let base = host_pages::reserve(len as usize)?;
+
             Self {
                 base: base as u64,
                 len,
@@ -81,6 +82,7 @@ impl Mapping {
                 ..
             } => host_pages::commit(mapping.base as usize, len as usize, access(prot)),
         };
+
         ok.then_some(mapping)
     }
 
@@ -142,6 +144,7 @@ impl SandboxHost {
         ) {
             return None;
         }
+
         let page = page_size();
         let length = arg(1);
         let Some(length) = length
@@ -151,6 +154,7 @@ impl SandboxHost {
         else {
             return Some(self.set_errno(EINVAL));
         };
+
         if matches!(fun, LibcFn::Mmap | LibcFn::Mmap64) {
             let anonymous = if self.darwin_files {
                 0x1000
@@ -158,6 +162,7 @@ impl SandboxHost {
                 0x20
             };
             let flags = arg(3);
+
             if flags != 2 | anonymous
                 || arg(4) as u32 != u32::MAX
                 || arg(5) != 0
@@ -165,22 +170,30 @@ impl SandboxHost {
             {
                 return Some(self.set_errno(EPERM));
             }
+
             if self.mapped_bytes.saturating_add(length) > self.map_limit.unwrap_or(MAX_MAPPED_BYTES)
             {
                 return Some(self.set_errno(super::super::errno::ENOMEM));
             }
+
             let Some(mapping) = Mapping::reserve(length, arg(2), self.window.as_ref()) else {
                 return Some(self.set_errno(super::super::errno::ENOMEM));
             };
+
             self.mapped_bytes += length;
             let base = mapping.base;
+
             self.mappings.insert(base, mapping);
+
             return Some(base);
         }
+
         let base = arg(0);
+
         if !base.is_multiple_of(page) {
             return Some(self.set_errno(EINVAL));
         }
+
         let Some(end) = base.checked_add(length) else {
             return Some(self.set_errno(EINVAL));
         };
@@ -193,33 +206,43 @@ impl SandboxHost {
             return Some(self.set_errno(EINVAL));
         };
         let mapping = &self.mappings[&key];
+
         if end > mapping.base + mapping.len {
             return Some(self.set_errno(EINVAL));
         }
+
         if fun == LibcFn::Mprotect {
             if arg(2) & !3 != 0 {
                 return Some(self.set_errno(EPERM));
             }
+
             return Some(if mapping.protect(base, length, arg(2)) {
                 0
             } else {
                 self.set_errno(EINVAL)
             });
         }
+
         let mut mapping = self.mappings.remove(&key).expect("owned mapping");
+
         if !mapping.unmap(base, length) {
             self.mappings.insert(key, mapping);
             return Some(self.set_errno(EINVAL));
         }
+
         self.mapped_bytes -= length;
         let old_end = mapping.base + mapping.len;
+
         mapping.len = 0;
+
         if key < base {
             self.mappings.insert(key, mapping.part(key, base - key));
         }
+
         if end < old_end {
             self.mappings.insert(end, mapping.part(end, old_end - end));
         }
+
         Some(0)
     }
 }

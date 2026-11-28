@@ -13,8 +13,10 @@ impl Shared {
     /// A scheduler whose only thread (0, the caller) holds the baton.
     pub(super) fn new(interp: usize) -> Arc<Shared> {
         let mut main = GThread::new(false, None);
+
         main.native_pthread = pthread::current();
         let mut slots = Slots::default();
+
         slots.acquire();
         Arc::new(Shared {
             sched: Mutex::new(Sched {
@@ -84,20 +86,25 @@ impl Shared {
         if urgent {
             s.urgent += 1;
         }
+
         // The holder's native call this thread saw, and when it first saw it.
         let mut watched: Option<(u64, Instant)> = None;
         // When this thread found every thread blocked for good.
         let mut stuck_since: Option<Instant> = None;
+
         loop {
             if s.dead || s.threads[me].cancelled {
                 if urgent {
                     s.urgent -= 1;
                 }
+
                 return None;
             }
+
             if s.current == Some(me) {
                 break;
             }
+
             if s.threads[me]
                 .block
                 .deadline()
@@ -106,21 +113,27 @@ impl Shared {
                 // Runnable now: wait for a turn like any runnable thread.
                 s.expire_waits();
             }
+
             let mut timeout = None;
+
             match s.current {
                 None => {
                     if s.pick() {
                         self.cv.notify_all();
                         continue;
                     }
+
                     if s.stuck() {
                         let since = *stuck_since.get_or_insert_with(Instant::now);
                         let left = DEADLOCK_GRACE.saturating_sub(since.elapsed());
+
                         if left.is_zero() {
                             s.report_deadlock(None);
                             self.cv.notify_all();
+
                             continue;
                         }
+
                         timeout = Some(left);
                     } else {
                         stuck_since = None;
@@ -128,6 +141,7 @@ impl Shared {
                 }
                 Some(holder) if s.in_native => {
                     s.expire_waits();
+
                     if s.runnable(me) {
                         let call = s.native_calls;
                         let now = Instant::now();
@@ -138,17 +152,20 @@ impl Shared {
                                 false
                             }
                         };
+
                         if urgent || long {
                             s.threads[holder].block = Block::Native;
                             s.current = None;
                             s.pick();
                             self.cv.notify_all();
+
                             continue;
                         }
                     }
                 }
                 Some(_) => watched = None,
             }
+
             let timeout = if s.runnable(me) {
                 Some(NATIVE_SLICE)
             } else {
@@ -158,6 +175,7 @@ impl Shared {
                     .map(|d| d.saturating_duration_since(Instant::now()));
                 deadline.into_iter().chain(timeout).min()
             };
+
             s = match timeout {
                 Some(t) => {
                     self.cv
@@ -171,9 +189,11 @@ impl Shared {
                     .unwrap_or_else(std::sync::PoisonError::into_inner),
             };
         }
+
         if urgent {
             s.urgent -= 1;
         }
+
         s.in_native = false;
         Some(s)
     }
@@ -183,28 +203,34 @@ impl Shared {
     pub(in crate::interp) fn enter_native(&self, interp: usize, blocking: bool) -> usize {
         let mut s = self.lock();
         let caller = s.current.unwrap_or(0);
+
         s.native_calls += 1;
         s.interp = interp;
+
         if blocking {
             s.threads[caller].block = Block::Native;
             s.release(None);
             self.cv.notify_all();
         } else {
             s.in_native = true;
+
             if s.urgent > 0 {
                 self.cv.notify_all();
             }
         }
+
         caller
     }
 
     /// Thread `me` is back from C: take the baton back, waiting for it if it was taken.
     pub(in crate::interp) fn leave_native(&self, me: usize) {
         let mut s = self.lock();
+
         if s.current == Some(me) {
             s.in_native = false;
             return;
         }
+
         s.threads[me].block = Block::None;
         drop(self.acquire(s, me));
     }
@@ -225,33 +251,40 @@ impl Shared {
     pub(in crate::interp) fn close(&self) {
         let workers = {
             let mut s = self.lock();
+
             s.dead = true;
             let workers: Vec<_> = s
                 .threads
                 .iter_mut()
                 .filter_map(|thread| thread.worker.take())
                 .collect();
+
             self.cv.notify_all();
             workers
         };
+
         // The interpreter/program remain alive until every managed OS entry returns.
         // Never forcibly terminate foreign code or leave parked Rust stacks behind.
         for worker in workers {
             #[cfg(windows)]
             win32::join_worker(worker);
+
             #[cfg(not(windows))]
             if worker.join().is_err() {
                 eprintln!("error: interpreter worker panicked during teardown");
                 std::process::abort();
             }
         }
+
         let mut s = self.lock();
+
         while s.adopted_live() {
             s = self
                 .cv
                 .wait(s)
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
         }
+
         #[cfg(windows)]
         for thread in &mut s.threads {
             if let Some(handle) = thread.native_handle.take() {
@@ -266,9 +299,11 @@ impl native::Gate for Shared {
         const GONE: &str = "C called a procedure of an interpreter that has finished";
         let (gate, caller) = native::caller();
         let mut s = self.lock();
+
         if s.dead {
             return Err(GONE.into());
         }
+
         // On a thread inside a native call of this interpreter, the callback runs as the
         // thread that made the call; on any other thread C started, as an adopted thread.
         let nested = (gate == self.key()).then_some(caller);
@@ -287,15 +322,19 @@ impl native::Gate for Shared {
                 let Some(acquired) = self.acquire_callback(s, me) else {
                     // A callback lease that never entered must also be released at shutdown.
                     let mut cancelled = self.lock();
+
                     cancelled.finish(me);
                     self.cv.notify_all();
+
                     return Err(GONE.into());
                 };
+
                 s = acquired;
                 me
             }
         };
         let interp = s.interp as *mut Interp;
+
         drop(s);
         // SAFETY: this thread holds the baton, so nothing else touches the interpreter, and
         // `program` is the program the thunk was made for, alive while its interpreter is.
@@ -304,11 +343,13 @@ impl native::Gate for Shared {
             f(&mut |func, args: &[u64]| interp.run_callback(program, func, args));
         }));
         let mut s = self.lock();
+
         if nested.is_some() {
             // Back to C, using the conservative short-call policy even when the outer call
             // originally handed the baton on before entering native code.
             s.in_native = true;
             s.native_calls += 1;
+
             if s.urgent > 0 {
                 self.cv.notify_all();
             }
@@ -317,7 +358,9 @@ impl native::Gate for Shared {
             s.release(None);
             self.cv.notify_all();
         }
+
         drop(s);
+
         match result {
             Ok(()) => Ok(()),
             Err(cancelled) if cancelled.is::<WorkerCancelled>() => Err(GONE.into()),
@@ -340,9 +383,11 @@ mod native_handoff_tests {
     #[test]
     fn a_blocking_native_wait_hands_available_work_to_a_peer_before_calling_c() {
         let shared = Shared::new(17);
+
         shared.lock().add(GThread::new(false, None));
         let caller = shared.enter_native(17, true);
         let sched = shared.lock();
+
         assert_eq!(
             caller, 0,
             "the lease must retain the caller, not the selected peer"
@@ -355,9 +400,11 @@ mod native_handoff_tests {
     #[test]
     fn a_short_native_call_retains_the_existing_fast_call_policy() {
         let shared = Shared::new(17);
+
         shared.lock().add(GThread::new(false, None));
         assert_eq!(shared.enter_native(17, false), 0);
         let sched = shared.lock();
+
         assert_eq!(sched.current, Some(0));
         assert!(sched.in_native);
         assert!(matches!(sched.threads[0].block, Block::None));
@@ -367,10 +414,12 @@ mod native_handoff_tests {
     fn cancellation_is_observed_when_a_blocking_native_call_returns() {
         let shared = Shared::new(17);
         let caller = shared.enter_native(17, true);
+
         shared.stop();
         let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
             shared.leave_native(caller);
         }));
+
         assert!(result.unwrap_err().is::<WorkerCancelled>());
     }
 
@@ -381,10 +430,12 @@ mod native_handoff_tests {
         let shared = Shared::new(pointer);
         let program = Program::default();
         let caller = shared.enter_native(pointer, true);
+
         native::calling_out((shared.key(), caller), || {
             native::Gate::run(&*shared, std::ptr::from_ref(&program) as u64, &mut |_| {
                 assert_eq!(shared.lock().current, Some(caller));
                 let reentrant = shared.enter_native(pointer, true);
+
                 assert_eq!(shared.lock().current, None);
                 shared.leave_native(reentrant);
             })
@@ -403,9 +454,11 @@ mod native_handoff_tests {
     fn a_blocking_call_with_no_peer_reacquires_after_return() {
         let shared = Shared::new(17);
         let caller = shared.enter_native(17, true);
+
         assert_eq!(shared.lock().current, None);
         shared.leave_native(caller);
         let sched = shared.lock();
+
         assert_eq!(sched.current, Some(0));
         assert!(!sched.in_native);
         assert!(matches!(sched.threads[0].block, Block::None));

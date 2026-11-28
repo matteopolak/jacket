@@ -34,6 +34,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             if let Some(s) = n.stmt()
                 && let S::For(f) = &s.kind
@@ -41,6 +42,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 out.push(found);
             }
+
             true
         });
     }
@@ -48,6 +50,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 
 fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     let types = &cx.compiler.ty.types;
+
     if f.by_pointer
         || f.reverse
         || f.pointer_if.is_some()
@@ -58,12 +61,15 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
     {
         return None;
     }
+
     let ForOver::Range(lo, hi) = &f.over else {
         return None;
     };
+
     if !matches!(lo.kind, E::Int(n, ..) if n.get() == 0) {
         return None;
     }
+
     let var = f.it.map_or_else(|| Sym::intern("it"), |i| i.name);
     let body = only_statement(&f.body)?;
     let S::Assign {
@@ -78,9 +84,11 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         return None;
     };
     let (dst, src) = (indexed_by(to, var)?, indexed_by(from, var)?);
+
     if !is_path(dst) || !is_path(src) || cx.same_tokens(dst, src) {
         return None;
     }
+
     // Arrays or pointers on both sides, with the very same element type.
     let element = |base: &Expr| match types.kind(cx.ty(base)?) {
         TypeKind::Array {
@@ -90,9 +98,11 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         _ => None,
     };
     let ((dt, d_array), (st, s_array)) = (element(dst)?, element(src)?);
+
     if dt != st || cx.ty(to)? != dt || cx.ty(from)? != dt {
         return None;
     }
+
     let count = match &hi.kind {
         E::Binary(BinOp::Sub, c, one) if matches!(one.kind, E::Int(n, ..) if n.get() == 1) => {
             cx.whole_src(c).trim().to_string()
@@ -119,6 +129,7 @@ fn examine(cx: &Cx, stmt: &Stmt, f: &For) -> Option<Finding> {
         stmt.span.start as usize,
         f.body.span.start as usize,
     );
+
     Some(super::finding(
         header,
         format!("this loop copies `{s}` into `{d}` one element at a time"),

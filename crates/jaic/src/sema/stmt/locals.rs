@@ -18,6 +18,7 @@ impl Compiler {
         }) {
             return;
         }
+
         self.pr.local_decl_types.entry(key).or_insert(ty);
     }
 
@@ -32,12 +33,15 @@ impl Compiler {
         } else {
             scope
         };
+
         if decl.kind == ast::DeclKind::Const {
             if !f.hoisted_consts.contains(&(scope, decl.id)) {
                 self.declare_local_consts(target, scope, decl)?;
             }
+
             return Ok(());
         }
+
         let span = decl.span;
         let declared = match &decl.ty {
             Some(t) => Some(self.eval_type_in(f, scope, t)?),
@@ -45,14 +49,17 @@ impl Compiler {
         };
         // Evaluate the initializers before the names come into scope.
         let mut values = self.check_decl_values(f, scope, decl, declared)?;
+
         values.resize(decl.names.len(), None);
         let existing = |i: usize| decl.existing().get(i).copied().unwrap_or(false);
+
         for (i, (name, value)) in decl.names.iter().zip(values).enumerate() {
             let target = if decl.backtick_names().get(i).copied().unwrap_or(false) {
                 f.macros.last().map_or(scope, |m| m.caller_scope)
             } else {
                 target
             };
+
             if existing(i) {
                 // `a=, b := ...` assigns to a variable that is already in scope.
                 let Some(value) = value else {
@@ -62,24 +69,29 @@ impl Compiler {
                         "assignment needs a value",
                     );
                 };
+
                 // `a, b:, _ = f()` discards the value of `_`, as `a, _ = f()` does.
                 if name.name.as_str() == "_" && decl.targets().get(i).is_none_or(Option::is_none) {
                     continue;
                 }
+
                 // `ok:, t.str = f()` assigns to a member, index or dereference.
                 let place = if let Some(Some(e)) = decl.targets().get(i) {
                     self.reject_constant_target(f, scope, e)?;
                     self.check_expr(f, scope, e, None)?
                 } else {
                     let place = self.check_ident(f, scope, name.name, name.span)?;
+
                     if self.ed.is_live() {
                         let expr = ast::Expr {
                             kind: ast::ExprKind::Ident(name.name),
                             span: name.span,
                             parens: None,
                         };
+
                         self.ide_note_expr(&expr, &place);
                     }
+
                     place
                 };
                 let place = place.without_callable();
@@ -97,6 +109,7 @@ impl Compiler {
                 };
                 let value = self.convert(f, value, ty, Site::name(name.span))?;
                 let (_, v) = self.rvalue(f, value, name.span)?;
+
                 self.store_value(f, ty, addr, v, name.span)?;
                 // As an assignment statement: what the editor knew of the variable's value
                 // before no longer holds.
@@ -108,13 +121,17 @@ impl Compiler {
                         parens: None,
                     },
                 };
+
                 self.ide_note_assign(scope, &[written], span);
+
                 continue;
             }
+
             let ty = match (declared, &value) {
                 (Some(t), _) => t,
                 (None, Some(op)) => {
                     let settled = self.settle_untyped(op.clone(), None);
+
                     match settled {
                         Operand::Procs(p) if p.len() == 1 => self.proc_type(p[0], span)?,
                         Operand::Type(_) | Operand::PolyStruct(_) => TypeId::TYPE,
@@ -134,14 +151,17 @@ impl Compiler {
                     );
                 }
             };
+
             self.ensure_storage_type(ty, span)?;
             // Metaprograms read local declaration types from the exported syntax tree.
             self.note_local_decl_type((decl.id, i), ty);
             let size = self.size_of(ty, span)?;
             let mut align = self.align_of(ty, span)?;
+
             if let Some(a) = &decl.align() {
                 align = align.max(self.eval_int(scope, a)? as u64);
             }
+
             let addr = f.b.alloca(size.max(1), align);
             let callable = if matches!(self.ty.types.kind(ty), TypeKind::Proc(_)) {
                 match &decl.ty {
@@ -155,6 +175,7 @@ impl Compiler {
                 None
             };
             let callable = Self::callable_declared_notes(callable, &decl.notes);
+
             match value {
                 Some(Operand::Void) if ty == TypeId::VOID => {}
                 Some(op) => {
@@ -173,19 +194,24 @@ impl Compiler {
                         .convert(f, op, ty, value_site)
                         .map_err(|e| self.declared_type_mismatch(e, decl, decl.names.len() == 1))?;
                     let (_, v) = self.rvalue(f, op, span)?;
+
                     self.store_value(f, ty, addr, v, span)?;
                 }
                 None if decl.value.is_none() => self.init_default(f, ty, addr, span)?,
                 None => {}
             }
+
             // `_` discards a value: it names no local (but `using _ := *x;` still uses).
             let discard = name.name.as_str() == "_";
+
             if discard && !decl.using {
                 continue;
             }
+
             if !discard {
                 self.reject_using_redeclaration(target, name.name, name.span)?;
             }
+
             if !discard && self.declares_local(target, name.name) {
                 let mut d = Diagnostic::new(
                     Code::ProcAlreadyDeclaredScope,
@@ -193,9 +219,11 @@ impl Compiler {
                     format!("`{}` is already declared in this scope", name.name),
                 )
                 .with_label("declared again here");
+
                 if let Some(first) = self.local_declaration(target, name.name) {
                     d = d.with_note(first, format!("`{}` is first declared here", name.name));
                 }
+
                 let help = if decl.value.is_some() {
                     format!(
                         "to change its value, assign with `{} = ...`; to make a new variable, use another name",
@@ -204,8 +232,10 @@ impl Compiler {
                 } else {
                     "use another name for the new variable".to_string()
                 };
+
                 return Err(Box::new(d.with_help(help)));
             }
+
             let depth = self.scope(target).proc_depth;
             let kind = EntityKind::Local {
                 ty,
@@ -213,6 +243,7 @@ impl Compiler {
                 depth,
             };
             let e = self.add_entity(target, name.name, name.span, kind.clone(), false);
+
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
             {
@@ -227,17 +258,22 @@ impl Compiler {
                     },
                 );
             }
+
             if let Some(info) = callable {
                 self.set_callable_entity(e, info);
             }
+
             self.debug_var(f, target, name.name, name.span, (ty, addr), 0);
+
             if target != scope {
                 // A backtick name is visible to the rest of the macro body too.
                 let alias = self.add_entity(scope, name.name, name.span, kind, false);
+
                 if let Some(info) = self.pr.callable_entities.get(&e).cloned() {
                     self.set_callable_entity(alias, info);
                 }
             }
+
             if decl.using {
                 let entry = self.filter_using_entry(
                     scope,
@@ -248,9 +284,11 @@ impl Compiler {
                     decl.using_filter().unwrap_or(&ast::UsingFilter::None),
                     name.span,
                 )?;
+
                 self.push_variable_using(target, entry)?;
             }
         }
+
         Ok(())
     }
 
@@ -264,12 +302,15 @@ impl Compiler {
         span: Span,
     ) -> Result<()> {
         let name = Sym::intern("anonymous");
+
         self.check_struct_modify(name, lit)?;
         let ty = self.new_struct_type(name, lit.clone(), scope, Vec::new(), None);
+
         self.ensure_storage_type(ty, span)?;
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
         let addr = f.b.alloca(size.max(1), align);
+
         self.init_default(f, ty, addr, span)?;
         let depth = self.scope(scope).proc_depth;
         let entity = self.add_entity(
@@ -287,12 +328,14 @@ impl Compiler {
             ty,
             entity,
         };
+
         self.push_variable_using(scope, entry)
     }
 
     /// Where the local `name` in `scope` was declared.
     fn local_declaration(&self, scope: ScopeId, name: Sym) -> Option<Span> {
         let ids = self.scope(scope).names.get(&name)?;
+
         ids.iter()
             .find(|&&e| matches!(self.entity(e).kind, EntityKind::Local { .. }))
             .map(|&e| self.entity(e).span)
@@ -313,16 +356,19 @@ impl Compiler {
         if e.code != Code::TypeMismatch {
             return e;
         }
+
         let Some(p) = proc else {
             return e;
         };
         let header = &self.proc(p).lit.header;
+
         if let Some(ty) = header.returns.get(index).and_then(|r| r.ty.as_ref()) {
             e.notes.insert(
                 0,
                 (ty.span, "expected because of this return type".to_string()),
             );
         }
+
         e
     }
 
@@ -341,11 +387,13 @@ impl Compiler {
         if !single || e.code != Code::TypeMismatch {
             return e;
         }
+
         if let (Some(value), Some(ty)) = (&decl.value, &decl.ty) {
             e.span = value.span;
             e.notes
                 .insert(0, (ty.span, "expected because of this type".to_string()));
         }
+
         e
     }
 
@@ -371,18 +419,24 @@ impl Compiler {
         let Some(first) = &decl.value else {
             return Ok(vec![None; names]);
         };
+
         if matches!(first.kind, E::Uninit) {
             return Ok(vec![None; names]);
         }
+
         if !decl.extra_values().is_empty() {
             let exprs: Vec<&ast::Expr> =
                 std::iter::once(first).chain(decl.extra_values()).collect();
+
             if exprs.len() != names {
                 return Err(self.count_mismatch(decl.span, (names, "names"), exprs.len(), &exprs));
             }
+
             let mut values = Vec::new();
+
             for e in exprs {
                 let op = self.check_expr(f, scope, e, declared)?;
+
                 values.push(Some(if decl.existing().is_empty() {
                     op
                 } else {
@@ -394,14 +448,17 @@ impl Compiler {
                         Some(t) => f.b.load(t, tmp),
                         None => tmp,
                     };
+
                     Operand::Value {
                         ty,
                         val,
                     }
                 }));
             }
+
             return Ok(values);
         }
+
         // `x, y := #run f();` keeps each of f's results, as the constant form does.
         if names > 1
             && let E::Run {
@@ -410,14 +467,18 @@ impl Compiler {
             && matches!(&**body, ast::RunBody::Expr(_))
         {
             let ops = self.eval_const_all(scope, first)?;
+
             if ops.len() < names {
                 return Err(self.count_mismatch(first.span, (names, "names"), ops.len(), &[]));
             }
+
             return Ok(ops.into_iter().take(names).map(Some).collect());
         }
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::PrLastCallMust);
         self.pr.last_call_must = None;
         let first_op = self.check_expr(f, scope, first, declared)?;
+
         if matches!(first.kind, E::Call { .. }) {
             self.check_must_used(first.span, names)?;
             // `a, b := f(1);` with one result: the call has too few values to split.
@@ -426,6 +487,7 @@ impl Compiler {
                 Operand::Void => 0,
                 _ => 1,
             };
+
             if names > 1 && count < names {
                 return Err(Box::new(
                     Diagnostic::new(Code::NamesButCall,
@@ -450,6 +512,7 @@ impl Compiler {
                 ));
             }
         }
+
         Ok(match first_op {
             Operand::Multi(vals) if names > 1 => vals.into_iter().map(Some).collect(),
             // `a, b := 0;` gives every name the same value.
@@ -466,6 +529,7 @@ impl Compiler {
     ) -> Result<()> {
         if let E::Ident(name) = &value.kind {
             let ids = self.lookup(scope, *name)?;
+
             if let Some(&id) = ids.first() {
                 match self.entity(id).kind.clone() {
                     EntityKind::Local {
@@ -481,8 +545,10 @@ impl Compiler {
                             filter,
                             value.span,
                         )?;
+
                         self.push_variable_using(scope, entry)?;
                         self.ide_note_entity_use(value.span, id, ty);
+
                         return Ok(());
                     }
                     _ => {
@@ -499,14 +565,17 @@ impl Compiler {
                                 filter,
                                 value.span,
                             )?;
+
                             self.push_variable_using(scope, entry)?;
                             self.ide_note_entity_use(value.span, id, ty);
+
                             return Ok(());
                         }
                     }
                 }
             }
         }
+
         let op = self.check_expr(f, scope, value, None)?;
         let entry = match op {
             Operand::Module(m) => UsingEntry::Module(m, None),
@@ -527,10 +596,12 @@ impl Compiler {
                 let (ptr, ptr_value) = if self.ty.types.pointee(op.ty()).is_some() {
                     let ty = op.ty();
                     let (_, v) = self.rvalue(f, op, value.span)?;
+
                     (ty, v)
                 } else {
                     let ty = self.ty.types.pointer(op.ty());
                     let (_, a) = self.address_of(f, op, value.span)?;
+
                     (ty, a)
                 };
                 let slot = self.spill(f, ptr, ptr_value, value.span)?;
@@ -546,6 +617,7 @@ impl Compiler {
                     },
                     false,
                 );
+
                 UsingEntry::Place {
                     ty: ptr,
                     entity: e,
@@ -559,6 +631,7 @@ impl Compiler {
                 let size = self.size_of(ty, value.span)?;
                 let align = self.align_of(ty, value.span)?;
                 let addr = f.b.alloca(size.max(1), align);
+
                 self.store_value(f, ty, addr, v, value.span)?;
                 let ptr = self.ty.types.pointer(ty);
                 let slot = self.spill(f, ptr, addr, value.span)?;
@@ -574,6 +647,7 @@ impl Compiler {
                     },
                     false,
                 );
+
                 UsingEntry::Place {
                     ty: ptr,
                     entity: e,
@@ -588,6 +662,7 @@ impl Compiler {
             }
         };
         let entry = self.filter_using_entry(scope, entry, filter, value.span)?;
+
         self.push_variable_using(scope, entry)?;
         Ok(())
     }
@@ -597,6 +672,7 @@ impl TypeState {
     /// `using x;` on a variable needs a struct (or union) or enum, or a pointer to one.
     fn check_using_target(&self, ty: TypeId, span: Span) -> Result<()> {
         let target = self.types.pointee(ty).unwrap_or(ty);
+
         if self
             .types
             .as_struct(self.types.repr_struct(target))
@@ -605,6 +681,7 @@ impl TypeState {
         {
             return Ok(());
         }
+
         err(
             Code::UsingNeedsStruct,
             span,

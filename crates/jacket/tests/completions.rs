@@ -7,6 +7,7 @@ fn completions(args: &[&str]) -> (Option<i32>, String, String) {
         .args(args)
         .output()
         .unwrap();
+
     (
         output.status.code(),
         String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -22,6 +23,7 @@ fn a_script_for_jacket_names_its_commands() {
         ("fish", "complete -c jacket"),
     ] {
         let (code, script, _) = completions(&[shell]);
+
         assert_eq!(code, Some(0), "{shell}");
         assert!(script.contains(expected), "{shell}: {script}");
         assert!(script.contains("migrate"), "{shell}");
@@ -36,6 +38,7 @@ fn a_script_for_jaic_completes_its_single_dash_flags() {
         ("fish", "complete -c jaic -o interp"),
     ] {
         let (code, script, _) = completions(&[shell, "--tool", "jaic"]);
+
         assert_eq!(code, Some(0), "{shell}");
         assert!(script.contains(expected), "{shell}: {script}");
     }
@@ -44,6 +47,7 @@ fn a_script_for_jaic_completes_its_single_dash_flags() {
 #[test]
 fn an_unknown_shell_is_a_usage_error() {
     let (code, _, stderr) = completions(&["csh"]);
+
     assert_eq!(code, Some(2));
     assert!(
         stderr.contains("bash") && stderr.contains("fish"),

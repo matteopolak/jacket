@@ -21,6 +21,7 @@ impl Compiler {
     ) -> ScopeId {
         let proc_depth = parent.map_or(0, |p| self.ns.scopes[p.0 as usize].proc_depth)
             + u32::from(kind == ScopeKind::Proc);
+
         self.ns.scopes.push_new(Scope {
             kind,
             parent,
@@ -38,9 +39,11 @@ impl Compiler {
             fallbacks: Vec::new(),
         });
         let id = ScopeId(self.ns.scopes.len() as u32 - 1);
+
         if matches!(kind, ScopeKind::Module | ScopeKind::File) {
             self.ns.unsettled.insert(id);
         }
+
         id
     }
 
@@ -97,6 +100,7 @@ impl Compiler {
     /// loaded (or being loaded by a caller further up)?
     pub(in crate::sema) fn settled(&self, scope: ScopeId) -> bool {
         let s = self.scope(scope);
+
         s.pending[s.pending_done..]
             .iter()
             .all(|p| p.state == PendingState::Done)
@@ -111,6 +115,7 @@ impl Compiler {
         if crate::sema::body_probe::COUNTING && crate::sema::body_probe::enabled() {
             crate::sema::body_probe::scope_written(self.ns.scopes[id.0 as usize].kind);
         }
+
         &mut self.ns.scopes[id.0 as usize]
     }
 
@@ -119,6 +124,7 @@ impl Compiler {
         while let Some(target) = self.scope(scope).inserted_into {
             scope = target;
         }
+
         scope
     }
 
@@ -139,9 +145,11 @@ impl Compiler {
         exported: bool,
     ) -> EntityId {
         let id = self.new_entity(scope, name, span, kind, exported);
+
         if self.ed.is_live() {
             self.ide_note_entity(id);
         }
+
         id
     }
 
@@ -162,6 +170,7 @@ impl Compiler {
         .then(|| self.generated_placeholder(scope, name, span))
         .flatten();
         let id = EntityId(self.ns.entities.len() as u32);
+
         self.ns.entities.push_new(Entity {
             name,
             span,
@@ -175,6 +184,7 @@ impl Compiler {
             baked_argument: false,
         });
         self.bind_name(scope, name, id);
+
         if let Some(placeholder) = placeholder {
             self.diag
                 .dependencies
@@ -183,6 +193,7 @@ impl Compiler {
                 .or_default()
                 .push(id);
         }
+
         id
     }
 
@@ -198,16 +209,21 @@ impl Compiler {
         }) {
             return Some(placeholder);
         }
+
         if self.diag.dependencies.source_scopes.get(&span.file) != Some(&scope) {
             return None;
         }
+
         let module = self.scope(scope).module;
         let mut current = Some(scope);
+
         while let Some(scope) = current {
             let info = self.scope(scope);
+
             if info.module != module {
                 break;
             }
+
             if let Some(entities) = info.names.get(&name) {
                 if let Some(placeholder) = entities
                     .iter()
@@ -216,9 +232,11 @@ impl Compiler {
                 {
                     return Some(placeholder);
                 }
+
                 return self.diag.dependencies.bindings.iter().find_map(
                     |(&placeholder, definitions)| {
                         let declaration = self.entity(placeholder);
+
                         (declaration.name == name
                             && self.scope(declaration.scope).module == module
                             && entities.iter().all(|entity| definitions.contains(entity)))
@@ -226,8 +244,10 @@ impl Compiler {
                     },
                 );
             }
+
             current = info.parent;
         }
+
         None
     }
 
@@ -243,17 +263,20 @@ impl Compiler {
         if name.as_str() == "_" {
             return Ok(());
         }
+
         let mut ids = self
             .scope(scope)
             .names
             .get(&name)
             .cloned()
             .unwrap_or_default();
+
         if let Some(placeholder) = self.generated_placeholder(scope, name, span)
             && let Some(definitions) = self.diag.dependencies.bindings.get(&placeholder)
         {
             ids.extend(definitions);
         }
+
         // A placeholder permits its definition, not additional definitions after it.
         // Real declarations retain the ordinary duplicate/overload rules.
         for id in self.diag.bound_entities(&ids) {
@@ -273,6 +296,7 @@ impl Compiler {
                 ) => {}
                 _ => continue,
             }
+
             return Err(Box::new(
                 Diagnostic::new(
                     Code::AlreadyDeclaredScope,
@@ -286,6 +310,7 @@ impl Compiler {
                 ),
             ));
         }
+
         Ok(())
     }
 
@@ -299,9 +324,11 @@ impl Compiler {
         ty: TypeId,
     ) -> EntityId {
         let id = self.new_const(scope, name, span, value, ty);
+
         if self.ed.is_live() {
             self.ide_note_entity(id);
         }
+
         id
     }
 
@@ -325,6 +352,7 @@ impl Compiler {
             },
             true,
         );
+
         self.entity_mut(id).state = EntityState::Done(Resolved::Const {
             value,
             ty,
@@ -336,6 +364,7 @@ impl Compiler {
 impl Diagnostics {
     pub(in crate::sema) fn bound_entities(&self, entities: &[EntityId]) -> Vec<EntityId> {
         let mut result = Vec::with_capacity(entities.len());
+
         for &entity in entities {
             for &definition in self
                 .dependencies
@@ -348,6 +377,7 @@ impl Diagnostics {
                 }
             }
         }
+
         result
     }
 }

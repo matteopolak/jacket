@@ -12,11 +12,14 @@ const PROJECT: &str = "[target.pico]\ntriple = \"thumbv6m-none-eabi\"\nrunner = 
 
 fn project() -> (TempDir, std::path::PathBuf) {
     let root = TempDir::new("named-targets");
+
     std::fs::write(root.join("jacket.toml"), PROJECT).unwrap();
     let compiler = root.join("jaic");
+
     std::fs::write(&compiler, COMPILER).unwrap();
     std::fs::set_permissions(&compiler, std::fs::Permissions::from_mode(0o755)).unwrap();
     let jacket = root.join("jacket");
+
     std::fs::copy(env!("CARGO_BIN_EXE_jacket"), &jacket).unwrap();
     (root, jacket)
 }
@@ -35,6 +38,7 @@ fn jacket(root: &TempDir, bin: &std::path::Path, args: &[&str]) -> (Output, Vec<
         .lines()
         .map(String::from)
         .collect();
+
     (output, seen)
 }
 
@@ -42,10 +46,12 @@ fn jacket(root: &TempDir, bin: &std::path::Path, args: &[&str]) -> (Output, Vec<
 fn a_named_target_reaches_the_compiler_as_its_triple_and_board_plugin() {
     let (root, bin) = project();
     let (output, seen) = jacket(&root, &bin, &["build", "m.jai", "--target", "pico", "-O2"]);
+
     assert!(output.status.success(), "{output:?}");
     assert_eq!(seen, ["m.jai", "-target", "thumbv6m-none-eabi", "-O2"]);
 
     let (_, seen) = jacket(&root, &bin, &["check", "m.jai", "--target=dev"]);
+
     assert_eq!(
         seen,
         [
@@ -64,6 +70,7 @@ fn a_triple_still_reaches_the_compiler_untouched() {
         &bin,
         &["build", "m.jai", "-target", "x86_64-pc-windows-gnu"],
     );
+
     assert_eq!(seen, ["m.jai", "-target", "x86_64-pc-windows-gnu"]);
 }
 
@@ -72,6 +79,7 @@ fn an_unknown_target_names_the_nearest_one() {
     let (root, bin) = project();
     let (output, seen) = jacket(&root, &bin, &["build", "m.jai", "--target", "pic"]);
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert_eq!(output.status.code(), Some(2), "{stderr}");
     assert!(stderr.contains("unknown target `pic`"), "{stderr}");
     assert!(stderr.contains("did you mean `pico`?"), "{stderr}");
@@ -83,9 +91,11 @@ fn the_toolchain_command_lists_tables_and_boards() {
     let (root, bin) = project();
     let (output, _) = jacket(&root, &bin, &["toolchain"]);
     let text = String::from_utf8_lossy(&output.stdout);
+
     assert!(output.status.success(), "{text}");
     assert!(text.starts_with("TARGET"), "{text}");
     let row = |name: &str| text.lines().find(|l| l.starts_with(name)).unwrap_or("");
+
     assert!(
         row("pico").contains("thumbv6m-none-eabi") && row("pico").contains("missing"),
         "{text}"

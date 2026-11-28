@@ -12,9 +12,11 @@ const PRELUDE: &str = "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS;
 /// running on a host whose `long double` is `host`.
 fn compile(source: &str, host: Option<WideFloat>, target: Option<WideFloat>) -> Result<(), String> {
     let mut fs = VirtualFs::default();
+
     fs.insert("/main.jai", source.as_bytes());
     fs.insert("/prelude/module.jai", PRELUDE.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/prelude/module.jai".into());
     options.host = HostPlatform {
@@ -28,6 +30,7 @@ fn compile(source: &str, host: Option<WideFloat>, target: Option<WideFloat>) -> 
     options.cpu = TargetCpu::Arm64;
     options.long_double = target;
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     compiler
         .compile_program(Path::new("/main.jai"))
         .map_err(|error| error.render(&compiler.src.sources))
@@ -100,5 +103,6 @@ main :: () {}
         Some(WideFloat::Binary128),
     )
     .expect_err("the struct holds the host's format");
+
     assert!(error.contains("different format"), "{error}");
 }

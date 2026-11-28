@@ -10,10 +10,12 @@ use std::rc::Rc;
 
 fn open(files: &[(&str, &str)], config: &str) -> (test_support::TempDir, Session, DocumentUri) {
     let mut all = files.to_vec();
+
     all.push(("jacket.toml", config));
     let dir = test_support::lsp::project("jacket-toml", &all);
     let mut s = test_support::lsp::workspace_session(&dir);
     let uri = test_support::lsp::uri_of(&dir.join("jacket.toml"));
+
     s.open(uri.clone(), 1, config.into()).unwrap();
     (dir, s, uri)
 }
@@ -50,6 +52,7 @@ fn labels(list: &[CompletionItem]) -> Vec<&str> {
 fn complete(config: &str, extra: &[(&str, &str)]) -> Vec<CompletionItem> {
     let (text, at) = test_support::lsp::cursor(config);
     let (_dir, s, uri) = open(extra, &text);
+
     s.completion(&uri, at).unwrap().items
 }
 
@@ -57,19 +60,23 @@ fn complete(config: &str, extra: &[(&str, &str)]) -> Vec<CompletionItem> {
 fn an_unknown_key_is_reported_at_the_key_with_the_nearest_known_one() {
     let (_dir, s, uri) = open(&[], "[lint]\nmax-nestng = 3\n");
     let found = config_diagnostics(&s, &uri);
+
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].0, "max-nestng");
     assert!(found[0].1.contains("did you mean `lint.max-nesting`?"));
     let d = &s.diagnostics(&uri).unwrap()[0];
+
     assert_eq!(d.severity, DiagnosticSeverity::Error);
 }
 
 #[test]
 fn a_value_of_the_wrong_type_and_a_bad_lint_rule_are_reported_where_they_are() {
     let (_dir, s, uri) = open(&[], "[lint]\nmax-nesting = \"deep\"\n");
+
     assert_eq!(config_diagnostics(&s, &uri)[0].0, "\"deep\"");
     let (_dir, s, uri) = open(&[], "[lint.rules]\nunused_varible = \"deny\"\n");
     let found = config_diagnostics(&s, &uri);
+
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].0, "unused_varible");
 }
@@ -77,6 +84,7 @@ fn a_value_of_the_wrong_type_and_a_bad_lint_rule_are_reported_where_they_are() {
 #[test]
 fn a_valid_file_has_no_problems_and_fixing_one_clears_it() {
     let (_dir, mut s, uri) = open(&[], "[lint]\nmax-nestng = 3\n");
+
     assert_eq!(config_diagnostics(&s, &uri).len(), 1);
     edit(&mut s, &uri, 2, "[lint]\nmax-nesting = 3\n");
     assert!(config_diagnostics(&s, &uri).is_empty());
@@ -90,6 +98,7 @@ fn the_problems_are_published_with_the_file() {
         .iter()
         .find(|(name, ..)| name == uri.as_str())
         .expect("the file is published");
+
     assert_eq!(*version, 1);
     assert_eq!(diagnostics.len(), 1);
 }
@@ -99,6 +108,7 @@ fn a_broken_file_stops_the_diagnostics_that_depend_on_it_until_it_is_fixed() {
     let source = "main :: () { x: int = \"text\"; }";
     let (dir, mut s, config) = open(&[("main.jai", source)], "[lint]\nmax-nestng = 3\n");
     let main = test_support::lsp::uri_of(&dir.join("main.jai"));
+
     s.open(main.clone(), 1, source.into()).unwrap();
     let checked = |s: &Session| {
         s.diagnostics(&main)
@@ -106,6 +116,7 @@ fn a_broken_file_stops_the_diagnostics_that_depend_on_it_until_it_is_fixed() {
             .iter()
             .any(|d| d.code == DiagnosticCode::Check)
     };
+
     assert!(
         !checked(&s),
         "the compile is off while the settings are wrong"
@@ -119,6 +130,7 @@ fn a_broken_file_stops_the_diagnostics_that_depend_on_it_until_it_is_fixed() {
 fn a_broken_file_does_not_hide_syntax_errors() {
     let (dir, mut s, _config) = open(&[("main.jai", "")], "[lint]\nmax-nestng = 3\n");
     let main = test_support::lsp::uri_of(&dir.join("main.jai"));
+
     s.open(main.clone(), 1, "main :: () {".into()).unwrap();
     assert!(
         s.diagnostics(&main)
@@ -133,6 +145,7 @@ fn a_broken_file_does_not_fall_back_to_default_lint_settings() {
     let source = "main :: () { x := 1; }";
     let (dir, mut s, config) = open(&[("main.jai", source)], "[lint]\nmax-nestng = 3\n");
     let main = test_support::lsp::uri_of(&dir.join("main.jai"));
+
     s.open(main.clone(), 1, source.into()).unwrap();
     let linted = |s: &Session| {
         s.diagnostics(&main)
@@ -140,6 +153,7 @@ fn a_broken_file_does_not_fall_back_to_default_lint_settings() {
             .iter()
             .any(|d| matches!(d.code, DiagnosticCode::Lint(_)))
     };
+
     assert!(!linted(&s));
     edit(&mut s, &config, 2, "[lint]\nmax-nesting = 3\n");
     s.save(&config).unwrap();
@@ -149,9 +163,11 @@ fn a_broken_file_does_not_fall_back_to_default_lint_settings() {
 #[test]
 fn keys_of_the_table_the_cursor_is_in_are_offered_with_their_description() {
     let items = complete("[lint]\nmax-|\n", &[]);
+
     assert!(labels(&items).contains(&"max-nesting"));
     assert!(!labels(&items).contains(&"entry"));
     let item = items.iter().find(|i| i.label == "max-nesting").unwrap();
+
     assert!(
         item.documentation
             .as_deref()
@@ -163,6 +179,7 @@ fn keys_of_the_table_the_cursor_is_in_are_offered_with_their_description() {
 #[test]
 fn keys_already_written_are_not_offered_again() {
     let items = complete("[lint]\nmax-nesting = 3\nmax-|\n", &[]);
+
     assert!(!labels(&items).contains(&"max-nesting"));
     assert!(labels(&items).contains(&"max-arguments"));
 }
@@ -170,6 +187,7 @@ fn keys_already_written_are_not_offered_again() {
 #[test]
 fn top_level_keys_are_the_tables() {
     let items = complete("|\n", &[]);
+
     assert!(labels(&items).contains(&"lint"));
     assert!(labels(&items).contains(&"dependencies"));
 }
@@ -177,6 +195,7 @@ fn top_level_keys_are_the_tables() {
 #[test]
 fn table_headers_complete_the_table_names() {
     let items = complete("[li|]\n", &[]);
+
     assert!(labels(&items).contains(&"lint"));
     assert!(labels(&items).contains(&"lint.portability"));
     assert!(!labels(&items).contains(&"project"));
@@ -185,9 +204,11 @@ fn table_headers_complete_the_table_names() {
 #[test]
 fn a_named_table_offers_the_keys_of_its_kind() {
     let items = complete("[dependencies.jaison]\n|\n", &[]);
+
     assert!(labels(&items).contains(&"git"));
     assert!(labels(&items).contains(&"min-release-age"));
     let items = complete("[dependencies]\njaison = { git = \"a/b\", | }\n", &[]);
+
     assert!(labels(&items).contains(&"version"));
     assert!(!labels(&items).contains(&"git"));
 }
@@ -198,6 +219,7 @@ fn entries_are_completed_from_the_jai_files_of_the_project() {
         "[project]\nentry = [\"ma|\"]\n",
         &[("main.jai", ""), ("first.jai", ""), ("notes.txt", "")],
     );
+
     assert!(labels(&items).contains(&"main.jai"));
     assert!(labels(&items).contains(&"first.jai"));
     assert!(!labels(&items).contains(&"notes.txt"));
@@ -209,6 +231,7 @@ fn a_package_module_is_completed_from_the_folders_that_hold_module_jai() {
         "[package]\nmodule = \"|\"\n",
         &[("Parser/module.jai", ""), ("docs/readme.md", "")],
     );
+
     assert!(labels(&items).contains(&"Parser"));
     assert!(!labels(&items).contains(&"docs"));
 }
@@ -219,6 +242,7 @@ fn import_paths_are_completed_from_folders() {
         "[project]\nimport-path = [\"|\"]\n",
         &[("modules/Parser/module.jai", "")],
     );
+
     assert!(labels(&items).contains(&"modules"));
 }
 
@@ -235,6 +259,7 @@ fn a_key_is_described_on_hover_and_so_is_its_table() {
         )
         .unwrap()
         .unwrap();
+
     assert!(key.contents.value.contains("excessive_nesting"));
     assert_eq!(
         key.range.start,
@@ -260,6 +285,7 @@ fn a_key_is_described_on_hover_and_so_is_its_table() {
         )
         .unwrap()
         .unwrap();
+
     assert!(table.contents.value.contains("jailint"));
     assert!(
         s.hover(
@@ -310,6 +336,7 @@ fn hints(s: &Session, uri: &DocumentUri) -> Vec<(u32, String)> {
             character: 0,
         },
     };
+
     s.inlay_hints(uri, all)
         .unwrap()
         .into_iter()
@@ -321,6 +348,7 @@ fn hints(s: &Session, uri: &DocumentUri) -> Vec<(u32, String)> {
 fn a_dependency_shows_its_pin_a_newer_release_and_one_still_waiting() {
     let (_dir, mut s, uri) = open(&[], DEPENDENCIES);
     let source = Rc::new(Fake::default());
+
     s.set_dependency_source(source.clone());
     assert!(
         hints(&s, &uri).is_empty(),
@@ -348,6 +376,7 @@ fn a_dependency_shows_its_pin_a_newer_release_and_one_still_waiting() {
 fn a_table_dependency_is_hinted_on_its_header() {
     let (_dir, mut s, uri) = open(&[], "[dependencies.jaison]\ngit = \"someone/jaison\"\n");
     let source = Rc::new(Fake::default());
+
     *source.known.borrow_mut() = Some(DependencyStanding {
         pinned: Some("v1.2.0".into()),
         ..DependencyStanding::default()
@@ -360,6 +389,7 @@ fn a_table_dependency_is_hinted_on_its_header() {
 fn an_arrived_lookup_asks_for_the_hints_again() {
     let (_dir, mut s, _uri) = open(&[], DEPENDENCIES);
     let source = Rc::new(Fake::default());
+
     s.set_dependency_source(source.clone());
     assert!(!s.take_dependency_arrivals());
     *source.arrived.borrow_mut() = true;
@@ -371,6 +401,7 @@ fn an_arrived_lookup_asks_for_the_hints_again() {
 fn a_file_that_does_not_read_gets_no_dependency_lookups() {
     let (_dir, mut s, uri) = open(&[], "[dependencies]\njaison = { gitt = \"a/b\" }\n");
     let source = Rc::new(Fake::default());
+
     s.set_dependency_source(source.clone());
     assert!(hints(&s, &uri).is_empty());
     assert!(source.asked.borrow().is_empty());
@@ -379,7 +410,9 @@ fn a_file_that_does_not_read_gets_no_dependency_lookups() {
 #[test]
 fn the_request_carries_the_project_folder_and_the_entry() {
     let (dir, mut s, uri) = open(&[], DEPENDENCIES);
+
     struct Records(RefCell<Vec<(std::path::PathBuf, Option<String>)>>);
+
     impl DependencySource for Records {
         fn lookup(&self, request: &DependencyRequest) -> Option<DependencyStanding> {
             self.0
@@ -387,17 +420,22 @@ fn the_request_carries_the_project_folder_and_the_entry() {
                 .push((request.dir.clone(), request.entry.version.clone()));
             None
         }
+
         fn waiting(&self) -> bool {
             false
         }
+
         fn take_arrivals(&self) -> bool {
             false
         }
     }
+
     let records = Rc::new(Records(RefCell::default()));
+
     s.set_dependency_source(records.clone());
     hints(&s, &uri);
     let seen = records.0.borrow();
+
     assert_eq!(seen[0].1.as_deref(), Some("^1.2"));
     assert!(Path::new(&seen[0].0).ends_with(dir.file_name().unwrap()));
 }
@@ -419,12 +457,14 @@ fn a_live_lookup_answers_at_once_and_announces_what_it_found() {
         },
         resolver: jacket_config::Resolver::default(),
     };
+
     assert_eq!(
         live.lookup(&request),
         None,
         "the first look starts the fetch"
     );
     let started = std::time::Instant::now();
+
     while !live.take_arrivals() {
         assert!(
             started.elapsed().as_secs() < 30,
@@ -432,8 +472,10 @@ fn a_live_lookup_answers_at_once_and_announces_what_it_found() {
         );
         std::thread::sleep(std::time::Duration::from_millis(10));
     }
+
     assert!(!live.waiting());
     let found = live.lookup(&request).expect("the answer is kept");
+
     assert!(found.problem.is_some(), "{found:?}");
     assert!(!live.take_arrivals(), "a kept answer starts no new fetch");
 }

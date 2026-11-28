@@ -50,6 +50,7 @@ fn scratch() -> Result<PathBuf, String> {
         "jacket-doc-examples-{}-{nanos}",
         std::process::id()
     ));
+
     std::fs::create_dir_all(&dir).map_err(|e| format!("cannot create {}: {e}", dir.display()))?;
     Ok(dir)
 }
@@ -69,6 +70,7 @@ pub fn run(engine: &Engine, programs: &[Program]) -> Result<Vec<Failure>, String
         } => browser(node, runtime, programs, &dir),
     };
     let _ = std::fs::remove_dir_all(&dir);
+
     result
 }
 
@@ -109,10 +111,13 @@ fn interpret(
     n: usize,
 ) -> Option<String> {
     let file = dir.join(format!("{n}.jai"));
+
     if let Err(e) = std::fs::write(&file, &program.text) {
         return Some(format!("cannot write {}: {e}", file.display()));
     }
+
     let mut args = vec![file.to_string_lossy().into_owned()];
+
     args.extend(["-interp", "-quiet", "-os", "wasm"].map(String::from));
     args.extend(
         import_dir
@@ -141,6 +146,7 @@ fn interpret(
         String::from_utf8_lossy(&ran.stdout),
         String::from_utf8_lossy(&ran.stderr)
     );
+
     match ran.status {
         Some(status) if status.success() => None,
         Some(status) => Some(if printed.trim().is_empty() {
@@ -159,6 +165,7 @@ fn browser(
     dir: &Path,
 ) -> Result<Vec<Failure>, String> {
     let script = dir.join("run_examples.mjs");
+
     std::fs::write(&script, SCRIPT)
         .map_err(|e| format!("cannot write {}: {e}", script.display()))?;
     let list = dir.join("programs.json");
@@ -170,6 +177,7 @@ fn browser(
             serde_json::json!({ "text": p.text, "timeoutSeconds": seconds.to_string() })
         })
         .collect();
+
     std::fs::write(&list, serde_json::to_vec(&json).map_err(|e| e.to_string())?)
         .map_err(|e| format!("cannot write {}: {e}", list.display()))?;
     let shards = crate::parallel::threads().min(programs.len().max(1));
@@ -186,6 +194,7 @@ fn browser(
             .map_err(|e| format!("could not start `{}`: {e}", node.display()))?;
         let mut seen = 0;
         let mut failed = Vec::new();
+
         for line in String::from_utf8_lossy(&output.stdout).lines() {
             let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
                 continue;
@@ -196,40 +205,51 @@ fn browser(
             ) else {
                 continue;
             };
+
             seen += 1;
+
             if !ok && i < programs.len() {
                 failed.push((i, value["message"].as_str().unwrap_or("").to_owned()));
             }
         }
+
         let expected = (shard..programs.len()).step_by(shards).count();
+
         if seen < expected {
             return Err(format!(
                 "the browser compiler stopped after {seen} of {expected} examples:\n{}",
                 String::from_utf8_lossy(&output.stderr).trim()
             ));
         }
+
         Ok(failed)
     })?;
     let mut outcomes = vec![None; programs.len()];
+
     for (i, message) in found.into_iter().flatten() {
         outcomes[i] = Some(message);
     }
+
     Ok(failures(programs, outcomes))
 }
 
 /// The failures as a report, each with where its example is and what it printed (cut to 15 lines).
 pub fn report(failures: &[Failure]) -> String {
     let mut out = String::new();
+
     for f in failures {
         out.push_str(&format!("{}: example failed\n", f.label));
         let lines: Vec<&str> = f.message.lines().collect();
+
         for line in lines.iter().take(15) {
             out.push_str(&format!("    {line}\n"));
         }
+
         if lines.len() > 15 {
             out.push_str(&format!("    ... {} more lines\n", lines.len() - 15));
         }
     }
+
     out
 }
 
@@ -256,5 +276,6 @@ pub fn require_node(args: &super::DocArgs) -> Result<(), String> {
         )
         .map_err(|_| node_missing())?;
     }
+
     Ok(())
 }

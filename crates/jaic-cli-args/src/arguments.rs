@@ -22,11 +22,14 @@ impl TargetFlags {
     pub fn without_modes(&self, mut args: Vec<String>) -> Vec<String> {
         let mut modes = self.mode_indices.iter().copied().peekable();
         let mut index = 0;
+
         args.retain(|_| {
             let keep = modes.peek() != Some(&index);
+
             if !keep {
                 modes.next();
             }
+
             index += 1;
             keep
         });
@@ -63,16 +66,20 @@ impl ArgumentValue {
 /// ```
 pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
     let scan = Cli::spec().scan(args);
+
     if let Some(error) = scan.error {
         return Err(error.message);
     }
+
     let mut common = Common::default();
     let mut host = Vec::new();
     let mut values = Vec::new();
     let (mut check, mut interp, mut deps) = (false, false, false);
     let mut mode_indices = Vec::new();
+
     for token in &scan.tokens {
         let tag = token.opt.map_or("", |opt| opt.tag);
+
         match tag {
             "check" => check = true,
             "interp" => interp = true,
@@ -82,6 +89,7 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
                 let value = token.value.as_deref().unwrap_or_default();
                 let (flag, _) = jaic::flags::find(jaic::flags::COMPILE, token.name)
                     .expect("a `target` option is a shared flag");
+
                 common.take(
                     flag.parse(token.name, value)
                         .map_err(jaic::flags::FlagError::into_text)?,
@@ -89,16 +97,19 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
             }
             _ => {}
         }
+
         if matches!(tag, "check" | "interp" | "deps") {
             mode_indices.push(token.index);
         } else if tag != "target" {
             host.push(args[token.index].clone());
+
             if let Some(value) = &token.value
                 && !token.inline
             {
                 host.push(value.clone());
             }
         }
+
         if let Some(value) = &token.value {
             values.push(ArgumentValue {
                 name: token.name.into(),
@@ -108,9 +119,11 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
             });
         }
     }
+
     if let Some(boundary) = scan.boundary {
         host.extend(args[boundary..].iter().cloned());
     }
+
     Ok(TargetFlags {
         selection: common.target,
         host,
@@ -164,6 +177,7 @@ mod tests {
             "-os",
             "-exe=-cpu",
         ]);
+
         assert_eq!(flags.selection.os, Some(TargetOs::Linux));
         assert_eq!(flags.selection.cpu, Some(TargetCpu::Arm64));
         assert_eq!(
@@ -191,14 +205,18 @@ mod tests {
                 .map(str::to_owned)
                 .collect();
             let parsed = target_flags(&args).unwrap();
+
             assert!(parsed.interp);
             assert!(!parsed.check && !parsed.deps);
             assert_eq!(parsed.host, args[1..]);
             assert_eq!(parsed.without_modes(args.clone()), args[1..]);
         }
+
         let parsed = inspect(&["-check", "-deps"]);
+
         assert!(parsed.check && parsed.deps);
         assert!(parsed.host.is_empty());
+
         for (check, interp, deps) in [(true, true, false), (false, true, true)] {
             assert!(crate::cli::Mode::from_flags(check, interp, deps).is_err());
         }
@@ -209,16 +227,19 @@ mod tests {
         let dirs =
             |args: &[&str]| import_dirs(&args.iter().map(ToString::to_string).collect::<Vec<_>>());
         let path = |text: &str| PathBuf::from(text);
+
         assert_eq!(
             dirs(&["-I", "a", "-O1", "-import_dir=b", "-import_dir", "c"]),
             [path("a"), path("b"), path("c")]
         );
         // A value of another option is not an option, whatever it looks like.
         assert_eq!(dirs(&["-add", "-I", "-I", "x", "-exe", "-I"]), [path("x")]);
+
         // Plugin and program arguments are not the compiler's.
         for boundary in ["-", "--", "+Plugin"] {
             assert_eq!(dirs(&["-I", "a", boundary, "-I", "b"]), [path("a")]);
         }
+
         // A flag with no value is for the compiler to report.
         assert_eq!(dirs(&["-I", "a", "-I"]), [path("a")]);
         assert!(dirs(&[]).is_empty());
@@ -229,6 +250,7 @@ mod tests {
     #[test]
     fn shared_flags_are_declared_alike_by_cli_and_jaic_flags() {
         let spec = Cli::spec();
+
         for flag in jaic::flags::ALL {
             let opt = spec
                 .opts
@@ -237,6 +259,7 @@ mod tests {
                 .unwrap_or_else(|| panic!("`Cli` has no `{}`", flag.names[0]));
             let mut declared: Vec<&str> = opt.names.iter().chain(opt.aliases).copied().collect();
             let mut shared: Vec<&str> = flag.names.to_vec();
+
             declared.sort_unstable();
             shared.sort_unstable();
             assert_eq!(declared, shared, "{}: spellings", flag.names[0]);

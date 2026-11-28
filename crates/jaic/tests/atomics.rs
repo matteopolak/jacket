@@ -11,9 +11,11 @@ compare_and_swap :: (pointer: *$T, old: T, new: T) -> (bool, T) #intrinsic;
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     let result = c.compile_sources(&[ProgramSource::String(format!("{DECLS}\n{source}"))]);
+
     (c, result)
 }
 
@@ -43,6 +45,7 @@ fn bootstrap_atomics_preserve_scalar_bits_and_previous_values() {
         #assert(check());
     ",
     );
+
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }
@@ -67,6 +70,7 @@ fn atomic_enum_and_procedure_values_keep_their_types_and_identity() {
         #assert(check());
     ",
     );
+
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }
@@ -79,6 +83,7 @@ fn atomic_aggregate_and_wide_operands_are_rejected() {
             "Record :: struct {{ x: u64; }} check :: () {{ value: {ty}; atomic_load(*value); }} #run check();"
         ));
         let error = result.expect_err("aggregate/wide atomic access must fail");
+
         assert!(
             error.message.contains("atomic scalar"),
             "{}",
@@ -93,6 +98,7 @@ fn atomic_misalignment_is_an_explicit_runtime_error() {
         "check :: () { storage: [24]u8; p := cast(*u64) (storage.data + 1); atomic_store(p, 7); } #run check();",
     );
     let error = result.expect_err("unaligned atomic access must fail");
+
     assert!(
         error.message.contains("aligned"),
         "{}",
@@ -104,6 +110,7 @@ fn atomic_misalignment_is_an_explicit_runtime_error() {
 fn intrinsic_signatures_cannot_change_the_accessed_scalar_type() {
     let declarations = DECLS.replace("(pointer: *$T) -> T", "(pointer: *$T) -> u32");
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     let source =
@@ -111,6 +118,7 @@ fn intrinsic_signatures_cannot_change_the_accessed_scalar_type() {
     let error = c
         .compile_sources(&[ProgramSource::String(source)])
         .expect_err("incorrect atomic result type must fail");
+
     assert!(
         error.message.contains("signature"),
         "{}",
@@ -121,6 +129,7 @@ fn intrinsic_signatures_cannot_change_the_accessed_scalar_type() {
 #[test]
 fn ordered_atomics_reject_invalid_and_stronger_failure_orders() {
     let decls = "atomic_load_order :: (p: *$T, order: s64) -> T #intrinsic; atomic_store_order :: (p: *$T, value: T, order: s64) #intrinsic; atomic_compare_exchange_order :: (p: *$T, old: T, new: T, orders: s64) -> (bool,T) #intrinsic;";
+
     for call in [
         "atomic_load_order(*v, 256)",
         "atomic_store_order(*v, 1, 16)",
@@ -132,6 +141,7 @@ fn ordered_atomics_reject_invalid_and_stronger_failure_orders() {
             "{decls} check :: () {{ v: u64; {call}; }} #run check();"
         ));
         let error = result.expect_err("invalid order must fail");
+
         assert!(
             error.message.contains("order"),
             "{}",

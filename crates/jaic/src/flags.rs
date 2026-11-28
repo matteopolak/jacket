@@ -33,10 +33,12 @@ impl FlagError {
     /// for each help.
     pub fn into_text(self) -> String {
         let mut text = self.message;
+
         for help in self.help {
             text.push_str("\nhelp: ");
             text.push_str(&help);
         }
+
         text
     }
 }
@@ -103,9 +105,11 @@ pub const OS: SharedFlag = SharedFlag {
     parse: |_, os| {
         crate::target::parse_os(os).map(Shared::Os).ok_or_else(|| {
             let mut error = FlagError::new(format!("unknown OS `{os}` for `-os`"));
+
             if let Some(near) = crate::suggest::closest(os, crate::target::OS_NAMES) {
                 error = error.help(format!("did you mean `-os {near}`?"));
             }
+
             error.help("the OS names are linux, windows, macos and wasm")
         })
     },
@@ -219,9 +223,11 @@ pub fn find(
     name: &str,
 ) -> Option<(&'static SharedFlag, Option<String>)> {
     let named = |n: &str| set.iter().copied().find(|flag| flag.names.contains(&n));
+
     if let Some(flag) = named(name) {
         return Some((flag, None));
     }
+
     let (n, value) = name.split_once('=')?;
     named(n).map(|flag| (flag, Some(value.to_string())))
 }
@@ -266,8 +272,10 @@ mod tests {
     #[test]
     fn a_flag_is_found_by_any_spelling_and_by_name_equals_value() {
         let (flag, inline) = find(ALL, "--jobs").unwrap();
+
         assert_eq!((flag.names[0], inline), ("-j", None));
         let (flag, inline) = find(ALL, "-os=linux").unwrap();
+
         assert_eq!((flag.names[0], inline.as_deref()), ("-os", Some("linux")));
         assert!(find(COMPILE, "--color").is_none());
         assert!(find(ALL, "-bogus").is_none());
@@ -277,6 +285,7 @@ mod tests {
     fn values_are_checked_and_errors_say_what_is_wrong() {
         assert_eq!(OS.parse("-os", "linux"), Ok(Shared::Os(TargetOs::Linux)));
         let error = OS.parse("-os", "linx").unwrap_err();
+
         assert!(error.help[0].contains("did you mean `-os linux`"));
         assert!(CPU.parse("-cpu", "wasm").is_err());
         assert_eq!(JOBS.parse("-j", "4"), Ok(Shared::Jobs(4)));
@@ -295,6 +304,7 @@ mod tests {
     fn spellings_do_not_repeat_across_flags() {
         let mut all: Vec<_> = spellings(ALL).collect();
         let before = all.len();
+
         all.sort_unstable();
         all.dedup();
         assert_eq!(all.len(), before);

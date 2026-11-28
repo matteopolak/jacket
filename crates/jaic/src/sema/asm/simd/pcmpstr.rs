@@ -26,6 +26,7 @@ impl Compiler {
         } else {
             4
         };
+
         if ops.len() != want {
             return err(
                 Code::AsmOperandCount,
@@ -33,6 +34,7 @@ impl Compiler {
                 format!("`{name}` takes {want} operands"),
             );
         }
+
         let Some(VOpd::Imm(ctl)) = ops.last().copied() else {
             return err(
                 Code::AsmNeeds8Bit,
@@ -40,6 +42,7 @@ impl Compiler {
                 format!("`{name}` needs an 8-bit control constant"),
             );
         };
+
         if !(0..=255).contains(&ctl) {
             return err(
                 Code::AsmNeeds8Bit,
@@ -47,6 +50,7 @@ impl Compiler {
                 format!("`{name}` needs an 8-bit control constant"),
             );
         }
+
         let ctl = ctl as u8;
         let ty = if ctl & 1 != 0 {
             Ty::I16
@@ -80,9 +84,12 @@ impl Compiler {
         let (res, b_ends, a_ends) = (r[0], r[1], r[2]);
         let zero = konst(f, Ty::I32, 0);
         let any = cmp(f, CmpOp::Ne, Ty::I32, res, zero);
+
         if mask {
             let tmp = f.b.alloca(16, 16);
+
             f.b.zero(tmp, 16);
+
             if ctl & 0x40 != 0 {
                 // One element of all ones per set bit.
                 for i in 0..n {
@@ -93,12 +100,15 @@ impl Compiler {
                     let bit = resize(f, bit, Ty::I32, ty, false);
                     let z = konst(f, ty, 0);
                     let ones = bin(f, BinOp::Sub, ty, z, bit);
+
                     store_lane(f, tmp, i, ty, ones);
                 }
             } else {
                 let bits_set = resize(f, res, Ty::I32, Ty::I16, false);
+
                 store_lane(f, tmp, 0, Ty::I16, bits_set);
             }
+
             self.simd_out(f, cx, ops[0], tmp, 16, span)?;
         } else {
             // The index of the highest (or lowest) set element; the element count when none.
@@ -107,18 +117,23 @@ impl Compiler {
                 let top = konst(f, Ty::I32, 31);
                 let high = bin(f, BinOp::Sub, Ty::I32, top, lz);
                 let none = konst(f, Ty::I32, n);
+
                 select(f, Ty::I32, any, high, none)
             } else {
                 let stop = konst(f, Ty::I32, 1 << n);
                 let guarded = bin(f, BinOp::Or, Ty::I32, res, stop);
+
                 bit_intrinsic(f, Intrinsic::Cttz, Ty::I32, guarded)
             };
+
             self.vec_scalar_write(f, ops[0], Ty::I32, idx, span)?;
         }
+
         let one = konst(f, Ty::I32, 1);
         let low = bin(f, BinOp::And, Ty::I32, res, one);
         // AF and PF are cleared (PF is the lazily evaluated parity byte, odd = clear).
         let odd = konst(f, Ty::I8, 1);
+
         cx.flags = Flags {
             cf: Some(any),
             zf: Some(b_ends),

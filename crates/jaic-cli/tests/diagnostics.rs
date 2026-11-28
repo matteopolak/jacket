@@ -18,8 +18,10 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 /// `-interp`, or empty for a build) and `args`.
 fn jaic_on(dir: &Path, name: &str, source: &str, mode: &str, args: &[&str]) -> Output {
     let path = dir.join(name);
+
     std::fs::write(&path, source).unwrap();
     let mut command = vec![path.to_str().unwrap()];
+
     command.extend(Some(mode).filter(|m| !m.is_empty()));
     jaic(dir, &command, args)
 }
@@ -45,6 +47,7 @@ fn stderr(output: &Output) -> String {
 #[track_caller]
 fn assert_in_order(text: &str, needles: &[&str]) {
     let mut rest = text;
+
     for needle in needles {
         match rest.find(needle) {
             Some(at) => rest = &rest[at + needle.len()..],
@@ -65,6 +68,7 @@ fn format_string_argument_count_is_checked() {
     };
 
     let few = check("few.jai", "    print(\"% is %\\n\", n);");
+
     assert_eq!(few.status.code(), Some(0), "{}", stderr(&few));
     assert_in_order(
         &stderr(&few),
@@ -75,6 +79,7 @@ fn format_string_argument_count_is_checked() {
     );
 
     let many = check("many.jai", "    s := tprint(\"done\\n\", n, 2);");
+
     assert_eq!(many.status.code(), Some(0), "{}", stderr(&many));
     assert_in_order(
         &stderr(&many),
@@ -88,6 +93,7 @@ fn format_string_argument_count_is_checked() {
         "fine.jai",
         "    print(\"100\\% of %1 and %1: %\\n\", n, n);\n    format := \"%\";\n    print(format);\n    print(\"%00\\n\");\n    print(\"%%\\n\", n, n);",
     );
+
     assert_eq!(fine.status.code(), Some(0), "{}", stderr(&fine));
 }
 
@@ -106,8 +112,10 @@ main :: () {
 }
 ";
     let output = jaic_on(&dir, "t.jai", source, "-check", &[]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stderr(&output);
+
     assert_in_order(
         &text,
         &[
@@ -132,8 +140,10 @@ main :: () {
 }
 ";
     let output = jaic_on(&dir, "t.jai", source, "-check", &[]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stderr(&output);
+
     assert_in_order(
         &text,
         &[
@@ -154,8 +164,10 @@ main :: () {
 }
 ";
     let output = jaic_on(&dir, "t.jai", source, "-check", &[]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stderr(&output);
+
     assert_in_order(
         &text,
         &[
@@ -191,8 +203,10 @@ main :: () {
 }
 ";
     let output = jaic_on(&dir, "t.jai", source, "-check", &[]);
+
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stderr(&output);
+
     // `open` and `forever` (a loop whose body does not always return) warn; the switches, the
     // chosen `#if` branch and `named` (it returns its results at the end) do not.
     for at in ["t.jai:2:", "t.jai:11:"] {
@@ -204,6 +218,7 @@ main :: () {
             ],
         );
     }
+
     assert_eq!(text.matches("not all control paths").count(), 2, "{text}");
 }
 
@@ -212,11 +227,13 @@ fn a_switch_on_a_constant_checks_every_case() {
     let dir = TempDir::new("const-switch");
     let source = "#import \"Basic\";\nMode :: enum { A; B; }\nM :: Mode.A;\nmain :: () {\n    if #complete M == {\n        case .A; print(\"a\\n\");\n        case .B; x: int = \"not an int\"; print(\"%\\n\", x);\n    }\n}\n";
     let output = jaic_on(&dir, "const_switch.jai", source, "-check", &[]);
+
     assert!(!output.status.success(), "{}", stderr(&output));
     assert_in_order(&stderr(&output), &["const_switch.jai:7:27", "int"]);
     // The cases that do not match count for `#complete` too.
     let source = "Mode :: enum { A; B; }\nM :: Mode.A;\nmain :: () {\n    if #complete M == {\n        case .A;\n    }\n}\n";
     let output = jaic_on(&dir, "const_complete.jai", source, "-check", &[]);
+
     assert!(!output.status.success(), "{}", stderr(&output));
     assert_in_order(&stderr(&output), &["has no case for .B"]);
 }
@@ -226,8 +243,10 @@ fn a_failed_initializer_reports_its_own_error_and_nothing_after_it() {
     let dir = TempDir::new("failed_initializer");
     let source = "#import \"Basic\";\nhelper :: () {\n    owner := Nope.make();\n    size := owner.count + 1;\n    print(\"%\\n\", size);\n}\nmain :: () { helper(); }\n";
     let output = jaic_on(&dir, "main.jai", source, "-check", &[]);
+
     assert!(!output.status.success());
     let text = stderr(&output);
+
     assert_eq!(text.matches("error[").count(), 1, "{text}");
     assert!(text.contains("unknown identifier `Nope`"), "{text}");
     assert!(
@@ -267,6 +286,7 @@ build :: () {
     set_build_options_dc(.{do_output = false});
 }
 "#;
+
     std::fs::write(
         dir.join("checked.jai"),
         "deep: ***int; // three levels\nmain :: () {}\n",
@@ -274,6 +294,7 @@ build :: () {
     .unwrap();
     let output = jaic_on(&dir, "build.jai", build, "-check", &[]);
     let text = stderr(&output);
+
     assert!(!output.status.success(), "{text}");
     let lines: Vec<&str> = text.lines().collect();
     let at = lines
@@ -282,6 +303,7 @@ build :: () {
             l.contains("error[metaprogram-report]: too many levels of pointer indirection")
         })
         .unwrap_or_else(|| panic!("{text}"));
+
     assert!(lines[at].contains("checked.jai:1:1"), "{text}");
     assert_eq!(
         lines[at + 1].trim(),
@@ -309,6 +331,7 @@ fn report_inside_a_string_underlines_the_word() {
         let program = format!(
             "#import \"Compiler\";\n{text}\n#run compiler_report(\"no such column\", .{{ fully_pathed_filename = #file, line_number = {line}, character_number = {column} }});\n"
         );
+
         std::fs::write(&source, program).unwrap();
         let output = Command::new(JAIC)
             .arg("-check")
@@ -316,12 +339,14 @@ fn report_inside_a_string_underlines_the_word() {
             .output()
             .unwrap();
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+
         assert!(!output.status.success(), "{stderr}");
         let lines: Vec<&str> = stderr.lines().collect();
         let at = lines
             .iter()
             .position(|l| l.contains("error[metaprogram-report]: no such column"))
             .unwrap_or_else(|| panic!("{stderr}"));
+
         (
             lines[at + 1].trim().to_string(),
             lines[at + 2].trim().to_string(),
@@ -329,6 +354,7 @@ fn report_inside_a_string_underlines_the_word() {
         )
     };
     let (line, carets, stderr) = report("one.jai", "SQL :: \"select id, emal from users\";", 2, 20);
+
     assert_eq!(
         (line.as_str(), carets.as_str()),
         ("SQL :: \"select id, emal from users\";", "^^^^"),
@@ -340,6 +366,7 @@ fn report_inside_a_string_underlines_the_word() {
         4,
         18,
     );
+
     assert_eq!(
         (line.as_str(), carets.as_str()),
         ("from users where emial = 1", "^^^^^"),
@@ -357,8 +384,10 @@ fn a_leniency_in_the_program_file_warns_with_the_note_and_the_exit_status_stays_
         "-check",
         &[],
     );
+
     assert!(output.status.success(), "{}", stderr(&output));
     let text = stderr(&output);
+
     assert_in_order(
         &text,
         &[
@@ -372,6 +401,7 @@ fn a_leniency_in_the_program_file_warns_with_the_note_and_the_exit_status_stays_
 #[test]
 fn a_leniency_in_an_imported_module_is_not_reported() {
     let dir = TempDir::new("leniency-module");
+
     std::fs::create_dir_all(dir.join("Lib")).unwrap();
     std::fs::write(
         dir.join("Lib/module.jai"),
@@ -385,6 +415,7 @@ fn a_leniency_in_an_imported_module_is_not_reported() {
         "-check",
         &["-I", dir.to_str().unwrap()],
     );
+
     assert!(output.status.success(), "{}", stderr(&output));
     assert!(
         !stderr(&output).contains("official Jai compiler"),
@@ -403,8 +434,10 @@ fn a_body_constant_used_above_its_declaration_is_an_error() {
         "-check",
         &[],
     );
+
     assert!(!output.status.success());
     let text = stderr(&output);
+
     assert_in_order(
         &text,
         &[
@@ -418,6 +451,7 @@ fn a_body_constant_used_above_its_declaration_is_an_error() {
 #[test]
 fn a_body_constant_used_above_its_declaration_is_an_error_in_a_module_too() {
     let dir = TempDir::new("use-before-declaration-module");
+
     std::fs::create_dir_all(dir.join("Lib")).unwrap();
     std::fs::write(
         dir.join("Lib/module.jai"),
@@ -431,6 +465,7 @@ fn a_body_constant_used_above_its_declaration_is_an_error_in_a_module_too() {
         "-check",
         &["-I", dir.to_str().unwrap()],
     );
+
     assert!(!output.status.success());
     assert!(
         stderr(&output).contains("`foo` is used above its declaration"),

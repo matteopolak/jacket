@@ -20,6 +20,7 @@ fn the_target_through_a_pointer_is_the_users_name() {
     let s = open(PROGRAM);
     let use_site = at(PROGRAM, "counter.next +=");
     let hover = s.hover(&uri(), use_site).unwrap().expect("hover");
+
     assert!(hover.contents.value.contains("counter"), "{hover:?}");
     assert!(!hover.contents.value.contains('\0'), "{hover:?}");
     assert!(
@@ -27,6 +28,7 @@ fn the_target_through_a_pointer_is_the_users_name() {
         "{hover:?}"
     );
     let definition = s.definition(&uri(), use_site).unwrap();
+
     assert_eq!(definition.len(), 1, "{definition:?}");
     assert_eq!(definition[0].range.start, at(PROGRAM, "counter: *Counter"));
 }

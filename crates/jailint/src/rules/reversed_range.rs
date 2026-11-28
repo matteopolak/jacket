@@ -32,23 +32,28 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let ForOver::Range(lo, hi) = &f.over else {
                 return true;
             };
+
             if f.reverse || f.reverse_if.is_some() || f.iterator.is_some() {
                 return true;
             }
+
             let reversed = match (int_literal(lo), int_literal(hi)) {
                 (Some(a), Some(b)) => a > b,
                 (None, Some(0)) => counts(lo),
                 _ => false,
             };
+
             if !reversed {
                 return true;
             }
+
             let (lo_start, lo_end) = cx.whole(lo);
             let (hi_start, hi_end) = cx.whole(hi);
             let lo_text = &cx.text[lo_start..lo_end];
             let hi_text = &cx.text[hi_start..hi_end];
             // `for i: a..b` → `for < i: b..a`: the `<` goes right after `for`.
             let after_for = s.span.start as usize + "for".len();
+
             out.push(Finding {
                 secondary: Vec::new(),
                 start: lo.span.start as usize,

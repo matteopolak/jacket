@@ -93,6 +93,7 @@ impl ForeignCall {
             program,
             addresses,
         });
+
         Self {
             previous,
         }
@@ -114,6 +115,7 @@ impl Attribution {
     /// caller must keep its own `ForeignCall` alive until then (it waits for the result).
     pub(super) fn enter(self) -> ForeignCall {
         let previous = current();
+
         publish(self.0);
         ForeignCall {
             previous,
@@ -168,6 +170,7 @@ impl<const N: usize> std::fmt::Write for Report<N> {
     fn write_str(&mut self, s: &str) -> std::fmt::Result {
         let room = self.bytes.len() - self.len;
         let n = s.len().min(room);
+
         self.bytes[self.len..self.len + n].copy_from_slice(&s.as_bytes()[..n]);
         self.len += n;
         Ok(())
@@ -179,6 +182,7 @@ fn shown_path(path: &str) -> &str {
     let Some(base) = crate::display_base().and_then(|b| b.to_str()) else {
         return path;
     };
+
     match path.strip_prefix(base) {
         Some(rest) if rest.starts_with(['/', '\\']) && rest.len() > 1 => &rest[1..],
         _ => path,
@@ -193,6 +197,7 @@ fn write_report(current: Current, what: &str, out: &mut Report<8192>) {
     // call on this thread.
     let (symbol, state, program) = unsafe {
         let bytes = std::slice::from_raw_parts(current.symbol.0, current.symbol.1);
+
         (
             std::str::from_utf8(bytes).unwrap_or("?"),
             &*current.state,
@@ -205,9 +210,11 @@ fn write_report(current: Current, what: &str, out: &mut Report<8192>) {
             Some((shown_path(path), line, col))
         })
     };
+
     if let Some((path, line, col)) = at(state.loc) {
         let _ = write!(out, "{path}:{line}:{col}: ");
     }
+
     let _ = writeln!(
         out,
         "error: native code crashed ({what}) while calling foreign procedure `{symbol}`"
@@ -216,27 +223,33 @@ fn write_report(current: Current, what: &str, out: &mut Report<8192>) {
     // innermost frame is at the foreign call.
     let calls = &state.calls;
     let mut shown = 0;
+
     for k in (0..calls.len()).rev() {
         let name = program
             .func_names
             .get(calls[k].0.0 as usize)
             .map_or("", String::as_str);
+
         if name.is_empty() || name.starts_with("__") {
             continue;
         }
+
         if shown == 0 {
             let _ = writeln!(out, "note: call stack (innermost first):");
         }
+
         if shown == MAX_SHOWN_FRAMES {
             let _ = writeln!(out, "    ...");
             break;
         }
+
         let loc = calls.get(k + 1).map_or(state.loc, |c| c.1);
         // A polymorphic instance `name#N` is `name` to the user; `#run` stays as it is.
         let name = match name.split_once('#') {
             Some((base, _)) if !base.is_empty() => base,
             _ => name,
         };
+
         match at(loc) {
             Some((path, line, _)) => {
                 let _ = writeln!(out, "    `{name}` at {path}:{line}");
@@ -245,8 +258,10 @@ fn write_report(current: Current, what: &str, out: &mut Report<8192>) {
                 let _ = writeln!(out, "    `{name}`");
             }
         }
+
         shown += 1;
     }
+
     let _ = writeln!(
         out,
         "help: check the arguments passed to `{symbol}` (pointers and sizes) and its `#foreign` declaration against the C signature; jaic cannot continue after a crash in native code"
@@ -262,17 +277,21 @@ fn reported(host: usize) -> usize {
 /// Report the fault if a foreign call is in progress; false when it is not ours.
 fn report_and_exit(what: &str) -> bool {
     let current = current();
+
     if current.program.is_null() || current.state.is_null() {
         return false;
     }
+
     if REPORTING.swap(true, std::sync::atomic::Ordering::Acquire) {
         // Another thread is reporting and exits the process when done: sleep until then
         // instead of spinning on the flag.
         sys::wait_forever();
     }
+
     // SAFETY: this thread set `REPORTING` first, so no other thread uses the buffer, and it
     // exits without returning.
     let out = unsafe { &mut *REPORT.0.get() };
+
     write_report(current, what, out);
     sys::write_stderr(&out.bytes[..out.len]);
     sys::exit_now(CRASH_STATUS)
@@ -366,16 +385,19 @@ mod sys {
 
     pub fn install() {
         let handler: extern "C" fn(c_int, *mut c_void, *mut c_void) = on_signal;
+
         for (i, &sig) in SIGNALS.iter().enumerate() {
             // SAFETY: plain C calls on properly laid out structs; `PREVIOUS` is written once,
             // before the handler that reads it is in place.
             unsafe {
                 let mut action: SigAction = std::mem::zeroed();
+
                 action.handler = handler as usize;
                 // The fault may be a native stack overflow: run on the alternate stack Rust
                 // sets up for its threads.
                 action.flags = SA_SIGINFO | SA_ONSTACK;
                 let mut old: SigAction = std::mem::zeroed();
+
                 if sigaction(sig, std::ptr::null(), &raw mut old) == 0 {
                     (*std::ptr::addr_of_mut!(PREVIOUS))[i] = Some(old);
                     sigaction(sig, &raw const action, std::ptr::null_mut());
@@ -447,9 +469,11 @@ mod sys {
         while !bytes.is_empty() {
             // SAFETY: writes the initialized bytes of a live slice.
             let n = unsafe { write(2, bytes.as_ptr().cast(), bytes.len()) };
+
             if n <= 0 {
                 return;
             }
+
             bytes = &bytes[n as usize..];
         }
     }
@@ -464,6 +488,7 @@ mod sys {
             prctl(PR_SET_DUMPABLE, 0, 0, 0, 0);
         }
         let mut limit = [0u64; 2];
+
         // SAFETY: plain C calls on a `struct rlimit` (two 64-bit fields on both platforms).
         unsafe {
             if getrlimit(RLIMIT_CORE, &raw mut limit) == 0 {
@@ -585,6 +610,7 @@ mod sys {
 
     pub fn write_stderr(bytes: &[u8]) {
         let mut written = 0u32;
+
         // SAFETY: writes the initialized bytes of a live slice to the standard error handle.
         unsafe {
             WriteFile(
@@ -667,6 +693,7 @@ mod tests {
             addresses: AddressMap::HOST,
         };
         let mut out = Report::<8192>::new();
+
         write_report(current, "SIGSEGV, test", &mut out);
         out.text().to_string()
     }
@@ -690,6 +717,7 @@ mod tests {
         };
         let text = report_for(&state, &program, "strlen");
         let lines: Vec<&str> = text.lines().collect();
+
         assert!(
             lines[0].ends_with(
                 ":12:7: error: native code crashed (SIGSEGV, test) while calling foreign procedure `strlen`"
@@ -708,6 +736,7 @@ mod tests {
     #[test]
     fn a_frame_without_a_known_file_is_shown_by_name_only() {
         let mut program = program();
+
         program.file_paths.clear();
         let state = ExecState {
             calls: vec![(FuncId(0), Some((0, 1, 1)))],
@@ -715,6 +744,7 @@ mod tests {
             ..Default::default()
         };
         let text = report_for(&state, &program, "puts");
+
         assert!(text.starts_with("error: native code crashed"), "{text}");
         assert!(text.contains("\n    `main`\n"), "{text}");
     }
@@ -727,13 +757,16 @@ mod tests {
         unsafe extern "C" {
             fn prctl(option: i32, arg: u64, a3: u64, a4: u64, a5: u64) -> i32;
         }
+
         const PR_GET_DUMPABLE: i32 = 3;
         const PR_SET_DUMPABLE: i32 = 4;
         // SAFETY: plain C calls reading and restoring this process's dumpable flag.
         unsafe {
             let before = prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
+
             skip_core_dump();
             let after = prctl(PR_GET_DUMPABLE, 0, 0, 0, 0);
+
             prctl(PR_SET_DUMPABLE, before as u64, 0, 0, 0);
             assert_eq!(after, 0);
         }
@@ -742,6 +775,7 @@ mod tests {
     #[test]
     fn deep_call_stacks_are_cut_after_the_shown_limit() {
         let mut program = program();
+
         program.func_names = vec!["recur".into()];
         let state = ExecState {
             calls: vec![(FuncId(0), Some((0, 2, 1))); MAX_SHOWN_FRAMES + 5],
@@ -749,6 +783,7 @@ mod tests {
             ..Default::default()
         };
         let text = report_for(&state, &program, "memcpy");
+
         assert_eq!(text.matches("    `recur` at").count(), MAX_SHOWN_FRAMES);
         assert!(text.contains("\n    ...\n"), "{text}");
     }
@@ -761,6 +796,7 @@ mod tests {
             ..Default::default()
         };
         let text = report_for(&state, &program, "abort");
+
         assert!(!text.contains("call stack"), "{text}");
     }
 
@@ -768,11 +804,13 @@ mod tests {
     fn reports_stop_at_the_buffer_end_instead_of_failing() {
         use std::fmt::Write;
         let mut small = Report::<4>::new();
+
         write!(small, "abcdef").unwrap();
         assert_eq!(small.text(), "abcd");
         write!(small, "more").unwrap();
         assert_eq!(small.text(), "abcd");
         let mut broken = Report::<2>::new();
+
         broken.bytes = [0xff, 0xfe];
         broken.len = 2;
         assert_eq!(broken.text(), "a fault");
@@ -783,8 +821,10 @@ mod tests {
         // Nothing sets the base in this process unless another test did: either way an
         // unrelated path is left alone.
         assert_eq!(shown_path("/nowhere/at/all.jai"), "/nowhere/at/all.jai");
+
         if let Some(base) = crate::display_base().and_then(|b| b.to_str()) {
             let inside = format!("{base}/inside.jai");
+
             assert_eq!(shown_path(&inside), "inside.jai");
             assert_eq!(shown_path(base), base);
         }
@@ -794,12 +834,15 @@ mod tests {
     fn foreign_calls_nest_and_restore_the_outer_call() {
         let program = program();
         let state = ExecState::default();
+
         assert!(current().program.is_null());
         {
             let _outer = ForeignCall::enter("outer", &state, &program, AddressMap::HOST);
+
             assert_eq!(current().symbol.1, "outer".len());
             {
                 let _inner = ForeignCall::enter("nested", &state, &program, AddressMap::HOST);
+
                 assert_eq!(current().symbol.1, "nested".len());
             }
             assert_eq!(current().symbol.1, "outer".len());
@@ -817,6 +860,7 @@ mod tests {
         let state = ExecState::default();
         let window = AddressMap::window(0x7000_0000_0000, 4, 64 << 10, 0xC000_0000);
         let _call = ForeignCall::enter("memcpy", &state, &program, window);
+
         assert_eq!(reported(0x7000_8000_0010), 0x8000_0010);
         assert_eq!(reported(0x10), 0x10);
     }
@@ -829,16 +873,22 @@ mod tests {
         let _call = ForeignCall::enter("carried", &state, &program, AddressMap::HOST);
         let carried = Attribution::of_this_thread();
         let program_address = &raw const program as usize;
+
         struct Moved(Attribution);
+
         // SAFETY: the carried call only names data that outlives the scope below.
         unsafe impl Send for Moved {
         }
+
         let moved = Moved(carried);
+
         std::thread::scope(|scope| {
             scope.spawn(move || {
                 let moved = moved;
+
                 assert!(current().program.is_null());
                 let call = moved.0.enter();
+
                 assert_eq!(current().symbol.1, "carried".len());
                 assert_eq!(current().program as usize, program_address);
                 drop(call);
@@ -854,6 +904,7 @@ mod tests {
             let mut text = Report::<WHAT_BYTES>::new();
             sys::describe(sig, address, &mut text).to_string()
         };
+
         assert_eq!(
             name(11, 0x10),
             "SIGSEGV, invalid memory access at address 0x10"

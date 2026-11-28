@@ -17,6 +17,7 @@ impl Compiler {
     ) -> Result<Operand> {
         let (lty, rty) = (lhs.ty(), rhs.ty());
         let (_, base) = self.rvalue(f, lhs, span)?;
+
         if op == BinOp::Sub && self.ty.types.is_pointer(rty) {
             let (_, other) = self.rvalue(f, rhs, span)?;
             let pointee = self.ty.types.pointee(lty).unwrap();
@@ -29,11 +30,13 @@ impl Compiler {
             let y = f.b.conv(ir::ConvOp::Bitcast, Ty::Ptr, Ty::I64, other);
             let diff = f.b.bin(ir::BinOp::Sub, Ty::I64, x, y);
             let s = f.b.iconst(Ty::I64, size);
+
             return Ok(Operand::Value {
                 ty: TypeId::S64,
                 val: f.b.bin(ir::BinOp::SDiv, Ty::I64, diff, s),
             });
         }
+
         // Any runtime integer offsets a pointer (`data + total_read` with a u64).
         let rhs = if self.ty.types.is_integer(rty) && !matches!(rhs, Operand::Const { .. }) {
             self.explicit_cast(f, rhs, TypeId::S64, ast::CastFlags::default(), span)?
@@ -62,10 +65,13 @@ impl Compiler {
         };
         let s = f.b.iconst(Ty::I64, size);
         let mut off = f.b.bin(ir::BinOp::Mul, Ty::I64, idx, s);
+
         if op == BinOp::Sub {
             off = f.b.un(ir::UnOp::Neg, Ty::I64, off);
         }
+
         let value = f.b.ptr_add(base, off);
+
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
         {
@@ -80,6 +86,7 @@ impl Compiler {
                 },
             );
         }
+
         Ok(Operand::Value {
             ty: lty,
             val: value,
@@ -117,6 +124,7 @@ impl Compiler {
             _ => ir::BinOp::Xor,
         };
         let combined = f.b.bin(ir_op, Ty::I64, address, mask);
+
         Ok(Operand::Value {
             ty: ptr_ty,
             val: f.b.conv(ir::ConvOp::Bitcast, Ty::I64, Ty::Ptr, combined),

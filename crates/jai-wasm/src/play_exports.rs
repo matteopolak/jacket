@@ -41,11 +41,13 @@ fn install_panic_hook() {
     if !cfg!(target_arch = "wasm32") {
         return; // native keeps the default hook
     }
+
     use std::sync::Once;
     static ONCE: Once = Once::new();
     ONCE.call_once(|| {
         std::panic::set_hook(Box::new(|info| {
             let text = info.to_string();
+
             PANIC.with(|p| {
                 if let Ok(mut p) = p.try_borrow_mut() {
                     *p = text;
@@ -84,10 +86,13 @@ pub extern "C" fn jai_play_push(channel: u32, byte: u32) -> u32 {
         let Ok(byte) = u8::try_from(byte) else {
             return s.fail("input is not a byte");
         };
+
         s.total += 1;
+
         if s.total > INPUT_LIMIT {
             return s.fail("input byte limit exceeded");
         }
+
         match channel {
             0 => s.path.push(byte),
             1 => s.content.push(byte),
@@ -100,6 +105,7 @@ pub extern "C" fn jai_play_push(channel: u32, byte: u32) -> u32 {
             }
             _ => return s.fail("unknown input channel"),
         }
+
         0
     })
 }
@@ -125,6 +131,7 @@ pub extern "C" fn jai_play_finish_file() -> u32 {
             return s.fail("file paths must be UTF-8");
         };
         let content = std::mem::take(&mut s.content);
+
         s.files.insert(path, content);
         0
     })
@@ -160,6 +167,7 @@ pub extern "C" fn jai_play_run() -> u32 {
         let files = std::mem::take(&mut s.files);
         let raw = std::mem::take(&mut s.args);
         let mut pieces: Vec<&[u8]> = raw.split(|&b| b == 0).collect();
+
         // Every argument ends with a NUL, so the last piece is the empty rest.
         pieces.pop();
         let Ok(args) = pieces
@@ -176,6 +184,7 @@ pub extern "C" fn jai_play_run() -> u32 {
         let Ok(library_root) = String::from_utf8(std::mem::take(&mut s.library_root)) else {
             return s.fail("library root must be UTF-8");
         };
+
         s.output = play::run_with_library(
             &files,
             &main,
@@ -266,6 +275,7 @@ mod tests {
             .map(|i| jai_play_output_byte(i) as u8)
             .collect();
         let json = String::from_utf8(bytes).unwrap();
+
         assert!(json.contains("\"stdout\":\"Hello, 42!\\n\""), "{json}");
         assert_eq!(jai_play_output_byte(u32::MAX), 256);
     }
@@ -298,6 +308,7 @@ mod tests {
             .map(|i| jai_play_output_byte(i) as u8)
             .collect();
         let json = String::from_utf8(bytes).unwrap();
+
         assert!(
             json.contains("\"stdout\":\"[main][two words][] 3:hi\\n\""),
             "{json}"
@@ -326,6 +337,7 @@ mod tests {
             + "arg\0".len()
             + "input".len()
             + "library".len();
+
         with(|s| {
             assert_eq!(s.total, expected);
             assert_eq!(s.files.len(), 1);
@@ -364,9 +376,11 @@ mod tests {
         push(3, "arg\0");
         push(5, "library");
         let used = "a.jai".len() * 2 + "arg\0".len() + "library".len();
+
         for _ in used..INPUT_LIMIT {
             assert_eq!(jai_play_push(4, 0), 0);
         }
+
         assert_eq!(jai_play_push(1, 0), 1);
         with(|s| {
             assert_eq!(s.total, INPUT_LIMIT + 1);

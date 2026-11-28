@@ -20,6 +20,7 @@ fn compiles_for_other_targets_do_not_pile_up() {
         Limits::default(),
         modules_environment(Some(TargetOs::Linux)),
     );
+
     s.open(
         file_uri("/lsp-test/jacket.toml"),
         1,
@@ -29,6 +30,7 @@ fn compiles_for_other_targets_do_not_pile_up() {
     s.set_auto_import(false);
     s.open(uri(), 1, source.clone()).unwrap();
     let _ = s.diagnostics(&uri());
+
     // Each hover asks the targets in turn until one compiles the arm: Windows, then macOS
     // (which has to pass Windows), then Wasm.
     for name in ["windows_only", "macos_only", "wasm_only"] {
@@ -42,8 +44,10 @@ fn compiles_for_other_targets_do_not_pile_up() {
             character: text.find(name).unwrap() as u32,
         };
         let hover = s.hover(&uri(), at).unwrap();
+
         assert!(hover.is_some(), "{name} is described");
         let (_, kept) = s.compile_counts();
+
         assert!(kept <= 2, "{kept} compiles kept after asking about {name}");
     }
 }

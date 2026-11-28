@@ -25,6 +25,7 @@ fn float_lanes(ty: Ty, scalar: bool) -> String {
     } else {
         "double"
     };
+
     if scalar {
         format!("the low {precision}-precision float (upper lanes from the first source)")
     } else {
@@ -64,6 +65,7 @@ pub(super) fn describe(name: &str, kind: Kind) -> String {
             lower_first(&describe(base, kind))
         );
     }
+
     match kind {
         Kind::Core(op) => describe_core(name, op),
         Kind::Scalar(op) => describe_scalar(name, op),
@@ -74,6 +76,7 @@ pub(super) fn describe(name: &str, kind: Kind) -> String {
 
 fn lower_first(s: &str) -> String {
     let mut c = s.chars();
+
     match c.next() {
         Some(first) => first.to_lowercase().chain(c).collect(),
         None => String::new(),
@@ -277,6 +280,7 @@ fn describe_scalar(name: &str, op: XOp) -> String {
                 Rep::Repe => "while equal, at most c times",
                 Rep::Repne => "while not equal, at most c times",
             };
+
             return format!(
                 "String instruction ({}): {what}, {how}, advancing the pointers by the element size.",
                 if name.starts_with("rep") {
@@ -299,6 +303,7 @@ fn describe_scalar(name: &str, op: XOp) -> String {
 
 fn describe_mask(op: KOp, ty: Ty) -> String {
     let bits = bits_of(ty);
+
     match op {
         KOp::Mov => format!(
             "Move {bits} mask bits between mask registers, general-purpose registers and memory."
@@ -345,6 +350,7 @@ fn describe_vector(name: &str, op: VOp) -> String {
         VOp::Lanes(lane, ty, scalar) => {
             let f = float_lanes(ty, scalar);
             let i = lanes(ty);
+
             match lane {
                 Lane::And => "Bitwise AND of the sources.".into(),
                 Lane::Or => "Bitwise OR of the sources.".into(),
@@ -375,6 +381,7 @@ fn describe_vector(name: &str, op: VOp) -> String {
                 Shift::Logical => "right, filling with zeros",
                 Shift::Arith => "right, filling with the sign bit",
             };
+
             format!(
                 "Shift packed {} {what}, by an immediate or the low qword of a vector.",
                 lanes(ty)
@@ -403,6 +410,7 @@ fn describe_simd(name: &str, op: VOp) -> String {
     match op {
         VOp::Bin(b, ty) => {
             let i = lanes(ty);
+
             match b {
                 B2::AddSatS => format!("Add packed signed {i}, clamping to the signed range."),
                 B2::AddSatU => format!("Add packed unsigned {i}, clamping to the unsigned range."),
@@ -450,6 +458,7 @@ fn describe_simd(name: &str, op: VOp) -> String {
                 FmaKind::MaddSub => format!("dst = {x}*{y} - {z} in even lanes, + {z} in odd lanes"),
                 FmaKind::MsubAdd => format!("dst = {x}*{y} + {z} in even lanes, - {z} in odd lanes"),
             };
+
             format!("Fused multiply-add with one rounding on {}: {what}.", float_lanes(ty, scalar))
         }
         VOp::Horizontal(sub, sat, ty) => format!(

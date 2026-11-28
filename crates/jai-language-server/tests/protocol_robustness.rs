@@ -12,6 +12,7 @@ fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
 
 fn started() -> JsonSession {
     let mut session = JsonSession::new(Limits::default());
+
     send(
         &mut session,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
@@ -36,6 +37,7 @@ fn open(session: &mut JsonSession, uri: &str, text: &str) -> Vec<Value> {
 fn a_failed_change_drops_the_document_and_says_so() {
     let mut session = started();
     let uri = "file:///workspace/main.jai";
+
     open(&mut session, uri, "a :: 1;\n");
     let reversed = json!({
         "start": { "line": 0, "character": 5 },
@@ -53,11 +55,13 @@ fn a_failed_change_drops_the_document_and_says_so() {
         }),
     );
     let methods: Vec<&str> = out.iter().filter_map(|m| m["method"].as_str()).collect();
+
     assert!(methods.contains(&"window/showMessage"), "{out:?}");
     let cleared = out
         .iter()
         .find(|m| m["method"] == "textDocument/publishDiagnostics")
         .expect("diagnostics of the dropped document are cleared");
+
     assert_eq!(cleared["params"]["diagnostics"], json!([]));
     // The stale text is gone: nothing answers from it until the client opens the file again.
     let symbols = send(
@@ -69,6 +73,7 @@ fn a_failed_change_drops_the_document_and_says_so() {
             "params": { "textDocument": { "uri": uri } },
         }),
     );
+
     assert!(symbols[0].get("error").is_some(), "{symbols:?}");
     // Opening it again resyncs.
     open(&mut session, uri, "b :: 2;\n");
@@ -81,6 +86,7 @@ fn a_failed_change_drops_the_document_and_says_so() {
             "params": { "textDocument": { "uri": uri } },
         }),
     );
+
     assert!(symbols[0].get("error").is_none(), "{symbols:?}");
 }
 
@@ -102,11 +108,13 @@ fn cancel(id: i64) -> String {
 fn a_request_queued_ahead_of_its_cancellation_is_cancelled() {
     let mut session = started();
     let uri = "file:///workspace/main.jai";
+
     open(&mut session, uri, "a :: 1;\n");
     let batch = [symbols_request(2, uri), symbols_request(3, uri), cancel(3)];
     let answers = session.handle_batch(&batch).unwrap();
     let first: Value = serde_json::from_str(&answers[0][0]).unwrap();
     let second: Value = serde_json::from_str(&answers[1][0]).unwrap();
+
     assert!(first.get("error").is_none(), "{first}");
     assert_eq!(second["error"]["code"], -32800);
 }
@@ -115,12 +123,15 @@ fn a_request_queued_ahead_of_its_cancellation_is_cancelled() {
 fn cancellations_that_never_match_do_not_fill_the_store() {
     let mut session = started();
     let uri = "file:///workspace/main.jai";
+
     open(&mut session, uri, "a :: 1;\n");
+
     for id in 100..1000 {
         session
             .cancel_request(jai_language_server::RequestId::Number(id))
             .unwrap();
     }
+
     let batch = [
         symbols_request(5000, uri),
         cancel(5000),
@@ -130,6 +141,7 @@ fn cancellations_that_never_match_do_not_fill_the_store() {
     let batch = [batch[0].clone(), batch[2].clone(), cancel(5001)];
     let answers = session.handle_batch(&batch).unwrap();
     let second: Value = serde_json::from_str(&answers[1][0]).unwrap();
+
     assert_eq!(second["error"]["code"], -32800);
 }
 
@@ -141,12 +153,14 @@ fn an_oversized_request_gets_an_error_response() {
         r#"{{"jsonrpc":"2.0","id":41,"method":"textDocument/hover","params":{{"pad":"{padding}"}}}}"#
     );
     let mut decoder = FrameDecoder::new(128);
+
     assert!(decoder.push(&encode(&body)).unwrap().is_empty());
     let skipped = decoder.take_oversized();
     let replies: Vec<Value> = jai_language_server::oversized_replies(&skipped[0], 128)
         .iter()
         .map(|reply| serde_json::from_str(reply).unwrap())
         .collect();
+
     assert_eq!(replies[0]["id"], 41);
     assert!(replies[0]["error"]["code"].is_i64(), "{replies:?}");
     assert_eq!(replies[1]["method"], "window/showMessage");
@@ -158,17 +172,20 @@ fn publications_over_the_output_limit_do_not_end_the_session() {
         output_bytes: 300,
         ..Limits::default()
     });
+
     session.defer_publications(true);
     send(
         &mut session,
         json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }),
     );
     let broken = "main :: ( { } ) ;;; ( ( ( x := ; y := ; z := ;\n".repeat(20);
+
     open(&mut session, "file:///workspace/main.jai", &broken);
     let flushed = session
         .flush_publications()
         .expect("the limit is not fatal");
     let logged: Value = serde_json::from_str(&flushed[0]).unwrap();
+
     assert_eq!(logged["method"], "window/logMessage");
 }
 
@@ -177,6 +194,7 @@ fn framing_accepts_blank_lines_and_a_quoted_charset() {
     use jai_language_server::framing::FrameDecoder;
     let wire = b"\r\n\r\nContent-Length: 2\r\nContent-Type: application/vscode-jsonrpc; charset=\"utf-8\"\r\n\r\n{}\r\nContent-Length: 2\r\n\r\n{}";
     let mut decoder = FrameDecoder::new(128);
+
     assert_eq!(decoder.push(wire).unwrap(), ["{}", "{}"]);
     decoder.finish().unwrap();
 }
@@ -185,6 +203,7 @@ fn framing_accepts_blank_lines_and_a_quoted_charset() {
 fn local_file_uris_have_one_spelling() {
     use jai_language_server::DocumentUri;
     let plain = DocumentUri::parse("file:///work/a.jai").unwrap();
+
     for spelling in [
         "file://localhost/work/a.jai",
         "file:/work/a.jai",
@@ -192,6 +211,7 @@ fn local_file_uris_have_one_spelling() {
     ] {
         assert_eq!(DocumentUri::parse(spelling).unwrap(), plain, "{spelling}");
     }
+
     assert!(DocumentUri::parse("file://other/work/a.jai").is_err());
 }
 
@@ -199,6 +219,7 @@ fn local_file_uris_have_one_spelling() {
 fn documents_that_are_not_local_files_are_left_alone() {
     let mut session = started();
     let out = open(&mut session, "untitled:Untitled-1", "x :: 1;");
+
     assert!(out.is_empty(), "{out:?}");
     let out = send(
         &mut session,
@@ -211,6 +232,7 @@ fn documents_that_are_not_local_files_are_left_alone() {
             },
         }),
     );
+
     assert!(out.is_empty(), "{out:?}");
 }
 
@@ -228,6 +250,7 @@ fn a_jai_file_opens_whatever_the_client_calls_its_language() {
             } },
         }),
     );
+
     assert_eq!(out[0]["method"], "textDocument/publishDiagnostics");
     let out = send(
         &mut session,
@@ -240,6 +263,7 @@ fn a_jai_file_opens_whatever_the_client_calls_its_language() {
             } },
         }),
     );
+
     assert!(
         out.iter()
             .any(|m| m["method"] == "textDocument/publishDiagnostics"),

@@ -56,15 +56,19 @@ impl Suppressions {
             entries: Vec::new(),
         };
         let mut conditional = Vec::new();
+
         s.notes(&ast.stmts, &mut conditional);
         s.comments(text, tokens, comments);
         // Code in one branch of an `#if` can be what a suppression outside it is for (an
         // import only the Windows branch uses), so a file with any `#if` is not judged.
         let file_has_if = !conditional.is_empty();
+
         for entry in &mut s.entries {
             let at = entry.names.first().map_or(0, |n| n.at.0);
+
             entry.conditional |= file_has_if || conditional.iter().any(|&(a, b)| a <= at && at < b);
         }
+
         s
     }
 
@@ -72,6 +76,7 @@ impl Suppressions {
     pub fn allows_rule(&self, rule: &crate::RuleInfo, offset: usize) -> bool {
         let by_name = self.allows(rule.name, offset);
         let by_category = self.allows(rule.category.as_str(), offset);
+
         by_name || by_category
     }
 
@@ -79,15 +84,18 @@ impl Suppressions {
     /// name that does is marked used.
     pub fn allows(&self, rule: &str, offset: usize) -> bool {
         let mut found = false;
+
         for entry in &self.entries {
             let covers = match entry.scope {
                 Scope::File => true,
                 Scope::Lines(a, b) => a <= offset && offset <= b,
                 Scope::Range(a, b) => a <= offset && offset < b,
             };
+
             if !covers {
                 continue;
             }
+
             for name in &entry.names {
                 if name.text == rule || name.text == "all" {
                     name.used.set(true);
@@ -95,6 +103,7 @@ impl Suppressions {
                 }
             }
         }
+
         found
     }
 
@@ -103,6 +112,7 @@ impl Suppressions {
     /// nothing), and it is not misspelt (`unknown_allow` reports that).
     pub fn unused(&self, judge: &dyn Fn(&str) -> bool) -> Vec<Unused> {
         let mut out = Vec::new();
+
         for entry in self.entries.iter().filter(|e| !e.conditional) {
             for name in &entry.names {
                 if !name.used.get() && judge(&name.text) {
@@ -114,6 +124,7 @@ impl Suppressions {
                 }
             }
         }
+
         out
     }
 
@@ -122,6 +133,7 @@ impl Suppressions {
             if comment.kind != CommentKind::Line {
                 continue;
             }
+
             let (start, line_end) = (comment.span.start as usize, comment.span.end as usize);
             let Some((file_wide, rules)) = directive(comment.body(text)) else {
                 continue;
@@ -130,6 +142,7 @@ impl Suppressions {
                 .into_iter()
                 .map(|r| {
                     let at = offset_in(text, r).unwrap_or(start);
+
                     Name {
                         text: r.to_string(),
                         at: (at, at + r.len()),
@@ -141,6 +154,7 @@ impl Suppressions {
                 Scope::File
             } else {
                 let line_start = jaic::source::line_start(text, start);
+
                 if text[line_start..start].trim().is_empty() {
                     // The next line holding code: the comment lines in between are covered
                     // too (a marker inside a doc comment covers the links below it).
@@ -149,11 +163,13 @@ impl Suppressions {
                         continue;
                     };
                     let end = jaic::source::line_end(text, t.span.start as usize);
+
                     Scope::Lines(line_end + 1, end)
                 } else {
                     Scope::Lines(line_start, line_end)
                 }
             };
+
             self.entries.push(Entry {
                 scope,
                 names,
@@ -165,13 +181,16 @@ impl Suppressions {
     fn notes(&mut self, stmts: &[Stmt], conditional: &mut Vec<(usize, usize)>) {
         for s in stmts {
             let mut stack = Vec::new();
+
             jaic::ast::walk::walk_node(jaic::ast::walk::Node::Stmt(s), &mut stack, &mut |n, _| {
                 match n {
                     jaic::ast::walk::Node::Stmt(s) => {
                         if matches!(s.kind, StmtKind::StaticIf(_) | StmtKind::StaticSwitch(_)) {
                             conditional.push((s.span.start as usize, s.span.end as usize));
                         }
+
                         self.note_list(&s.notes, s.span);
+
                         if let StmtKind::Decl(d) = &s.kind {
                             self.note_list(&d.notes, s.span.to(d.span));
                         }
@@ -179,15 +198,18 @@ impl Suppressions {
                     jaic::ast::walk::Node::Expr(e) => {
                         if let jaic::ast::ExprKind::Proc(lit) = &e.kind {
                             self.note_list(&lit.header.notes, e.span);
+
                             if let Some(body) = &lit.body {
                                 self.notes(&body.stmts, conditional);
                             }
                         }
+
                         if let jaic::ast::ExprKind::Struct(st) = &e.kind {
                             self.notes(&st.body, conditional);
                         }
                     }
                 }
+
                 true
             });
         }
@@ -198,8 +220,10 @@ impl Suppressions {
             let Some(list) = note.text.strip_prefix(NOTE) else {
                 continue;
             };
+
             if let Some(rules) = rule_list(list) {
                 let at = (note.span.start as usize, note.span.end as usize);
+
                 self.entries.push(Entry {
                     scope: Scope::Range(span.start as usize, span.end as usize),
                     names: rules
@@ -233,6 +257,7 @@ pub(crate) fn could_judge(name: &str, ran: &[&str]) -> bool {
     } else {
         return false;
     };
+
     name != "unused_suppression"
         && covered
             .iter()
@@ -254,6 +279,7 @@ pub(crate) fn directive(body: &str) -> Option<(bool, Vec<&str>)> {
     } else {
         (false, rest.strip_prefix("allow")?)
     };
+
     Some((file_wide, rule_list(list)?))
 }
 
@@ -266,6 +292,7 @@ fn rule_list(text: &str) -> Option<Vec<&str>> {
         .map(str::trim)
         .filter(|r| !r.is_empty())
         .collect();
+
     (!rules.is_empty()).then_some(rules)
 }
 
@@ -281,6 +308,7 @@ mod tests {
             stmts: Vec::new(),
             lenient: Vec::new(),
         });
+
         Suppressions::new(text, &tokens, &comments, &ast)
     }
 
@@ -289,6 +317,7 @@ mod tests {
         let text = "f :: () {\n    // jailint: allow(a)\n    // more words\n    x := 1;\n    y := 2; // jailint: allow(b, c)\n    z := \"// jailint: allow(d)\";\n}\n";
         let s = suppressions(text);
         let at = |needle: &str| text.find(needle).unwrap();
+
         assert!(s.allows("a", at("x :=")));
         assert!(!s.allows("a", at("y :=")));
         assert!(s.allows("c", at("y :=")));
@@ -300,6 +329,7 @@ mod tests {
         let text =
             "f :: (a: int) {\n    x := 1;\n} @jailint_allow(unused_parameter)\ng :: () { }\n";
         let s = suppressions(text);
+
         assert!(s.allows("unused_parameter", text.find("a:").unwrap()));
         assert!(s.allows("unused_parameter", text.find("x :=").unwrap()));
         assert!(!s.allows("unused_parameter", text.find("g ::").unwrap()));
@@ -310,6 +340,7 @@ mod tests {
         let text = "// jailint: allow-file(pedantic)\nx := 1;\n";
         let s = suppressions(text);
         let rule = |name: &str| crate::RULES.iter().find(|r| r.name == name).unwrap();
+
         assert!(s.allows_rule(rule("magic_number"), text.find("x :=").unwrap()));
         assert!(!s.allows_rule(rule("double_free"), text.find("x :=").unwrap()));
     }
@@ -317,6 +348,7 @@ mod tests {
     #[test]
     fn file_wide() {
         let s = suppressions("// jailint: allow-file(all)\nx := 1;\n");
+
         assert!(s.allows("anything", 30));
     }
 
@@ -324,6 +356,7 @@ mod tests {
     fn a_slash_pair_inside_a_string_is_not_a_comment() {
         let text = "x := \"http://a\"; // jailint: allow(a)\ny := \"http:// jailint: allow(b)\";\n";
         let s = suppressions(text);
+
         assert!(s.allows("a", text.find("x :=").unwrap()));
         assert!(!s.allows("b", text.find("y :=").unwrap()));
     }
@@ -333,6 +366,7 @@ mod tests {
         let text =
             "/* // jailint: allow(a) */\nx := 1;\n/* /* // jailint: allow(b) */ */\ny := 2;\n";
         let s = suppressions(text);
+
         assert!(!s.allows("a", text.find("x :=").unwrap()));
         assert!(!s.allows("b", text.find("y :=").unwrap()));
     }
@@ -341,6 +375,7 @@ mod tests {
     fn a_marker_after_a_nested_block_comment_still_counts() {
         let text = "/* a /* b */ c */\n// jailint: allow(a)\nx := 1;\n";
         let s = suppressions(text);
+
         assert!(s.allows("a", text.find("x :=").unwrap()));
     }
 
@@ -348,6 +383,7 @@ mod tests {
     fn an_unterminated_block_comment_swallows_the_rest() {
         let text = "// jailint: allow(a)\nx := 1;\n/* open\n// jailint: allow(b)\ny := 2;\n";
         let s = suppressions(text);
+
         assert!(s.allows("a", text.find("x :=").unwrap()));
         assert!(!s.allows("b", text.find("y :=").unwrap()));
     }
@@ -356,10 +392,13 @@ mod tests {
     fn names_that_silenced_nothing_are_unused() {
         let text = "// jailint: allow(a, b)\nx := 1;\ny := 2; // jailint: allow(c)\n";
         let s = suppressions(text);
+
         assert!(s.allows("a", text.find("x :=").unwrap()));
         let unused: Vec<String> = s.unused(&|_| true).into_iter().map(|u| u.name).collect();
+
         assert_eq!(unused, ["b", "c"]);
         let none = s.unused(&|name| name == "c");
+
         assert_eq!(none.len(), 1);
         assert_eq!(&text[none[0].start..none[0].end], "c");
     }
@@ -369,12 +408,14 @@ mod tests {
         // The import is used only in the Windows branch: on other targets the allow is needed.
         let text = "#import \"Basic\"; // jailint: allow(a)\n#if OS == .WINDOWS {\n// jailint: allow(b)\nz := 3;\n}\n";
         let s = suppressions(text);
+
         assert!(s.unused(&|_| true).is_empty());
     }
 
     #[test]
     fn a_name_is_judged_only_when_its_rules_ran() {
         let ran = ["unused_variable", "float_equality"];
+
         assert!(could_judge("unused_variable", &ran));
         assert!(!could_judge("magic_number", &ran));
         assert!(!could_judge("no_such_rule", &ran));

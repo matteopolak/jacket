@@ -19,8 +19,10 @@ pub(super) fn returns_context_storage(c: &super::Compiler, body: &LifetimeBody) 
         })
         .collect();
     let mut marks = HashMap::<Val, u8>::default();
+
     loop {
         let mut changed = false;
+
         for e in body.blocks.iter().flat_map(|b| &b.events) {
             let update = match e {
                 Event::Field {
@@ -50,6 +52,7 @@ pub(super) fn returns_context_storage(c: &super::Compiler, body: &LifetimeBody) 
                     ..
                 } => {
                     let mark = marks.get(place).copied().unwrap_or(0);
+
                     Some((
                         *value,
                         (mark & 3)
@@ -87,18 +90,22 @@ pub(super) fn returns_context_storage(c: &super::Compiler, body: &LifetimeBody) 
                 // No transfer through calls: copying bytes into a heap allocation breaks provenance.
                 _ => None,
             };
+
             if let Some((value, mark)) = update {
                 let old = marks.entry(value).or_default();
+
                 if mark & !*old != 0 {
                     *old |= mark;
                     changed = true;
                 }
             }
         }
+
         if !changed {
             break;
         }
     }
+
     body.blocks.iter().flat_map(|b| &b.events).any(
         |e| matches!(e, Event::Return{value,..} if marks.get(value).is_some_and(|m| m & 2 != 0)),
     )

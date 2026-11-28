@@ -36,14 +36,17 @@ impl Compiler {
         let is_shift = is_shift(op);
         let (lt, rt) = (lhs.ty(), rhs.ty());
         let patterns = (lhs.bit_pattern(), rhs.bit_pattern());
+
         if is_shift {
             if lu {
                 return Ok(expected
                     .filter(|&e| self.ty.types.is_integer(e))
                     .unwrap_or(TypeId::S64));
             }
+
             return Ok(lt);
         }
+
         match (lu, ru) {
             (true, true) => {
                 let lf = matches!(
@@ -60,9 +63,11 @@ impl Compiler {
                         ..
                     }
                 );
+
                 if lt == TypeId::NULL || rt == TypeId::NULL {
                     return Ok(TypeId::VOID_PTR);
                 }
+
                 Ok(if lf || rf {
                     let natural = if [lhs, rhs].iter().any(|o| {
                         o.const_value()
@@ -72,6 +77,7 @@ impl Compiler {
                     } else {
                         TypeId::F32
                     };
+
                     expected
                         .filter(|&e| self.ty.types.is_float(e))
                         .unwrap_or(natural)
@@ -87,17 +93,21 @@ impl Compiler {
                 if lt == rt {
                     return Ok(lt);
                 }
+
                 // Widening within the same class.
                 if self.implicit_cost(rt, false, lt).is_some() {
                     return Ok(lt);
                 }
+
                 if self.implicit_cost(lt, false, rt).is_some() {
                     return Ok(rt);
                 }
+
                 // An integer meeting a float in arithmetic becomes that float. A comparison
                 // has no such conversion: integer and float variables compare only after a cast.
                 let mixed = (self.ty.types.is_float(lt) && self.ty.types.is_integer(rt))
                     || (self.ty.types.is_integer(lt) && self.ty.types.is_float(rt));
+
                 if mixed && !is_comparison(op) {
                     return Ok(if self.ty.types.is_float(lt) {
                         lt
@@ -105,7 +115,9 @@ impl Compiler {
                         rt
                     });
                 }
+
                 let (li, ri) = (self.ty.types.int_info(lt), self.ty.types.int_info(rt));
+
                 if let (Some((lb, _)), Some((rb, _))) = (li, ri) {
                     // Mixed signedness: Jai requires a cast, but comparisons with
                     // literals are common; pick the wider type.
@@ -115,13 +127,16 @@ impl Compiler {
                         rt
                     });
                 }
+
                 // A procedure value meets a `*void` as an address (`proc == get_caller_address()`).
                 let is_proc = |c: &Self, t| matches!(c.ty.types.kind(t), TypeKind::Proc(_));
+
                 if (is_proc(self, lt) && rt == TypeId::VOID_PTR)
                     || (is_proc(self, rt) && lt == TypeId::VOID_PTR)
                 {
                     return Ok(TypeId::VOID_PTR);
                 }
+
                 let mut d = Diagnostic::new(
                     Code::BinaryTypeMismatch,
                     span,
@@ -145,6 +160,7 @@ impl Compiler {
                     (Some(c), _) => (rt, Some(c)),
                     _ => (lt, None),
                 };
+
                 if let Some(c) = text
                     && self.ty.types.is_integer(int_side)
                 {
@@ -159,11 +175,13 @@ impl Compiler {
                         ["left", "right"][side]
                     );
                     let wrap = Wrap::cast(to_name);
+
                     d = match wrap_suggestion(&self.src.sources, title.clone(), at, &wrap) {
                         Some(suggestion) => d.with_suggestion(suggestion),
                         None => d.with_help(title),
                     };
                 }
+
                 Err(Box::new(d))
             }
         }
@@ -177,9 +195,11 @@ impl Compiler {
     fn binary_cast_side(&self, lt: TypeId, rt: TypeId) -> Option<(usize, TypeId)> {
         let types = &self.ty.types;
         let number = |t| types.is_integer(t) || types.is_float(t) || types.repr(t) == TypeId::BOOL;
+
         if !number(lt) || !number(rt) {
             return None;
         }
+
         let rank = |t| {
             if types.is_float(t) {
                 (3, 0)
@@ -189,6 +209,7 @@ impl Compiler {
                 (2, types.int_info(t).map_or(0, |(bits, _)| bits))
             }
         };
+
         // The side with the lower rank is converted; the left one when equal.
         Some(if rank(rt) > rank(lt) {
             (0, rt)
@@ -224,6 +245,7 @@ impl TypeState {
                 TypeId::U64
             };
         }
+
         // A `float32` operand meeting a float literal with more digits than `float32` keeps
         // (`x + 0.1591549431`) widens the operation to `float64`.
         if let Operand::Const {
@@ -236,6 +258,7 @@ impl TypeState {
         {
             return TypeId::F64;
         }
+
         ty
     }
 
@@ -270,6 +293,7 @@ impl TypeState {
             } => lhs_ty,
             other => {
                 let t = other.ty();
+
                 if self.types.is_integer(t) {
                     t
                 } else {

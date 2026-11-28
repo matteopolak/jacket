@@ -11,6 +11,7 @@ use crate::sema::asm::vec::{Lane, Shift, VOp};
 
 pub(super) fn core_feature(name: &str, kind: Kind) -> &'static str {
     let name = name.strip_prefix("lock_").unwrap_or(name);
+
     match kind {
         Kind::Core(op) => match op {
             Op::Movbe => "MOVBE",

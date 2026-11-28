@@ -59,6 +59,7 @@ mod pthread_name_tests {
     #[test]
     fn invalid_pthread_name_handles_never_fall_through_to_native() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+
         for (symbol, args) in [
             ("pthread_setname_np", vec![0, 0]),
             ("pthread_getname_np", vec![0, 0, 16]),
@@ -67,6 +68,7 @@ mod pthread_name_tests {
             let result = interp
                 .thread_foreign(&Program::default(), symbol, &args)
                 .expect("scheduler-owned pthread naming must be intercepted");
+
             assert!(result.is_err(), "invalid identity must not report success");
         }
     }
@@ -74,6 +76,7 @@ mod pthread_name_tests {
     #[test]
     fn inline_pthread_names_report_unsupported_without_native_fallback() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+
         for (symbol, args) in [
             ("pthread_setname_np", vec![1, 0]),
             ("pthread_setname_np", vec![0]),
@@ -83,6 +86,7 @@ mod pthread_name_tests {
                 .inline_thread_foreign(&Program::default(), symbol, &args)
                 .expect("inline scheduler must own naming dispatch")
                 .expect_err("no OS pthread exists in the inline scheduler");
+
             assert!(error.message.contains("unsupported"), "{error:?}");
         }
     }
@@ -90,6 +94,7 @@ mod pthread_name_tests {
     #[test]
     fn wrong_signature_and_cross_target_names_are_explicit_errors() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+
         for symbol in ["pthread_setname_np", "pthread_getname_np"] {
             assert!(
                 interp
@@ -105,6 +110,7 @@ mod pthread_name_tests {
                 .thread_foreign(&program, symbol, &[1, 0, 16])
                 .unwrap()
                 .unwrap_err();
+
             assert!(error.message.contains("cross-target"));
         }
     }
@@ -114,9 +120,11 @@ mod pthread_name_tests {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
         let shared = interp.shared();
         let mut thread = GThread::new(false, None);
+
         thread.finished = true;
         shared.lock().add(thread);
         shared.lock().add(GThread::new(false, None));
+
         for handle in [2, 3] {
             assert!(
                 interp
@@ -130,6 +138,7 @@ mod pthread_name_tests {
     #[test]
     fn unrelated_foreigns_keep_their_existing_route() {
         let mut interp = Interp::native(crate::layout::DataLayout::host());
+
         assert!(
             interp
                 .thread_foreign(&Program::default(), "unrelated_symbol", &[])
@@ -160,10 +169,12 @@ mod worker_lifetime_tests {
             source: std::sync::Weak<str>,
             alive: Rc<std::cell::Cell<bool>>,
         }
+
         impl Host for LifetimeHost {
             fn write(&mut self, _: &[u8], _: bool) {
                 panic!("teardown-only observer must not execute");
             }
+
             fn foreign(
                 &mut self,
                 _: &str,
@@ -172,20 +183,25 @@ mod worker_lifetime_tests {
             ) -> Option<Result<Vec<u64>, String>> {
                 panic!("teardown-only observer must not execute");
             }
+
             fn native_linking(&self) -> bool {
                 panic!("teardown-only observer must not execute");
             }
         }
+
         impl Drop for LifetimeHost {
             fn drop(&mut self) {
                 self.alive.set(self.source.upgrade().is_some());
             }
         }
+
         let mut compiler = Compiler::new(Options::host(), Rc::new(VirtualFs::default()));
         let source: Arc<str> = "main :: () {}".into();
         let weak = Arc::downgrade(&source);
+
         compiler.src.sources.add("lifetime-order.jai", source);
         let alive = Rc::new(std::cell::Cell::new(false));
+
         compiler.ct.interp.set_host(Box::new(LifetimeHost {
             source: weak,
             alive: alive.clone(),
@@ -199,6 +215,7 @@ mod worker_lifetime_tests {
 
     fn cancelled_worker_is_reaped(suspended: bool) {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
         let source = format!(
@@ -214,10 +231,12 @@ worker :: (argument:*void)->u32 #c_call {{ Sleep(0xffff_ffff); return 17; }}
                 0
             }
         );
+
         compiler
             .compile_sources(&[ProgramSource::String(source)])
             .unwrap();
         let shared = compiler.ct.interp.shared.as_ref().unwrap().clone();
+
         assert!(
             Arc::strong_count(&shared) > 1,
             "worker must exist before teardown"
@@ -229,6 +248,7 @@ worker :: (argument:*void)->u32 #c_call {{ Sleep(0xffff_ffff); return 17; }}
             .unwrap()
             .try_clone()
             .unwrap();
+
         drop(compiler);
         #[cfg(windows)]
         {
@@ -258,14 +278,17 @@ worker :: (argument:*void)->u32 #c_call {{ Sleep(0xffff_ffff); return 17; }}
             })
         });
         let deadline = Instant::now() + Duration::from_secs(2);
+
         while !shared.lock().threads.iter().any(|thread| thread.adopted) {
             if Instant::now() >= deadline {
                 shared.close();
                 assert!(join.join().expect("callback must stop normally").is_err());
                 panic!("callback must request its lease");
             }
+
             std::thread::yield_now();
         }
+
         shared.close();
         assert!(join.join().unwrap().is_err());
         assert!(
@@ -282,6 +305,7 @@ worker :: (argument:*void)->u32 #c_call {{ Sleep(0xffff_ffff); return 17; }}
     #[test]
     fn teardown_reaps_a_worker_returning_from_a_finite_native_call() {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
         let (foreign, call) = if cfg!(windows) {
@@ -304,10 +328,12 @@ worker :: (argument:*void)->u32 #c_call {{ {call} return 17; }}
 #run {{ CreateThread(null,0,cast(*void)worker,null,0,null); Sleep(5); }}
 "
         );
+
         compiler
             .compile_sources(&[ProgramSource::String(source)])
             .unwrap();
         let shared = compiler.ct.interp.shared.as_ref().unwrap().clone();
+
         drop(compiler);
         assert_eq!(
             Arc::strong_count(&shared),

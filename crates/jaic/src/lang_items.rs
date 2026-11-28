@@ -113,19 +113,23 @@ mod prelude_type_tests {
     fn every_prelude_type_is_declared_in_the_prelude() {
         let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib/prelude");
         let mut text = String::new();
+
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
+
             if path.extension().is_some_and(|e| e == "jai") {
                 text.push_str(&std::fs::read_to_string(path).unwrap());
                 text.push('\n');
             }
         }
+
         for ty in PreludeType::ALL {
             let declared = text.lines().any(|line| {
                 line.trim_start()
                     .strip_prefix(ty.name())
                     .is_some_and(|rest| rest.trim_start().starts_with("::"))
             });
+
             assert!(declared, "{} is not declared in stdlib/prelude", ty.name());
         }
     }

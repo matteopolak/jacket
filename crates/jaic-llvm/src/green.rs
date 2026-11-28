@@ -79,9 +79,11 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
     let spawn = *exports.get(SPAWN)?;
     let control = control_global(program.funcs[*exports.get(CONTROL)?].as_ref()?)?;
     let fields = control_layout(layout);
+
     if program.globals.get(control.0 as usize)?.size < fields.size {
         return None;
     }
+
     // A `#foreign` procedure that the program itself `#program_export`s is that procedure.
     let bound: Vec<Option<usize>> = program
         .foreigns
@@ -103,11 +105,13 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
     };
     let mut taken = vec![false; n];
     let mut reaches: Vec<Vec<Reach>> = vec![Vec::new(); n];
+
     for (i, func) in program.funcs.iter().enumerate() {
         let Some(func) = func else {
             continue;
         };
         let mut seen = HashSet::default();
+
         for inst in func.blocks.iter().flat_map(|b| &b.insts) {
             match inst {
                 Inst::FuncAddr {
@@ -126,6 +130,7 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
                         Callee::Foreign(f) => bound[f.0 as usize].map(Reach::Func),
                         Callee::Indirect(_, sig) => Some(Reach::Sig(intern(sig))),
                     };
+
                     if let Some(reach) = reach
                         && seen.insert(reach)
                     {
@@ -136,6 +141,7 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
             }
         }
     }
+
     for reloc in program.globals.iter().flat_map(|g| &g.relocs) {
         match reloc.target {
             RelocTarget::Func(f) => taken[f.0 as usize] = true,
@@ -147,10 +153,13 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
             RelocTarget::Global(_) => {}
         }
     }
+
     let spawns = taken[spawn] || reaches.iter().flatten().any(|&r| r == Reach::Func(spawn));
+
     if !spawns {
         return None;
     }
+
     let func_sig: Vec<Option<usize>> = program
         .funcs
         .iter()
@@ -160,10 +169,13 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
     // Which procedures may block: the suspend primitive, and whatever may call one that may.
     // The scheduler is the bottom of every thread, where unwinding stops, and `_start` below it.
     let mut blocks = vec![false; n];
+
     blocks[suspend] = true;
     let mut blocking_sigs = vec![false; sigs.len()];
+
     loop {
         let mut changed = false;
+
         for f in 0..n {
             if blocks[f]
                 && taken[f]
@@ -174,19 +186,23 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
                 changed = true;
             }
         }
+
         for f in 0..n {
             if blocks[f] || f == scheduler || Some(f) == start || program.funcs[f].is_none() {
                 continue;
             }
+
             let reaches_block = reaches[f].iter().any(|&r| match r {
                 Reach::Func(g) => blocks[g],
                 Reach::Sig(s) => blocking_sigs[s],
             });
+
             if reaches_block {
                 blocks[f] = true;
                 changed = true;
             }
         }
+
         if !changed {
             break;
         }
@@ -194,6 +210,7 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
 
     let mut out = program.clone();
     let global = &mut out.globals[control.0 as usize];
+
     global
         .init
         .resize(global.init.len().max(fields.size as usize), 0);
@@ -208,6 +225,7 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
         fields,
         exhausted: FuncId(exhausted as u32),
     };
+
     for (f, func) in out.funcs.iter_mut().enumerate() {
         if blocks[f]
             && f != suspend
@@ -216,12 +234,14 @@ pub fn instrument(program: &Program, layout: &jaic::layout::DataLayout) -> Optio
             rewrite(func, &may_block, &names);
         }
     }
+
     Some(out)
 }
 
 /// The global `jaic_wasi_green_control` returns the address of.
 fn control_global(func: &Func) -> Option<GlobalId> {
     let mut found = None;
+
     for inst in func.blocks.iter().flat_map(|b| &b.insts) {
         if let Inst::GlobalAddr {
             global, ..
@@ -230,9 +250,11 @@ fn control_global(func: &Func) -> Option<GlobalId> {
             if found.is_some_and(|g| g != *global) {
                 return None;
             }
+
             found = Some(*global);
         }
     }
+
     found
 }
 
@@ -388,6 +410,7 @@ fn uses_mut(inst: &mut Inst, f: &mut impl FnMut(&mut Val)) {
             if let Callee::Indirect(v, _) = &mut call.callee {
                 f(v);
             }
+
             call.args.iter_mut().for_each(f);
         }
         Inst::Intrinsic(call) => call.args.iter_mut().for_each(f),
@@ -447,6 +470,7 @@ fn shift_targets(term: &mut Term, by: u32) {
             for (_, t) in cases {
                 t.0 += by;
             }
+
             default.0 += by;
         }
         Term::Ret(_) | Term::Unreachable => {}
@@ -484,6 +508,7 @@ impl Body {
 
     fn konst(&mut self, insts: &mut Vec<Inst>, ty: Ty, value: u64) -> Val {
         let dst = self.val(ty);
+
         insts.push(match ty {
             Ty::F32 | Ty::F64 => Inst::FConst {
                 dst,
@@ -502,6 +527,7 @@ impl Body {
     fn at(&mut self, insts: &mut Vec<Inst>, base: Val, offset: u64) -> Val {
         let offset = self.konst(insts, Ty::I64, offset);
         let dst = self.val(Ty::Ptr);
+
         insts.push(Inst::PtrAdd {
             dst,
             base,
@@ -513,6 +539,7 @@ impl Body {
 
     fn int_of(&mut self, insts: &mut Vec<Inst>, ptr: Val) -> Val {
         let dst = self.val(Ty::I64);
+
         insts.push(Inst::Conv {
             dst,
             op: ConvOp::Bitcast,
@@ -542,48 +569,64 @@ fn number_stretches(
     may_block: &dyn Fn(&Callee) -> bool,
 ) -> Stretches {
     let mut def_stretch = vec![UNDEFINED; nvals];
+
     def_stretch[..params].fill(PARAM);
     let mut hoisted = Vec::new();
     let mut stretch = 0u32;
+
     for block in old {
         let mut current = stretch;
+
         stretch += 1;
+
         for inst in &block.insts {
             if is_blocking_call(inst, may_block) {
                 current = stretch;
                 stretch += 1;
             }
+
             if let Some(dst) = hoistable(inst) {
                 def_stretch[dst.0 as usize] = HOISTED;
                 hoisted.push(inst.clone());
+
                 continue;
             }
+
             for d in defs(inst) {
                 def_stretch[d.0 as usize] = current;
             }
         }
     }
+
     // A value used in another stretch than the one defining it lives in the frame.
     let mut spilled = vec![false; nvals];
+
     stretch = 0;
     let mut mark = |v: Val, current: u32| {
         let d = def_stretch[v.0 as usize];
+
         if d != current && d != HOISTED {
             spilled[v.0 as usize] = true;
         }
     };
+
     for block in old {
         let mut current = stretch;
+
         stretch += 1;
+
         for inst in &block.insts {
             if is_blocking_call(inst, may_block) {
                 current = stretch;
                 stretch += 1;
             }
+
             uses_mut(&mut inst.clone(), &mut |v| mark(*v, current));
         }
+
         term_uses_mut(&mut block.term.clone(), &mut |v| mark(*v, current));
     }
+
     Stretches {
         def_stretch,
         hoisted,
@@ -607,21 +650,26 @@ fn frame_layout(slots: &[jaic::ir::Slot], spilled: &[bool]) -> Layout {
         .iter()
         .map(|slot| {
             let a = slot.align.clamp(1, 1 << 16).next_power_of_two();
+
             align = align.max(a);
             size = size.next_multiple_of(a);
             let offset = size;
+
             size += slot.size.max(1);
             offset
         })
         .collect();
+
     size = size.next_multiple_of(8);
     let mut spill_offsets = vec![None; spilled.len()];
+
     for (v, offset) in spill_offsets.iter_mut().enumerate() {
         if spilled[v] {
             *offset = Some(size);
             size += 8;
         }
     }
+
     Layout {
         align,
         size: size.next_multiple_of(align),
@@ -669,12 +717,14 @@ fn emit_prologue(
     // Entry: take a frame from the thread's frame stack.
     let mut entry = Vec::new();
     let control = body.val(Ty::Ptr);
+
     entry.push(Inst::GlobalAddr {
         dst: control,
         global: rt.control,
     });
     let top_addr = body.at(&mut entry, control, rt.fields.offsets[1]);
     let old_top = body.val(Ty::Ptr);
+
     entry.push(Inst::Load {
         dst: old_top,
         ty: Ty::Ptr,
@@ -683,6 +733,7 @@ fn emit_prologue(
     let old_top_int = body.int_of(&mut entry, old_top);
     let round = body.konst(&mut entry, Ty::I64, align - 1);
     let rounded = body.val(Ty::I64);
+
     entry.push(Inst::Bin {
         dst: rounded,
         op: jaic::ir::BinOp::Add,
@@ -692,6 +743,7 @@ fn emit_prologue(
     });
     let mask = body.konst(&mut entry, Ty::I64, !(align - 1));
     let frame_int = body.val(Ty::I64);
+
     entry.push(Inst::Bin {
         dst: frame_int,
         op: jaic::ir::BinOp::And,
@@ -700,6 +752,7 @@ fn emit_prologue(
         b: mask,
     });
     let frame = body.val(Ty::Ptr);
+
     entry.push(Inst::Conv {
         dst: frame,
         op: ConvOp::Bitcast,
@@ -712,6 +765,7 @@ fn emit_prologue(
     let new_top_int = body.int_of(&mut entry, new_top);
     let limit_addr = body.at(&mut entry, control, rt.fields.offsets[2]);
     let limit = body.val(Ty::Ptr);
+
     entry.push(Inst::Load {
         dst: limit,
         ty: Ty::Ptr,
@@ -719,6 +773,7 @@ fn emit_prologue(
     });
     let limit_int = body.int_of(&mut entry, limit);
     let over = body.val(Ty::I8);
+
     entry.push(Inst::Cmp {
         dst: over,
         op: CmpOp::UGt,
@@ -726,6 +781,7 @@ fn emit_prologue(
         a: new_top_int,
         b: limit_int,
     });
+
     for inst in hoisted {
         match inst {
             Inst::SlotAddr {
@@ -733,6 +789,7 @@ fn emit_prologue(
                 slot,
             } => {
                 let offset = body.konst(&mut entry, Ty::I64, slot_offsets[slot.0 as usize]);
+
                 entry.push(Inst::PtrAdd {
                     dst,
                     base: frame,
@@ -743,12 +800,15 @@ fn emit_prologue(
             other => entry.push(other),
         }
     }
+
     let mut spill_addr = vec![None; spill_offsets.len()];
+
     for (v, offset) in spill_offsets.iter().enumerate() {
         if let Some(offset) = *offset {
             spill_addr[v] = Some(body.at(&mut entry, frame, offset));
         }
     }
+
     body.blocks[0] = Block {
         insts: entry,
         term: Term::Branch {
@@ -772,6 +832,7 @@ fn emit_prologue(
         value: new_top,
     }];
     let state = body.val(Ty::I64);
+
     insts.push(Inst::Load {
         dst: state,
         ty: Ty::I64,
@@ -779,6 +840,7 @@ fn emit_prologue(
     });
     let rewinding = body.konst(&mut insts, Ty::I64, REWINDING);
     let resuming = body.val(Ty::I8);
+
     insts.push(Inst::Cmp {
         dst: resuming,
         op: CmpOp::Eq,
@@ -799,6 +861,7 @@ fn emit_prologue(
         addr: dynamic_top_addr,
         value: new_top,
     }];
+
     for p in 0..params {
         if let Some(addr) = spill_addr[p] {
             insts.push(Inst::Store {
@@ -808,6 +871,7 @@ fn emit_prologue(
             });
         }
     }
+
     body.blocks[store_params] = Block {
         insts,
         term: Term::Jump(BlockId(1)),
@@ -832,6 +896,7 @@ fn emit_unwind_exit(body: &mut Body, fr: &Frame, returns: &[Ty], point: u64) -> 
     let leave = body.block();
     let mut leave_insts = Vec::new();
     let point_value = body.konst(&mut leave_insts, Ty::I64, point);
+
     leave_insts.push(Inst::Store {
         ty: Ty::I64,
         addr: fr.base,
@@ -841,6 +906,7 @@ fn emit_unwind_exit(body: &mut Body, fr: &Frame, returns: &[Ty], point: u64) -> 
         .iter()
         .map(|&ty| body.konst(&mut leave_insts, ty, 0))
         .collect();
+
     body.blocks[leave] = Block {
         insts: leave_insts,
         term: Term::Ret(dummies),
@@ -864,6 +930,7 @@ fn emit_frame_alloc(
         ..
     } = *fr;
     let top = body.val(Ty::Ptr);
+
     insts.push(Inst::Load {
         dst: top,
         ty: Ty::Ptr,
@@ -872,6 +939,7 @@ fn emit_frame_alloc(
     let top_int = body.int_of(insts, top);
     let padding = body.konst(insts, Ty::I64, align - 1);
     let rounded = body.val(Ty::I64);
+
     insts.push(Inst::Bin {
         dst: rounded,
         op: jaic::ir::BinOp::Add,
@@ -881,6 +949,7 @@ fn emit_frame_alloc(
     });
     let mask = body.konst(insts, Ty::I64, !(align - 1));
     let start = body.val(Ty::I64);
+
     insts.push(Inst::Bin {
         dst: start,
         op: jaic::ir::BinOp::And,
@@ -896,6 +965,7 @@ fn emit_frame_alloc(
         src: start,
     });
     let end = body.val(Ty::Ptr);
+
     insts.push(Inst::PtrAdd {
         dst: end,
         base: dst,
@@ -903,6 +973,7 @@ fn emit_frame_alloc(
         inbounds: false,
     });
     let remaining = body.val(Ty::I64);
+
     insts.push(Inst::Bin {
         dst: remaining,
         op: jaic::ir::BinOp::Sub,
@@ -911,6 +982,7 @@ fn emit_frame_alloc(
         b: start,
     });
     let over = body.val(Ty::I8);
+
     insts.push(Inst::Cmp {
         dst: over,
         op: CmpOp::UGt,
@@ -919,6 +991,7 @@ fn emit_frame_alloc(
         b: remaining,
     });
     let past = body.val(Ty::I8);
+
     insts.push(Inst::Cmp {
         dst: past,
         op: CmpOp::UGt,
@@ -927,6 +1000,7 @@ fn emit_frame_alloc(
         b: limit_int,
     });
     let wrap = body.val(Ty::I8);
+
     insts.push(Inst::Cmp {
         dst: wrap,
         op: CmpOp::ULt,
@@ -935,6 +1009,7 @@ fn emit_frame_alloc(
         b: top_int,
     });
     let bad = body.val(Ty::I8);
+
     insts.push(Inst::Bin {
         dst: bad,
         op: jaic::ir::BinOp::Or,
@@ -943,6 +1018,7 @@ fn emit_frame_alloc(
         b: past,
     });
     let invalid = body.val(Ty::I8);
+
     insts.push(Inst::Bin {
         dst: invalid,
         op: jaic::ir::BinOp::Or,
@@ -973,8 +1049,10 @@ fn rewrite_blocks(
     } = *fr;
     let mut resume_points: Vec<(u64, BlockId)> = Vec::new();
     let mut stretch = 0u32;
+
     for (b, block) in old.into_iter().enumerate() {
         let mut current = stretch;
+
         stretch += 1;
         let mut start = b + 1;
         let mut at = b + 1;
@@ -991,12 +1069,15 @@ fn rewrite_blocks(
             let Some(addr) = spill_addr[i] else {
                 return;
             };
+
             if def_stretch[i] == current {
                 return;
             }
+
             *v = *reloaded.entry(v.0).or_insert_with(|| {
                 let ty = body.vals[i];
                 let dst = body.val(ty);
+
                 loads.push(Inst::Load {
                     dst,
                     ty,
@@ -1014,14 +1095,17 @@ fn rewrite_blocks(
                 });
             }
         };
+
         for mut inst in block.insts {
             if hoistable(&inst).is_some() {
                 continue;
             }
+
             if is_blocking_call(&inst, may_block) {
                 // Close this stretch; the call starts the next one, in a block of its own that
                 // a resumed procedure jumps to.
                 let call_block = body.block();
+
                 body.blocks[at] = Block {
                     insts: std::mem::take(&mut insts),
                     term: Term::Jump(BlockId(call_block as u32)),
@@ -1038,10 +1122,13 @@ fn rewrite_blocks(
                     fetch(v, current, body, &mut loads, &mut reloaded);
                 });
                 let results = defs(&inst);
+
                 insts.push(inst);
                 let point = resume_points.len() as u64 + 1;
+
                 resume_points.push((point, BlockId(call_block as u32)));
                 let state = body.val(Ty::I64);
+
                 insts.push(Inst::Load {
                     dst: state,
                     ty: Ty::I64,
@@ -1049,6 +1136,7 @@ fn rewrite_blocks(
                 });
                 let unwinding_value = body.konst(&mut insts, Ty::I64, UNWINDING);
                 let unwinding = body.val(Ty::I8);
+
                 insts.push(Inst::Cmp {
                     dst: unwinding,
                     op: CmpOp::Eq,
@@ -1059,6 +1147,7 @@ fn rewrite_blocks(
                 // Unwinding: remember this call and return; the frame stays where it is.
                 let leave = emit_unwind_exit(body, fr, returns, point);
                 let next = body.block();
+
                 body.blocks[at] = Block {
                     insts: std::mem::take(&mut insts),
                     term: Term::Branch {
@@ -1068,15 +1157,19 @@ fn rewrite_blocks(
                     },
                 };
                 at = next;
+
                 for r in results {
                     store(r, body, &mut insts);
                 }
+
                 continue;
             }
+
             uses_mut(&mut inst, &mut |v| {
                 fetch(v, current, body, &mut loads, &mut reloaded);
             });
             let results = defs(&inst);
+
             if let Inst::StackAlloc {
                 dst,
                 size,
@@ -1087,6 +1180,7 @@ fn rewrite_blocks(
                 // the thread frame stack and save its top for the rewind walk.
                 let (invalid, end) = emit_frame_alloc(body, fr, &mut insts, dst, (size, align));
                 let ready = body.block();
+
                 body.blocks[at] = Block {
                     insts: std::mem::take(&mut insts),
                     term: Term::Branch {
@@ -1109,15 +1203,19 @@ fn rewrite_blocks(
             } else {
                 insts.push(inst);
             }
+
             for r in results {
                 store(r, body, &mut insts);
             }
         }
+
         let mut term = block.term;
+
         term_uses_mut(&mut term, &mut |v| {
             fetch(v, current, body, &mut loads, &mut reloaded);
         });
         shift_targets(&mut term, 1);
+
         if matches!(term, Term::Ret(_)) {
             // Returning normally gives the frame back.
             insts.push(Inst::Store {
@@ -1126,12 +1224,14 @@ fn rewrite_blocks(
                 value: old_top,
             });
         }
+
         body.blocks[at] = Block {
             insts,
             term,
         };
         body.blocks[start].insts.splice(0..0, loads);
     }
+
     resume_points
 }
 
@@ -1150,9 +1250,11 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
         vals: std::mem::take(&mut func.vals),
         blocks: Vec::new(),
     };
+
     for _ in 0..=old.len() {
         body.block();
     }
+
     let fr = emit_prologue(&mut body, rt, &layout, hoisted, params);
     let resume_points = rewrite_blocks(
         &mut body,
@@ -1165,6 +1267,7 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
 
     let index = body.val(Ty::I64);
     let saved_top = body.val(Ty::Ptr);
+
     body.blocks[fr.dispatch] = Block {
         insts: vec![
             Inst::Load {
@@ -1193,6 +1296,7 @@ fn rewrite(func: &mut Func, may_block: &dyn Fn(&Callee) -> bool, rt: &Runtime) {
     func.blocks = body.blocks;
     func.vals = body.vals;
     func.slots.clear();
+
     if let Some(debug) = &mut func.debug {
         // The variables' addresses are no longer slots; lines and scopes stay.
         debug.vars.clear();

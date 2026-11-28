@@ -51,12 +51,16 @@ pub(super) fn each_autocast(cx: &Cx, f: &mut dyn FnMut(&Expr, bool)) {
                     Some(Node::Expr(Expr { kind: E::Call { args, .. }, .. }))
                         if args.iter().any(|a| a.value.span == e.span)
                 );
+
                 f(e, as_argument);
             }
+
             true
         });
     };
+
     visit(cx.stmts);
+
     for p in &cx.procs {
         visit(&p.body.stmts);
     }
@@ -82,6 +86,7 @@ pub(super) fn report(cx: &Cx, e: &Expr, what: &str) -> Finding {
     let plain = matches!(&e.kind, E::Cast { flags, .. } if *flags == CastFlags::default())
         && !target.contains(' ');
     let span = jaic::source::Span::new(cx.file, e.span.start as usize, e.span.start as usize + 2);
+
     if plain {
         super::suggesting(
             span,

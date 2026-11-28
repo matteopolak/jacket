@@ -6,33 +6,42 @@ use std::path::{Path, PathBuf};
 fn distance(a: &str, b: &str, limit: usize) -> Option<usize> {
     let a: Vec<char> = a.chars().collect();
     let b: Vec<char> = b.chars().collect();
+
     if a.len().abs_diff(b.len()) > limit {
         return None;
     }
+
     // Three rows of the dynamic-programming table: two back (for swaps), previous, current.
     let mut before: Vec<usize> = vec![0; b.len() + 1];
     let mut previous: Vec<usize> = (0..=b.len()).collect();
     let mut current = vec![0; b.len() + 1];
+
     for i in 1..=a.len() {
         current[0] = i;
         let mut row_min = i;
+
         for j in 1..=b.len() {
             let cost = usize::from(a[i - 1] != b[j - 1]);
             let mut d = (previous[j] + 1)
                 .min(current[j - 1] + 1)
                 .min(previous[j - 1] + cost);
+
             if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
                 d = d.min(before[j - 2] + 1);
             }
+
             current[j] = d;
             row_min = row_min.min(d);
         }
+
         if row_min > limit {
             return None;
         }
+
         std::mem::swap(&mut before, &mut previous);
         std::mem::swap(&mut previous, &mut current);
     }
+
     let d = previous[b.len()];
     (d <= limit).then_some(d)
 }
@@ -49,10 +58,12 @@ pub fn closest<'a>(wanted: &str, candidates: impl IntoIterator<Item = &'a str>) 
     };
     let lower = wanted.to_lowercase();
     let mut best: Option<(usize, &'a str)> = None;
+
     for candidate in candidates {
         if candidate == wanted {
             continue;
         }
+
         let d = if candidate.to_lowercase() == lower {
             0
         } else {
@@ -61,10 +72,12 @@ pub fn closest<'a>(wanted: &str, candidates: impl IntoIterator<Item = &'a str>) 
                 None => continue,
             }
         };
+
         if best.is_none_or(|best| (d, candidate) < best) {
             best = Some((d, candidate));
         }
     }
+
     best.map(|(_, name)| name)
 }
 
@@ -83,10 +96,12 @@ pub fn closest_unique<'a>(
     let lower = wanted.to_lowercase();
     let mut best: Option<(usize, &'a str)> = None;
     let mut tied = false;
+
     for candidate in candidates {
         if candidate == wanted || best.is_some_and(|(_, b)| b == candidate) {
             continue;
         }
+
         let d = if candidate.to_lowercase() == lower {
             0
         } else {
@@ -95,6 +110,7 @@ pub fn closest_unique<'a>(
                 None => continue,
             }
         };
+
         match best {
             Some((bd, _)) if d == bd => tied = true,
             Some((bd, _)) if d > bd => {}
@@ -104,6 +120,7 @@ pub fn closest_unique<'a>(
             }
         }
     }
+
     best.filter(|_| !tied).map(|(_, name)| name)
 }
 
@@ -115,6 +132,7 @@ pub fn similar_entry<'a>(
 ) -> Option<&'a str> {
     let entries: Vec<&'a str> = entries.into_iter().collect();
     let with_extension = format!("{name}.jai");
+
     entries
         .iter()
         .copied()
@@ -138,6 +156,7 @@ pub fn similar_sibling(path: &Path, keep: impl Fn(&str) -> bool) -> Option<PathB
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .filter(|n| keep(n))
         .collect();
+
     entries.sort();
     similar_entry(&name, entries.iter().map(String::as_str)).map(|near| path.with_file_name(near))
 }
@@ -149,6 +168,7 @@ mod tests {
     #[test]
     fn a_missing_file_suggests_its_jai_file_first() {
         let entries = ["build.jai", "main.jai", "mian"];
+
         assert_eq!(similar_entry("main", entries), Some("main.jai"));
         assert_eq!(similar_entry("bulid.jai", entries), Some("build.jai"));
         assert_eq!(similar_entry("other.jai", entries), None);
@@ -157,6 +177,7 @@ mod tests {
     #[test]
     fn suggests_near_names_only() {
         let names = ["counter", "print", "Basic", "total"];
+
         assert_eq!(closest("countr", names), Some("counter"));
         assert_eq!(closest("prnit", names), Some("print"));
         assert_eq!(closest("basic", names), Some("Basic"));

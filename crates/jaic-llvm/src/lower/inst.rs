@@ -85,6 +85,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     Callee::Indirect(target, sig) => (self.get_ptr(st, *target)?, &**sig),
                 };
                 let out = self.call(st, ptr, sig, &argv)?;
+
                 for (r, v) in results.iter().zip(out) {
                     self.set(st, *r, v);
                 }
@@ -101,6 +102,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     .collect::<R<Vec<_>>>()?;
                 let want: Vec<Ty> = results.iter().map(|r| func.vals[r.0 as usize]).collect();
                 let out = self.intrinsic(st, *op, &argv, &want)?;
+
                 for (r, v) in results.iter().zip(out) {
                     self.set(st, *r, v);
                 }
@@ -112,16 +114,19 @@ impl<'ctx> Backend<'ctx, '_> {
                 file,
             } => {
                 st.loc = (*file, *line);
+
                 if let (Some(debug), Some(dbg)) = (&self.debug, &mut st.dbg) {
                     dbg.loc(debug, func, &self.builder, *line, *col, *scope);
                 }
             }
         }
+
         Ok(())
     }
 
     pub(super) fn inst_arith(&self, st: &mut FnState<'ctx>, inst: &Inst) -> R<()> {
         let b = &self.builder;
+
         match inst {
             Inst::IConst {
                 dst,
@@ -138,6 +143,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     Ty::F32 | Ty::F64 => return Err("integer constant of float type".into()),
                     _ => self.ll(*ty).into_int_type().const_int(*value, false).into(),
                 };
+
                 self.set(st, *dst, v);
             }
             Inst::FConst {
@@ -149,6 +155,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     Ty::F32 => self.ctx.f32_type().const_float(*value),
                     _ => self.ctx.f64_type().const_float(*value),
                 };
+
                 self.set(st, *dst, v.into());
             }
             Inst::Bin {
@@ -159,6 +166,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 b: rhs,
             } => {
                 let v = self.bin(st, *op, *ty, *a, *rhs)?;
+
                 // `!flag` on a comparison's result: negate the `i1`.
                 if *op == BinOp::Xor
                     && *ty == Ty::I8
@@ -167,6 +175,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 {
                     st.flags[dst.0 as usize] = Some(b.build_not(flag, "")?);
                 }
+
                 self.set(st, *dst, v);
             }
             Inst::Un {
@@ -190,6 +199,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 } else {
                     v
                 };
+
                 self.set(st, *dst, v);
             }
             Inst::Cmp {
@@ -214,6 +224,7 @@ impl<'ctx> Backend<'ctx, '_> {
                         CmpOp::FGe => FloatPredicate::OGE,
                         _ => return Err("integer comparison on floats".into()),
                     };
+
                     b.build_float_compare(pred, x, y, "")?
                 } else {
                     let pred = match op {
@@ -231,6 +242,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     };
                     b.build_int_compare(pred, self.as_int(x)?, self.as_int(y)?, "")?
                 };
+
                 st.flags[dst.0 as usize] = Some(r);
             }
             Inst::Conv {
@@ -241,21 +253,25 @@ impl<'ctx> Backend<'ctx, '_> {
                 src,
             } => {
                 let v = self.conv(st, *op, *from, *to, *src)?;
+
                 self.set(st, *dst, v);
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
     pub(super) fn inst_address(&self, st: &mut FnState<'ctx>, inst: &Inst) -> R<()> {
         let b = &self.builder;
+
         match inst {
             Inst::SlotAddr {
                 dst,
                 slot,
             } => {
                 let p = st.slots[slot.0 as usize];
+
                 st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
@@ -268,6 +284,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 let pointer =
                     self.builder
                         .build_array_alloca(self.ctx.i8_type(), count, "dynamic.frame")?;
+
                 pointer
                     .as_instruction_value()
                     .unwrap()
@@ -281,6 +298,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 global,
             } => {
                 let p = self.global(global.0 as usize).as_pointer_value();
+
                 st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
@@ -289,6 +307,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 func,
             } => {
                 let p = self.func_ptr(*func)?;
+
                 st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
@@ -297,6 +316,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 foreign,
             } => {
                 let p = self.foreign(foreign.0 as usize);
+
                 st.nonnull[dst.0 as usize] = true;
                 self.set(st, *dst, p.into());
             }
@@ -323,6 +343,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 } else {
                     self.gep(base, off)?
                 };
+
                 if st.nonnull[base_val.0 as usize] {
                     st.nonnull[dst.0 as usize] = true;
                 } else if st.null_checks
@@ -331,15 +352,18 @@ impl<'ctx> Backend<'ctx, '_> {
                     // A real address plus a field offset is not in the first page either.
                     st.facts.derived[dst.0 as usize] = base_val.0 + 1;
                 }
+
                 self.set(st, *dst, p.into());
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
     pub(super) fn inst_memory(&self, st: &mut FnState<'ctx>, inst: &Inst) -> R<()> {
         let b = &self.builder;
+
         match inst {
             Inst::Load {
                 dst,
@@ -349,16 +373,20 @@ impl<'ctx> Backend<'ctx, '_> {
                 self.null_check(st, *addr, jaic::ir::NULL_READ)?;
                 let p = self.get_ptr(st, *addr)?;
                 let load = b.build_load(self.ll(*ty), p, "")?;
+
                 if let Some(i) = load.as_instruction_value() {
                     let _ = i.set_alignment(ty.align(&self.layout) as u32);
                 }
+
                 if st.null_checks
                     && *ty == Ty::Ptr
                     && let Some(slot) = st.facts.tracked_slot(*addr)
                 {
                     let facts = &mut st.facts;
+
                     facts.loaded_from[dst.0 as usize] = (slot as u32 + 1, facts.slot_version[slot]);
                 }
+
                 self.set(st, *dst, load);
             }
             Inst::Store {
@@ -371,11 +399,13 @@ impl<'ctx> Backend<'ctx, '_> {
                 let v = self.coerce(self.get(st, *value)?, *ty)?;
                 let store = b.build_store(p, v)?;
                 let _ = store.set_alignment(ty.align(&self.layout) as u32);
+
                 if st.null_checks
                     && let Some(slot) = st.facts.tracked_slot(*addr)
                 {
                     let known = *ty == Ty::Ptr && st.known_nonnull(*value);
                     let facts = &mut st.facts;
+
                     facts.slot_version[slot] += 1;
                     facts.slot_checked[slot] = if known {
                         facts.epoch
@@ -393,7 +423,9 @@ impl<'ctx> Backend<'ctx, '_> {
                     self.null_check(st, *dst, jaic::ir::NULL_COPY)?;
                     self.null_check(st, *src, jaic::ir::NULL_COPY)?;
                 }
+
                 let (d, s) = (self.get_ptr(st, *dst)?, self.get_ptr(st, *src)?);
+
                 if self.inline_small_copies && *size <= INLINE_COPY_MAX {
                     self.inline_copy(d, Some(s), *size)?;
                 } else {
@@ -407,7 +439,9 @@ impl<'ctx> Backend<'ctx, '_> {
                 if *size > 0 {
                     self.null_check(st, *dst, jaic::ir::NULL_FILL)?;
                 }
+
                 let d = self.get_ptr(st, *dst)?;
+
                 if self.inline_small_copies && *size <= INLINE_COPY_MAX {
                     self.inline_copy(d, None, *size)?;
                 } else {
@@ -421,6 +455,7 @@ impl<'ctx> Backend<'ctx, '_> {
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
@@ -434,6 +469,7 @@ impl<'ctx> Backend<'ctx, '_> {
     ) -> R<()> {
         let b = &self.builder;
         let mut at = 0;
+
         while at < size {
             let width = [8u64, 4, 2, 1]
                 .into_iter()
@@ -449,17 +485,21 @@ impl<'ctx> Backend<'ctx, '_> {
             let value = match src {
                 Some(src) => {
                     let load = b.build_load(ty, self.gep_const(src, at)?, "")?;
+
                     if let Some(i) = load.as_instruction_value() {
                         let _ = i.set_alignment(1);
                     }
+
                     load
                 }
                 None => ty.const_zero().into(),
             };
             let store = b.build_store(to, value)?;
             let _ = store.set_alignment(1);
+
             at += width;
         }
+
         Ok(())
     }
 
@@ -472,9 +512,11 @@ impl<'ctx> Backend<'ctx, '_> {
         rhs: Val,
     ) -> R<BasicValueEnum<'ctx>> {
         let b = &self.builder;
+
         if ty.is_float() {
             let x = self.coerce(self.get(st, a)?, ty)?.into_float_value();
             let y = self.coerce(self.get(st, rhs)?, ty)?.into_float_value();
+
             return Ok(match op {
                 BinOp::FAdd => b.build_float_add(x, y, "")?,
                 BinOp::FSub => b.build_float_sub(x, y, "")?,
@@ -484,6 +526,7 @@ impl<'ctx> Backend<'ctx, '_> {
             }
             .into());
         }
+
         let x = self.get_int(st, a)?;
         let y = self.get_int(st, rhs)?;
         let it = x.get_type();
@@ -501,8 +544,10 @@ impl<'ctx> Backend<'ctx, '_> {
                 if y.get_zero_extended_constant().is_none_or(|c| c == 0) {
                     let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
                     let none = self.ctx.i64_type().const_zero();
+
                     self.trap_if(st, zero, jaic::ir::CheckReason::DivideByZero, none, none)?;
                 }
+
                 if op == BinOp::UDiv {
                     b.build_int_unsigned_div(x, y, "")?
                 } else {
@@ -511,11 +556,14 @@ impl<'ctx> Backend<'ctx, '_> {
             }
             BinOp::SDiv | BinOp::SRem => {
                 let constant = y.get_sign_extended_constant();
+
                 if constant.is_none_or(|c| c == 0) {
                     let zero = b.build_int_compare(IntPredicate::EQ, y, konst(0), "")?;
                     let none = self.ctx.i64_type().const_zero();
+
                     self.trap_if(st, zero, jaic::ir::CheckReason::DivideByZero, none, none)?;
                 }
+
                 if constant.is_some_and(|c| c != 0 && c != -1) {
                     // Neither a zero divisor nor the overflowing `INT_MIN / -1`.
                     if op == BinOp::SDiv {
@@ -528,9 +576,11 @@ impl<'ctx> Backend<'ctx, '_> {
                     let minus_one =
                         b.build_int_compare(IntPredicate::EQ, y, it.const_all_ones(), "")?;
                     let safe_y = b.build_select(minus_one, konst(1), y, "")?.into_int_value();
+
                     if op == BinOp::SDiv {
                         let q = b.build_int_signed_div(x, safe_y, "")?;
                         let neg = b.build_int_neg(x, "")?;
+
                         b.build_select(minus_one, neg, q, "")?.into_int_value()
                     } else {
                         let r = b.build_int_signed_rem(x, safe_y, "")?;
@@ -546,6 +596,7 @@ impl<'ctx> Backend<'ctx, '_> {
                         b.build_right_shift(x, y, false, "")
                     }
                 };
+
                 match y.get_zero_extended_constant() {
                     Some(c) if c < bits as u64 => shift(x, y)?,
                     Some(_) => konst(0),
@@ -553,6 +604,7 @@ impl<'ctx> Backend<'ctx, '_> {
                         let out =
                             b.build_int_compare(IntPredicate::UGE, y, konst(bits as u64), "")?;
                         let r = shift(x, y)?;
+
                         b.build_select(out, konst(0), r, "")?.into_int_value()
                     }
                 }
@@ -564,6 +616,7 @@ impl<'ctx> Backend<'ctx, '_> {
                     None => {
                         let out =
                             b.build_int_compare(IntPredicate::UGE, y, konst(bits as u64), "")?;
+
                         b.build_select(out, konst(bits as u64 - 1), y, "")?
                             .into_int_value()
                     }
@@ -576,6 +629,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 } else {
                     "llvm.fshr"
                 };
+
                 self.call_intrinsic(name, &[it.into()], &[x.into(), x.into(), y.into()])?
                     .ok_or("rotate produced no value")?
                     .into_int_value()
@@ -584,6 +638,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 return Err("float operation on integers".into());
             }
         };
+
         if ty == Ty::Ptr {
             self.coerce(r.into(), Ty::Ptr)
         } else {
@@ -602,9 +657,11 @@ impl<'ctx> Backend<'ctx, '_> {
         let b = &self.builder;
         let v = self.coerce(self.get(st, src)?, from)?;
         let to_ll = self.ll(to);
+
         Ok(match op {
             ConvOp::Trunc => {
                 let i = self.as_int(v)?;
+
                 b.build_int_truncate_or_bit_cast(i, to_ll.into_int_type(), "")?
                     .into()
             }
@@ -620,6 +677,7 @@ impl<'ctx> Backend<'ctx, '_> {
                 } else {
                     "llvm.fptoui.sat"
                 };
+
                 // Saturating, matching the interpreter's Rust `as` casts.
                 self.call_intrinsic(name, &[to_ll, v.get_type()], &[v.into()])?
                     .ok_or("float conversion produced no value")?

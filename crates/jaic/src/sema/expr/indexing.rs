@@ -19,11 +19,13 @@ impl Compiler {
         if !self.pointer_index_reachable(scope, base.ty())? {
             return Ok(None);
         }
+
         let base = match base.clone().without_callable() {
             // A pointer stored in a variable denotes the receiver, not the
             // address of the variable containing that pointer.
             operand if self.ty.types.pointee(operand.ty()).is_some() => {
                 let (ty, val) = self.rvalue(f, operand, span)?;
+
                 Operand::Value {
                     ty,
                     val,
@@ -43,6 +45,7 @@ impl Compiler {
                     && self.has_pointer_receiver(scope, "*[]", operand.ty())? =>
             {
                 let (ty, val) = self.address_of(f, operand, span)?;
+
                 Operand::Value {
                     ty: self.ty.types.pointer(ty),
                     val,
@@ -64,6 +67,7 @@ impl Compiler {
                 "operator *[] must return a pointer",
             );
         };
+
         Ok(Some(Operand::Place {
             ty: elem,
             addr: val,
@@ -76,10 +80,13 @@ impl Compiler {
         if !self.operator_candidates(scope, "*[]")?.is_empty() {
             return Ok(true);
         }
+
         let target = self.ty.types.pointee(ty).unwrap_or(ty);
+
         if !matches!(self.ty.types.kind(target), TypeKind::Struct(_)) {
             return Ok(false);
         }
+
         Ok(self
             .operator_candidates_for(scope, "*[]", target)?
             .1
@@ -97,9 +104,11 @@ impl Compiler {
         if !self.operator_candidates(scope, "*[]")?.is_empty() {
             return Ok(true);
         }
+
         if !super::names_variable_path(base) {
             return Ok(false);
         }
+
         let Ok(probe) = self.check_expr_no_emit(scope, base) else {
             return Ok(false);
         };
@@ -109,6 +118,7 @@ impl Compiler {
     /// Does an `operator` named `text` take a pointer to `ty` as its first parameter?
     fn has_pointer_receiver(&mut self, scope: ScopeId, text: &str, ty: TypeId) -> Result<bool> {
         let mut procs = self.operator_candidates(scope, text)?;
+
         procs.retain(|&p| self.first_param_accepts(p, ty));
         Ok(procs.iter().any(|&p| {
             self.proc(p).lit.header.params.first().is_some_and(|param| {
@@ -133,13 +143,16 @@ impl Compiler {
         {
             let base_op = self.check_expr(f, scope, base, None)?;
             let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
+
             if let Some(place) =
                 self.try_pointer_index_operator(f, scope, &base_op, &index_op, target.span)?
             {
                 return Ok(place);
             }
+
             return self.index_operand(f, scope, base_op, index_op, index.span, target.span);
         }
+
         self.check_place_expr(f, scope, target)
     }
 
@@ -152,10 +165,13 @@ impl Compiler {
         // A bare target names a place; it does not read the previous pointer value.
         // Scope this to the exact expression, so indirect/indexed targets still read bases.
         let saved = f.lifetime_nonuses;
+
         if f.lifetimes.is_some() {
             f.lifetime_nonuses = [Some(target.span), None];
         }
+
         let result = self.check_expr(f, scope, target, None);
+
         f.lifetime_nonuses = saved;
         result
     }
@@ -169,6 +185,7 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let base_op = self.check_expr(f, scope, base, None)?;
+
         // `value[xx x]` on a struct with `operator []`: the cast takes its target from the
         // overload picked for the struct, not from an integer index.
         if matches!(
@@ -181,6 +198,7 @@ impl Compiler {
         {
             return Ok(result);
         }
+
         let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
         self.index_operand(f, scope, base_op, index_op, index.span, span)
     }
@@ -194,20 +212,26 @@ impl Compiler {
         span: Span,
     ) -> Result<Option<Operand>> {
         let ty = base.ty();
+
         if !matches!(
             self.ty.types.kind(self.ty.types.repr_struct(ty)),
             TypeKind::Struct(_)
         ) {
             return Ok(None);
         }
+
         let (mut procs, lenient) = self.operator_candidates_for(scope, "[]", ty)?;
+
         procs.retain(|&p| self.first_param_accepts(p, ty));
+
         if let Some(used) = lenient.filter(|_| !procs.is_empty()) {
             self.warn_lenient_operator(scope, span, "[]", used, None);
         }
+
         if procs.is_empty() {
             return Ok(None);
         }
+
         let arg = |op: Option<Operand>, expr: Option<ast::Expr>| crate::sema::calls::CallArg {
             name: None,
             spread: false,
@@ -220,6 +244,7 @@ impl Compiler {
             arg(Some(base.clone()), None),
             arg(None, Some(index.clone())),
         ];
+
         self.call_procs(f, scope, &procs, args, None, span)
             .map(Some)
     }
@@ -252,6 +277,7 @@ impl Compiler {
             }
             other => other,
         };
+
         // Constant string indexing folds.
         if let (
             Operand::Const {
@@ -267,6 +293,7 @@ impl Compiler {
         {
             return Ok(Operand::int(s[*i as usize] as i128, TypeId::U8));
         }
+
         let bty = base_op.ty();
         let lifetime_index = match &index_op {
             Operand::Const {
@@ -291,20 +318,25 @@ impl Compiler {
         };
         // `operator []` when one matches, else `operator *[]` dereferenced.
         let getter = self.try_index_operator_overload(f, scope, "[]", &base_op, &index_op, span);
+
         if let Ok(Some(result)) = getter {
             return Ok(result);
         }
+
         if let Some(result) =
             self.try_pointer_index_operator(f, scope, &base_op, &index_op, span)?
         {
             return Ok(result);
         }
+
         // A pointer indexes its memory when no operator for the pointee fits.
         if self.ty.types.pointee(bty).is_none() {
             getter?;
         }
+
         let index_op = self.settle_untyped(index_op, Some(TypeId::S64));
         let ity = index_op.ty();
+
         if !self.ty.types.is_integer(ity)
             && !matches!(
                 self.ty.types.kind(self.ty.types.repr(ity)),
@@ -320,6 +352,7 @@ impl Compiler {
                 ),
             );
         }
+
         let index_op = self.explicit_cast(
             f,
             index_op,
@@ -333,9 +366,11 @@ impl Compiler {
         let (_, idx) = self.rvalue(f, index_op, span)?;
         // Views, dynamic arrays and strings start with their count.
         let check = !f.checks_off.no_abc() && !f.type_only;
+
         if check {
             self.note_check_handler(span)?;
         }
+
         let mut checked_fixed_count = None;
         let (elem, data) = match self.ty.types.kind(self.ty.types.repr(bty)).clone() {
             TypeKind::Array {
@@ -343,30 +378,39 @@ impl Compiler {
                 kind: ArrayKind::Fixed(n),
             } => {
                 let (_, addr) = self.address_of(f, base_op, span)?;
+
                 if check {
                     checked_fixed_count = Some(n);
                     let count = f.b.iconst(Ty::I64, n);
+
                     f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
                 }
+
                 (elem, addr)
             }
             TypeKind::Array {
                 elem, ..
             } => {
                 let (_, addr) = self.address_of(f, base_op, span)?;
+
                 if check {
                     let count = f.b.load(Ty::I64, addr);
+
                     f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
                 }
+
                 let p = self.view_data_at(f, addr);
                 (elem, f.b.load(Ty::Ptr, p))
             }
             TypeKind::String => {
                 let (_, addr) = self.address_of(f, base_op, span)?;
+
                 if check {
                     let count = f.b.load(Ty::I64, addr);
+
                     f.b.intrinsic(ir::Intrinsic::BoundsCheck, vec![idx, count], &[]);
                 }
+
                 let p = self.view_data_at(f, addr);
                 (TypeId::U8, f.b.load(Ty::Ptr, p))
             }
@@ -393,6 +437,7 @@ impl Compiler {
         } else {
             f.b.ptr_add(data, off)
         };
+
         if let Some(record) = &mut f.lifetimes
             && let Some(region) = lifetime_region
         {
@@ -409,6 +454,7 @@ impl Compiler {
                 },
             );
         }
+
         if self.ty.types.is_pointer(bty)
             && !f.type_only
             && let Some(record) = &mut f.lifetimes
@@ -424,6 +470,7 @@ impl Compiler {
                 },
             );
         }
+
         if !f.type_only
             && self.ty.types.is_pointer(bty)
             && let Some(record) = &mut f.lifetimes
@@ -443,6 +490,7 @@ impl Compiler {
                 },
             );
         }
+
         Ok(Operand::Place {
             ty: elem,
             addr,

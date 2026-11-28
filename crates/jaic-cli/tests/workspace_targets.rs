@@ -23,11 +23,13 @@ fn u32_at(bytes: &[u8], offset: usize) -> u32 {
 
 fn check_object(path: &Path, os: &str, cpu: &str) {
     let bytes = std::fs::read(path).expect("actual compiler object output");
+
     assert!(
         bytes.len() > 32,
         "empty/truncated object: {}",
         path.display()
     );
+
     match os {
         "LINUX" => {
             assert_eq!(&bytes[..4], b"\x7fELF", "{}", path.display());
@@ -74,6 +76,7 @@ fn check_object(path: &Path, os: &str, cpu: &str) {
 #[test]
 fn workspace_options_emit_the_requested_object_format_and_machine() {
     let directory = TempDir::new(&format!("workspace-targets-{}", std::process::id()));
+
     for (os, cpu) in [
         ("LINUX", "X64"),
         ("LINUX", "ARM64"),
@@ -115,11 +118,13 @@ main :: () {{}}
 "#,
             jacket_config::slashed(&directory)
         );
+
         std::fs::write(&source, text).unwrap();
         let result = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(&source)
             .output()
             .unwrap();
+
         assert!(
             result.status.success(),
             "{os}-{cpu}: {}",

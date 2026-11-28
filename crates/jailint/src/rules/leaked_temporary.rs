@@ -46,6 +46,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro || changes_allocator(cx, p.header, &p.body.stmts) {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, chain| {
             let Node::Expr(e) = n else {
                 return true;
@@ -58,11 +59,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
+
             if args.iter().any(|a| a.context) || !effects::calls(cx, callee, Effect::OwnedReturn) {
                 return true;
             }
+
             if let Some(how) = transient_use(cx, e, chain) {
                 let name = cx.whole_src(callee).trim();
+
                 out.push(finding(
                     e.span,
                     format!("the memory `{name}` allocates is {how} and never freed"),
@@ -73,6 +77,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     ),
                 ));
             }
+
             true
         });
     }
@@ -83,6 +88,7 @@ fn transient_use(cx: &Cx, e: &Expr, chain: &[Node<'_>]) -> Option<&'static str> 
     let Some(Node::Expr(parent)) = chain.last() else {
         return None;
     };
+
     match &parent.kind {
         E::Binary(BinOp::Eq | BinOp::Ne | BinOp::Lt | BinOp::Le | BinOp::Gt | BinOp::Ge, ..) => {
             Some("only compared")

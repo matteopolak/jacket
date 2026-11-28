@@ -16,6 +16,7 @@ fn probe() {
     let text = std::fs::read_to_string(&module).unwrap();
     let mut session = session();
     let config = file_uri(main.parent().unwrap().join("jacket.toml").to_str().unwrap());
+
     session
         .open(
             config,
@@ -24,25 +25,30 @@ fn probe() {
         )
         .unwrap();
     let main_uri = file_uri(main.to_str().unwrap());
+
     session
         .open(main_uri, 1, std::fs::read_to_string(&main).unwrap())
         .unwrap();
     let uri = file_uri(module.to_str().unwrap());
+
     session.open(uri.clone(), 1, text.clone()).unwrap();
 
     let check = |session: &jai_language_server::Session, text: &str, label: &str| {
         let _ = session.diagnostics(&uri);
         let mut uses = 0;
+
         for (line, content) in text.lines().enumerate() {
             for (column, _) in content.match_indices("W.") {
                 if column > 0 && content.as_bytes()[column - 1].is_ascii_alphanumeric() {
                     continue;
                 }
+
                 let position = Position {
                     line: line as u32,
                     character: column as u32,
                 };
                 let found = session.definition(&uri, position).unwrap();
+
                 assert_eq!(found.len(), 1, "{label}: definition of `W` at {position:?}");
                 assert!(
                     found[0]
@@ -53,6 +59,7 @@ fn probe() {
                     found[0].uri
                 );
                 let hover = session.hover(&uri, position).unwrap().unwrap();
+
                 assert!(
                     hover
                         .contents
@@ -64,14 +71,17 @@ fn probe() {
                 uses += 1;
             }
         }
+
         assert!(uses > 20, "{label}: only {uses} uses found");
     };
+
     check(&session, &text, "as written");
     // A stray statement in the first procedure fails that body; the others must not change.
     let at = Position {
         line: 10,
         character: 0,
     };
+
     session
         .change(
             &uri,
@@ -87,6 +97,7 @@ fn probe() {
         )
         .unwrap();
     let mut edited: Vec<&str> = text.lines().collect();
+
     edited.insert(10, "    __");
     check(&session, &edited.join("\n"), "after a stray statement");
 }

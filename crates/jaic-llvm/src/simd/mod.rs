@@ -40,9 +40,11 @@ impl<'ctx> Cx<'_, 'ctx> {
     pub(crate) fn load_bytes(&self, ptr: PointerValue<'ctx>, lanes: u32) -> R<VectorValue<'ctx>> {
         let ty = self.ctx.i8_type().vec_type(lanes);
         let load = self.builder.build_load(ty, ptr, "")?;
+
         if let Some(i) = load.as_instruction_value() {
             let _ = i.set_alignment(1);
         }
+
         Ok(load.into_vector_value())
     }
 
@@ -50,6 +52,7 @@ impl<'ctx> Cx<'_, 'ctx> {
     pub(crate) fn store_bytes(&self, ptr: PointerValue<'ctx>, v: BasicValueEnum<'ctx>) -> R<()> {
         let store = self.builder.build_store(ptr, v)?;
         let _ = store.set_alignment(1);
+
         Ok(())
     }
 
@@ -58,6 +61,7 @@ impl<'ctx> Cx<'_, 'ctx> {
         if offset == 0 {
             return Ok(base);
         }
+
         let at = self.ctx.i64_type().const_int(offset, false);
         // SAFETY: inkwell marks GEP construction unsafe; an i8 GEP is plain pointer arithmetic.
         #[allow(unsafe_code)]
@@ -65,6 +69,7 @@ impl<'ctx> Cx<'_, 'ctx> {
             self.builder
                 .build_gep(self.ctx.i8_type(), base, &[at], "")?
         };
+
         Ok(p)
     }
 
@@ -85,9 +90,11 @@ impl<'ctx> Cx<'_, 'ctx> {
         if lanes == 16 {
             return Ok(table);
         }
+
         let mask: Vec<IntValue> = (0..lanes)
             .map(|i| self.ctx.i32_type().const_int(u64::from(i % 16), false))
             .collect();
+
         Ok(self
             .builder
             .build_shuffle_vector(table, table, VectorType::const_vector(&mask), "")?)
@@ -103,6 +110,7 @@ impl<'ctx> Cx<'_, 'ctx> {
         let f = LlvmIntrinsic::find(name)
             .and_then(|i| i.get_declaration(self.module, tys))
             .ok_or_else(|| Error::from(format!("LLVM intrinsic '{name}' is unavailable")))?;
+
         match self.builder.build_call(f, args, "")?.try_as_basic_value() {
             ValueKind::Basic(v) => Ok(v),
             ValueKind::Instruction(_) => Err(format!("'{name}' produced no value").into()),
@@ -123,8 +131,10 @@ impl<'ctx> Cx<'_, 'ctx> {
             let at = u64::from(block * chunk);
             let indices = self.load_bytes(self.offset(idx, at)?, chunk)?;
             let res = lookup(indices)?;
+
             self.store_bytes(self.offset(dst, at)?, res)?;
         }
+
         Ok(())
     }
 }
@@ -144,6 +154,7 @@ pub fn byte_lookup<'ctx>(
         || aarch64::byte_lookup(cx, width, dst, table, idx)?
         || wasm::byte_lookup(cx, width, dst, table, idx)?
         || generic::byte_lookup(cx, width, dst, table, idx)?;
+
     Ok(())
 }
 

@@ -10,6 +10,7 @@ const SOURCE: &str = "#import \"Basic\";\nmain :: () {\n    xs: [..] int;\n    a
 
 fn open() -> Session {
     let mut s = session();
+
     s.open(
         DocumentUri::parse("file:///lsp-test/jacket.toml").unwrap(),
         1,
@@ -36,18 +37,22 @@ fn the_compile_stage_carries_no_lints_and_the_full_stage_all_of_them() {
     let _guard = LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+
     jaic::interrupt::request(false);
     let s = open();
     let first = of_source(s.staged_unless_interrupted(Stage::Compile).unwrap());
+
     assert!(
         first.iter().any(|d| d.code == DiagnosticCode::Unreachable),
         "{first:?}"
     );
     assert!(!first.iter().any(is_lint), "{first:?}");
     let full = of_source(s.staged_unless_interrupted(Stage::Full).unwrap());
+
     assert!(full.iter().any(is_lint), "{full:?}");
     // Nothing the first stage published is gone, and the order is the one a full check has.
     let kept: Vec<_> = full.iter().filter(|d| !is_lint(d)).cloned().collect();
+
     assert_eq!(format!("{kept:?}"), format!("{first:?}"));
     assert_eq!(
         format!("{full:?}"),
@@ -62,25 +67,32 @@ fn the_compile_stage_after_an_edit_carries_the_last_lints_moved() {
     let _guard = LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+
     jaic::interrupt::request(false);
     let mut s = open();
     let full = of_source(s.staged_unless_interrupted(Stage::Full).unwrap());
     let lints: Vec<_> = full.into_iter().filter(is_lint).collect();
+
     assert!(!lints.is_empty());
     let edit = jai_language_server::TextChange {
         range: None,
         range_length: None,
         text: format!("\n{SOURCE}"),
     };
+
     s.change(&uri(), 2, &[edit]).unwrap();
     let first = of_source(s.staged_unless_interrupted(Stage::Compile).unwrap());
     let carried: Vec<_> = first.into_iter().filter(is_lint).collect();
+
     assert_eq!(carried.len(), lints.len(), "{carried:?}");
+
     for (now, before) in carried.iter().zip(&lints) {
         assert_eq!(now.message, before.message);
         assert_eq!(now.range.start.line, before.range.start.line + 1);
     }
+
     let full = of_source(s.staged_unless_interrupted(Stage::Full).unwrap());
     let found: Vec<_> = full.into_iter().filter(is_lint).collect();
+
     assert_eq!(format!("{found:?}"), format!("{carried:?}"));
 }

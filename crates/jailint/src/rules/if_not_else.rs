@@ -44,6 +44,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 let fixable = matches!(then_branch.kind, S::Block(_))
                     && matches!(other.kind, S::Block(_))
                     && !cx.has_comment_between(cond.span.end as usize, s.span.end as usize);
+
                 out.push(report(
                     cx,
                     header,
@@ -70,6 +71,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         replace(cx, b, cx.whole_src(a).trim()),
                     ]
                 };
+
                 out.push(report(cx, header, &positive, fixable.then(|| edits(a, b))));
             }
         }
@@ -79,6 +81,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn report(cx: &Cx, header: Span, positive: &str, edits: Option<Vec<Edit>>) -> Finding {
     let message = format!("`{}` is negated, with an `else`", cx.src(header));
     let help = format!("test `{positive}` first and swap the branches");
+
     match edits {
         Some(edits) => suggesting(header, message, help, "swap the branches", edits),
         None => finding(header, message, Some(help)),
@@ -87,6 +90,7 @@ fn report(cx: &Cx, header: Span, positive: &str, edits: Option<Vec<Edit>>) -> Fi
 
 fn replace<'n>(cx: &Cx, node: impl Into<Node<'n>>, text: &str) -> Edit {
     let (start, end) = cx.whole(node);
+
     Edit {
         start,
         end,
@@ -102,6 +106,7 @@ fn swap(cx: &Cx, cond: &Expr, a: &Stmt, b: &Stmt, positive: &str) -> Vec<Edit> {
         end: s.span.end as usize,
         text,
     };
+
     vec![
         replace(cx, cond, positive),
         edit(a, text(b)),
@@ -115,6 +120,7 @@ fn positive(cx: &Cx, cond: &Expr) -> Option<String> {
     match &cond.kind {
         E::Unary(UnOp::Not, inner) => {
             let text = cx.whole_src(inner).trim();
+
             Some(if inner.parenthesized() {
                 text[1..text.len() - 1].trim().to_string()
             } else {

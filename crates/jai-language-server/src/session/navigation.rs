@@ -16,12 +16,15 @@ impl Session {
     ) -> Result<Vec<Location>, Error> {
         let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position);
+
         if let Some(location) = self.link_definition(uri, byte) {
             return Ok(vec![location]);
         }
+
         if let Some(locations) = self.doc_link_definition(uri, byte) {
             return Ok(locations);
         }
+
         {
             let (found, shift) = self
                 .with_semantic_at(uri, &doc.text, byte, |a, path, at| {
@@ -29,6 +32,7 @@ impl Session {
                     let builtin = a
                         .file(path)
                         .is_some_and(|file| a.compiler.ide_builtin_reference(file, at as u32));
+
                     (!definitions.is_empty() || builtin).then_some(definitions)
                 })
                 .unwrap_or_default();
@@ -70,12 +74,14 @@ impl Session {
                             )
                             .ok()?,
                     };
+
                     Some(Location {
                         uri: target.as_str().into(),
                         range,
                     })
                 })
                 .collect();
+
             if !locations.is_empty() {
                 return Ok(locations);
             }
@@ -104,9 +110,11 @@ impl Session {
         position: Position,
     ) -> Result<Vec<Location>, Error> {
         let rows = self.bindings(uri, position)?;
+
         if rows.is_empty() {
             return self.definition(uri, position);
         }
+
         self.row_locations(rows)
     }
 
@@ -121,20 +129,25 @@ impl Session {
         position: Position,
     ) -> Result<Vec<Location>, Error> {
         let rows = self.bindings(uri, position)?;
+
         if rows.is_empty() {
             return self.definition(uri, position);
         }
+
         let mut found: Vec<(&DocumentUri, &crate::analysis::SymbolRow)> = Vec::new();
+
         for (target, row) in &rows {
             if row.kind != crate::SymbolKind::Function || row.local {
                 continue;
             }
+
             for candidate in self.reachable(target) {
                 for other in &self.analyses[candidate].rows {
                     let visible = candidate == *target || !other.file_private;
                     let new = !found
                         .iter()
                         .any(|(u, r)| *u == candidate && r.selection == other.selection);
+
                     if other.parent.is_none()
                         && !other.local
                         && other.name == row.name
@@ -148,6 +161,7 @@ impl Session {
                 }
             }
         }
+
         self.row_locations(found)
     }
 
@@ -160,6 +174,7 @@ impl Session {
             .text
             .get(row.location.start..row.location.end)
             .unwrap_or("");
+
         text.contains('{') && !text.contains("#foreign") && !text.contains("#intrinsic")
     }
 
@@ -170,6 +185,7 @@ impl Session {
         rows.iter()
             .map(|(target, row)| {
                 let doc = self.document(target)?;
+
                 Ok(Location {
                     uri: target.as_str().into(),
                     range: doc.index.range(&doc.text, row.selection)?,
@@ -189,6 +205,7 @@ impl Session {
         {
             return Some(doc.text.clone());
         }
+
         let bytes = self.environment.as_ref()?.fs.read(Path::new(uri.path()))?;
         Some(String::from_utf8_lossy(&bytes).into_owned())
     }
@@ -209,6 +226,7 @@ impl Session {
         if self.config_document(uri).is_some() {
             return self.manifest_hover(uri, position, kind);
         }
+
         let (uri, doc) = self.document_entry(uri)?;
         let byte = doc.index.byte(&doc.text, position);
         let found = |start: usize, end: usize, text: HoverText| -> Result<Option<Hover>, Error> {
@@ -226,35 +244,44 @@ impl Session {
                 )?,
             }))
         };
+
         if let Some((start, end, text)) = self.link_hover(uri, byte) {
             return found(start, end, text);
         }
+
         if let Some((start, end, text)) = self.format_hover(uri, byte) {
             return found(start, end, text);
         }
+
         if let Some((start, end, text)) = self.directive_hover(uri, byte) {
             return found(start, end, text);
         }
+
         if let Some((start, end, text)) = self.cast_flag_hover(&doc.text, byte) {
             return found(start, end, text);
         }
+
         if let Some((start, end, text)) = self.using_filter_hover(uri, byte) {
             return found(start, end, text);
         }
+
         if doc.has_asm()
             && let Some((start, end, text)) = self.asm_hover(&doc.text, byte)
         {
             return found(start, end, text);
         }
+
         if let Some((start, end, text)) = self.doc_link_hover(uri, byte, kind) {
             return found(start, end, text);
         }
+
         let Some((_, token)) = self.word(uri, position)? else {
             return match self.expansion_hover(uri, byte) {
                 Some((start, end, text)) => found(start, end, text),
                 None => Ok(None),
             };
         };
+
         if let Some(facts) = self.semantic_hover(uri, &doc.text, byte) {
             let (start, end) = (facts.start, facts.end);
             let text = self.hover_with_docs(
@@ -265,14 +292,17 @@ impl Session {
                 kind,
             );
             let text = self.with_macro_expansion(uri, start, text);
+
             return found(start, end, text);
         }
+
         let rows = self.bindings(uri, position)?;
         let text = if rows.len() == 1 {
             let mut blocks = vec![Block::Code(
                 Self::source_detail(&self.document(rows[0].0)?.text, rows[0].1).into(),
             )];
             let at = rows[0].1.selection.start;
+
             if let Some(raw) = crate::docs::declaration(&self.documents[rows[0].0].text, at)
                 && let Some(doc) = self
                     .render_docs(uri, rows[0].0.path(), at, &[raw], kind)
@@ -280,6 +310,7 @@ impl Session {
             {
                 blocks.push(Block::Doc(doc));
             }
+
             blocks.push(Block::Note(vec![Inline::Text(
                 "Source syntax declaration. \
                  Type evaluation and compile-time execution are disabled during editing."
@@ -294,6 +325,7 @@ impl Session {
         } else {
             return Ok(None);
         };
+
         found(token.span.start, token.span.end, text)
     }
 
@@ -306,6 +338,7 @@ impl Session {
     ) -> Option<semantic::HoverFacts> {
         let (mut facts, shift) =
             self.with_semantic_at(uri, text, byte, semantic::Analysis::hover)?;
+
         // Past an edit the compile did not see, the word hovered is where it is now.
         facts.start = shift.to_new(facts.start)?;
         facts.end = shift.to_new(facts.end)?;

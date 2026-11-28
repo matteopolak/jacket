@@ -25,17 +25,21 @@ pub(super) fn marked_target(notes: &TargetNotes, host_os: TargetOs, host_cpu: Ta
     if !notes.restricts() {
         return Marked::Host;
     }
+
     // Linting has no run mode, so a file passes when it would run in either.
     let passes = |os: TargetOs, cpu: TargetCpu| notes.runs_on(os_name(os), cpu_name(cpu));
+
     if passes(host_os, host_cpu) {
         return Marked::Host;
     }
+
     let oses = std::iter::once(host_os).chain(
         jaic::target::OS_NAMES
             .iter()
             .filter_map(|name| parse_os(name))
             .filter(|os| *os != host_os),
     );
+
     for os in oses {
         let cpus: &[TargetCpu] = if os == TargetOs::Wasm {
             &[TargetCpu::Wasm]
@@ -44,10 +48,12 @@ pub(super) fn marked_target(notes: &TargetNotes, host_os: TargetOs, host_cpu: Ta
         } else {
             &[TargetCpu::X64, TargetCpu::Arm64]
         };
+
         if let Some(cpu) = cpus.iter().copied().find(|cpu| passes(os, *cpu)) {
             return Marked::Other(os, cpu);
         }
     }
+
     Marked::Nowhere
 }
 
@@ -57,6 +63,7 @@ mod tests {
 
     fn marked(header: &str) -> Marked {
         let source = format!("{header}\nmain :: () {{}}\n");
+
         marked_target(
             &jaic::test_notes::header_target_notes(&source).0,
             TargetOs::MacOS,

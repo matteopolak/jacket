@@ -40,6 +40,7 @@ impl PosixFn {
     /// 64-bit-inode records, the only ones answered.
     pub(in crate::interp) fn from_name(symbol: &str) -> Option<PosixFn> {
         let name = symbol.strip_suffix("$INODE64").unwrap_or(symbol);
+
         Some(match name {
             "__errno_location" | "__error" => PosixFn::ErrnoAddress,
             "stat" | "stat64" | "__stat64_time64" => PosixFn::Stat,
@@ -81,15 +82,19 @@ pub(in crate::interp) struct NativePosix {
 /// A zero-terminated string of the program, as a host path.
 fn c_string(addr: u64) -> CString {
     let mut bytes = Vec::new();
+
     if addr != 0 {
         loop {
             let byte = read_u8(addr + bytes.len() as u64);
+
             if byte == 0 {
                 break;
             }
+
             bytes.push(byte);
         }
     }
+
     CString::new(bytes).unwrap_or_default()
 }
 
@@ -101,6 +106,7 @@ fn file_stat(metadata: &fs::Metadata) -> FileStat {
         .map_or((0, 0), |since| {
             (since.as_secs() as i64, since.subsec_nanos())
         });
+
     FileStat {
         dev: metadata.dev(),
         inode: metadata.ino(),
@@ -175,6 +181,7 @@ impl NativePosix {
         args: &[u64],
     ) -> Option<u64> {
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
+
         Some(match fun {
             PosixFn::ErrnoAddress => self.errno_address(window)?,
             PosixFn::Stat => self.stat(libraries, arg(0), arg(1), false),
@@ -196,6 +203,7 @@ impl NativePosix {
             PosixFn::Syscall => {
                 let rest = args.get(1..).unwrap_or_default();
                 let rest_arg = |i: usize| rest.get(i).copied().unwrap_or(0);
+
                 match libraries.target.stat_syscall(arg(0))? {
                     StatSyscall::Stat => self.stat(libraries, rest_arg(0), rest_arg(1), false),
                     StatSyscall::Lstat => self.stat(libraries, rest_arg(0), rest_arg(1), true),
@@ -231,6 +239,7 @@ impl NativePosix {
         if self.errno.is_none() {
             self.errno = Some(ZeroedBlock::in_window(window, 4, 4)?);
         }
+
         self.errno.as_ref().map(ZeroedBlock::addr)
     }
 
@@ -264,18 +273,22 @@ impl NativePosix {
         } else {
             fs::metadata(path)
         };
+
         self.answer_stat(libraries, metadata, out)
     }
 
     fn fstat(&mut self, libraries: Libraries, fd: i32, out: u64) -> u64 {
         use std::os::fd::FromRawFd;
+
         if fd < 0 {
             return self.fail(libraries, libraries.host.errno(EBADF));
         }
+
         // SAFETY: the descriptor is the program's, borrowed for this one query and never
         // closed here; a number nothing has open fails the query with EBADF, as `fstat` does.
         let file = std::mem::ManuallyDrop::new(unsafe { fs::File::from_raw_fd(fd) });
         let metadata = file.metadata();
+
         self.answer_stat(libraries, metadata, out)
     }
 
@@ -284,9 +297,11 @@ impl NativePosix {
         let arg = |i: usize| args.get(i).copied().unwrap_or(0);
         let path = arg(1);
         let relative = read_u8(path) != b'/';
+
         if relative && arg(0) as i32 as i64 != libraries.target.at_working_directory() {
             return None;
         }
+
         let no_follow = arg(3) & libraries.target.at_no_follow() != 0;
         Some(self.stat(libraries, path, arg(2), no_follow))
     }
@@ -301,9 +316,11 @@ impl NativePosix {
         mode: u64,
     ) -> u64 {
         let (open, unknown) = libraries.target.decode_open(flags as u32 as u64);
+
         if unknown != 0 {
             return self.fail(libraries, libraries.host.errno(EINVAL));
         }
+
         let flags = libraries.host.encode_open(open) as i32;
         let path = c_string(path);
         let mode = mode as u32;
@@ -321,9 +338,11 @@ impl NativePosix {
                 }
             }
         };
+
         if fd < 0 {
             return self.fail(libraries, host_code(&io::Error::last_os_error()));
         }
+
         fd as u64
     }
 
@@ -347,14 +366,18 @@ impl NativePosix {
             (b".".to_vec(), inode(path), records::DT_DIR),
             (b"..".to_vec(), inode(&path.join("..")), records::DT_DIR),
         ];
+
         for entry in listing.flatten() {
             use std::os::unix::fs::DirEntryExt;
             let kind = entry.file_type().map_or(0, entry_kind);
+
             entries.push((entry.file_name().as_bytes().to_vec(), entry.ino(), kind));
         }
+
         let handle = ZeroedBlock::in_window(window, 16, 16)?;
         let entry = ZeroedBlock::in_window(window, records::dirent_size(libraries.target), 8)?;
         let address = handle.addr();
+
         self.dirs.insert(
             address,
             Dir {
@@ -375,6 +398,7 @@ impl NativePosix {
         let Some((name, inode, kind)) = dir.entries.get(dir.next) else {
             return 0;
         };
+
         dir.next += 1;
         let record = DirEntry {
             inode: *inode,
@@ -382,6 +406,7 @@ impl NativePosix {
             kind: *kind,
             name,
         };
+
         records::fill_dirent(libraries.target, dir.entry.addr(), &record);
         dir.entry.addr()
     }
@@ -396,14 +421,17 @@ impl NativePosix {
         if let Some(text) = self.texts.get(&code) {
             return Some(text.addr());
         }
+
         // SAFETY: `strerror` returns a zero-terminated string the C library keeps; it is
         // copied before any other call can change it.
         let text = unsafe { CStr::from_ptr(host_strerror(libraries.to_host(code) as i32)) }
             .to_bytes()
             .to_vec();
         let block = ZeroedBlock::in_window(window, text.len() + 1, 1)?;
+
         write_bytes(block.addr(), &text);
         let address = block.addr();
+
         self.texts.insert(code, block);
         Some(address)
     }

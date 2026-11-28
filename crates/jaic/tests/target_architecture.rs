@@ -8,15 +8,18 @@ const PRELUDE: &str = "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS;
 fn check(triple: &str, member: &str) {
     let target = Target::parse(triple).unwrap();
     let mut options = Options::host();
+
     options.os = target.os;
     options.cpu = target.cpu;
     options.layout = target.data_layout();
     options.runtime_support = false;
     options.preload = Some("/lib/prelude/module.jai".into());
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/prelude/module.jai", PRELUDE.as_bytes());
     let mut c = Compiler::new(options, Rc::new(fs));
     let source = format!("#assert ARCHITECTURE == .{member}; main :: () {{}}");
+
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source)]) {
         panic!("{triple}: {}", e.render(&c.src.sources));
     }

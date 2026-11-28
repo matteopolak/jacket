@@ -38,9 +38,11 @@ pub fn environment_at(stdlib: PathBuf, os: Option<TargetOs>) -> Environment {
         fs: Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |_| {
             let mut options = Options::host();
+
             if let Some(os) = os {
                 options.os = os;
             }
+
             options.import_paths = vec![stdlib.clone()];
             options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options
@@ -54,15 +56,19 @@ pub fn modules_environment(os: Option<TargetOs>) -> Environment {
     let stdlib = jacket_config::env::STDLIB
         .os()
         .map_or_else(stdlib_dir, PathBuf::from);
+
     Environment {
         services: None,
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |main| {
             let mut options = jaic::sema::Options::host();
+
             if let Some(os) = os {
                 options.os = os;
             }
+
             let dir = main.parent().map(PathBuf::from).unwrap_or_default();
+
             options.import_paths = jaic::project::import_paths(&dir, &[], &[], &stdlib);
             options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
             options
@@ -77,6 +83,7 @@ pub fn lean_environment() -> Environment {
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(|_| {
             let mut options = jaic::sema::Options::host();
+
             options.runtime_support = false;
             options.stack_trace = false;
             options
@@ -93,9 +100,11 @@ pub fn virtual_session(
     preload: Option<&str>,
 ) -> Session {
     let mut fs = VirtualFs::default();
+
     for (path, text) in files {
         fs.insert(path, text.as_bytes());
     }
+
     session_over(Rc::new(fs), import_paths, preload)
 }
 
@@ -107,6 +116,7 @@ pub fn session_over(
 ) -> Session {
     let import_paths: Vec<PathBuf> = import_paths.iter().map(PathBuf::from).collect();
     let preload = preload.map(PathBuf::from);
+
     Session::with_environment(
         Limits::default(),
         Environment {
@@ -114,6 +124,7 @@ pub fn session_over(
             fs,
             options: Box::new(move |_| {
                 let mut options = Options::host();
+
                 options.runtime_support = false;
                 options.stack_trace = false;
                 options.import_paths.clone_from(&import_paths);
@@ -148,6 +159,7 @@ pub fn file_uri(path: &str) -> DocumentUri {
 /// completion or hover test.
 pub fn cursor(source: &str) -> (String, Position) {
     let byte = source.find('|').expect("no `|` cursor marker");
+
     (
         source.replacen('|', "", 1),
         position(&source.replacen('|', "", 1), byte),
@@ -164,12 +176,15 @@ pub fn text_in_range(text: &str, range: Range) -> String {
             .sum();
         let line = &text[start..];
         let mut units = 0;
+
         for (index, ch) in line.char_indices() {
             if units >= at.character {
                 return start + index;
             }
+
             units += ch.len_utf16() as u32;
         }
+
         start + line.len()
     };
     text[byte(range.start)..byte(range.end)].to_string()
@@ -183,6 +198,7 @@ pub fn uri_of(path: &Path) -> DocumentUri {
 /// A session over [`environment`] with `text` open at [`uri`].
 pub fn open(text: &str) -> Session {
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     s
 }
@@ -192,6 +208,7 @@ pub fn open(text: &str) -> Session {
 #[must_use]
 pub fn project(name: &str, files: &[(&str, &str)]) -> TempDir {
     let dir = TempDir::new(&format!("jailsp-{name}"));
+
     dir.write_all(files);
     dir
 }
@@ -199,6 +216,7 @@ pub fn project(name: &str, files: &[(&str, &str)]) -> TempDir {
 /// A session over [`environment`] rooted at `folder`.
 pub fn workspace_session(folder: &Path) -> Session {
     let mut s = session();
+
     s.set_workspace_folders(vec![folder.to_path_buf()]);
     s
 }
@@ -208,6 +226,7 @@ pub fn open_from_disk(s: &mut Session, folder: &Path, file: &str) -> (DocumentUr
     let path = folder.join(file);
     let uri = uri_of(&path);
     let text = std::fs::read_to_string(&path).unwrap();
+
     s.open(uri.clone(), 1, text.clone()).unwrap();
     (uri, text)
 }
@@ -216,12 +235,14 @@ pub fn open_from_disk(s: &mut Session, folder: &Path, file: &str) -> (DocumentUr
 pub fn open_file(folder: &Path, file: &str) -> (Session, DocumentUri, String) {
     let mut s = workspace_session(folder);
     let (uri, text) = open_from_disk(&mut s, folder, file);
+
     (s, uri, text)
 }
 
 /// The LSP position (UTF-16 columns) of byte offset `byte` in `text`.
 pub fn position(text: &str, byte: usize) -> Position {
     let prefix = &text[..byte];
+
     Position {
         line: prefix.matches('\n').count() as u32,
         character: utf16_column(prefix),

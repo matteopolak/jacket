@@ -7,6 +7,7 @@ use test_support::lsp::file_uri;
 
 fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
     let mut fs = VirtualFs::default();
+
     if configured {
         fs.insert(
             "/observed/jacket.toml",
@@ -17,6 +18,7 @@ fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
             "#load \"leaf.jai\";\nmain :: () { value := answer; }".as_bytes(),
         );
     }
+
     let calls = Rc::new(Cell::new(0));
     let observed = calls.clone();
     let mut session = Session::with_environment(
@@ -27,6 +29,7 @@ fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
             options: Box::new(move |root| {
                 observed.set(observed.get() + 1);
                 let mut options = Options::host();
+
                 options.runtime_support = false;
                 options.stack_trace = false;
                 options.import_paths =
@@ -36,6 +39,7 @@ fn fixture(configured: bool) -> (Session, DocumentUri, Rc<Cell<usize>>) {
         },
     );
     let leaf = file_uri("/observed/leaf.jai");
+
     session
         .open(leaf.clone(), 1, "answer :: 42;".into())
         .unwrap();
@@ -48,6 +52,7 @@ fn actual_root_observation_distinguishes_configured_entry_from_standalone_leaf()
     let (standalone, _, _) = fixture(false);
     let under_entry = configured.semantic_coverage(&leaf).unwrap().unwrap();
     let alone = standalone.semantic_coverage(&leaf).unwrap().unwrap();
+
     assert!(under_entry.source_loaded && alone.source_loaded);
     assert_eq!(
         under_entry.analysis.root.as_ref().unwrap().path,
@@ -71,6 +76,7 @@ fn actual_root_observation_distinguishes_configured_entry_from_standalone_leaf()
     );
     let entry = serde_json::to_value(&under_entry).unwrap();
     let leaf = serde_json::to_value(&alone).unwrap();
+
     assert!(entry["analysis"]["root"].is_object(), "{entry}");
     assert_eq!(entry["analysis"]["root"], entry["analysis"]["entry"]);
     assert_eq!(leaf["analysis"]["root"], leaf["analysis"]["entry"]);
@@ -81,12 +87,15 @@ fn actual_root_observation_distinguishes_configured_entry_from_standalone_leaf()
 #[test]
 fn observation_reuses_analysis_and_does_not_requery_options() {
     let (session, leaf, calls) = fixture(true);
+
     session.diagnostics(&leaf).unwrap();
     let before = (session.compile_counts(), calls.get());
     let first = session.semantic_coverage(&leaf).unwrap().unwrap();
     let second = session.semantic_coverage(&leaf).unwrap().unwrap();
+
     assert_eq!(before, (session.compile_counts(), calls.get()));
     let first = serde_json::to_value(first).unwrap();
+
     assert_eq!(first, serde_json::to_value(second).unwrap());
     assert!(first["analysis"]["import_dirs"].is_array(), "{first}");
     assert_eq!(
@@ -100,16 +109,19 @@ fn serialization_never_adds_raw_paths_to_existing_redacted_reports() {
     let (session, leaf, _) = fixture(true);
     let coverage = session.semantic_coverage(&leaf).unwrap().unwrap();
     let json = serde_json::to_string(&coverage).unwrap();
+
     assert!(
         !json.contains("/observed") && !json.contains("/actual-options"),
         "{json}"
     );
     let debug = format!("{coverage:?}");
+
     assert!(
         !debug.contains("/observed") && !debug.contains("/actual-options"),
         "{debug}"
     );
     let value: Value = serde_json::from_str(&json).unwrap();
+
     assert!(value["analysis"]["root"]["identity"].is_string(), "{value}");
 }
 
@@ -117,11 +129,14 @@ fn serialization_never_adds_raw_paths_to_existing_redacted_reports() {
 fn unknown_observations_remain_null_and_syntax_only_has_no_semantic_context() {
     let unknown = jai_language_server::SemanticAnalysisContext::default();
     let json = serde_json::to_value(unknown).unwrap();
+
     for field in ["root", "entry", "import_dirs", "workspace_id"] {
         assert!(json[field].is_null());
     }
+
     let mut syntax = Session::new(Limits::default());
     let uri = file_uri("/observed/leaf.jai");
+
     syntax.open(uri.clone(), 1, "answer :: 42;".into()).unwrap();
     assert!(syntax.semantic_coverage(&uri).unwrap().is_none());
     assert_eq!(syntax.compile_counts(), (0, 0));

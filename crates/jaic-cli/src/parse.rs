@@ -11,49 +11,63 @@ pub(super) fn parse(args: &[OsString]) -> Result<Request, CliError> {
     if args.is_empty() {
         return Err(no_file_error());
     }
+
     let mut cli = Cli::parse(args).map_err(|error| match error.kind {
         ErrorKind::Unknown => unknown_option(&error.subject),
         _ => CliError::from(error),
     })?;
+
     if cli.help {
         return Ok(Request::Help);
     }
+
     if cli.version {
         return Ok(Request::Version);
     }
+
     if cli.print_stdlib {
         return Ok(Request::Stdlib);
     }
+
     if let Some(shell) = cli.completions {
         return Ok(Request::Completions(shell));
     }
+
     let mut files = std::mem::take(&mut cli.positional).into_iter();
     let (file, extra) = (files.next(), files.next());
+
     // Arguments after `--` belong to the program, which only `-interp` runs; its argv[0] is the
     // source file, like a built program's executable path.
     if let Some(rest) = cli.after_dashes.take() {
         if !cli.interp {
             return Err(program_args_error(file.as_deref().unwrap_or("file.jai")));
         }
+
         cli.program_args.push(file.clone().unwrap_or_default());
         cli.program_args.extend(rest);
     }
+
     cli.command_line = cli.after_dash.take().unwrap_or_default();
     let Some(file) = file else {
         return Err(no_file_error());
     };
+
     if cli.doc_comments {
         return Ok(Request::DocComments(file, cli.imports));
     }
+
     if cli.doc_gaps {
         return Ok(Request::DocGaps(file, cli.imports));
     }
+
     if cli.doc_model {
         return Ok(Request::DocModel(file, cli.imports));
     }
+
     if cli.procedures {
         return Ok(Request::Procedures(file, cli.os, cli.cpu));
     }
+
     cli.file = file;
     cli.levels =
         jaic::diagnostics::Levels::parse(&cli.level_flags).map_err(|message| {
@@ -83,12 +97,15 @@ pub(super) fn check_input(file: &str) -> Result<(), CliError> {
             .map(|e| e.file_name().to_string_lossy().into_owned())
             .filter(|n| n.ends_with(".jai"))
             .collect();
+
         names.sort();
         names
     };
+
     match std::fs::metadata(path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             let mut error = CliError::new(format!("file `{file}` does not exist"));
+
             if let Some(near) = jaic::suggest::similar_sibling(path, |n| n.ends_with(".jai")) {
                 error = error.help(format!("did you mean `{}`?", near.display()));
             } else if !parent.is_dir() {
@@ -104,6 +121,7 @@ pub(super) fn check_input(file: &str) -> Result<(), CliError> {
                     cwd.display()
                 ));
             }
+
             Err(error)
         }
         Err(e) => Err(CliError::new(format!(
@@ -114,6 +132,7 @@ pub(super) fn check_input(file: &str) -> Result<(), CliError> {
             let mut error = CliError::new(format!("`{file}` is a directory, not a .jai file"));
             let files = jai_files(path);
             let entry = jacket_config::project_entry(&jacket_config::Disk, path);
+
             match (entry, files.len()) {
                 (Some(entry), _) => {
                     error = error.help(format!("did you mean `{}`?", entry.display()));
@@ -122,9 +141,11 @@ pub(super) fn check_input(file: &str) -> Result<(), CliError> {
                 (None, _) => {
                     let list: Vec<String> =
                         files.iter().take(5).map(|f| format!("`{f}`")).collect();
+
                     error = error.help(format!("pass one of its files: {}", list.join(", ")));
                 }
             }
+
             Err(error)
         }
         Ok(_) => match std::fs::File::open(path) {
@@ -145,6 +166,7 @@ pub(super) fn shown(path: &Path) -> String {
 /// Print an error given as text, its `help: `/`note: ` lines rendered as such.
 pub(super) fn print_error(message: &str) {
     let report = jaic::render::Report::from_text(jaic::diagnostics::Code::CliFailure, message);
+
     eprint!("{}", report.render());
 }
 
@@ -156,9 +178,11 @@ pub(super) fn report_cli_error(error: CliError) -> ExitCode {
 
 pub(super) fn print_cli_error(error: CliError) {
     let mut report = jaic::render::Report::new(jaic::diagnostics::Code::CliUsage, error.message);
+
     for help in error.help {
         report = report.help(help);
     }
+
     eprint!("{}", report.render());
 }
 
@@ -172,8 +196,10 @@ pub(super) fn color_choice(args: &[OsString]) -> jaic::render::ColorChoice {
         .map(|a| a.to_string_lossy().into_owned())
         .take_while(|a| a != "-" && a != "--" && !a.starts_with('+'))
         .collect();
+
     if own.iter().any(|a| a == "-no_color") {
         return jaic::render::ColorChoice::Never;
     }
+
     jaic::render::ColorChoice::from_args(&own, jaic::flags::COLOR.names)
 }

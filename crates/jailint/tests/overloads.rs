@@ -4,6 +4,7 @@ use test_support::TempDir;
 
 fn audit(name: &str, source: &str) -> std::process::Output {
     let dir = TempDir::new(name);
+
     std::fs::create_dir_all(dir.join("stdlib/prelude")).unwrap();
     std::fs::create_dir_all(dir.join("stdlib/Runtime_Support")).unwrap();
     std::fs::write(dir.join("stdlib/prelude/module.jai"), "").unwrap();
@@ -31,6 +32,7 @@ fn rejected_instances_do_not_create_body_obligations() {
         "rejected",
         &format!("{OVERLOADS} main :: () {{ a:A; route(*a,handler); }}"),
     );
+
     assert!(
         out.status.success(),
         "{}{}",
@@ -45,6 +47,7 @@ fn later_selected_cached_instance_still_checks_its_body() {
         "selected",
         &format!("{OVERLOADS} main :: () {{ a:A; route(*a,handler); b:B; route(*b,handler); }}"),
     );
+
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("selected instance must fail"));
 }
@@ -55,6 +58,7 @@ fn unreferenced_concrete_declarations_remain_audit_roots() {
         "unreferenced",
         "unused :: () { missing_in_unused_body(); } main :: () {}",
     );
+
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stderr).contains("missing_in_unused_body"));
 }
@@ -65,6 +69,7 @@ fn viable_but_less_preferred_instance_is_not_an_audit_root() {
         "less-preferred",
         "pick :: (x:$T) -> int { #assert false \"unselected viable generic\"; return 0; } pick :: (x:int) -> int { return x; } main :: () { #assert pick(7)==7; }",
     );
+
     assert!(
         out.status.success(),
         "{}{}",

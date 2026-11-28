@@ -27,12 +27,15 @@ fn compile(source: &str, private: bool) -> Result<(), String> {
         operator ! :: (a:Base)->bool {{ return a.n==0; }}
     "
     );
+
     fs.insert("/lib/Definition/module.jai", module.as_bytes());
     fs.insert("/main.jai", source.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec!["/lib".into()];
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     compiler
         .compile_program(Path::new("/main.jai"))
         .map_err(|e| e.render(&compiler.src.sources))
@@ -52,6 +55,7 @@ fn visible_base_comparisons_dispatch_for_nominal_and_nested_isa_types() {
             }}
             #assert check(); main :: () {{}}"#
         );
+
         compile(&source, false).unwrap();
     }
 }
@@ -84,6 +88,7 @@ fn visible_base_logical_not_dispatches_for_nested_nominal_records() {
             check :: ()->bool {{ zero:=M.{name}.{{0}}; nonzero:=M.{name}.{{7}};
                 return !zero && !!nonzero; }} #assert check(); main :: () {{}}"#
         );
+
         compile(&source, false).unwrap();
     }
 }
@@ -95,15 +100,18 @@ fn nominal_unary_lookup_preserves_privacy_and_unrelated_type_rejection() {
             r#"M :: #import "Definition"; using,only(.["!"]) M;
             main :: () {{ value:=M.{name}.{{0}}; rejected:=!value; }}"#
         );
+
         compile(&source, true)
             .expect_err("unary overload privacy is not bypassed by representation lookup");
         let source = format!(
             r#"M :: #import "Definition";
             main :: () {{ value:=M.{name}.{{0}}; rejected:=!value; }}"#
         );
+
         // The overload is found in the type's own module, with a warning.
         compile(&source, false).unwrap();
     }
+
     compile(
         r#"using #import "Definition";
         main :: () { value:=Unrelated.{0}; rejected:=!value; }"#,
@@ -116,6 +124,7 @@ fn nominal_unary_lookup_preserves_privacy_and_unrelated_type_rejection() {
 fn private_and_unimported_base_comparisons_stay_private() {
     let source = r#"M :: #import "Definition"; using,only(.["<"]) M;
         main :: () { a:=M.Derived.{1}; b:=M.Derived.{2}; rejected:=a<b; }"#;
+
     compile(source, true).expect_err("filters cannot expose private operators");
     compile(
         r#"M :: #import "Definition";
@@ -132,6 +141,7 @@ fn only_and_except_do_not_leak_unselected_comparison_operators() {
             r#"M :: #import "Definition"; using,{filter} M;
             main :: () {{ a:=M.Derived.{{1}}; b:=M.Derived.{{2}}; rejected:=a<b; }}"#
         );
+
         // A filter limits what the import brings into scope; the type's own module still
         // supplies its public operators (with a warning).
         compile(&source, false).unwrap();
@@ -149,6 +159,7 @@ fn unary_symbol_filter_excludes_hidden_and_internal_spellings() {
             r#"M :: #import "Definition"; using,{filter} M;
             main :: () {{ value:=M.Nested.{{0}}; rejected:=!value; }}"#
         );
+
         compile(&source, false).unwrap();
     }
 }

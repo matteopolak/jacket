@@ -65,6 +65,7 @@ pub(super) fn member_path(e: &ast::Expr) -> Option<Vec<Sym>> {
         E::Ident(name) => Some(vec![*name]),
         E::Member(base, field) => {
             let mut path = member_path(base)?;
+
             path.push(field.name);
             Some(path)
         }
@@ -77,6 +78,7 @@ pub(super) fn member_path_spans(e: &ast::Expr) -> Vec<Span> {
     match &e.kind {
         E::Member(base, field) => {
             let mut spans = member_path_spans(base);
+
             spans.push(field.span);
             spans
         }
@@ -128,6 +130,7 @@ impl StructMembers {
             fields: Vec::new(),
             aliases: Vec::new(),
         };
+
         for item in items {
             match item {
                 FieldItem::Field(d) => members.fields.push(MemberField {
@@ -140,6 +143,7 @@ impl StructMembers {
                 _ => {}
             }
         }
+
         members
     }
 }
@@ -227,6 +231,7 @@ pub(super) fn using_candidates(
             if !field.using {
                 return None;
             }
+
             let target = filters.target(index, name)?;
             Some((field.ty, field.offset, target))
         })

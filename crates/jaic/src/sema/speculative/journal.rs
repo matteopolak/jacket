@@ -18,6 +18,7 @@ impl Compiler {
     ) {
         if active() {
             let kept = value.clone();
+
             journal(
                 move |c| {
                     c.pr.local_consts.quiet().remove(&e);
@@ -27,8 +28,10 @@ impl Compiler {
                 },
             );
             self.pr.local_consts.quiet().insert(e, (value, ty));
+
             return;
         }
+
         self.pr.local_consts.insert(e, (value, ty));
     }
 
@@ -47,19 +50,24 @@ impl Compiler {
             self.entity_mut(id).state = state;
             return;
         }
+
         if matches!(state, EntityState::Done(_)) && local_globals_len() != globals_before {
             abandon(W::NsEntities as usize);
         }
+
         let slot = &mut self.ns.entities.quiet()[id.0 as usize].state;
         let previous = std::mem::replace(slot, state.clone());
+
         UNDO.with(|u| {
             u.borrow_mut().push(Box::new(move |c| {
                 c.ns.entities.quiet()[id.0 as usize].state = previous;
             }));
         });
+
         if let EntityState::Done(resolved) = state {
             defer(move |c, _| {
                 let slot = &mut c.ns.entities.quiet()[id.0 as usize].state;
+
                 if matches!(slot, EntityState::Unresolved) {
                     *slot = EntityState::Done(resolved);
                 }
@@ -77,16 +85,20 @@ impl Compiler {
         if !active() || FIRST_USE.with(|f| f.get().is_some()) {
             return step(self);
         }
+
         let resumable = match what {
             FirstUse::Entity(e) => (e.0 as usize) < BASES.with(Cell::get)[1],
             FirstUse::Target(p) => self.target_is_resumable(p),
             FirstUse::Signature(_) => true,
         };
+
         if !resumable {
             return step(self);
         }
+
         FIRST_USE.with(|f| f.set(Some(what)));
         let result = step(self);
+
         FIRST_USE.with(|f| f.set(None));
         result
     }
@@ -97,6 +109,7 @@ impl Compiler {
     pub(super) fn target_is_resumable(&self, id: ProcId) -> bool {
         let p = self.proc(id);
         let header = &p.lit.header;
+
         p.lit.body.is_some()
             && header.foreign.is_none()
             && !header.flags.compiler()
@@ -117,23 +130,30 @@ impl Compiler {
             let first = TOUCHED_PROCS.with(|t| {
                 let mut t = t.borrow_mut();
                 let first = !t.contains(&id);
+
                 if first {
                     t.push(id);
                 }
+
                 first
             });
+
             if first {
                 let p = &self.pr.procs[id.0 as usize];
                 let before = (p.poly_checked, p.is_poly, p.sig_resolving, p.sig.clone());
+
                 UNDO.with(|u| {
                     u.borrow_mut().push(Box::new(move |c| {
                         let p = &mut c.pr.procs.quiet()[id.0 as usize];
+
                         (p.poly_checked, p.is_poly, p.sig_resolving, p.sig) = before;
                     }));
                 });
             }
+
             return &mut self.pr.procs.quiet()[id.0 as usize];
         }
+
         &mut self.pr.procs[id.0 as usize]
     }
 
@@ -142,13 +162,16 @@ impl Compiler {
         for id in TOUCHED_PROCS.with(|t| std::mem::take(&mut *t.borrow_mut())) {
             let p = &self.pr.procs[id.0 as usize];
             let memo = (p.poly_checked, p.is_poly, p.sig.clone());
+
             OPS.with(|o| {
                 o.borrow_mut().push(Box::new(move |c, _| {
                     let p = &mut c.pr.procs[id.0 as usize];
+
                     if memo.0 && !p.poly_checked {
                         p.poly_checked = true;
                         p.is_poly = memo.1;
                     }
+
                     if p.sig.is_none() {
                         p.sig = memo.2;
                     }
@@ -163,6 +186,7 @@ impl Compiler {
         if !active() {
             return false;
         }
+
         THUNK_KEYS.with(|t| t.borrow_mut().push(scope));
         UNDO.with(|u| {
             u.borrow_mut().push(Box::new(move |c| {
@@ -186,6 +210,7 @@ impl Compiler {
     ) {
         if active() {
             let kept = value.clone();
+
             journal(
                 move |c| {
                     c.pr.const_macro_params.quiet().remove(&e);
@@ -195,8 +220,10 @@ impl Compiler {
                 },
             );
             self.pr.const_macro_params.quiet().insert(e, (value, ty));
+
             return;
         }
+
         self.pr.const_macro_params.insert(e, (value, ty));
     }
 
@@ -212,8 +239,10 @@ impl Compiler {
                 },
             );
             self.pr.discard_params.quiet().insert(e);
+
             return;
         }
+
         self.pr.discard_params.insert(e);
     }
 
@@ -225,6 +254,7 @@ impl Compiler {
     ) {
         if active() {
             let kept = info.clone();
+
             journal(
                 move |c| {
                     c.pr.callable_entities.quiet().remove(&e);
@@ -234,8 +264,10 @@ impl Compiler {
                 },
             );
             self.pr.callable_entities.quiet().insert(e, info);
+
             return;
         }
+
         self.pr.callable_entities.insert(e, info);
     }
 
@@ -244,6 +276,7 @@ impl Compiler {
         if self.pr.ifx_operands.contains(&span) {
             return;
         }
+
         if active() {
             journal(
                 move |c| {
@@ -254,8 +287,10 @@ impl Compiler {
                 },
             );
             self.pr.ifx_operands.quiet().insert(span);
+
             return;
         }
+
         self.pr.ifx_operands.insert(span);
     }
 
@@ -263,12 +298,15 @@ impl Compiler {
     pub(in crate::sema) fn note_call_instance(&mut self, span: Span, instance: ProcId) {
         let note = move |c: &mut Compiler, _: &Shift| {
             let made = c.meta.export.call_instances.entry(span).or_default();
+
             if !made.contains(&instance) {
                 made.push(instance);
             }
         };
+
         if !defer(note) {
             let made = self.meta.export.call_instances.entry(span).or_default();
+
             if !made.contains(&instance) {
                 made.push(instance);
             }

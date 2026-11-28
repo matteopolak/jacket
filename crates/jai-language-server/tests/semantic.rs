@@ -53,10 +53,13 @@ main :: () {
 }
 ";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let items = labels(&s, after(text, "    forward(5);\n", 0, 0));
+
     for name in ["dispatch", "forward"] {
         let item = items.iter().find(|(label, ..)| label == name).unwrap();
+
         assert_eq!(item.1, CompletionKind::Function, "{item:?}");
         assert!(item.2.contains("value:"), "{item:?}");
     }
@@ -65,6 +68,7 @@ main :: () {
 #[test]
 fn hover_shows_types_of_locals_procedures_structs_and_members() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     assert_eq!(
         hover(&s, after(PROGRAM, "counter + ", 0, 4)),
@@ -95,8 +99,10 @@ fn completion_offers_locals_globals_and_imports_while_typing() {
     let mut s = session();
     // A half-typed statement: the text does not parse.
     let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    co\n");
+
     s.open(uri(), 1, text.clone()).unwrap();
     let items = labels(&s, after(&text, "    co\n", 0, 1));
+
     assert!(
         items
             .iter()
@@ -104,6 +110,7 @@ fn completion_offers_locals_globals_and_imports_while_typing() {
         "{items:?}"
     );
     let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    \n");
+
     s.change(
         &uri(),
         2,
@@ -120,6 +127,7 @@ fn completion_offers_locals_globals_and_imports_while_typing() {
     );
     let has =
         |name: &str, kind: CompletionKind| items.iter().any(|(l, k, _)| l == name && *k == kind);
+
     assert!(has("total", CompletionKind::Variable));
     assert!(has("thing", CompletionKind::Variable));
     assert!(has("helper", CompletionKind::Function));
@@ -136,8 +144,10 @@ fn call_arguments_complete_stdlib_parameter_names() {
         let mut s = session();
         let byte = text.find('|').unwrap();
         let text = text.replacen('|', "", 1);
+
         s.open(uri(), 1, text.clone()).unwrap();
         let at = position(&text, byte);
+
         s.completion(&uri(), at)
             .unwrap()
             .items
@@ -147,6 +157,7 @@ fn call_arguments_complete_stdlib_parameter_names() {
             .collect::<Vec<_>>()
     };
     let program = |call: &str| format!("#import \"Basic\";\nmain :: () {{\n    {call}\n}}\n");
+
     for call in [
         "print(\"x\", to_standa|);",
         "print(\"x\", to_standa|",
@@ -167,7 +178,9 @@ fn call_arguments_complete_stdlib_parameter_names() {
             "{call}"
         );
     }
+
     let passed = named(&program("print(\"x\", to_standard_error = true, |);"));
+
     assert!(
         !passed.iter().any(|(label, _)| label == "to_standard_error"),
         "{passed:?}"
@@ -178,11 +191,14 @@ fn call_arguments_complete_stdlib_parameter_names() {
 fn completion_after_a_dot_lists_members() {
     let mut s = session();
     let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    thing.\n");
+
     s.open(uri(), 1, text.clone()).unwrap();
     let items = labels(&s, after(&text, "    thing.", 0, 0));
     let names: Vec<&str> = items.iter().map(|(l, ..)| l.as_str()).collect();
+
     assert_eq!(names, ["alpha", "beta", "label"], "{items:?}");
     let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    thing.label.co\n");
+
     s.change(
         &uri(),
         2,
@@ -194,11 +210,13 @@ fn completion_after_a_dot_lists_members() {
     )
     .unwrap();
     let items = labels(&s, after(&text, "thing.label.co", 0, 0));
+
     assert_eq!(
         items.iter().map(|(l, ..)| l.as_str()).collect::<Vec<_>>(),
         ["count"]
     );
     let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    m := Mode.\n");
+
     s.change(
         &uri(),
         3,
@@ -211,6 +229,7 @@ fn completion_after_a_dot_lists_members() {
     .unwrap();
     let items = labels(&s, after(&text, "Mode.", 0, 0));
     let names: Vec<&str> = items.iter().map(|(l, ..)| l.as_str()).collect();
+
     assert!(
         names.contains(&"IDLE") && names.contains(&"RUNNING"),
         "{items:?}"
@@ -224,6 +243,7 @@ fn hover_works_while_another_line_is_half_typed() {
         "    print(\"%\\n\", total);\n",
         "    print(\"%\\n\", total);\n    thing.\n",
     );
+
     s.open(uri(), 1, text.clone()).unwrap();
     assert_eq!(hover(&s, after(&text, "%\\n\", total", 0, 1)), "total: s64");
 }
@@ -232,13 +252,16 @@ fn hover_works_while_another_line_is_half_typed() {
 fn completion_after_a_hash_lists_directives() {
     let mut s = session();
     let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    #ru\n");
+
     s.open(uri(), 1, text.clone()).unwrap();
     let items = labels(&s, after(&text, "#ru", 0, 0));
+
     assert_eq!(
         items.iter().map(|(l, ..)| l.as_str()).collect::<Vec<_>>(),
         ["#run", "#runtime_support"]
     );
     let text = PROGRAM.replace("    print(\"%\\n\", total);\n", "    #\n");
+
     s.change(
         &uri(),
         2,
@@ -250,6 +273,7 @@ fn completion_after_a_hash_lists_directives() {
     )
     .unwrap();
     let items = labels(&s, after(&text, "    #", 0, 0));
+
     assert!(
         items
             .iter()
@@ -270,6 +294,7 @@ fn definition_reaches_loaded_files_and_the_stdlib() {
         "    print(\"%\\n\", x);\n",
         "}\n",
     );
+
     s.open(
         other.clone(),
         1,
@@ -278,6 +303,7 @@ fn definition_reaches_loaded_files_and_the_stdlib() {
     .unwrap();
     s.open(uri(), 1, main.into()).unwrap();
     let local = s.definition(&uri(), after(main, "twice", 0, 2)).unwrap();
+
     assert_eq!(local.len(), 1);
     assert_eq!(local[0].uri, other.as_str());
     assert_eq!(
@@ -285,18 +311,22 @@ fn definition_reaches_loaded_files_and_the_stdlib() {
         (0, 5)
     );
     let x = s.definition(&uri(), after(main, ", x", 0, 0)).unwrap();
+
     assert_eq!(x[0].uri, uri().as_str());
     assert_eq!(x[0].range.start.line, 3);
     let print = s.definition(&uri(), after(main, "print", 0, 1)).unwrap();
+
     assert_ne!(print, [] as [jai_language_server::Location; 0]);
     assert!(
         print.iter().all(|l| l.uri.contains("/stdlib/")),
         "{print:?}"
     );
+
     // Every overload (and alias) lands on its declared name.
     for at in &print {
         let source = s.source(&DocumentUri::parse(&at.uri).unwrap()).unwrap();
         let line = source.lines().nth(at.range.start.line as usize).unwrap();
+
         assert!(
             line[at.range.start.character as usize..].starts_with("print"),
             "{line}"
@@ -310,11 +340,14 @@ fn completion_inside_load_and_import_strings_lists_paths_and_modules() {
     let mut s = session();
     let helper = file_uri("/lsp-test/util/helpers.jai");
     let local = file_uri("/lsp-test/other.jai");
+
     s.open(helper, 1, "x :: 1;\n".into()).unwrap();
     s.open(local, 1, "y :: 2;\n".into()).unwrap();
     let text = "#import \"Bas\";\n#load \"\";\n#load \"util/h\";\n";
+
     s.open(uri(), 1, text.into()).unwrap();
     let names = |at| -> Vec<String> { labels(&s, at).into_iter().map(|l| l.0).collect() };
+
     assert_eq!(names(after(text, "\"Bas", 0, 0)), ["Base64", "Basic"]);
     assert_eq!(names(after(text, "#load \"", 0, 0)), ["other.jai", "util/"]);
     assert_eq!(names(after(text, "util/h", 0, 0)), ["helpers.jai"]);
@@ -324,6 +357,7 @@ fn completion_inside_load_and_import_strings_lists_paths_and_modules() {
 fn import_completion_offers_the_extension_modules_by_their_path() {
     let mut s = session();
     let text = "#import \"Ext\";\n#import \"Extensions/Lo\";\n";
+
     s.open(uri(), 1, text.into()).unwrap();
     assert_eq!(
         labels(&s, after(text, "\"Ext", 0, 0)),
@@ -357,8 +391,10 @@ fn type_error_in_an_unused_procedure_is_published() {
             .collect()
     };
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let found = checks(&s);
+
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(found[0].message.contains("type mismatch"), "{found:?}");
     assert_eq!(
@@ -374,6 +410,7 @@ fn type_error_in_an_unused_procedure_is_published() {
         range_length: None,
         text: text.replace("\"text\"", "3"),
     };
+
     s.change(&uri(), 2, &[fixed]).unwrap();
     assert_eq!(checks(&s), [] as [jai_language_server::Diagnostic; 0]);
 }
@@ -427,14 +464,17 @@ fn layout_hover(s: &Session, marker: &str, n: usize) -> String {
 fn layout_of(s: &Session, marker: &str, n: usize) -> Option<String> {
     let text = layout_hover(s, marker, n);
     let (_, line) = text.rsplit_once('\n')?;
+
     (line.starts_with("size ") || line.starts_with("offset ")).then(|| line.to_owned())
 }
 
 #[test]
 fn hovers_show_the_compilers_memory_layout() {
     let mut s = session();
+
     s.open(uri(), 1, LAYOUT.into()).unwrap();
     let layout = |marker: &str, n: usize| layout_of(&s, marker, n);
+
     // A struct and its padding, at the definition and at a use.
     assert_eq!(
         layout_hover(&s, "Pair ::", 0),
@@ -535,6 +575,7 @@ fn hovers_show_the_compilers_memory_layout() {
 #[test]
 fn layout_hovers_are_markdown_paragraphs() {
     let mut s = session();
+
     s.open(uri(), 1, LAYOUT.into()).unwrap();
     let hover = s
         .hover_as(
@@ -546,6 +587,7 @@ fn layout_hovers_are_markdown_paragraphs() {
         .expect("hover")
         .contents
         .value;
+
     assert_eq!(
         hover,
         "```jai\nPair :: struct { a: u8; b: s32; }\n```\n\nsize 8, align 4 (3 bytes of padding)"
@@ -574,6 +616,7 @@ main :: () {
 fn asm_session(statement: &str) -> (Session, String) {
     let mut s = session();
     let text = ASM.replace("ADD_HERE", statement);
+
     s.open(uri(), 1, text.clone()).unwrap();
     (s, text)
 }
@@ -603,21 +646,25 @@ fn replace_text(s: &mut Session, version: i32, text: &str) {
 fn asm_mnemonic_completion_filters_the_compilers_instruction_table() {
     let (s, text) = asm_session("vpad");
     let found = items(&s, after(&text, "vpad", 0, 0));
+
     assert_ne!(found, [] as [jai_language_server::CompletionItem; 0]);
     assert!(
         found.iter().all(|i| i.label.starts_with("vpad")),
         "{found:?}"
     );
     let vpaddd = found.iter().find(|i| i.label == "vpaddd").expect("vpaddd");
+
     assert_eq!(vpaddd.kind, CompletionKind::Instruction);
     assert_eq!(vpaddd.detail, "vpaddd dst: vec, a: vec, b: vec/mem (AVX2)");
     let doc = vpaddd.documentation.as_deref().unwrap();
+
     assert!(
         doc.starts_with("Add packed dwords, wrapping on overflow."),
         "{doc}"
     );
     assert!(doc.contains("Requires `AVX2`"), "{doc}");
     assert!(found.iter().any(|i| i.label == "vpaddsw"));
+
     // Every item is something the compiler accepts.
     for item in &found {
         assert!(
@@ -626,9 +673,12 @@ fn asm_mnemonic_completion_filters_the_compilers_instruction_table() {
             item.label
         );
     }
+
     let (s, text) = asm_session("sha");
+
     assert!(names(&s, after(&text, "sha", 0, 0)).contains(&"sha256rnds2".to_string()));
     let (s, text) = asm_session("kandn");
+
     assert_eq!(
         names(&s, after(&text, "kandn", 0, 0)),
         ["kandnb", "kandnd", "kandnq", "kandnw"]
@@ -640,6 +690,7 @@ fn asm_operand_completion_offers_registers_and_jai_variables() {
     let (s, text) = asm_session("add acc, ");
     let found = items(&s, after(&text, "add acc, ", 0, 0));
     let has = |name: &str| found.iter().find(|i| i.label == name);
+
     assert_eq!(has("acc").unwrap().detail, "gpr register (#asm)");
     assert_eq!(has("v").unwrap().detail, "vec register (#asm)");
     // `w:` was declared inline as the destination of a vector instruction.
@@ -650,15 +701,18 @@ fn asm_operand_completion_offers_registers_and_jai_variables() {
     // Procedures are not operands; neither are instructions.
     assert!(has("print").is_none() && has("add").is_none(), "{found:?}");
     let (s, text) = asm_session("add acc, to");
+
     assert_eq!(names(&s, after(&text, "acc, to", 0, 0)), ["total"]);
 }
 
 #[test]
 fn asm_declarations_classes_pins_and_features_complete() {
     let (s, text) = asm_session("k: o");
+
     assert_eq!(names(&s, after(&text, "k: o", 0, 0)), ["omr"]);
     let (s, text) = asm_session("t: gpr === r1");
     let pins = names(&s, after(&text, "=== r1", 0, 0));
+
     assert!(pins.contains(&"r12".to_string()) && pins.iter().all(|l| l.starts_with("r1")));
     // At the start of a statement: declaration snippets alongside the instructions.
     let (s, text) = asm_session("");
@@ -667,14 +721,17 @@ fn asm_declarations_classes_pins_and_features_complete() {
         .iter()
         .find(|i| i.label == "name: vec")
         .expect("vec declaration");
+
     assert_eq!(decl.kind, CompletionKind::Snippet);
     assert_eq!(decl.insert_text.as_deref(), Some("${1:name}: vec;"));
     let mut s = session();
     let text = ASM
         .replace("#asm AVX2 {", "#asm AVX51 {")
         .replace("ADD_HERE", "");
+
     s.open(uri(), 1, text.clone()).unwrap();
     let features = names(&s, after(&text, "AVX51", 0, 0));
+
     assert!(features.contains(&"AVX512F".to_string()), "{features:?}");
     assert!(features.iter().all(|l| l.starts_with("AVX51")));
 }
@@ -683,6 +740,7 @@ fn asm_declarations_classes_pins_and_features_complete() {
 fn asm_hover_shows_the_instruction_and_register_classes() {
     let (s, text) = asm_session("");
     let shown = hover(&s, after(&text, "vpaddd", 0, 2));
+
     assert!(
         shown.starts_with("vpaddd dst: vec, a: vec, b: vec/mem\n"),
         "{shown}"
@@ -690,8 +748,10 @@ fn asm_hover_shows_the_instruction_and_register_classes() {
     assert!(shown.contains("Add packed dwords"), "{shown}");
     assert!(shown.contains("Requires AVX2"), "{shown}");
     let shown = hover(&s, after(&text, "mov acc", 0, 1));
+
     assert!(shown.starts_with("acc: gpr\n"), "{shown}");
     let shown = hover(&s, after(&text, "w:, v", 0, 1));
+
     assert!(shown.starts_with("v: vec\n"), "{shown}");
 }
 
@@ -702,6 +762,7 @@ fn asm_signature_help_lists_operand_forms() {
         .signature_help(&uri(), after(&text, "vpaddd w, v, ", 0, 0))
         .unwrap()
         .expect("signature help");
+
     assert_eq!(
         help.signatures[0].label,
         "vpaddd dst: vec, a: vec, b: vec/mem"
@@ -714,14 +775,18 @@ fn asm_signature_help_lists_operand_forms() {
 fn asm_completion_works_in_an_unterminated_block() {
     let mut s = session();
     let text = "main :: () {\n    total: s64 = 1;\n    #asm {\n        x: gpr;\n        ad\n}\n";
+
     s.open(uri(), 1, text.into()).unwrap();
     let found = names(&s, after(text, "        ad", 0, 0));
+
     assert!(found.contains(&"add".to_string()), "{found:?}");
     assert!(found.contains(&"adcx".to_string()), "{found:?}");
     // Nothing closes the block or the procedure.
     let text = "main :: () {\n    total: s64 = 1;\n    #asm {\n        x: gpr;\n        add x, ";
+
     replace_text(&mut s, 2, text);
     let found = names(&s, after(text, "add x, ", 0, 0));
+
     assert!(found.contains(&"x".to_string()), "{found:?}");
     assert!(found.contains(&"total".to_string()), "{found:?}");
 }
@@ -730,8 +795,10 @@ fn asm_completion_works_in_an_unterminated_block() {
 fn asm_completion_works_after_a_bare_unterminated_open_brace() {
     let mut s = session();
     let text = "main :: () {\n    #asm {";
+
     s.open(uri(), 1, text.into()).unwrap();
     let found = items(&s, after(text, "#asm {", 0, 0));
+
     assert!(
         found.iter().any(|i| i.label == "add"),
         "{:?}",
@@ -740,8 +807,10 @@ fn asm_completion_works_after_a_bare_unterminated_open_brace() {
     assert!(found.iter().any(|i| i.kind == CompletionKind::Snippet));
     // A comment holding the directive is not a block.
     let text = "main :: () {\n    // #asm {\n    ad";
+
     replace_text(&mut s, 2, text);
     let found = items(&s, after(text, "    ad", 0, 0));
+
     assert!(found.iter().all(|i| i.kind != CompletionKind::Instruction));
 }
 
@@ -751,13 +820,16 @@ fn asm_items_are_not_offered_outside_asm_blocks() {
     let text = ASM
         .replace("ADD_HERE", "")
         .replace("    print(", "    vpad\n    print(");
+
     replace_text(&mut s, 2, &text);
     let found = items(&s, after(&text, "    vpad\n", 0, 1));
+
     assert!(
         found.iter().all(|i| i.kind != CompletionKind::Instruction),
         "{found:?}"
     );
     let found = items(&s, after(&text, "    print", 0, 2));
+
     assert!(found.iter().any(|i| i.label == "print"));
     assert!(found.iter().all(|i| i.kind != CompletionKind::Instruction));
 }
@@ -774,6 +846,7 @@ main :: () {
 }
 ";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let line = |marker: &str| -> Vec<u32> {
         s.definition(&uri(), after(text, marker, 0, marker.len() - 2))
@@ -782,10 +855,12 @@ main :: () {
             .map(|l| l.range.start.line)
             .collect()
     };
+
     assert_eq!(line("area(2.0"), [0]);
     assert_eq!(line("area(2, 3"), [1]);
     // No overload fits: the whole set.
     let mut both = line("area(\"x");
+
     both.sort_unstable();
     assert_eq!(both, [0, 1]);
 }
@@ -822,9 +897,11 @@ assign :: () {
 }
 ";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let names = |at| -> Vec<String> { labels(&s, at).into_iter().map(|l| l.0).collect() };
     let colors = ["BLUE", "GREEN", "RED"];
+
     assert_eq!(names(after(text, "d: Color = .", 0, 0)), colors);
     assert_eq!(names(after(text, "paint(.", 0, 0)), colors);
     // The second parameter is a different enum.
@@ -833,6 +910,7 @@ assign :: () {
     assert_eq!(names(after(text, "case .", 0, 0)), colors);
     assert_eq!(names(after(text, "d = .G", 0, 0)), ["GREEN"]);
     let kinds = labels(&s, after(text, "d: Color = .", 0, 0));
+
     assert!(kinds.iter().all(|k| k.1 == CompletionKind::EnumMember));
 }
 
@@ -850,9 +928,11 @@ written :: () {
 }
 ";
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let names = |at| -> Vec<String> { labels(&s, at).into_iter().map(|l| l.0).collect() };
     let dirs = ["EAST", "NORTH", "WEST"];
+
     assert_eq!(names(after(text, "cast(Dir) .;", 0, 1)), dirs);
     assert_eq!(names(after(text, "cast(Dir) .WEST", 0, 0)), ["WEST"]);
 }
@@ -865,19 +945,24 @@ const MEMBERS: &str =
 #[test]
 fn completion_while_typing_reuses_the_last_good_compile() {
     let mut s = session();
+
     s.open(uri(), 1, MEMBERS.into()).unwrap();
     s.diagnostics(&uri()).unwrap();
     let (compiled, _) = s.compile_counts();
     let typing = MEMBERS.replace("    p.x = 1;\n", "    p.\n");
+
     replace_text(&mut s, 2, &typing);
     let items = labels(&s, after(&typing, "    p.", 0, 0));
     let names: Vec<&str> = items.iter().map(|(l, ..)| l.as_str()).collect();
+
     assert_eq!(names, ["x", "y"], "{names:?}");
     assert_eq!(s.compile_counts().0, compiled, "no compile for completion");
     // More letters of the word: still the same compile.
     let typing = MEMBERS.replace("    p.x = 1;\n", "    p.y\n");
+
     replace_text(&mut s, 3, &typing);
     let items = labels(&s, after(&typing, "    p.y", 0, 0));
+
     assert_eq!(items.len(), 1);
     assert_eq!(s.compile_counts().0, compiled);
     // An edit before the cursor changes what the old compile knew: compile again, and still answer.
@@ -885,8 +970,10 @@ fn completion_while_typing_reuses_the_last_good_compile() {
         "Point :: struct { x: int; y: int; }",
         "Point :: struct { x: int; y: int; z: int; }",
     );
+
     replace_text(&mut s, 4, &edited);
     let items = labels(&s, after(&edited, "    p.", 0, 0));
+
     assert_eq!(items.len(), 3, "{items:?}");
     assert!(s.compile_counts().0 > compiled);
 }
@@ -897,14 +984,19 @@ fn completion_while_typing_reuses_the_last_good_compile() {
 #[test]
 fn old_compiles_are_dropped() {
     let mut s = session();
+
     s.open(uri(), 1, MEMBERS.into()).unwrap();
+
     for version in 2..10 {
         let text = MEMBERS.replace("p.x = 1", &format!("p.x = {version}"));
+
         replace_text(&mut s, version, &text);
         s.diagnostics(&uri()).unwrap();
         s.hover(&uri(), after(&text, "p.x", 0, 0)).unwrap();
     }
+
     let (compiled, alive) = s.compile_counts();
+
     assert!(compiled >= 8, "{compiled}");
     assert_eq!(alive, 1, "an older compile of the same program stays alive");
 }
@@ -921,7 +1013,9 @@ main :: () {
     }
 }
 "#;
+
     let mut s = session();
+
     s.open(uri(), 1, SWITCH.into()).unwrap();
     assert_eq!(hover(&s, after(SWITCH, "first := ", 0, 7)), "first: s64");
     assert_eq!(

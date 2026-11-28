@@ -31,6 +31,7 @@ fn build(
     if !toolchain::buildable("avr-none-elf") {
         return None;
     }
+
     let built = Command::new(JAIC)
         .args(flags)
         .args(["-exe", output])
@@ -40,10 +41,12 @@ fn build(
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     if stderr.contains("has no backend for") && !toolchain::strict() {
         toolchain::skip(&stderr);
         return None;
     }
+
     Some(built)
 }
 
@@ -68,8 +71,10 @@ fn run_on_uno(qemu: &Path, elf: &Path, expected: &str) -> String {
         .unwrap();
     let mut stdout = child.stdout.take().unwrap();
     let (send, receive) = mpsc::channel();
+
     std::thread::spawn(move || {
         let mut byte = [0u8; 1];
+
         while stdout.read(&mut byte).is_ok_and(|n| n == 1) {
             if send.send(byte[0]).is_err() {
                 break;
@@ -78,11 +83,13 @@ fn run_on_uno(qemu: &Path, elf: &Path, expected: &str) -> String {
     });
     let started = Instant::now();
     let mut text = String::new();
+
     while !text.ends_with(expected) && started.elapsed() < Duration::from_secs(20) {
         if let Ok(byte) = receive.recv_timeout(Duration::from_millis(100)) {
             text.push(char::from(byte));
         }
     }
+
     child.kill().unwrap();
     child.wait().unwrap();
     text
@@ -94,11 +101,13 @@ fn run_program(source: &str, expected: &str) {
     let Some(qemu) = toolchain::optional("qemu-system-avr") else {
         return;
     };
+
     for flags in [&[][..], &["-O0"], &["-O2"]] {
         let dir = TempDir::new(&format!("avr-{}-{}", source.replace('.', "-"), flags.len()));
         let Some(built) = build(&dir, source, flags, "prog.elf") else {
             return;
         };
+
         assert!(
             built.status.success(),
             "{flags:?}: {}",
@@ -136,6 +145,7 @@ fn the_hello_image_fits_the_atmega328p() {
     let Some(built) = build(&dir, "avr-hello.jai", &[], "prog.elf") else {
         return;
     };
+
     assert!(
         built.status.success(),
         "{}",
@@ -155,6 +165,7 @@ fn the_hello_image_fits_the_atmega328p() {
         .map(|n| n.parse().unwrap())
         .collect();
     let (code, data, bss) = (numbers[0], numbers[1], numbers[2]);
+
     assert!(code + data <= 32 * 1024, "{text}");
     assert!(data + bss + 256 <= 2048, "{text}");
 }
@@ -172,11 +183,14 @@ fn code_pointers_lower_through_address_space_1() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     if stderr.contains("has no backend for") && !toolchain::strict() {
         toolchain::skip(&stderr);
         return;
     }
+
     let ir = std::fs::read_to_string(dir.join("prog.ll")).unwrap_or_else(|_| panic!("{stderr}"));
+
     assert!(
         ir.contains("addrspacecast (ptr addrspace(1) @step_a"),
         "a procedure's address is cast from program memory:\n{ir}"
@@ -190,6 +204,7 @@ fn code_pointers_lower_through_address_space_1() {
             && line.contains('(')
             && !line.contains('@')
     });
+
     assert!(
         casts_back && calls_it,
         "an indirect call goes through program memory"
@@ -203,6 +218,7 @@ fn a_compiler_rt_path_that_does_not_exist_is_named() {
     if !toolchain::buildable("avr-none-elf") {
         return;
     }
+
     let dir = TempDir::new("avr-builtins-missing");
     let built = Command::new(JAIC)
         .args(["-exe", "prog.elf"])
@@ -213,10 +229,12 @@ fn a_compiler_rt_path_that_does_not_exist_is_named() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     if stderr.contains("has no backend for") && !toolchain::strict() {
         toolchain::skip(&stderr);
         return;
     }
+
     assert!(!built.status.success(), "{stderr}");
     assert!(stderr.contains("JAIC_COMPILER_RT names"), "{stderr}");
     assert!(stderr.contains("which does not exist"), "{stderr}");

@@ -23,25 +23,31 @@ fn excerpt(text: &str, span: jaic::source::Span, max: usize) -> String {
         .get(span.start as usize..span.end as usize)
         .unwrap_or("");
     let mut out = String::new();
+
     for word in source.split_whitespace() {
         if !out.is_empty() {
             out.push(' ');
         }
+
         out.push_str(word);
+
         if out.chars().count() > max {
             break;
         }
     }
+
     if out.chars().count() > max {
         out = out.chars().take(max).collect();
         out.push('…');
     }
+
     out
 }
 
 impl Analysis {
     pub(super) fn outline_of(&mut self, file: &File, text: &str) {
         let mut sections = Vec::new();
+
         collect(&file.stmts, text.len(), text, &mut sections);
         self.outline = sections;
     }
@@ -52,6 +58,7 @@ impl Analysis {
 fn collect(stmts: &[Stmt], end: usize, text: &str, out: &mut Vec<Section>) {
     for (at, stmt) in stmts.iter().enumerate() {
         let span = span_of(stmt.span);
+
         match &stmt.kind {
             StmtKind::Scope(kind) => {
                 let closes = stmts[at + 1..]
@@ -63,6 +70,7 @@ fn collect(stmts: &[Stmt], end: usize, text: &str, out: &mut Vec<Section>) {
                     ScopeKind::Export => "#scope_export",
                     ScopeKind::Module => "#scope_module",
                 };
+
                 out.push(Section {
                     name: name.into(),
                     detail: String::new(),
@@ -74,6 +82,7 @@ fn collect(stmts: &[Stmt], end: usize, text: &str, out: &mut Vec<Section>) {
             StmtKind::StaticIf(branches) => {
                 let then = span_of(branches.then_arm);
                 let condition = span_of(branches.cond.span);
+
                 out.push(Section {
                     name: format!("#if {}", excerpt(text, branches.cond.span, 48)),
                     detail: String::new(),
@@ -85,8 +94,10 @@ fn collect(stmts: &[Stmt], end: usize, text: &str, out: &mut Vec<Section>) {
                     ),
                 });
                 collect(&branches.then_branch, then.end, text, out);
+
                 if let Some(arm) = branches.else_arm {
                     let arm = span_of(arm);
+
                     out.push(Section {
                         name: "#else".into(),
                         detail: String::new(),

@@ -36,6 +36,7 @@ impl Files for Unreadable {
 #[test]
 fn an_unreadable_file_is_an_error_not_defaults() {
     let error = load(&Unreadable, Path::new("/p")).unwrap_err();
+
     assert_eq!(error.path, Path::new("/p").join(FILE_NAME));
     assert!(
         error.message.contains("no access for the test"),
@@ -52,9 +53,11 @@ fn the_nearest_directory_wins_and_old_file_names_mean_nothing() {
         ("/q/jai.toml", "build_files = [\"b.jai\"]\n"),
     ]);
     let here = load(&fs, Path::new("/p/deep")).unwrap().unwrap();
+
     assert_eq!(here.config.project.entry.0, ["a.jai"]);
     assert!(here.notes.is_empty(), "{:?}", here.notes);
     let sub = load(&fs, Path::new("/p/sub/x")).unwrap().unwrap();
+
     assert_eq!(sub.location.dir, Path::new("/p/sub"));
     assert_eq!(sub.config.lint.max_nesting, Some(3));
     assert!(load(&fs, Path::new("/q")).unwrap().is_none());
@@ -67,15 +70,18 @@ fn entries_follow_the_configured_then_the_inferred_order() {
         ..Project::default()
     };
     let configured = entry_files(Path::new("/p"), Some(&project));
+
     assert!(configured.declared);
     assert_eq!(configured.paths, [PathBuf::from("/p/x.jai")]);
     let inferred = entry_files(Path::new("/p"), None);
+
     assert!(!inferred.declared);
     let names: Vec<_> = inferred
         .paths
         .iter()
         .map(|p| p.strip_prefix("/p").unwrap().to_str().unwrap())
         .collect();
+
     assert_eq!(
         names,
         [
@@ -87,6 +93,7 @@ fn entries_follow_the_configured_then_the_inferred_order() {
         ]
     );
     let fs = Mem(vec![("/p/module.jai", ""), ("/p/main.jai", "")]);
+
     assert_eq!(
         first_entry(&fs, Path::new("/p"), None),
         Some(PathBuf::from("/p/main.jai"))
@@ -96,12 +103,14 @@ fn entries_follow_the_configured_then_the_inferred_order() {
 #[test]
 fn experimental_and_toolchain_parse() {
     let config = parse("[toolchain]\nversion = \"0.20.0\"\n[experimental]\nparse-threads = 3\nserial-parse = true\ncodegen-units = 8\n").unwrap();
+
     assert_eq!(config.toolchain.version.as_deref(), Some("0.20.0"));
     assert_eq!(config.experimental.parse_threads, Some(3));
     assert_eq!(config.experimental.serial_parse, Some(true));
     assert_eq!(config.experimental.codegen_units, Some(8));
     assert!(parse("[project]\nentry = 3\n").is_err());
     let postgres = parse("[postgres]\nmanaged = true\n").unwrap().postgres;
+
     assert_eq!(postgres.managed, Some(true));
     assert_eq!(postgres.managed_version, None);
     assert_eq!(line_of("a = 1\n[rules]\n  b = 2", "b"), Some(3));
@@ -115,6 +124,7 @@ fn unknown_keys_are_dropped_and_named_by_path() {
          [experimental]\nturbo = true\n[extras]\nx = 1\n",
     )
     .unwrap();
+
     assert_eq!(
         unknown,
         [
@@ -135,6 +145,7 @@ fn unknown_keys_are_dropped_and_named_by_path() {
 fn a_nested_unknown_table_is_named_at_its_first_unknown_key() {
     let (_, unknown) =
         parse_lenient("[lint.extra.deep]\nx = 1\n[lint.rules]\nfoo = \"warn\"\n").unwrap();
+
     assert_eq!(unknown, ["lint.extra"]);
 }
 
@@ -146,6 +157,7 @@ fn known_settings_load_without_warnings() {
          [format]\nindent-width = 2\n[experimental]\nparse-threads = 4\n",
     )
     .unwrap();
+
     assert!(unknown.is_empty(), "{unknown:?}");
     assert_eq!(config.project.import_path.0, ["v"]);
     assert_eq!(config.toolchain.version.as_deref(), Some("1.2.3"));
@@ -204,12 +216,14 @@ fn aliases_name_real_keys() {
 fn an_unknown_key_is_an_error_naming_the_file_line_and_nearest_key() {
     let fs = Mem(vec![("/p/jacket.toml", "[lint]\nmax-nestng = 3\n")]);
     let error = load(&fs, Path::new("/p")).unwrap_err();
+
     assert_eq!(error.path, Path::new("/p/jacket.toml"));
     assert_eq!(
         error.message,
         "unknown setting `lint.max-nestng` in jacket.toml (line 2)\nhelp: did you mean `lint.max-nesting`?"
     );
     let several = parse("[lint]\nmax-nestng = 3\n[format]\nindent = 2\ntyop = 1\n").unwrap_err();
+
     assert!(several.contains("\nnote: and 2 more: `"), "{several}");
     assert!(parse("[lint]\nmax-nesting = 3\n").is_ok());
 }
@@ -217,6 +231,7 @@ fn an_unknown_key_is_an_error_naming_the_file_line_and_nearest_key() {
 #[test]
 fn known_keys_match_the_structs() {
     let full = toml::to_string(&toml::Value::try_from(Config::default()).unwrap()).unwrap();
+
     assert!(full.is_empty());
     let sections = [
         ("project", "entry = [\"a\"]\nimport-path = [\"b\"]\n"),
@@ -268,17 +283,20 @@ fn known_keys_match_the_structs() {
         ),
     ];
     let mut tops: Vec<&str> = Vec::new();
+
     for (name, body) in sections {
         let config = parse(&format!("[{name}]\n{body}")).unwrap();
         let value = toml::Value::try_from(&config).unwrap();
         let table = value[name].as_table().unwrap();
         let mut keys: Vec<&str> = table.keys().map(String::as_str).collect();
         let mut known = schema::known_keys(name).to_vec();
+
         keys.sort_unstable();
         known.sort_unstable();
         assert_eq!(keys, known, "[{name}]");
         tops.push(name);
     }
+
     let config =
         parse("[target.pico]\ntriple = \"t\"\nboard = \"b\"\nrunner = \"r {exe}\"\n").unwrap();
     let value = toml::Value::try_from(&config).unwrap();
@@ -289,6 +307,7 @@ fn known_keys_match_the_structs() {
         .map(String::as_str)
         .collect();
     let mut known = schema::known_keys("target.pico").to_vec();
+
     keys.sort_unstable();
     known.sort_unstable();
     assert_eq!(keys, known, "[target.<name>]");
@@ -306,11 +325,13 @@ fn known_keys_match_the_structs() {
         .map(String::as_str)
         .collect();
     let mut known = schema::known_keys("dependencies.d").to_vec();
+
     keys.sort_unstable();
     known.sort_unstable();
     assert_eq!(keys, known, "[dependencies.<name>]");
     tops.push("dependencies");
     let mut known = schema::known_keys("").to_vec();
+
     tops.sort_unstable();
     known.sort_unstable();
     assert_eq!(tops, known);
@@ -322,11 +343,14 @@ fn test_profiles_lay_over_the_test_section() {
         "[test]\njobs = 4\nretries = 1\n[test.profile.ci]\nretries = 3\nfail-fast = true\njbos = 2\n",
     )
     .unwrap();
+
     assert_eq!(unknown, ["test.profile.ci.jbos"]);
     assert!(unknown_note(&unknown[0]).contains("did you mean `test.profile.ci.jobs`?"));
     let (_, unknown) = parse_lenient("[test]\njbos = 2\n").unwrap();
+
     assert_eq!(unknown, ["test.jbos"]);
     let ci = config.test.run().overlaid(&config.test.profile["ci"]);
+
     assert_eq!(
         (ci.jobs, ci.retries, ci.fail_fast),
         (Some(4), Some(3), Some(true))
@@ -349,6 +373,7 @@ fn test_profiles_lay_over_the_test_section() {
         .map(String::as_str)
         .collect();
     let mut known = schema::known_keys("test.profile.x").to_vec();
+
     keys.sort_unstable();
     known.sort_unstable();
     assert_eq!(keys, known);
@@ -365,13 +390,16 @@ fn checks_run_at_load_and_their_problems_are_recorded_not_fatal() {
             _ => Ok(()),
         }
     }
+
     let files = Mem(vec![("/p/jacket.toml", "[lint]\nmax-nesting = 9\n")]);
     let loaded = load_checked(&files, Path::new("/p"), &[max_nesting_is_small])
         .unwrap()
         .unwrap();
+
     assert_eq!(loaded.problems, ["`max-nesting` 9 in /p is too deep"]);
     assert_eq!(loaded.config.lint.max_nesting, Some(9));
     let unchecked = load(&files, Path::new("/p")).unwrap().unwrap();
+
     assert!(unchecked.problems.is_empty());
 }
 
@@ -388,6 +416,7 @@ fn doc_format_overrides_only_what_it_sets() {
          [doc.format]\nblank-line-after-declarations = false\nbrace-style = \"preserve\"\n",
     )
     .unwrap();
+
     assert!(unknown.is_empty(), "{unknown:?}");
     config.doc.format.validate_doc().unwrap();
     assert_eq!(
@@ -411,21 +440,25 @@ fn doc_format_overrides_only_what_it_sets() {
 #[test]
 fn doc_format_is_checked_like_format() {
     let bad = parse("[doc.format]\nindent-width = 17\n").unwrap();
+
     assert_eq!(
         bad.doc.format.validate_doc().unwrap_err(),
         "indent-width must be an integer from 1 to 16"
     );
     let ignore = parse("[doc.format]\nignore = [\"a\"]\n").unwrap();
+
     assert_eq!(
         ignore.doc.format.validate_doc().unwrap_err(),
         "doc.format cannot set ignore"
     );
     let examples = parse("[doc.format]\nformat-doc-examples = false\n").unwrap();
+
     assert_eq!(
         examples.doc.format.validate_doc().unwrap_err(),
         "doc.format cannot set format-doc-examples"
     );
     let (_, unknown) = parse_lenient("[doc.format]\nindent-widht = 2\n").unwrap();
+
     assert_eq!(unknown, ["doc.format.indent-widht"]);
     assert_eq!(
         unknown_note("doc.format.indent-widht"),
@@ -447,6 +480,7 @@ sysroot = "/opt/sysroot"
 compiler_rt = "/opt/rt.a"
 "#;
     let (config, unknown) = parse_lenient(text).unwrap();
+
     assert_eq!(
         unknown,
         [
@@ -458,6 +492,7 @@ compiler_rt = "/opt/rt.a"
     );
     let target = serde_json::to_value(&config.target["pi"]).unwrap();
     let mut keys: Vec<_> = target.as_object().unwrap().keys().cloned().collect();
+
     keys.sort();
     assert_eq!(keys, ["triple"]);
 }
@@ -476,6 +511,7 @@ fn a_target_table_accepts_only_portable_settings() {
     };
     let value = serde_json::to_value(&full).unwrap();
     let mut keys: Vec<_> = value.as_object().unwrap().keys().cloned().collect();
+
     keys.sort();
     assert_eq!(
         keys,
@@ -498,6 +534,7 @@ fn dependencies_read_inline_tables_and_the_resolver_policy() {
          [resolver]\nmin-release-age = \"3d\"\nseed = \"k3v9q2xh\"\nddedupe = true\n",
     )
     .unwrap();
+
     assert_eq!(unknown, ["resolver.ddedupe"]);
     assert_eq!(
         config.dependencies["jaison"].version.as_deref(),
@@ -519,6 +556,7 @@ fn slice<'a>(text: &'a str, issue: &Issue) -> &'a str {
 fn an_unknown_key_is_an_issue_at_the_key() {
     let text = "[lint]\nmax-nestng = 3\n[resolver]\nseeed = \"k\"\n";
     let found = issues(text, Path::new("/p"), &[]);
+
     assert_eq!(found.len(), 2);
     assert_eq!(slice(text, &found[0]), "max-nestng");
     assert!(
@@ -533,10 +571,12 @@ fn an_unknown_key_is_an_issue_at_the_key() {
 fn a_syntax_or_type_error_is_an_issue_at_the_fault() {
     let text = "[lint]\nmax-nesting = \"deep\"\n";
     let found = issues(text, Path::new("/p"), &[]);
+
     assert_eq!(found.len(), 1);
     assert_eq!(slice(text, &found[0]), "\"deep\"");
     let text = "[lint\nmax-nesting = 3\n";
     let found = issues(text, Path::new("/p"), &[]);
+
     assert_eq!(found.len(), 1);
     assert!(found[0].span.is_some());
 }
@@ -549,8 +589,10 @@ fn a_failed_check_is_an_issue_at_the_key_it_names() {
             None => Ok(()),
         }
     }
+
     let text = "[lint.rules]\nunused_varible = \"deny\"\n";
     let found = issues(text, Path::new("/p"), &[rules]);
+
     assert_eq!(found.len(), 1);
     assert_eq!(slice(text, &found[0]), "unused_varible");
     assert_eq!(found[0].message, "unknown rule `unused_varible`");

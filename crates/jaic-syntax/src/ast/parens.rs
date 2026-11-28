@@ -16,6 +16,7 @@ impl Parens {
     /// The parentheses that run from `open` to `close` around the expression spanning `inner`.
     pub fn new(open: Span, close: Span, inner: Span) -> Self {
         let gap = |a: u32, b: u32| a.saturating_sub(b).min(u32::from(u16::MAX)) as u16;
+
         Self {
             before: gap(inner.start, open.start),
             after: std::num::NonZeroU16::new(gap(close.end, inner.end).max(1)).unwrap(),
@@ -66,6 +67,7 @@ impl Expr {
         if parens_count && self.parenthesized() {
             return true;
         }
+
         match &self.kind {
             ExprKind::Int(..)
             | ExprKind::Float(..)

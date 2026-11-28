@@ -15,6 +15,7 @@ impl Resolver<'_> {
         if depth > 24 || !visiting.insert(v) {
             return None;
         }
+
         if let Some(cast) = self.address_casts.get(&v).filter(|c| c.to_pointer) {
             let original = self.integer_address_source(
                 cast.source,
@@ -23,16 +24,21 @@ impl Resolver<'_> {
                 depth + 1,
             )?;
             let path = self.trace(original, summaries, visiting, depth + 1);
+
             visiting.remove(&v);
+
             return path;
         }
+
         let defs = self.values.get(&v)?;
         let mut result = None;
         let derived = defs.iter().any(|d| matches!(d, Def::Borrow(_)));
+
         for def in defs {
             if derived && !matches!(def, Def::Borrow(_)) {
                 continue;
             }
+
             let path = match def {
                 Def::Parameter(formal) => Path {
                     root: Root::Parameter(*formal),
@@ -55,6 +61,7 @@ impl Resolver<'_> {
                                 }
                         )
                     });
+
                     if self.return_mode.get()
                         && descriptor
                         && self.places.paths[*p].1.is_empty()
@@ -83,12 +90,14 @@ impl Resolver<'_> {
                         {
                             return None;
                         }
+
                         Path {
                             root: Root::Parameter(*formal),
                             steps: Vec::new(),
                         }
                     } else if !self.compiler.ty.types.is_pointer(*ty) {
                         let path = self.location(*p, summaries, visiting, depth + 1)?;
+
                         if matches!(path.root, Root::Parameter(_)) && path.steps.is_empty() {
                             path.append(&[Step::Deref])?
                         } else {
@@ -114,6 +123,7 @@ impl Resolver<'_> {
                         self.trace(*v, summaries, visiting, depth + 1)?
                     } else {
                         let path = self.location(*p, summaries, visiting, depth + 1)?;
+
                         if self.compiler.ty.types.is_pointer(*ty) {
                             path.append(&[Step::Deref])?
                         } else {
@@ -139,6 +149,7 @@ impl Resolver<'_> {
                             })
                             .or_else(|| summary.returns.get(i))?
                     };
+
                     if guard.is_some_and(|(formal, constant)| {
                         args.iter()
                             .find(|a| a.formal == formal)
@@ -147,7 +158,9 @@ impl Resolver<'_> {
                     }) {
                         return None;
                     }
+
                     let mut path = path.clone();
+
                     path.root = self.allocation_root(&path.root, v, args)?;
                     self.substitute(&path, args, summaries, visiting, depth + 1)?
                 }
@@ -156,6 +169,7 @@ impl Resolver<'_> {
                 }
                 Def::Resize(callee, args) => {
                     let mode = args.first()?;
+
                     if mode.constant == Some(0)
                         || self.allocation_mode.get() && mode.constant.is_none()
                     {
@@ -176,15 +190,19 @@ impl Resolver<'_> {
                         if mode.constant.is_some_and(|c| c != 1) {
                             return None;
                         }
+
                         self.trace(value(args.get(3)?)?, summaries, visiting, depth + 1)?
                     }
                 }
             };
+
             if result.as_ref().is_some_and(|old| old != &path) {
                 return None;
             }
+
             result = Some(path);
         }
+
         visiting.remove(&v);
         result
     }

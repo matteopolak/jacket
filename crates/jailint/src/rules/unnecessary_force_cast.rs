@@ -26,10 +26,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -42,6 +44,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
+
             if *flags
                 != (CastFlags {
                     force: true,
@@ -50,12 +53,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             {
                 return true;
             }
+
             let Some(c) = cx.compiler.cast_fact(e.span) else {
                 return true;
             };
+
             if c.conflicting || c.from_constant || !lossless(types, c.from, c.target) {
                 return true;
             }
+
             // The `,force` sits between `cast` and the `(` of the type.
             let head = &cx.text[e.span.start as usize..ty.span.start as usize];
             let Some(at) = head.find(",force") else {
@@ -63,6 +69,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             };
             let start = e.span.start as usize + at;
             let help = "remove `,force`: the plain cast does the same".to_string();
+
             out.push(Finding {
                 secondary: Vec::new(),
                 start: e.span.start as usize,
@@ -94,7 +101,9 @@ fn lossless(types: &Types, from: TypeId, to: TypeId) -> bool {
     if from == to {
         return true;
     }
+
     let (fr, tr) = (types.repr(from), types.repr(to));
+
     match (types.kind(fr), types.kind(tr)) {
         (
             TypeKind::Int {

@@ -10,8 +10,10 @@ use std::rc::Rc;
 /// code cannot suspend, so it is not run there) and return its slot count.
 fn slots_after(source: &str) -> usize {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     compiler
         .ct
         .interp
@@ -19,9 +21,11 @@ fn slots_after(source: &str) -> usize {
     let source = format!(
         "{source}\n#program_export \"probe\" probe :: () -> s64 #c_call {{ if check() return 0; return 1; }}\n"
     );
+
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(source)]) {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     let probe = compiler
         .out
         .program
@@ -32,11 +36,13 @@ fn slots_after(source: &str) -> usize {
                 .is_some_and(|f| f.linkage == Linkage::Export("probe".into()))
         })
         .expect("the probe is exported");
+
     compiler.ct.interp.compile_time = false;
     let result = compiler
         .ct
         .interp
         .call(&compiler.out.program, FuncId(probe as u32), &[]);
+
     assert_eq!(result.unwrap(), vec![0], "check() failed");
     compiler
         .ct
@@ -69,6 +75,7 @@ fn threads_taken_with_tryjoin_reuse_one_slot() {
         "sched_yield :: ()->s32 #foreign;",
         "sched_yield :: ()->s32 #foreign;\npthread_tryjoin_np :: (thread:u64,result:**void)->s32 #foreign;",
     );
+
     assert_eq!(slots_after(&source), 2);
 }
 
@@ -107,5 +114,6 @@ check :: ()->bool #no_context {
     return cast(u64)result==6;
 }
 ";
+
     assert!(slots_after(source) <= 4);
 }

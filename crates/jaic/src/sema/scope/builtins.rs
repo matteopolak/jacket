@@ -34,6 +34,7 @@ impl Compiler {
             // Source-level identity; operand binding is handled independently of Code.
             ("__reg", register),
         ];
+
         for &(name, ty) in types {
             self.add_const(
                 root,
@@ -43,6 +44,7 @@ impl Compiler {
                 TypeId::TYPE,
             );
         }
+
         let procs: &[(&str, BuiltinProc)] = &[
             ("size_of", BuiltinProc::SizeOf),
             ("type_of", BuiltinProc::TypeOf),
@@ -54,6 +56,7 @@ impl Compiler {
             ("offset_of", BuiltinProc::OffsetOf),
             ("is_value_type", BuiltinProc::IsValueType),
         ];
+
         for &(name, p) in procs {
             let id = self.add_entity(
                 root,
@@ -64,6 +67,7 @@ impl Compiler {
             );
             let _ = id;
         }
+
         for name in [
             "OS",
             "CPU",
@@ -106,12 +110,14 @@ impl Compiler {
         if self.entity_is_overloadable(id) {
             return true;
         }
+
         let EntityKind::Decl {
             decl, ..
         } = &self.entity(id).kind
         else {
             return false;
         };
+
         is_alias_decl(decl)
             && matches!(
                 self.resolve_entity(id),

@@ -21,6 +21,7 @@ impl Compiler {
     /// of a scope are consulted after its own names.
     pub fn lookup_full(&mut self, scope: ScopeId, name: Sym) -> Result<Found> {
         let found = self.lookup_full_raw(scope, name)?;
+
         // A `#placeholder` reached through an import gives way to its definition (added
         // to the module by a metaprogram) found along with it.
         Ok(match found {
@@ -48,6 +49,7 @@ impl Compiler {
         // Has a scope's own declaration (not an import or a `using`) been collected yet?
         let mut declared = false;
         let mut current = Some(scope);
+
         while let Some(sid) = current {
             // A name this scope already binds to a non-procedure is final (another
             // declaration would be a redefinition): pending items need not run first. Only
@@ -56,6 +58,7 @@ impl Compiler {
                 let s = self.scope(sid);
                 s.pending_done < s.pending.len()
             };
+
             if pending && !self.epochs.lookup_without_expansion {
                 let settled = self.scope(sid).names.get(&name).is_some_and(|ids| {
                     ids.iter().any(|&e| {
@@ -63,20 +66,25 @@ impl Compiler {
                             && !self.entity_is_overloadable(e)
                     })
                 });
+
                 if !settled {
                     self.expand_pending(sid)?;
                 }
             }
+
             if let Some(ids) = self.scope(sid).names.get(&name) {
                 let mut ids = self.diag.bound_entities(ids);
                 // A `#placeholder` gives way to the real declaration (possibly
                 // added later by a metaprogram).
                 let is_placeholder =
                     |e: &EntityId| matches!(self.entity(*e).kind, EntityKind::Placeholder);
+
                 if ids.iter().any(is_placeholder) {
                     let defined = ids.iter().any(|e| !is_placeholder(e));
+
                     ids.retain(|e| !is_placeholder(e) || (!defined && found.is_empty()));
                 }
+
                 if !ids.is_empty() {
                     // What a module declares itself beats what its files import, though a file
                     // is nearer: only procedures from both sides form one overload set.
@@ -87,12 +95,15 @@ impl Compiler {
                     {
                         return Ok(Found::Entities(ids));
                     }
+
                     declared = true;
+
                     if self.collect(&mut found, ids) {
                         return Ok(Found::Entities(found));
                     }
                 }
             }
+
             // What `sid`'s `using`s, imports and the implicit modules hold under `name` can
             // only change with the namespace: a miss is remembered for this generation.
             let generation = self.epochs.namespace_generation;
@@ -109,17 +120,20 @@ impl Compiler {
             let mut cacheable = try_remember;
             // Did the usings, imports or implicit modules of this scope hold the name at all?
             let mut contributed = false;
+
             if !known_miss {
                 // Entries added while these are searched are not seen by this lookup.
                 for k in 0..self.scope(sid).usings.len() {
                     let Some(entry) = self.scope(sid).usings.get(k) else {
                         break;
                     };
+
                     if let UsingEntry::Module(m, filter) = entry {
                         let Some(target) = filter_name(filter.as_deref(), name) else {
                             continue;
                         };
                         let m = *m;
+
                         if let Some(result) =
                             self.merge_module_lookup(&mut found, m, target, &mut contributed)?
                         {
@@ -128,6 +142,7 @@ impl Compiler {
                     } else {
                         cacheable = false;
                         let entry = entry.clone();
+
                         if found.is_empty()
                             && let Some((target, member)) =
                                 self.aggregate_using_member(&entry, name)?
@@ -136,6 +151,7 @@ impl Compiler {
                         }
                     }
                 }
+
                 let imports = self.scope(sid).imports.len();
                 let mut mid_mapping = false;
                 // A module's files each write their own `#import "Basic";` into one scope, so
@@ -149,6 +165,7 @@ impl Compiler {
                 } else {
                     None
                 };
+
                 for n in 0..plan.as_ref().map_or(imports, |p| p.len()) {
                     let i = plan.as_ref().map_or(n, |p| p[n] as usize);
                     let resolved = match self.scope(sid).imports[i].module {
@@ -170,22 +187,26 @@ impl Compiler {
                         cacheable = false;
                         continue;
                     };
+
                     if skip_repeats
                         && matches!(self.scope(sid).imports[i].filter, UsingFilter::None)
                     {
                         if asked[..asked_len].contains(&module) {
                             continue;
                         }
+
                         if asked_len < asked.len() {
                             asked[asked_len] = module;
                             asked_len += 1;
                         }
                     }
+
                     // Names are still unmapped while the mapper runs: a miss now may be a hit
                     // once it has, so it must not be remembered.
                     if self.scope(sid).imports[i].is_mapped() {
                         mid_mapping = true;
                     }
+
                     {
                         let Some(target) =
                             filter_name(Some(&self.scope(sid).imports[i].filter), name)
@@ -195,14 +216,17 @@ impl Compiler {
                         let before = found.len();
                         let result =
                             self.merge_module_lookup(&mut found, module, target, &mut contributed)?;
+
                         if result.is_some() || found.len() > before {
                             self.ide_note_import_use(sid, i);
                         }
+
                         if let Some(result) = result {
                             return Ok(result);
                         }
                     }
                 }
+
                 // Preload and Runtime_Support are implicitly visible to every module.
                 if self.scope(sid).kind == ScopeKind::Module {
                     for implicit in [self.ns.preload, self.ns.runtime_support]
@@ -212,6 +236,7 @@ impl Compiler {
                         if self.scope(sid).module == implicit {
                             continue;
                         }
+
                         if let Some(result) =
                             self.merge_module_lookup(&mut found, implicit, name, &mut contributed)?
                         {
@@ -219,6 +244,7 @@ impl Compiler {
                         }
                     }
                 }
+
                 if mid_mapping && !contributed {
                     if found.is_empty() {
                         crate::sema::body_probe::write(
@@ -226,16 +252,21 @@ impl Compiler {
                         );
                         self.epochs.in_progress_misses += 1;
                     }
+
                     cacheable = false;
                 }
+
                 if cacheable && !contributed && self.epochs.namespace_generation == generation {
                     self.caches.scope_misses.insert(key, generation);
                 }
             }
+
             current = self.scope(sid).parent;
         }
+
         if found.is_empty() {
             let mut current = Some(scope);
+
             while let Some(sid) = current {
                 for fallback in self.scope(sid).fallbacks.clone() {
                     if let Found::Entities(ids) = self.lookup_full(fallback, name)?
@@ -244,10 +275,13 @@ impl Compiler {
                         return Ok(Found::Entities(ids));
                     }
                 }
+
                 current = self.scope(sid).parent;
             }
+
             return Ok(Found::Entities(found));
         }
+
         Ok(Found::Entities(found))
     }
 
@@ -257,23 +291,30 @@ impl Compiler {
     fn import_plan(&mut self, scope: ScopeId) -> Option<Arc<[u32]>> {
         let generation = self.epochs.namespace_generation;
         let imports = &self.scope(scope).imports;
+
         if let Some((at, len, plan)) = self.caches.import_plans.get(&scope)
             && *at == generation
             && *len == imports.len()
         {
             return Some(plan.clone());
         }
+
         let mut plain: HashSet<ModuleId> = HashSet::default();
         let mut plan = Vec::new();
+
         for (i, entry) in imports.iter().enumerate() {
             let module = entry.module?;
+
             if matches!(entry.filter, UsingFilter::None) && !plain.insert(module) {
                 continue;
             }
+
             plan.push(i as u32);
         }
+
         let plan: Arc<[u32]> = plan.into();
         let len = imports.len();
+
         self.caches
             .import_plans
             .insert(scope, (generation, len, plan.clone()));
@@ -288,10 +329,13 @@ impl Compiler {
         name: Sym,
     ) -> Result<Vec<EntityId>> {
         let mut current = Some(scope);
+
         while let Some(sid) = current {
             let mut providers = Vec::new();
+
             for k in 0..self.scope(sid).usings.len() {
                 let entry = self.scope(sid).usings[k].clone();
+
                 if let UsingEntry::Place {
                     entity, ..
                 } = entry
@@ -300,6 +344,7 @@ impl Compiler {
                     providers.push(entity);
                 }
             }
+
             if !providers.is_empty() {
                 return Ok(if providers.len() > 1 {
                     providers
@@ -307,8 +352,10 @@ impl Compiler {
                     Vec::new()
                 });
             }
+
             current = self.scope(sid).parent;
         }
+
         Ok(Vec::new())
     }
 
@@ -316,10 +363,12 @@ impl Compiler {
     /// (a non-procedure binding shadows everything outside it).
     pub(super) fn collect(&mut self, found: &mut Vec<EntityId>, ids: Vec<EntityId>) -> bool {
         let overloadable = ids.iter().all(|&e| self.overloadable_or_alias(e));
+
         if found.is_empty() {
             *found = ids;
             return !overloadable;
         }
+
         if overloadable {
             for id in ids {
                 if !found.contains(&id) {
@@ -327,6 +376,7 @@ impl Compiler {
                 }
             }
         }
+
         false
     }
 }

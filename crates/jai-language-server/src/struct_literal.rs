@@ -43,15 +43,18 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
     let before = tokens.partition_point(|t| t.span.end <= start as u32);
     let after = tokens.partition_point(|t| t.span.start < end as u32);
     let prev = before.checked_sub(1)?;
+
     if !matches!(
         tokens[prev].tok,
         Tok::Punct(P::Comma | P::DotBrace | P::LBrace)
     ) {
         return None;
     }
+
     // The literal's opening token, and the arguments before the cursor.
     let mut depth = 0usize;
     let mut open = None;
+
     for k in (0..before).rev() {
         match tokens[k].tok {
             Tok::Punct(p) if is_close(p) => depth += 1,
@@ -69,6 +72,7 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
             _ => {}
         }
     }
+
     let open = open?;
     // The literal's arguments, as ranges of tokens. The commas at depth zero separate them, except
     // those between the return types of a procedure literal (`-> bool, Pad {`).
@@ -77,6 +81,7 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
     let mut depth = 0usize;
     let mut returns = false;
     let mut from = open + 1;
+
     for k in open + 1..=tokens.len() {
         match tokens.get(k).map(|t| &t.tok) {
             Some(Tok::Punct(P::Arrow)) if depth == 0 => returns = true,
@@ -84,6 +89,7 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
                 if depth == 0 {
                     returns = false;
                 }
+
                 depth += 1;
             }
             Some(Tok::Punct(p)) if is_open(*p) => depth += 1,
@@ -101,6 +107,7 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
             _ => {}
         }
     }
+
     let name_of = |range: &std::ops::Range<usize>| match tokens.get(range.start..range.start + 2) {
         Some([a, b]) if range.len() >= 2 && b.tok == Tok::Punct(P::Eq) => match &a.tok {
             Tok::Ident(n) => Some(n.as_str().to_owned()),
@@ -113,6 +120,7 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
     // `base.x = v` and `xs[1] = w` assign a field by a path; they are not positional values.
     let is_target = |range: &std::ops::Range<usize>| {
         let mut depth = 0usize;
+
         for (k, t) in tokens[range.clone()].iter().enumerate() {
             match t.tok {
                 Tok::Punct(P::LBracket) => depth += 1,
@@ -123,8 +131,10 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
                 _ => return false,
             }
         }
+
         false
     };
+
     // A positional value before the cursor: the values here are expressions too.
     if args[..current.min(args.len())]
         .iter()
@@ -132,6 +142,7 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
     {
         return None;
     }
+
     let assigned = args
         .iter()
         .enumerate()
@@ -139,6 +150,7 @@ fn site(text: &str, lexed: &Lexed, byte: usize) -> Option<Site> {
         .filter_map(|(_, a)| name_of(a))
         .collect();
     let has_equals = matches!(tokens.get(after), Some(t) if t.tok == Tok::Punct(P::Eq));
+
     Some(Site {
         word: start..end,
         has_equals,
@@ -207,9 +219,11 @@ impl Session {
             })
             .take(self.limits.symbols)
             .collect::<Vec<_>>();
+
         if let Some(first) = items.first_mut() {
             first.preselect = true;
         }
+
         Some((items, site.first))
     }
 }

@@ -29,6 +29,7 @@ impl Builder<'_> {
             _ => return ops,
         };
         let definite = resolver.temporary_destinations(event, &self.summaries.procs, true);
+
         for p in resolver.temporary_destinations(event, &self.summaries.procs, !strict) {
             let possible = !definite.contains(&p);
             let parameter_target = resolver
@@ -49,12 +50,14 @@ impl Builder<'_> {
                 .is_some_and(|path| path.root == Root::Temporary);
             let p = places.import(&resolver.places, p);
             let cell = cells.id(Cell::Place(p));
+
             ops.push(Op::Seed {
                 possible,
                 cell,
                 origin: Origin::Temporary,
                 span,
             });
+
             if self.long_lived(places, p) {
                 ops.push(Op::Escape {
                     cell,
@@ -67,6 +70,7 @@ impl Builder<'_> {
                 });
             }
         }
+
         ops
     }
 }

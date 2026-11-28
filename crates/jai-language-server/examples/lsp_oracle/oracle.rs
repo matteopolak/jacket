@@ -62,6 +62,7 @@ pub struct Oracle {
 
 fn file_of(compiler: &Compiler, path: &Path) -> Option<FileId> {
     let want = path.canonicalize().ok()?;
+
     (0..compiler.src.sources.len() as u32)
         .map(FileId)
         .find(|&f| {
@@ -85,9 +86,11 @@ fn line_of(text: &str, byte: usize) -> u32 {
 fn declared(compiler: &Compiler, t: TypeId) -> bool {
     let types = &compiler.ty.types;
     let mut t = types.repr_struct(t);
+
     while let TypeKind::Pointer(inner) = *types.kind(t) {
         t = types.repr_struct(inner);
     }
+
     matches!(types.kind(t), TypeKind::Struct(_) | TypeKind::Enum(_))
 }
 
@@ -105,6 +108,7 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
         fs.clone(),
         &dir,
     )));
+
     compiler
         .ct
         .interp
@@ -120,6 +124,7 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
         observer: None,
     }));
     let mut facts = IdeFacts::new(vec![IdeRoot::under(path)]);
+
     // Lint mode also records each expression's type, which says what a literal builds.
     facts.lint = true;
     compiler.ed.record(facts);
@@ -136,11 +141,14 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
     };
     let limit = ide.sketch_from.as_ref().map_or(ide.refs.len(), |m| m.refs);
     let mut refs: Vec<Ref> = Vec::new();
+
     for r in &ide.refs[..limit] {
         let (start, end) = (r.span.start as usize, r.span.end as usize);
+
         if r.span.file != file || r.decl || end > text.len() || !word(&text[start..end]) {
             continue;
         }
+
         let resolved = match &r.what {
             IdeWhat::Entity(e) if compiler.entity(*e).baked_argument => Resolved::Baked,
             IdeWhat::Entity(e) => {
@@ -150,6 +158,7 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
                         let source = compiler.src.sources.get(span.file);
                         let path = source.path.as_file()?.to_path_buf();
                         let text = &source.text;
+
                         Some((
                             path,
                             line_of(text, span.start as usize),
@@ -157,6 +166,7 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
                         ))
                     })
                     .flatten();
+
                 Resolved::Entity(place.into_iter().collect())
             }
             IdeWhat::Member(_) => Resolved::Member(
@@ -170,17 +180,20 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
             IdeWhat::Procs(_) => Resolved::Procs,
             IdeWhat::Module(_) => Resolved::Module,
         };
+
         refs.push(Ref {
             start,
             end,
             resolved,
         });
     }
+
     refs.sort_by_key(|r| (r.start, r.end));
     refs.dedup_by(|later, kept| {
         if (later.start, later.end) != (kept.start, kept.end) {
             return false;
         }
+
         match (&mut kept.resolved, &mut later.resolved) {
             (Resolved::Entity(into), Resolved::Entity(from)) => {
                 for place in from.drain(..) {
@@ -193,10 +206,12 @@ pub fn compile(options: Options, path: &Path, text: &str) -> Result<Oracle, Stri
             (kept @ Resolved::Baked, other @ Resolved::Entity(_)) => *kept = other.clone(),
             _ => {}
         }
+
         true
     });
     let literals = literals(&compiler, file, text);
     let notes = read_notes(&compiler, path, text);
+
     Ok(Oracle {
         refs,
         literals,
@@ -217,10 +232,12 @@ fn read_notes(compiler: &Compiler, path: &Path, text: &str) -> Vec<ReadNote> {
             .is_some_and(|(a, b)| a == b)
     };
     let mut notes: Vec<ReadNote> = Vec::new();
+
     for r in &ide.note_readers {
         if !same(Path::new(&*r.note.path), path) {
             continue;
         }
+
         let (line, column) = r.note.start;
         let Some(line_start) = text
             .split_inclusive('\n')
@@ -233,6 +250,7 @@ fn read_notes(compiler: &Compiler, path: &Path, text: &str) -> Vec<ReadNote> {
             continue;
         };
         let reader = (PathBuf::from(&r.path), line_of(&r.text, r.offset as usize));
+
         match notes.iter_mut().find(|n| n.at == line_start) {
             Some(n) => n.readers.push(reader),
             None => notes.push(ReadNote {
@@ -241,6 +259,7 @@ fn read_notes(compiler: &Compiler, path: &Path, text: &str) -> Vec<ReadNote> {
             }),
         }
     }
+
     notes.sort_by_key(|n| n.at);
     notes
 }
@@ -248,6 +267,7 @@ fn read_notes(compiler: &Compiler, path: &Path, text: &str) -> Vec<ReadNote> {
 /// Where the literal opened by the `.{` at `open` ends: the end of its closing brace.
 fn closing_brace(tokens: &[jaic::lexer::Token], open: usize) -> Option<u32> {
     let mut depth = 0usize;
+
     for t in &tokens[open + 1..] {
         match t.tok {
             Tok::Punct(P::LBrace | P::DotBrace | P::LParen | P::LBracket | P::DotBracket) => {
@@ -257,11 +277,13 @@ fn closing_brace(tokens: &[jaic::lexer::Token], open: usize) -> Option<u32> {
                 if depth == 0 {
                     return matches!(t.tok, Tok::Punct(P::RBrace)).then_some(t.span.end);
                 }
+
                 depth -= 1;
             }
             _ => {}
         }
     }
+
     None
 }
 
@@ -274,10 +296,12 @@ fn literals(compiler: &Compiler, file: FileId, text: &str) -> Vec<Literal> {
         return Vec::new();
     };
     let mut out = Vec::new();
+
     for (i, token) in tokens.iter().enumerate() {
         if !matches!(token.tok, Tok::Punct(P::DotBrace)) {
             continue;
         }
+
         // `Name.{` starts at `Name`; `.{` alone at itself.
         let start = match i.checked_sub(1).map(|j| &tokens[j]) {
             Some(prev)
@@ -313,6 +337,7 @@ fn literals(compiler: &Compiler, file: FileId, text: &str) -> Vec<Literal> {
             .filter_map(|f| f.name.map(|n| n.as_str().to_owned()))
             .collect();
         let type_name = info.name.as_str().to_owned();
+
         // An empty literal can name any field; a named one names its own.
         if matches!(
             tokens.get(i + 1).map(|t| &t.tok),
@@ -325,7 +350,9 @@ fn literals(compiler: &Compiler, file: FileId, text: &str) -> Vec<Literal> {
             });
             continue;
         }
+
         let mut depth = 0usize;
+
         for (j, t) in tokens.iter().enumerate().skip(i + 1) {
             match t.tok {
                 Tok::Punct(P::LBrace | P::DotBrace | P::LParen | P::LBracket | P::DotBracket) => {
@@ -335,6 +362,7 @@ fn literals(compiler: &Compiler, file: FileId, text: &str) -> Vec<Literal> {
                     if depth == 0 {
                         break;
                     }
+
                     depth -= 1;
                 }
                 Tok::Ident(ref name)
@@ -353,6 +381,7 @@ fn literals(compiler: &Compiler, file: FileId, text: &str) -> Vec<Literal> {
             }
         }
     }
+
     out.sort_by_key(|l| l.at);
     out
 }

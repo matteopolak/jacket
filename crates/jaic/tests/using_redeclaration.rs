@@ -7,6 +7,7 @@ const TYPES: &str = "Outer :: struct { x: s32; y: s32; }";
 fn outcome(body: &str) -> Result<(), String> {
     let source = format!("{TYPES} main :: () {{ o: Outer; {body} }}");
     let (c, result) = compile_source(&source);
+
     result.map_err(|error| error.render(&c.src.sources))
 }
 
@@ -21,6 +22,7 @@ fn a_declaration_reusing_a_used_member_is_rejected() {
         "using o; y := 1;",
     ] {
         let message = outcome(body).expect_err(body);
+
         assert!(
             message.contains("is already declared in this scope"),
             "{body}: {message}"

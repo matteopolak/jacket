@@ -60,15 +60,20 @@ pub(crate) fn replicated(g: &jaic::ir::Global) -> bool {
 pub(crate) fn flat(program: &Program, units: usize) -> Plan {
     let mut order: Vec<usize> = (0..program.funcs.len()).collect();
     let weight = |i: usize| program.funcs[i].as_ref().map_or(0, func_weight);
+
     order.sort_by_key(|&i| std::cmp::Reverse(weight(i)));
     let mut load = vec![0usize; units];
+
     load[0] = program.globals.iter().map(global_weight).sum();
     let mut owner = vec![0u32; program.funcs.len()];
+
     for i in order {
         let unit = (0..units).min_by_key(|&u| load[u]).unwrap_or(0);
+
         owner[i] = unit as u32;
         load[unit] += weight(i);
     }
+
     Plan {
         func_owner: owner,
         global_owner: vec![0; program.globals.len()],
@@ -88,6 +93,7 @@ fn references(func: &Func, nf: usize, foreign_func: &[Option<u32>], out: &mut Ve
             out.push(f);
         }
     };
+
     for block in &func.blocks {
         for inst in &block.insts {
             match inst {
@@ -109,6 +115,7 @@ fn references(func: &Func, nf: usize, foreign_func: &[Option<u32>], out: &mut Ve
             }
         }
     }
+
     out.sort_unstable();
     out.dedup();
 }
@@ -148,6 +155,7 @@ impl Graph {
             .filter(|&n| live[n] && cold[n])
             .map(|n| weight[n])
             .sum();
+
         Self {
             weight,
             refs,
@@ -172,21 +180,26 @@ fn classify(program: &Program, refs: &[Vec<u32>]) -> (Vec<bool>, Vec<bool>) {
     let nf = program.funcs.len();
     let nodes = refs.len();
     let mut entry = vec![false; nodes];
+
     for (i, func) in program.funcs.iter().enumerate() {
         if func.as_ref().is_some_and(|f| f.cold) {
             entry[i] = true;
         }
     }
+
     if let Some(id) = program.check_failed {
         entry[id.0 as usize] = true;
     }
+
     // Reach from `starts`, never stepping onto a cold function unless `through_entries`.
     let reach = |starts: &[u32], through_entries: bool| -> Vec<bool> {
         let mut seen = vec![false; nodes];
         let mut stack: Vec<u32> = starts.to_vec();
+
         for &s in starts {
             seen[s as usize] = true;
         }
+
         while let Some(n) = stack.pop() {
             for &t in &refs[n as usize] {
                 if !seen[t as usize] && (through_entries || !entry[t as usize]) {
@@ -195,9 +208,11 @@ fn classify(program: &Program, refs: &[Vec<u32>]) -> (Vec<bool>, Vec<bool>) {
                 }
             }
         }
+
         seen
     };
     let mut roots: Vec<u32> = Vec::new();
+
     for (i, func) in program.funcs.iter().enumerate() {
         if func
             .as_ref()
@@ -206,16 +221,20 @@ fn classify(program: &Program, refs: &[Vec<u32>]) -> (Vec<bool>, Vec<bool>) {
             roots.push(i as u32);
         }
     }
+
     for (j, g) in program.globals.iter().enumerate() {
         if g.export.is_some() {
             roots.push((nf + j) as u32);
         }
     }
+
     let hot = reach(&roots, false);
     let mut all = roots;
+
     all.extend((0..nodes as u32).filter(|&n| entry[n as usize]));
     let live = reach(&all, true);
     let cold = (0..nodes).map(|n| live[n] && !hot[n]).collect();
+
     (live, cold)
 }
 
@@ -263,14 +282,18 @@ pub(crate) fn plan(program: &Program, graph: &Graph, units: usize) -> Plan {
 
     // Largest group first, each to the lightest module.
     let mut by_weight: Vec<u32> = (0..group_weight.len() as u32).collect();
+
     by_weight.sort_by_key(|&g| (std::cmp::Reverse(group_weight[g as usize]), g));
     let mut load = vec![0usize; units];
     let mut bin = vec![0u32; group_weight.len()];
+
     for g in by_weight {
         let unit = (0..units).min_by_key(|&u| load[u]).unwrap_or(0);
+
         bin[g as usize] = unit as u32;
         load[unit] += group_weight[g as usize];
     }
+
     let owner: Vec<u32> = (0..nodes)
         .map(|n| match cold_unit {
             _ if !live[n] => NONE,
@@ -282,6 +305,7 @@ pub(crate) fn plan(program: &Program, graph: &Graph, units: usize) -> Plan {
 
     // What the linker has to see: whatever another module refers to, and what the outside does.
     let mut shared = vec![false; nodes];
+
     for (i, func) in program.funcs.iter().enumerate() {
         if let Some(func) = func
             && matches!(func.linkage, Linkage::Export(_))
@@ -289,17 +313,22 @@ pub(crate) fn plan(program: &Program, graph: &Graph, units: usize) -> Plan {
             shared[i] = true;
         }
     }
+
     if let Some(id) = program.check_failed {
         shared[id.0 as usize] = true;
     }
+
     for (j, g) in program.globals.iter().enumerate() {
         if g.export.is_some() {
             shared[nf + j] = true;
         }
     }
+
     let mut need: Vec<Vec<bool>> = vec![vec![false; nodes]; total_units];
+
     for n in (0..nodes).filter(|&n| live[n]) {
         let k = owner[n] as usize;
+
         for &r in &refs[n] {
             if owner[r as usize] as usize != k {
                 shared[r as usize] = true;
@@ -326,9 +355,11 @@ pub(crate) fn plan(program: &Program, graph: &Graph, units: usize) -> Plan {
                 .collect()
         })
         .collect();
+
     for v in &mut imports {
         v.retain(|&n| (n as usize) < nf);
     }
+
     Plan {
         global_imports,
         func_owner: owner[..nf].to_vec(),
@@ -344,6 +375,7 @@ pub(crate) fn plan(program: &Program, graph: &Graph, units: usize) -> Plan {
 /// program export is that function (`Backend::declare_foreign`).
 fn foreign_exports(program: &Program) -> Vec<Option<u32>> {
     let mut exports: HashMap<&str, u32> = HashMap::default();
+
     for (i, func) in program.funcs.iter().enumerate() {
         if let Some(func) = func
             && let Linkage::Export(name) = &func.linkage
@@ -351,6 +383,7 @@ fn foreign_exports(program: &Program) -> Vec<Option<u32>> {
             exports.entry(name.as_str()).or_insert(i as u32);
         }
     }
+
     program
         .foreigns
         .iter()
@@ -371,6 +404,7 @@ fn reference_graph(program: &Program, foreign_func: &[Option<u32>]) -> (Vec<usiz
     let mut weight = vec![0usize; nodes];
     let mut refs: Vec<Vec<u32>> = vec![Vec::new(); nodes];
     let mut scratch = Vec::new();
+
     for (i, func) in program.funcs.iter().enumerate() {
         if let Some(func) = func {
             weight[i] = func_weight(func);
@@ -378,6 +412,7 @@ fn reference_graph(program: &Program, foreign_func: &[Option<u32>]) -> (Vec<usiz
             refs[i].clone_from(&scratch);
         }
     }
+
     for (j, g) in program.globals.iter().enumerate() {
         weight[nf + j] = g.init.len() / 4096 + g.relocs.len() / 8 + 1;
         let mut out: Vec<u32> = g
@@ -389,6 +424,7 @@ fn reference_graph(program: &Program, foreign_func: &[Option<u32>]) -> (Vec<usiz
                 RelocTarget::Foreign(id) => foreign_func[id.0 as usize],
             })
             .collect();
+
         out.sort_unstable();
         out.dedup();
         refs[nf + j] = out;
@@ -396,14 +432,17 @@ fn reference_graph(program: &Program, foreign_func: &[Option<u32>]) -> (Vec<usiz
 
     // Private copies are no one's business but the module that makes them.
     let copy: Vec<bool> = program.globals.iter().map(replicated).collect();
+
     for targets in &mut refs {
         targets.retain(|&t| (t as usize) < nf || !copy[t as usize - nf]);
     }
+
     for (j, &is_copy) in copy.iter().enumerate() {
         if is_copy {
             weight[nf + j] = 0;
         }
     }
+
     (weight, refs)
 }
 
@@ -414,12 +453,15 @@ fn referrer_forest(refs: &[Vec<u32>], nodes: usize) -> (Vec<u32>, Vec<u32>) {
     // Who refers to each node: none, one node, or several.
     const MANY: u32 = u32::MAX - 1;
     let mut sole = vec![NONE; nodes];
+
     for (n, targets) in refs.iter().enumerate() {
         for &t in targets {
             if t as usize == n {
                 continue;
             }
+
             let slot = &mut sole[t as usize];
+
             *slot = if *slot == NONE || *slot == n as u32 {
                 n as u32
             } else {
@@ -430,20 +472,25 @@ fn referrer_forest(refs: &[Vec<u32>], nodes: usize) -> (Vec<u32>, Vec<u32>) {
 
     let mut children: Vec<Vec<u32>> = vec![Vec::new(); nodes];
     let mut roots: Vec<u32> = Vec::new();
+
     for (n, &referrer) in sole.iter().enumerate() {
         match referrer {
             NONE | MANY => roots.push(n as u32),
             parent => children[parent as usize].push(n as u32),
         }
     }
+
     let mut parent = vec![NONE; nodes];
     let mut order: Vec<u32> = Vec::with_capacity(nodes);
     let mut seen = vec![false; nodes];
     let visit = |root: u32, order: &mut Vec<u32>, seen: &mut Vec<bool>, parent: &mut Vec<u32>| {
         let mut stack = vec![root];
+
         seen[root as usize] = true;
+
         while let Some(n) = stack.pop() {
             order.push(n);
+
             for &c in &children[n as usize] {
                 if !seen[c as usize] {
                     seen[c as usize] = true;
@@ -453,14 +500,17 @@ fn referrer_forest(refs: &[Vec<u32>], nodes: usize) -> (Vec<u32>, Vec<u32>) {
             }
         }
     };
+
     for &r in &roots {
         visit(r, &mut order, &mut seen, &mut parent);
     }
+
     for n in 0..nodes as u32 {
         if !seen[n as usize] {
             visit(n, &mut order, &mut seen, &mut parent);
         }
     }
+
     (order, parent)
 }
 
@@ -478,32 +528,43 @@ fn cut_groups(
     let mut acc = weight.to_vec();
     let mut group_root = vec![false; nodes];
     let mut kids: Vec<Vec<u32>> = vec![Vec::new(); nodes];
+
     for &n in order {
         let p = parent[n as usize];
+
         if p != NONE {
             kids[p as usize].push(n);
         }
     }
+
     for &n in order.iter().rev() {
         let mut list = std::mem::take(&mut kids[n as usize]);
+
         list.sort_by_key(|&k| std::cmp::Reverse(acc[k as usize]));
         let mut sum = weight[n as usize] + list.iter().map(|&k| acc[k as usize]).sum::<usize>();
+
         for &k in &list {
             if sum <= cap {
                 break;
             }
+
             group_root[k as usize] = true;
             sum -= acc[k as usize];
         }
+
         acc[n as usize] = sum;
+
         if parent[n as usize] == NONE {
             group_root[n as usize] = true;
         }
     }
+
     let mut group = vec![0u32; nodes];
     let mut group_weight: Vec<usize> = Vec::new();
+
     for &n in order {
         let p = parent[n as usize];
+
         group[n as usize] = if group_root[n as usize] || p == NONE {
             group_weight.push(acc[n as usize]);
             (group_weight.len() - 1) as u32
@@ -511,6 +572,7 @@ fn cut_groups(
             group[p as usize]
         };
     }
+
     (group, group_weight)
 }
 
@@ -541,36 +603,45 @@ fn choose_imports(
         if cold[n] {
             return false;
         }
+
         if n >= nf {
             // Constant data folds into the code that reads it; a zero default value turns a copy
             // into a memset.
             let g = &program.globals[n - nf];
+
             return g.read_only
                 && g.export.is_none()
                 && g.size <= GLOBAL_IMPORT_MAX
                 && !replicated(g);
         }
+
         program.funcs[n]
             .as_ref()
             .is_some_and(|f| !matches!(f.linkage, Linkage::Export(_)))
             && (weight[n] <= IMPORT_MAX || always_inline(n))
     };
     let mut owned_weight = vec![0usize; units];
+
     for n in (0..nodes).filter(|&n| owner[n] != NONE) {
         owned_weight[owner[n] as usize] += weight[n];
     }
+
     let mut imports: Vec<Vec<u32>> = vec![Vec::new(); units];
     // Per module, how many nodes (its own or imported) refer to each node, to import the
     // functions with the most callers per instruction first.
     let mut callers = vec![0u32; nodes];
+
     for k in 0..units {
         // The cold module is not optimized, so a copy would only be lowered and thrown away.
         if cold_unit == Some(k as u32) {
             continue;
         }
+
         let budget = owned_weight[k] * IMPORT_BUDGET_PERCENT / 100;
         let mut used = 0usize;
+
         callers.fill(0);
+
         for n in 0..nodes {
             if owner[n] as usize == k {
                 for &r in &refs[n] {
@@ -578,6 +649,7 @@ fn choose_imports(
                 }
             }
         }
+
         let priority = |n: usize, callers: &[u32]| -> u64 {
             u64::from(callers[n]) * 4096 / (weight[n] as u64 + 8)
         };
@@ -586,32 +658,44 @@ fn choose_imports(
             .map(|n| (priority(n as usize, &callers), n))
             .collect();
         let mut imported = vec![false; nodes];
+
         while let Some((_, n)) = queue.pop() {
             let n = n as usize;
+
             if imported[n] || (n < nf && !always_inline(n) && used + weight[n] > budget) {
                 continue;
             }
+
             imported[n] = true;
+
             if n < nf && !always_inline(n) {
                 used += weight[n];
             }
+
             imports[k].push(n as u32);
+
             for &r in &refs[n] {
                 let r = r as usize;
+
                 if owner[r] as usize != k {
                     shared[r] = true;
+
                     if !need[k][r] {
                         need[k][r] = true;
                     }
+
                     callers[r] += 1;
+
                     if importable(r) && !imported[r] {
                         queue.push((priority(r, &callers), r as u32));
                     }
                 }
             }
         }
+
         imports[k].sort_unstable();
     }
+
     imports
 }
 
@@ -640,16 +724,19 @@ pub(crate) fn inline_cuts(program: &Program, cap: usize) -> Vec<bool> {
         .collect();
     let mut sites: Vec<Vec<u32>> = vec![Vec::new(); nf];
     let mut calls = vec![0u32; nf];
+
     for (i, func) in program.funcs.iter().enumerate() {
         let Some(func) = func else {
             continue;
         };
+
         for block in &func.blocks {
             for inst in &block.insts {
                 if let Inst::Call(call) = inst
                     && let Callee::Func(id) = &call.callee
                 {
                     let g = id.0 as usize;
+
                     if g != i {
                         sites[i].push(id.0);
                         calls[g] += 1;
@@ -658,13 +745,16 @@ pub(crate) fn inline_cuts(program: &Program, cap: usize) -> Vec<bool> {
             }
         }
     }
+
     let inlinable = |g: usize| -> bool {
         let Some(func) = &program.funcs[g] else {
             return false;
         };
+
         if func.linkage != Linkage::Internal || func.inline == jaic::ir::InlineHint::Never {
             return false;
         }
+
         // A non-call reference (including runtime metadata) does not prevent
         // LLVM from inlining a direct call. Conservatively account for a sole
         // direct caller even when a function's address also escapes. Ignoring
@@ -682,50 +772,65 @@ pub(crate) fn inline_cuts(program: &Program, cap: usize) -> Vec<bool> {
     let mut state = vec![0u8; nf]; // 0 new, 1 visiting, 2 done
     let mut estimate = vec![0usize; nf];
     let mut cut = vec![false; nf];
+
     for root in 0..nf {
         if state[root] != 0 {
             continue;
         }
+
         let mut stack: Vec<(u32, usize)> = vec![(root as u32, 0)];
+
         state[root] = 1;
+
         while let Some(&(f, next)) = stack.last() {
             let f = f as usize;
+
             if let Some(&g) = sites[f].get(next) {
                 if let Some(top) = stack.last_mut() {
                     top.1 += 1;
                 }
+
                 if state[g as usize] == 0 {
                     state[g as usize] = 1;
                     stack.push((g, 0));
                 }
+
                 continue;
             }
+
             stack.pop();
             state[f] = 2;
             // What each inlinable callee adds, summed over its call sites.
             let mut parts: Vec<(usize, u32)> = Vec::new(); // (total, callee)
             let mut seen: HashMap<u32, usize> = HashMap::default();
+
             for &g in &sites[f] {
                 if state[g as usize] == 2 && inlinable(g as usize) && !cut[g as usize] {
                     *seen.entry(g).or_insert(0) += estimate[g as usize];
                 }
             }
+
             parts.extend(seen.into_iter().map(|(g, total)| (total, g)));
             let mut sum = weight[f] + parts.iter().map(|p| p.0).sum::<usize>();
+
             if sum > cap {
                 parts.sort_unstable_by_key(|&(total, g)| (std::cmp::Reverse(total), g));
+
                 for &(total, g) in &parts {
                     if sum <= cap {
                         break;
                     }
+
                     if cuttable(g as usize) {
                         cut[g as usize] = true;
                         sum -= total;
                     }
                 }
             }
+
             estimate[f] = sum;
         }
     }
+
     cut
 }

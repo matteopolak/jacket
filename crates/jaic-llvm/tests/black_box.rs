@@ -50,11 +50,13 @@ fn optimized_ir(
     let dir = TempDir::new(name);
 
     let mut options = Options::host();
+
     options.os = os;
     options.cpu = cpu;
     options.runtime_support = false;
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(e) = compiler.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
         panic!("{}", e.render(&compiler.src.sources));
     }
@@ -69,6 +71,7 @@ fn optimized_ir(
         },
         ..Default::default()
     };
+
     emit_object(&compiler.out.program, &options, &dir.join("black_box.o")).unwrap();
 
     std::fs::read_to_string(dir.join("optimized.ll")).unwrap()
@@ -82,23 +85,28 @@ fn check(ir: &str) {
 
     // With it: the 5 is unknown, so the product is computed, and the loop is kept.
     let hidden = function(ir, "hidden");
+
     assert!(!hidden.contains("ret i64 10"), "{hidden}");
     assert!(hidden.contains("asm sideeffect \"\""), "{hidden}");
 
     let sum = function(ir, "sum_hidden");
+
     assert!(!sum.contains("ret i64 4950"), "{sum}");
     assert!(sum.contains("phi"), "the loop was deleted:\n{sum}");
 
     let input = function(ir, "sum_input");
+
     assert!(input.contains("asm sideeffect"), "{input}");
 
     // The assembly is empty and takes no call: nothing but the block itself is added.
     for name in ["hidden", "sum_hidden", "sum_input", "real", "aggregate"] {
         let body = function(ir, name);
+
         for line in body.lines().filter(|l| l.contains("call ")) {
             let allowed = line.contains("asm sideeffect")
                 || line.contains("@llvm.")
                 || line.contains("@jaic.null_fail");
+
             assert!(allowed, "{name} calls something: {line}\n{body}");
         }
     }
@@ -110,12 +118,14 @@ fn check(ir: &str) {
 #[test]
 fn host_keeps_the_value_unknown_and_the_loop_alive() {
     let host = Options::host();
+
     check(&optimized_ir("host", host.os, host.cpu, None));
 }
 
 #[test]
 fn x64_linux_keeps_the_value_unknown_and_the_loop_alive() {
     let target = jaic::target::Target::parse("x86_64-unknown-linux-gnu").unwrap();
+
     check(&optimized_ir(
         "x64",
         TargetOs::Linux,
@@ -127,6 +137,7 @@ fn x64_linux_keeps_the_value_unknown_and_the_loop_alive() {
 #[test]
 fn arm64_linux_keeps_the_value_unknown_and_the_loop_alive() {
     let target = jaic::target::Target::parse("aarch64-unknown-linux-gnu").unwrap();
+
     check(&optimized_ir(
         "arm64",
         TargetOs::Linux,

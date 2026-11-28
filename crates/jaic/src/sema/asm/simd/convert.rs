@@ -13,6 +13,7 @@ use crate::sema::asm::{
 impl Compiler {
     pub(super) fn simd_bin(f: &mut FnCtx, op: B2, ty: Ty, a: Val, b: Val) -> Val {
         let n = bits(ty);
+
         match op {
             B2::AddSatS | B2::AddSatU | B2::SubSatS | B2::SubSatU => {
                 let signed = matches!(op, B2::AddSatS | B2::SubSatS);
@@ -23,6 +24,7 @@ impl Compiler {
                 } else {
                     bin(f, BinOp::Sub, Ty::I32, wa, wb)
                 };
+
                 saturate(f, Ty::I32, r, ty, signed)
             }
             B2::Avg => {
@@ -32,6 +34,7 @@ impl Compiler {
                 let one = konst(f, Ty::I32, 1);
                 let s = bin(f, BinOp::Add, Ty::I32, s, one);
                 let s = bin(f, BinOp::LShr, Ty::I32, s, one);
+
                 resize(f, s, Ty::I32, ty, false)
             }
             B2::MulHiS | B2::MulHiU | B2::MulHrs => {
@@ -44,11 +47,13 @@ impl Compiler {
                     let one = konst(f, Ty::I32, 1);
                     let t = bin(f, BinOp::AShr, Ty::I32, p, s14);
                     let t = bin(f, BinOp::Add, Ty::I32, t, one);
+
                     bin(f, BinOp::AShr, Ty::I32, t, one)
                 } else {
                     let s16 = konst(f, Ty::I32, 16);
                     bin(f, BinOp::LShr, Ty::I32, p, s16)
                 };
+
                 resize(f, r, Ty::I32, ty, false)
             }
             B2::Sign => {
@@ -57,12 +62,14 @@ impl Compiler {
                 let zero = konst(f, ty, 0);
                 let na = bin(f, BinOp::Sub, ty, zero, a);
                 let r = select(f, ty, neg, na, a);
+
                 select(f, ty, zero_b, zero, r)
             }
             B2::Shlv | B2::Shrv | B2::Sarv => {
                 // Counts at or above the lane width clear the lane (fill with the sign for sar).
                 let max = konst(f, ty, n - 1);
                 let over = cmp(f, CmpOp::UGt, ty, b, max);
+
                 if op == B2::Sarv {
                     let c = select(f, ty, over, max, b);
                     bin(f, BinOp::AShr, ty, a, c)
@@ -79,12 +86,14 @@ impl Compiler {
                         b,
                     );
                     let zero = konst(f, ty, 0);
+
                     select(f, ty, over, zero, r)
                 }
             }
             B2::Rolv | B2::Rorv => {
                 let m = konst(f, ty, n - 1);
                 let c = bin(f, BinOp::And, ty, b, m);
+
                 bin(
                     f,
                     if op == B2::Rolv {
@@ -106,6 +115,7 @@ impl Compiler {
         let ub = cmp(f, CmpOp::FNe, ty, b, b);
         let uno = flag_or(f, ua, ub);
         let eq = cmp(f, CmpOp::FEq, ty, a, b);
+
         match p {
             0 => eq,
             1 => cmp(f, CmpOp::FLt, ty, a, b),
@@ -134,6 +144,7 @@ impl Compiler {
             12 => {
                 let ne = flag_not(f, eq);
                 let ord = flag_not(f, uno);
+
                 bin(f, BinOp::And, Ty::I8, ne, ord)
             }
             13 => cmp(f, CmpOp::FGe, ty, a, b),
@@ -148,17 +159,20 @@ impl Compiler {
         let hi_s = f.b.alloca(8, 8);
         let i_s = f.b.alloca(8, 8);
         let zero = konst(f, Ty::I64, 0);
+
         f.b.store(Ty::I64, lo_s, zero);
         f.b.store(Ty::I64, hi_s, zero);
         f.b.store(Ty::I64, i_s, zero);
         let head = f.b.new_block();
         let body = f.b.new_block();
         let done = f.b.new_block();
+
         f.b.jump(head);
         f.b.switch_to(head);
         let i = f.b.load(Ty::I64, i_s);
         let n = konst(f, Ty::I64, 64);
         let end = cmp(f, CmpOp::Eq, Ty::I64, i, n);
+
         f.b.branch(end, done, body);
         f.b.switch_to(body);
         let one = konst(f, Ty::I64, 1);
@@ -177,9 +191,11 @@ impl Compiler {
         let hi = f.b.load(Ty::I64, hi_s);
         let lo = bin(f, BinOp::Xor, Ty::I64, lo, lo_part);
         let hi = bin(f, BinOp::Xor, Ty::I64, hi, hi_part);
+
         f.b.store(Ty::I64, lo_s, lo);
         f.b.store(Ty::I64, hi_s, hi);
         let i = bin(f, BinOp::Add, Ty::I64, i, one);
+
         f.b.store(Ty::I64, i_s, i);
         f.b.jump(head);
         f.b.switch_to(done);
@@ -204,10 +220,12 @@ impl Compiler {
             Some(AsmSize::Suffix(s)) if matches!(s.name.as_str(), "q" | "64") => Ty::I64,
             _ => Ty::I32,
         };
+
         match conv {
             Conv::IntToFloat(from, to, unsigned) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let n = width / from.numeric_size().max(to.numeric_size());
+
                 for i in 0..n {
                     let x = load_lane(f, s[0], i, from);
                     let op = if unsigned {
@@ -216,8 +234,10 @@ impl Compiler {
                         ConvOp::SToF
                     };
                     let r = f.b.conv(op, from, to, x);
+
                     store_lane(f, tmp, i, to, r);
                 }
+
                 self.simd_out(f, cx, dst, tmp, n * to.numeric_size(), span)
             }
             Conv::FloatToInt(from, to, trunc, unsigned) => {
@@ -228,16 +248,20 @@ impl Compiler {
                     _ => 'n',
                 };
                 let n = width / from.numeric_size().max(to.numeric_size());
+
                 for i in 0..n {
                     let x = load_lane(f, s[0], i, from);
                     let r = float_to_int(f, from, x, to, mode, unsigned);
+
                     store_lane(f, tmp, i, to, r);
                 }
+
                 self.simd_out(f, cx, dst, tmp, n * to.numeric_size(), span)
             }
             Conv::FloatToFloat(from, to) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let n = width / from.numeric_size().max(to.numeric_size());
+
                 for i in 0..n {
                     let x = load_lane(f, s[0], i, from);
                     let op = if from == Ty::F32 {
@@ -246,12 +270,15 @@ impl Compiler {
                         ConvOp::FTrunc
                     };
                     let r = f.b.conv(op, from, to, x);
+
                     store_lane(f, tmp, i, to, r);
                 }
+
                 self.simd_out(f, cx, dst, tmp, n * to.numeric_size(), span)
             }
             Conv::ScalarFloat(from, to) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
+
                 f.b.copy(tmp, s[0], 16);
                 let x = load_lane(f, s[1], 0, from);
                 let op = if from == Ty::F32 {
@@ -260,6 +287,7 @@ impl Compiler {
                     ConvOp::FTrunc
                 };
                 let r = f.b.conv(op, from, to, x);
+
                 store_lane(f, tmp, 0, to, r);
                 self.simd_out(f, cx, dst, tmp, 16, span)
             }
@@ -284,6 +312,7 @@ impl Compiler {
                     ConvOp::SToF
                 };
                 let r = f.b.conv(op, from, to, x);
+
                 f.b.copy(tmp, a, 16);
                 store_lane(f, tmp, 0, to, r);
                 self.simd_out(f, cx, dst, tmp, 16, span)
@@ -296,6 +325,7 @@ impl Compiler {
                         format!("`{name}` takes 2 operands"),
                     );
                 }
+
                 let src = self.vec_ptr(f, ops[1], span)?;
                 let to = int_size();
                 let mode = match (round, trunc) {
@@ -305,6 +335,7 @@ impl Compiler {
                 };
                 let x = load_lane(f, src, 0, from);
                 let r = float_to_int(f, from, x, to, mode, unsigned);
+
                 self.vec_scalar_write(f, dst, to, r, span)
             }
         }
@@ -327,6 +358,7 @@ impl Output {
                 export: None,
                 section: None,
             });
+
             self.asm_aes_tables = Some(g);
             g
         };

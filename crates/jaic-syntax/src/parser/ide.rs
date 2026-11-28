@@ -25,6 +25,7 @@ pub fn parse_file_ide(file: FileId, text: &str) -> IdeParse {
         .into_iter()
         .filter(|d| !parsed.recovered_literal_at(d.span.start))
         .collect();
+
     parsed.diagnostics.splice(0..0, diagnostics);
     parsed
 }
@@ -45,12 +46,15 @@ pub fn parse_callees_ide(
 ) -> crate::fxhash::HashMap<u32, crate::ast::Expr> {
     let (tokens, _) = crate::lexer::lex_ide(file, text);
     let mut parser = Parser::new(text, tokens);
+
     parser.recovery = Some(Vec::new());
     parser.ide_call_opens = opens.iter().copied().collect();
     parser.index_ide_braces();
+
     if parser.parse_file_stmts().is_err() {
         return crate::fxhash::HashMap::default();
     }
+
     parser.ide_call_callees
 }
 
@@ -59,6 +63,7 @@ pub fn parse_callees_ide(
 /// refer to the current original source, with no inserted values or declarations.
 pub fn parse_tokens_ide(file: FileId, text: &str, tokens: Vec<Token>) -> IdeParse {
     let (strict, tokens) = parse_tokens(file, text, tokens);
+
     if let Ok(file) = strict {
         return IdeParse {
             file,
@@ -66,7 +71,9 @@ pub fn parse_tokens_ide(file: FileId, text: &str, tokens: Vec<Token>) -> IdePars
             diagnostics: Vec::new(),
         };
     }
+
     let mut parser = Parser::new(text, tokens);
+
     parser.recovery = Some(Vec::new());
     parser.index_ide_braces();
     let stmts = parser
@@ -75,6 +82,7 @@ pub fn parse_tokens_ide(file: FileId, text: &str, tokens: Vec<Token>) -> IdePars
     // Recovery can parse the same unfinished construct more than once (a cast or call whose
     // arguments run into the end of the file); it must not report it twice.
     let mut diagnostics: Vec<crate::diagnostics::Diagnostic> = Vec::new();
+
     for d in parser.recovery.unwrap() {
         if !diagnostics
             .iter()
@@ -83,6 +91,7 @@ pub fn parse_tokens_ide(file: FileId, text: &str, tokens: Vec<Token>) -> IdePars
             diagnostics.push(d);
         }
     }
+
     IdeParse {
         file: File {
             file,
@@ -98,6 +107,7 @@ impl Parser<'_> {
     fn index_ide_braces(&mut self) {
         self.ide_closed_braces.clear();
         let mut open = Vec::new();
+
         for token in &self.toks {
             match token.tok {
                 Tok::Punct(P::LBrace | P::DotBrace) => open.push(token.span.start),
@@ -117,9 +127,11 @@ impl Parser<'_> {
         if self.recovery.is_none() || !self.newline_before() || self.span().start <= open.start {
             return false;
         }
+
         let indent = |byte: u32| {
             let prefix = &self.src[..byte as usize];
             let line = prefix.rsplit('\n').next().unwrap_or("");
+
             line.len() - line.trim_start_matches([' ', '\t']).len()
         };
         let declaration = self.decl_ahead(0)
@@ -132,6 +144,7 @@ impl Parser<'_> {
                 Some("scope_file" | "scope_export" | "scope_module" | "module_parameters") => true,
                 _ => false,
             };
+
         !self.ide_closed_braces.contains(&open.start)
             && declaration
             && indent(self.span().start) <= indent(open.start)
@@ -140,18 +153,21 @@ impl Parser<'_> {
     pub(super) fn ide_close_block(&mut self, open: Span, context: &str) -> PResult<Span> {
         if !self.at(P::RBrace) {
             let error = self.unclosed_block(open, context);
+
             if let Some(errors) = self.recovery.as_mut() {
                 errors.push(Diagnostic {
                     span: open,
                     ..error
                 });
                 self.block_end = self.pos;
+
                 return Ok(Span {
                     end: self.span().start,
                     ..open
                 });
             }
         }
+
         if self.at(P::RBrace) {
             Ok(self.bump())
         } else {
@@ -169,6 +185,7 @@ impl Parser<'_> {
         let saved_operator = self.pending_operator.clone();
         let saved_notes = self.pending_notes.clone();
         let saved_end = self.block_end;
+
         match self.parse_stmt() {
             Ok(stmt) => {
                 // A truncated one-line control statement may otherwise take the next
@@ -182,7 +199,9 @@ impl Parser<'_> {
                         .binary_search_by_key(&body.span.start, |t| t.span.start)
                 {
                     let parsed_end = self.pos;
+
                     self.pos = body_token;
+
                     if self.ide_block_boundary(self.toks[start].span)
                         && let Some(errors) = self.recovery.as_mut()
                     {
@@ -195,10 +214,13 @@ impl Parser<'_> {
                         self.pending_operator = saved_operator;
                         self.pending_notes = saved_notes;
                         self.block_end = saved_end;
+
                         return Ok(None);
                     }
+
                     self.pos = parsed_end;
                 }
+
                 Ok(Some(stmt))
             }
             Err(error) => {
@@ -207,9 +229,11 @@ impl Parser<'_> {
                 if in_block && error.code == crate::diagnostics::Code::NestingLimit {
                     return Err(error);
                 }
+
                 let Some(errors) = self.recovery.as_mut() else {
                     return Err(error);
                 };
+
                 // The malformed statement owns the diagnostic: the strict parser often
                 // notices a missing suffix only at the next, otherwise healthy line.
                 errors.push(Diagnostic {
@@ -220,9 +244,11 @@ impl Parser<'_> {
                 self.pending_operator = saved_operator;
                 self.pending_notes = saved_notes;
                 self.block_end = saved_end;
+
                 if self.recover_multiline_token(start) {
                     return Ok(None);
                 }
+
                 self.ide_synchronize(start, in_block);
                 Ok(None)
             }
@@ -234,15 +260,18 @@ impl Parser<'_> {
         let mut braces = 0usize;
         // The brace depth at each open bracket.
         let mut brackets: Vec<usize> = Vec::new();
+
         loop {
             if self.pos > start && self.ide_block_boundary(self.toks[start].span) {
                 break;
             }
+
             if self.at_eof()
                 || (self.pos > start && braces == 0 && brackets.is_empty() && self.newline_before())
             {
                 break;
             }
+
             match self.tok() {
                 Tok::Punct(P::LBrace | P::DotBrace) => braces += 1,
                 Tok::Punct(P::LBracket | P::DotBracket) => brackets.push(braces),
@@ -262,6 +291,7 @@ impl Parser<'_> {
                 }
                 _ => {}
             }
+
             self.bump();
         }
     }
@@ -282,15 +312,19 @@ impl Parser<'_> {
                     && token.span.end as usize > newline
                     && self.src.as_bytes()[token.span.start as usize] == b'"'
             });
+
         if !crossed {
             return false;
         }
+
         let file = self.toks[start].span.file;
         let (mut suffix, errors) = crate::lexer::lex_ide(file, &self.src[newline..]);
+
         for token in &mut suffix {
             token.span.start += newline as u32;
             token.span.end += newline as u32;
         }
+
         self.recovery
             .as_mut()
             .unwrap()
@@ -360,16 +394,20 @@ mod callee_tests {
         ] {
             let file = FileId(7);
             let open = (source.find("method(").unwrap() + "method".len()) as u32;
+
             assert!(
                 parse_file(file, source).is_err(),
                 "strict source must remain invalid"
             );
             let callee = parse_callee_ide(file, source, open).expect("real parsed callee");
+
             assert_eq!(callee.span.file, file);
             // Existing AST spans omit grouping openers; the extent takes them in.
             let span = callee.extent();
+
             assert_eq!(&source[span.start as usize..span.end as usize], expected);
         }
+
         for source in [
             "method :: (argument: int) {}",
             "main :: () { text := \"method(\"; }",
@@ -379,6 +417,7 @@ mod callee_tests {
                 .find("method(")
                 .map_or_else(|| source.find('(').unwrap(), |start| start + "method".len())
                 as u32;
+
             assert!(
                 parse_callee_ide(FileId(7), source, open).is_none(),
                 "not a call: {source}"
@@ -396,16 +435,20 @@ mod callee_tests {
             .filter(|&at| at > 10)
             .collect();
         let together = parse_callees_ide(file, source, &opens);
+
         for &open in &opens {
             let alone = parse_callee_ide(file, source, open);
+
             assert_eq!(
                 together.get(&open).map(crate::ast::Expr::extent),
                 alone.map(|c| c.extent()),
                 "callee at {open}"
             );
         }
+
         let spelled: Vec<&str> = {
             let mut found: Vec<_> = together.iter().collect();
+
             found.sort_by_key(|(open, _)| **open);
             found
                 .into_iter()
@@ -415,6 +458,7 @@ mod callee_tests {
                 })
                 .collect()
         };
+
         assert_eq!(spelled, ["first", "a.second", "third"]);
     }
 }
@@ -459,6 +503,7 @@ impl ParseReuse {
     pub fn begin(&mut self) -> u64 {
         self.compiles += 1;
         let now = self.compiles;
+
         self.kept
             .retain(|_, kept| kept.used + PARSES_KEPT_FOR >= now);
         self.sources
@@ -474,9 +519,11 @@ impl ParseReuse {
         bytes: &[u8],
     ) -> Option<(std::sync::Arc<str>, crate::source::LineIndex)> {
         let kept = self.sources.get_mut(path)?;
+
         if kept.text.as_bytes() != bytes {
             return None;
         }
+
         kept.used = compile;
         Some((kept.text.clone(), kept.lines.clone()))
     }
@@ -512,12 +559,14 @@ impl ParseReuse {
         text: &std::sync::Arc<str>,
     ) -> Option<std::sync::Arc<SharedParse>> {
         let kept = self.kept.get_mut(&(path.to_path_buf(), file))?;
+
         if kept.used != compile
             && (std::sync::Arc::ptr_eq(&kept.text, text) || *kept.text == **text)
         {
             kept.used = compile;
             return Some(kept.parse.clone());
         }
+
         None
     }
 
@@ -532,6 +581,7 @@ impl ParseReuse {
         parse: &std::sync::Arc<SharedParse>,
     ) {
         let key = (path.to_path_buf(), file);
+
         if self.kept.get(&key).is_none_or(|kept| kept.used != compile) {
             self.kept.insert(
                 key,
@@ -555,7 +605,9 @@ impl ParseReuse {
         if let Some(kept) = self.find(compile, path, file, text) {
             return kept;
         }
+
         let parse = parse_shared(file, text);
+
         self.store(compile, path, file, text, &parse);
         parse
     }
@@ -567,6 +619,7 @@ fn parse_shared(file: FileId, text: &std::sync::Arc<str>) -> std::sync::Arc<Shar
         diagnostics,
         ..
     } = parse_file_ide(file, text);
+
     std::sync::Arc::new(SharedParse {
         file: tree,
         diagnostics,
@@ -624,7 +677,9 @@ impl SharedParseReuse {
         if let Some(kept) = self.lock().find(compile, path, file, text) {
             return kept;
         }
+
         let parse = parse_shared(file, text);
+
         self.lock().store(compile, path, file, text, &parse);
         parse
     }
@@ -645,27 +700,33 @@ mod reuse_tests {
         let a = reuse.parse(first, path, FileId(3), &text);
         // A second instance in the same compile gets its own tree.
         let b = reuse.parse(first, path, FileId(3), &text);
+
         assert!(!Arc::ptr_eq(&a, &b));
         let second = reuse.begin();
+
         assert!(Arc::ptr_eq(
             &a,
             &reuse.parse(second, path, FileId(3), &text)
         ));
         // Another id or another text is parsed again.
         let third = reuse.begin();
+
         assert!(!Arc::ptr_eq(
             &a,
             &reuse.parse(third, path, FileId(4), &text)
         ));
         let changed: Arc<str> = "a :: 2;".into();
+
         assert!(!Arc::ptr_eq(
             &a,
             &reuse.parse(third, path, FileId(3), &changed)
         ));
+
         // Unused parses are dropped after a few compiles.
         for _ in 0..=PARSES_KEPT_FOR {
             reuse.begin();
         }
+
         assert!(reuse.kept.is_empty());
     }
 
@@ -676,22 +737,27 @@ mod reuse_tests {
         let text: Arc<str> = "a :: 1;\nb :: 2;".into();
         let lines = crate::source::LineIndex::new(&text);
         let first = reuse.begin();
+
         reuse.keep_source(first, path, text.as_bytes(), &text, &lines);
         let (again, kept_lines) = reuse.source(first, path, text.as_bytes()).expect("kept");
+
         assert!(Arc::ptr_eq(&again, &text));
         assert_eq!(kept_lines, lines);
         assert!(reuse.source(first, path, b"a :: 3;").is_none());
         // Text decoded with replacements is not kept.
         let lossy: Arc<str> = String::from_utf8_lossy(b"\xff").into();
+
         reuse.keep_source(first, Path::new("/p/b.jai"), b"\xff", &lossy, &lines);
         assert!(
             reuse
                 .source(first, Path::new("/p/b.jai"), b"\xff")
                 .is_none()
         );
+
         for _ in 0..=PARSES_KEPT_FOR {
             reuse.begin();
         }
+
         assert!(reuse.sources.is_empty());
     }
 }

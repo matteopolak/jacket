@@ -7,15 +7,19 @@ use std::rc::Rc;
 fn compile(source: &str, lint: bool, broken: bool) -> Compiler {
     let stdlib = test_support::repo::root().join("stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = lint;
     c.ed.record(facts);
     let start = c.begin_sources(&[ProgramSource::String(source.to_owned())]);
+
     assert!(start.is_ok(), "{start:?}");
     let result = c.finish_program();
+
     assert_eq!(result.is_err(), broken, "{result:?}");
     let _ = c.ide_check_all();
     c
@@ -44,13 +48,16 @@ main :: () { poly(true); poly(false); }
 #[test]
 fn real_instantiations_keep_independent_choices_and_identities() {
     let mut c = compile(POLY, true, false);
+
     c.ide_sketch_polymorphs();
     let selected: Vec<_> = bodies(&c)
         .filter(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "poly")
         .collect();
+
     assert_eq!(selected.len(), 2);
     let mut choices = Vec::new();
     let mut identities = Vec::new();
+
     for b in selected {
         let taken = events(b)
             .find_map(|e| match e {
@@ -63,6 +70,7 @@ fn real_instantiations_keep_independent_choices_and_identities() {
         let grows = events(b)
             .filter(|e| matches!(e, Event::Grow { .. }))
             .count();
+
         assert_eq!(grows, usize::from(taken));
         choices.push(taken);
         identities.push(
@@ -82,6 +90,7 @@ fn real_instantiations_keep_independent_choices_and_identities() {
                 .all(|&i| i < b.blocks.len())
         );
     }
+
     choices.sort_unstable();
     assert_eq!(choices, [false, true]);
     assert_ne!(identities[0], identities[1]);
@@ -91,12 +100,14 @@ fn real_instantiations_keep_independent_choices_and_identities() {
 #[test]
 fn lint_facts_off_allocate_no_sidecars() {
     let c = compile(POLY, false, false);
+
     assert_eq!(bodies(&c).count(), 0);
 }
 
 #[test]
 fn failed_body_never_publishes_partial_events() {
     let c = compile("main :: () { n := 1; missing(); }", true, true);
+
     assert!(!bodies(&c).any(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main"));
 }
 
@@ -126,6 +137,7 @@ fn named_spread_and_deferred_arguments_keep_formal_mapping() {
             _ => None,
         })
         .unwrap();
+
     assert_eq!(args.len(), 3);
     assert!(args.iter().all(|a| a.named));
     assert!(args.iter().any(|a| a.formal == 2 && a.spread));
@@ -137,6 +149,7 @@ fn named_spread_and_deferred_arguments_keep_formal_mapping() {
             _ => None,
         })
         .unwrap();
+
     assert!(args.iter().any(|a| a.formal == 0 && matches!(a.operand, LifetimeOperand::Value(v) if v == region)));
 }
 
@@ -159,6 +172,7 @@ fn expansions_and_cleanup_remain_in_the_actual_blocks() {
     let b = bodies(&c)
         .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
         .unwrap();
+
     assert!(events(b).any(|e| matches!(
         e,
         Event::Call {
@@ -196,6 +210,7 @@ fn type_only_probe_does_not_emit_runtime_effects() {
     let b = bodies(&c)
         .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
         .unwrap();
+
     assert!(!events(b).any(|e| matches!(e, Event::Grow { .. } | Event::Call { .. })));
 }
 
@@ -217,6 +232,7 @@ fn assignment_targets_and_comparisons_are_not_reads_but_their_operands_are() {
     let b = bodies(&c)
         .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
         .unwrap();
+
     for (fragment, expected) in [
         ("p = q", 1),
         ("p, q = q, p", 2),
@@ -227,6 +243,7 @@ fn assignment_targets_and_comparisons_are_not_reads_but_their_operands_are() {
     ] {
         let start = source.find(fragment).unwrap() as u32;
         let count = events(b).filter(|e| matches!(e, Event::Use { span, .. } if span.start >= start && span.end <= start + fragment.len() as u32)).count();
+
         assert_eq!(count, expected, "{fragment}");
     }
 }
@@ -250,6 +267,7 @@ fn field_identity_keeps_types_when_machine_addresses_overlap() {
     let b = bodies(&c)
         .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "probe")
         .unwrap();
+
     assert!(events(b).any(|e| matches!(e,
         Event::Field { base: LifetimeOperand::Place(base), result: LifetimeOperand::Place(result), base_ty, result_ty, .. }
         if base == result && base_ty != result_ty
@@ -278,6 +296,7 @@ fn field_targets_pointer_equality_and_view_metadata_are_not_memory_reads() {
     let b = bodies(&c)
         .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
         .unwrap();
+
     for (fragment, expected) in [
         ("box.p = q", 1),
         ("box.p == null", 0),
@@ -289,6 +308,7 @@ fn field_targets_pointer_equality_and_view_metadata_are_not_memory_reads() {
         let start = source.find(fragment).unwrap() as u32;
         let count = events(b).filter(|e| matches!(e, Event::Use { span, ty, .. } if span.start >= start && span.end <= start + fragment.len() as u32 &&
                 (c.ty.types.is_pointer(*ty) || matches!(c.ty.types.kind(*ty), jaic::types::TypeKind::String | jaic::types::TypeKind::Array { kind: jaic::types::ArrayKind::View, .. })))).count();
+
         assert_eq!(count, expected, "{fragment}");
     }
 }
@@ -329,6 +349,7 @@ fn argument_snapshots_before_later_calls_keep_load_and_default_facts() {
         .position(|e| matches!(e, Event::Load { value, .. } if *value == first))
         .unwrap();
     let later = list.iter().position(|e| matches!(e, Event::Call { callee, .. } if c.pr.procs[callee.0 as usize].name.as_str() == "later")).unwrap();
+
     assert!(load < later && later < call_at);
     assert_eq!(
         args.iter().find(|a| a.formal == 2).unwrap().constant,
@@ -365,6 +386,7 @@ fn caller_owned_cleanup_and_any_backing_storage_keep_semantic_lifetimes() {
     let exits_without_cleanup = |body: &LifetimeBody| {
         let mut seen = jaic::fxhash::HashSet::default();
         let mut queue = std::collections::VecDeque::from([0]);
+
         while let Some(i) = queue.pop_front() {
             if !seen.insert(i)
                 || body.blocks[i]
@@ -374,11 +396,14 @@ fn caller_owned_cleanup_and_any_backing_storage_keep_semantic_lifetimes() {
             {
                 continue;
             }
+
             if body.blocks[i].normal_return {
                 return true;
             }
+
             queue.extend(&body.blocks[i].successors);
         }
+
         false
     };
     let get = |name| {
@@ -386,6 +411,7 @@ fn caller_owned_cleanup_and_any_backing_storage_keep_semantic_lifetimes() {
             .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == name)
             .unwrap()
     };
+
     assert!(!exits_without_cleanup(get("always")));
     assert!(exits_without_cleanup(get("maybe")));
     assert!(events(get("always")).any(|e| matches!(
@@ -403,6 +429,7 @@ fn caller_owned_cleanup_and_any_backing_storage_keep_semantic_lifetimes() {
             _ => None,
         })
         .collect();
+
     assert_eq!(boxes, [false, true]);
 }
 
@@ -429,6 +456,7 @@ fn baked_temporary_strings_own_static_bytes() {
 fn relative_pointer_syntax_has_no_selected_type_in_this_compiler() {
     // The lifetime lint cannot add a language feature: `*~T` is rejected by sema.
     let c = compile("main :: () { p: *~s32; }", true, true);
+
     assert!(!bodies(&c).any(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main"));
 }
 
@@ -444,8 +472,10 @@ fn clearing_lifetimes_releases_bodies_and_their_file_index() {
         .span
         .file;
     let facts = c.ed.facts_mut().unwrap();
+
     assert!(facts.lifetime_bodies_in(file).next().is_some());
     let refs = facts.refs.len();
+
     facts.clear_lifetimes();
     assert_eq!(facts.lifetime_bodies.capacity(), 0);
     assert!(facts.lifetime_bodies_in(file).next().is_none());
@@ -472,6 +502,7 @@ main :: () {
     let body = bodies(&c)
         .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
         .unwrap();
+
     assert!(events(body).any(|e| matches!(e, Event::ContextSet { .. })));
     assert!(events(body).any(|e| matches!(e, Event::ContextRead { .. })));
     assert!(events(body).any(|e| matches!(e, Event::ContextAlias { .. })));
@@ -510,6 +541,7 @@ main :: () {
             _ => None,
         })
         .collect();
+
     assert!(memory.iter().any(|(name, m)| *name == "memcpy"
         && m.reads == 0b10
         && m.writes == 0b1
@@ -540,6 +572,7 @@ main :: () { take(*slot); }
     let body = bodies(&c)
         .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "main")
         .unwrap();
+
     assert!(events(body).any(|e| matches!(e, Event::Address { ty, .. } if matches!(c.ty.types.kind(*ty), jaic::types::TypeKind::Proc(_)))));
 }
 
@@ -574,6 +607,7 @@ fn default_images_are_recorded_as_writes_at_the_actual_initialization() {
             )
         })
         .unwrap();
+
     assert!(at < first_load);
 }
 
@@ -584,10 +618,12 @@ fn selected_comparisons_survive_releasing_executable_ir() {
         true,
         false,
     );
+
     c.release_lowered_code();
     let body = bodies(&c)
         .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "probe")
         .unwrap();
+
     assert!(
         body.comparisons
             .iter()
@@ -610,6 +646,7 @@ fn aggregate_ifx_keeps_shared_stack_slot_identity_after_ir_release() {
         true,
         false,
     );
+
     c.release_lowered_code();
     let body = bodies(&c)
         .find(|b| c.pr.procs[b.procedure.0 as usize].name.as_str() == "probe")
@@ -634,6 +671,7 @@ fn aggregate_ifx_keeps_shared_stack_slot_identity_after_ir_release() {
             }
         })
         .collect();
+
     assert!(stores.iter().enumerate().any(|(i, a)| {
         stores[i + 1..]
             .iter()
@@ -653,6 +691,7 @@ main :: () { narrow(1); pack(.[2]); }
         true,
         false,
     );
+
     // `pack` checks each of its two segments against the room left in the pack.
     for (name, checks) in [("narrow", 1), ("pack", 2)] {
         let body = bodies(&c)
@@ -664,6 +703,7 @@ main :: () { narrow(1); pack(.[2]); }
             .iter()
             .filter(|b| b.successors.is_empty() && !b.normal_return)
             .count();
+
         assert_eq!(stops, checks, "{name}: {:?}", body.blocks);
     }
 }

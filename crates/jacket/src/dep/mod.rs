@@ -149,6 +149,7 @@ impl Project {
             .map_err(|e| DepError::new(format!("could not read {}: {e}", file.display())))?;
         let (config, _) = jacket_config::parse_noting(&text)
             .map_err(|e| DepError::new(format!("{}: {e}", file.display())))?;
+
         check_entries(&config)?;
         Ok(Self {
             dir: location.dir,
@@ -162,6 +163,7 @@ impl Project {
         std::fs::write(&self.file, &text)
             .map_err(|e| DepError::new(format!("could not write {}: {e}", self.file.display())))?;
         let config = jacket_config::parse_noting(&text).map_err(DepError::new)?.0;
+
         check_entries(&config)?;
         self.config = config;
         self.text = text;
@@ -179,6 +181,7 @@ fn check_entries(config: &Config) -> Result<()> {
         commands::path_of(name, entry)?;
         resolve::Asked::of(entry).map_err(|e| DepError::new(format!("{name}: {e}")))?;
     }
+
     Ok(())
 }
 
@@ -208,19 +211,24 @@ pub fn run(action: Action, cwd: &Path) -> ExitCode {
         err: stderr,
     };
     let result = commands::dispatch(action, cwd, &mut ctx);
+
     ctx.cache.save();
+
     match result {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::from(1),
         Err(error) => {
             let _ = writeln!(ctx.err, "error: {}", error.message);
+
             for note in &error.notes {
                 let mut lines = note.lines();
                 let _ = writeln!(ctx.err, "note: {}", lines.next().unwrap_or(""));
+
                 for rest in lines {
                     let _ = writeln!(ctx.err, "      {rest}");
                 }
             }
+
             ExitCode::from(2)
         }
     }
@@ -230,15 +238,19 @@ pub fn run(action: Action, cwd: &Path) -> ExitCode {
 /// which, and how to fix it. Nothing is fetched here.
 pub fn require_checked_out(config: &Config, dir: &Path) -> std::result::Result<(), String> {
     let mut missing: Vec<String> = Vec::new();
+
     for (name, entry) in &config.dependencies {
         let path = commands::path_of(name, entry).map_err(|e| e.message)?;
+
         if !path.under(dir).join(".git").exists() {
             missing.push(path.to_string());
         }
     }
+
     if missing.is_empty() {
         return Ok(());
     }
+
     Err(format!(
         "{} not checked out\nhelp: run `jacket dep sync`",
         missing.join(", ")

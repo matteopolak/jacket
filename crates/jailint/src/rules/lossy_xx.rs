@@ -26,10 +26,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -42,31 +44,38 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
+
             if *flags != jaic::ast::CastFlags::default() {
                 return true;
             }
+
             let Some(c) = cx.compiler.cast_fact(e.span) else {
                 return true;
             };
+
             // `xx` is how an integer becomes an enum value; the enum's range is the point.
             if c.conflicting || c.from_constant || matches!(types.kind(c.target), TypeKind::Enum(_))
             {
                 return true;
             }
+
             let Some(lost) = narrowing(types, c.from, c.target) else {
                 return true;
             };
+
             if let Some(bits) = target_bits(types, c.target)
                 && fits(value, bits)
             {
                 return true;
             }
+
             let target = types.name(c.target);
             let builtin = matches!(
                 types.kind(c.target),
                 TypeKind::Int { .. } | TypeKind::Float { .. }
             ) && !target.contains(' ');
             let help = format!("write `cast({target})` to make the conversion visible");
+
             out.push(Finding {
                 secondary: Vec::new(),
                 start: e.span.start as usize,
@@ -96,6 +105,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn narrowing(types: &Types, from: TypeId, to: TypeId) -> Option<&'static str> {
     // Enums convert through their base; distinct and alias types are compared as written.
     let (from, to) = (types.repr(from), types.repr(to));
+
     match (types.kind(from), types.kind(to)) {
         (
             TypeKind::Int {
@@ -107,6 +117,7 @@ fn narrowing(types: &Types, from: TypeId, to: TypeId) -> Option<&'static str> {
         ) => {
             let (fb, _) = types.int_info(from)?;
             let (tb, _) = types.int_info(to)?;
+
             (tb < fb).then_some("which can lose the high bits")
         }
         (
@@ -142,6 +153,7 @@ fn fits(value: &Expr, bits: u8) -> bool {
     } else {
         1u128 << bits
     };
+
     match &value.kind {
         E::Binary(BinOp::BitAnd, a, b) => {
             matches!(b.kind, E::Int(m, ..) if m.get() < limit)

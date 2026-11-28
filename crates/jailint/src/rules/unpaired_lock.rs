@@ -57,24 +57,30 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
+
         let wrapper = cx
             .procs_with_header(p.header.span)
             .iter()
             .any(|&id| has_note(cx, id, "Locks"));
+
         if wrapper {
             continue;
         }
+
         let list = &p.body.stmts;
+
         for (k, s) in list.iter().enumerate() {
             let Some((arg, call)) = lock_call(cx, s) else {
                 continue;
             };
+
             if list[..k]
                 .iter()
                 .any(|s| matches!(&s.kind, S::Defer { body, .. } if releases(cx, body, arg)))
             {
                 continue;
             }
+
             let shown = cx.whole_src(arg).trim();
             // Deferring the unlock is offered when nothing below unlocks by hand (a second
             // unlock would then run twice) and the call is spelled `lock(...)`.
@@ -96,10 +102,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 ),
                 Flow::Unlocked | Flow::Exited | Flow::Unsure => continue,
             };
+
             out.push(match defer {
                 Some(text) => {
                     let end = statement_range(cx, s.span).1;
                     let (_, indent) = cx.line_start(s.span.start as usize);
+
                     suggesting(
                         at,
                         message,
@@ -132,9 +140,11 @@ fn deferred_unlock(cx: &Cx, s: &Stmt) -> Option<String> {
     };
     let name = cx.whole_src(callee).trim();
     let stem = name.strip_suffix("lock")?;
+
     if stem.ends_with("un") || stem.ends_with(|c: char| c.is_alphanumeric()) {
         return None;
     }
+
     let args = cx.text.get(cx.whole(callee).1..e.span.end as usize)?.trim();
     Some(format!("defer {stem}unlock{args};"))
 }
@@ -154,6 +164,7 @@ fn lock_call<'a>(cx: &Cx, s: &'a Stmt) -> Option<(&'a Expr, Span)> {
         return None;
     };
     let first = args.first()?;
+
     (calls_noted(cx, callee, "Locks") && !first.spread).then_some((&first.value, e.span))
 }
 
@@ -167,6 +178,7 @@ fn unlocks(cx: &Cx, e: &Expr, arg: &Expr) -> bool {
     else {
         return false;
     };
+
     calls_noted(cx, callee, "Unlocks")
         && args
             .first()
@@ -189,6 +201,7 @@ fn flow_list(cx: &Cx, arg: &Expr, list: &[Stmt]) -> Flow {
                 let leaves = list[k + 1..]
                     .iter()
                     .any(|t| matches!(t.kind, S::Return { .. } | S::Break(_) | S::Continue(_)));
+
                 return if leaves {
                     Flow::Exited
                 } else {
@@ -198,6 +211,7 @@ fn flow_list(cx: &Cx, arg: &Expr, list: &[Stmt]) -> Flow {
             other => return other,
         }
     }
+
     Flow::Locked
 }
 
@@ -230,6 +244,7 @@ fn flow_stmt(cx: &Cx, arg: &Expr, s: &Stmt) -> Flow {
             let other = else_branch
                 .as_ref()
                 .map_or(Flow::Locked, |e| flow_stmt(cx, arg, e));
+
             combine(then, other)
         }
         S::Expr(_)
@@ -250,6 +265,7 @@ fn flow_stmt(cx: &Cx, arg: &Expr, s: &Stmt) -> Flow {
             if opaque(cx, s) || releases(cx, s, arg) || defers_release(cx, s, arg) {
                 return Flow::Unsure;
             }
+
             match first_return(s) {
                 Some(at) => Flow::Leak(at),
                 None => Flow::Locked,
@@ -270,6 +286,7 @@ fn defers_release(cx: &Cx, s: &Stmt, arg: &Expr) -> bool {
 fn first_return(s: &Stmt) -> Option<Span> {
     let mut found = None;
     let mut stack = Vec::new();
+
     walk_node(Node::Stmt(s), &mut stack, &mut |n, _| {
         if let Node::Stmt(t) = n
             && found.is_none()
@@ -277,6 +294,7 @@ fn first_return(s: &Stmt) -> Option<Span> {
         {
             found = Some(t.span);
         }
+
         found.is_none()
     });
     found

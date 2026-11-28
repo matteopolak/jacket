@@ -35,6 +35,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.clean || p.is_macro {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             if let Some(S::StaticIf(arm)) = n.stmt().map(|s| &s.kind) {
                 for s in arm.then_branch.iter().chain(&arm.else_branch) {
@@ -53,6 +54,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     }
                 }
             }
+
             true
         });
     }

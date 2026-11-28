@@ -11,6 +11,7 @@ pub fn function<'a>(ir: &'a str, name: &str) -> Option<&'a str> {
         .map(|(at, _)| ir[..at].rfind('\n').map_or(0, |n| n + 1))
         .find(|&line| ir[line..].starts_with("define "))?;
     let end = ir[start..].find("\n}").map_or(ir.len(), |n| start + n + 2);
+
     Some(&ir[start..end])
 }
 
@@ -51,6 +52,7 @@ pub fn assert_line(ir: &str, parts: &[&str]) {
 /// Requires the body of `@name` to contain `text`.
 pub fn assert_function_contains(ir: &str, name: &str, text: &str) {
     let body = function(ir, name).unwrap_or_else(|| panic!("no function @{name}:\n{ir}"));
+
     assert!(body.contains(text), "@{name} lacks {text:?}:\n{body}");
 }
 

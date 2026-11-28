@@ -73,6 +73,7 @@ impl Compiler {
         };
         let name = int_name(b, s);
         let help = format!("widen the enum's type to `{name}`");
+
         d = match self.ty.enum_base_spans.get(&ty) {
             Some(&base) => d.with_suggestion(
                 Suggestion::replace(help, base, name.clone(), Applicability::MaybeIncorrect)
@@ -104,12 +105,14 @@ impl Compiler {
                 .map(|&id| self.entity(id))
                 .find(|e| matches!(e.kind, EntityKind::EnumMember { .. }))
         });
+
         if let Some(first) = first
             && first.span != Span::NONE
             && first.span != span
         {
             d = d.with_note(first.span, format!("`{name}` is first declared here"));
         }
+
         Box::new(d)
     }
 }

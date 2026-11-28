@@ -88,6 +88,7 @@ impl Packer {
     /// The offset of a field of `size` and `align`.
     fn field(&mut self, size: u64, align: u64) -> u64 {
         let at = self.size.next_multiple_of(align);
+
         self.size = at + size;
         self.align = self.align.max(align);
         at
@@ -236,6 +237,7 @@ impl DataLayout {
             })
             .collect();
         let (size, align) = packer.finish();
+
         Packed {
             offsets,
             size,
@@ -255,11 +257,13 @@ impl DataLayout {
         let (view_size, view_align) = view.finish();
 
         let mut allocator = Packer::new();
+
         allocator.field(p, pa);
         allocator.field(p, pa);
         let (allocator_size, allocator_align) = allocator.finish();
 
         let mut resizable = Packer::new();
+
         resizable.field(s64, s64_align);
         resizable.field(p, pa);
         let allocated = resizable.field(s64, s64_align);
@@ -303,6 +307,7 @@ impl DataLayout {
     pub fn read_uint(&self, bytes: &[u8]) -> u64 {
         debug_assert!((1..=8).contains(&bytes.len()));
         let fold = |acc: u64, b: &u8| acc << 8 | u64::from(*b);
+
         match self.endian {
             Endian::Little => bytes.iter().rev().fold(0, fold),
             Endian::Big => bytes.iter().fold(0, fold),
@@ -313,11 +318,13 @@ impl DataLayout {
     pub fn write_uint(&self, bytes: &mut [u8], value: u64) {
         debug_assert!((1..=8).contains(&bytes.len()));
         let n = bytes.len();
+
         for (i, byte) in bytes.iter_mut().enumerate() {
             let place = match self.endian {
                 Endian::Little => i,
                 Endian::Big => n - 1 - i,
             };
+
             *byte = (value >> (8 * place)) as u8;
         }
     }
@@ -344,6 +351,7 @@ impl DataLayout {
     /// Store a `string` or view image at the start of `bytes`: the count, then the data pointer.
     pub fn write_view(&self, bytes: &mut [u8], count: u64, data: u64) {
         let view = self.builtins().view;
+
         self.write_u64(&mut bytes[view.count as usize..], count);
         self.write_ptr(&mut bytes[view.data as usize..], data);
     }
@@ -351,6 +359,7 @@ impl DataLayout {
     /// The count and data pointer of the `string` or view image at the start of `bytes`.
     pub fn read_view(&self, bytes: &[u8]) -> (u64, u64) {
         let view = self.builtins().view;
+
         (
             self.read_u64(&bytes[view.count as usize..]),
             self.read_ptr(&bytes[view.data as usize..]),
@@ -364,6 +373,7 @@ impl DataLayout {
     /// The 8 bytes of an `s64` or `u64` in the target's byte order.
     pub fn s64_bytes(&self, value: impl Into<i128>) -> Vec<u8> {
         let mut bytes = vec![0; 8];
+
         self.write_u64(&mut bytes, value.into() as u64);
         bytes
     }
@@ -428,6 +438,7 @@ mod tests {
     #[test]
     fn the_64_bit_tables_match_the_documented_layouts() {
         let b = DataLayout::lp64_little().builtins();
+
         assert_eq!((b.view.size, b.view.count, b.view.data), (16, 0, 8));
         assert_eq!(b.allocator.size, 16);
         assert_eq!(b.resizable.allocated, 16);
@@ -439,6 +450,7 @@ mod tests {
     #[test]
     fn a_narrow_pointer_shrinks_the_builtins_around_the_s64_count() {
         let b = big_32().builtins();
+
         assert_eq!((b.view.size, b.view.data, b.view.align), (12, 8, 4));
         assert_eq!(b.allocator.size, 8);
         assert_eq!((b.resizable.allocated, b.resizable.allocator), (12, 20));
@@ -449,8 +461,10 @@ mod tests {
     #[test]
     fn an_eight_aligned_s64_pads_a_narrow_view() {
         let mut l = big_32();
+
         l.int_align = [1, 2, 4, 8];
         let b = l.builtins();
+
         assert_eq!((b.view.size, b.view.data, b.view.align), (16, 8, 8));
         assert_eq!(b.resizable.allocator, 24);
         assert_eq!(b.resizable.size, 32);
@@ -460,8 +474,10 @@ mod tests {
     fn a_packed_record_follows_the_targets_alignments() {
         let members = [Member::Int(2), Member::View, Member::Ptr];
         let wide = DataLayout::lp64_little().pack(&members);
+
         assert_eq!((wide.offsets, wide.size), (vec![0, 8, 24], 32));
         let narrow = big_32().pack(&members);
+
         assert_eq!((narrow.offsets, narrow.size), (vec![0, 4, 16], 20));
     }
 
@@ -469,8 +485,10 @@ mod tests {
     fn integers_round_trip_in_either_byte_order() {
         for layout in [DataLayout::lp64_little(), big_32()] {
             let mut bytes = [0u8; 8];
+
             for size in 1..=8 {
                 let value = 0x0102_0304_0506_0708_u64 >> (8 * (8 - size));
+
                 layout.write_uint(&mut bytes[..size], value);
                 assert_eq!(layout.read_uint(&bytes[..size]), value, "{size} bytes");
             }
@@ -480,6 +498,7 @@ mod tests {
     #[test]
     fn byte_order_decides_where_the_low_byte_goes() {
         let mut bytes = [0u8; 4];
+
         DataLayout::lp64_little().write_u32(&mut bytes, 0x0102_0304);
         assert_eq!(bytes, [4, 3, 2, 1]);
         big_32().write_u32(&mut bytes, 0x0102_0304);
@@ -491,6 +510,7 @@ mod tests {
     fn a_pointer_uses_only_the_target_width() {
         let layout = big_32();
         let mut bytes = [0xff; 8];
+
         layout.write_ptr(&mut bytes, 0x1122_3344);
         assert_eq!(bytes, [0x11, 0x22, 0x33, 0x44, 0xff, 0xff, 0xff, 0xff]);
         assert_eq!(layout.read_ptr(&bytes), 0x1122_3344);

@@ -18,13 +18,16 @@ fn names_a_module_reexports_resolve_through_it() {
         &["/reexport-nav/modules"],
         None,
     );
+
     s.open(uri.clone(), 1, source.into()).unwrap();
     let found = s.definition(&uri, at(source, "succ(1)")).unwrap();
+
     assert_eq!(found.len(), 1, "{found:?}");
     assert!(
         found[0].uri.ends_with("internal/inner/module.jai"),
         "{found:?}"
     );
     let hover = s.hover(&uri, at(source, "succ(1)")).unwrap().unwrap();
+
     assert!(format!("{hover:?}").contains("succ"), "{hover:?}");
 }

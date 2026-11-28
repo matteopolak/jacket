@@ -21,9 +21,11 @@ impl Compiler {
             ),
         );
         let text = self.src.sources.snippet(inner).trim();
+
         if text.is_empty() {
             return d;
         }
+
         d.with_suggestion(
             Suggestion::replace(
                 format!("`{text}` is not a pointer: remove the dereference"),
@@ -71,6 +73,7 @@ impl Compiler {
         {
             let base_op = self.check_expr(f, scope, base, None)?;
             let index_op = self.check_expr(f, scope, index, Some(TypeId::S64))?;
+
             match self.try_pointer_index_operator(f, scope, &base_op, &index_op, span)? {
                 Some(place) => place,
                 None => self.index_operand(f, scope, base_op, index_op, index.span, a.span)?,
@@ -86,16 +89,21 @@ impl Compiler {
             {
                 self.warn_address_of_macro_constant(scope, span, name.as_str());
             }
+
             // The address of a variable (`*global`, `*global.field`) is constant even
             // though the variable is not: naming it reads no value.
             let constant_only = f.constant_only;
+
             if names_variable_path(a) {
                 f.constant_only = None;
             }
+
             let inner = self.check_expr(f, scope, a, None);
+
             f.constant_only = constant_only;
             inner?
         };
+
         // `*p` on an aggregate parameter gives the procedure its own copy of it; `*p.field`
         // points into the caller's value (see `Builder::param_copy`).
         if let E::Ident(_) = &a.kind
@@ -105,6 +113,7 @@ impl Compiler {
         {
             f.b.note_address_taken(addr);
         }
+
         self.address_of_operand(f, inner, span)
     }
 
@@ -137,6 +146,7 @@ impl Compiler {
                             span,
                         },
                     );
+
                     if let Some((region, region_ty)) = record.elements.get(&addr).copied() {
                         record.push(
                             f.b.current,
@@ -149,6 +159,7 @@ impl Compiler {
                         );
                     }
                 }
+
                 Ok(Operand::Value {
                     ty: self.ty.types.pointer(ty),
                     val: addr,
@@ -158,6 +169,7 @@ impl Compiler {
                 let op = Operand::Procs(p);
                 let parameters = self.callable_operand_parameters(&op)?;
                 let (ty, v) = self.rvalue(f, op, span)?;
+
                 Ok(Operand::Value {
                     ty,
                     val: v,
@@ -181,6 +193,7 @@ impl Compiler {
             } if self.is_memory_type(ty) => {
                 let key = (ty, agg.bytes.clone(), agg.relocs.clone());
                 let found = self.out.const_addr_globals.get(&key).copied();
+
                 crate::sema::body_probe::lookup(
                     crate::sema::body_probe::Lookup::ConstAddr,
                     found.is_some(),
@@ -201,10 +214,12 @@ impl Compiler {
                         export: None,
                         section: None,
                     });
+
                     self.out.const_addr_globals.insert(key, g);
                     g
                 };
                 let addr = f.b.global_addr(global);
+
                 Ok(Operand::Value {
                     ty: self.ty.types.pointer(ty),
                     val: addr,
@@ -213,6 +228,7 @@ impl Compiler {
             other => {
                 // Address of a temporary.
                 let (ty, addr) = self.address_of(f, other, span)?;
+
                 Ok(Operand::Value {
                     ty: self.ty.types.pointer(ty),
                     val: addr,
@@ -241,6 +257,7 @@ impl Compiler {
         let Some(pointee) = pointee else {
             return Err(Box::new(self.cannot_dereference(ty, a.span, span)));
         };
+
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
         {
@@ -259,6 +276,7 @@ impl Compiler {
                 },
             );
         }
+
         // `<< ptr` on a `*void` is a `void` place (it prints as `void`).
         Ok(Operand::Place {
             ty: pointee,
@@ -286,6 +304,7 @@ impl Compiler {
                 expected
             },
         )?;
+
         if let Operand::Const {
             ty,
             value,
@@ -297,13 +316,16 @@ impl Compiler {
         {
             return Ok(folded);
         }
+
         if let Some(result) =
             self.try_unary_operator_overload(f, scope, op, &inner, (span, a.span))?
         {
             return Ok(result);
         }
+
         let inner = self.settle_untyped(inner, expected);
         let (ty, v) = self.rvalue(f, inner, span)?;
+
         self.lower_unary(f, op, ty, v, span)
     }
 
@@ -330,10 +352,12 @@ impl Compiler {
                 } else {
                     bits
                 };
+
                 Some(Value::Int(wrap(!v, bits, signed && !untyped)))
             }
             _ => None,
         }?;
+
         Some(Operand::Const {
             ty: if op == UnOp::Not {
                 TypeId::BOOL
@@ -373,16 +397,19 @@ impl Compiler {
             } else {
                 "bit-complement"
             };
+
             return Err(Box::new(Diagnostic::new(
                 Code::UnsupportedOperation,
                 span,
                 format!("cannot {what} {}", self.ty.types.name(ty)),
             )));
         }
+
         match op {
             UnOp::Not => {
                 let b = self.truthy(f, ty, v, span)?;
                 let one = f.b.iconst(Ty::I8, 1);
+
                 Ok(Operand::Value {
                     ty: TypeId::BOOL,
                     val: f.b.bin(ir::BinOp::Xor, Ty::I8, b, one),
@@ -405,6 +432,7 @@ impl Compiler {
                 } else {
                     ir::UnOp::Neg
                 };
+
                 Ok(Operand::Value {
                     ty,
                     val: f.b.un(op, t, v),
@@ -418,6 +446,7 @@ impl Compiler {
                         format!("cannot bit-complement {}", self.ty.types.name(ty)),
                     ))
                 })?;
+
                 Ok(Operand::Value {
                     ty,
                     val: f.b.un(ir::UnOp::Not, t, v),
@@ -438,6 +467,7 @@ impl Compiler {
             } => {
                 let target = expected.filter(|&e| {
                     let r = self.ty.types.repr(e);
+
                     match &value {
                         Value::Int(_) => self.ty.types.is_integer(r) || self.ty.types.is_float(r),
                         Value::Float(_, p) => {
@@ -455,6 +485,7 @@ impl Compiler {
                     Value::Int(i) if self.ty.types.is_float(ty) => Value::float(i as f64),
                     v => v,
                 };
+
                 Operand::Const {
                     ty,
                     value,
@@ -471,12 +502,15 @@ impl Compiler {
         if self.is_stand_in(ty) {
             return Ok(f.b.iconst(Ty::I8, 1));
         }
+
         let Some(t) = self.ir_ty(ty) else {
             if ty == TypeId::STRING {
                 let count = f.b.load(Ty::I64, v);
                 let zero = f.b.iconst(Ty::I64, 0);
+
                 return Ok(f.b.cmp(CmpOp::Ne, Ty::I64, count, zero));
             }
+
             if let TypeKind::Array {
                 kind: ArrayKind::Fixed(n),
                 ..
@@ -485,14 +519,17 @@ impl Compiler {
                 // A fixed array's count is part of its type.
                 return Ok(f.b.iconst(Ty::I8, (*n != 0) as u64));
             }
+
             if let TypeKind::Array {
                 ..
             } = self.ty.types.kind(ty)
             {
                 let count = f.b.load(Ty::I64, v);
                 let zero = f.b.iconst(Ty::I64, 0);
+
                 return Ok(f.b.cmp(CmpOp::Ne, Ty::I64, count, zero));
             }
+
             return Err(Box::new(
                 Diagnostic::new(Code::ValueType,
                     span,
@@ -506,13 +543,16 @@ impl Compiler {
                 ),
             ));
         };
+
         if ty == TypeId::BOOL {
             return Ok(v);
         }
+
         if t.is_float() {
             let zero = f.b.fconst(t, 0.0);
             return Ok(f.b.cmp(CmpOp::FNe, t, v, zero));
         }
+
         let zero = f.b.iconst(t, 0);
         Ok(f.b.cmp(CmpOp::Ne, t, v, zero))
     }
@@ -527,6 +567,7 @@ impl Compiler {
         let op = self.check_expr(f, scope, expr, Some(TypeId::BOOL))?;
         let op = self.settle_untyped(op, None);
         let (ty, v) = self.rvalue(f, op, expr.span)?;
+
         self.truthy(f, ty, v, expr.span)
     }
 
@@ -536,6 +577,7 @@ impl Compiler {
         if self.ns.check_handler_resolved {
             return Ok(());
         }
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::NsCheckHandlerResolved);
         self.ns.check_handler_resolved = true;
         let result = (|| {
@@ -552,6 +594,7 @@ impl Compiler {
                 TypeId::BOOL,
                 TypeId::S64,
             ];
+
             if signature.has_context
                 || signature.c_call
                 || signature.c_varargs
@@ -570,6 +613,7 @@ impl Compiler {
                     "private native check reporter must take (s64, s64, s64, bool, s64, *u8), return nothing, and have no context",
                 );
             }
+
             let crate::sema::procs::ProcTarget::Func(func) = self.proc_func(proc, span)? else {
                 return err(
                     Code::RuntimeConfigurationInvalid,
@@ -577,12 +621,15 @@ impl Compiler {
                     "private native check reporter must be defined in Jai",
                 );
             };
+
             self.out.program.check_failed = Some(func);
             Ok(())
         })();
+
         if result.is_err() {
             self.ns.check_handler_resolved = false;
         }
+
         result
     }
 
@@ -597,6 +644,7 @@ impl Compiler {
     ) -> Result<()> {
         self.note_check_handler(span)?;
         let reason = f.b.iconst(Ty::I64, reason as u64);
+
         f.b.intrinsic(ir::Intrinsic::Trap, vec![reason], &[]);
         f.b.terminate(ir::Term::Unreachable);
         Ok(())
@@ -618,6 +666,7 @@ impl Compiler {
         f.b.repeat_loc();
         let reason = f.b.iconst(Ty::I64, reason as u64);
         let fatal = f.b.iconst(Ty::I8, u64::from(fatal));
+
         f.b.intrinsic(ir::Intrinsic::CheckFailed, vec![reason, a, b, fatal], &[]);
         Ok(())
     }

@@ -26,9 +26,11 @@ pub struct Target {
 
 pub fn definitions_match(expected: &[Target], actual: &[Target]) -> bool {
     let mut expected = expected.to_vec();
+
     expected.sort();
     expected.dedup();
     let mut actual = actual.to_vec();
+
     actual.sort();
     actual.dedup();
     expected == actual
@@ -70,6 +72,7 @@ pub struct Manifest {
 impl Manifest {
     pub fn validate(&self) -> Result<(), String> {
         let mut reviews = jaic::fxhash::HashSet::default();
+
         for review in &self.reviews {
             if review.evidence.trim().is_empty()
                 || review.fingerprint.is_empty()
@@ -80,11 +83,13 @@ impl Manifest {
                     "review needs fingerprint/evidence and cannot waive wrong definitions".into(),
                 );
             }
+
             if review.reason == Reason::BuiltinNoSource
                 && (review.missing.hover || !review.missing.definition)
             {
                 return Err("builtin no-source reviews cannot waive missing hover".into());
             }
+
             if !reviews.insert((
                 &review.case_id,
                 &review.input_id,
@@ -94,7 +99,9 @@ impl Manifest {
                 return Err("duplicate gap review".into());
             }
         }
+
         let mut oracles = jaic::fxhash::HashSet::default();
+
         for oracle in &self.oracles {
             if oracle.fingerprint.is_empty()
                 || !oracles.insert((
@@ -107,6 +114,7 @@ impl Manifest {
                 return Err("invalid or duplicate exact-location oracle".into());
             }
         }
+
         Ok(())
     }
 }
@@ -201,14 +209,17 @@ impl Report {
             missing_oracles,
             ..Counts::default()
         };
+
         for file in &self.files {
             counts.files += 1;
             counts.identifiers += file.identifiers;
             counts.syntax_tokens += file.syntax_tokens;
             counts.failures += file.failures.len();
+
             if file.semantic.as_ref().is_none_or(|s| !s.source_loaded) {
                 counts.semantic_unreached_files += 1;
             }
+
             if file
                 .semantic
                 .as_ref()
@@ -216,17 +227,21 @@ impl Report {
             {
                 counts.incomplete_context_files += 1;
             }
+
             for failure in &file.failures {
                 *counts.by_failure.entry(failure.kind.clone()).or_default() += 1;
             }
+
             if file.status == "unexecuted" {
                 counts.unexecuted_files += 1;
             } else {
                 counts.audited_files += 1;
             }
+
             if file.failures.iter().any(|f| f.kind == "check") {
                 counts.typecheck_failed_files += 1;
             }
+
             for gap in &file.gaps {
                 counts.gaps += 1;
                 *counts.by_role.entry(gap.role.clone()).or_default() += 1;
@@ -234,10 +249,13 @@ impl Report {
                     "hover:{} definition:{} wrong:{}",
                     gap.missing.hover, gap.missing.definition, gap.missing.wrong_definition
                 );
+
                 *counts.by_missing.entry(flags).or_default() += 1;
+
                 if !file.failures.is_empty() {
                     counts.gaps_in_failed_files += 1;
                 }
+
                 if gap.classification.is_some() {
                     counts.reviewed_gaps += 1;
                 } else {
@@ -245,6 +263,7 @@ impl Report {
                 }
             }
         }
+
         counts.unqueried_files = self.expected_inputs.saturating_sub(counts.files);
         counts.unexecuted_files += counts.unqueried_files;
         self.accepted = counts.files > 0
@@ -263,15 +282,18 @@ impl Report {
     pub fn redact(&mut self) {
         for file in &mut self.files {
             file.path = None;
+
             for failure in &mut file.failures {
                 failure.diagnostic = None;
             }
+
             for gap in &mut file.gaps {
                 gap.name = None;
                 // Locations can contain vendor paths; keep only role/position/count data.
                 gap.definitions.clear();
             }
         }
+
         self.redacted = true;
     }
 }
@@ -320,6 +342,7 @@ mod tests {
     #[test]
     fn errors_never_waive_identifier_gaps_and_redaction_has_no_source_payload() {
         let mut report = report();
+
         report.files[0].failures.push(Failure {
             kind: "check".into(),
             line: Some(2),
@@ -345,6 +368,7 @@ mod tests {
         assert_eq!(report.counts.typecheck_failed_files, 1);
         report.redact();
         let json = serde_json::to_string(&report).unwrap();
+
         assert!(!json.contains("private"));
         assert!(!json.contains("vendor"));
         assert!(!json.contains("diagnostic text"));
@@ -353,6 +377,7 @@ mod tests {
     #[test]
     fn empty_unexecuted_and_stale_review_inputs_are_not_acceptance() {
         let mut report = report();
+
         report.files[0].status = "unexecuted".into();
         report.finish(&[], &[], 0);
         assert!(!report.accepted);
@@ -369,6 +394,7 @@ mod tests {
     #[test]
     fn selection_and_unreached_context_cannot_pass_with_empty_local_diagnostics() {
         let mut report = report();
+
         report.finish(&[], &[], 0);
         assert!(report.accepted);
         report.expected_inputs = 2;
@@ -395,6 +421,7 @@ mod tests {
             line: 3,
             character: 4,
         };
+
         assert!(definitions_match(
             &[a.clone(), b.clone()],
             &[b.clone(), a.clone()]

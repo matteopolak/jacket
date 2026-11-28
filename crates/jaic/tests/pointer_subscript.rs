@@ -13,11 +13,14 @@ const STORAGE: &str = r"
 
 fn compile(source: &str) -> Result<(), String> {
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/lib/prelude/module.jai".into());
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     compiler
         .compile_sources(&[ProgramSource::String(source.into())])
         .map_err(|error| error.render(&compiler.src.sources))
@@ -136,6 +139,7 @@ fn value_getter_does_not_make_result_assignable() {
     ",
     )
     .expect_err("a value-only getter must not create storage");
+
     assert!(
         error.contains("assign") || error.contains("lvalue"),
         "{error}"
@@ -152,6 +156,7 @@ fn nonpointer_pointer_getter_result_remains_invalid() {
     ",
     )
     .expect_err("pointer subscript cannot manufacture a place from an integer");
+
     assert!(
         error.contains("index") || error.contains("pointer"),
         "{error}"
@@ -211,6 +216,7 @@ fn explicit_address_rejects_nonpointer_pointer_getter_result() {
     ",
     )
     .expect_err("the address form must also validate the pointer result");
+
     assert!(error.contains("pointer"), "{error}");
 }
 
@@ -222,6 +228,7 @@ fn index_argument_keeps_ordinary_binding_diagnostics() {
     "#
     ))
     .expect_err("an invalid index cannot bypass parameter checking");
+
     assert!(error.contains("int") || error.contains("s64"), "{error}");
 }
 
@@ -229,10 +236,12 @@ fn index_argument_keeps_ordinary_binding_diagnostics() {
 fn filtered_module_reexports_keep_operators_out_of_scope() {
     for expose in [true, false] {
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.import_paths = vec!["/lib".into()];
         options.preload = Some("/lib/prelude/module.jai".into());
         let mut fs = VirtualFs::default();
+
         fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
         fs.insert("/lib/Implementation/module.jai", STORAGE.as_bytes());
         let facade = if expose {
@@ -240,6 +249,7 @@ fn filtered_module_reexports_keep_operators_out_of_scope() {
         } else {
             r#"using,only(Storage) Impl :: #import "Implementation";"#
         };
+
         fs.insert("/lib/Facade/module.jai", facade.as_bytes());
         fs.insert(
             "/app/main.jai",
@@ -258,6 +268,7 @@ fn filtered_module_reexports_keep_operators_out_of_scope() {
         );
         let mut compiler = Compiler::new(options, Rc::new(fs));
         let result = compiler.compile_program(std::path::Path::new("/app/main.jai"));
+
         if expose {
             result
                 .map_err(|error| error.render(&compiler.src.sources))

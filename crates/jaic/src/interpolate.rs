@@ -33,6 +33,7 @@ impl Mode {
 pub fn note_mode(note: &str) -> Option<Mode> {
     let rest = note.trim().strip_prefix(NOTE)?;
     let name = rest.strip_prefix("(\"")?.strip_suffix("\")")?;
+
     Mode::from_name(name)
 }
 
@@ -62,52 +63,65 @@ fn ident_char(c: u8) -> bool {
 fn closing(v: &[u8], open: usize) -> Option<usize> {
     let mut depth = 0usize;
     let mut i = open;
+
     while i < v.len() {
         match v[i] {
             b'(' | b'[' | b'{' => depth += 1,
             b')' | b']' | b'}' => {
                 depth = depth.checked_sub(1)?;
+
                 if depth == 0 {
                     return Some(i + 1);
                 }
             }
             b'"' => {
                 i += 1;
+
                 while i < v.len() && v[i] != b'"' {
                     if v[i] == b'\\' {
                         i += 1;
                     }
+
                     i += 1;
                 }
             }
             _ => {}
         }
+
         i += 1;
     }
+
     None
 }
 
 /// The hole starting at the `%` at `at`, if there is one: its extent in `v`.
 fn hole_at(v: &[u8], at: usize) -> Option<Hole> {
     let next = *v.get(at + 1)?;
+
     if next == b'(' {
         let end = closing(v, at + 1)?;
+
         return Some(Hole {
             whole: at..end,
             expr: at + 2..end - 1,
         });
     }
+
     if !ident_start(next) {
         return None;
     }
+
     let mut end = at + 1;
+
     while v.get(end).is_some_and(|&c| ident_char(c)) {
         end += 1;
     }
+
     loop {
         match v.get(end) {
             Some(b'.') if v.get(end + 1).is_some_and(|&c| ident_start(c)) => {
                 end += 1;
+
                 while v.get(end).is_some_and(|&c| ident_char(c)) {
                     end += 1;
                 }
@@ -119,6 +133,7 @@ fn hole_at(v: &[u8], at: usize) -> Option<Hole> {
             _ => break,
         }
     }
+
     Some(Hole {
         whole: at..end,
         expr: at + 1..end,
@@ -130,6 +145,7 @@ fn hole_at(v: &[u8], at: usize) -> Option<Hole> {
 fn sql_skip(v: &[u8], at: usize) -> Option<usize> {
     let rest = &v[at..];
     let after_word = at == 0 || !ident_char(v[at - 1]);
+
     match rest[0] {
         b'-' if rest.get(1) == Some(&b'-') => Some(
             rest.iter()
@@ -138,6 +154,7 @@ fn sql_skip(v: &[u8], at: usize) -> Option<usize> {
         ),
         b'/' if rest.get(1) == Some(&b'*') => {
             let (mut depth, mut i) = (0usize, at);
+
             while i < v.len() {
                 if v[i..].starts_with(b"/*") {
                     depth += 1;
@@ -145,6 +162,7 @@ fn sql_skip(v: &[u8], at: usize) -> Option<usize> {
                 } else if v[i..].starts_with(b"*/") {
                     depth -= 1;
                     i += 2;
+
                     if depth == 0 {
                         return Some(i);
                     }
@@ -152,6 +170,7 @@ fn sql_skip(v: &[u8], at: usize) -> Option<usize> {
                     i += 1;
                 }
             }
+
             Some(v.len())
         }
         b'\'' => Some(quoted(
@@ -166,14 +185,17 @@ fn sql_skip(v: &[u8], at: usize) -> Option<usize> {
                 .iter()
                 .position(|&c| !ident_char(c))
                 .map_or(rest.len(), |n| n + 1);
+
             if rest.get(tag_end) != Some(&b'$') || rest.get(1).is_some_and(u8::is_ascii_digit) {
                 return None;
             }
+
             let tag = &rest[..=tag_end];
             let close = rest[tag.len()..]
                 .windows(tag.len())
                 .position(|w| w == tag)
                 .map_or(v.len(), |n| at + tag.len() + n + tag.len());
+
             Some(close)
         }
         _ => None,
@@ -184,6 +206,7 @@ fn sql_skip(v: &[u8], at: usize) -> Option<usize> {
 /// and, with `backslash`, a backslash escapes the next byte.
 fn quoted(v: &[u8], at: usize, quote: u8, backslash: bool) -> usize {
     let mut i = at + 1;
+
     while i < v.len() {
         match v[i] {
             b'\\' if backslash => i += 1,
@@ -196,8 +219,10 @@ fn quoted(v: &[u8], at: usize, quote: u8, backslash: bool) -> usize {
             }
             _ => {}
         }
+
         i += 1;
     }
+
     v.len()
 }
 
@@ -205,6 +230,7 @@ fn quoted(v: &[u8], at: usize, quote: u8, backslash: bool) -> usize {
 pub fn holes(v: &[u8], mode: Mode) -> Vec<Hole> {
     let mut out = Vec::new();
     let mut i = 0;
+
     while i < v.len() {
         if mode == Mode::Sql
             && let Some(end) = sql_skip(v, i)
@@ -212,19 +238,24 @@ pub fn holes(v: &[u8], mode: Mode) -> Vec<Hole> {
             i = end.max(i + 1);
             continue;
         }
+
         if v[i] == b'%' {
             if v.get(i + 1) == Some(&b'%') {
                 i += 2;
                 continue;
             }
+
             if let Some(hole) = hole_at(v, i) {
                 i = hole.whole.end;
                 out.push(hole);
+
                 continue;
             }
         }
+
         i += 1;
     }
+
     out
 }
 
@@ -232,11 +263,13 @@ pub fn holes(v: &[u8], mode: Mode) -> Vec<Hole> {
 pub fn rewrite(v: &[u8], holes: &[Hole]) -> Vec<u8> {
     let mut out = Vec::with_capacity(v.len());
     let mut at = 0;
+
     for hole in holes {
         out.extend_from_slice(&v[at..hole.whole.start]);
         out.push(b'%');
         at = hole.whole.end;
     }
+
     out.extend_from_slice(&v[at..]);
     out
 }
@@ -266,6 +299,7 @@ mod tests {
             "a %x b %u.name.first c %arr[i + 1] d %(a + b) e",
             Mode::Plain,
         );
+
         assert_eq!(all, ["x", "u.name.first", "arr[i + 1]", "a + b"]);
     }
 
@@ -279,12 +313,14 @@ mod tests {
     fn rewriting_replaces_each_hole_with_a_percent() {
         let text = "x = %a.b and y = %(c) %%";
         let h = holes(text.as_bytes(), Mode::Plain);
+
         assert_eq!(rewrite(text.as_bytes(), &h), b"x = % and y = % %%");
     }
 
     #[test]
     fn sql_skips_quotes_and_comments() {
         let q = "select '%a', E'\\'%b', \"%c\", $t$ %d $t$, $$%e$$ -- %f\n/* %g /* %h */ %i */ %j";
+
         assert_eq!(found(q, Mode::Sql), ["j"]);
         assert_eq!(found("'it''s %a' %b", Mode::Sql), ["b"]);
         assert_eq!(found("a $1 %x", Mode::Sql), ["x"]);

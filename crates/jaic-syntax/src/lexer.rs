@@ -75,6 +75,7 @@ mod tests {
     #[test]
     fn basics() {
         let t = kinds("x := 1..2; y :: 0x_ff; z := 1.5e3; #run foo(); @note");
+
         assert_eq!(t[0], Tok::Ident(Sym::intern("x")));
         assert_eq!(t[1], Tok::Punct(P::ColonEq));
         assert_eq!(t[2], Tok::Int(1));
@@ -95,6 +96,7 @@ mod tests {
             ("0H3FF0_0000_0000_0000", true),
         ] {
             let precision = float_literal_precision(text, 1.0);
+
             assert_eq!(precision.defaults_to_float64, float64, "{text}");
             assert!(!precision.requires_float64, "{text}");
         }
@@ -112,6 +114,7 @@ mod tests {
             ("1.0e39", 1.0e39, false, true),
         ] {
             let precision = float_literal_precision(text, value);
+
             assert_eq!(
                 (precision.defaults_to_float64, precision.requires_float64),
                 (defaults, requires),
@@ -123,6 +126,7 @@ mod tests {
     #[test]
     fn identifier_separators() {
         let t = kinds("to\\ _pt := f(a.to\\, b);");
+
         assert_eq!(t[0], Tok::Ident(Sym::intern("to_pt")));
         assert_eq!(t[6], Tok::Ident(Sym::intern("to")));
         assert_eq!(t[7], Tok::Punct(P::Comma));
@@ -131,6 +135,7 @@ mod tests {
     #[test]
     fn a_note_runs_to_the_next_whitespace() {
         let t = kinds("@short=j @range(1,64) @tag; x");
+
         assert!(matches!(&t[0], Tok::Note(n) if &**n == "short=j"));
         assert!(matches!(&t[1], Tok::Note(n) if &**n == "range(1,64)"));
         assert!(matches!(&t[2], Tok::Note(n) if &**n == "tag;"));
@@ -140,6 +145,7 @@ mod tests {
     #[test]
     fn a_call_style_note_reads_to_its_closing_parenthesis() {
         let t = kinds("@skip_on(.MACOS, reason = \"a ) b\") @a((b c)d) x");
+
         assert!(matches!(&t[0], Tok::Note(n) if &**n == "skip_on(.MACOS, reason = \"a ) b\")"));
         assert!(matches!(&t[1], Tok::Note(n) if &**n == "a((b c)d)"));
         assert_eq!(t[2], Tok::Ident(Sym::intern("x")));
@@ -149,6 +155,7 @@ mod tests {
     fn a_note_parenthesis_must_close_on_its_line() {
         for text in ["@note(", "@note(a b\nc)", "@note(\"a)"] {
             let error = lex(FileId(0), text).unwrap_err();
+
             assert_eq!(
                 error.code,
                 crate::diagnostics::Code::LexUnterminatedNote,
@@ -160,6 +167,7 @@ mod tests {
     #[test]
     fn leading_dot_floats() {
         let t = kinds("x := .5; y := a.b; z := 1..2;");
+
         assert_eq!(t[2], Tok::Float(0.5));
         assert_eq!(t[7], Tok::Punct(P::Dot));
         assert_eq!(t[13], Tok::Punct(P::DotDot));
@@ -168,9 +176,11 @@ mod tests {
     #[test]
     fn here_strings() {
         let t = kinds("s :: #string END\nhello\n  world\nEND;");
+
         assert_eq!(t[2], Tok::Str(b"hello\n  world\n".as_slice().into()));
         assert_eq!(t[3], Tok::Punct(P::Semi));
         let t = kinds("s :: #string,cr END\r\na\r\nb\n  END");
+
         assert_eq!(t[2], Tok::Str(b"a\r\nb\r\n".as_slice().into()));
     }
 
@@ -189,6 +199,7 @@ mod tests {
             } else {
                 b"body\n"
             };
+
             assert_eq!(t[2], Tok::Str(body.into()), "{src:?}");
             assert_eq!(t[3], Tok::Punct(P::Semi), "{src:?}");
         }
@@ -202,12 +213,14 @@ mod tests {
             "s :: #string\n    END junk\nbody\nEND;",
         ] {
             let e = lex(FileId(0), src).unwrap_err();
+
             assert_eq!(
                 e.code,
                 crate::diagnostics::Code::LexTextAfterStringTerminator,
                 "{src:?}"
             );
         }
+
         // Whitespace after the name is fine.
         assert_eq!(
             kinds("s :: #string END \t\nx\nEND;")[2],
@@ -220,6 +233,7 @@ mod tests {
         // Found by the `lexer` fuzz target: a trailing `\` flag stepped past the end.
         for src in ["#string,\t\t\\", "#string,\\", "#string, \\%"] {
             let e = lex(FileId(0), src).unwrap_err();
+
             assert!(e.message.contains("here-string"), "{src:?}: {}", e.message);
         }
     }
@@ -228,9 +242,11 @@ mod tests {
     fn trivia_reports_comments_but_not_slashes_in_strings() {
         let text = "a // one\n\"http://x\" /* b /* c */ d */ e";
         let (tokens, comments, errors) = lex_with_trivia(FileId(0), text);
+
         assert!(errors.is_empty());
         assert_eq!(tokens.len(), lex(FileId(0), text).unwrap().len());
         let bodies: Vec<_> = comments.iter().map(|c| (c.kind, c.body(text))).collect();
+
         assert_eq!(
             bodies,
             [
@@ -244,6 +260,7 @@ mod tests {
     fn trivia_keeps_an_unterminated_block_comment() {
         let text = "a /* open\n// x";
         let (tokens, comments, errors) = lex_with_trivia(FileId(0), text);
+
         assert_eq!(errors.len(), 1);
         assert_eq!(tokens.len(), lex_ide(FileId(0), text).0.len());
         assert_eq!(comments.len(), 1);
@@ -255,6 +272,7 @@ mod tests {
     #[test]
     fn nested_comments_and_escapes() {
         let t = kinds("/* a /* b */ c */ \"\\x41\\%\\u00e9\"");
+
         assert_eq!(t[0], Tok::Str(vec![b'A', 0x1f, 0xc3, 0xa9].into()));
     }
 
@@ -265,8 +283,10 @@ mod tests {
         for src in ["x := \"\\\u{fffd}\";", "x := \"\\é", "\"\\\u{1d11e}"] {
             let e = lex(FileId(0), src).unwrap_err();
             let (start, end) = (e.span.start as usize, e.span.end as usize);
+
             assert!(src.is_char_boundary(end), "{src:?}: {start}..{end}");
             let escape = &src[start..end];
+
             assert!(
                 escape.starts_with('\\') && escape.chars().count() == 2,
                 "{escape:?}"
@@ -282,6 +302,7 @@ mod tests {
             asked += 1;
             true
         });
+
         (lexed.is_ok_and(|tokens| tokens.is_none()), asked)
     }
 
@@ -291,6 +312,7 @@ mod tests {
         let plain = format!("/*{}*/ x := 1;", " ".repeat(size));
         let nested = format!("/*{}*/ x := 1;", "/* a */ ".repeat(size / 8));
         let lines = format!("/*{}*/ x := 1;", "a\n".repeat(size / 2));
+
         for text in [plain, nested, lines] {
             assert_eq!(asked_before_stopping(&text), (true, 1));
         }
@@ -301,6 +323,7 @@ mod tests {
         let size = 8 << 20;
         let plain = format!("x := \"{}\";", "a".repeat(size));
         let escaped = format!("x := \"{}\";", "\\n".repeat(size / 2));
+
         for text in [plain, escaped] {
             assert_eq!(asked_before_stopping(&text), (true, 1));
         }
@@ -309,6 +332,7 @@ mod tests {
     #[test]
     fn a_huge_here_string_can_be_stopped() {
         let text = format!("x := #string END\n{}END;", "line of text\n".repeat(1 << 20));
+
         assert_eq!(asked_before_stopping(&text), (true, 1));
     }
 
@@ -321,6 +345,7 @@ mod tests {
             "line\n".repeat(1 << 20),
         );
         let lexed = lex_stoppable(FileId(0), &text, &mut || false);
+
         assert!(lexed.is_ok_and(|tokens| tokens.is_some_and(|t| t.len() > 8)));
     }
 }

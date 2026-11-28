@@ -12,8 +12,10 @@ fn library() -> PathBuf {
         .args(["build", "--quiet", "--locked", "-p", "jaic-backend"])
         .status()
         .expect("run cargo");
+
     assert!(status.success(), "cargo build -p jaic-backend failed");
     let exe = std::env::current_exe().expect("test executable");
+
     // The profile directory (`target/debug`) is an ancestor of the test executable.
     exe.ancestors()
         .map(|dir| dir.join(backend::library_name()))
@@ -31,6 +33,7 @@ fn the_library_emits_what_a_direct_call_emits() {
     let dir = TempDir::new("lazy-backend");
     let direct = dir.join("direct.o");
     let through_library = dir.join("library.o");
+
     jaic_llvm::emit_object(&compiler.out.program, &options, &direct).unwrap();
     loaded
         .emit_object(&compiler.out.program, &options, &through_library)
@@ -42,6 +45,7 @@ fn the_library_emits_what_a_direct_call_emits() {
     let objects = loaded
         .emit_objects(&compiler.out.program, &options, &dir.join("many.o"))
         .unwrap();
+
     assert_eq!(objects, [dir.join("many.o")]);
 }
 
@@ -60,6 +64,7 @@ fn a_failure_in_the_library_comes_back_as_text() {
             dir.path(),
         )
         .unwrap_err();
+
     assert!(!message.is_empty());
 }
 
@@ -68,6 +73,7 @@ fn a_file_that_is_not_the_library_is_refused() {
     let dir = TempDir::new("lazy-backend-refused");
     let missing = dir.join("nothing");
     let message = backend::load_from(&missing).err().expect("no such file");
+
     assert!(message.contains("could not open"), "{message}");
     // A real library without the backend's entry points.
     let system = if cfg!(target_os = "macos") {
@@ -80,6 +86,7 @@ fn a_file_that_is_not_the_library_is_refused() {
     let message = backend::load_from(std::path::Path::new(system))
         .err()
         .expect("not a backend");
+
     assert!(
         message.contains("is not a jaic code generation library"),
         "{message}"

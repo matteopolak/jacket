@@ -9,6 +9,7 @@ impl Resolver<'_> {
     pub(super) fn infer_provider_allocation(&self, next: &mut Summary) {
         if self.allocators.temporary.contains(&self.body.procedure) {
             let guard = Some((0, 0));
+
             next.allocations.insert(
                 0,
                 (
@@ -43,6 +44,7 @@ impl Resolver<'_> {
                 let Some(mode) = args.first() else {
                     return;
                 };
+
                 for selected in [0, 1] {
                     if let Some(guard) = self.mode_guard(mode, selected, all) {
                         next.allocation_effects.insert((root.clone(), guard));
@@ -65,9 +67,11 @@ impl Resolver<'_> {
                 {
                     return;
                 }
+
                 let Some(summary) = all.get(callee) else {
                     return;
                 };
+
                 for (root, guard) in &summary.allocation_effects {
                     let guard = if let Some((formal, expected)) = guard {
                         let Some(arg) = args.iter().find(|a| a.formal == *formal) else {
@@ -76,10 +80,12 @@ impl Resolver<'_> {
                         let Some(guard) = self.mode_guard(arg, *expected, all) else {
                             continue;
                         };
+
                         guard
                     } else {
                         None
                     };
+
                     if let Some(root) = self.allocation_effect_root(root, site) {
                         next.allocation_effects.insert((root, guard));
                     }

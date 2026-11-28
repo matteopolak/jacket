@@ -22,6 +22,7 @@ pub(super) fn document_report(
     let result_id = {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
+
         Value::Array(items.clone()).to_string().hash(&mut hasher);
         format!("{:016x}", hasher.finish())
     };
@@ -30,10 +31,12 @@ pub(super) fn document_report(
     } else {
         json!({ "kind": "full", "resultId": result_id, "items": items })
     };
+
     if let Some(uri) = uri {
         report["uri"] = json!(uri);
         report["version"] = json!(version);
     }
+
     report
 }
 
@@ -52,6 +55,7 @@ pub(super) fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
         "source": source,
         "message": diagnostic.message,
     });
+
     if !diagnostic.related.is_empty() {
         value["relatedInformation"] = diagnostic
             .related
@@ -59,13 +63,16 @@ pub(super) fn diagnostic_wire(diagnostic: &Diagnostic) -> Value {
             .map(|r| json!({"location": {"uri": r.uri, "range": r.range}, "message": r.message}))
             .collect();
     }
+
     if diagnostic.code == DiagnosticCode::Unreachable {
         // `DiagnosticTag.Unnecessary`
         value["tags"] = json!([1]);
     }
+
     if let DiagnosticCode::Lint(rule) = diagnostic.code {
         value["codeDescription"] = json!({ "href": jailint::rule_url(rule) });
     }
+
     value
 }
 
@@ -85,14 +92,17 @@ impl serde::Serialize for SymbolWire<'_> {
         use serde::ser::SerializeMap;
         let symbol = self.0;
         let mut map = serializer.serialize_map(None)?;
+
         map.serialize_entry("name", &symbol.name)?;
         map.serialize_entry("detail", &symbol.detail)?;
         map.serialize_entry("kind", &symbol_kind_wire(symbol.kind))?;
         map.serialize_entry("range", &symbol.range)?;
         map.serialize_entry("selectionRange", &symbol.selection_range)?;
+
         if !symbol.children.is_empty() {
             map.serialize_entry("children", &SymbolsWire(&symbol.children))?;
         }
+
         map.end()
     }
 }
@@ -115,9 +125,11 @@ pub(super) fn hierarchy_call_wire(call: &CallHierarchyCall, side: &str) -> Value
 
 pub(super) fn selection_wire(selection: &SelectionRange) -> Value {
     let mut value = json!({ "range": selection.range });
+
     if let Some(parent) = &selection.parent {
         value["parent"] = selection_wire(parent);
     }
+
     value
 }
 
@@ -152,17 +164,21 @@ pub(super) fn symbol_information_wire(symbol: &SymbolInformation) -> Value {
         "kind": symbol_kind_wire(symbol.kind),
         "location": location_wire(&symbol.location),
     });
+
     if let Some(container) = &symbol.container {
         value["containerName"] = json!(container);
     }
+
     value
 }
 
 pub(super) fn folding_wire(range: &FoldingRange) -> Value {
     let mut value = json!({ "startLine": range.start_line, "endLine": range.end_line });
+
     if range.imports {
         value["kind"] = json!("imports");
     }
+
     value
 }
 
@@ -173,15 +189,18 @@ pub(super) fn inlay_wire(hint: &InlayHint) -> Value {
         "paddingLeft": hint.padding_left,
         "paddingRight": hint.padding_right,
     });
+
     if let Some(kind) = hint.kind {
         value["kind"] = json!(match kind {
             InlayHintKind::Type => 1,
             InlayHintKind::Parameter => 2,
         });
     }
+
     if let Some(tooltip) = &hint.tooltip {
         value["tooltip"] = json!(tooltip);
     }
+
     value
 }
 
@@ -204,19 +223,24 @@ pub(super) fn signature_wire(help: &SignatureHelp, kind: MarkupKind) -> Value {
                 .enumerate()
                 .map(|(i, p)| {
                     let mut wire = json!({ "label": p });
+
                     if let Some(Some(doc)) = s.parameter_docs.get(i) {
                         wire["documentation"] = documentation_wire(kind, doc);
                     }
+
                     wire
                 })
                 .collect();
             let mut wire = json!({ "label": s.label, "parameters": parameters });
+
             if let Some(doc) = &s.documentation {
                 wire["documentation"] = documentation_wire(kind, doc);
             }
+
             wire
         })
         .collect();
+
     json!({
         "signatures": signatures,
         "activeSignature": help.active_signature,
@@ -230,29 +254,37 @@ fn command_wire(command: &Command) -> Value {
 
 pub(super) fn code_action_wire(action: &CodeAction) -> Value {
     let mut value = json!({ "title": action.title });
+
     if let Some(kind) = action.kind {
         value["kind"] = json!(kind);
     }
+
     if let Some((uri, edits)) = &action.edit {
         let edits: Vec<Value> = edits
             .iter()
             .map(|e| json!({ "range": e.range, "newText": e.new_text }))
             .collect();
+
         value["edit"] = json!({ "changes": { uri.clone(): edits } });
     }
+
     if let Some(command) = &action.command {
         value["command"] = command_wire(command);
     }
+
     if !action.diagnostics.is_empty() {
         value["diagnostics"] =
             Value::Array(action.diagnostics.iter().map(diagnostic_wire).collect());
     }
+
     if action.is_preferred {
         value["isPreferred"] = json!(true);
     }
+
     if let Some(rule) = action.rule {
         value["data"] = json!({ "rule": rule });
     }
+
     value
 }
 
@@ -276,6 +308,7 @@ pub(super) fn signature_kind(params: &Value) -> MarkupKind {
             "/capabilities/textDocument/signatureHelp/signatureInformation/documentationFormat",
         )
         .and_then(Value::as_array);
+
     match formats {
         Some(formats) if formats.iter().any(|f| f == "markdown") => MarkupKind::Markdown,
         _ => MarkupKind::PlainText,
@@ -348,6 +381,7 @@ pub(super) fn capabilities(pull_diagnostics: bool) -> Value {
             },
         },
     });
+
     if pull_diagnostics {
         capabilities["diagnosticProvider"] = json!({
             "identifier": "jai",
@@ -355,6 +389,7 @@ pub(super) fn capabilities(pull_diagnostics: bool) -> Value {
             "workspaceDiagnostics": true,
         });
     }
+
     capabilities
 }
 
@@ -380,6 +415,7 @@ pub(super) fn hover_kind(params: &Value) -> MarkupKind {
     let formats = params
         .pointer("/capabilities/textDocument/hover/contentFormat")
         .and_then(Value::as_array);
+
     match formats {
         Some(formats) if formats.iter().any(|f| f == "markdown") => MarkupKind::Markdown,
         _ => MarkupKind::PlainText,
@@ -391,6 +427,7 @@ pub(super) fn hover_wire(hover: &Hover) -> Value {
         MarkupKind::PlainText => "plaintext",
         MarkupKind::Markdown => "markdown",
     };
+
     json!({
         "contents": { "kind": kind, "value": hover.contents.value },
         "range": hover.range,
@@ -403,9 +440,11 @@ pub(super) fn semantic_tokens_wire(tokens: &[SemanticToken]) -> Vec<u32> {
         line: 0,
         character: 0,
     };
+
     for token in tokens {
         let kind = token.kind as u32;
         let line_delta = token.position.line - previous.line;
+
         data.extend([
             line_delta,
             if line_delta == 0 {
@@ -421,6 +460,7 @@ pub(super) fn semantic_tokens_wire(tokens: &[SemanticToken]) -> Vec<u32> {
         ]);
         previous = token.position;
     }
+
     data
 }
 
@@ -436,6 +476,7 @@ pub(super) fn token_edit<'a>(old: &[u32], new: &'a [u32]) -> (usize, usize, &'a 
         .take(room)
         .take_while(|(a, b)| a == b)
         .count();
+
     (
         prefix,
         old.len() - prefix - suffix,

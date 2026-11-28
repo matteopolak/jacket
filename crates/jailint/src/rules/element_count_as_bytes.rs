@@ -29,6 +29,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(E::Call {
                 callee,
@@ -41,29 +42,38 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let Some((last, rest)) = args.split_last() else {
                 return true;
             };
+
             if last.spread || last.context || !calls_noted(cx, callee, "TakesByteCount") {
                 return true;
             }
+
             let E::Member(array, member) = &last.value.kind else {
                 return true;
             };
+
             if member.name.as_str() != "count" {
                 return true;
             }
+
             let data_passed = rest.iter().any(|a| {
                 matches!(&uncast(&a.value).kind, E::Member(base, m)
                     if m.name.as_str() == "data" && cx.same_tokens(base, array))
             });
+
             if !data_passed {
                 return true;
             }
+
             let Some((elem, size)) = element(cx, array) else {
                 return true;
             };
+
             if size <= 1 {
                 return true;
             }
+
             let count = cx.src(last.value.span).trim();
+
             out.push(replacing(
                 last.value.span,
                 format!(
@@ -89,6 +99,7 @@ fn element(cx: &Cx, array: &Expr) -> Option<(String, u64)> {
     else {
         return None;
     };
+
     Some((types.name(elem), types.size_of(elem)))
 }
 

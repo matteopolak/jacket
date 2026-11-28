@@ -23,6 +23,7 @@ impl Compiler {
                 .proc_decl_notes
                 .get(&p)
                 .map_or(&[][..], Vec::as_slice);
+
             info.lit
                 .header
                 .notes
@@ -38,10 +39,12 @@ impl Compiler {
                     .is_some_and(|t| matches!(&t.kind, E::Ident(n) if n.as_str() == "string"))
             };
             let params = &self.proc(p).lit.header.params;
+
             params
                 .windows(2)
                 .position(|w| is_string(&w[0].ty) && w[1].variadic)
         })?;
+
         Some((at, mode))
     }
 
@@ -57,10 +60,12 @@ impl Compiler {
         if !args.iter().any(|a| matches!(a.value.kind, E::Str(_))) {
             return Ok(None);
         }
+
         // Overloads: the candidates that carry the note must agree on where the string goes
         // and how it is read; the others take the rewritten call or reject it like any other.
         let mut found: Option<(usize, Mode)> = None;
         let mut noted = procs[0];
+
         for &p in procs {
             if let Some(this) = self.interpolation_of(p, span) {
                 match found {
@@ -73,6 +78,7 @@ impl Compiler {
                 }
             }
         }
+
         let Some((param, mode)) = found else {
             return Ok(None);
         };
@@ -80,10 +86,12 @@ impl Compiler {
         // The argument for that parameter: named, or the one at its position.
         let mut positional = 0;
         let mut at = None;
+
         for (k, a) in args.iter().enumerate() {
             if a.spread || a.context || a.target.is_some() {
                 break;
             }
+
             match a.name {
                 Some(n) if name.is_some_and(|p| p.name == n.name) => {
                     at = Some(k);
@@ -97,6 +105,7 @@ impl Compiler {
                 None => positional += 1,
             }
         }
+
         let Some(at) = at else {
             return Ok(None);
         };
@@ -104,17 +113,23 @@ impl Compiler {
         let E::Str(value) = &literal.kind else {
             return Ok(None);
         };
+
         if self.ed.is_live() {
             self.ide_note_interpolation(literal.span, mode);
         }
+
         let holes = interpolate::holes(value, mode);
+
         if holes.is_empty() {
             return Ok(None);
         }
+
         let file = literal.span.file;
+
         if (file.0 as usize) >= self.src.sources.len() {
             return Ok(None);
         }
+
         let spelling = self.src.sources.snippet(literal.span);
         let Some(map) = lexer::string_value_map(spelling, value.len()) else {
             return Ok(None);
@@ -123,6 +138,7 @@ impl Compiler {
         let explicit = args[at + 1..]
             .iter()
             .any(|a| a.name.is_none() && !a.context || a.spread);
+
         if explicit {
             return Err(Box::new(
                 Diagnostic::new(Code::MixInlineHoles,
@@ -134,13 +150,18 @@ impl Compiler {
                 ),
             ));
         }
+
         let mut values = Vec::with_capacity(holes.len());
+
         for hole in &holes {
             values.push(self.parse_hole(value, hole, &map, base, file)?);
         }
+
         let mut out = Vec::with_capacity(args.len() + values.len());
+
         out.extend_from_slice(&args[..at]);
         let mut rewritten = args[at].clone();
+
         rewritten.value.kind = E::Str(Arc::from(interpolate::rewrite(value, &holes)));
         self.pr.interpolated.insert(rewritten.value.span);
         out.push(rewritten);
@@ -177,6 +198,7 @@ impl Compiler {
                 "an inline hole must be valid UTF-8 text",
             )));
         };
+
         if text.trim().is_empty() {
             return Err(Box::new(Diagnostic::new(
                 Code::InlineHoleEmpty,
@@ -184,6 +206,7 @@ impl Compiler {
                 "an inline hole is empty",
             )));
         }
+
         let moved = |span: Span| Span {
             file,
             start: (base + map[(range.start + span.start as usize).min(range.end)] as usize) as u32,
@@ -192,9 +215,11 @@ impl Compiler {
         let remap = |mut d: Diagnostic| {
             d.span = moved(d.span);
             d.map_secondary_spans(moved);
+
             for note in &mut d.notes {
                 note.0 = moved(note.0);
             }
+
             d.clear_suggestions();
             Box::new(d)
         };
@@ -202,10 +227,12 @@ impl Compiler {
         // Tokens carry spans of `text`; the parser's own errors and the tree it builds get the
         // spans of the file.
         let mut kept = Vec::with_capacity(tokens.len());
+
         for mut token in tokens.drain(..) {
             token.span = moved(token.span);
             kept.push(token);
         }
+
         parser::parse_expression(text, kept).map_err(|mut d| {
             d.clear_suggestions();
             Box::new(d)

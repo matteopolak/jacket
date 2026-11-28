@@ -63,16 +63,20 @@ fn lint_target(
             vec![jaic::target::TargetOs::Linux, jaic::target::TargetOs::MacOS],
         )],
     };
+
     // Only the rules asked for: the others, and the compiler's warnings, stay out.
     for r in RULES {
         config.levels.insert(r.name.to_string(), Level::Allow);
     }
+
     config
         .levels
         .insert(jailint::config::COMPILER.to_string(), Level::Allow);
+
     for (rule, level) in levels {
         config.levels.insert(rule.to_string(), *level);
     }
+
     let options = jailint::driver::Options {
         compiler_options,
         source: None,
@@ -87,6 +91,7 @@ fn lint_target(
         overlay: std::collections::BTreeMap::new(),
     };
     let outcome = jailint::driver::run(&options);
+
     assert!(
         outcome.incomplete.is_empty(),
         "{} must compile: {:?}",
@@ -101,14 +106,17 @@ fn rendered(lints: &[Lint], text: &str, file: &Path) -> String {
     let shown = test_support::snapshot::slashed(file.strip_prefix(repo()).unwrap_or(file));
     let mut out = String::new();
     let lines = jaic::source::LineIndex::new(text);
+
     for l in lints {
         let default = RULES
             .iter()
             .find(|r| r.name == l.rule)
             .map_or(Level::Warn, jailint::RuleInfo::default);
+
         out.push_str(&render(l, text, &lines, &shown, default, &Style::PLAIN));
         out.push('\n');
     }
+
     out
 }
 
@@ -141,6 +149,7 @@ fn case_levels(rule: &str, level: Level) -> Vec<(&str, Level)> {
 #[test]
 fn every_rule_has_cases() {
     let dir = repo().join("tests/lint");
+
     for r in RULES {
         assert!(
             dir.join(r.name).join("bad.jai").is_file()
@@ -158,6 +167,7 @@ fn every_rule_is_documented() {
     // and editor diagnostics to (through the generated docs/reference/lint-rules.md).
     let doc = std::fs::read_to_string(repo().join("docs/tools/jailint.md"))
         .expect("docs/tools/jailint.md is readable");
+
     for r in RULES {
         assert!(
             doc.contains(&format!("\n### {}\n", r.name)),
@@ -179,6 +189,7 @@ const RULE_PARTS: usize = 8;
 
 fn rules_match_their_cases(part: usize) {
     let dir = repo().join("tests/lint");
+
     for r in RULES.iter().skip(part).step_by(RULE_PARTS) {
         let level = match r.default() {
             Level::Allow => Level::Warn,
@@ -187,6 +198,7 @@ fn rules_match_their_cases(part: usize) {
         let case = dir.join(r.name);
         let bad = case.join("bad.jai");
         let (lints, text) = lint(&bad, &case_levels(r.name, level));
+
         assert!(
             !lints.is_empty(),
             "{} finds nothing in its bad case",
@@ -196,26 +208,31 @@ fn rules_match_their_cases(part: usize) {
         let refs: Vec<&Lint> = lints.iter().collect();
         let (fixed, applied) = jailint::fix::apply(&text, &refs);
         let fixed_path = case.join("bad.fixed.jai");
+
         // The linter skips text that does not parse, so `fixed_cases_are_clean` would pass it.
         assert!(
             jaic::parser::parse_file(jaic::source::FileId(0), &fixed).is_ok(),
             "{}: the fixed bad case does not parse:\n{fixed}",
             r.name
         );
+
         if applied > 0 {
             expect_file(&fixed_path, &fixed);
         } else {
             assert!(!fixed_path.exists(), "{} has no fixes to apply", r.name);
         }
+
         let example = case.join("example.jai");
         let settings = case.join("example.toml");
         let (lints, text) = if settings.exists() {
             let mut config = Config::load(&settings).expect("example.toml is valid");
+
             config.magic_number_in_tests = Some(true);
             lint_with(&example, &case_levels(r.name, level), config)
         } else {
             lint(&example, &case_levels(r.name, level))
         };
+
         assert!(
             lints.len() == 1 && lints[0].rule == r.name,
             "{} example.jai must produce exactly one finding of the rule:\n{}",
@@ -224,6 +241,7 @@ fn rules_match_their_cases(part: usize) {
         );
         test_support::assert_snapshot_in!(&case, "example", rendered(&lints, &text, &example));
         let example_fixed = case.join("example-fixed.jai");
+
         if example_fixed.exists() {
             let (lints, text) = if settings.exists() {
                 let config = Config::load(&settings).expect("example.toml is valid");
@@ -231,6 +249,7 @@ fn rules_match_their_cases(part: usize) {
             } else {
                 lint(&example_fixed, &case_levels(r.name, level))
             };
+
             assert!(
                 lints.is_empty(),
                 "{} example-fixed.jai still produces findings:\n{}",
@@ -238,8 +257,10 @@ fn rules_match_their_cases(part: usize) {
                 rendered(&lints, &text, &example_fixed)
             );
         }
+
         let good = case.join("good.jai");
         let (lints, text) = lint(&good, &case_levels(r.name, level));
+
         assert!(
             lints.is_empty(),
             "{} fires on its good case:\n{}",
@@ -276,6 +297,7 @@ fn suppressions_silence_every_rule() {
     let file = repo().join("tests/lint/suppressed/main.jai");
     let levels: Vec<(&str, Level)> = RULES.iter().map(|r| (r.name, Level::Warn)).collect();
     let (lints, text) = lint(&file, &levels);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
 }
 
@@ -288,10 +310,12 @@ fn programs_may_print_and_exit() {
         ("exit_in_module", Level::Warn),
     ];
     let (lints, text) = lint(&file, &levels);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
     // So may the programs in a `tests` folder inside a module's directory.
     let file = repo().join("tests/lint/print_in_module/tests/program.jai");
     let (lints, text) = lint(&file, &levels);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
 }
 
@@ -308,6 +332,7 @@ fn generated_files_are_skipped_by_unused_rules() {
     .map(|r| (r, Level::Warn))
     .collect();
     let (lints, text) = lint(&file, &levels);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
 }
 
@@ -315,6 +340,7 @@ fn generated_files_are_skipped_by_unused_rules() {
 fn private_declarations_in_files_with_insert_are_left_alone() {
     let file = repo().join("tests/lint/unused_private_declaration/insert.jai");
     let (lints, text) = lint(&file, &[("unused_private_declaration", Level::Warn)]);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
 }
 
@@ -322,6 +348,7 @@ fn private_declarations_in_files_with_insert_are_left_alone() {
 fn files_generated_with_a_tool_are_skipped_by_enum_member_prefix() {
     let file = repo().join("tests/lint/enum_member_prefix/generated.jai");
     let (lints, text) = lint(&file, &[("enum_member_prefix", Level::Warn)]);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
 }
 
@@ -329,22 +356,28 @@ fn files_generated_with_a_tool_are_skipped_by_enum_member_prefix() {
 fn fixed_cases_are_clean() {
     // Applying the fixes must leave code the rule no longer fires on (and that compiles).
     let dir = repo().join("tests/lint");
+
     for r in RULES {
         let fixed = dir.join(r.name).join("bad.fixed.jai");
+
         if !fixed.exists() {
             continue;
         }
+
         let (lints, text) = lint(&fixed, &case_levels(r.name, Level::Warn));
+
         // The linter skips a file that does not parse, so a broken fix would pass as clean.
         if let Err(error) = jaic::parser::parse_file(jaic::source::FileId(0), &text) {
             panic!("{} does not parse: {error:?}", fixed.display());
         }
+
         // What is left carries no fix to apply (a nested loop that keeps `index_only_loop`
         // from using `it`).
         let lints: Vec<Lint> = lints
             .into_iter()
             .filter(|l| l.fix.as_ref().is_some_and(|f| f.machine_applicable))
             .collect();
+
         assert!(
             lints.is_empty(),
             "{} still has fixes to apply after its fixes:\n{}",
@@ -363,9 +396,11 @@ fn unused_parameter_variants_one_directory_over() {
     let levels = [("unused_parameter", Level::Warn)];
     let macos = dir.join("macos/window.jai");
     let (lints, text) = lint(&macos, &levels);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &macos));
     let linux = dir.join("linux/window.jai");
     let (lints, text) = lint(&linux, &levels);
+
     assert_eq!(lints.len(), 1);
     test_support::assert_snapshot_in!(
         &dir.join("linux"),
@@ -380,10 +415,12 @@ fn runs_in_one_process_share_no_state() {
     // so no lint. Rewriting `b/win.jai` to other parameters and linting `a/win.jai` again
     // must see the new file, not what the first run read.
     let root = TempDir::new("jailint-runs");
+
     std::fs::create_dir_all(root.join("a")).unwrap();
     std::fs::create_dir_all(root.join("b")).unwrap();
     let a = root.join("a/win.jai");
     let b = root.join("b/win.jai");
+
     std::fs::write(
         &a,
         "set_title :: (w: int, title: string) -> int {\n    return w;\n}\n\nmain :: () {\n    x := set_title(1, \"t\");\n    if x == 99 return;\n}\n",
@@ -396,6 +433,7 @@ fn runs_in_one_process_share_no_state() {
     .unwrap();
     let levels = [("unused_parameter", Level::Warn)];
     let (first, text) = lint(&a, &levels);
+
     assert!(first.is_empty(), "{}", rendered(&first, &text, &a));
     std::fs::write(
         &b,
@@ -403,6 +441,7 @@ fn runs_in_one_process_share_no_state() {
     )
     .unwrap();
     let (second, _) = lint(&a, &levels);
+
     assert_eq!(second.len(), 1, "{second:?}");
     assert!(second[0].message.contains("title"));
 }
@@ -413,17 +452,20 @@ fn magic_number_settings() {
     let levels = [("magic_number", Level::Warn)];
     let found = |config: Config| -> Vec<String> {
         let (lints, text) = lint_with(&file, &levels, config);
+
         lints
             .iter()
             .map(|l| text[l.start..l.end].to_string())
             .collect()
     };
+
     // Files in a `tests` folder are skipped unless asked for.
     assert!(found(Config::default()).is_empty());
     let all = found(Config {
         magic_number_in_tests: Some(true),
         ..Config::default()
     });
+
     assert_eq!(
         all,
         [
@@ -438,6 +480,7 @@ fn magic_number_settings() {
         magic_number_min: Some(50.0),
         ..Config::default()
     });
+
     assert_eq!(tuned, ["8640", "0.3", "97", "92", "65", "88"]);
 }
 
@@ -450,6 +493,7 @@ fn cognitive_complexity_limit_comes_from_the_settings() {
         ..Config::default()
     };
     let (lints, _) = lint_with(&file, &levels, config(20));
+
     assert_eq!(lints.len(), 1, "{lints:?}");
     assert!(
         lints[0]
@@ -457,6 +501,7 @@ fn cognitive_complexity_limit_comes_from_the_settings() {
             .contains("complexity of 21, past the limit of 20")
     );
     let (lints, _) = lint_with(&file, &levels, config(21));
+
     assert!(lints.is_empty(), "{lints:?}");
 }
 
@@ -470,6 +515,7 @@ fn parameter_limits_come_from_the_settings() {
     };
     // `seven` takes seven parameters and `draw` two.
     let (lints, _) = lint_with(&args, &levels, config(6));
+
     assert_eq!(lints.len(), 1, "{lints:?}");
     assert!(
         lints[0]
@@ -477,6 +523,7 @@ fn parameter_limits_come_from_the_settings() {
             .contains("takes 7 parameters, past the limit of 6")
     );
     let (lints, _) = lint_with(&args, &levels, config(7));
+
     assert!(lints.is_empty(), "{lints:?}");
 
     let bools = repo().join("tests/lint/excessive_bools/good.jai");
@@ -486,6 +533,7 @@ fn parameter_limits_come_from_the_settings() {
         ..Config::default()
     };
     let (lints, _) = lint_with(&bools, &levels, config(2));
+
     assert_eq!(lints.len(), 1, "{lints:?}");
     assert!(
         lints[0]
@@ -493,6 +541,7 @@ fn parameter_limits_come_from_the_settings() {
             .contains("takes 3 `bool` parameters, past the limit of 2")
     );
     let (lints, _) = lint_with(&bools, &levels, config(3));
+
     assert!(lints.is_empty(), "{lints:?}");
 }
 
@@ -506,8 +555,10 @@ fn stack_array_limit_comes_from_the_settings() {
     };
     // `scratch` takes a MiB and `pixels` 40,000 bytes.
     let (lints, _) = lint_with(&file, &levels, config(30_000));
+
     assert_eq!(lints.len(), 2, "{lints:?}");
     let (lints, _) = lint_with(&file, &levels, config(65_536));
+
     assert_eq!(lints.len(), 1, "{lints:?}");
     assert!(
         lints[0]
@@ -515,6 +566,7 @@ fn stack_array_limit_comes_from_the_settings() {
             .contains("is 1 MiB on the stack, past the limit of 64 KiB")
     );
     let (lints, _) = lint_with(&file, &levels, config(1 << 20));
+
     assert!(lints.is_empty(), "{lints:?}");
 }
 
@@ -523,10 +575,12 @@ fn lifetime_regions_views_copies_and_nested_generations() {
     let case = repo().join("tests/lint/pointer_lifetime");
     let bad = case.join("regions-bad.jai");
     let (lints, text) = lint(&bad, &[("pointer_lifetime", Level::Warn)]);
+
     assert_eq!(lints.len(), 18, "{}", rendered(&lints, &text, &bad));
     test_support::assert_snapshot_in!(&case, "regions", rendered(&lints, &text, &bad));
     let good = case.join("regions-good.jai");
     let (lints, text) = lint(&good, &[("pointer_lifetime", Level::Warn)]);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
 }
 
@@ -535,6 +589,7 @@ fn lifetime_parameter_summaries_compose_fields_allocators_and_recursion() {
     let case = repo().join("tests/lint/pointer_lifetime");
     let bad = case.join("summaries-bad.jai");
     let (lints, text) = lint(&bad, &[("pointer_lifetime", Level::Warn)]);
+
     assert_eq!(lints.len(), 7, "{}", rendered(&lints, &text, &bad));
     assert!(
         lints
@@ -545,6 +600,7 @@ fn lifetime_parameter_summaries_compose_fields_allocators_and_recursion() {
     test_support::assert_snapshot_in!(&case, "summaries", rendered(&lints, &text, &bad));
     let good = case.join("summaries-good.jai");
     let (lints, text) = lint(&good, &[("pointer_lifetime", Level::Warn)]);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
 }
 
@@ -553,6 +609,7 @@ fn lifetime_summaries_work_when_a_module_is_checked_alone() {
     let case = repo().join("tests/lint/pointer_lifetime/summary-module");
     let file = case.join("module.jai");
     let (lints, text) = lint(&file, &[("pointer_lifetime", Level::Warn)]);
+
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &file));
     test_support::assert_snapshot_in!(&case, "module", rendered(&lints, &text, &file));
 }
@@ -560,6 +617,7 @@ fn lifetime_summaries_work_when_a_module_is_checked_alone() {
 #[test]
 fn lifetime_resource_migration_preserves_existing_cases() {
     let mut failures = Vec::new();
+
     for (rule, expected) in [
         ("use_after_free", 8),
         ("double_free", 6),
@@ -567,9 +625,11 @@ fn lifetime_resource_migration_preserves_existing_cases() {
         ("temp_storage_escape", 3),
     ] {
         let case = repo().join("tests/lint").join(rule);
+
         for (file, count) in [("bad.jai", expected), ("good.jai", 0)] {
             let path = case.join(file);
             let (lints, text) = lint(&path, &[(rule, Level::Warn)]);
+
             if lints.len() != count {
                 failures.push(format!(
                     "{rule}/{file}: expected {count}, got {}\n{}",
@@ -579,6 +639,7 @@ fn lifetime_resource_migration_preserves_existing_cases() {
             }
         }
     }
+
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
@@ -593,6 +654,7 @@ fn lifetime_resources_cover_cleanup_scopes_watermarks_and_handles() {
     ];
     let bad = case.join("bad.jai");
     let (lints, text) = lint(&bad, &levels);
+
     assert_eq!(
         lints.iter().filter(|l| l.rule == "use_after_free").count(),
         9,
@@ -617,6 +679,7 @@ fn lifetime_resources_cover_cleanup_scopes_watermarks_and_handles() {
     test_support::assert_snapshot_in!(&case, "resources", rendered(&lints, &text, &bad));
     let good = case.join("good.jai");
     let (lints, text) = lint(&good, &levels);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
 }
 
@@ -625,10 +688,12 @@ fn lifetime_movements_preserve_element_identity() {
     let case = repo().join("tests/lint/pointer_lifetime/movement");
     let bad = case.join("bad.jai");
     let (lints, text) = lint(&bad, &[("pointer_lifetime", Level::Warn)]);
+
     assert_eq!(lints.len(), 13, "{}", rendered(&lints, &text, &bad));
     test_support::assert_snapshot_in!(&case, "movement", rendered(&lints, &text, &bad));
     let good = case.join("good.jai");
     let (lints, text) = lint(&good, &[("pointer_lifetime", Level::Warn)]);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
 }
 
@@ -637,10 +702,12 @@ fn lifetime_logical_slots_and_bounded_moves() {
     let case = repo().join("tests/lint/pointer_lifetime/movement");
     let bad = case.join("containers-bad.jai");
     let (lints, text) = lint(&bad, &[("pointer_lifetime", Level::Warn)]);
+
     assert_eq!(lints.len(), 10, "{}", rendered(&lints, &text, &bad));
     test_support::assert_snapshot_in!(&case, "containers", rendered(&lints, &text, &bad));
     let good = case.join("containers-good.jai");
     let (lints, text) = lint(&good, &[("pointer_lifetime", Level::Warn)]);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
 }
 
@@ -650,9 +717,11 @@ fn lifetime_iteration_and_resizable_migration() {
         let case = repo().join("tests/lint").join(rule);
         let bad = case.join("bad.jai");
         let (lints, text) = lint(&bad, &[(rule, Level::Warn)]);
+
         assert_eq!(lints.len(), expected, "{}", rendered(&lints, &text, &bad));
         let good = case.join("good.jai");
         let (lints, text) = lint(&good, &[(rule, Level::Warn)]);
+
         assert!(lints.is_empty(), "{}", rendered(&lints, &text, &good));
     }
 }
@@ -661,6 +730,7 @@ fn lifetime_iteration_and_resizable_migration() {
 fn lifetime_fixed_array_views_distinguish_stack_from_persistent_literals() {
     let path = repo().join("tests/lint/pointer_lifetime/movement/stack-views.jai");
     let (lints, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
     assert!(lints[0].start < text.find("good_persistent_literal").unwrap());
 }
@@ -670,6 +740,7 @@ fn lifetime_finite_targets_and_open_world_modes() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/calls.jai");
     let levels = [("pointer_lifetime", Level::Warn)];
     let (must, text) = lint(&path, &levels);
+
     assert_eq!(must.len(), 4, "{}", rendered(&must, &text, &path));
     let (strict, text) = lint_with(
         &path,
@@ -679,6 +750,7 @@ fn lifetime_finite_targets_and_open_world_modes() {
             ..Config::default()
         },
     );
+
     assert_eq!(strict.len(), 9, "{}", rendered(&strict, &text, &path));
     test_support::assert_snapshot_in!(
         path.parent().unwrap(),
@@ -700,6 +772,7 @@ fn lifetime_strict_resources_and_foreign_contracts() {
         ("double_free", Level::Warn),
     ];
     let (must, text) = lint(&path, &levels);
+
     assert_eq!(must.len(), 4, "{}", rendered(&must, &text, &path));
     let (strict, text) = lint_with(
         &path,
@@ -709,6 +782,7 @@ fn lifetime_strict_resources_and_foreign_contracts() {
             ..Config::default()
         },
     );
+
     assert_eq!(strict.len(), 9, "{}", rendered(&strict, &text, &path));
     test_support::assert_snapshot_in!(
         path.parent().unwrap(),
@@ -726,6 +800,7 @@ fn lifetime_strict_resources_and_foreign_contracts() {
 fn lifetime_allocator_backing_is_inferred_from_selected_returns() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/backing.jai");
     let (lints, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+
     assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
     assert!(
         lints
@@ -742,8 +817,10 @@ fn lifetime_started_borrowers_end_at_completion() {
         ("returned_local_address", Level::Warn),
     ];
     let (lints, text) = lint(&path, &levels);
+
     assert_eq!(lints.len(), 3, "{}", rendered(&lints, &text, &path));
     let good = text.find("good_finish").unwrap();
+
     assert!(
         lints.iter().all(|l| l.start < good),
         "{}",
@@ -757,6 +834,7 @@ fn lifetime_started_borrowers_end_at_completion() {
             ..Config::default()
         },
     );
+
     assert_eq!(strict.len(), 6, "{}", rendered(&strict, &text, &path));
     test_support::assert_snapshot_in!(
         path.parent().unwrap(),
@@ -775,6 +853,7 @@ fn lifetime_stdlib_thread_retains_data_until_successful_wait() {
             ("returned_local_address", Level::Warn),
         ],
     );
+
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
     assert!(lints[0].start < text.find("finish_first").unwrap());
 }
@@ -784,6 +863,7 @@ fn lifetime_strict_witnesses_count_alternatives_and_bound_loops() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/paths.jai");
     let levels = [("pointer_lifetime", Level::Warn)];
     let (must, text) = lint(&path, &levels);
+
     assert!(must.is_empty(), "{}", rendered(&must, &text, &path));
     let (strict, text) = lint_with(
         &path,
@@ -793,6 +873,7 @@ fn lifetime_strict_witnesses_count_alternatives_and_bound_loops() {
             ..Config::default()
         },
     );
+
     assert_eq!(strict.len(), 2, "{}", rendered(&strict, &text, &path));
     assert!(
         strict[0].message.contains("1 other bad path"),
@@ -817,6 +898,7 @@ fn lifetime_strict_witnesses_count_alternatives_and_bound_loops() {
 fn lifetime_demand_summaries_follow_imported_returned_procedures() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/import-targets.jai");
     let (lints, text) = lint(&path, &[("pointer_lifetime", Level::Warn)]);
+
     assert_eq!(lints.len(), 1, "{}", rendered(&lints, &text, &path));
 }
 
@@ -825,6 +907,7 @@ fn lifetime_recursive_reach_uses_a_prefix_antichain() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/recursive-reach.jai");
     let levels = [("pointer_lifetime", Level::Warn)];
     let (must, text) = lint(&path, &levels);
+
     assert!(must.is_empty(), "{}", rendered(&must, &text, &path));
     let (strict, text) = lint_with(
         &path,
@@ -834,6 +917,7 @@ fn lifetime_recursive_reach_uses_a_prefix_antichain() {
             ..Config::default()
         },
     );
+
     assert_eq!(strict.len(), 1, "{}", rendered(&strict, &text, &path));
 }
 
@@ -845,6 +929,7 @@ fn lifetime_context_selection_and_indexed_return_contracts() {
         ("temp_storage_escape", Level::Warn),
     ];
     let (findings, text) = lint(&path, &levels);
+
     assert_eq!(findings.len(), 4, "{}", rendered(&findings, &text, &path));
     assert!(
         findings
@@ -859,6 +944,7 @@ fn lifetime_context_selection_and_indexed_return_contracts() {
 fn lifetime_readonly_addresses_preserve_proofs_without_trusting_opaque_writes() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/readonly-addresses.jai");
     let (findings, text) = lint(&path, &[("pointer_lifetime", Level::Warn)]);
+
     assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
     assert!(findings[0].start < text.find("safe ::").unwrap());
 }
@@ -867,6 +953,7 @@ fn lifetime_readonly_addresses_preserve_proofs_without_trusting_opaque_writes() 
 fn lifetime_descriptor_values_keep_header_and_data_owners_distinct() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/descriptor-values.jai");
     let (findings, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+
     assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
     assert!(findings[0].start > text.find("data_dies ::").unwrap());
 }
@@ -882,6 +969,7 @@ fn lifetime_intrinsics_have_selected_memory_effects_in_strict_mode() {
             ..Config::default()
         },
     );
+
     assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
     assert!(findings[0].start > text.find("bad ::").unwrap());
 }
@@ -890,6 +978,7 @@ fn lifetime_intrinsics_have_selected_memory_effects_in_strict_mode() {
 fn lifetime_any_spills_follow_local_holders_and_still_reject_escapes() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/any-holders.jai");
     let (findings, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+
     assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
     assert!(
         findings
@@ -903,6 +992,7 @@ fn lifetime_global_targets_include_initializers_and_all_writers_but_keep_exposur
     let path = repo().join("tests/lint/pointer_lifetime/strict/global-targets.jai");
     let levels = [("pointer_lifetime", Level::Warn)];
     let (must, text) = lint(&path, &levels);
+
     assert_eq!(must.len(), 1, "{}", rendered(&must, &text, &path));
     let (strict, text) = lint_with(
         &path,
@@ -912,6 +1002,7 @@ fn lifetime_global_targets_include_initializers_and_all_writers_but_keep_exposur
             ..Config::default()
         },
     );
+
     assert_eq!(strict.len(), 3, "{}", rendered(&strict, &text, &path));
 }
 
@@ -919,6 +1010,7 @@ fn lifetime_global_targets_include_initializers_and_all_writers_but_keep_exposur
 fn lifetime_intrinsic_worker_reads_respect_positive_and_zero_counts() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/intrinsic-workers.jai");
     let (findings, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+
     assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
     assert!(findings[0].start < text.find("good ::").unwrap());
     assert!(findings[1].start > text.find("bad_writer ::").unwrap());
@@ -935,6 +1027,7 @@ fn lifetime_temporary_destinations_share_reset_but_do_not_extend_stack_storage()
             ("returned_local_address", Level::Warn),
         ],
     );
+
     assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
     assert!(
         findings
@@ -947,6 +1040,7 @@ fn lifetime_temporary_destinations_share_reset_but_do_not_extend_stack_storage()
 fn lifetime_output_temporaries_are_checked_in_the_actual_destination_context() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/output-temporaries.jai");
     let (findings, text) = lint(&path, &[("temp_storage_escape", Level::Warn)]);
+
     assert_eq!(findings.len(), 5, "{}", rendered(&findings, &text, &path));
     assert!(
         findings
@@ -961,8 +1055,10 @@ fn lifetime_output_temporaries_are_checked_in_the_actual_destination_context() {
             ..Config::default()
         },
     );
+
     assert_eq!(strict.len(), 9, "{}", rendered(&strict, &text, &path));
     let (stack, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+
     assert_eq!(stack.len(), 1, "{}", rendered(&stack, &text, &path));
     assert!(stack[0].start > text.find("fill_stack_address ::").unwrap());
 }
@@ -970,6 +1066,7 @@ fn lifetime_output_temporaries_are_checked_in_the_actual_destination_context() {
 #[test]
 fn lifetime_nested_handle_close_preserves_the_enclosing_allocation() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/nested-handles.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -985,6 +1082,7 @@ fn lifetime_nested_handle_close_preserves_the_enclosing_allocation() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
         assert!(findings[0].start > text.find("bad_direct ::").unwrap());
     }
@@ -994,6 +1092,7 @@ fn lifetime_nested_handle_close_preserves_the_enclosing_allocation() {
 #[test]
 fn lifetime_fresh_generations_replace_headers_without_reviving_old_aliases() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/generations.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -1009,6 +1108,7 @@ fn lifetime_fresh_generations_replace_headers_without_reviving_old_aliases() {
                 ..Config::default()
             },
         );
+
         assert_eq!(
             findings.len(),
             if mode == jacket_config::LifetimeMode::Strict {
@@ -1042,6 +1142,7 @@ fn lifetime_allocator_queries_observe_addresses_without_reading_old_storage() {
             ..Config::default()
         },
     );
+
     assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
     assert!(
         findings
@@ -1059,6 +1160,7 @@ fn lifetime_allocator_queries_observe_addresses_without_reading_old_storage() {
 #[test]
 fn lifetime_moved_addresses_require_a_memory_access_for_physical_storage() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/moved-addresses.jai");
+
     for mode in [
         jacket_config::LifetimeMode::Must,
         jacket_config::LifetimeMode::Strict,
@@ -1071,6 +1173,7 @@ fn lifetime_moved_addresses_require_a_memory_access_for_physical_storage() {
                 ..Config::default()
             },
         );
+
         assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
         assert!(findings[0].start > text.find("bad_moved_read ::").unwrap());
     }
@@ -1081,6 +1184,7 @@ fn lifetime_moved_addresses_require_a_memory_access_for_physical_storage() {
 fn lifetime_pointer_values_are_distinct_from_memory_reads_in_direct_and_indirect_calls() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/pointer-values.jai");
     let (findings, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+
     assert_eq!(findings.len(), 2, "{}", rendered(&findings, &text, &path));
     assert!(findings.iter().all(|f| {
         f.start > text.find("bad_read ::").unwrap()
@@ -1096,6 +1200,7 @@ fn lifetime_pointer_values_are_distinct_from_memory_reads_in_direct_and_indirect
             ..Config::default()
         },
     );
+
     assert_eq!(strict.len(), 3, "{}", rendered(&strict, &text, &path));
 }
 
@@ -1103,6 +1208,7 @@ fn lifetime_pointer_values_are_distinct_from_memory_reads_in_direct_and_indirect
 fn lifetime_stdlib_destructors_preserve_caller_owned_headers() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/stdlib-headers.jai");
     let (findings, text) = lint(&path, &[("use_after_free", Level::Warn)]);
+
     assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
     assert!(
         findings[0].start > text.find("bad_header ::").unwrap()
@@ -1114,6 +1220,7 @@ fn lifetime_stdlib_destructors_preserve_caller_owned_headers() {
 fn lifetime_pushed_context_copy_does_not_outlive_its_scoped_borrow() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/context-holders.jai");
     let (findings, text) = lint(&path, &[("returned_local_address", Level::Warn)]);
+
     assert_eq!(findings.len(), 3, "{}", rendered(&findings, &text, &path));
     assert!(findings[0].start > text.find("bad_caller_context ::").unwrap());
     assert!(findings[0].start < text.find("safe_cleared_global_container ::").unwrap());
@@ -1133,6 +1240,7 @@ fn lifetime_loop_declarations_clear_old_header_aliases_without_extending_borrows
             ..Config::default()
         },
     );
+
     assert_eq!(findings.len(), 1, "{}", rendered(&findings, &text, &path));
     assert!(findings[0].start > text.find("bad ::").unwrap());
 }
@@ -1151,6 +1259,7 @@ fn lifetime_branch_feasibility_preserves_only_possible_releases() {
             ..Config::default()
         },
     );
+
     assert_eq!(lints.len(), 2, "{}", rendered(&lints, &text, &path));
     assert!(
         lints
@@ -1164,6 +1273,7 @@ fn lifetime_array_capacity_separates_possible_from_required_growth() {
     let path = repo().join("tests/lint/pointer_lifetime/strict/array-capacity.jai");
     let levels = [("pointer_lifetime", Level::Warn)];
     let (must, text) = lint(&path, &levels);
+
     assert_eq!(must.len(), 1, "{}", rendered(&must, &text, &path));
     assert!(must[0].start > text.find("count_changed").unwrap());
     let (strict, text) = lint_with(
@@ -1174,6 +1284,7 @@ fn lifetime_array_capacity_separates_possible_from_required_growth() {
             ..Config::default()
         },
     );
+
     assert_eq!(strict.len(), 3, "{}", rendered(&strict, &text, &path));
 }
 

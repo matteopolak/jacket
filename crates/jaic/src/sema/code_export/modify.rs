@@ -23,11 +23,13 @@ impl Compiler {
                     .find(|&&(_, record, _)| record == header)
                     .map(|&(p, _, _)| p)
             });
+
         match found {
             Some(p) => {
                 if !self.pr.live_procs.contains(&p) {
                     self.pr.live_procs.push(p);
                 }
+
                 true
             }
             None => false,
@@ -47,6 +49,7 @@ impl Compiler {
                 "compiler_modify_procedure: body record does not belong to this workspace procedure",
             );
         };
+
         if self.proc(p).body_state == procs::BodyState::Lowering {
             return err(
                 Code::CodeExportModifyProcedureInvalid,
@@ -54,6 +57,7 @@ impl Compiler {
                 "compiler_modify_procedure: cannot modify a procedure while it is being lowered",
             );
         }
+
         let old = self.proc(p).lit.clone();
         let Some(old_body) = &old.body else {
             return err(
@@ -68,6 +72,7 @@ impl Compiler {
         ));
         let file = self.src.sources.add(label, m.source);
         let mut new_stmts = m.stmts;
+
         ast::relocate::relocate_stmts(&mut new_stmts, file);
         let lit = ast::ProcLit {
             header: old.header.clone(),
@@ -77,10 +82,13 @@ impl Compiler {
                 checks_off: old_body.checks_off,
             }),
         };
+
         self.pr.procs[p.0 as usize].lit = Arc::new(lit);
+
         if self.proc(p).body_state == procs::BodyState::Done {
             self.meta.export.relower.push(p);
         }
+
         Ok(())
     }
 
@@ -91,6 +99,7 @@ impl Compiler {
         for p in std::mem::take(&mut self.meta.export.relower) {
             self.lower_body(p)?;
         }
+
         Ok(())
     }
 }

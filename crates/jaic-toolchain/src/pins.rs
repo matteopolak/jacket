@@ -15,6 +15,7 @@ pub fn gnu_triple(target: Target) -> Option<&'static str> {
     if target.os != TargetOs::Linux || target.abi == TargetAbi::Musl {
         return None;
     }
+
     Some(match target.cpu {
         TargetCpu::Arm => "arm-linux-gnueabihf",
         TargetCpu::Arm64 => "aarch64-linux-gnu",
@@ -69,6 +70,7 @@ pub fn sysroot(target: Target) -> Option<SysrootPin> {
     if target.os != TargetOs::Linux || target.abi != TargetAbi::Gnu {
         return None;
     }
+
     let debian_arch = match target.cpu {
         TargetCpu::Arm => "armhf",
         TargetCpu::Arm64 => "arm64",
@@ -77,6 +79,7 @@ pub fn sysroot(target: Target) -> Option<SysrootPin> {
         TargetCpu::S390x => "s390x",
         _ => return None,
     };
+
     Some(SysrootPin {
         debian_arch,
     })
@@ -112,8 +115,10 @@ pub fn debian_packages(debian_arch: &str) -> DebianPins {
 fn pins_from(text: &'static str, debian_arch: &str) -> DebianPins {
     let mut mirror = "";
     let mut packages = Vec::new();
+
     for line in text.lines() {
         let words: Vec<&'static str> = line.split_whitespace().collect();
+
         match words.as_slice() {
             [] => {}
             [first, ..] if first.starts_with('#') => {}
@@ -130,6 +135,7 @@ fn pins_from(text: &'static str, debian_arch: &str) -> DebianPins {
             _ => {}
         }
     }
+
     DebianPins {
         mirror,
         packages,
@@ -159,14 +165,18 @@ impl CompilerRt {
                 hash = (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3);
             }
         };
+
         feed(self.version);
         feed(self.sha256);
+
         for (source, definitions) in &self.sources {
             feed(source);
+
             for definition in definitions {
                 feed(definition);
             }
         }
+
         format!("{hash:016x}")
     }
 }
@@ -179,8 +189,10 @@ pub fn compiler_rt(family: &str) -> CompilerRt {
         url: "",
         sources: Vec::new(),
     };
+
     for line in COMPILER_RT_PINS.lines() {
         let words: Vec<&'static str> = line.split_whitespace().collect();
+
         match words.as_slice() {
             [first, ..] if first.starts_with('#') => {}
             ["release", version, sha256, url] => {
@@ -194,6 +206,7 @@ pub fn compiler_rt(family: &str) -> CompilerRt {
             _ => {}
         }
     }
+
     pin
 }
 
@@ -215,16 +228,20 @@ mod tests {
     fn every_sysroot_architecture_has_the_same_pinned_packages() {
         let arches = ["armhf", "arm64", "i386", "amd64", "s390x"];
         let first = debian_packages("armhf");
+
         assert!(
             first
                 .mirror
                 .starts_with("https://snapshot.debian.org/archive/debian/")
         );
+
         for arch in arches {
             let pins = debian_packages(arch);
             let names: Vec<_> = pins.packages.iter().map(|p| p.package).collect();
             let expected: Vec<_> = first.packages.iter().map(|p| p.package).collect();
+
             assert_eq!(names, expected, "{arch}");
+
             for pin in &pins.packages {
                 assert_eq!(pin.sha256.len(), 64, "{arch} {}", pin.package);
                 assert!(pin.path.ends_with(&format!("_{arch}.deb")), "{}", pin.path);
@@ -242,13 +259,16 @@ mod tests {
             ("avr-none-elf", "avr"),
         ] {
             let target = Target::parse(triple).unwrap();
+
             assert_eq!(compiler_rt_family(target), Some(family), "{triple}");
             let pin = compiler_rt(family);
+
             assert_eq!(pin.version, "21.1.8");
             assert_eq!(pin.sha256.len(), 64);
             assert!(pin.url.starts_with("https://"), "{}", pin.url);
             assert!(pin.sources.len() > 100, "{family}");
         }
+
         // Outline atomics: cas has five sizes and the other five operations four, each in five
         // memory models.
         let lse = compiler_rt("aarch64")
@@ -256,6 +276,7 @@ mod tests {
             .iter()
             .filter(|(source, _)| *source == "aarch64/lse.S")
             .count();
+
         assert_eq!(lse, 25 + 5 * 20);
     }
 
@@ -270,6 +291,7 @@ mod tests {
         ] {
             let target = Target::parse(triple).unwrap();
             let pin = sysroot(target).unwrap_or_else(|| panic!("{triple}"));
+
             assert!(
                 !debian_packages(pin.debian_arch).packages.is_empty(),
                 "{triple}"
@@ -281,6 +303,7 @@ mod tests {
     fn a_change_to_the_source_list_changes_the_stamp() {
         let pin = compiler_rt("avr");
         let mut other = pin.clone();
+
         other.sources.pop();
         assert_eq!(pin.stamp().len(), 16);
         assert_eq!(pin.stamp(), compiler_rt("avr").stamp());

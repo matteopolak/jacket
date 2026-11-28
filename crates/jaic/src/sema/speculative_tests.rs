@@ -6,12 +6,15 @@ use std::rc::Rc;
 /// What a compile produced in the order it numbered things, and how the bodies went.
 fn compile(source: &str, speculate: bool) -> (String, Counts) {
     let mut fs = VirtualFs::default();
+
     fs.insert("/spec/main.jai", source.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.stack_trace = false;
     force(speculate);
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     // `Compiler::new` reads the switch again.
     force(speculate);
     compiler
@@ -22,6 +25,7 @@ fn compile(source: &str, speculate: bool) -> (String, Counts) {
         "{:?}\n{:?}\n{:?}",
         program.func_names, program.funcs, program.globals
     );
+
     (shape, counts())
 }
 
@@ -33,6 +37,7 @@ fn first_uses() -> String {
         "LIMIT :: 10;\nPair :: struct { a: s64; b: s64; }\n\
          leaf :: (p: Pair) -> s64 { return p.a + p.b + LIMIT; }\n",
     );
+
     for i in 0..24 {
         source += &format!(
             "mid{i} :: (x: s64) -> s64 {{ return leaf{i}(Pair.{{x, LIMIT}}, null) + leaf(Pair.{{x, {i}}}); }}\n\
@@ -40,10 +45,13 @@ fn first_uses() -> String {
             n = i + 1
         );
     }
+
     source += "main :: () {\n";
+
     for i in 0..24 {
         source += &format!("    v{i} := mid{i}({i});\n");
     }
+
     source + "}\n"
 }
 
@@ -52,6 +60,7 @@ fn first_use_bodies_commit_with_identical_output() {
     let source = first_uses();
     let (serial, _) = compile(&source, false);
     let (speculative, counts) = compile(&source, true);
+
     assert_eq!(serial, speculative);
     assert!(counts.batched >= 24, "batched {}", counts.batched);
     assert!(
@@ -82,6 +91,7 @@ fn constants_resolved_in_a_body_are_kept_in_order() {
     ";
     let (serial, _) = compile(source, false);
     let (speculative, counts) = compile(source, true);
+
     assert_eq!(serial, speculative);
     assert!(counts.committed >= 1);
 }
@@ -95,6 +105,7 @@ fn thunk_scope_made_by_two_bodies_is_made_once() {
     ";
     let (serial, _) = compile(source, false);
     let (speculative, _) = compile(source, true);
+
     assert_eq!(serial, speculative);
 }
 
@@ -104,19 +115,25 @@ fn thunk_scope_made_by_two_bodies_is_made_once() {
 fn first_calls() -> String {
     let mut source =
         String::from("Fns :: struct {\n    shared :: (x: s64) -> s64 { return x * 3; }\n");
+
     for i in 0..24 {
         source += &format!("    leaf{i} :: (x: s64) -> s64 {{ return x + {i}; }}\n");
     }
+
     source += "}\n";
+
     for i in 0..24 {
         source += &format!(
             "mid{i} :: (x: s64) -> s64 {{ return Fns.leaf{i}(x) + Fns.shared(x) + Fns.shared(x + {i}); }}\n"
         );
     }
+
     source += "main :: () {\n";
+
     for i in 0..24 {
         source += &format!("    v{i} := mid{i}({i});\n");
     }
+
     source + "}\n"
 }
 
@@ -125,6 +142,7 @@ fn first_calls_commit_on_the_first_try_in_order() {
     let source = first_calls();
     let (serial, _) = compile(&source, false);
     let (speculative, counts) = compile(&source, true);
+
     assert_eq!(serial, speculative);
     assert!(
         counts.reserved_at_commit >= 20,
@@ -132,6 +150,7 @@ fn first_calls_commit_on_the_first_try_in_order() {
         counts.reserved_at_commit
     );
     let first_try = counts.committed - counts.recovered;
+
     assert!(
         first_try >= 20,
         "{first_try} of {} bodies committed on the first try ({} recovered)",
@@ -151,6 +170,7 @@ fn callee_called_first_by_two_bodies_gets_one_function() {
     ";
     let (serial, _) = compile(source, false);
     let (speculative, counts) = compile(source, true);
+
     assert_eq!(serial, speculative);
     assert!(counts.committed >= 1);
 }
@@ -170,6 +190,7 @@ fn procedure_addresses_and_foreign_calls_get_provisional_ids() {
     ";
     let (serial, _) = compile(source, false);
     let (speculative, counts) = compile(source, true);
+
     assert_eq!(serial, speculative);
     assert!(counts.committed >= 3, "committed {}", counts.committed);
     assert!(

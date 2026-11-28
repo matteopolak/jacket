@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 pub fn missing(need: &Need, program: &str, command: &str) -> String {
     let lookup = Lookup::new(&System);
     let note = need.note(lookup.host.os(), PackageManager::detect(&lookup));
+
     format!("`{program}` is not installed, and `{command}` needs it\nnote: {note}")
 }
 
@@ -43,9 +44,11 @@ pub fn runner(words: &[String], command: &str) -> Result<(), String> {
     let Some(program) = words.first() else {
         return Ok(());
     };
+
     if program.starts_with('{') {
         return Ok(());
     }
+
     if program.contains(['/', '\\']) {
         return if Path::new(program).is_file() {
             Ok(())
@@ -55,6 +58,7 @@ pub fn runner(words: &[String], command: &str) -> Result<(), String> {
             ))
         };
     }
+
     require(&Need::for_program(program), program, command).map(|_| ())
 }
 
@@ -66,6 +70,7 @@ pub fn writable_dir(dir: &Path, what: &str, command: &str) -> Result<(), String>
         .map(|()| {
             let _ = std::fs::remove_file(&probe);
         });
+
     result.map_err(|error| {
         format!(
             "cannot write to {what} `{}`: {}, and `{command}` needs it\nnote: make it writable, or move the cache folder with XDG_CACHE_HOME (LOCALAPPDATA on Windows)",
@@ -82,12 +87,14 @@ mod tests {
     #[test]
     fn a_missing_program_names_the_command_and_the_next_step() {
         let text = missing(&Need::Curl, "curl", "jacket upgrade");
+
         assert!(text.starts_with("`curl` is not installed, and `jacket upgrade` needs it\nnote: "));
     }
 
     #[test]
     fn a_runner_that_is_not_installed_names_itself_and_the_command() {
         let error = runner(&["no-such-runner-9f3".to_string()], "jacket test").unwrap_err();
+
         assert!(
             error.starts_with(
                 "`no-such-runner-9f3` is not installed, and `jacket test` needs it\nnote: "
@@ -97,6 +104,7 @@ mod tests {
         assert!(runner(&[], "jacket test").is_ok());
         assert!(runner(&["{exe}".to_string()], "jacket test").is_ok());
         let error = runner(&["/no/such/dir/run".to_string()], "jacket test").unwrap_err();
+
         assert!(
             error.contains("does not exist") && error.contains("\nnote: "),
             "{error}"
@@ -106,8 +114,10 @@ mod tests {
     #[test]
     fn a_folder_that_cannot_be_made_names_itself_the_command_and_the_variable() {
         let file = test_support::TempDir::new("jacket-prerequisite");
+
         std::fs::create_dir_all(&file).unwrap();
         let blocker = file.join("file");
+
         std::fs::write(&blocker, "").unwrap();
         let error = writable_dir(
             &blocker.join("cache"),
@@ -115,6 +125,7 @@ mod tests {
             "jacket toolchain add",
         )
         .unwrap_err();
+
         assert!(
             error.contains("cannot write to the cache folder"),
             "{error}"

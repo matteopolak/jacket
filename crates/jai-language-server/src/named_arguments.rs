@@ -31,6 +31,7 @@ fn procedure(compiler: &jaic::sema::Compiler, id: jaic::sema::ProcId) -> Callabl
             detail: signature.params.get(i).cloned().unwrap_or_default(),
         })
         .collect();
+
     Callable {
         params,
         eligible: None,
@@ -49,20 +50,24 @@ impl Callable {
         let mut slots = vec![0u8; self.params.len()]; // 0 empty, 1 scalar/spread, 2 variadic list
         let mut next = 0;
         let mut bindings = Vec::with_capacity(args.len());
+
         for (i, arg) in args.iter().enumerate() {
             let name = if i == active {
                 Some(candidate)
             } else {
                 arg.name.map(jaic::intern::Sym::as_str)
             };
+
             if let Some(name) = name {
                 let p = self
                     .params
                     .iter()
                     .position(|p| p.name.as_deref() == Some(name))?;
+
                 if slots[p] != 0 {
                     return None;
                 }
+
                 slots[p] = if self.params[p].variadic && !arg.spread {
                     2
                 } else {
@@ -74,13 +79,16 @@ impl Callable {
                 while next < slots.len() && slots[next] != 0 && !self.params[next].variadic {
                     next += 1;
                 }
+
                 if next == slots.len() {
                     return None;
                 }
+
                 if self.params[next].variadic && !arg.spread {
                     if slots[next] == 1 {
                         return None;
                     }
+
                     slots[next] = 2;
                     bindings.push(next);
                 } else {
@@ -90,6 +98,7 @@ impl Callable {
                 }
             }
         }
+
         Some(bindings)
     }
 }
@@ -105,11 +114,13 @@ fn callback(
         return None;
     };
     let signature = signature.clone();
+
     if header.names.len() != signature.params.len()
         || header.defaults.len() != signature.params.len()
     {
         return None;
     }
+
     let mut callable = Callable {
         params: signature
             .params
@@ -122,10 +133,12 @@ fn callback(
                     name.as_deref().unwrap_or("_"),
                     compiler.ty.types.name(ty)
                 );
+
                 if let Some(default) = &header.defaults[i] {
                     detail.push_str(" = ");
                     detail.push_str(compiler.src.sources.snippet(default.span));
                 }
+
                 Parameter {
                     name,
                     variadic: signature.variadic && i + 1 == signature.params.len(),
@@ -135,6 +148,7 @@ fn callback(
             .collect(),
         eligible: None,
     };
+
     callable.eligible = Some(
         callable
             .params
@@ -146,11 +160,13 @@ fn callback(
                 let Some(bindings) = callable.bindings(&ctx.args, ctx.active, name) else {
                     return false;
                 };
+
                 bindings.iter().enumerate().all(|(i, &slot)| {
                     let Some((from, constant)) = facts[i] else {
                         return true;
                     };
                     let mut to = signature.params[slot];
+
                     if callable.params[slot].variadic
                         && !ctx.args[i].spread
                         && let jaic::types::TypeKind::Array {
@@ -159,6 +175,7 @@ fn callback(
                     {
                         to = *elem;
                     }
+
                     compiler.may_convert_argument(from, ctx.args[i].literal, constant, to)
                 })
             })
@@ -192,6 +209,7 @@ fn resolved(
     } else {
         Vec::new()
     };
+
     ids.sort_by_key(|p| p.0);
     ids.dedup();
     let facts: Vec<_> = ctx
@@ -202,7 +220,9 @@ fn resolved(
             if i == ctx.active && !ctx.has_equals {
                 return None;
             }
+
             let value = arg.value?;
+
             ide.exprs
                 .get(&jaic::source::Span {
                     file,
@@ -212,10 +232,12 @@ fn resolved(
                 .map(|fact| (fact.ty, fact.constant))
         })
         .collect();
+
     if ids.is_empty() {
         let Some(target) = compiler.ide_call_target_at(file, ctx.open) else {
             return Some(Vec::new());
         };
+
         if let Some((ty, header)) = target.parameters {
             return Some(
                 callback(compiler, ty, &header, ctx, &facts)
@@ -223,19 +245,25 @@ fn resolved(
                     .collect(),
             );
         }
+
         ids = target.procedures;
     }
+
     let mut result = Vec::new();
+
     for id in ids {
         // Invalid or unresolved headers aren't a source of invented completion signatures.
         if compiler.refresh_implicit_poly(id).is_err() {
             continue;
         }
+
         let mut callable = procedure(compiler, id);
+
         if !compiler.proc(id).is_poly {
             let Ok(signature) = compiler.signature(id, compiler.proc(id).span) else {
                 continue;
             };
+
             callable.eligible = Some(
                 callable
                     .params
@@ -247,20 +275,24 @@ fn resolved(
                         let Some(bindings) = callable.bindings(&ctx.args, ctx.active, name) else {
                             return false;
                         };
+
                         bindings.iter().enumerate().all(|(i, &slot)| {
                             let Some((from, constant)) = facts[i] else {
                                 return true;
                             };
                             let header = &compiler.proc(id).lit.header;
+
                             if header.params[slot].baked {
                                 return true;
                             }
+
                             let runtime_slot =
                                 header.params[..slot].iter().filter(|p| !p.baked).count();
                             let Some(target) = signature.params.get(runtime_slot) else {
                                 return false;
                             };
                             let mut to = target.ty;
+
                             if target.variadic
                                 && !ctx.args[i].spread
                                 && let jaic::types::TypeKind::Array {
@@ -269,14 +301,17 @@ fn resolved(
                             {
                                 to = *elem;
                             }
+
                             compiler.may_convert_argument(from, ctx.args[i].literal, constant, to)
                         })
                     })
                     .collect(),
             );
         }
+
         result.push(callable);
     }
+
     Some(result)
 }
 
@@ -304,11 +339,13 @@ impl Session {
             return Vec::new();
         };
         let mut items = BTreeMap::new();
+
         for callable in callables {
             for (index, p) in callable.params.iter().enumerate() {
                 let Some(name) = &p.name else {
                     continue;
                 };
+
                 if !name.to_lowercase().starts_with(&prefix)
                     || callable
                         .eligible
@@ -318,6 +355,7 @@ impl Session {
                 {
                     continue;
                 }
+
                 items.entry(name.clone()).or_insert_with(|| CompletionItem {
                     label: name.clone(),
                     kind: CompletionKind::Field,
@@ -332,12 +370,14 @@ impl Session {
                 });
             }
         }
+
         items.into_values().take(self.limits.symbols).collect()
     }
 
     /// The call around `byte`, from the tokens of the document's analysis.
     fn call_site(&self, uri: &DocumentUri, text: &str, byte: usize) -> Option<CallSite> {
         let analysis = self.analysis_for(uri)?;
+
         ide_facts::call_at(
             text,
             &analysis.syntax_tokens,
@@ -361,11 +401,14 @@ mod tests {
         let (tokens, _) = jaic::lexer::lex_ide(FileId(0), source);
         let ctx = ide_facts::call_at(source, &tokens, &[], byte).unwrap();
         let mut fs = VirtualFs::default();
+
         fs.insert("/named-safety/main.jai", source.as_bytes());
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.stack_trace = false;
         let mut compiler = Compiler::new(options, Rc::new(fs));
+
         compiler
             .ed
             .record(IdeFacts::new(vec![jaic::ide::IdeRoot::under(
@@ -385,8 +428,10 @@ mod tests {
             })
             .unwrap();
         let errors = compiler.ed.facts().unwrap().parse_errors.len();
+
         assert!(errors > 0);
         let procs = compiler.ide_callee_at(file, ctx.open);
+
         assert_eq!(procs.len(), 1);
         assert_eq!(compiler.proc(procs[0]).name.as_str(), "f");
         assert_eq!(

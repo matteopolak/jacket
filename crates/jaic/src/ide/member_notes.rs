@@ -24,6 +24,7 @@ impl Compiler {
             .1
             .clone();
         let mut out: Vec<IdeName> = Vec::new();
+
         for receiver in all {
             for name in self.ide_members(receiver) {
                 if !out.iter().any(|n| n.name == name.name) {
@@ -31,6 +32,7 @@ impl Compiler {
                 }
             }
         }
+
         Some(out)
     }
 
@@ -39,6 +41,7 @@ impl Compiler {
         if matches!(base, Operand::Procs(_)) || !self.ide_wants(span.file) {
             return;
         }
+
         let receiver = match base {
             Operand::Module(m) => Some(IdeReceiver::Module(*m)),
             Operand::Type(t) => Some(IdeReceiver::Type(*t)),
@@ -47,18 +50,23 @@ impl Compiler {
                 (ty != TypeId::VOID).then_some(IdeReceiver::Value(ty))
             }
         };
+
         if let Some(receiver) = receiver
             && let Some(ide) = self.ed.facts_mut()
         {
             let seen = ide.receiver_sets.entry(span).or_default();
+
             if !seen.contains(&receiver) {
                 seen.push(receiver);
             }
         }
+
         if matches!(base, Operand::Module(_) | Operand::Type(_)) {
             return;
         }
+
         let ty = base.ty();
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.receivers
                 .entry(span)
@@ -78,9 +86,11 @@ impl Compiler {
         let word = name.as_str();
         let boundary = |c: Option<char>| !c.is_some_and(|c| c.is_alphanumeric() || c == '_');
         let mut from = 0;
+
         while let Some(at) = text[from..].find(word) {
             let start = from + at;
             let end = start + word.len();
+
             if boundary(text[..start].chars().next_back()) && boundary(text[end..].chars().next()) {
                 return Span {
                     file: span.file,
@@ -88,8 +98,10 @@ impl Compiler {
                     end: span.start + end as u32,
                 };
             }
+
             from = start + 1;
         }
+
         span
     }
 
@@ -97,14 +109,18 @@ impl Compiler {
     /// pointers and `using` members.
     pub(super) fn ide_member_decl(&self, ty: TypeId, name: Sym) -> Option<Span> {
         let mut ty = ty;
+
         while let Some(p) = self.ty.types.pointee(ty) {
             ty = p;
         }
+
         let ty = self.ty.types.repr_struct(ty);
+
         match self.ty.types.kind(ty) {
             TypeKind::Struct(s) => {
                 let (s, field) = self.ide_find_field_decl(*s, name, &mut Vec::new())?;
                 let span = self.ty.types.struct_info(s).fields[field].span;
+
                 (span.end > span.start).then(|| self.ide_name_span(span, name))
             }
             TypeKind::Enum(e) => {
@@ -129,26 +145,34 @@ impl Compiler {
         if searched.contains(&s) {
             return None;
         }
+
         searched.push(s);
         let fields = &self.ty.types.struct_info(s).fields;
+
         if let Some(at) = fields.iter().position(|f| f.name == Some(name)) {
             return Some((s, at));
         }
+
         let through_using = fields.iter().filter(|f| f.using).find_map(|f| {
             let inner = self.ide_struct_of(f.ty)?;
             self.ide_find_field_decl(inner, name, searched)
         });
+
         through_using.or_else(|| {
             // `using,only(a, b) field.inner;` names members of a nested field.
             let aliases = self.ty.member_aliases.get(&s)?;
+
             aliases.iter().find_map(|alias| {
                 let old = alias.target_name(name)?;
                 let mut inner = s;
+
                 for step in &alias.path {
                     let (owner, at) = self.ide_find_field_decl(inner, *step, &mut Vec::new())?;
                     let ty = self.ty.types.struct_info(owner).fields[at].ty;
+
                     inner = self.ide_struct_of(ty)?;
                 }
+
                 self.ide_find_field_decl(inner, old, searched)
             })
         })
@@ -159,6 +183,7 @@ impl Compiler {
         while let Some(p) = self.ty.types.pointee(ty) {
             ty = p;
         }
+
         match *self.ty.types.kind(self.ty.types.repr_struct(ty)) {
             TypeKind::Struct(inner) => Some(inner),
             _ => None,
@@ -171,9 +196,11 @@ impl Compiler {
         if !self.ed.is_live() || !self.ide_wants(span.file) {
             return;
         }
+
         let Some(decl) = self.ide_member_decl(ty, name) else {
             return;
         };
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.member_uses.insert((span, decl));
         }
@@ -184,6 +211,7 @@ impl Compiler {
         if !self.ide_wants(label.span.file) {
             return;
         }
+
         let Ok(ids) = self.lookup(scope, label.name) else {
             return;
         };
@@ -199,6 +227,7 @@ impl Compiler {
             } => *ty,
             _ => return,
         };
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span: label.span,
@@ -214,10 +243,13 @@ impl Compiler {
         if !self.ide_wants(span.file) {
             return;
         }
+
         let decl = self.ide_name_span(decl, name);
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.member_uses.insert((span, decl));
         }
+
         self.ide_note_member_ref(span, name, ty);
     }
 
@@ -239,6 +271,7 @@ impl Compiler {
         if !self.ed.is_live() {
             return;
         }
+
         let Some(s) = self.ty.types.as_struct(ty) else {
             return;
         };
@@ -246,6 +279,7 @@ impl Compiler {
             return;
         };
         let (lit, scope) = (source.lit.clone(), source.scope);
+
         for name in args.iter().filter_map(|a| a.name) {
             let Some(param) = lit
                 .params
@@ -267,6 +301,7 @@ impl Compiler {
             else {
                 continue;
             };
+
             self.ide_note_named_field(name.span, name.name, param.span, ty);
         }
     }
@@ -277,6 +312,7 @@ impl Compiler {
         if !self.ed.is_live() || !self.ide_wants(span.file) {
             return;
         }
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.refs.push(IdeRef {
                 span,
@@ -291,6 +327,7 @@ impl Compiler {
     /// `$` (its first binder when there are several).
     pub(crate) fn poly_binders(&self, header: &ast::ProcHeader) -> Vec<(Sym, Span)> {
         let mut out: Vec<(Sym, Span)> = Vec::new();
+
         for_header_types(header, &mut |e| {
             if let ast::ExprKind::PolyVar {
                 name, ..
@@ -311,6 +348,7 @@ impl Compiler {
         let text = self.ide_snippet(e.span);
         let skip = text.len() - text.trim_start_matches('$').len();
         let start = e.span.start + skip as u32;
+
         Span {
             file: e.span.file,
             start,
@@ -330,7 +368,9 @@ impl Compiler {
         if !self.ide_wants(header.span.file) {
             return;
         }
+
         let mut found: Vec<(Span, Sym, bool)> = Vec::new();
+
         for_header_types(header, &mut |e| match &e.kind {
             ast::ExprKind::Ident(name) => found.push((e.span, *name, false)),
             ast::ExprKind::PolyVar {
@@ -351,6 +391,7 @@ impl Compiler {
                     .iter()
                     .any(|p| (p.baked || p.auto_bake) && p.name.is_some_and(|n| n.name == name))
         };
+
         for (span, name, binder) in found {
             let bound_here = bound
                 .iter()
@@ -375,6 +416,7 @@ impl Compiler {
                 },
                 _ => TypeId::TYPE,
             };
+
             if let Some(ide) = self.ed.facts_mut() {
                 ide.refs.push(IdeRef {
                     span,
@@ -390,8 +432,10 @@ impl Compiler {
     /// its header mentions.
     pub(crate) fn ide_note_unchecked_header(&mut self, id: ProcId) {
         let p = self.proc(id);
+
         if p.instances.is_empty() {
             let (header, scope) = (p.lit.header.clone(), p.scope);
+
             self.ide_note_poly_header(&header, &[], scope);
         }
     }
@@ -408,8 +452,10 @@ impl Compiler {
             return Vec::new();
         };
         let mut out: Vec<IdeName> = Vec::new();
+
         for t in types {
             let t = self.ty.types.repr_struct(t);
+
             if matches!(self.ty.types.kind(t), TypeKind::Enum(_)) {
                 for n in self.ide_members(IdeReceiver::Type(t)) {
                     // `.loose` is spelled on the enum's name, never inferred.
@@ -419,6 +465,7 @@ impl Compiler {
                 }
             }
         }
+
         out
     }
 
@@ -434,17 +481,21 @@ impl Compiler {
             return Vec::new();
         };
         let mut out: Vec<IdeName> = Vec::new();
+
         for t in types {
             let t = self.ty.types.repr_struct(t);
+
             if !matches!(self.ty.types.kind(t), TypeKind::Struct(_)) {
                 continue;
             }
+
             for n in self.ide_members(IdeReceiver::Value(t)) {
                 if n.kind == IdeKind::Field && !out.iter().any(|o| o.name == n.name) {
                     out.push(n);
                 }
             }
         }
+
         out
     }
 
@@ -463,6 +514,7 @@ impl Compiler {
                 .find(|(s, _)| s.file == file && s.start == offset)
                 .map(|(_, t)| t.clone())
         })?;
+
         Some(
             names
                 .iter()
@@ -490,6 +542,7 @@ impl Compiler {
         if !self.ide_wants(span.file) {
             return;
         }
+
         for (i, a) in args.iter().enumerate() {
             // The names to record the expected type of: `.NAME`, or the field names of `.{...}`.
             let names: Vec<Span> = match a.expr.as_ref().map(|e| &e.kind) {
@@ -504,6 +557,7 @@ impl Compiler {
                 _ => continue,
             };
             let types = self.inferred_argument_types(procs, args, i, span);
+
             if !types.is_empty() {
                 if let Some(ide) = self.ed.facts_mut() {
                     for &name in &names {
@@ -513,15 +567,19 @@ impl Compiler {
                             .copied()
                             .filter(|ty| !seen.contains(ty))
                             .collect();
+
                         seen.extend(additions);
                     }
                 }
+
                 continue;
             }
+
             for &p in procs {
                 if self.proc(p).is_poly {
                     continue;
                 }
+
                 let header = self.proc(p).lit.header.clone();
                 let at = match a.name {
                     Some(n) => header
@@ -543,9 +601,11 @@ impl Compiler {
                     continue;
                 };
                 let ty = param.ty;
+
                 if let Some(ide) = self.ed.facts_mut() {
                     for &name in &names {
                         let seen = ide.inferred_expected.entry(name).or_default();
+
                         if !seen.contains(&ty) {
                             seen.push(ty);
                         }
@@ -560,10 +620,13 @@ impl Compiler {
         if !self.ed.is_live() {
             return;
         }
+
         // Every file's: a use in a recorded file can name a member declared in a module.
         let wanted = self.ide_wants(span.file);
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.enum_decls.insert((e, name), span);
+
             if wanted {
                 ide.member_uses.insert((span, span));
             }
@@ -590,6 +653,7 @@ pub(crate) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast:
     fn walk(e: &ast::Expr, f: &mut dyn FnMut(&ast::Expr)) {
         use crate::ast::ExprKind as E;
         f(e);
+
         match &e.kind {
             E::Unary(_, x) => walk(x, f),
             E::PolyRestricted {
@@ -602,6 +666,7 @@ pub(crate) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast:
                 if let ast::ArraySize::Fixed(n) = size {
                     walk(n, f);
                 }
+
                 walk(elem, f);
             }
             E::Call {
@@ -610,6 +675,7 @@ pub(crate) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast:
                 ..
             } => {
                 walk(callee, f);
+
                 for a in args {
                     walk(&a.value, f);
                 }
@@ -618,6 +684,7 @@ pub(crate) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast:
             _ => {}
         }
     }
+
     for t in header
         .params
         .iter()
@@ -631,6 +698,7 @@ pub(crate) fn for_header_types(header: &ast::ProcHeader, f: &mut dyn FnMut(&ast:
 /// Does a condition mention `OS` or `CPU`?
 pub(super) fn names_target(expr: &ast::Expr) -> bool {
     use crate::ast::ExprKind as E;
+
     match &expr.kind {
         E::Ident(name) => matches!(name.as_str(), "OS" | "CPU"),
         E::Binary(_, a, b) => names_target(a) || names_target(b),

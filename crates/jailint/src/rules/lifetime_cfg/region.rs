@@ -18,15 +18,20 @@ pub(super) struct Graph {
 impl Graph {
     pub(super) fn new(blocks: &[Block]) -> Self {
         let mut incoming = vec![Vec::new(); blocks.len()];
+
         for (from, block) in blocks.iter().enumerate() {
             for &to in &block.next {
                 incoming[to].push(from);
             }
         }
+
         let mut reached = vec![false; blocks.len()];
+
         if !blocks.is_empty() {
             let mut stack = vec![0];
+
             reached[0] = true;
+
             while let Some(i) = stack.pop() {
                 for &next in &blocks[i].next {
                     if !reached[next] {
@@ -36,6 +41,7 @@ impl Graph {
                 }
             }
         }
+
         Self {
             incoming,
             reached,
@@ -63,10 +69,12 @@ impl Graph {
             .unwrap_or(self.order[seed]);
         let mut member = HashSet::default();
         let mut queue = VecDeque::new();
+
         if self.order[seed] <= last {
             member.insert(seed);
             queue.push_back(seed);
         }
+
         while let Some(i) = queue.pop_front() {
             for &next in &blocks[i].next {
                 if self.order[next] <= last && member.insert(next) {
@@ -74,6 +82,7 @@ impl Graph {
                 }
             }
         }
+
         let mut starts: Vec<_> = member
             .iter()
             .copied()
@@ -84,6 +93,7 @@ impl Graph {
                         .any(|&p| !member.contains(&p) && self.reached[p])
             })
             .collect();
+
         starts.sort_unstable();
         Scope {
             member: Some(member),
@@ -120,9 +130,11 @@ impl Scope {
     ) -> (States<'a>, VecDeque<usize>) {
         let mut states = States::new(graph, entry);
         let entry = states.entry().to_vec();
+
         for &start in &self.starts {
             states.join(start, &entry);
         }
+
         (states, self.starts.iter().copied().collect())
     }
 }
@@ -165,17 +177,21 @@ impl<'a> States<'a> {
             return true;
         };
         let mut changed = false;
+
         for (old, &new) in previous.iter_mut().zip(incoming) {
             let joined = *old | new;
+
             changed |= joined != *old;
             *old = joined;
         }
+
         changed
     }
 
     /// The blocks a sweep visited, in order.
     pub(super) fn swept(&self) -> Vec<usize> {
         let mut blocks: Vec<_> = self.swept.keys().copied().collect();
+
         blocks.sort_unstable();
         blocks
     }
@@ -192,19 +208,24 @@ fn components(blocks: &[Block]) -> Vec<usize> {
     let mut component = vec![NONE; n];
     let mut count = 0;
     let mut counter = 0;
+
     for root in 0..n {
         if index[root] != NONE {
             continue;
         }
+
         let mut work = vec![(root, 0usize)];
+
         index[root] = counter;
         low[root] = counter;
         counter += 1;
         stack.push(root);
         on_stack[root] = true;
+
         while let Some(&(node, edge)) = work.last() {
             if let Some(&next) = blocks[node].next.get(edge) {
                 work.last_mut().unwrap().1 += 1;
+
                 if index[next] == NONE {
                     index[next] = counter;
                     low[next] = counter;
@@ -217,23 +238,29 @@ fn components(blocks: &[Block]) -> Vec<usize> {
                 }
             } else {
                 work.pop();
+
                 if let Some(&(parent, _)) = work.last() {
                     low[parent] = low[parent].min(low[node]);
                 }
+
                 if low[node] == index[node] {
                     loop {
                         let member = stack.pop().unwrap();
+
                         on_stack[member] = false;
                         component[member] = count;
+
                         if member == node {
                             break;
                         }
                     }
+
                     count += 1;
                 }
             }
         }
     }
+
     // Tarjan finishes a component after everything it reaches.
     component.iter().map(|&c| count - 1 - c).collect()
 }

@@ -11,6 +11,7 @@ fn declaration_forms() {
         .iter()
         .map(|s| (decl(s).kind, decl(s).ty.is_some(), decl(s).value.is_some()))
         .collect();
+
     assert_eq!(
         kinds,
         [
@@ -34,6 +35,7 @@ fn declaration_forms() {
 #[test]
 fn multiple_values_and_mixed_declarations() {
     let stmts = parse("a, b := 1, 2;\nx=, y := f();\nm:, n = g();\np, q:, r := h();");
+
     assert_eq!(decl(&stmts[0]).extra_values().len(), 1);
     assert_eq!(decl(&stmts[1]).existing(), [true, false]);
     assert_eq!(decl(&stmts[2]).existing(), [false, true]);
@@ -46,6 +48,7 @@ fn multiple_values_and_mixed_declarations() {
 fn mixed_declarations_assign_to_places() {
     let stmts = parse("ok:, t.str = f();\nt.items[i].*=, n := g();\na.b, c = h();");
     let first = decl(&stmts[0]);
+
     assert_eq!(first.existing(), [false, true]);
     assert!(first.targets()[0].is_none());
     assert!(matches!(
@@ -54,6 +57,7 @@ fn mixed_declarations_assign_to_places() {
     ));
     assert_eq!(first.names[1].name.as_str(), "t");
     let second = decl(&stmts[1]);
+
     assert_eq!(second.existing(), [true, false]);
     assert!(second.targets()[0].is_some());
     // Without a marker a list of places is a plain multiple assignment.
@@ -65,6 +69,7 @@ fn mixed_declarations_assign_to_places() {
 fn declaration_flags_and_notes() {
     let stmts =
         parse("x: int #align 16; @Note\nF :: () {} @Public @Other\nG :: () {}\n#no_reset y := 1;");
+
     assert!(decl(&stmts[0]).align().is_some());
     assert_eq!(decl(&stmts[0]).notes.len(), 1);
     assert_eq!(decl(&stmts[1]).notes.len(), 2);
@@ -75,6 +80,7 @@ fn declaration_flags_and_notes() {
 #[test]
 fn no_reset_may_follow_using() {
     let stmts = parse("using #no_reset m: int #align 64;\n#no_reset using n: int;");
+
     assert_eq!(decl(&stmts[0]).flags()[0].name.as_str(), "no_reset");
     assert!(decl(&stmts[0]).align().is_some());
     assert_eq!(decl(&stmts[1]).flags()[0].name.as_str(), "no_reset");
@@ -83,6 +89,7 @@ fn no_reset_may_follow_using() {
 #[test]
 fn procedures_and_structs_need_no_semicolon() {
     let stmts = parse("A :: () {}\nB :: struct { x: int; }\nC :: enum { X; }\nD :: 1;");
+
     assert_eq!(stmts.len(), 4);
 }
 
@@ -90,6 +97,7 @@ fn procedures_and_structs_need_no_semicolon() {
 fn statement_starting_with_prefix_operator_after_a_block() {
     // `*p = 1;` on the line after a brace-terminated declaration is a new statement.
     let stmts = parse("f :: () {}\n*p = 1;");
+
     assert_eq!(stmts.len(), 2);
     assert!(matches!(&stmts[1].kind, StmtKind::Assign { .. }));
 }
@@ -102,10 +110,12 @@ fn imports_and_loads() {
     let StmtKind::Import(i0) = &stmts[0].kind else {
         panic!()
     };
+
     assert!(matches!(&i0.source, ImportSource::Module(m) if &**m == "Basic") && i0.name.is_none());
     let StmtKind::Import(i1) = &stmts[1].kind else {
         panic!()
     };
+
     assert_eq!(i1.name.unwrap().name.as_str(), "M");
     assert_eq!(i1.params.len(), 1);
     assert!(
@@ -125,10 +135,12 @@ fn import_argument_lists_retain_the_program_boundary() {
     let stmts = parse(
         "#import \"M\"(a=1)(b=2); #import \"M\"()(b=3); #import \"M\"(a=4); #import \"M\"()();",
     );
+
     for (stmt, expected) in stmts.iter().zip([Some(1), Some(0), None, Some(0)]) {
         let StmtKind::Import(import) = &stmt.kind else {
             panic!("expected import");
         };
+
         assert_eq!(import.program_params_start, expected);
     }
 }
@@ -138,6 +150,7 @@ fn file_level_directives() {
     let stmts = parse(
         "#scope_file\n#scope_export\n#scope_module\n#add_context ctx: int = 1;\n#module_parameters (A := 1) (B := 2);\n#placeholder X;\n#assert A == 1 \"msg\";\n#run main();\n#insert \"x :: 1;\";\n#poke_name Basic operator==;\n#library \"x\";",
     );
+
     assert!(matches!(stmts[0].kind, StmtKind::Scope(ScopeKind::File)));
     assert!(matches!(stmts[3].kind, StmtKind::AddContext(_)));
     assert!(
@@ -157,6 +170,7 @@ fn file_level_directives() {
 #[test]
 fn assert_takes_directive_flags() {
     let stmts = parse("#assert,stallable(A == 1);\n#assert,stallable A == 1 \"msg\";");
+
     assert!(matches!(&stmts[0].kind, StmtKind::Assert(a) if a.message.is_none()));
     assert!(matches!(&stmts[1].kind, StmtKind::Assert(a) if a.message.is_some()));
     error("#assert,stalable(A);");
@@ -171,6 +185,7 @@ fn static_if_at_file_scope() {
         panic!()
     };
     let (then_branch, else_branch) = (&first.then_branch, &first.else_branch);
+
     assert_eq!(then_branch.len(), 2);
     assert!(
         matches!(&else_branch[0].kind, StmtKind::StaticIf(i) if i.then_branch.len() == 1 && i.else_branch.len() == 1)
@@ -190,6 +205,7 @@ fn switch_statements() {
         panic!()
     };
     let (cases, complete) = (&switch.cases, switch.complete);
+
     assert!(!complete);
     assert_eq!(cases.len(), 3);
     assert_eq!(cases[1].values.len(), 2);
@@ -197,6 +213,7 @@ fn switch_statements() {
     assert!(cases[2].values.is_empty());
     let stmts =
         body_of("if #complete x == { case .A; a(); }\nif x == #complete { case .A: { a(); } }");
+
     assert!(matches!(
         &stmts[0].kind,
         StmtKind::Switch(s) if s.complete
@@ -218,6 +235,7 @@ fn equality_comparison_is_not_a_switch() {
     else {
         panic!()
     };
+
     assert!(matches!(cond.kind, ExprKind::Binary(BinOp::Eq, ..)));
     assert!(matches!(
         &else_branch.as_ref().unwrap().kind,
@@ -238,6 +256,7 @@ fn for_expansion_takes_a_name_path() {
             other => panic!("{other:?}"),
         })
         .collect();
+
     assert_eq!(
         paths,
         [
@@ -249,6 +268,7 @@ fn for_expansion_takes_a_name_path() {
     let StmtKind::For(f) = &stmts[0].kind else {
         unreachable!()
     };
+
     assert!(
         matches!(&f.over, ForOver::Collection(e) if e.path_string().as_deref() == Some("root.range"))
     );
@@ -266,6 +286,7 @@ fn for_loop_forms() {
             other => panic!("{other:?}"),
         })
         .collect();
+
     assert_eq!(
         (fors[0].it.is_some(), fors[0].index.is_some()),
         (true, true)
@@ -289,6 +310,7 @@ fn while_break_continue_remove() {
     let stmts = body_of(
         "while outer := i < 3 { break outer; }\nwhile x continue;\nfor a { remove; }\nfor a { remove it; }",
     );
+
     assert!(matches!(
         &stmts[0].kind,
         StmtKind::While(w) if w.label.is_some()
@@ -303,6 +325,7 @@ fn while_condition_backtick_is_retained_without_affecting_other_labels() {
     let stmts = body_of(
         "while `value := next() { break value; } while private := next() {} while :named true {}",
     );
+
     for (stmt, expected) in stmts
         .iter()
         .zip([(true, true), (true, false), (false, false)])
@@ -310,6 +333,7 @@ fn while_condition_backtick_is_retained_without_affecting_other_labels() {
         let StmtKind::While(w) = &stmt.kind else {
             panic!("while statement")
         };
+
         assert_eq!((w.bind_label, w.backtick_label), expected);
         assert!(w.label.is_some());
     }
@@ -320,6 +344,7 @@ fn return_defer_using_push_context() {
     let stmts = body_of(
         "return a, b;\nreturn x = 1;\n`return 1;\ndefer free(p);\n`defer { a(); }\nusing x;\nusing,only(a, b) y;\nusing,except(c) z;\npush_context ctx { f(); }",
     );
+
     assert!(
         matches!(&stmts[0].kind, StmtKind::Return { values, backtick: false } if values.len() == 2)
     );
@@ -364,6 +389,7 @@ fn assignments() {
     let stmts = body_of(
         "a = b;\na, b = b, a;\na += 1; a -= 1; a *= 2; a /= 2; a %= 2;\na &= 1; a |= 1; a ^= 1; a <<= 1; a >>= 1; a <<<= 1; a >>>= 1; a &&= b; a ||= b;",
     );
+
     assert!(
         matches!(&stmts[1].kind, StmtKind::Assign { lhs, rhs, .. } if lhs.len() == 2 && rhs.len() == 2)
     );
@@ -376,6 +402,7 @@ fn assignments() {
             other => panic!("{other:?}"),
         })
         .collect();
+
     assert_eq!(ops.len(), 14);
     assert!(ops.iter().all(|op| matches!(op, AssignOp::Op(_))));
     assert_eq!(ops[12], AssignOp::Op(BinOp::And));
@@ -389,16 +416,19 @@ fn a_stoppable_parse_ends_when_asked_even_inside_a_block() {
     let statements = STOP_POLL_STATEMENTS as usize * 10;
     let flat = "x += 1;".repeat(statements);
     let nested = format!("f :: () {{ {flat} }}");
+
     for text in [flat, nested] {
         let mut asked = 0;
         let stopped = parse_file_stoppable(FileId(0), &text, &mut || {
             asked += 1;
             asked == 3
         });
+
         assert!(stopped.is_none());
         assert_eq!(asked, 3, "the parse went on after it was told to stop");
         let mut never = || false;
         let parsed = parse_file_stoppable(FileId(0), &text, &mut never);
+
         assert!(parsed.is_some_and(|p| p.is_ok()));
     }
 }
@@ -415,9 +445,11 @@ fn a_stoppable_lex_ends_when_asked_in_the_middle_of_a_statement() {
         asked += 1;
         asked == 3
     });
+
     assert!(stopped.is_ok_and(|tokens| tokens.is_none()));
     assert_eq!(asked, 3, "the lexing went on after it was told to stop");
     let mut never = || false;
     let lexed = lex_stoppable(FileId(0), &text, &mut never);
+
     assert!(lexed.is_ok_and(|tokens| tokens.is_some()));
 }

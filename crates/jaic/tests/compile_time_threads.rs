@@ -56,6 +56,7 @@ fn code_parsed_on_a_started_thread_keeps_its_names() {
         .canonicalize()
         .unwrap();
     let mut options = Options::host();
+
     options.set_stdlib(&jaic::sema::NativeFs, &library);
     options.import_paths = vec![library];
     let fs = Rc::new(NativeFs);
@@ -70,7 +71,9 @@ fn code_parsed_on_a_started_thread_keeps_its_names() {
         observer: None,
     });
     let mut compiler = Compiler::new(options, fs);
+
     compiler.attach_workspaces(workspaces);
+
     if let Err(error) = compiler.compile_sources(&[ProgramSource::String(PROGRAM.into())]) {
         panic!("{}", error.render(&compiler.src.sources));
     }

@@ -4,7 +4,9 @@ use super::{Item, Module, Param, Path, docs, refs_json, refs_named};
 /// `field` as a JSON string literal.
 pub(in crate::doc_comments) fn json(field: &str) -> String {
     let mut out = String::with_capacity(field.len() + 2);
+
     out.push('"');
+
     for c in field.chars() {
         match c {
             '"' => out.push_str("\\\""),
@@ -16,6 +18,7 @@ pub(in crate::doc_comments) fn json(field: &str) -> String {
             c => out.push(c),
         }
     }
+
     out.push('"');
     out
 }
@@ -118,6 +121,7 @@ fn item_json(
                 .join(",")
         )
     };
+
     format!(
         "{{\"name\":{},\"kind\":{},\"file\":{},\"line\":{},\"docs\":{},\"value\":{},\"platforms\":[{}],\"experimental\":{}{},\"overloads\":[{}],\"members\":[{}]{}{},\"scope\":[{}]{}{}}}",
         json(&item.name),
@@ -177,6 +181,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
         if listed {
             for text in docs::unresolved::unresolved(doc, resolve, &known) {
                 let at = docs::unresolved::located_line(file, line, &text);
+
                 missed.borrow_mut().push(format!(
                     "{{\"file\":{},\"line\":{at},\"text\":{}}}",
                     path(file),
@@ -184,6 +189,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
                 ));
             }
         }
+
         docs::linked(doc, resolve)
     };
     let items: Vec<String> = model
@@ -191,6 +197,7 @@ pub fn to_json(model: &Module, resolve: &dyn Fn(&[String]) -> Option<String>) ->
         .iter()
         .map(|item| item_json(item, !item.private, &md_at))
         .collect();
+
     format!(
         "{{\"file\":{},\"implicit\":{},\"docs\":{},\"docs_line\":{},\"platforms\":[{}],\"experimental\":{},\"parameters\":[{}],\"items\":[\n{}\n],\"unresolved\":[{}],\"unexpanded\":[{}]}}\n",
         path(&model.file),

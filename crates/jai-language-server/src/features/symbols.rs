@@ -17,19 +17,23 @@ impl Session {
     pub fn workspace_symbols(&self, query: &str) -> Vec<SymbolInformation> {
         let query = query.to_lowercase();
         let mut out = Vec::new();
+
         for uri in self.analyses.keys() {
             let Some((analysis, text)) = self.declarations(uri) else {
                 continue;
             };
             let doc = &self.documents[uri];
             let shift = crate::semantic::Shift::between(text.as_bytes(), doc.text.as_bytes());
+
             for row in &analysis.rows {
                 if row.local || !row.name.as_str().to_lowercase().contains(&query) {
                     continue;
                 }
+
                 if out.len() >= self.limits.symbols {
                     return out;
                 }
+
                 let Some((start, end)) = shift.to_new_range(row.selection.start, row.selection.end)
                 else {
                     continue;
@@ -37,6 +41,7 @@ impl Session {
                 let Ok(range) = doc.index.range(&doc.text, Span::new(start, end)) else {
                     continue;
                 };
+
                 out.push(SymbolInformation {
                     name: row.name.as_str().into(),
                     kind: row.kind,
@@ -51,8 +56,10 @@ impl Session {
                 });
             }
         }
+
         // The project's files that are not open: their top-level names, from tokens.
         let room = self.limits.symbols.saturating_sub(out.len());
+
         out.extend(self.project_symbols(&query, room));
         out
     }
@@ -67,12 +74,14 @@ impl Session {
         let line = |byte: usize| doc.index.position(text, byte).map(|p| p.line);
         let mut out = Vec::new();
         let mut open = Vec::new();
+
         for token in &analysis.tokens {
             match token.spelling(text) {
                 "{" | ".{" | "(" | "[" | ".[" => open.push(token.span.start),
                 "}" | ")" | "]" => {
                     if let Some(start) = open.pop() {
                         let (a, b) = (line(start)?, line(token.span.start)?);
+
                         if b > a + 1 || (b > a && token.spelling(text) == "}") {
                             out.push(FoldingRange {
                                 start_line: a,
@@ -85,7 +94,9 @@ impl Session {
                 _ => {}
             }
         }
+
         let mut run: Option<(u32, u32)> = None;
+
         for token in &analysis.tokens {
             if token.kind != TokenKind::Directive
                 || !matches!(
@@ -95,7 +106,9 @@ impl Session {
             {
                 continue;
             }
+
             let l = line(token.span.start)?;
+
             run = match run {
                 Some((a, b)) if l == b + 1 || l == b => Some((a, l)),
                 Some((a, b)) => {
@@ -106,11 +119,13 @@ impl Session {
                             imports: true,
                         });
                     }
+
                     Some((l, l))
                 }
                 None => Some((l, l)),
             };
         }
+
         if let Some((a, b)) = run
             && b > a
         {
@@ -120,6 +135,7 @@ impl Session {
                 imports: true,
             });
         }
+
         out.sort_by_key(|r| (r.start_line, r.end_line));
         out.dedup_by_key(|r| r.start_line);
         Ok(out)
@@ -133,6 +149,7 @@ impl Session {
         let text = &doc.text;
         let polys = self.workspace_polymorphs(uri);
         let mut out = Vec::new();
+
         for (span, name, instances, complete) in polys {
             let start = (span.start as usize).min(text.len());
             // The name is earlier on the line: `name :: (x: $T)`.
@@ -140,10 +157,12 @@ impl Session {
             let at = text[line_start..start]
                 .find(name.as_str())
                 .map_or(start, |i| line_start + i);
+
             if let Some(range) = self.range_of(uri, Span::new(at, at + name.len())) {
                 out.push((range, instances, complete));
             }
         }
+
         out
     }
 
@@ -151,6 +170,7 @@ impl Session {
     /// over each test the lenses that run it.
     pub fn code_lenses(&self, uri: &DocumentUri) -> Result<Vec<CodeLens>, Error> {
         let mut lenses = self.polymorph_lenses(uri)?;
+
         lenses.extend(self.test_code_lenses(uri)?);
         lenses.extend(self.cost_code_lenses(uri)?);
         lenses.sort_by_key(|lens| lens.range.start);
@@ -175,6 +195,7 @@ impl Session {
                 } else {
                     format!("{title} (analysis incomplete)")
                 };
+
                 CodeLens {
                     range,
                     command: Command::at(title, "jai.showPolymorphs", uri.as_str(), range.start),
@@ -229,9 +250,11 @@ impl Session {
             })
             .map(|w| (w[0].span, w[1].span.start as u32))
             .collect();
+
         if callees.is_empty() {
             return classes;
         }
+
         let found = self.checked_decorations(uri, |a, f, shift| {
             let callees: Vec<_> = callees
                 .iter()
@@ -245,6 +268,7 @@ impl Session {
             // Both lists are in source order, and `classes` is a subsequence of `callees`.
             let mut classes = classes.into_iter().peekable();
             let mut found = Vec::new();
+
             for &(span, open) in &callees {
                 if let Some(&(at, class)) = classes.peek()
                     && at == open
@@ -253,6 +277,7 @@ impl Session {
                     classes.next();
                 }
             }
+
             found
         });
         let found = found.unwrap_or_default();
@@ -261,6 +286,7 @@ impl Session {
         // way too), so the classes are asked for again.
         let mut classes = self.recorded_identifier_classes(uri);
         let known: HashSet<usize> = classes.iter().map(|(s, _)| s.start).collect();
+
         classes.extend(found.into_iter().filter(|(s, _)| !known.contains(&s.start)));
         classes
     }

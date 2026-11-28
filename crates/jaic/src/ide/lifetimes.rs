@@ -312,6 +312,7 @@ impl LifetimeEvent {
             }
             _ => {}
         }
+
         let (Self::Call {
             args, ..
         }
@@ -321,6 +322,7 @@ impl LifetimeEvent {
         else {
             return;
         };
+
         for arg in args {
             arg.constant = match arg.operand {
                 LifetimeOperand::Value(value) => constants.get(&value).copied(),
@@ -425,14 +427,17 @@ impl LifetimeRecording {
         );
         let block = block.0 as usize;
         let ordinal = self.blocks[block].events.len();
+
         if let Some(site) = self.source_site {
             let last = self.last_source_range.get(&block).copied().filter(|&i| {
                 self.source_ranges[i].site == site && self.source_ranges[i].end_event == ordinal
             });
+
             if let Some(last) = last {
                 self.source_ranges[last].end_event += 1;
             } else {
                 let i = self.source_ranges.len();
+
                 self.source_ranges.push(LifetimeSourceRange {
                     block,
                     first_event: ordinal,
@@ -442,6 +447,7 @@ impl LifetimeRecording {
                 self.last_source_range.insert(block, i);
             }
         }
+
         self.blocks[block].events.push(event);
     }
 }
@@ -466,9 +472,11 @@ impl Compiler {
                 else {
                     return None;
                 };
+
                 if !matches!(self.ty.types.kind(*ty), TypeKind::Proc(_)) {
                     return None;
                 }
+
                 let EntityState::Done(Resolved::Global {
                     storage: ir::Storage::Data(id),
                     ..
@@ -483,12 +491,14 @@ impl Compiler {
             .into_iter()
             .map(|id| {
                 let global = &self.out.program.globals[id.0 as usize];
+
                 (
                     id,
                     (global.init.iter().any(|&b| b != 0), global.relocs.clone()),
                 )
             })
             .collect::<Vec<_>>();
+
         for (id, initial) in retained {
             self.ed
                 .facts_mut()
@@ -503,12 +513,15 @@ impl Compiler {
         if f.type_only {
             return;
         }
+
         let Some(record) = &mut f.lifetimes else {
             return;
         };
+
         if matches!(expr.kind, E::Context) && !record.context_types.contains(&op.ty()) {
             record.context_types.push(op.ty());
         }
+
         let operand = LifetimeOperand::of(op);
         let entity_span = match &expr.kind {
             E::Member(_, member) => member.span,
@@ -521,6 +534,7 @@ impl Compiler {
             .filter(|(at, _)| *at == entity_span)
             .map(|(_, id)| id);
         let block = f.b.current;
+
         if matches!(operand, LifetimeOperand::Place(_)) || self.ty.types.is_pointer(op.ty()) {
             record.push(
                 block,
@@ -532,6 +546,7 @@ impl Compiler {
                 },
             );
         }
+
         if let LifetimeOperand::Place(place) = operand {
             if matches!(
                 self.ty.types.kind(op.ty()),
@@ -542,6 +557,7 @@ impl Compiler {
             ) {
                 record.resizable.insert(place, op.ty());
             }
+
             let comparison_reads_storage = f.lifetime_comparing
                 && matches!(
                     self.ty.types.kind(op.ty()),
@@ -554,6 +570,7 @@ impl Compiler {
             let nonuse = f.lifetime_nonuses.contains(&Some(expr.span)) && !comparison_reads_storage;
             let metadata_only =
                 f.lifetime_metadata_base == Some(expr.span) && !self.ty.types.is_pointer(op.ty());
+
             if matches!(expr.kind, E::Ident(_) | E::Member(..)) && !nonuse && !metadata_only {
                 record.push(
                     block,
@@ -565,6 +582,7 @@ impl Compiler {
                 );
             }
         }
+
         if matches!(expr.kind, E::Asm(_)) {
             record.push(block, LifetimeEvent::Barrier);
         }
@@ -606,9 +624,11 @@ impl FnCtx {
         if self.type_only {
             return;
         }
+
         let Some(record) = &mut self.lifetimes else {
             return;
         };
+
         if let Some((result, result_ty, subscript)) = element {
             record.push(
                 self.b.current,
@@ -622,6 +642,7 @@ impl FnCtx {
                 },
             );
         }
+
         record.push(
             self.b.current,
             LifetimeEvent::Iteration {
@@ -683,6 +704,7 @@ impl FnCtx {
         if value == source {
             return;
         }
+
         if !self.type_only
             && let Some(record) = &mut self.lifetimes
         {
@@ -750,6 +772,7 @@ impl LifetimeBody {
 impl Compiler {
     pub(crate) fn lifetime_begin_body(&mut self, f: &mut FnCtx, id: ProcId) {
         use crate::ide::Recorder;
+
         if self.ed.facts().is_some_and(|i| i.lint) && !self.ed.sketching() {
             self.ed.facts_mut().unwrap().lifetime_bodies.remove(&id);
             f.lifetimes = Some(Box::new(LifetimeRecording {
@@ -783,11 +806,14 @@ impl Compiler {
                         _ => None,
                     })
                     .collect();
+
             for (out, block) in record.blocks.iter_mut().zip(&f.b.func.blocks) {
                 out.normal_return = matches!(block.term, ir::Term::Ret(_));
+
                 for event in &mut out.events {
                     event.resolve_constants(&constants);
                 }
+
                 if let ir::Term::Branch {
                     cond,
                     then_block,
@@ -809,6 +835,7 @@ impl Compiler {
                         .for_each_successor(|b| out.successors.push(b.0 as usize));
                 }
             }
+
             record.prune_cleanup_edges(&f.b.func, &constants);
             let globals: Vec<_> =
                 f.b.func
@@ -830,8 +857,10 @@ impl Compiler {
             let boolean_branches =
                 booleans::immutable_boolean_branches(&f.b.func, &record.blocks, &constants);
             let facts = self.ed.facts_mut().unwrap();
+
             for &(_, id) in &globals {
                 let global = &self.out.program.globals[id.0 as usize];
+
                 if global.read_only && !global.relocs.is_empty() {
                     facts
                         .lifetime_globals
@@ -839,13 +868,16 @@ impl Compiler {
                         .or_insert_with(|| global.relocs.clone());
                 }
             }
+
             let ids = facts
                 .lifetime_files
                 .entry(syntax.header.span.file)
                 .or_default();
+
             if !ids.contains(&id) {
                 ids.push(id);
             }
+
             facts.lifetime_bodies.insert(
                 id,
                 crate::ide::lifetimes::LifetimeBody {
@@ -878,6 +910,7 @@ impl Compiler {
                             else {
                                 return None;
                             };
+
                             Some(LifetimeComparison {
                                 ty,
                                 value: dst,
@@ -907,7 +940,9 @@ impl LifetimeRecording {
         {
             return;
         }
+
         let mut flags: Vec<_> = self.cleanup_flags.iter().copied().collect();
+
         if !self.bool_slots.is_empty() {
             flags.extend(
                 private_byte_flags(func)
@@ -915,15 +950,20 @@ impl LifetimeRecording {
                     .filter(|v| self.bool_slots.contains(v)),
             );
         }
+
         flags.sort_unstable_by_key(|v| v.0);
         flags.dedup();
+
         if flags.is_empty() {
             return;
         }
+
         let slots: HashMap<_, _> = flags.into_iter().enumerate().map(|(i, v)| (v, i)).collect();
         let mut states = vec![None; self.blocks.len()];
+
         states[0] = Some(vec![1u8; slots.len()]);
         let mut queue = std::collections::VecDeque::from([0]);
+
         while let Some(i) = queue.pop_front() {
             let mut state = states[i].clone().unwrap();
             let loads = cleanup_loads(&func.blocks[i].insts, &mut state, &slots, constants);
@@ -939,29 +979,36 @@ impl LifetimeRecording {
                 },
                 _ => self.blocks[i].successors.clone(),
             };
+
             for next in successors {
                 let changed = if let Some(previous) = &mut states[next] {
                     let mut changed = false;
+
                     for (old, &new) in previous.iter_mut().zip(&state) {
                         let joined = *old | new;
+
                         changed |= joined != *old;
                         *old = joined;
                     }
+
                     changed
                 } else {
                     states[next] = Some(state.clone());
                     true
                 };
+
                 if changed {
                     queue.push_back(next);
                 }
             }
         }
+
         for (i, state) in states.into_iter().enumerate() {
             let Some(mut state) = state else {
                 continue;
             };
             let loads = cleanup_loads(&func.blocks[i].insts, &mut state, &slots, constants);
+
             if let ir::Term::Branch {
                 cond,
                 then_block,
@@ -998,6 +1045,7 @@ impl FnCtx {
 // Only direct, uniquely addressed one-byte slots can be propagated without alias analysis.
 fn private_byte_flags(func: &ir::Func) -> Vec<Val> {
     let mut addresses = HashMap::<ir::SlotId, Vec<Val>>::default();
+
     for inst in func.blocks.iter().flat_map(|b| &b.insts) {
         if let ir::Inst::SlotAddr {
             dst,
@@ -1008,6 +1056,7 @@ fn private_byte_flags(func: &ir::Func) -> Vec<Val> {
             addresses.entry(*slot).or_default().push(*dst);
         }
     }
+
     let mut flags: HashSet<_> = addresses
         .values()
         .filter_map(|v| match v.as_slice() {
@@ -1015,6 +1064,7 @@ fn private_byte_flags(func: &ir::Func) -> Vec<Val> {
             _ => None,
         })
         .collect();
+
     for block in &func.blocks {
         for inst in &block.insts {
             match inst {
@@ -1033,10 +1083,12 @@ fn private_byte_flags(func: &ir::Func) -> Vec<Val> {
                 }),
             }
         }
+
         ir::term_uses(&block.term, &mut |v| {
             flags.remove(&v);
         });
     }
+
     flags.into_iter().collect()
 }
 
@@ -1047,6 +1099,7 @@ fn cleanup_loads(
     constants: &HashMap<Val, u64>,
 ) -> HashMap<Val, u8> {
     let mut loads = HashMap::default();
+
     for inst in insts {
         match inst {
             ir::Inst::Store {
@@ -1083,6 +1136,7 @@ fn cleanup_loads(
                 } else {
                     None
                 };
+
                 if let Some(&v) = input {
                     loads.insert(*dst, (v & 1) | ((v & 2) << 1) | ((v & 4) >> 1));
                 }
@@ -1101,6 +1155,7 @@ fn cleanup_loads(
                 } else {
                     None
                 };
+
                 if let Some(&value) = input {
                     let inverted = matches!(
                         inst,
@@ -1109,6 +1164,7 @@ fn cleanup_loads(
                             ..
                         }
                     );
+
                     loads.insert(
                         *dst,
                         if inverted {
@@ -1122,6 +1178,7 @@ fn cleanup_loads(
             _ => {}
         }
     }
+
     loads
 }
 
@@ -1130,6 +1187,7 @@ impl FnCtx {
     pub(crate) fn lifetime_enter_site(&mut self, site: Option<Span>) -> Option<Span> {
         let record = self.lifetimes.as_mut()?;
         let previous = record.source_site;
+
         record.source_site = previous.or(site);
         previous
     }
@@ -1146,6 +1204,7 @@ impl FnCtx {
 fn stack_places(func: &ir::Func, subplaces: Vec<Val>) -> Vec<Val> {
     let mut stack: HashSet<Val> = subplaces.into_iter().collect();
     let mut derived: HashMap<Val, Vec<Val>> = HashMap::default();
+
     for instruction in func.blocks.iter().flat_map(|b| &b.insts) {
         match *instruction {
             ir::Inst::SlotAddr {
@@ -1164,7 +1223,9 @@ fn stack_places(func: &ir::Func, subplaces: Vec<Val>) -> Vec<Val> {
             _ => {}
         }
     }
+
     let mut pending: Vec<_> = stack.iter().copied().collect();
+
     while let Some(base) = pending.pop() {
         for &dst in derived.get(&base).into_iter().flatten() {
             if stack.insert(dst) {
@@ -1172,7 +1233,9 @@ fn stack_places(func: &ir::Func, subplaces: Vec<Val>) -> Vec<Val> {
             }
         }
     }
+
     let mut stack: Vec<_> = stack.into_iter().collect();
+
     stack.sort_unstable_by_key(|v| v.0);
     stack
 }
@@ -1180,6 +1243,7 @@ fn stack_places(func: &ir::Func, subplaces: Vec<Val>) -> Vec<Val> {
 fn slot_aliases(func: &ir::Func) -> Vec<(Val, Val)> {
     let mut slots = HashMap::default();
     let mut aliases = Vec::new();
+
     for inst in func.blocks.iter().flat_map(|b| &b.insts) {
         if let ir::Inst::SlotAddr {
             dst,
@@ -1187,10 +1251,12 @@ fn slot_aliases(func: &ir::Func) -> Vec<(Val, Val)> {
         } = *inst
         {
             let canonical = *slots.entry(slot).or_insert(dst);
+
             if dst != canonical {
                 aliases.push((dst, canonical));
             }
         }
     }
+
     aliases
 }

@@ -9,6 +9,7 @@ pub fn names_root(pattern: &PathPattern, project: &Path, dir: &Path) -> bool {
     if pattern.is_literal() {
         return project.join(pattern.literal_prefix()) == dir;
     }
+
     dir.starts_with(project) && pattern.is_exact_match(&relative_text(dir, project))
 }
 
@@ -36,9 +37,11 @@ pub fn ignore_patterns(config: &Config) -> Vec<PathPattern> {
 /// folder itself when they name none.
 pub fn is_root(config: &Config, project: &Path, dir: &Path) -> bool {
     let paths = &config.test.paths.0;
+
     if paths.is_empty() {
         return dir == project;
     }
+
     let ignore = ignore_patterns(config);
     let Ok(below) = dir.strip_prefix(project) else {
         return false;
@@ -51,6 +54,7 @@ pub fn is_root(config: &Config, project: &Path, dir: &Path) -> bool {
         .ancestors()
         .take_while(|up| *up != project)
         .all(|up| !ignored(&ignore, &relative_text(up, project)));
+
     paths.iter().any(|text| {
         PathPattern::new(text).is_ok_and(|pattern| {
             names_root(&pattern, project, dir) && (pattern.is_literal() || (walked && kept))
@@ -70,6 +74,7 @@ mod tests {
     #[test]
     fn no_paths_make_the_project_the_root() {
         let config = Config::default();
+
         assert!(is_root(&config, Path::new("/p"), Path::new("/p")));
         assert!(!is_root(&config, Path::new("/p"), Path::new("/p/sub")));
     }
@@ -78,6 +83,7 @@ mod tests {
     fn paths_name_folders_and_patterns() {
         let config = config("[test]\npaths = [\"a\", \"lib/*\"]\n");
         let root = |dir: &str| is_root(&config, Path::new("/p"), &PathBuf::from(dir));
+
         assert!(root("/p/a"));
         assert!(root("/p/lib/x"));
         assert!(!root("/p"));
@@ -89,6 +95,7 @@ mod tests {
     fn patterns_skip_hidden_and_ignored_folders() {
         let config = config("[test]\npaths = [\"**\"]\n\n[lint]\nexclude = [\"fuzz/**\"]\n");
         let root = |dir: &str| is_root(&config, Path::new("/p"), &PathBuf::from(dir));
+
         assert!(root("/p/a"));
         assert!(!root("/p/.hidden/a"));
         assert!(!root("/p/fuzz/a"));

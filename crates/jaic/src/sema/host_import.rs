@@ -22,6 +22,7 @@ impl Compiler {
         if matches!(twin.ty.types.kind(ty), TypeKind::Code) {
             return false;
         }
+
         let mut importer = Importer {
             target: self,
             host: twin,
@@ -48,6 +49,7 @@ impl Compiler {
             globals: HashMap::default(),
             checked: HashSet::default(),
         };
+
         operands
             .into_iter()
             .map(|operand| importer.operand(operand))
@@ -89,6 +91,7 @@ impl Importer<'_> {
                     self.same_layout(ty, imported)?;
                     self.value(value)?
                 };
+
                 Ok(Operand::Const {
                     ty: imported,
                     value,
@@ -118,9 +121,11 @@ impl Importer<'_> {
         let Ok(bytes) = <wide_float::Bytes>::try_from(image.bytes.as_slice()) else {
             return self.fail("a long double #run result is not a constant");
         };
+
         match self.target.ty.types.wide_float(imported) {
             Some(target) => {
                 let mut image = (**image).clone();
+
                 image.bytes = wide_float::convert(format, target, &bytes).to_vec();
                 Ok(Value::Bytes(Arc::new(image)))
             }
@@ -139,9 +144,11 @@ impl Importer<'_> {
             Value::Type(ty) => Ok(Value::Type(self.ty(ty)?)),
             Value::Bytes(image) => {
                 let mut image = (*image).clone();
+
                 for relocation in &mut image.relocs {
                     relocation.target = self.data(relocation.target)?;
                 }
+
                 Ok(Value::Bytes(Arc::new(image)))
             }
             Value::Proc(procedure) => Ok(Value::Proc(self.target_proc(procedure)?)),
@@ -160,29 +167,39 @@ impl Importer<'_> {
                 return self.procedure_address(target);
             }
         };
+
         if let Some(&copied) = self.globals.get(&old) {
             return Ok(ir::RelocTarget::Global(copied));
         }
+
         // A type's descriptor is the target's own descriptor of the matching type, so pointers
         // to it compare equal to `type_info(T)` in the target program.
         if let Some(own) = self.type_descriptor(old) {
             self.globals.insert(old, own);
             return Ok(ir::RelocTarget::Global(own));
         }
+
         // A variable of the program is the same variable in the target program.
         if let Some(&(name, span)) = self.host.out.declared_globals.get(&old) {
             let own = self.target_variable(name, span)?;
+
             self.globals.insert(old, own);
+
             return Ok(ir::RelocTarget::Global(own));
         }
+
         let mut global = self.host.out.program.globals[old.0 as usize].clone();
+
         global.name = "host.run.data".into();
         global.export = None;
         let copied = self.target.out.program.add_global(global.clone());
+
         self.globals.insert(old, copied);
+
         for relocation in &mut global.relocs {
             relocation.target = self.data(relocation.target)?;
         }
+
         self.target.out.program.globals[copied.0 as usize] = global;
         Ok(ir::RelocTarget::Global(copied))
     }
@@ -193,6 +210,7 @@ impl Importer<'_> {
     fn type_descriptor(&mut self, old: ir::GlobalId) -> Option<ir::GlobalId> {
         let host_ty = self.host.ty.type_from_info_global(old)?;
         let own = self.ty(host_ty).ok()?;
+
         self.target.type_info_global(own, self.span).ok()
     }
 
@@ -201,6 +219,7 @@ impl Importer<'_> {
         if let Some(&known) = self.types.get(&host) {
             return Ok(known);
         }
+
         let kind = self.host.ty.types.kind(host).clone();
         let imported = match kind {
             TypeKind::Pointer(inner) => {
@@ -225,6 +244,7 @@ impl Importer<'_> {
                     .iter()
                     .map(|&ret| self.ty(ret))
                     .collect::<Result<_>>()?;
+
                 self.target
                     .ty
                     .types
@@ -251,12 +271,14 @@ impl Importer<'_> {
             }
             other => self.target.ty.types.intern(other),
         };
+
         self.types.insert(host, imported);
         Ok(imported)
     }
 
     fn named_struct(&mut self, host_type: TypeId, id: StructId) -> Result<TypeId> {
         let info = self.host.ty.types.structs[id.0 as usize].clone();
+
         if info.poly_parent.is_some() {
             return self.fail(format!(
                 "a #run result of the polymorphic instance `{}` cannot be used by the target \
@@ -264,6 +286,7 @@ impl Importer<'_> {
                 info.name
             ));
         }
+
         self.find_declaration(host_type, info.name, info.span, "struct")
     }
 
@@ -293,6 +316,7 @@ impl Importer<'_> {
             .map(std::path::Path::to_path_buf);
         let mut exact = Vec::new();
         let mut siblings = Vec::new();
+
         for info in &self.target.src.files {
             if info.path == path {
                 exact.push(info.scope);
@@ -302,11 +326,13 @@ impl Importer<'_> {
                 siblings.push(info.scope);
             }
         }
+
         for (scopes, is_exact) in [(exact, true), (siblings, false)] {
             for scope in scopes {
                 let Ok(ids) = self.target.lookup(scope, name) else {
                     continue;
                 };
+
                 for id in ids {
                     let Ok(Resolved::Const {
                         value: Value::Type(ty),
@@ -315,6 +341,7 @@ impl Importer<'_> {
                     else {
                         continue;
                     };
+
                     if if is_exact {
                         self.declared_at(ty, &path, span)
                     } else {
@@ -325,6 +352,7 @@ impl Importer<'_> {
                 }
             }
         }
+
         self.fail(format!(
             "the {what} `{name}` returned by this #run is not declared the same way in the \
              target program (it may be local to a procedure or to an OS-specific branch)"
@@ -347,6 +375,7 @@ impl Importer<'_> {
                 .fail("a #run result points at code that is not a procedure of the program");
         };
         let own = self.target_proc(ProcId(host as u32))?;
+
         Ok(match self.target.proc_func(own, self.span)? {
             ProcTarget::Func(function) => ir::RelocTarget::Func(function),
             ProcTarget::Foreign(foreign) => ir::RelocTarget::Foreign(foreign),
@@ -381,24 +410,29 @@ impl Importer<'_> {
             .filter(|info| info.path == path)
             .map(|info| info.scope)
             .collect();
+
         for scope in scopes {
             let Ok(ids) = self.target.lookup(scope, name) else {
                 continue;
             };
+
             for id in ids {
                 let found = match self.target.resolve_entity(id) {
                     Ok(Resolved::Proc(procedure)) => vec![procedure],
                     Ok(Resolved::ProcSet(set)) => set,
                     _ => continue,
                 };
+
                 for procedure in found {
                     let declared = self.target.proc(procedure).span;
+
                     if declared.start == span.start && declared.end == span.end {
                         return Ok(procedure);
                     }
                 }
             }
         }
+
         self.fail(format!(
             "a #run result holds the procedure `{name}`, which the target program does not declare \
              the same way"
@@ -421,10 +455,12 @@ impl Importer<'_> {
             .filter(|info| Some(&info.path) == path.as_ref())
             .map(|info| info.scope)
             .collect();
+
         for scope in scopes {
             let Ok(ids) = self.target.lookup(scope, name) else {
                 continue;
             };
+
             for id in ids {
                 if let Ok(Resolved::Global {
                     storage: ir::Storage::Data(global),
@@ -435,6 +471,7 @@ impl Importer<'_> {
                 }
             }
         }
+
         self.fail(format!(
             "a #run result points at the variable `{name}`, which the target program does not              declare the same way"
         ))
@@ -447,14 +484,18 @@ impl Importer<'_> {
             TypeKind::Enum(id) => Some((false, compiler.ty.types.enum_info(*id).name)),
             _ => None,
         };
+
         if describe(self.host, host) != describe(self.target, target) {
             return false;
         }
+
         let before = self.checked.clone();
         let same = self.same_layout(host, target).is_ok();
+
         if !same {
             self.checked = before;
         }
+
         same
     }
 
@@ -464,6 +505,7 @@ impl Importer<'_> {
             TypeKind::Enum(id) => self.target.ty.types.enum_info(*id).span,
             _ => return false,
         };
+
         span.start == host_span.start
             && span.end == host_span.end
             && self
@@ -479,7 +521,9 @@ impl Importer<'_> {
         if !self.checked.insert((host, target)) {
             return Ok(());
         }
+
         let span = self.span;
+
         match (
             self.host.ty.types.kind(host).clone(),
             self.target.ty.types.kind(target).clone(),
@@ -501,6 +545,7 @@ impl Importer<'_> {
                         .iter()
                         .zip(target_info.fields.iter())
                         .all(|(a, b)| a.name == b.name && a.offset == b.offset);
+
                 if !same {
                     return self.fail(format!(
                         "`{}` has a different layout on the host (size {host_size}) than in the \
@@ -508,20 +553,24 @@ impl Importer<'_> {
                         host_info.name
                     ));
                 }
+
                 for (a, b) in host_info.fields.iter().zip(target_info.fields.iter()) {
                     self.same_layout(a.ty, b.ty)?;
                 }
+
                 Ok(())
             }
             (TypeKind::Enum(h), TypeKind::Enum(t)) => {
                 let host_info = self.host.ty.types.enum_info(h).clone();
                 let target_info = self.target.ty.types.enum_info(t).clone();
+
                 if host_info.members != target_info.members {
                     return self.fail(format!(
                         "the members of enum `{}` differ between the host and the target program",
                         host_info.name
                     ));
                 }
+
                 let base = self.ty(host_info.base)?;
                 self.same_layout(host_info.base, base)
             }

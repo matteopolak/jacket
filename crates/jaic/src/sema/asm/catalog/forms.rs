@@ -22,6 +22,7 @@ fn binary(vex: bool, imm: bool) -> Vec<&'static str> {
     } else {
         (BIN, BIN3)
     };
+
     if vex {
         vec![three, two]
     } else {
@@ -96,6 +97,7 @@ pub(super) fn forms(name: &str, kind: Kind, vex: bool) -> Vec<String> {
                     StrOp::Stos | StrOp::Scas => "di: gpr, a: gpr",
                     StrOp::Lods => "a: gpr, si: gpr",
                 };
+
                 return vec![match rep {
                     Rep::Once => format!("{name}.size {regs}"),
                     Rep::Count | Rep::Repe | Rep::Repne => format!("{name}.size {regs}, c: gpr"),
@@ -116,6 +118,7 @@ pub(super) fn forms(name: &str, kind: Kind, vex: bool) -> Vec<String> {
         },
         Kind::Vector(op) => vector_forms(op, vex),
     };
+
     shapes
         .into_iter()
         .map(|s| {

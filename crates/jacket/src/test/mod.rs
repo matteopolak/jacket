@@ -189,6 +189,7 @@ fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
         .chain(args.coverage_record.iter_mut())
         .chain(args.coverage_summary.iter_mut())
         .chain(args.partition_times.iter_mut());
+
     for path in args
         .path
         .iter_mut()
@@ -198,6 +199,7 @@ fn resolve_paths(args: &TestArgs, cwd: &Path) -> TestArgs {
     {
         *path = cwd.join(&*path);
     }
+
     crate::compile::absolute_flag_paths(&mut args.jaic_args, cwd);
     args
 }
@@ -207,6 +209,7 @@ fn select(case: &Case, filters: &[String], exact: bool) -> Option<String> {
     if filters.is_empty() {
         return Some(case.local.clone());
     }
+
     let matches = |pattern: &str, name: &str| {
         if exact {
             name == pattern
@@ -214,12 +217,15 @@ fn select(case: &Case, filters: &[String], exact: bool) -> Option<String> {
             name.contains(pattern)
         }
     };
+
     if filters.iter().any(|f| matches(f, &case.name)) {
         return Some(case.local.clone());
     }
+
     if case.kind != Kind::Test {
         return None;
     }
+
     // `test/subtest`: the test, asked to run that subtest only.
     filters.iter().find_map(|f| {
         let (top, sub) = f.split_once('/')?;
@@ -230,23 +236,29 @@ fn select(case: &Case, filters: &[String], exact: bool) -> Option<String> {
 /// The entries of [`filter::KINDS`] a case has.
 fn kinds_of(case: &Case, snapshot: bool) -> Vec<&'static str> {
     let has_note = |name: &str| case.notes.iter().any(|n| n.split('(').next() == Some(name));
+
     match case.kind {
         Kind::Test => {
             let mut kinds = Vec::new();
             let property = has_note("property");
             let compile_time = has_note("compile_time");
+
             if !property && !compile_time {
                 kinds.push("unit");
             }
+
             if property {
                 kinds.push("property");
             }
+
             if compile_time {
                 kinds.push("compile_time");
             }
+
             if snapshot && uses_snapshots(&case.file, case.line) {
                 kinds.push("snapshot");
             }
+
             kinds
         }
         Kind::Golden => vec!["golden"],
@@ -260,6 +272,7 @@ fn kinds_of(case: &Case, snapshot: bool) -> Vec<&'static str> {
 /// to the first line that starts with `}`.
 fn uses_snapshots(file: &Path, line: u32) -> bool {
     let source = std::fs::read_to_string(file).unwrap_or_default();
+
     source
         .lines()
         .skip(line.saturating_sub(1) as usize)
@@ -276,6 +289,7 @@ fn expr_selects(expr: &filter::FilterExpr, case: &Case, root: &discover::Root, c
         .map(jacket_config::slashed)
         .chain([jacket_config::slashed(&case.file)])
         .collect();
+
     expr.matches(&filter::Subject {
         names: [&case.name, &case.local],
         modules: [&root.module, &root.label],
@@ -288,9 +302,11 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
     if !args.watch {
         return run_once(args, cwd, bench, &mut watch::Watched::default(), None);
     }
+
     if bench.is_some() {
         return fail("`jacket bench` has no --watch");
     }
+
     watch::run(args, cwd)
 }
 
@@ -298,9 +314,11 @@ pub fn run(args: &TestArgs, cwd: &Path, bench: Option<&BenchArgs>) -> ExitCode {
 /// for `--doc` (never for `--no-doc`).
 fn kind_selected(kind: Kind, args: &TestArgs, bench: bool) -> bool {
     let is_bench = kind == Kind::Bench;
+
     if is_bench != bench && (bench || !args.list) {
         return false;
     }
+
     let is_doc = kind == Kind::Doc;
     !((args.doc && !is_doc) || (args.no_doc && is_doc))
 }
@@ -309,17 +327,21 @@ fn kind_selected(kind: Kind, args: &TestArgs, bench: bool) -> bool {
 /// do not run tests (`-check`, `-deps`) or that conflict.
 fn take_forwarded_modes(args: &mut TestArgs) -> Result<(), String> {
     let forwarded = jaic_cli_args::arguments::target_flags(&args.jaic_args)?;
+
     jaic_cli_args::cli::Mode::from_flags(forwarded.check, forwarded.interp, forwarded.deps)
         .map_err(|error| error.message)?;
+
     if forwarded.deps {
         return Err("use `jacket test --list --deps` to list test dependencies".into());
     }
+
     if forwarded.check && !args.check_only {
         return Err(
             "`-check` does not run tests; use `--check-only` to type-check tests and doc examples"
                 .into(),
         );
     }
+
     args.interp |= forwarded.interp;
     args.jaic_args = forwarded.without_modes(std::mem::take(&mut args.jaic_args));
     Ok(())
@@ -335,9 +357,11 @@ fn link_probes(
 ) -> Result<(), String> {
     if let Some(probes) = prerequisites::prepare_probes(files, stdlib, allow_missing)? {
         let path = serde_json::to_string(&probes.to_string_lossy()).expect("serialize path");
+
         toolchain.flags.extend(["-add".into(), format!("#run {{ C :: #import \"Compiler\"; C.compiler_add_library_search_directory({path}); }}")]);
         toolchain.environment_flags = 2;
     }
+
     Ok(())
 }
 
@@ -353,9 +377,11 @@ fn run_once(
     watched.clear();
     let bench = bench_args.is_some();
     let mut resolved = resolve_paths(args, cwd);
+
     if let Err(error) = take_forwarded_modes(&mut resolved) {
         return fail(error);
     }
+
     let args = &resolved;
     let loaded = match project::load(cwd) {
         Ok(loaded) => loaded,
@@ -390,15 +416,19 @@ fn run_once(
         Ok(found) => found,
         Err(error) => return fail(format!("in `[test] paths`, {error}")),
     };
+
     if args.roots {
         for root in discover::roots(&args.path, &configured, &project_dir, cwd) {
             println!("{}", root.display());
         }
+
         return ExitCode::SUCCESS;
     }
+
     if args.review {
         use std::io::IsTerminal;
         let roots = discover::roots(&args.path, &configured, &project_dir, cwd);
+
         return review::run(
             &roots,
             cwd,
@@ -407,6 +437,7 @@ fn run_once(
             &mut std::io::stdout(),
         );
     }
+
     let filter_expr = match args.filter_expr.as_deref().map(filter::FilterExpr::parse) {
         Some(Ok(expr)) => Some(expr),
         Some(Err(error)) => return fail(error),
@@ -416,15 +447,19 @@ fn run_once(
     // (`Case::board_skip`).
     let on_board = target_flags.iter().any(|flag| flag.starts_with('+'));
     let mut flags = target_flags;
+
     if let Some(os) = &args.os {
         flags.extend(["-os".to_string(), os.clone()]);
     }
+
     if let Some(cpu) = &args.cpu {
         flags.extend(["-cpu".to_string(), cpu.clone()]);
     }
+
     // The project's import folders and `[experimental]` settings reach tests as they reach
     // `jacket build`, and the user's own flags come last.
     let user_flags: Vec<std::ffi::OsString> = args.jaic_args.iter().map(Into::into).collect();
+
     match crate::compile::project_flags(&user_flags, loaded.as_ref()) {
         Ok(project) => flags.extend(
             project
@@ -433,17 +468,20 @@ fn run_once(
         ),
         Err(error) => return fail(error),
     }
+
     flags.extend(args.jaic_args.iter().cloned());
     let parsed = match jaic_cli_args::arguments::target_flags(&flags) {
         Ok(parsed) => parsed,
         Err(error) => return fail(error),
     };
     let mut effective = jaic::sema::Options::host();
+
     // Metadata is also needed by compile-only cases. The compiler checks native link
     // eligibility only when a case actually builds a program; valid modes share OS/CPU defaults.
     if let Err(error) = parsed.selection.apply_for_mode(&mut effective, false) {
         return fail(error);
     }
+
     let os = jaic::target::os_name(effective.os).to_string();
     let cpu = jaic::target::cpu_name(effective.cpu).to_string();
     let target = Target {
@@ -455,13 +493,16 @@ fn run_once(
     if !args.interp && !bench && matches!(os.as_str(), "windows" | "linux" | "macos") {
         flags.insert(0, "-backtrace_on_crash".into()); // the only targets with a crash handler
     }
+
     if bench && !args.list && (args.interp || os == "wasm") {
         return fail("`jacket bench` measures native builds: drop `--interp` and `-os wasm`");
     }
+
     // Benchmarks are optimized, without runtime checks, unless a flag after `--` chooses.
     if bench && !args.list && !args.jaic_args.iter().any(|flag| sets_optimization(flag)) {
         flags.extend(["-o".to_string(), "-no_debug_info".to_string()]);
     }
+
     let Some(jaic) = tools::require(tools::JAIC, "jacket test") else {
         return ExitCode::from(127);
     };
@@ -490,6 +531,7 @@ fn run_once(
     let cross = !args.interp && (os != host_os() || cpu != host_cpu());
     let cross_skip = (cross && toolchain.runner.is_empty())
         .then(|| format!("built for {os} {cpu}; `--runner <command>` runs it"));
+
     // A target named on the command line is one the user wants the tests run on: with no runner
     // for it, fail now (as `jacket run` does) instead of building and skipping every test.
     if let (Some(name), Some(_)) = (&args.target, &cross_skip)
@@ -503,6 +545,7 @@ fn run_once(
 
     let mut roots: Vec<discover::Root> = Vec::new();
     let import_dirs = jaic_cli_args::arguments::import_dirs(&toolchain.flags);
+
     for dir in discover::roots(&args.path, &configured, &project_dir, cwd) {
         match discover::Root::read(dir, &stdlib, &jaic, &import_dirs, &mut doc_files, !bench) {
             Ok(root) if !root.is_empty() => roots.push(root),
@@ -510,21 +553,25 @@ fn run_once(
             Err(error) => return fail(error),
         }
     }
+
     if roots.is_empty() {
         return fail(format!(
             "no tests found in {}\nhelp: tests are `.jai` files in a `tests/` folder; `[test] paths` in jacket.toml names other folders or patterns such as `stdlib/**`",
             project_dir.display()
         ));
     }
+
     let work = std::env::temp_dir().join(format!("jacket-test-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&work);
     let root_flags: Vec<_> = roots
         .iter()
         .map(|r| build::root_flags(&r.dir, r.library))
         .collect();
+
     if args.watch {
         watched.set_folders(&roots, &toolchain.flags, &root_flags);
     }
+
     let list = args.list;
     let coverage = match coverage_for(args, cross, &roots, &toolchain, &work, &project_dir) {
         Ok(coverage) => coverage,
@@ -533,12 +580,14 @@ fn run_once(
             return fail(error);
         }
     };
+
     if os == host_os() && cpu == host_cpu() && !bench && !args.check_only && !list {
         let files: Vec<_> = roots
             .iter()
             .flat_map(|root| root.unit.iter().chain(&root.golden))
             .cloned()
             .collect();
+
         if let Err(error) = link_probes(
             &mut toolchain,
             &files,
@@ -549,9 +598,11 @@ fn run_once(
             return fail(error);
         }
     }
+
     // Native compilation runs #run code and generators too. Their interpreter coverage belongs
     // in this report, alongside the blocks the built test programs execute later.
     let compile_coverage = coverage.as_ref().map(coverage::Coverage::run_dir);
+
     toolchain.coverage_dir.clone_from(&compile_coverage);
     let listing = if list && args.list_target {
         Some(build::Listing::Target)
@@ -573,9 +624,11 @@ fn run_once(
             warm: settings.jobs,
         },
     );
+
     if let (Some(coverage), Some(dir)) = (&coverage, &compile_coverage) {
         coverage.collect_once(dir);
     }
+
     toolchain.coverage_dir = None;
     // Public host listings use their host graph; actual runs/checks use their selected target.
     let dependency_toolchain = if list {
@@ -599,15 +652,18 @@ fn run_once(
             }
         })
         .collect();
+
     if broken {
         let _ = std::fs::remove_dir_all(&work);
         return ExitCode::from(2);
     }
 
     let cases = cases(&roots, &built);
+
     if args.watch {
         watched.set_tests(cases.iter().map(|c| c.file.as_path()));
     }
+
     let in_expr = |case: &Case| {
         filter_expr
             .as_ref()
@@ -619,15 +675,18 @@ fn run_once(
             Err(error) => return fail(error),
         };
     let mut selected = Vec::new();
+
     for case in cases {
         if !kind_selected(case.kind, args, bench) {
             continue;
         }
+
         if !in_expr(&case)
             || only.is_some_and(|files| !files.contains(&watch::canonical(&case.file)))
         {
             continue;
         }
+
         if let Some(run_as) = select(&case, &args.filters, args.exact) {
             selected.push(Case {
                 run_as,
@@ -635,6 +694,7 @@ fn run_once(
             });
         }
     }
+
     if !args.changed.is_empty() {
         let ctx = deps::Context {
             roots: &roots,
@@ -644,6 +704,7 @@ fn run_once(
             bench,
             jobs: settings.jobs,
         };
+
         selected = match deps::narrow(selected, &args.changed, &ctx) {
             Ok(selected) => selected,
             Err(error) => {
@@ -652,6 +713,7 @@ fn run_once(
             }
         };
     }
+
     if let Some(in_part) = &in_part {
         selected = selected
             .into_iter()
@@ -660,9 +722,11 @@ fn run_once(
             .map(|(_, c)| c)
             .collect();
     }
+
     if let Some(share) = &time_share {
         share.keep(&mut selected);
     }
+
     let mut reporter = report::Reporter::new(
         args.format,
         args.junit.clone(),
@@ -671,6 +735,7 @@ fn run_once(
         settings.capture,
         args.quiet,
     );
+
     if list {
         // Which folders were searched depends on the current directory, so say which.
         for root in &roots {
@@ -684,6 +749,7 @@ fn run_once(
                 }
             );
         }
+
         if args.deps {
             let listing = deps::Listing {
                 root_flags: &root_flags,
@@ -692,6 +758,7 @@ fn run_once(
                 bench,
                 jobs: settings.jobs,
             };
+
             if let Err(error) = deps::print(&selected, &roots, &listing) {
                 let _ = std::fs::remove_dir_all(&work);
                 return fail(error);
@@ -699,23 +766,29 @@ fn run_once(
         } else {
             reporter.list(&selected);
         }
+
         let _ = std::fs::remove_dir_all(&work);
+
         return ExitCode::SUCCESS;
     }
+
     // The files of the selected tests only, so a filter or a partition shares the check too.
     if args.check_only && !bench && !check_roots(&roots, &selected, &root_flags, &work, &toolchain)
     {
         let _ = std::fs::remove_dir_all(&work);
         return ExitCode::from(2);
     }
+
     if selected.is_empty() {
         let _ = std::fs::remove_dir_all(&work);
+
         return fail(if bench {
             "no benchmarks match"
         } else {
             "no tests match"
         });
     }
+
     if let Some(bench_args) = bench_args {
         let code = bench::run(&bench::Run {
             cases: &selected,
@@ -729,6 +802,7 @@ fn run_once(
             args: bench_args,
         });
         let _ = std::fs::remove_dir_all(&work);
+
         return code;
     }
 
@@ -766,6 +840,7 @@ fn random_seed() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(0, |d| d.as_nanos());
     let mixed = (nanos as u64) ^ (u64::from(std::process::id()) << 32);
+
     // Keep it short enough to type: a decimal number of at most nine digits.
     mixed.wrapping_mul(0x9e37_79b9_7f4a_7c15) % 1_000_000_000
 }
@@ -778,12 +853,14 @@ fn settings(
     config_dir: Option<&Path>,
 ) -> Result<(Settings, Vec<String>), String> {
     let mut run_settings = config.map(jacket_config::Test::run).unwrap_or_default();
+
     if let Some(name) = &args.profile {
         match config.and_then(|c| c.profile.get(name)) {
             Some(profile) => run_settings = run_settings.overlaid(profile),
             None => return Err(format!("no `[test.profile.{name}]` in jacket.toml")),
         }
     }
+
     let threads = std::thread::available_parallelism().map_or(1, usize::from);
     let capture = !args.no_capture;
     let settings = Settings {
@@ -823,6 +900,7 @@ fn settings(
         (None, Some(runner)) => runner_words(&runner, config_dir.unwrap_or(cwd)),
         (None, None) => Vec::new(),
     };
+
     Ok((settings, runner))
 }
 
@@ -845,6 +923,7 @@ fn runner_words(runner: &str, base: &Path) -> Vec<String> {
         .split_whitespace()
         .map(|word| {
             let path = base.join(word);
+
             if Path::new(word).is_relative() && path.is_file() {
                 path.to_string_lossy().into_owned()
             } else {
@@ -868,6 +947,7 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                 let notes =
                     options::header_notes(&std::fs::read_to_string(file).unwrap_or_default());
                 let (options, problems) = TestOptions::default().with_notes(&notes);
+
                 warnings.extend(
                     problems
                         .into_iter()
@@ -877,6 +957,7 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
             })
             .clone()
     };
+
     for (index, root) in roots.iter().enumerate() {
         let name = |local: &str| {
             if several {
@@ -885,10 +966,12 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                 local.to_string()
             }
         };
+
         if let Some(built) = &built[index] {
             for entry in &built.entries {
                 let header = header_of(&entry.file, &mut warnings);
                 let (options, problems) = header.with_notes(&entry.notes);
+
                 warnings.extend(
                     problems
                         .into_iter()
@@ -918,6 +1001,7 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                 });
             }
         }
+
         for (files, kind) in [
             (&root.golden, Kind::Golden),
             (&root.compile_fail, Kind::CompileFail),
@@ -932,6 +1016,7 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                     .map(|c| c.as_os_str().to_string_lossy().into_owned())
                     .collect::<Vec<_>>()
                     .join("/");
+
                 cases.push(Case {
                     name: name(&local),
                     local: local.clone(),
@@ -949,6 +1034,7 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                 });
             }
         }
+
         // Doc tests are named for their module, so they need no root prefix.
         for (doc, block) in root.docs.iter().enumerate() {
             for problem in &block.problems {
@@ -958,7 +1044,9 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
                     block.line
                 ));
             }
+
             let local = format!("doc: {}", block.name);
+
             cases.push(Case {
                 name: local.clone(),
                 local: local.clone(),
@@ -974,9 +1062,11 @@ fn cases(roots: &[discover::Root], built: &[Option<Built>]) -> Vec<Case> {
             });
         }
     }
+
     for warning in &warnings {
         eprintln!("jacket: warning: {warning}");
     }
+
     cases
 }
 
@@ -988,10 +1078,12 @@ fn execute(
     reporter: &mut report::Reporter,
 ) -> ExitCode {
     let started = Instant::now();
+
     reporter.run_started(plan.cases.len());
     let mut outcomes = Vec::new();
     // Skips are decided before anything runs.
     let mut to_run = Vec::new();
+
     for (index, case) in plan.cases.iter().enumerate() {
         let reason = case
             .options
@@ -1012,9 +1104,11 @@ fn execute(
                     .then(|| cross_skip.map(String::from))
                     .flatten()
             });
+
         match reason {
             Some(reason) => {
                 let mut outcome = Outcome::new(index, Status::Skip);
+
                 outcome.skip_reason = Some(reason);
                 reporter.finished(&plan.cases[index], &outcome);
                 outcomes.push(outcome);
@@ -1022,14 +1116,18 @@ fn execute(
             None => to_run.push(index),
         }
     }
+
     let files: Vec<PathBuf> = to_run
         .iter()
         .map(|&index| plan.cases[index].file.clone())
         .collect();
+
     if let Err(error) = prerequisites::prepare(&files, &plan.stdlib) {
         return fail(error);
     }
+
     let (parallel, serial) = jobs::jobs(plan, &to_run);
+
     for (jobs, threads) in [(parallel, plan.settings.jobs), (serial, 1)] {
         jobs::run_jobs(plan, jobs, threads, &mut |message| match message {
             Message::Started(case) => reporter.started(&plan.cases[case]),
@@ -1041,15 +1139,18 @@ fn execute(
                         plan.settings.allow_missing_prerequisites,
                     );
                 }
+
                 reporter.finished(&plan.cases[outcome.case], &outcome);
                 outcomes.push(outcome);
             }
         });
     }
+
     let not_run = plan.cases.len() - outcomes.len();
     let failed = outcomes
         .iter()
         .any(|o| o.status.fails(plan.settings.flaky_fails));
+
     reporter.summary(
         &plan.cases,
         &outcomes,
@@ -1059,6 +1160,7 @@ fn execute(
     );
     let mut coverage_failed = false;
     let mut coverage_dropped = false;
+
     if let Some(coverage) = &plan.coverage {
         match coverage.report(reporter.is_human()) {
             Ok(verdict) => coverage_dropped = verdict == coverage::Verdict::Dropped,
@@ -1068,6 +1170,7 @@ fn execute(
             }
         }
     }
+
     if outcomes.iter().all(|o| o.kept_temp.is_none()) {
         let _ = std::fs::remove_dir_all(&plan.work);
     } else {
@@ -1082,6 +1185,7 @@ fn execute(
             }
         }
     }
+
     if failed || coverage_dropped {
         ExitCode::from(1)
     } else if coverage_failed {
@@ -1101,6 +1205,7 @@ fn check_roots(
     toolchain: &Toolchain,
 ) -> bool {
     let mut passed = true;
+
     for (i, root) in roots.iter().enumerate() {
         let files: Vec<PathBuf> = root
             .unit
@@ -1112,10 +1217,13 @@ fn check_roots(
             })
             .cloned()
             .collect();
+
         if files.is_empty() {
             continue;
         }
+
         let work = work.join(format!("check-{i}"));
+
         if let Err(output) = build::check_unit(&files, &root_flags[i], &work, toolchain) {
             eprintln!(
                 "jacket: error: the tests in {} do not compile for {}\n{output}",
@@ -1125,6 +1233,7 @@ fn check_roots(
             passed = false;
         }
     }
+
     passed
 }
 
@@ -1155,9 +1264,11 @@ fn build_all(
         } else {
             &root.unit
         };
+
         if files.is_empty() {
             return Ok(None);
         }
+
         build::unit(
             files,
             &root_flags[i],

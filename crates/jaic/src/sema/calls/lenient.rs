@@ -54,6 +54,7 @@ impl Compiler {
         if Some(module) != self.ns.main_module || self.src.sources.try_get(span.file).is_none() {
             return None;
         }
+
         Some(Diagnostic::new(code, span, message).with_note(Span::NONE, NOTE))
     }
 
@@ -68,14 +69,18 @@ impl Compiler {
         let mut extra: Vec<ProcId> = Vec::new();
         let mut source = None;
         let mut homes = Vec::new();
+
         for &ty in tys {
             let Some(home) = self.ty.struct_home_scope(ty) else {
                 continue;
             };
+
             if homes.contains(&home) {
                 continue;
             }
+
             homes.push(home);
+
             for p in self.operator_candidates_in(home, text, true)? {
                 if !scoped.contains(&p) && !extra.contains(&p) {
                     extra.push(p);
@@ -83,6 +88,7 @@ impl Compiler {
                 }
             }
         }
+
         let used = source.map(|(module, ty)| LenientUse {
             module,
             ty,
@@ -100,14 +106,18 @@ impl Compiler {
         ty: TypeId,
     ) -> Result<(Vec<ProcId>, Option<LenientUse>)> {
         let mut procs = self.operator_candidates(scope, text)?;
+
         if procs.iter().any(|&p| self.first_param_accepts(p, ty)) {
             return Ok((procs, None));
         }
+
         let (extra, used) = self.home_operator_candidates(text, &[ty], &procs)?;
         let used = used.filter(|_| extra.iter().any(|&p| self.first_param_accepts(p, ty)));
+
         if used.is_some() {
             procs.extend(extra);
         }
+
         Ok((procs, used))
     }
 
@@ -116,6 +126,7 @@ impl Compiler {
     pub(in crate::sema) fn namespace_aliases(&mut self, scope: ScopeId) -> Vec<(Sym, ModuleId)> {
         let mut found = Vec::new();
         let mut current = Some(scope);
+
         while let Some(sid) = current {
             let s = self.scope(sid);
             let mut ids: Vec<(Sym, scope::EntityId)> = s
@@ -123,12 +134,15 @@ impl Compiler {
                 .iter()
                 .flat_map(|(name, ids)| ids.iter().map(move |&id| (*name, id)))
                 .collect();
+
             current = s.parent;
             ids.sort_by_key(|&(name, id)| (name.as_str(), id));
+
             for (name, id) in ids {
                 if !matches!(self.entity(id).kind, scope::EntityKind::Import(_)) {
                     continue;
                 }
+
                 if let Ok(scope::Resolved::Module(m)) = self.resolve_entity(id)
                     && !found.iter().any(|&(n, _)| n == name)
                 {
@@ -136,6 +150,7 @@ impl Compiler {
                 }
             }
         }
+
         found
     }
 
@@ -144,6 +159,7 @@ impl Compiler {
         let mut chars = name.chars();
         let ident = chars.next().is_some_and(|c| c.is_alphabetic() || c == '_')
             && chars.all(|c| c.is_alphanumeric() || c == '_');
+
         ident.then(|| name.clone())
     }
 
@@ -163,6 +179,7 @@ impl Compiler {
         // declared in a module `Math` loads itself), else the declaring module by its name.
         let name = Sym::intern(&format!("operator{text}"));
         let mut alias = None;
+
         for (candidate, m) in self.namespace_aliases(scope) {
             let module_scope = self.ns.modules[m.0 as usize].scope;
             let exported = self.lookup(module_scope, name).unwrap_or_default();
@@ -174,11 +191,13 @@ impl Compiler {
                     scope::Resolved::ProcSet(set) => set.iter().any(|p| used.procs.contains(p)),
                     _ => false,
                 });
+
             if found {
                 alias = Some(candidate.as_str().to_string());
                 break;
             }
         }
+
         let qualifier = alias.clone().or_else(|| self.module_name(used.module));
         let module_id = self.scope(scope).module;
         let Some(d) = self.leniency_warning(
@@ -190,6 +209,7 @@ impl Compiler {
             return;
         };
         let mut d = d.with_label("found through the operand type's module");
+
         if let Some(q) = &qualifier {
             if let Some(Rewrite {
                 span: at,
@@ -202,17 +222,20 @@ impl Compiler {
                     span: at,
                     text: call.clone(),
                 }];
+
                 if alias.is_none() {
                     edits.push(Edit::Import(ImportSuggestion {
                         module: module.clone(),
                         name: Some(q.clone()),
                     }));
                 }
+
                 let applicability = if alias.is_some() && prefix.is_empty() {
                     Applicability::MachineApplicable
                 } else {
                     Applicability::MaybeIncorrect
                 };
+
                 d = d.with_suggestion(
                     Suggestion::with_edits(
                         format!("name the module in the call so it works wherever it is imported: `{call}`"),
@@ -225,8 +248,10 @@ impl Compiler {
                 // `Alias.operator *[](..)` does not parse: only `using` reaches that one.
                 d = d.with_help(format!("call it as `{q}.operator {text}(..)`"));
             }
+
             d = d.with_help(format!("or add `using {q};` to this scope"));
         }
+
         self.warn(d);
     }
 
@@ -243,6 +268,7 @@ impl Compiler {
             return;
         };
         let mut found = None;
+
         for id in ids {
             if let scope::EntityKind::Decl {
                 decl, ..
@@ -253,6 +279,7 @@ impl Compiler {
                 break;
             }
         }
+
         let Some((scope, header)) = found else {
             return;
         };
@@ -274,6 +301,7 @@ impl Compiler {
             .with_help(format!(
                 "remove the `->` and the return type of `{name}`; `exit(code)` ends the program with a status"
             ));
+
         self.warn(d);
     }
 
@@ -295,6 +323,7 @@ impl Compiler {
                     } else {
                         "#library"
                     };
+
                     (
                         format!("`{text}` is not a directive here"),
                         "declares the library to link",
@@ -327,6 +356,7 @@ impl Compiler {
                 ),
                 Code::AddressOfLiteral => {
                     let operand = text.strip_prefix('*').unwrap_or(&text);
+
                     (
                         format!("`{text}` reads as a pointer type followed by a literal"),
                         "this takes the address of the literal here",
@@ -336,6 +366,7 @@ impl Compiler {
                 }
                 Code::FloatExponent => {
                     let portable = text.replacen(['e', 'E'], ".0e", 1);
+
                     (
                         format!("`{text}` has an exponent and no fraction"),
                         "a decimal float with an exponent needs a `.`",
@@ -399,7 +430,9 @@ impl Compiler {
             let Some(mut d) = self.leniency_warning(module, found.span, found.kind, message) else {
                 continue;
             };
+
             d = d.with_label(label);
+
             if let Some(help) = help {
                 d =
                     match fix {
@@ -409,6 +442,7 @@ impl Compiler {
                         None => d.with_help(help),
                     };
             }
+
             self.warn(d);
         }
     }
@@ -435,6 +469,7 @@ impl Compiler {
             .with_help(format!(
                 "write the integer type, `{repr}`, and cast to `{name}` where the enum is needed"
             ));
+
         self.warn(d);
     }
 
@@ -462,9 +497,11 @@ impl Compiler {
                 // A `name :: #code ..` constant is spliced in where it is named, not read in order.
                 && !decl.value.as_ref().is_some_and(|v| matches!(v.kind, ast::ExprKind::Code(_)))
         );
+
         if !local || !constant {
             return Ok(());
         }
+
         let declared = self.entity(id).span;
         let mut used_at = self.insert_origin(span);
         let declared_at = self.insert_origin(declared);
@@ -472,16 +509,20 @@ impl Compiler {
         // inserted into another scope reaches the name by another route.
         let mut procedures = 0;
         let mut current = Some(scope);
+
         loop {
             let Some(sid) = current else {
                 return Ok(());
             };
+
             if sid == home {
                 break;
             }
+
             if self.scope(sid).inserted_into.is_some() || !self.scope(sid).fallbacks.is_empty() {
                 return Ok(());
             }
+
             match self.scope(sid).kind {
                 // A struct body describes a type; it is not a statement in the enclosing
                 // procedure. Its own methods still stop at their home scope above.
@@ -497,16 +538,20 @@ impl Compiler {
                     if procedures == 0 && !self.in_body_of(sid, used_at) {
                         return Ok(());
                     }
+
                     procedures += 1;
                 }
                 _ => {}
             }
+
             current = self.scope(sid).parent;
         }
+
         if procedures >= 2 || declared_at.file != used_at.file || used_at.start >= declared_at.start
         {
             return Ok(());
         }
+
         Err(Box::new(
             Diagnostic::new(
                 Code::UseBeforeDeclaration,
@@ -526,6 +571,7 @@ impl Compiler {
         let Some(proc) = self.scope(sid).proc else {
             return false;
         };
+
         self.proc(proc).lit.body.as_ref().is_some_and(|body| {
             body.span.file == at.file && body.span.start <= at.start && at.start < body.span.end
         })
@@ -537,6 +583,7 @@ impl Compiler {
         while let Some(&site) = self.src.insert_sites.get(&span.file) {
             span = site;
         }
+
         span
     }
 
@@ -572,6 +619,7 @@ impl Compiler {
             .into_iter()
             .find(|&(_, m)| m == home_module)
             .map(|(alias, _)| alias.as_str().to_string());
+
         if let Some(alias) = alias {
             d = d.with_help(format!("add `using {alias};` to this scope"));
         } else if let Some(module) = self.module_name(home_module) {
@@ -579,6 +627,7 @@ impl Compiler {
                 "import the module without a name (`#import \"{module}\";`) so its `for_expansion` is in scope"
             ));
         }
+
         self.warn(d);
     }
 
@@ -594,15 +643,18 @@ impl Compiler {
         use crate::ast::BinOp;
         let is_struct = |s: &Self, t: TypeId| matches!(s.ty.types.kind(t), TypeKind::Struct(_));
         let has_struct = [lhs.ty(), rhs.ty()].into_iter().any(|t| is_struct(self, t));
+
         if !has_struct {
             return Ok(());
         }
+
         if matches!(node.op, BinOp::Eq | BinOp::Ne)
             || matches!(lhs, Operand::Type(_) | Operand::Procs(_))
             || matches!(rhs, Operand::Type(_) | Operand::Procs(_))
         {
             return Ok(());
         }
+
         let text = binop_text(node.op);
         let d = Diagnostic::new(
             Code::CallNoOperator,
@@ -614,6 +666,7 @@ impl Compiler {
             ),
         );
         let rewrite = self.operator_rewrite(node, span, false, false);
+
         Err(Box::new(self.with_missing_operator_help(
             scope,
             d,
@@ -635,8 +688,10 @@ impl Compiler {
     ) -> Diagnostic {
         let name = Sym::intern(&format!("operator{text}"));
         let mut aliases = Vec::new();
+
         for (alias, module) in self.namespace_aliases(scope) {
             let module_scope = self.ns.modules[module.0 as usize].scope;
+
             if self
                 .lookup(module_scope, name)
                 .is_ok_and(|ids| !ids.is_empty())
@@ -644,6 +699,7 @@ impl Compiler {
                 aliases.push(alias.as_str().to_string());
             }
         }
+
         if let Some(alias) = aliases.first() {
             if let Some(Rewrite {
                 span,
@@ -652,6 +708,7 @@ impl Compiler {
             }) = rewrite
             {
                 let call = format!("{prefix}{alias}.operator {text}({args})");
+
                 d = d.with_suggestion(
                     Suggestion::replace(
                         format!("`{alias}` declares `operator {text}`: call `{call}`"),
@@ -662,12 +719,16 @@ impl Compiler {
                     .with_action(format!("Call `{alias}.operator {text}`")),
                 );
             }
+
             d = d.with_help(format!(
                 "`{alias}` declares `operator {text}`: call `{alias}.operator {text}(..)` or add `using {alias};`"
             ));
+
             return d;
         }
+
         let imports = self.imports_declaring_operator(text, tys);
+
         for (i, import) in imports.iter().enumerate() {
             let title = format!(
                 "`operator {text}` is declared in the `{}` module: add `{}` to this file",
@@ -676,12 +737,14 @@ impl Compiler {
             );
             let suggestion = Suggestion::import(title, import.clone())
                 .with_action(format!("Add `{}`", import.statement()));
+
             d = d.with_suggestion(if i == 0 {
                 suggestion
             } else {
                 suggestion.unlisted()
             });
         }
+
         d
     }
 }

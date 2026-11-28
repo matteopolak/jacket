@@ -21,8 +21,10 @@ fn void_ifx_runs_in_the_interpreter() {
 #[test]
 fn void_ifx_runs_native_at_o0_and_o2() {
     let dir = TempDir::new("void-ifx-native");
+
     for opt in ["-O0", "-O2"] {
         let exe = dir.join(format!("ifx{opt}"));
+
         success(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
                 .arg(fixture())
@@ -39,8 +41,10 @@ fn void_ifx_runs_as_a_real_wasi_command() {
     if !toolchain::require_all(&["node"]) {
         return;
     }
+
     let dir = TempDir::new("void-ifx-wasi");
     let module = dir.join("ifx.wasm");
+
     success(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(fixture())
@@ -49,5 +53,6 @@ fn void_ifx_runs_as_a_real_wasi_command() {
     );
     let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../tools/browser/run_foundations_wasm.ts");
+
     success(toolchain::command("node").arg(runner).arg(module));
 }

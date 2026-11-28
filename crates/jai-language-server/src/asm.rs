@@ -48,6 +48,7 @@ fn class_name(name: &str) -> &'static str {
 /// Registers the block declares: `x: class;` statements and inline `x:` operands.
 fn registers(text: &str, block: &AsmBlockSyntax) -> Vec<Reg> {
     let mut out = Vec::new();
+
     for stmt in &block.statements {
         match &stmt.kind {
             AsmStmtKind::Decl {
@@ -60,6 +61,7 @@ fn registers(text: &str, block: &AsmBlockSyntax) -> Vec<Reg> {
             AsmStmtKind::Inst(inst) => {
                 let mnemonic = slice(text, inst.mnemonic);
                 let width = block.width_for(text, inst.suffix);
+
                 for (i, op) in inst.operands.iter().enumerate() {
                     let Some(decl) = op.decl else {
                         continue;
@@ -68,6 +70,7 @@ fn registers(text: &str, block: &AsmBlockSyntax) -> Vec<Reg> {
                         Some(c) => class_name(slice(text, c)),
                         None => catalog::inline_register_class(mnemonic, width, i).unwrap_or("gpr"),
                     };
+
                     out.push(Reg {
                         name: slice(text, decl.name).into(),
                         class,
@@ -78,6 +81,7 @@ fn registers(text: &str, block: &AsmBlockSyntax) -> Vec<Reg> {
             _ => {}
         }
     }
+
     out
 }
 
@@ -100,6 +104,7 @@ enum Slot {
 /// The slot at the end of `stmt`, a statement cut at the cursor.
 fn slot(text: &str, stmt: &AsmStmtSyntax) -> Option<Slot> {
     let byte = stmt.span.end;
+
     Some(match &stmt.kind {
         AsmStmtKind::Empty => Slot::Mnemonic,
         AsmStmtKind::Decl {
@@ -179,10 +184,12 @@ impl Session {
         if !text.contains(jaic::lexicon::spelled::ASM) {
             return None;
         }
+
         let blocks = asm_blocks(text);
         let (block, AsmPlace::Body) = locate(&blocks, byte)? else {
             return None;
         };
+
         if let AsmStmtKind::Inst(inst) = &block.statement_at(byte)?.kind
             && inst.mnemonic.start as usize <= byte
             && byte <= inst.mnemonic.end as usize
@@ -197,8 +204,10 @@ impl Session {
                     Inline::Code(i.feature.into()),
                 ]),
             ]);
+
             return Some((ms, me, text));
         }
+
         let (ws, we) = word_range(text, byte);
         let word = &text[ws..we];
         let reg = registers(text, block)
@@ -208,6 +217,7 @@ impl Session {
             .into_iter()
             .find(|c| c.name == reg.class)
             .map_or("", |c| c.description);
+
         Some((
             ws,
             we,
@@ -223,6 +233,7 @@ impl Session {
         if !text.contains(jaic::lexicon::spelled::ASM) {
             return None;
         }
+
         let blocks = asm_blocks(text);
         let (block, AsmPlace::Body) = locate(&blocks, byte)? else {
             return None;
@@ -253,6 +264,7 @@ impl Session {
             .iter()
             .position(|s| s.parameters.len() > index)
             .unwrap_or(0);
+
         Some(SignatureHelp {
             signatures,
             active_signature: active,
@@ -269,6 +281,7 @@ mod tests {
         let byte = text.find(marker).unwrap() + marker.len();
         let blocks = asm_blocks(text);
         let place = locate(&blocks, byte)?.1;
+
         Some((blocks, place))
     }
 
@@ -276,6 +289,7 @@ mod tests {
     fn blocks_are_found_without_parsing() {
         let text = "f :: () {\n    #asm AVX2 {\n        vpad\n}\n";
         let (blocks, here) = place(text, "vpad").unwrap();
+
         assert_eq!((here, blocks[0].width), (AsmPlace::Body, 32));
         assert!(matches!(
             place(text, "#asm AV"),
@@ -283,8 +297,10 @@ mod tests {
         ));
         assert!(place(text, "f ::").is_none());
         let commented = "// #asm { add\nx := 1;";
+
         assert!(place(commented, "x :=").is_none());
         let after = "#asm { add x, 1; }\ny := 2;";
+
         assert!(place(after, "y :=").is_none());
     }
 
@@ -296,8 +312,10 @@ mod tests {
         let slot_at = |m: &str| {
             let byte = at(m);
             let start = blocks[0].statement_at(byte).unwrap().span.start as usize;
+
             slot(text, &parse_asm_statement(text, start, byte))
         };
+
         assert!(matches!(
             slot_at("ab"),
             Some(Slot::Operand {
@@ -314,13 +332,16 @@ mod tests {
     fn an_unterminated_block_still_has_a_body() {
         let text = "f :: () {\n    #asm {\n        mov.q x, 1;\n        ad";
         let blocks = asm_blocks(text);
+
         assert_eq!(blocks.len(), 1);
         assert!(!blocks[0].closed);
         assert_eq!(blocks[0].body.end as usize, text.len());
         let byte = text.len();
+
         assert_eq!(blocks[0].place(byte), Some(AsmPlace::Body));
         let start = blocks[0].statement_at(byte).unwrap().span.start as usize;
         let stmt = parse_asm_statement(text, start, byte);
+
         assert!(matches!(slot(text, &stmt), Some(Slot::Mnemonic)));
     }
 }

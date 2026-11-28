@@ -14,9 +14,11 @@ const LONGEST_SIGNATURE: usize = 100;
 pub(super) fn remove_extra_arguments(args: &[CallArg], first: usize) -> Option<Suggestion> {
     let extra = args.get(first..)?;
     let last = extra.last()?;
+
     if extra.iter().any(|a| a.name.is_some()) {
         return None;
     }
+
     // Delete from where the last accepted argument ends, which takes the comma with it.
     let start = match first.checked_sub(1) {
         Some(before) => args[before].span.end,
@@ -24,6 +26,7 @@ pub(super) fn remove_extra_arguments(args: &[CallArg], first: usize) -> Option<S
     };
     let file = last.span.file;
     let written = |s: Span| s != Span::NONE && s.file == file;
+
     if !args[first.saturating_sub(1)..]
         .iter()
         .all(|a| written(a.span))
@@ -31,6 +34,7 @@ pub(super) fn remove_extra_arguments(args: &[CallArg], first: usize) -> Option<S
     {
         return None;
     }
+
     let span = Span {
         start,
         end: last.span.end,
@@ -41,6 +45,7 @@ pub(super) fn remove_extra_arguments(args: &[CallArg], first: usize) -> Option<S
     } else {
         ("remove the extra arguments", "Remove the extra arguments")
     };
+
     Some(Suggestion::replace(title, span, "", Applicability::MaybeIncorrect).with_action(action))
 }
 
@@ -58,12 +63,15 @@ impl Compiler {
     ) -> Diagnostic {
         let written = self.src.sources.snippet(header);
         let mut text = written.split_whitespace().collect::<Vec<_>>().join(" ");
+
         if text.is_empty() {
             return d;
         }
+
         if text.chars().count() > LONGEST_SIGNATURE {
             text = text.chars().take(LONGEST_SIGNATURE).collect::<String>() + "...";
         }
+
         d.with_note(Span::NONE, format!("`{name}` takes `{text}`"))
     }
 
@@ -72,6 +80,7 @@ impl Compiler {
         if d.code != Code::ArgumentCount {
             return Box::new(d);
         }
+
         let note = format!("the procedure has type `{}`", self.ty.types.name(ty));
         Box::new(d.with_note(Span::NONE, note))
     }

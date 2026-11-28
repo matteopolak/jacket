@@ -6,8 +6,10 @@ use std::path::Path;
 fn loaded_pointer_constructor_keeps_public_type_and_storage_identity() {
     let mut files = namespace_source::FILES.to_vec();
     let main = format!("{}\n#assert(check()==0);", namespace_source::SOURCE);
+
     files.push(("/app/main.jai", &main));
     let mut c = compiler(&files, false);
+
     succeeds(&mut c);
 }
 
@@ -31,6 +33,7 @@ fn module_interface_constraints_use_the_declaring_private_file_namespace() {
             ],
             false,
         );
+
         if valid {
             succeeds(&mut c);
         } else {
@@ -54,6 +57,7 @@ fn module_parameter_defaults_use_the_declaring_private_file_namespace() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -75,6 +79,7 @@ fn bundled_modules_reject_unknown_and_excess_positional_arguments() {
             ],
             true,
         );
+
         rejects(&mut c, category);
     }
 }
@@ -95,6 +100,7 @@ fn implicit_runtime_does_not_ignore_explicit_import_arguments() {
         ],
         true,
     );
+
     c.options.runtime_support = true;
     rejects(&mut c, "not a parameter");
 }
@@ -107,14 +113,17 @@ fn ide_selected_internal_entry_is_admitted_without_opening_application_imports()
         ("/app/main.jai", "H :: #import \"internal/helper\";"),
     ];
     let mut c = compiler(&files, true);
+
     c.ed.record(jaic::ide::IdeFacts::default());
     c.compile_program(Path::new("/lib/internal/helper/module.jai"))
         .unwrap_or_else(|e| panic!("{}", e.render(&c.src.sources)));
 
     let mut c = compiler(&files, true);
+
     c.ed.record(jaic::ide::IdeFacts::default());
     rejects(&mut c, "private");
     let mut c = compiler(&files, true);
+
     assert!(
         c.compile_program(Path::new("/lib/internal/helper/module.jai"))
             .is_err()
@@ -134,6 +143,7 @@ fn bootstrap_runtime_passes_only_reviewed_parameters() {
         ],
         true,
     );
+
     c.options.runtime_support = true;
     succeeds(&mut c);
     assert_eq!(

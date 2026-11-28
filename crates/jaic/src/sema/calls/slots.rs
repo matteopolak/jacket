@@ -15,9 +15,11 @@ pub(super) fn c_vararg_promote(
     span: Span,
 ) -> Result<Operand> {
     let ty = op.ty();
+
     if ty == TypeId::F32 {
         return c.convert(f, op, TypeId::F64, Site::opaque(span));
     }
+
     if let Some((bits, signed)) = c.ty.types.int_info(ty)
         && bits < 32
     {
@@ -28,15 +30,18 @@ pub(super) fn c_vararg_promote(
         };
         return c.explicit_cast(f, op, target, ast::CastFlags::default(), span);
     }
+
     if ty == TypeId::BOOL {
         return c.explicit_cast(f, op, TypeId::S32, ast::CastFlags::default(), span);
     }
+
     Ok(op)
 }
 
 /// Polymorphic names introduced by a type pattern.
 pub(super) fn poly_names(expr: &ast::Expr) -> Vec<Sym> {
     let mut out = Vec::new();
+
     fn walk(e: &ast::Expr, out: &mut Vec<Sym>) {
         match &e.kind {
             E::PolyVar {
@@ -53,6 +58,7 @@ pub(super) fn poly_names(expr: &ast::Expr) -> Vec<Sym> {
                 if let ast::ArraySize::Fixed(n) = size {
                     walk(n, out);
                 }
+
                 walk(elem, out);
             }
             E::Call {
@@ -71,6 +77,7 @@ pub(super) fn poly_names(expr: &ast::Expr) -> Vec<Sym> {
             _ => {}
         }
     }
+
     walk(expr, &mut out);
     out
 }
@@ -103,6 +110,7 @@ pub(super) fn pattern_specificity(expr: &ast::Expr, variables: &[Sym]) -> u32 {
 /// Every `$T` binder in a header's parameter and result types.
 pub(in crate::sema) fn header_poly_names(header: &ast::ProcHeader) -> Vec<Sym> {
     let mut names = Vec::new();
+
     for t in header
         .params
         .iter()
@@ -111,6 +119,7 @@ pub(in crate::sema) fn header_poly_names(header: &ast::ProcHeader) -> Vec<Sym> {
     {
         names.extend(poly_names(t));
     }
+
     names
 }
 
@@ -172,10 +181,12 @@ pub(super) fn assign_slots(
     let mut slots: Vec<Option<Slot>> = vec![None; params.len()];
     let variadic_index = params.iter().position(|p| p.variadic);
     let mut positional = 0usize;
+
     for (i, arg) in args.iter().enumerate() {
         if names_poly_var(params.iter().map(|p| p.name), arg, poly_vars) {
             continue;
         }
+
         if let Some(written) = arg.name {
             let name = written.name;
             let Some(p) = params.iter().position(|p| p.name == Some(name)) else {
@@ -188,6 +199,7 @@ pub(super) fn assign_slots(
                     arg.span,
                     format!("no parameter named `{name}`"),
                 );
+
                 match crate::suggest::closest(name.as_str(), names.iter().copied()) {
                     Some(near) => {
                         // Only the name changes, not the value after it.
@@ -196,6 +208,7 @@ pub(super) fn assign_slots(
                             written.span,
                             near,
                         );
+
                         if let Some(declared) = params
                             .iter()
                             .find(|p| p.name.map(Sym::as_str) == Some(near))
@@ -221,8 +234,10 @@ pub(super) fn assign_slots(
                         ));
                     }
                 }
+
                 return Err(Box::new(d));
             };
+
             if slots[p].is_some() {
                 return Err(Box::new(
                     Diagnostic::new(
@@ -233,6 +248,7 @@ pub(super) fn assign_slots(
                     .with_help("remove one of the two arguments"),
                 ));
             }
+
             slots[p] = Some(if arg.spread {
                 Slot::Spread(i)
             } else if Some(p) == variadic_index {
@@ -247,14 +263,17 @@ pub(super) fn assign_slots(
             } else {
                 p + 1
             };
+
             continue;
         }
+
         while positional < params.len()
             && slots[positional].is_some()
             && Some(positional) != variadic_index
         {
             positional += 1;
         }
+
         if positional >= params.len() {
             let mut d = Diagnostic::new(
                 Code::ArgumentCount,
@@ -262,11 +281,14 @@ pub(super) fn assign_slots(
                 format!("too many arguments: it takes at most {}", params.len()),
             )
             .with_label("this argument has no parameter");
+
             if let Some(remove) = remove_extra_arguments(args, i) {
                 d = d.with_suggestion(remove);
             }
+
             return Err(Box::new(d));
         }
+
         if Some(positional) == variadic_index {
             match &mut slots[positional] {
                 Some(Slot::Variadic(list)) => list.push(i),
@@ -288,11 +310,14 @@ pub(super) fn assign_slots(
                     );
                 }
             }
+
             if arg.spread && positional + 1 < params.len() {
                 positional += 1;
             }
+
             continue;
         }
+
         slots[positional] = Some(if arg.spread {
             Slot::Spread(i)
         } else {
@@ -300,7 +325,9 @@ pub(super) fn assign_slots(
         });
         positional += 1;
     }
+
     let _ = span;
+
     Ok(slots
         .into_iter()
         .map(|s| s.unwrap_or(Slot::Default))

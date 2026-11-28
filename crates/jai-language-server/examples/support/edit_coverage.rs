@@ -55,6 +55,7 @@ fn position(text: &str, byte: usize) -> Position {
     let (line, character) = jaic::source::LineIndex::new(text)
         .utf16_position(text, byte)
         .expect("an offset on a character boundary");
+
     Position {
         line,
         character,
@@ -71,14 +72,17 @@ fn environment(stdlib: Option<PathBuf>) -> Environment {
         fs: std::rc::Rc::new(jaic::sema::NativeFs),
         options: Box::new(move |_| {
             let mut options = jaic::sema::Options::host();
+
             // No generated executable is needed. The producer's canonical prelude is
             // optional, and the harness never reconstructs a legacy bootstrap.
             options.runtime_support = false;
             options.stack_trace = false;
+
             if let Some(dir) = &stdlib {
                 options.import_paths = vec![dir.clone()];
                 options.set_stdlib(&jaic::sema::NativeFs, dir);
             }
+
             options
         }),
     }
@@ -88,25 +92,31 @@ fn environment(stdlib: Option<PathBuf>) -> Environment {
 /// valid boundary to the UTF-16 midpoint. No invalid UTF-8 or split surrogate is sent.
 pub fn cuts(line: &str) -> BTreeSet<usize> {
     let mut cuts = BTreeSet::new();
+
     for byte in [line.len() / 3, line.len() / 2, line.len().saturating_sub(1)] {
         cuts.insert(line.floor_char_boundary(byte));
     }
+
     cuts.insert(line.len() - line.trim_start().len());
     let middle = jaic::source::utf16_len(line) as usize / 2;
     let mut units = 0;
+
     for (byte, ch) in line.char_indices() {
         if units >= middle {
             cuts.insert(byte);
             break;
         }
+
         units += ch.len_utf16();
     }
+
     cuts.retain(|&byte| byte < line.len());
     cuts
 }
 
 fn require(report: &mut Report, yes: bool, context: &str, message: &str) {
     report.assertions += 1;
+
     if !yes {
         report.failures.push(format!("{context}: {message}"));
     }
@@ -115,6 +125,7 @@ fn require(report: &mut Report, yes: bool, context: &str, message: &str) {
 fn anchors(s: &Session, uri: &DocumentUri, text: &str, report: &mut Report, context: &str) {
     progress(&format!("{context}: document symbols"));
     let symbols = s.document_symbols(uri).unwrap();
+
     for (name, local, value) in [
         ("__lsp_edit_head", "__head_local", 17),
         ("__lsp_edit_tail", "__tail_local", 23),
@@ -127,8 +138,10 @@ fn anchors(s: &Session, uri: &DocumentUri, text: &str, report: &mut Report, cont
         );
         let use_byte = text.find(&format!("{local} + 1")).unwrap();
         let pos = position(text, use_byte);
+
         progress(&format!("{context}: hover {local}"));
         let hover = s.hover(uri, pos).unwrap();
+
         require(
             report,
             hover
@@ -140,6 +153,7 @@ fn anchors(s: &Session, uri: &DocumentUri, text: &str, report: &mut Report, cont
         progress(&format!("{context}: definition {local}"));
         let defs = s.definition(uri, pos).unwrap();
         let expected = position(text, text.find(&format!("{local} := {value}")).unwrap());
+
         require(
             report,
             defs.len() == 1 && defs[0].uri == uri.as_str() && defs[0].range.start == expected,
@@ -150,6 +164,7 @@ fn anchors(s: &Session, uri: &DocumentUri, text: &str, report: &mut Report, cont
         let completions = s
             .completion(uri, position(text, use_byte + local.len()))
             .unwrap();
+
         require(
             report,
             completions
@@ -161,6 +176,7 @@ fn anchors(s: &Session, uri: &DocumentUri, text: &str, report: &mut Report, cont
         );
         progress(&format!("{context}: selection {local}"));
         let selections = s.selection_ranges(uri, &[pos]).unwrap();
+
         require(
             report,
             selections[0]
@@ -171,9 +187,11 @@ fn anchors(s: &Session, uri: &DocumentUri, text: &str, report: &mut Report, cont
             &format!("lost syntax selection ancestors {local}"),
         );
     }
+
     progress(&format!("{context}: semantic tokens"));
     let tokens = s.semantic_tokens(uri).unwrap();
     let expected_token = position(text, text.find("__tail_local :=").unwrap());
+
     require(
         report,
         tokens.iter().any(|t| t.position == expected_token),
@@ -183,6 +201,7 @@ fn anchors(s: &Session, uri: &DocumentUri, text: &str, report: &mut Report, cont
     progress(&format!("{context}: folding"));
     let folds = s.folding_ranges(uri).unwrap();
     let tail_line = position(text, text.find("__lsp_edit_tail").unwrap()).line;
+
     require(
         report,
         folds.iter().any(|f| f.start_line == tail_line),
@@ -215,6 +234,7 @@ fn anchors(s: &Session, uri: &DocumentUri, text: &str, report: &mut Report, cont
         text,
         text.find("__tail_local :=").unwrap() + "__tail_local".len(),
     );
+
     require(
         report,
         hints
@@ -241,6 +261,7 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
     // The corpus worker checks this source file, including its real imports/loads.
     // An inferred application entry may deliberately exclude it on the host target.
     let config = file_uri(&path.parent().unwrap().join("jacket.toml"));
+
     s.open(
         config,
         1,
@@ -262,13 +283,16 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
         .count();
     anchors(&s, &uri, &text, &mut report, "baseline");
     progress("baseline complete");
+
     if !report.failures.is_empty() {
         return report;
     }
+
     let lines: Vec<_> = source
         .split_inclusive('\n')
         .scan(HEAD.len(), |offset, line| {
             let start = *offset;
+
             *offset += line.len();
             Some((start, line.trim_end_matches(['\r', '\n'])))
         })
@@ -280,11 +304,13 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
         lines.len().div_ceil(max_lines).max(1)
     };
     let mut version = 1;
+
     for &(start, line) in lines.iter().step_by(stride) {
         for cut in cuts(line) {
             let a = start + cut;
             let b = start + line.len();
             let mut edited = text.clone();
+
             edited.replace_range(a..b, "");
             version += 1;
             progress(&format!(
@@ -310,6 +336,7 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
                 position(&text, start).line + 1,
                 jaic::source::utf16_len(&line[..cut])
             );
+
             anchors(&s, &uri, &edited, &mut report, &context);
             // Unaffected top-level declarations must remain in the recovered tree.
             let names: BTreeSet<_> = s
@@ -318,12 +345,15 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
                 .into_iter()
                 .map(|sym| sym.name)
                 .collect();
+
             progress(&format!("{context}: strict scope classification"));
             let strict_edit = jaic::parser::parse_file(FileId(0), &edited).ok();
+
             for stmt in &parsed.file.stmts {
                 if stmt.span.start as usize <= b && a <= stmt.span.end as usize {
                     continue;
                 }
+
                 if let StmtKind::Decl(d) = &stmt.kind {
                     for name in &d.names {
                         let mapped = if name.span.start as usize >= b {
@@ -331,6 +361,7 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
                         } else {
                             name.span.start as usize
                         };
+
                         // A suffix deletion can produce valid *different* syntax, e.g.
                         // `#run f();` -> `#run` followed by a declaration becomes a run
                         // statement containing that declaration. Strictly valid current
@@ -343,6 +374,7 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
                             report.scope_changes.push(format!("{context}: {} is inside the edited statement in valid current syntax", name.name));
                             continue;
                         }
+
                         require(
                             &mut report,
                             names.contains(name.name.as_str()),
@@ -352,10 +384,12 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
                     }
                 }
             }
+
             progress(&format!("{context}: diagnostics"));
             let diagnostics = s.diagnostics(&uri).unwrap();
             let independent_tail_line =
                 position(&edited, edited.find("__lsp_edit_tail").unwrap()).line;
+
             for d in diagnostics
                 .iter()
                 .filter(|d| d.severity == DiagnosticSeverity::Error)
@@ -367,6 +401,7 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
                     &format!("nonlocal diagnostic in independent tail: {d:?}"),
                 );
             }
+
             version += 1;
             progress(&format!("{context}: restore source"));
             s.change(
@@ -386,6 +421,7 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
                 .into_iter()
                 .map(|sym| sym.name)
                 .collect();
+
             for stmt in &parsed.file.stmts {
                 if let StmtKind::Decl(d) = &stmt.kind {
                     for name in &d.names {
@@ -400,5 +436,6 @@ pub fn check(path: &Path, source: &str, stdlib: Option<PathBuf>, max_lines: usiz
             }
         }
     }
+
     report
 }

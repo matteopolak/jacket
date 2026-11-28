@@ -13,10 +13,13 @@ fn interpreted_cas_is_atomic_against_simultaneous_host_access() {
         .map(|_| {
             let value = value.clone();
             let barrier = barrier.clone();
+
             std::thread::spawn(move || {
                 let mut interp = Interp::native(crate::layout::DataLayout::host());
                 let address = Arc::as_ptr(&value) as u64;
+
                 barrier.wait();
+
                 for _ in 0..20_000 {
                     loop {
                         let before = value.load(Ordering::SeqCst);
@@ -28,6 +31,7 @@ fn interpreted_cas_is_atomic_against_simultaneous_host_access() {
                             )
                             .unwrap()
                             .into_vec();
+
                         if result[0] != 0 {
                             break;
                         }
@@ -36,9 +40,11 @@ fn interpreted_cas_is_atomic_against_simultaneous_host_access() {
             })
         })
         .collect();
+
     for worker in workers {
         worker.join().unwrap();
     }
+
     assert_eq!(value.load(Ordering::SeqCst), 80_000);
 }
 
@@ -50,12 +56,15 @@ fn interpreted_exchange_preserves_all_prior_values_under_contention() {
         .map(|index| {
             let value = value.clone();
             let barrier = barrier.clone();
+
             std::thread::spawn(move || {
                 let mut interp = Interp::native(crate::layout::DataLayout::host());
                 let address = Arc::as_ptr(&value) as u64;
+
                 barrier.wait();
                 let mut sum = 0;
                 let mut observed = Vec::with_capacity(20_000);
+
                 for i in 1..=20_000 {
                     let old = interp
                         .intrinsic(
@@ -65,9 +74,11 @@ fn interpreted_exchange_preserves_all_prior_values_under_contention() {
                         )
                         .unwrap()
                         .into_vec()[0];
+
                     sum += old;
                     observed.push(old);
                 }
+
                 (sum, observed)
             })
         })
@@ -77,15 +88,18 @@ fn interpreted_exchange_preserves_all_prior_values_under_contention() {
         .into_iter()
         .map(|worker| {
             let (sum, mut prior) = worker.join().unwrap();
+
             observed.append(&mut prior);
             sum
         })
         .sum();
     let last = value.load(Ordering::SeqCst);
+
     assert_eq!(sum + last, 80_000 * 80_001 / 2);
     observed.push(last);
     observed.sort_unstable();
     assert_eq!(observed.len(), 80_001);
+
     for (index, old) in observed.into_iter().enumerate() {
         assert_eq!(
             old, index as u64,

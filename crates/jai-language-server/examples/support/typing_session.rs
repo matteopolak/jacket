@@ -79,6 +79,7 @@ impl Choices for Seeded {
     fn below(&mut self, n: usize) -> usize {
         self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
         let mut z = self.0;
+
         z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
         z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
         ((z ^ (z >> 31)) % n as u64) as usize
@@ -173,12 +174,16 @@ pub fn run(input: &Input<'_>, config: Config, choices: impl Choices) -> Report {
     };
     let texts: Vec<String> = input.docs.iter().map(|(_, t)| t.clone()).collect();
     let mut report = Report::default();
+
     if let Ok(fresh) = open_session(input, &texts) {
         let mut clock = Clock::new(rig.config.budget, None);
+
         for d in &rig.docs {
             let cap = rig.config.full_probes;
+
             Snapshot::take(&mut clock, &fresh, &d.uri, &d.orig, cap);
             let again = Snapshot::take(&mut clock, &fresh, &d.uri, &d.orig, cap);
+
             if let Some(message) = snapshot_difference(&d.baseline, &again) {
                 report.failures.push(format!(
                     "baseline of {} is not reproducible: {message}",
@@ -188,6 +193,7 @@ pub fn run(input: &Input<'_>, config: Config, choices: impl Choices) -> Report {
             }
         }
     }
+
     rig.run()
 }
 
@@ -206,9 +212,11 @@ pub fn replay_difference(
     let uri = input.docs[doc].0.clone();
     let mut current = texts[doc].clone();
     let mut texts = texts;
+
     for q in &history.initial {
         q.execute(&session);
     }
+
     for (n, step) in history.steps.iter().enumerate() {
         let next = &step.text;
         let mut start = current
@@ -216,9 +224,11 @@ pub fn replay_difference(
             .zip(next.bytes())
             .take_while(|(a, b)| a == b)
             .count();
+
         while !current.is_char_boundary(start) || !next.is_char_boundary(start) {
             start -= 1;
         }
+
         let suffix = current[start..]
             .bytes()
             .rev()
@@ -235,26 +245,34 @@ pub fn replay_difference(
             range_length: None,
             text: next[start..new_end].to_string(),
         };
+
         session.change(&uri, n as i32 + 2, &[change]).ok()?;
         current.clone_from(next);
+
         for q in &step.queries {
             q.execute(&session);
         }
     }
+
     texts[doc].clone_from(&current);
     let fresh = open_session(input, &texts).ok()?;
+
     for q in history.steps.last().map_or(&[][..], |s| &s.queries) {
         q.execute(&fresh);
     }
+
     let cap = config.full_probes;
     let now = Snapshot::take(&mut clock, &session, &uri, &current, cap);
     let reference = Snapshot::take(&mut clock, &fresh, &uri, &current, cap);
+
     if stale_damage(&now, &current) {
         return Some("reports an incomplete lexical edit for text that lexes".into());
     }
+
     if omits_literal(&now) || any_omits_literal(&session, input.docs.iter().map(|(u, _)| u)) {
         return None;
     }
+
     snapshot_difference(&reference, &now)
 }
 
@@ -275,43 +293,58 @@ pub fn minimise_history(
     let (last, rest) = history.steps.split_last()?;
     let join = |rest: &[Step]| {
         let mut all = rest.to_vec();
+
         all.push(last.clone());
         all
     };
+
     if !fails(&join(rest)) {
         return None;
     }
+
     let mut rest = rest.to_vec();
     let mut chunks = 2;
+
     while rest.len() >= 2 {
         let size = rest.len().div_ceil(chunks);
         let mut reduced = false;
+
         for from in (0..rest.len()).step_by(size) {
             let mut candidate = rest.clone();
+
             candidate.drain(from..(from + size).min(rest.len()));
+
             if fails(&join(&candidate)) {
                 rest = candidate;
                 chunks = (chunks - 1).max(2);
                 reduced = true;
+
                 break;
             }
         }
+
         if !reduced {
             if chunks >= rest.len() {
                 break;
             }
+
             chunks = (chunks * 2).min(rest.len());
         }
     }
+
     let mut i = 0;
+
     while i < rest.len() {
         let mut candidate = rest.clone();
+
         candidate.remove(i);
+
         if fails(&join(&candidate)) {
             rest = candidate;
         } else {
             i += 1;
         }
     }
+
     Some(with(&join(&rest)))
 }

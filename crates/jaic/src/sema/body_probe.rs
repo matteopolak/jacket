@@ -183,6 +183,7 @@ impl<const I: usize> Probed<crate::types::Types, I> {
             lookup(Lookup::Types, true);
             return id;
         }
+
         lookup(Lookup::Types, false);
         write_at(I);
         self.0.intern(kind)
@@ -221,9 +222,11 @@ impl<T, const I: usize> Probed<Vec<T>, I> {
         if super::speculative::BUILT {
             super::speculative::append_hit(I);
         }
+
         if COUNTING && ON.load(std::sync::atomic::Ordering::Relaxed) {
             WRITES.with(|w| w.borrow_mut()[I] += 1);
         }
+
         self.0.push(value);
     }
 
@@ -390,7 +393,9 @@ fn old_write(table: usize, at: usize) {
     if !COUNTING || !enabled() {
         return;
     }
+
     let limits = LIMITS.with(std::cell::Cell::get);
+
     if table == W::PrProcs as usize {
         // The body's own record changes as it is lowered; any other procedure's is shared.
         if at != limits[2] {
@@ -428,6 +433,7 @@ fn write_at(i: usize) {
     if super::speculative::BUILT {
         super::speculative::write_hit(i, None);
     }
+
     if COUNTING && ON.load(std::sync::atomic::Ordering::Relaxed) {
         WRITES.with(|w| w.borrow_mut()[i] += 1);
     }
@@ -440,6 +446,7 @@ fn write_at_index(i: usize, at: usize) {
     if super::speculative::BUILT {
         super::speculative::write_hit(i, Some(at));
     }
+
     if COUNTING && ON.load(std::sync::atomic::Ordering::Relaxed) {
         WRITES.with(|w| w.borrow_mut()[i] += 1);
     }
@@ -645,6 +652,7 @@ pub fn bump(c: C) {
 
 fn snapshot(c: &Compiler, bumps: [u64; 3], nested: u64) -> [u64; N] {
     let mut v = [0u64; N];
+
     v[C::Types as usize] = c.ty.types.type_count() as u64;
     v[C::Structs as usize] = c.ty.types.structs.len() as u64;
     v[C::Strings as usize] = c.out.strings.len() as u64;
@@ -678,6 +686,7 @@ pub fn enqueued(id: u32) {
         STATE.with(|s| {
             let mut s = s.borrow_mut();
             let p = s.frames.last().map_or(u32::MAX, |f| f.id);
+
             s.parent.entry(id).or_insert(p);
         });
     }
@@ -686,15 +695,18 @@ pub fn enqueued(id: u32) {
 pub fn begin(c: &Compiler, id: u32) {
     STATE.with(|s| {
         let mut s = s.borrow_mut();
+
         if s.touched.is_empty() {
             s.touched = vec![0; N];
             s.grown = vec![0; N];
             s.writes = vec![0; WN];
         }
+
         s.bodies += 1;
         // The snapshot's own reads are not the body's.
         let depth = DEPTH.with(|d| d.replace(0));
         let start = snapshot(c, s.bumps, s.bodies);
+
         DEPTH.with(|d| d.set(depth + 1));
         LIMITS.with(|l| l.set([0, start[C::Entities as usize] as usize, id as usize]));
         s.frames.push(Frame {
@@ -714,8 +726,10 @@ pub fn end(c: &Compiler) {
         let depth = DEPTH.with(|d| d.replace(0));
         // `bodies` already counts this one, which `begin` snapshotted before incrementing.
         let now = snapshot(c, bumps, s.bodies);
+
         DEPTH.with(|d| d.set(depth - 1));
         let f = s.frames.pop().unwrap();
+
         LIMITS.with(|l| {
             l.set(s.frames.last().map_or([0, 0, usize::MAX], |p| {
                 [0, p.start[C::Entities as usize] as usize, p.id as usize]
@@ -725,32 +739,41 @@ pub fn end(c: &Compiler) {
         let self_time = elapsed.saturating_sub(f.child_time);
         let mut total = [0u64; N];
         let mut own = [0u64; N];
+
         for i in 0..N {
             total[i] = now[i].saturating_sub(f.start[i]);
             own[i] = total[i].saturating_sub(f.child[i]);
         }
+
         // This body itself counts as nested for its parent, once.
         if let Some(p) = s.frames.last_mut() {
             for i in 0..N {
                 p.child[i] += total[i];
             }
+
             p.child_time += elapsed;
         }
+
         let mut mask = 0usize;
+
         for (k, (_, set)) in SETS.iter().enumerate() {
             if set.iter().any(|&c| own[c as usize] > 0) {
                 mask |= 1 << k;
             }
         }
+
         for i in 0..N {
             if own[i] > 0 {
                 s.touched[i] += 1;
             }
+
             s.grown[i] += own[i];
         }
+
         for i in 0..WN {
             s.writes[i] += own[N0 + i];
         }
+
         s.masks[mask].0 += 1;
         s.masks[mask].1 += self_time;
         s.total += self_time;
@@ -762,18 +785,24 @@ pub fn report() {
     if !enabled() {
         return;
     }
+
     STATE.with(|s| {
         let s = s.borrow();
+
         eprintln!("== body probe: {} lower_body calls (self time {:?})", s.bodies, s.total);
         eprintln!("-- bodies whose own lowering grew each table:");
+
         for i in 0..N0 {
             eprintln!("  {:<20} {:>8} ({:.1}%) grew by {}", NAMES[i], s.touched[i], 100.0 * s.touched[i] as f64 / s.bodies.max(1) as f64, s.grown[i]);
         }
+
         if COUNTING {
             eprintln!("-- in-place writes (mutable borrows of shared state) made while a body is lowered:");
             eprintln!("  {:<30} {:>8} bodies ({:>5}) {:>12} writes", "state", "wrote", "%", "total");
             let mut rows: Vec<_> = (0..WN).filter(|&i| s.touched[N0 + i] > 0).collect();
+
             rows.sort_by_key(|&i| std::cmp::Reverse(s.touched[N0 + i]));
+
             for i in rows {
                 eprintln!(
                     "  {:<30} {:>8} bodies ({:>4.1}%) {:>12}",
@@ -783,11 +812,14 @@ pub fn report() {
                     s.writes[i]
                 );
             }
+
             eprintln!("-- shared-table reads (`Deref`; includes len/iter) and keyed lookups made while a body is lowered:");
             READS.with(|r| {
                 let r = r.borrow();
                 let mut rows: Vec<_> = (0..WN).filter(|&i| r[i] > 0).collect();
+
                 rows.sort_by_key(|&i| std::cmp::Reverse(r[i]));
+
                 for i in rows.into_iter().take(40) {
                     eprintln!("  {:<30} {:>12} reads {:>12} writes", WRITE_NAMES[i], r[i], s.writes[i]);
                 }
@@ -795,6 +827,7 @@ pub fn report() {
             LOOKUPS.with(|l| {
                 for (i, name) in LOOKUP_NAMES.iter().enumerate() {
                     let [hit, miss] = l.borrow()[i];
+
                     if hit + miss > 0 {
                         eprintln!(
                             "  lookup {:<24} {:>12} hits {:>10} misses ({:.2}% hit)",
@@ -804,13 +837,17 @@ pub fn report() {
                 }
             });
             let quiet: Vec<_> = (0..WN).filter(|&i| s.touched[N0 + i] == 0).map(|i| WRITE_NAMES[i]).collect();
+
             eprintln!("  never written by a body: {}", quiet.join(", "));
         } else {
             eprintln!("-- in-place writes were not counted: build jaic with `--features body-probe`");
         }
+
         eprintln!("-- by sets touched (A..E, see body_probe.rs):");
         let mut rows: Vec<_> = (0..32).filter(|&m| s.masks[m].0 > 0).collect();
+
         rows.sort_by_key(|&m| std::cmp::Reverse(s.masks[m].1));
+
         for m in rows {
             let label: String = SETS
                 .iter()
@@ -819,6 +856,7 @@ pub fn report() {
                 .map(|(_, (n, _))| n.chars().next().unwrap())
                 .collect();
             let label = if label.is_empty() { "-(pure)".into() } else { label };
+
             eprintln!(
                 "  {:<8} {:>8} bodies ({:.1}%)  self {:>10.3?} ({:.1}%)",
                 label,
@@ -828,10 +866,12 @@ pub fn report() {
                 100.0 * s.masks[m].1.as_secs_f64() / s.total.as_secs_f64().max(1e-12)
             );
         }
+
         // Longest chain of queue parents, weighted by own time.
         let mut best = Duration::ZERO;
         let mut deepest = 0;
         let mut memo: crate::fxhash::HashMap<u32, (Duration, u32)> = crate::fxhash::HashMap::default();
+
         for &id in s.parent.keys() {
             let mut chain = vec![];
             let mut cur = id;
@@ -839,30 +879,39 @@ pub fn report() {
                 if let Some(&m) = memo.get(&cur) {
                     break m;
                 }
+
                 chain.push(cur);
+
                 match s.parent.get(&cur) {
                     Some(&p) if p != u32::MAX => cur = p,
                     _ => break (Duration::ZERO, 0),
                 }
             };
             let (mut t, mut d) = base;
+
             for &n in chain.iter().rev() {
                 t += s.own_time.get(&n).copied().unwrap_or_default();
                 d += 1;
                 memo.insert(n, (t, d));
             }
+
             let (t, d) = memo[&id];
+
             if t > best {
                 best = t;
             }
+
             deepest = deepest.max(d);
         }
+
         let roots = s.parent.values().filter(|&&p| p == u32::MAX).count();
+
         eprintln!(
             "-- queue tree: {} queued bodies, {roots} roots, depth {deepest}, critical path {best:?} of {:?} total",
             s.parent.len(),
             s.total
         );
+
         for (name, _) in SETS {
             eprintln!("  set {name}");
         }
@@ -873,6 +922,7 @@ pub fn report() {
 /// how much the numbering of ids and functions depends on the order bodies are lowered in).
 pub fn next_body(queue: &mut Vec<super::ProcId>) -> Option<super::ProcId> {
     static FIFO: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+
     if *FIFO.get_or_init(|| crate::knobs::get().body_fifo) {
         (!queue.is_empty()).then(|| queue.remove(0))
     } else {

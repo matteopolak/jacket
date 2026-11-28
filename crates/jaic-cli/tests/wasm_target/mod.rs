@@ -17,15 +17,18 @@ fn node() -> Option<Command> {
 /// `wasm-ld` and the host is not CI.
 fn jaic(dir: &Path, args: &[&str]) -> Option<Output> {
     node()?;
+
     if !toolchain::buildable("wasm64-unknown-unknown") {
         return None;
     }
+
     let output = Command::new(JAIC)
         .args(args)
         .current_dir(dir)
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "jaic {args:?} failed:\n{stderr}");
     Some(output)
 }
@@ -42,6 +45,7 @@ fn wasi_run(module: &Path, args: &[&str], stdin: &str) -> Output {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
+
     use std::io::Write;
     child
         .stdin
@@ -66,6 +70,7 @@ fn imports(module: &Path) -> Vec<String> {
         .arg(module)
         .output()
         .unwrap();
+
     assert!(output.status.success(), "{}", text(&output.stderr));
     text(&output.stdout).lines().map(str::to_string).collect()
 }
@@ -75,6 +80,7 @@ fn imports(module: &Path) -> Vec<String> {
 #[test]
 fn wasm_hello_reads_stdin_and_exits_with_its_status() {
     let dir = TempDir::new("wasm-hello");
+
     std::fs::write(
         dir.join("hello.jai"),
         r#"#import "Basic";
@@ -95,10 +101,13 @@ main :: () -> s32 {
 "#,
     )
     .unwrap();
+
     if jaic(&dir, &["hello.jai", "-os", "wasm", "-exe", "hello.wasm"]).is_none() {
         return;
     }
+
     let module = dir.join("hello.wasm");
+
     assert_eq!(&std::fs::read(&module).unwrap()[..4], b"\0asm");
     let mut run = node().unwrap();
     let output = run
@@ -109,12 +118,15 @@ main :: () -> s32 {
         .stdin(Stdio::null())
         .output()
         .unwrap();
+
     assert_eq!(text(&output.stdout), "hello 2 from WASM\nread \nenv set\n");
     assert_eq!(text(&output.stderr), "to stderr\n");
     assert_eq!(output.status.code(), Some(43));
     let piped = wasi_run(&module, &[], "piped");
+
     assert!(text(&piped.stdout).contains("read piped\n"));
     assert_eq!(piped.status.code(), Some(41));
+
     for import in imports(&module) {
         assert!(
             import.starts_with("wasi_snapshot_preview1."),
@@ -131,6 +143,7 @@ fn wasm_allocation_heavy_program() {
     let source = repo_root().join("tests/compiler/native/wasm/program.jai");
     let source = source.to_str().unwrap();
     let module = dir.join("program.wasm");
+
     for opt in ["-O0", "-O2"] {
         if jaic(
             &dir,
@@ -140,7 +153,9 @@ fn wasm_allocation_heavy_program() {
         {
             return;
         }
+
         let output = wasi_run(&dir.join("program.wasm"), &["a", "b"], "");
+
         assert_eq!(
             text(&output.stdout),
             "arg 1: a\narg 2: b\nOS WASM CPU CUSTOM pointer 8 bytes\ntable 10000 149985000\n\
@@ -164,10 +179,12 @@ fn wasm_examples_run_as_wasi_commands() {
     if cfg!(windows) {
         return;
     }
+
     let examples: serde_json::Value = serde_json::from_slice(
         &std::fs::read(repo_root().join("tests/corpus/examples.json")).unwrap(),
     )
     .unwrap();
+
     for id in ["threads", "files", "raymarch-gpu"] {
         let case = examples["cases"]
             .as_array()
@@ -179,6 +196,7 @@ fn wasm_examples_run_as_wasi_commands() {
         let dir = TempDir::new(&format!("wasm-example-{id}"));
         let module = dir.join(format!("{id}.wasm"));
         let main = folder.join("main.jai");
+
         if jaic(
             &folder,
             &[
@@ -193,6 +211,7 @@ fn wasm_examples_run_as_wasi_commands() {
         {
             return;
         }
+
         let output = node()
             .unwrap()
             .arg(repo_root().join("tools/wasi_run.ts"))
@@ -203,14 +222,17 @@ fn wasm_examples_run_as_wasi_commands() {
             .output()
             .unwrap();
         let stdout = text(&output.stdout);
+
         assert_eq!(
             output.status.code(),
             Some(0),
             "{id}: {stdout}{}",
             text(&output.stderr)
         );
+
         for line in case["stdout_contains"].as_array().unwrap() {
             let line = line.as_str().unwrap();
+
             assert!(
                 stdout.contains(line),
                 "{id}: missing {line:?} in:\n{stdout}"
@@ -225,6 +247,7 @@ fn wasm_examples_run_as_wasi_commands() {
 fn wasm_temporary_directory_maps_real_host_storage() {
     let dir = TempDir::new("wasm-temporary-directory");
     let temporary = dir.join("host-temporary");
+
     std::fs::create_dir(&temporary).unwrap();
     std::fs::write(
         dir.join("temporary.jai"),
@@ -242,6 +265,7 @@ main :: () {
 "#,
     )
     .unwrap();
+
     for (flag, name) in [("-O0", "unoptimized"), ("-O2", "optimized")] {
         if jaic(
             &dir,
@@ -258,6 +282,7 @@ main :: () {
         {
             return;
         }
+
         let file_name = format!("{name}-temporary.txt");
         let output = node()
             .unwrap()
@@ -270,6 +295,7 @@ main :: () {
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}{}",
@@ -294,8 +320,10 @@ fn threads_runtime_provider_runs_as_wasi_with_real_workers() {
     let runs = [("-os", "wasm"), ("-target", "wasm32-wasi")]
         .into_iter()
         .flat_map(|target| [(target, "-O0"), (target, "-O2")]);
+
     for ((option, target), flag) in runs {
         let module = dir.join(format!("{target}{flag}.wasm"));
+
         assert!(
             jaic(
                 &dir,
@@ -313,6 +341,7 @@ fn threads_runtime_provider_runs_as_wasi_with_real_workers() {
         );
         let output = wasi_run(&module, &[], "");
         let stdout = text(&output.stdout);
+
         assert_eq!(
             output.status.code(),
             Some(0),
@@ -335,6 +364,7 @@ fn threads_runtime_provider_runs_as_wasi_with_real_workers() {
 #[test]
 fn wasm_build_options_from_a_metaprogram() {
     let dir = TempDir::new("wasm-metaprogram");
+
     for name in ["build_wasi.jai", "program.jai"] {
         std::fs::copy(
             repo_root().join("tests/compiler/native/wasm").join(name),
@@ -342,10 +372,13 @@ fn wasm_build_options_from_a_metaprogram() {
         )
         .unwrap();
     }
+
     if jaic(&dir, &["build_wasi.jai"]).is_none() {
         return;
     }
+
     let output = wasi_run(&dir.join("program.wasm"), &[], "");
+
     assert!(
         text(&output.stdout).contains("sorted 1000000 0 999\n"),
         "{}{}",
@@ -371,11 +404,14 @@ fn wasm_bare_module_imports_and_exports() {
         "-exe",
         module.to_str().unwrap(),
     ];
+
     if jaic(&dir, &args).is_none() {
         return;
     }
+
     let module = dir.join("exports.wasm");
     let imports = imports(&module);
+
     assert!(
         imports.contains(&"env.host_report".to_string()),
         "{imports:?}"
@@ -395,6 +431,7 @@ fn wasm_bare_module_imports_and_exports() {
         .output()
         .unwrap();
     let stdout = text(&output.stdout);
+
     assert!(output.status.success(), "{}", text(&output.stderr));
     assert!(
         stdout.contains("report triangle 5050\ntriangle 5050\n"),
@@ -419,9 +456,11 @@ fn jaifmt_wasm_formats_the_golden_cases() {
         "-exe",
         module.to_str().unwrap(),
     ];
+
     if jaic(&dir, &args).is_none() {
         return;
     }
+
     let output = node()
         .unwrap()
         .arg(repo_root().join("tools/browser/check_jaifmt_wasm.ts"))
@@ -429,6 +468,7 @@ fn jaifmt_wasm_formats_the_golden_cases() {
         .arg(dir.join("jaifmt.wasm"))
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}{}",
@@ -436,6 +476,7 @@ fn jaifmt_wasm_formats_the_golden_cases() {
         text(&output.stderr)
     );
     let piped = wasi_run(&dir.join("jaifmt.wasm"), &[], "f :: ()\n{\n  x:=1;\n}\n");
+
     assert_eq!(text(&piped.stdout), "f :: () {\n    x := 1;\n}\n");
     assert_eq!(piped.status.code(), Some(0));
 }
@@ -453,10 +494,13 @@ fn jaifmt_wasm_from_the_build_metaprogram() {
         "-o",
         module.to_str().unwrap(),
     ];
+
     if jaic(&dir, &args).is_none() {
         return;
     }
+
     let piped = wasi_run(&module, &[], "f :: ()\n{\n  x:=1;\n}\n");
+
     assert_eq!(text(&piped.stdout), "f :: () {\n    x := 1;\n}\n");
     assert_eq!(piped.status.code(), Some(0));
 }
@@ -466,6 +510,7 @@ fn jaifmt_wasm_from_the_build_metaprogram() {
 fn corpus_runs_as_wasm_like_the_interpreter() {
     let dir = TempDir::new("wasm-corpus");
     let (mut checked, mut failures) = (0, Vec::new());
+
     for case in corpus_cases() {
         let interp = Command::new(JAIC)
             .arg("-interp")
@@ -473,9 +518,11 @@ fn corpus_runs_as_wasm_like_the_interpreter() {
             .current_dir(case.source.parent().unwrap())
             .output()
             .unwrap();
+
         if !matches(&case, &interp) {
             continue;
         }
+
         let module = dir.join(format!("{}.wasm", case.id));
         let args = [
             case.source.to_str().unwrap(),
@@ -487,8 +534,10 @@ fn corpus_runs_as_wasm_like_the_interpreter() {
         let Some(_) = jaic(case.source.parent().unwrap(), &args) else {
             return;
         };
+
         checked += 1;
         let output = wasi_run(&module, &[], "");
+
         if !matches(&case, &output) {
             failures.push(format!(
                 "{}: wasm exit {:?}, stdout {:?}, stderr {:?} (expected exit {}, stdout {:?})",
@@ -501,6 +550,7 @@ fn corpus_runs_as_wasm_like_the_interpreter() {
             ));
         }
     }
+
     assert!(checked > 0, "no corpus case passes under the interpreter");
     assert!(
         failures.is_empty(),

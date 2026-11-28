@@ -27,12 +27,14 @@ impl Compiler {
             if self.asm_scalar_inst(f, cx, inst, base, lock)? {
                 return Ok(());
             }
+
             if !lock
                 && (self.asm_mask_inst(f, cx, inst, base)?
                     || self.asm_vec_inst_floats(f, cx, inst, base)?)
             {
                 return Ok(());
             }
+
             return err(
                 Code::AsmUnsupported,
                 inst.mnemonic.span,
@@ -40,9 +42,11 @@ impl Compiler {
             );
         };
         let mut opds = Vec::with_capacity(inst.operands.len());
+
         for o in &inst.operands {
             opds.push(self.asm_operand(f, cx, o)?);
         }
+
         let c = AsmArgs {
             name,
             base,
@@ -50,6 +54,7 @@ impl Compiler {
             span,
             opds,
         };
+
         match op {
             Op::Nop
             | Op::Pause
@@ -91,6 +96,7 @@ impl Compiler {
             | Op::Blsi
             | Op::Blsmsk => self.asm_bits(f, cx, inst, &c, op)?,
         }
+
         Ok(())
     }
 
@@ -107,12 +113,14 @@ impl Compiler {
         let opds = &c.opds;
         let n = c.opds.len();
         let want = |lo: usize, hi: usize| c.want(lo, hi);
+
         match op {
             Op::Nop => {
                 want(0, 0)?;
             }
             Op::Pause | Op::Fence(_) => {
                 want(0, 0)?;
+
                 if self.options.cpu != TargetCpu::X64 {
                     return err(
                         Code::AsmRequiresX8664,
@@ -120,10 +128,12 @@ impl Compiler {
                         format!("{name} requires an x86-64 target"),
                     );
                 }
+
                 let operation = match op {
                     Op::Fence(kind) => Intrinsic::X86Fence(kind),
                     _ => Intrinsic::X86Pause,
                 };
+
                 f.b.intrinsic(operation, Vec::new(), &[]);
             }
             Op::Int3 => {
@@ -145,7 +155,9 @@ impl Compiler {
                 } else {
                     2
                 };
+
                 want(2, max)?;
+
                 if self.options.cpu != TargetCpu::X64 {
                     return err(
                         Code::AsmRequiresX8664,
@@ -153,6 +165,7 @@ impl Compiler {
                         format!("{name} requires an x86-64 target"),
                     );
                 }
+
                 if opds
                     .iter()
                     .any(|o| !matches!(o, Opd::Reg(r) if matches!(r.storage, Ty::I32 | Ty::I64)))
@@ -163,6 +176,7 @@ impl Compiler {
                         format!("{name} outputs must be 32- or 64-bit integer registers"),
                     );
                 }
+
                 let aux = op == Op::Rdtscp;
                 let result_types: &[Ty] = if aux {
                     &[Ty::I64, Ty::I32]
@@ -181,14 +195,17 @@ impl Compiler {
                 let hi = bin(f, BinOp::LShr, Ty::I64, t, s32);
                 let hi = resize(f, hi, Ty::I64, Ty::I32, false);
                 let lo = resize(f, t, Ty::I64, Ty::I32, false);
+
                 self.asm_write(f, opds[0], Ty::I32, hi, span)?;
                 self.asm_write(f, opds[1], Ty::I32, lo, span)?;
+
                 if n == 3 {
                     self.asm_write(f, opds[2], Ty::I32, results[1], span)?;
                 }
             }
             Op::Rdrand | Op::Rdseed => {
                 want(1, 1)?;
+
                 if self.options.cpu != TargetCpu::X64 {
                     return err(
                         Code::AsmRequiresX8664,
@@ -196,7 +213,9 @@ impl Compiler {
                         format!("{name} requires an x86-64 target"),
                     );
                 }
+
                 let sz = self.asm_size(f, cx, inst, opds)?;
+
                 if !matches!(sz, Ty::I16 | Ty::I32 | Ty::I64)
                     || !matches!(opds[0], Opd::Reg(r) if matches!(r.width(), Ty::I16 | Ty::I32 | Ty::I64) && r.width().numeric_size() >= sz.numeric_size())
                 {
@@ -208,6 +227,7 @@ impl Compiler {
                         ),
                     );
                 }
+
                 let result = f.b.intrinsic(
                     Intrinsic::X86Random {
                         seed: op == Op::Rdseed,
@@ -216,8 +236,10 @@ impl Compiler {
                     Vec::new(),
                     &[sz, Ty::I8],
                 );
+
                 self.asm_write(f, opds[0], sz, result[0], span)?;
                 let zero = konst(f, Ty::I8, 0);
+
                 cx.flags = Flags {
                     cf: Some(result[1]),
                     zf: Some(zero),
@@ -230,6 +252,7 @@ impl Compiler {
             }
             Op::Cpuid => {
                 want(4, 4)?;
+
                 if self.options.cpu != TargetCpu::X64 {
                     return err(
                         Code::AsmRequiresX8664,
@@ -237,6 +260,7 @@ impl Compiler {
                         "cpuid requires an x86-64 target",
                     );
                 }
+
                 if opds
                     .iter()
                     .any(|o| !matches!(o, Opd::Reg(r) if matches!(r.storage,Ty::I32|Ty::I64)))
@@ -247,10 +271,12 @@ impl Compiler {
                         "cpuid operands must be 32- or 64-bit integer registers",
                     );
                 }
+
                 let leaf = self.asm_read(f, opds[0], Ty::I32, span)?;
                 let subleaf = self.asm_read(f, opds[2], Ty::I32, span)?;
                 let results =
                     f.b.intrinsic(Intrinsic::CpuId, vec![leaf, subleaf], &[Ty::I32; 4]);
+
                 for (&o, value) in opds.iter().zip(results) {
                     self.asm_write(f, o, Ty::I32, value, span)?;
                 }
@@ -263,6 +289,7 @@ impl Compiler {
                 const ARGS: [u8; 6] = [7, 6, 2, 10, 8, 9];
                 want(3, 3 + ARGS.len())?;
                 let mut listed = [None; ARGS.len()];
+
                 for &o in &opds[3..] {
                     let slot = match o {
                         Opd::Reg(r) => self
@@ -281,29 +308,39 @@ impl Compiler {
                             "a `syscall` argument operand must be a register pinned to di, si, d, 10, 8 or 9",
                         );
                     };
+
                     listed[slot] = Some(self.asm_read(f, o, Ty::I64, span)?);
                 }
+
                 let mut args = vec![self.asm_read(f, opds[2], Ty::I64, span)?];
+
                 for (reg, listed) in ARGS.into_iter().zip(listed) {
                     let pinned = self.pr.asm_pins.iter().rev().find(|(r, _)| *r == reg);
+
                     args.push(match (listed, pinned) {
                         (Some(value), _) => value,
                         (None, Some(&(_, addr))) => f.b.load(Ty::I64, addr),
                         (None, None) => konst(f, Ty::I64, 0),
                     });
                 }
+
                 let ret = f.b.intrinsic(Intrinsic::Syscall, args, &[Ty::I64])[0];
+
                 for &o in &opds[..2] {
                     let z = konst(f, Ty::I64, 0);
+
                     self.asm_write(f, o, Ty::I64, z, span)?;
                 }
+
                 self.asm_write(f, opds[2], Ty::I64, ret, span)?;
+
                 if let Some(&(_, addr)) = self.pr.asm_pins.iter().rev().find(|(r, _)| *r == 0) {
                     f.b.store(Ty::I64, addr, ret);
                 }
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
@@ -320,11 +357,13 @@ impl Compiler {
         let base = c.base;
         let lock = c.lock;
         let want = |lo: usize, hi: usize| c.want(lo, hi);
+
         match op {
             Op::Mov => {
                 want(2, 2)?;
                 let sz = self.asm_size(f, cx, inst, opds)?;
                 let v = self.asm_read(f, opds[1], sz, span)?;
+
                 self.asm_write(f, opds[0], sz, v, span)?;
             }
             Op::Movbe => {
@@ -336,6 +375,7 @@ impl Compiler {
                 } else {
                     bit_intrinsic(f, Intrinsic::Bswap, sz, v)
                 };
+
                 self.asm_write(f, opds[0], sz, v, span)?;
             }
             Op::Movzx | Op::Movsx => {
@@ -343,6 +383,7 @@ impl Compiler {
                 let (from, to) = Self::asm_extension_sizes(base, inst, span)?;
                 let v = self.asm_read(f, opds[1], from, span)?;
                 let v = resize(f, v, from, to, op == Op::Movsx);
+
                 self.asm_write(f, opds[0], to, v, span)?;
             }
             Op::Lea => {
@@ -356,6 +397,7 @@ impl Compiler {
                 };
                 let sz = self.asm_size(f, cx, inst, &opds[..1])?;
                 let v = resize(f, addr, Ty::I64, sz, false);
+
                 self.asm_write(f, opds[0], sz, v, span)?;
             }
             Op::Xchg => {
@@ -369,6 +411,7 @@ impl Compiler {
                 };
                 let new = self.asm_read(f, other, sz, span)?;
                 let (rmw, old) = self.rmw_begin(f, target, sz, true, span)?;
+
                 self.rmw_end(f, rmw, new, span)?;
                 self.asm_write(f, other, sz, old, span)?;
             }
@@ -378,6 +421,7 @@ impl Compiler {
                 let addend = self.asm_read(f, opds[1], sz, span)?;
                 let (rmw, old) = self.rmw_begin(f, opds[0], sz, lock, span)?;
                 let new = self.asm_alu(f, cx, Alu::Add, sz, old, addend);
+
                 self.rmw_end(f, rmw, new, span)?;
                 self.asm_write(f, opds[1], sz, old, span)?;
             }
@@ -398,14 +442,17 @@ impl Compiler {
                 let (rmw, old) = self.rmw_begin(f, dst, sz, lock, span)?;
                 let eq = cmp(f, CmpOp::Eq, sz, old, acc_v);
                 let new = select(f, sz, eq, src_v, old);
+
                 self.asm_alu(f, cx, Alu::Cmp, sz, acc_v, old);
                 self.rmw_end(f, rmw, new, span)?;
                 let acc_new = select(f, sz, eq, acc_v, old);
+
                 self.asm_write(f, acc, sz, acc_new, span)?;
             }
             Op::Setcc(cond) => {
                 want(1, 1)?;
                 let v = Self::eval_cond(f, cx, cond);
+
                 self.asm_write(f, opds[0], Ty::I8, v, span)?;
             }
             Op::Cmovcc(cond) => {
@@ -415,10 +462,12 @@ impl Compiler {
                 let src = self.asm_read(f, opds[1], sz, span)?;
                 let old = self.asm_read(f, opds[0], sz, span)?;
                 let v = select(f, sz, c, src, old);
+
                 self.asm_write(f, opds[0], sz, v, span)?;
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
@@ -435,17 +484,21 @@ impl Compiler {
         let n = c.opds.len();
         let lock = c.lock;
         let want = |lo: usize, hi: usize| c.want(lo, hi);
+
         match op {
             Op::Alu(alu) => {
                 want(2, 2)?;
                 let sz = self.asm_size(f, cx, inst, opds)?;
                 let b = self.asm_read(f, opds[1], sz, span)?;
+
                 if matches!(alu, Alu::Cmp | Alu::Test) {
                     let a = self.asm_read(f, opds[0], sz, span)?;
+
                     self.asm_alu(f, cx, alu, sz, a, b);
                 } else {
                     let (rmw, a) = self.rmw_begin(f, opds[0], sz, lock, span)?;
                     let res = self.asm_alu(f, cx, alu, sz, a, b);
+
                     self.rmw_end(f, rmw, res, span)?;
                 }
             }
@@ -469,10 +522,12 @@ impl Compiler {
                             Alu::Sub
                         };
                         let res = self.asm_alu(f, cx, alu, sz, a, one);
+
                         cx.flags.cf = carry;
                         res
                     }
                 };
+
                 self.rmw_end(f, rmw, res, span)?;
             }
             Op::Shift(kind) => {
@@ -483,6 +538,7 @@ impl Compiler {
                 } else {
                     None
                 };
+
                 self.asm_shift(
                     f,
                     cx,
@@ -499,6 +555,7 @@ impl Compiler {
             Op::Bt(kind) => {
                 want(2, 2)?;
                 let sz = self.asm_size(f, cx, inst, &opds[..1])?;
+
                 self.asm_bit_test(
                     f,
                     cx,
@@ -523,11 +580,13 @@ impl Compiler {
                 )?;
                 let sz = self.asm_size(f, cx, inst, opds)?;
                 let signed = op == Op::Imul;
+
                 if n == 2 {
                     // imul dst, src
                     let a = self.asm_read(f, opds[0], sz, span)?;
                     let b = self.asm_read(f, opds[1], sz, span)?;
                     let (hi, lo) = wide_mul(f, sz, a, b, true);
+
                     self.asm_mul_flags(f, cx, sz, hi, lo, true);
                     self.asm_write(f, opds[0], sz, lo, span)?;
                 } else if signed && matches!(opds[2], Opd::Imm(_)) {
@@ -535,6 +594,7 @@ impl Compiler {
                     let a = self.asm_read(f, opds[1], sz, span)?;
                     let b = self.asm_read(f, opds[2], sz, span)?;
                     let (hi, lo) = wide_mul(f, sz, a, b, true);
+
                     self.asm_mul_flags(f, cx, sz, hi, lo, true);
                     self.asm_write(f, opds[0], sz, lo, span)?;
                 } else {
@@ -542,6 +602,7 @@ impl Compiler {
                     let a = self.asm_read(f, opds[1], sz, span)?;
                     let b = self.asm_read(f, opds[2], sz, span)?;
                     let (hi, lo) = wide_mul(f, sz, a, b, signed);
+
                     self.asm_mul_flags(f, cx, sz, hi, lo, signed);
                     self.asm_write(f, opds[1], sz, lo, span)?;
                     self.asm_write(f, opds[0], sz, hi, span)?;
@@ -549,6 +610,7 @@ impl Compiler {
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
@@ -563,6 +625,7 @@ impl Compiler {
         let span = c.span;
         let opds = &c.opds;
         let want = |lo: usize, hi: usize| c.want(lo, hi);
+
         match op {
             Op::Bsf | Op::Bsr | Op::Popcnt | Op::Lzcnt | Op::Tzcnt => {
                 want(2, 2)?;
@@ -573,6 +636,7 @@ impl Compiler {
                 let res = match op {
                     Op::Popcnt => {
                         let odd = konst(f, Ty::I8, 1);
+
                         cx.flags = Flags {
                             cf: Some(zero8),
                             zf: Some(src_zero),
@@ -588,6 +652,7 @@ impl Compiler {
                         } else {
                             bit_intrinsic(f, Intrinsic::Cttz, sz, src)
                         };
+
                         cx.flags.cf = Some(src_zero);
                         cx.flags.zf = Some(is_zero(f, sz, res));
                         res
@@ -599,13 +664,16 @@ impl Compiler {
                         } else {
                             let lz = bit_intrinsic(f, Intrinsic::Ctlz, sz, src);
                             let top = konst(f, sz, bits(sz) - 1);
+
                             bin(f, BinOp::Sub, sz, top, lz)
                         };
                         let old = self.asm_read(f, opds[0], sz, span)?;
+
                         cx.flags.zf = Some(src_zero);
                         select(f, sz, src_zero, old, found)
                     }
                 };
+
                 self.asm_write(f, opds[0], sz, res, span)?;
             }
             Op::Bswap => {
@@ -617,6 +685,7 @@ impl Compiler {
                 } else {
                     bit_intrinsic(f, Intrinsic::Bswap, sz, v)
                 };
+
                 self.asm_write(f, opds[0], sz, v, span)?;
             }
             Op::Blsr | Op::Blsi | Op::Blsmsk => {
@@ -633,6 +702,7 @@ impl Compiler {
                     Op::Blsi => {
                         let m = bin(f, BinOp::Sub, sz, zero, a);
                         let nz = is_zero(f, sz, a);
+
                         (bin(f, BinOp::And, sz, a, m), flag_not(f, nz))
                     }
                     _ => {
@@ -640,15 +710,19 @@ impl Compiler {
                         (bin(f, BinOp::Xor, sz, a, m), is_zero(f, sz, a))
                     }
                 };
+
                 Self::set_logic_flags(f, cx, sz, res);
                 cx.flags.cf = Some(cf);
+
                 if op == Op::Blsmsk {
                     cx.flags.zf = Some(konst(f, Ty::I8, 0));
                 }
+
                 self.asm_write(f, opds[0], sz, res, span)?;
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
@@ -666,6 +740,7 @@ impl Compiler {
             _ => None,
         };
         let chars: Vec<char> = letters.chars().collect();
+
         match (base, chars.as_slice()) {
             ("movsxd", []) => Ok((Ty::I32, Ty::I64)),
             (_, [s, d]) => match (size_of_letter(*s), size_of_letter(*d)) {
@@ -726,6 +801,7 @@ impl Compiler {
                         );
                     }
                 };
+
                 match bits {
                     8 => Ok(Ty::I8),
                     16 => Ok(Ty::I16),
@@ -746,6 +822,7 @@ impl Compiler {
                         return Ok(Ty::int(r.width().numeric_size()));
                     }
                 }
+
                 Ok(Ty::I64)
             }
         }

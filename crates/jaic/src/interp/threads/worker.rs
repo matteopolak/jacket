@@ -10,6 +10,7 @@ pub(super) fn absolute_deadline(secs: u64, nanos: u64) -> Instant {
     let now = SystemTime::now()
         .duration_since(SystemTime::UNIX_EPOCH)
         .unwrap_or_default();
+
     Instant::now() + target.saturating_sub(now)
 }
 
@@ -19,8 +20,10 @@ pub(super) fn join_ended_worker(worker: Option<Worker>) {
     let Some(worker) = worker else {
         return;
     };
+
     #[cfg(windows)]
     win32::join_worker(worker);
+
     #[cfg(not(windows))]
     if worker.join().is_err() {
         eprintln!("error: interpreter worker panicked");
@@ -32,6 +35,7 @@ pub(super) fn join_ended_worker(worker: Option<Worker>) {
 fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argument: u64) -> u64 {
     let (interp, state) = {
         let mut s = shared.lock();
+
         s.threads[id].native_id = win32::native_thread_id(id);
         shared.cv.notify_all();
         let mut s = shared.acquire(s, id);
@@ -42,6 +46,7 @@ fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argumen
     let interp = unsafe { &mut *(interp as *mut Interp) };
     // SAFETY: as above, the program outlives every managed OS entry.
     let program = unsafe { &*(program as *const Program) };
+
     interp.put_exec_state(state);
     let result = interp.exec(program, func, &[argument]);
     let value = match result {
@@ -55,14 +60,17 @@ fn thread_main(shared: &Shared, program: usize, id: usize, func: FuncId, argumen
                 interp.finish_thread(id, code as u64);
                 return code as u64;
             }
+
             let at = trap
                 .loc
                 .map(|(_, line, col)| format!(" (line {line}, column {col})"))
                 .unwrap_or_default();
+
             eprintln!("error: runtime error in a thread: {}{at}", trap.message);
             std::process::exit(1);
         }
     };
+
     interp.finish_thread(id, value);
     value
 }
@@ -82,6 +90,7 @@ pub(super) fn run_worker(
         Err(cancelled) if cancelled.is::<WorkerCancelled>() => {
             let mut s = shared.lock();
             let thread = &mut s.threads[id];
+
             thread.start.take();
             thread.result = CANCELLED_EXIT_CODE as u64;
             s.finish(id);

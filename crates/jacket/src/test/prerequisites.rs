@@ -154,11 +154,13 @@ fn without_comments(source: &str) -> String {
     let (_, comments, _) = jaic::lexer::lex_with_trivia(jaic::source::FileId(0), source);
     let mut out = String::with_capacity(source.len());
     let mut at = 0;
+
     for comment in comments {
         out.push_str(&source[at..comment.span.start as usize]);
         out.push(' ');
         at = comment.span.end as usize;
     }
+
     out.push_str(&source[at..]);
     out
 }
@@ -179,6 +181,7 @@ impl Setup {
             Under::Output => output,
             Under::Checkout => root,
         };
+
         self.outputs
             .iter()
             .all(|file| match file.strip_suffix('*') {
@@ -187,6 +190,7 @@ impl Setup {
                     let (Some(folder), Some(stem)) = (path.parent(), path.file_name()) else {
                         return false;
                     };
+
                     std::fs::read_dir(folder).is_ok_and(|entries| {
                         entries.flatten().any(|e| {
                             e.file_name()
@@ -205,18 +209,22 @@ impl Setup {
 /// package without the build scripts.
 fn needed(files: &[PathBuf], stdlib: &Path, root: &Path, output: &Path) -> Vec<&'static Setup> {
     let mut found: Vec<&'static Setup> = Vec::new();
+
     for setup in &SETUPS {
         if !root.join(setup.script).is_file() || setup.built(root, output) {
             continue;
         }
+
         let wanted = files.iter().any(|file| {
             let source = std::fs::read_to_string(file).unwrap_or_default();
             setup.needed_by(file, &without_comments(&source), stdlib)
         });
+
         if wanted {
             found.push(setup);
         }
     }
+
     found
 }
 
@@ -232,11 +240,13 @@ fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), St
         return Ok(());
     };
     let mut ran: Vec<(&str, &[&str])> = Vec::new();
+
     for setup in needed(files, stdlib, root, &output_dir(root)) {
         // One script builds several outputs; a run that was due for two of them is one run.
         if ran.contains(&(setup.script, setup.args)) {
             continue;
         }
+
         ran.push((setup.script, setup.args));
         eprintln!(
             "jacket: building {} (first run in this checkout)",
@@ -261,12 +271,14 @@ fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), St
                     python,
                     "jacket test",
                 );
+
                 format!(
                     "{reason}\nnote: or build {} yourself: {}",
                     setup.what,
                     by_hand.trim_end()
                 )
             })?;
+
         if !output.status.success() {
             return Err(format!(
                 "could not build {}: {}\nhelp: run `{}` to see the failure",
@@ -276,6 +288,7 @@ fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), St
             ));
         }
     }
+
     Ok(())
 }
 
@@ -291,6 +304,7 @@ pub fn optional_skip(
             .args
             .iter()
             .any(|arg| arg.contains(&format!("${{{name}}}")));
+
         (used && env(name).is_none_or(|value| value.is_empty()))
             .then(|| format!("missing optional test prerequisite: {name} is not set"))
     })
@@ -303,6 +317,7 @@ pub fn skip_missing_probe(outcome: &mut Outcome, allow: bool) {
     if !allow || outcome.status != Status::Fail || outcome.crashed || !outcome.failures.is_empty() {
         return;
     }
+
     let text = format!(
         "{}\n{}",
         outcome.problems.join("\n"),
@@ -311,10 +326,13 @@ pub fn skip_missing_probe(outcome: &mut Outcome, allow: bool) {
     let names = missing_libraries(&text)
         .into_iter()
         .collect::<BTreeSet<_>>();
+
     if names.is_empty() || names.iter().any(|name| Source::of(name) == Source::Stdlib) {
         return;
     }
+
     let hints = library_hints(&names);
+
     outcome.status = Status::Skip;
     outcome.skip_reason = Some(format!("missing test prerequisite: {}", hints.join("; ")));
     outcome.problems.clear();
@@ -335,12 +353,15 @@ pub fn prepare_probes(
     if !cfg!(any(target_os = "macos", target_os = "linux")) {
         return Ok(None);
     }
+
     let Some(root) = stdlib.parent() else {
         return Ok(None);
     };
+
     if !stdlib.join("Compiler/module.jai").is_file() {
         return Ok(None);
     }
+
     let output = output_dir(root).join("jacket-test-probes");
     let sources: String = files
         .iter()
@@ -351,6 +372,7 @@ pub fn prepare_probes(
         "Thread/tests/sdk-identity.c",
         vec!["-pthread"],
     )];
+
     if cfg!(target_os = "macos") {
         probes.extend([
             (
@@ -365,15 +387,20 @@ pub fn prepare_probes(
             ),
         ]);
     }
+
     let mut available = false;
+
     for (name, source, flags) in probes {
         if !sources.contains(name) {
             continue;
         }
+
         let source = stdlib.join(source);
+
         if !source.is_file() {
             continue;
         }
+
         match build_probe(name, &source, &flags, &output) {
             Ok(()) => available = true,
             Err(error) if allow => eprintln!(
@@ -386,6 +413,7 @@ pub fn prepare_probes(
             }
         }
     }
+
     Ok(available.then_some(output))
 }
 
@@ -406,9 +434,11 @@ fn build_probe(name: &str, source: &Path, flags: &[&str], output: &Path) -> Resu
             .zip(source.metadata().and_then(|m| m.modified()).ok())
             .is_some_and(|(built, source)| built >= source)
     };
+
     if fresh(&library) && fresh(&archive) {
         return Ok(());
     }
+
     std::fs::create_dir_all(output).map_err(|error| {
         format!(
             "could not build test probe {name}: cannot create `{}`: {}",
@@ -419,18 +449,21 @@ fn build_probe(name: &str, source: &Path, flags: &[&str], output: &Path) -> Resu
     eprintln!("jacket: building test probe {name}");
     let object = output.join(format!("{name}.o"));
     let mut compile = Command::new("cc");
+
     compile
         .args(["-O2", "-fPIC", "-Wall", "-Wextra", "-Werror", "-c"])
         .arg(source)
         .arg("-o")
         .arg(&object);
     let mut link = Command::new("cc");
+
     link.arg(shared)
         .arg(&object)
         .args(flags)
         .arg("-o")
         .arg(&library);
     let mut archiver = Command::new("ar");
+
     archiver.arg("rcs").arg(&archive).arg(&object);
     run_probe_step(name, &mut compile, &Need::CDriver)?;
     run_probe_step(name, &mut link, &Need::CDriver)?;
@@ -450,14 +483,17 @@ fn run_probe_step(name: &str, command: &mut Command, need: &Need) -> Result<(), 
         let reason = crate::prerequisite::spawn_error(&error, need, &program, "jacket test");
         format!("could not build test probe {name}: {reason}")
     })?;
+
     if out.status.success() {
         return Ok(());
     }
+
     let printed = String::from_utf8_lossy(if out.stderr.is_empty() {
         &out.stdout
     } else {
         &out.stderr
     });
+
     Err(format!(
         "could not build test probe {name}: `{line}` failed ({}):\n{}",
         out.status,
@@ -488,6 +524,7 @@ impl Source {
     /// The group of library `name`, with any directory in front of it ignored.
     fn of(name: &str) -> Self {
         let name = name.rsplit('/').next().unwrap_or(name);
+
         if WINDOW_DRIVER_LIBRARIES.contains(&name) {
             Source::WindowDrivers
         } else if name.ends_with("_probe") {
@@ -500,6 +537,7 @@ impl Source {
     /// The hint line for the `names` of this group.
     fn hint(self, names: &[&str]) -> String {
         let list = names.join(", ");
+
         match self {
             Source::Stdlib => format!(
                 "native libraries not built ({list}): PYTHONPATH=tools python3 tools/native/build_native_libs.py"
@@ -533,12 +571,14 @@ fn library_hints(libraries: &BTreeSet<String>) -> Vec<String> {
 pub fn missing(outcomes: &[&Outcome]) -> Vec<String> {
     let mut libraries = BTreeSet::new();
     let (mut debug_helper, mut fixtures) = (false, false);
+
     for outcome in outcomes {
         let texts = outcome
             .problems
             .iter()
             .cloned()
             .chain([String::from_utf8_lossy(&outcome.stderr).into_owned()]);
+
         for text in texts {
             for name in missing_libraries(&text) {
                 if name.ends_with(DEBUG_HELPER) {
@@ -547,21 +587,26 @@ pub fn missing(outcomes: &[&Outcome]) -> Vec<String> {
                     libraries.insert(name);
                 }
             }
+
             fixtures |= text.contains("file_open failed");
         }
     }
+
     let mut lines = library_hints(&libraries);
+
     if debug_helper {
         lines.push(format!(
             "`{DEBUG_HELPER}` not built: PYTHONPATH=tools python3 tools/developer_checks/build_developer_debug.py"
         ));
     }
+
     if fixtures {
         lines.push(
             "a test could not open a file; if it reads generated fixtures, build them: PYTHONPATH=tools python3 tools/portable/build_portable.py data"
                 .into(),
         );
     }
+
     lines
 }
 
@@ -569,16 +614,20 @@ pub fn missing(outcomes: &[&Outcome]) -> Vec<String> {
 fn missing_libraries(text: &str) -> Vec<String> {
     let mut names = Vec::new();
     let mut rest = text;
+
     while let Some(at) = rest.find("library '") {
         rest = &rest[at + "library '".len()..];
         let Some(end) = rest.find('\'') else {
             break;
         };
+
         if rest[end + 1..].starts_with(" not found") {
             names.push(rest[..end].to_string());
         }
+
         rest = &rest[end..];
     }
+
     names
 }
 
@@ -589,6 +638,7 @@ mod tests {
     #[test]
     fn names_come_from_both_wordings() {
         let text = "ld: library 'mbedtls' not found\nerror: library 'debug-native/developer_tools_debug' not found: looked";
+
         assert_eq!(
             missing_libraries(text),
             ["mbedtls", "debug-native/developer_tools_debug"]
@@ -601,6 +651,7 @@ mod tests {
         let root = std::env::temp_dir().join(format!("jacket-setup-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let stdlib = root.join("stdlib");
+
         std::fs::create_dir_all(stdlib.join("Debug/tests")).unwrap();
         std::fs::create_dir_all(stdlib.join("Zip/tests")).unwrap();
         std::fs::create_dir_all(root.join("tools/portable")).unwrap();
@@ -612,17 +663,21 @@ mod tests {
         )
         .unwrap();
         let reads = stdlib.join("Zip/tests/reads.jai");
+
         std::fs::write(
             &reads,
             "x := \"%/../../../target/portable-tests/zip/a.zip\";",
         )
         .unwrap();
         let plain = stdlib.join("Zip/tests/plain.jai");
+
         std::fs::write(&plain, "main :: () {}").unwrap();
         let debug = stdlib.join("Debug/tests/ownership.jai");
+
         std::fs::write(&debug, "main :: () {}").unwrap();
         std::fs::create_dir_all(stdlib.join("Extensions/Time/tests")).unwrap();
         let zones = stdlib.join("Extensions/Time/tests/zones.jai");
+
         std::fs::write(&zones, "x := \"%/time-conformance/zoneinfo\";").unwrap();
 
         let output = root.join("target");
@@ -632,6 +687,7 @@ mod tests {
                 .map(|s| s.what)
                 .collect()
         };
+
         assert!(names(std::slice::from_ref(&plain)).is_empty());
         assert_eq!(names(std::slice::from_ref(&reads)), ["the fixture data"]);
         assert_eq!(
@@ -693,22 +749,30 @@ mod tests {
             ),
             ("samples.jai", "%/gltf-conformance/samples/Models", "", &[]),
         ];
+
         std::fs::create_dir_all(stdlib.join("Extensions/Suites/tests")).unwrap();
+
         for (file, source, what, outputs) in suites {
             let test = stdlib.join("Extensions/Suites/tests").join(file);
+
             std::fs::write(&test, source).unwrap();
             let files = std::slice::from_ref(&test);
+
             if what.is_empty() {
                 // The sample models are a separate download that `data` does not fetch.
                 assert!(names(files).is_empty(), "{file}");
                 continue;
             }
+
             assert_eq!(names(files), [what], "{file}");
+
             for (i, output_file) in outputs.iter().enumerate() {
                 let path = output.join(output_file);
+
                 std::fs::create_dir_all(path.parent().unwrap()).unwrap();
                 std::fs::write(&path, "").unwrap();
                 let built = i + 1 == outputs.len();
+
                 assert_eq!(names(files).is_empty(), built, "{file} after {output_file}");
             }
         }
@@ -723,6 +787,7 @@ mod tests {
                 .map(|s| s.what)
                 .collect()
         };
+
         assert_eq!(names_in(&moved, &zones), ["the time zone data"]);
         std::fs::create_dir_all(moved.join("time-conformance/zoneinfo")).unwrap();
         std::fs::write(moved.join("time-conformance/vectors.bin"), "").unwrap();
@@ -741,24 +806,31 @@ mod tests {
     fn generated_directories(source: &str) -> Vec<String> {
         let is_name = |c: char| c.is_ascii_alphanumeric() || c == '-' || c == '_';
         let mut found = Vec::new();
+
         for (at, _) in source.match_indices("-conformance") {
             let start = source[..at]
                 .rfind(|c: char| !is_name(c))
                 .map_or(0, |i| i + 1);
+
             // A path of the output directory, not a name in a comment.
             if !source[..start].ends_with("%/") && !source[..start].ends_with("target/") {
                 continue;
             }
+
             let mut end = at + "-conformance".len();
+
             if source[end..].starts_with('/') {
                 end += 1;
                 end += source[end..].find(|c: char| !is_name(c)).unwrap_or(0);
             }
+
             found.push(source[start..end].to_string());
         }
+
         if source.contains("portable-machine/") {
             found.push("portable-machine/".into());
         }
+
         found
     }
 
@@ -769,6 +841,7 @@ mod tests {
         let wants = |source: &str| {
             fixtures.needed_by(Path::new("a.jai"), &without_comments(source), stdlib)
         };
+
         assert!(!wants(
             "// output_path(\"portable-tests/zip/a.zip\");\nf :: () {}"
         ));
@@ -785,6 +858,7 @@ mod tests {
     #[test]
     fn the_output_directory_is_the_one_the_tools_write_to() {
         let root = Path::new("/checkout");
+
         assert_eq!(output_override_in(root, None), None);
         assert_eq!(output_override_in(root, Some("".into())), None);
         assert_eq!(
@@ -804,19 +878,23 @@ mod tests {
         let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
         let mut unbuilt = BTreeSet::new();
         let mut folders = vec![stdlib.clone()];
+
         while let Some(folder) = folders.pop() {
             for entry in std::fs::read_dir(&folder).unwrap().flatten() {
                 let path = entry.path();
+
                 if path.is_dir() {
                     folders.push(path);
                 } else if path.extension().is_some_and(|ext| ext == "jai")
                     && path.components().any(|c| c.as_os_str() == "tests")
                 {
                     let source = std::fs::read_to_string(&path).unwrap_or_default();
+
                     for name in generated_directories(&source) {
                         let covered = SETUPS
                             .iter()
                             .any(|setup| setup.mentions.iter().any(|m| name.starts_with(m)));
+
                         // The sample models are fetched on request, by the tests that say so.
                         if !covered && name != "gltf-conformance/samples" {
                             unbuilt.insert(format!("{name} (read by {})", path.display()));
@@ -825,6 +903,7 @@ mod tests {
                 }
             }
         }
+
         assert!(unbuilt.is_empty(), "no setup builds: {unbuilt:?}");
     }
 
@@ -840,6 +919,7 @@ mod tests {
         .map(String::from)
         .into();
         let lines = library_hints(&libraries);
+
         assert_eq!(lines.len(), 3, "{lines:?}");
         assert!(lines[0].starts_with("native libraries not built (mbedtls):"));
         assert!(lines[0].ends_with("tools/native/build_native_libs.py"));
@@ -862,13 +942,16 @@ mod local_prerequisite_tests {
     #[test]
     fn an_unset_variable_skips_only_a_test_that_declares_it_optional() {
         let mut options = TestOptions::default();
+
         options.apply("args(\"${JAIC_TEST_FONT_PATH}\")").unwrap();
         let unset = |_: &str| None;
         let set = |_: &str| Some("/fonts/a.ttf".to_string());
+
         // Not declared: it runs, and fails for the missing variable.
         assert!(optional_skip(&options, &unset).is_none());
         options.apply("optional(JAIC_TEST_FONT_PATH)").unwrap();
         let reason = optional_skip(&options, &unset).unwrap();
+
         assert!(reason.contains("JAIC_TEST_FONT_PATH"), "{reason}");
         assert!(optional_skip(&options, &set).is_none());
         assert!(optional_skip(&options, &|_: &str| Some(String::new())).is_some());
@@ -882,6 +965,7 @@ mod local_prerequisite_tests {
         let root = std::env::temp_dir().join(format!("jacket-prepare-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
         let stdlib = root.join("stdlib");
+
         std::fs::create_dir_all(stdlib.join("Debug/tests")).unwrap();
         std::fs::create_dir_all(root.join("tools/developer_checks")).unwrap();
         std::fs::write(
@@ -890,10 +974,12 @@ mod local_prerequisite_tests {
         )
         .unwrap();
         let test = stdlib.join("Debug/tests/ownership.jai");
+
         std::fs::write(&test, "main :: () {}").unwrap();
         let files = [test];
 
         let error = prepare_with("/nowhere/python3", &files, &stdlib).unwrap_err();
+
         assert!(
             error.contains("`/nowhere/python3` is not installed, and `jacket test` needs it"),
             "{error}"
@@ -903,6 +989,7 @@ mod local_prerequisite_tests {
         #[cfg(unix)]
         {
             let error = prepare_with("false", &files, &stdlib).unwrap_err();
+
             assert!(
                 error.contains("could not build the Debug native helper"),
                 "{error}"
@@ -916,9 +1003,11 @@ mod local_prerequisite_tests {
     fn missing_probes_skip_only_when_allowed_and_real_failures_stay_fatal() {
         let failed = |text: &str| {
             let mut result = Outcome::new(0, Status::Fail);
+
             result.stderr = text.as_bytes().to_vec();
             result
         };
+
         for (text, allow, expected) in [
             (
                 "library 'rpmalloc_adaptive_probe' not found",
@@ -940,8 +1029,10 @@ mod local_prerequisite_tests {
             ("assertion failed", true, Status::Fail),
         ] {
             let mut result = failed(text);
+
             skip_missing_probe(&mut result, allow);
             assert_eq!(result.status, expected, "{text}, allow={allow}");
+
             if expected == Status::Skip {
                 assert!(
                     result
@@ -951,7 +1042,9 @@ mod local_prerequisite_tests {
                 );
             }
         }
+
         let mut crash = failed("library 'abi_probe' not found");
+
         crash.crashed = true;
         skip_missing_probe(&mut crash, true);
         assert_eq!(crash.status, Status::Fail);
@@ -961,8 +1054,10 @@ mod local_prerequisite_tests {
     #[test]
     fn a_probe_step_that_fails_names_the_command_and_what_it_printed() {
         let mut failing = Command::new("sh");
+
         failing.args(["-c", "echo 'context.m: no such header' >&2; exit 3"]);
         let error = run_probe_step("window_gl_probe", &mut failing, &Need::CDriver).unwrap_err();
+
         assert!(
             error.starts_with("could not build test probe window_gl_probe: `sh -c "),
             "{error}"
@@ -970,6 +1065,7 @@ mod local_prerequisite_tests {
         assert!(error.ends_with("\ncontext.m: no such header"), "{error}");
         let mut missing = Command::new("/nowhere/cc");
         let error = run_probe_step("window_gl_probe", &mut missing, &Need::CDriver).unwrap_err();
+
         assert!(error.contains("`/nowhere/cc` is not installed"), "{error}");
     }
 }

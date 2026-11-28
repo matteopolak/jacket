@@ -29,6 +29,7 @@ pub struct Settings<'a> {
 pub fn plain(html: &str) -> String {
     let mut out = String::with_capacity(html.len());
     let mut in_tag = false;
+
     for c in html.chars() {
         match c {
             '<' => in_tag = true,
@@ -37,31 +38,38 @@ pub fn plain(html: &str) -> String {
             _ => {}
         }
     }
+
     let mut decoded = String::new();
     let mut rest = out.as_str();
+
     while let Some(at) = rest.find('&') {
         decoded.push_str(&rest[..at]);
         rest = &rest[at..];
+
         if let Some(end) = rest.find(';').filter(|&n| n <= 32) {
             let entity = &rest[..=end];
+
             // CommonMark decodes the full HTML named/numeric entity table.
             for event in pulldown_cmark::Parser::new(entity) {
                 if let pulldown_cmark::Event::Text(text) = event {
                     decoded.push_str(&text);
                 }
             }
+
             rest = &rest[end + 1..];
         } else {
             decoded.push('&');
             rest = &rest[1..];
         }
     }
+
     decoded.push_str(rest);
     decoded
 }
 
 fn level(shift: usize, base: HeadingLevel) -> HeadingLevel {
     let n = (base as usize + shift).min(6);
+
     match n {
         1 => HeadingLevel::H1,
         2 => HeadingLevel::H2,
@@ -89,7 +97,9 @@ fn flush(buf: &mut Vec<Event<'_>>, out: &mut Vec<Segment>) {
     if buf.is_empty() {
         return;
     }
+
     let mut html = String::new();
+
     pulldown_cmark::html::push_html(&mut html, std::mem::take(buf).into_iter());
     out.push(Segment::Html(html));
 }
@@ -100,6 +110,7 @@ fn flush(buf: &mut Vec<Event<'_>>, out: &mut Vec<Segment>) {
 pub fn indented_blocks(md: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut open = false;
+
     for event in Parser::new_ext(md, Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH) {
         match event {
             Event::Start(Tag::CodeBlock(CodeBlockKind::Indented)) => open = true,
@@ -111,6 +122,7 @@ pub fn indented_blocks(md: &str) -> Vec<String> {
             _ => {}
         }
     }
+
     out
 }
 
@@ -138,16 +150,21 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
     // How many tags are open: a block ends when this is back to 0.
     let mut depth = 0usize;
     let mut i = 0;
+
     while i < events.len() {
         let event = events[i].clone();
+
         i += 1;
+
         match &event {
             Event::Start(Tag::CodeBlock(_)) => {}
             Event::Start(_) => depth += 1,
             Event::End(_) => depth = depth.saturating_sub(1),
             _ => {}
         }
+
         let block_ends = depth == 0 && matches!(event, Event::End(_) | Event::Rule);
+
         if open_keys > 0
             && matches!(
                 event,
@@ -160,6 +177,7 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
                 buf.push(Event::Html("</kbd>".into()));
             }
         }
+
         match event {
             Event::Start(Tag::CodeBlock(kind)) => {
                 flush(&mut buf, &mut out);
@@ -168,15 +186,19 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
                     CodeBlockKind::Indented => String::new(),
                 };
                 let mut code = String::new();
+
                 while i < events.len() {
                     let inner = events[i].clone();
+
                     i += 1;
+
                     match inner {
                         Event::End(TagEnd::CodeBlock) => break,
                         Event::Text(t) => code.push_str(&t),
                         _ => {}
                     }
                 }
+
                 out.push(Segment::Code {
                     info,
                     code,
@@ -231,6 +253,7 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
                 attrs,
             }) => {
                 let mut text = String::new();
+
                 for later in &events[i..] {
                     match later {
                         Event::End(TagEnd::Heading(_)) => break,
@@ -238,6 +261,7 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
                         _ => {}
                     }
                 }
+
                 buf.push(Event::Start(Tag::Heading {
                     level: level(settings.heading_shift, base),
                     id: settings.heading_ids.then(|| slug(&text).into()),
@@ -253,10 +277,12 @@ pub fn segments(md: &str, settings: &Settings<'_>) -> Vec<Segment> {
             }
             other => buf.push(other),
         }
+
         if block_ends {
             flush(&mut buf, &mut out);
         }
     }
+
     flush(&mut buf, &mut out);
     out
 }
@@ -272,6 +298,7 @@ mod tests {
                 |rest| (rest != "gone").then(|| format!("/{rest}.html")),
             )
         };
+
         segments(
             md,
             &Settings {
@@ -287,10 +314,12 @@ mod tests {
         let parts = render(
             "Use [`trim`](jaidoc:trim) or [x](jaidoc:gone).\n\n```jai,no_run\na := 1;\n```\n\n# Title\n",
         );
+
         assert_eq!(parts.len(), 3);
         let Segment::Html(first) = &parts[0] else {
             panic!("{parts:?}");
         };
+
         assert!(
             first.contains("<a href=\"/trim.html\"><code>trim</code></a>"),
             "{first}"
@@ -316,6 +345,7 @@ mod tests {
                 } => None,
             })
             .collect();
+
         assert!(html.contains("Press <kbd>/</kbd> to search."), "{html}");
         assert!(html.contains("Then <kbd>Esc</kbd></p>"), "{html}");
         assert!(
@@ -327,6 +357,7 @@ mod tests {
     #[test]
     fn raw_html_is_text() {
         let parts = render("a <b>bold</b> claim");
+
         assert!(matches!(&parts[0], Segment::Html(h) if h.contains("&lt;b&gt;")));
     }
 
@@ -341,6 +372,7 @@ mod tests {
         let Segment::Html(html) = &parts[0] else {
             panic!("{parts:?}");
         };
+
         assert!(
             html.contains("<blockquote class=\"markdown-alert-warning\">"),
             "{html}"
@@ -357,6 +389,7 @@ mod tests {
     fn indented_blocks_are_found_and_fenced_ones_are_not() {
         let md =
             "Text.\n\n    a := 1;\n    b := 2;\n\n```jai\nc := 3;\n```\n\n- item\n\n  continued\n";
+
         assert_eq!(indented_blocks(md), ["a := 1;"]);
     }
 }

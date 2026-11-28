@@ -35,34 +35,41 @@ const RUNS: &str = "#import \"Basic\";\n\
 fn untrusted_runs_are_unknown_not_wrong_and_trust_brings_their_results() {
     let dir = project("runs", &[("main.jai", RUNS)]);
     let (mut s, uri, text) = open_file(&dir, "main.jai");
+
     // Trusted (the default): the `#run` ran.
     assert_eq!(
         check_errors(&s, &uri),
         vec!["type mismatch: expected `s64`, found `string`".to_string()]
     );
     let answer = hover_at(&s, &uri, &text, "ANSWER + 1");
+
     assert!(answer.contains("ANSWER :: s64 = 42"), "{answer}");
 
     s.set_trusted(false);
     assert!(!s.trusted());
     // Nothing ran, and only the real error is reported: no error for `ANSWER`, `local`.
     let errors = check_errors(&s, &uri);
+
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert!(
         errors[0].contains("mismatch") || errors[0].contains("text"),
         "{errors:?}"
     );
     let answer = hover_at(&s, &uri, &text, "ANSWER + 1");
+
     assert!(!answer.contains("= 42"), "{answer}");
     // Hover and go to definition on the code around the `#run` still work.
     let compute = hover_at(&s, &uri, &text, "compute();");
+
     assert!(compute.contains("compute"), "{compute}");
     let definition = s.definition(&uri, at(&text, "compute();")).unwrap();
+
     assert_eq!(definition.len(), 1);
     assert_eq!(definition[0].range.start.line, 1);
 
     s.set_trusted(true);
     let answer = hover_at(&s, &uri, &text, "ANSWER + 1");
+
     assert!(answer.contains("ANSWER :: s64 = 42"), "{answer}");
 }
 
@@ -74,6 +81,7 @@ fn untrusted_computed_insert_reports_no_unknown_names() {
         main :: () {\n    g := GENERATED;\n    print(\"%\\n\", g);\n}\n";
     let dir = project("insert", &[("main.jai", src)]);
     let (mut s, uri, _) = open_file(&dir, "main.jai");
+
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     s.set_trusted(false);
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
@@ -94,14 +102,18 @@ fn untrusted_build_metaprogram_does_not_run_and_the_files_it_names_still_check()
     let build = BUILD.replace("{SETUP}", SETUP);
     let dir = project("meta", &[("first.jai", &build), ("main.jai", main)]);
     let (mut s, uri, text) = open_file(&dir, "main.jai");
+
     s.set_trusted(false);
     // The program the metaprogram would build is not built, yet the file has its parse and
     // type errors, hover and definitions.
     let errors = check_errors(&s, &uri);
+
     assert_eq!(errors.len(), 1, "{errors:?}");
     let count = hover_at(&s, &uri, &text, "count :=");
+
     assert!(count.contains("count: s64"), "{count}");
     let build_uri = uri_of(&dir.join("first.jai"));
+
     s.open(build_uri.clone(), 1, build.clone()).unwrap();
     assert_eq!(check_errors(&s, &build_uri), Vec::<String>::new());
 
@@ -111,9 +123,11 @@ fn untrusted_build_metaprogram_does_not_run_and_the_files_it_names_still_check()
         &[("first.jai", &build), ("main.jai", uses_built)],
     );
     let (mut s, uri, _) = open_file(&dir, "main.jai");
+
     assert_eq!(check_errors(&s, &uri), Vec::<String>::new());
     s.set_trusted(false);
     let errors = check_errors(&s, &uri);
+
     assert!(
         errors.iter().any(|e| e.contains("extra_value")),
         "{errors:?}"
@@ -146,6 +160,7 @@ fn hover_json(session: &mut JsonSession, uri: &str, at: Position, id: u64) -> St
             },
         }),
     );
+
     out[0]["result"]["contents"]["value"]
         .as_str()
         .unwrap()
@@ -157,8 +172,10 @@ fn protocol_starts_untrusted_and_switches_at_runtime() {
     let dir = project("protocol", &[("main.jai", RUNS)]);
     let uri = uri_of(&dir.join("main.jai")).as_str().to_string();
     let at = at(RUNS, "ANSWER + 1");
+
     for switch in ["jai/setTrusted", "workspace/didChangeConfiguration"] {
         let mut s = JsonSession::with_environment(Limits::default(), environment());
+
         send(
             &mut s,
             json!({
@@ -188,6 +205,7 @@ fn protocol_starts_untrusted_and_switches_at_runtime() {
             &mut s,
             json!({ "jsonrpc": "2.0", "method": switch, "params": params }),
         );
+
         // Diagnostics are published again for the open document.
         assert!(
             out.iter()
@@ -204,5 +222,6 @@ fn command_line_flag_is_documented() {
         .arg("--help")
         .output()
         .unwrap();
+
     assert!(String::from_utf8_lossy(&out.stdout).contains("--untrusted"));
 }

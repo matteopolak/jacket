@@ -12,14 +12,17 @@ impl SandboxHost {
                 // struct timespec { time_t tv_sec; long tv_nsec }: sleeping only moves the
                 // virtual clock. `time_t` is 64 bits on every target the sandbox serves.
                 let req = arg(0);
+
                 if req != 0 {
                     let secs = read_u64(req);
                     let nanos = read_uint(req + 8, layout().c.time_long);
+
                     self.clock_ns = self
                         .clock_ns
                         .saturating_add(secs.saturating_mul(1_000_000_000))
                         .saturating_add(nanos);
                 }
+
                 0
             }
             LibcFn::Usleep => {
@@ -35,9 +38,11 @@ impl SandboxHost {
                 self.clock_ns += 1_000;
                 let ns = self.clock_ns + 1_700_000_000u64 * 1_000_000_000;
                 let out = arg(1);
+
                 if out == 0 {
                     return Some(u64::MAX);
                 }
+
                 write_u64(out, ns / 1_000_000_000);
                 write_uint(out + 8, layout().c.time_long, ns % 1_000_000_000);
                 0
@@ -47,22 +52,27 @@ impl SandboxHost {
                 // target the sandbox serves (32-bit Linux links the 64-bit time entry points).
                 self.clock_ns += 1_000;
                 let ns = self.clock_ns + 1_700_000_000u64 * 1_000_000_000;
+
                 if arg(0) != 0 {
                     write_u64(arg(0), ns / 1_000_000_000);
                     write_u64(arg(0) + 8, ns % 1_000_000_000 / 1_000);
                 }
+
                 0
             }
             LibcFn::Time | LibcFn::Time64 => {
                 self.clock_ns += 1_000;
                 let secs = 1_700_000_000u64 + self.clock_ns / 1_000_000_000;
+
                 if arg(0) != 0 {
                     write_u64(arg(0), secs);
                 }
+
                 secs
             }
             LibcFn::GmtimeR | LibcFn::LocaltimeR | LibcFn::GmtimeR64 | LibcFn::LocaltimeR64 => {
                 let seconds = read_i64(arg(0));
+
                 fill_tm(seconds, arg(1), layout().c.time_long);
                 arg(1)
             }
@@ -85,6 +95,7 @@ fn civil(days: i64) -> (i64, i64, i64) {
     } else {
         mp - 9
     };
+
     (yoe + era * 400 + i64::from(m <= 2), m, d)
 }
 
@@ -95,6 +106,7 @@ fn fill_tm(seconds: i64, out: u64, long: u8) {
     let rem = seconds.rem_euclid(86_400);
     let (year, month, day) = civil(days);
     let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+
     const CUMULATIVE: [i64; 12] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
     let yday = CUMULATIVE[(month - 1) as usize] + day - 1 + i64::from(leap && month > 2);
     let fields = [
@@ -110,13 +122,17 @@ fn fill_tm(seconds: i64, out: u64, long: u8) {
     ];
     let layout = layout();
     let mut members = [Member::Int(4); 11];
+
     members[9] = Member::Int(long);
     members[10] = Member::Ptr;
     let record = layout.pack(&members);
+
     fill(out, 0, record.size as usize);
+
     for (offset, v) in record.offsets.iter().zip(fields) {
         write_i32(out + offset, v as i32);
     }
+
     write_uint(out + record.offsets[9], long, 0); // tm_gmtoff
     write_word(out + record.offsets[10], 0); // tm_zone
 }

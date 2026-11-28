@@ -39,6 +39,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let E::Binary(op, a, b) = &e.kind else {
                 return true;
             };
+
             for (child, left) in [(a, true), (b, false)] {
                 let E::Binary(inner, ..) = &child.kind else {
                     continue;
@@ -53,11 +54,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 } else {
                     false
                 };
+
                 if !surprising || child.parenthesized() {
                     continue;
                 }
+
                 out.push(report(cx, e, child, *op, *inner));
             }
+
             true
         });
     }
@@ -88,6 +92,7 @@ fn report(cx: &Cx, whole: &Expr, child: &Expr, outer: BinOp, inner: BinOp) -> Fi
         "`{}` binds first here: write `({child_text})`",
         op_text(inner)
     );
+
     Finding {
         secondary: Vec::new(),
         start: whole.span.start as usize,

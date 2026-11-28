@@ -46,6 +46,7 @@ struct Tables {
 /// the dependency's own tools and are ignored.
 fn tables(text: &str) -> Result<Tables, String> {
     let (config, unknown) = crate::parse_lenient(text)?;
+
     match unknown.iter().find(|key| key.starts_with("package.")) {
         Some(key) => Err(crate::unknown_note(key)),
         None => Ok(Tables {
@@ -98,6 +99,7 @@ fn admits(key: &str, copy: &Dependency, wanted: &Dependency) -> Result<bool, Ref
         in_package: false,
         message,
     };
+
     if let Some(range) = &wanted.version {
         let scheme = scheme_of(wanted).map_err(|e| package(format!("scheme: {e}")))?;
         let range = parse_range(scheme, range)
@@ -113,11 +115,14 @@ fn admits(key: &str, copy: &Dependency, wanted: &Dependency) -> Result<bool, Ref
                     scheme.name()
                 ))
             })?;
+
         return Ok(range.matches(&version));
     }
+
     if let Some(tag) = &wanted.tag {
         return Ok(copy.tag.as_ref() == Some(tag));
     }
+
     Ok(match (&wanted.rev, &copy.rev) {
         (Some(wanted), Some(have)) => have.starts_with(wanted) || wanted.starts_with(have),
         (Some(_), None) => false,
@@ -129,6 +134,7 @@ fn admits(key: &str, copy: &Dependency, wanted: &Dependency) -> Result<bool, Ref
 /// file when it cannot be read or parsed.
 fn read_tables(files: &dyn Files, dir: &Path) -> Result<Tables, ConfigError> {
     let file = dir.join(FILE_NAME);
+
     match files.read(&file) {
         Ok(text) => tables(&text).map_err(|message| ConfigError {
             path: file,
@@ -163,14 +169,18 @@ pub fn dependency_roots(
 ) -> Result<Roots, ConfigError> {
     let mut roots = Roots::default();
     let mut copies: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+
     for key in config.dependencies.keys() {
         copies.entry(import_name(key)).or_default().push(key);
     }
+
     let dirs = dependency_dirs(base, config);
     let mut read: BTreeMap<&str, Tables> = BTreeMap::new();
+
     for (name, dir) in &dirs {
         read.insert(name, read_tables(files, dir)?);
     }
+
     for (name, dir) in &dirs {
         let tables = &read[name.as_str()];
         let mut paths: Vec<PathBuf> = tables
@@ -183,23 +193,29 @@ pub fn dependency_roots(
         // The shared copy (`foo`) is found through the program's roots; the others are reached
         // only by the packages routed to them.
         let module = module_dir(&config.dependencies[name], tables, dir);
+
         if !name.contains('@')
             && module != *dir
             && let Some(parent) = module.parent()
         {
             roots.modules.push(parent.to_path_buf());
         }
+
         for (wanted_name, wanted) in &tables.dependencies {
             let keys = copies
                 .get(wanted_name.as_str())
                 .map_or(&[][..], Vec::as_slice);
+
             if keys.len() < 2 || import_name(name) == wanted_name {
                 continue;
             }
+
             // The shared copy is tried first, so a package it satisfies is not routed.
             let mut keys = keys.to_vec();
+
             keys.sort_by_key(|key| key.contains('@'));
             let mut chosen = None;
+
             for key in keys {
                 let refused = |r: Refused| ConfigError {
                     path: if r.in_package {
@@ -213,26 +229,32 @@ pub fn dependency_roots(
                         r.message
                     },
                 };
+
                 if admits(key, &config.dependencies[key], wanted).map_err(refused)? {
                     chosen = Some(key);
                     break;
                 }
             }
+
             let Some(key) = chosen else {
                 continue;
             };
+
             if key.contains('@') {
                 let copy_dir = &dirs.iter().find(|(n, _)| n == key).expect("a listed key").1;
                 let copy = module_dir(&config.dependencies[key], &read[key], copy_dir);
+
                 if let Some(parent) = copy.parent() {
                     paths.push(parent.to_path_buf());
                 }
             }
         }
+
         if !paths.is_empty() {
             roots.packages.push((dir.clone(), paths));
         }
     }
+
     Ok(roots)
 }
 
@@ -269,6 +291,7 @@ mod tests {
         let found = dependency_roots(&files, Path::new("/p"), &config())
             .unwrap()
             .packages;
+
         assert_eq!(
             found,
             [(
@@ -287,6 +310,7 @@ mod tests {
         let found = dependency_roots(&files, Path::new("/p"), &config())
             .unwrap()
             .packages;
+
         assert_eq!(
             found,
             [(
@@ -300,21 +324,26 @@ mod tests {
     fn a_broken_manifest_is_an_error_naming_the_file() {
         let files = One("modules/dep/jacket.toml", "[package\n");
         let error = dependency_roots(&files, Path::new("/p"), &config()).unwrap_err();
+
         assert_eq!(error.path, PathBuf::from("/p/modules/dep/jacket.toml"));
     }
 
     #[test]
     fn an_unreadable_manifest_is_an_error_naming_the_file() {
         struct Denied;
+
         impl Files for Denied {
             fn is_file(&self, _: &Path) -> bool {
                 true
             }
+
             fn read(&self, _: &Path) -> std::io::Result<String> {
                 Err(std::io::ErrorKind::PermissionDenied.into())
             }
         }
+
         let error = dependency_roots(&Denied, Path::new("/p"), &config()).unwrap_err();
+
         assert!(error.to_string().contains("modules/dep/jacket.toml"));
         assert!(error.message.contains("could not be read"));
     }
@@ -326,6 +355,7 @@ mod tests {
             "[package]\nimport_path = [\"lib\"]\n",
         );
         let error = dependency_roots(&files, Path::new("/p"), &config()).unwrap_err();
+
         assert!(error.message.contains("did you mean `package.import-path`"));
     }
 
@@ -333,6 +363,7 @@ mod tests {
     fn a_dependency_without_folders_or_a_manifest_adds_nothing() {
         let files = One("modules/dep/jacket.toml", "[package]\nname = \"dep\"\n");
         let roots = dependency_roots(&files, Path::new("/p"), &config()).unwrap();
+
         assert_eq!(roots, Roots::default());
     }
 
@@ -343,6 +374,7 @@ mod tests {
             "[package]\nmodule = \"modules/Inner\"\n",
         );
         let roots = dependency_roots(&files, Path::new("/p"), &config()).unwrap();
+
         assert_eq!(roots.modules, [PathBuf::from("/p/modules/dep/modules")]);
         // The entry's own `module` replaces the package's.
         let config: Config = toml::from_str(
@@ -350,6 +382,7 @@ mod tests {
         )
         .unwrap();
         let roots = dependency_roots(&files, Path::new("/p"), &config).unwrap();
+
         assert_eq!(roots.modules, [PathBuf::from("/p/modules/dep")]);
     }
 
@@ -397,6 +430,7 @@ foo = { git = "x/foo", tag = "v1.4.0", shared = true }
 "#,
         )
         .unwrap();
+
         (files, config)
     }
 
@@ -414,6 +448,7 @@ foo = { git = "x/foo", tag = "v1.4.0", shared = true }
         let (files, config) = grouped();
         let roots = dependency_roots(&files, Path::new("/p"), &config).unwrap();
         let other = PathBuf::from("/p/modules/.versions/foo@2");
+
         assert_eq!(routed(&roots, "modules/c"), [other]);
         // The shared copy satisfies `a`; nothing is added.
         assert!(routed(&roots, "modules/a").is_empty());
@@ -427,14 +462,17 @@ foo = { git = "x/foo", tag = "v1.4.0", shared = true }
     #[test]
     fn one_copy_is_never_routed() {
         let (files, mut config) = grouped();
+
         config.dependencies.remove("foo@2");
         let roots = dependency_roots(&files, Path::new("/p"), &config).unwrap();
+
         assert!(routed(&roots, "modules/c").is_empty());
     }
 
     fn error_of(requirer: &'static str, config: &str) -> ConfigError {
         let (files, _) = grouped();
         let mut texts = files.0;
+
         texts.retain(|(p, _)| !p.contains("modules/c/"));
         texts.push(("modules/c/jacket.toml", requirer));
         let config: Config = toml::from_str(config).unwrap();
@@ -453,12 +491,14 @@ foo = { git = "x/foo", tag = "v1.4.0", shared = true }
             "[dependencies]\nfoo = { git = \"x/foo\", version = \"^2\", scheme = \"roman\" }\n",
             COPIES,
         );
+
         assert_eq!(error.path, PathBuf::from("/p/modules/c/jacket.toml"));
         assert!(error.message.contains("roman"), "{error}");
         let error = error_of(
             "[dependencies]\nfoo = { git = \"x/foo\", version = \"not a range\" }\n",
             COPIES,
         );
+
         assert_eq!(error.path, PathBuf::from("/p/modules/c/jacket.toml"));
         assert!(error.message.contains("not a range"), "{error}");
     }
@@ -470,12 +510,14 @@ foo = { git = "x/foo", tag = "v1.4.0", shared = true }
             request,
             &COPIES.replace("tag = \"v1.4.0\"", "tag = \"v1.4.0\", scheme = \"roman\""),
         );
+
         assert_eq!(error.path, PathBuf::from("/p/jacket.toml"));
         assert!(
             error.message.contains("`foo`") && error.message.contains("roman"),
             "{error}"
         );
         let error = error_of(request, &COPIES.replace("v1.4.0", "nightly"));
+
         assert_eq!(error.path, PathBuf::from("/p/jacket.toml"));
         assert!(error.message.contains("nightly"), "{error}");
     }

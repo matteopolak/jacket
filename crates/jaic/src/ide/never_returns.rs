@@ -75,14 +75,17 @@ impl<'a> Reading<'a> {
             if self.stmt(stmt) {
                 continue;
             }
+
             if let (Some(next), Some(last)) = (
                 stmts[i + 1..].iter().find(|s| runs_in_order(s)),
                 stmts.last(),
             ) {
                 self.dead.push(next.span.to(last.span));
             }
+
             return false;
         }
+
         true
     }
 
@@ -125,6 +128,7 @@ impl<'a> Reading<'a> {
             } => {
                 let then = self.stmt(then_branch);
                 let other = else_branch.as_deref().is_none_or(|e| self.stmt(e));
+
                 then || other
             }
             S::While(w) => {
@@ -156,21 +160,26 @@ impl<'a> Reading<'a> {
                 let exhaustive =
                     switch.complete || switch.cases.iter().any(|c| c.values.is_empty());
                 let mut completes = !exhaustive;
+
                 for (i, case) in switch.cases.iter().enumerate() {
                     let ends = self.stmts(&case.body);
+
                     completes |= ends && (!case.through || i + 1 == switch.cases.len());
                 }
+
                 completes
             }
             S::StaticIf(boxed) => {
                 let then = self.stmts(&boxed.then_branch);
                 let other = self.stmts(&boxed.else_branch);
+
                 then || other
             }
             S::Expr(expr) if matches!(expr.kind, E::Call { .. }) => {
                 let Some(Some(callee)) = self.callees.get(&expr.span) else {
                     return true;
                 };
+
                 self.called.push(*callee);
                 !self.never.contains(callee)
             }
@@ -186,6 +195,7 @@ impl Compiler {
         let Some(ProcTarget::Foreign(foreign)) = proc.target else {
             return false;
         };
+
         proc.lit.body.is_none()
             && proc.sig.as_ref().is_some_and(|sig| sig.returns.is_empty())
             && NEVER_RETURNING_SYMBOLS.contains(
@@ -210,6 +220,7 @@ impl Compiler {
             .map(|i| ProcId(i as u32))
             .filter(|&id| {
                 let proc = self.proc(id);
+
                 proc.lit.body.is_some()
                     && !proc.is_macro
                     && !proc.is_poly
@@ -220,6 +231,7 @@ impl Compiler {
         // Who to read again when a procedure joins the set.
         let mut callers: HashMap<ProcId, Vec<ProcId>> = HashMap::default();
         let mut work = Vec::new();
+
         for &id in &candidates {
             let body = self
                 .proc(id)
@@ -229,19 +241,23 @@ impl Compiler {
                 .expect("candidates have bodies");
             let mut reading = Reading::new(&ide.callees, &never);
             let completes = reading.stmts(&body.stmts);
+
             for callee in reading.called {
                 callers.entry(callee).or_default().push(id);
             }
+
             if !completes && !reading.returned {
                 never.insert(id);
                 work.push(id);
             }
         }
+
         while let Some(done) = work.pop() {
             for &id in callers.get(&done).into_iter().flatten() {
                 if never.contains(&id) {
                     continue;
                 }
+
                 let body = self
                     .proc(id)
                     .lit
@@ -250,12 +266,14 @@ impl Compiler {
                     .expect("candidates have bodies");
                 let mut reading = Reading::new(&ide.callees, &never);
                 let completes = reading.stmts(&body.stmts);
+
                 if !completes && !reading.returned {
                     never.insert(id);
                     work.push(id);
                 }
             }
         }
+
         self.record_dead_after_exits(&mut ide, &candidates, &never);
         self.ed.resume(ide);
     }
@@ -269,10 +287,12 @@ impl Compiler {
         // Procedures that expand a macro that returns are read like the others: the macro's
         // `return` is not a statement of the body, so they are skipped for the dead runs too.
         let mut seen = HashSet::default();
+
         for &id in candidates {
             if ide.macro_returners.contains(&id) {
                 continue;
             }
+
             let body = self
                 .proc(id)
                 .lit
@@ -282,13 +302,18 @@ impl Compiler {
             let Some(&evals) = ide.body_evals.get(&body.span) else {
                 continue;
             };
+
             if !seen.insert(body.span) {
                 continue;
             }
+
             let mut reading = Reading::new(&ide.callees, never);
+
             reading.stmts(&body.stmts);
+
             for run in reading.dead {
                 let count = ide.dead_runs.entry((body.span, run)).or_default();
+
                 *count = (*count).max(evals);
             }
         }

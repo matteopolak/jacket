@@ -13,10 +13,12 @@ impl Compiler {
     /// The callable target of a procedure, reserving it (and queueing its body) on first use.
     pub fn proc_func(&mut self, id: ProcId, span: Span) -> Result<ProcTarget> {
         self.ide_note_polymorph(id);
+
         if let Some(t) = self.proc(id).target {
             crate::sema::speculative::refuse_provisional(t, &self.out.program);
             return Ok(t);
         }
+
         self.first_use(FirstUse::Target(id), |c| {
             c.make_proc_target(id, span, false)
         })
@@ -26,9 +28,11 @@ impl Compiler {
     /// speculative body may be handed a provisional one.
     pub fn proc_func_in_code(&mut self, id: ProcId, span: Span) -> Result<ProcTarget> {
         self.ide_note_polymorph(id);
+
         if let Some(t) = self.proc(id).target {
             return Ok(t);
         }
+
         self.first_use(FirstUse::Target(id), |c| c.make_proc_target(id, span, true))
     }
 
@@ -44,17 +48,22 @@ impl Compiler {
                 ),
             );
         }
+
         let sig = self.signature(id, span)?;
         let ir_sig = self.ir_sig(sig.ty, span)?;
         let header = self.proc(id).lit.header.clone();
         let name = self.proc(id).name;
+
         // `#entry_point` declarations stand for the program's `main`.
         if lit_is_entry_point(&header) && self.proc(id).lit.body.is_none() {
             let func = self.entry_point_wrapper(id, span)?;
             let target = ProcTarget::Func(func);
+
             self.pr.set_proc_target(id, target);
+
             return Ok(target);
         }
+
         let target = if let Some(foreign) = &header.foreign {
             let scope = self.proc(id).scope;
             let library = match &foreign.library {
@@ -71,9 +80,11 @@ impl Compiler {
                 sig: ir_sig,
                 is_data: false,
             };
+
             if in_code && let Some(target) = self.provisional_foreign(id, foreign.clone()) {
                 return Ok(target);
             }
+
             ProcTarget::Foreign(self.out.program.add_foreign(foreign))
         } else if let Some(llvm) =
             llvm_intrinsic(&header).filter(|_| self.proc(id).lit.body.is_none())
@@ -86,14 +97,17 @@ impl Compiler {
                 sig: ir_sig,
                 is_data: false,
             };
+
             if in_code && let Some(target) = self.provisional_foreign(id, foreign.clone()) {
                 return Ok(target);
             }
+
             ProcTarget::Foreign(self.out.program.add_foreign(foreign))
         } else if self.proc(id).lit.body.is_none() {
             if header.flags.intrinsic() || header.flags.compiler() {
                 // Intrinsics are expanded at call sites; a reference as a value gets a wrapper later.
                 let func = self.out.program.reserve_func(name.to_string());
+
                 self.pr.procs[id.0 as usize].body_state = BodyState::Queued;
                 crate::sema::body_probe::enqueued(id.0);
                 self.pr.body_queue.push(id);
@@ -106,17 +120,22 @@ impl Compiler {
                     sig: ir_sig,
                     is_data: false,
                 };
+
                 if in_code && let Some(target) = self.provisional_foreign(id, foreign.clone()) {
                     return Ok(target);
                 }
+
                 ProcTarget::Foreign(self.out.program.add_foreign(foreign))
             }
         } else {
             let display = self.proc_display_name(id);
+
             if in_code && let Some(target) = self.provisional_target(id, display.clone(), &ir_sig) {
                 return Ok(target);
             }
+
             let func = self.out.program.reserve_func_with_sig(display, ir_sig);
+
             if self.defers_body(id) {
                 self.pr.procs[id.0 as usize].body_state = BodyState::Deferred;
                 self.pr.deferred_bodies += 1;
@@ -125,9 +144,12 @@ impl Compiler {
                 crate::sema::body_probe::enqueued(id.0);
                 self.pr.body_queue.push(id);
             }
+
             ProcTarget::Func(func)
         };
+
         self.pr.set_proc_target(id, target);
+
         if self.pr.runtime_interpreter_assertion == Some(id) {
             let ProcTarget::Func(func) = target else {
                 return err(
@@ -141,11 +163,14 @@ impl Compiler {
                 location: self.location_layout(span)?,
             };
             let hooks = self.ct.interp.hooks.len().max(func.0 as usize + 1);
+
             self.ct.interp.hooks.resize(hooks, None);
             self.ct.interp.hooks[func.0 as usize] = Some(hook);
         }
+
         if let ProcTarget::Func(func) = target {
             self.pr.func_procs.insert(func, id);
+
             if header.flags.compiler() {
                 let operation_name = header
                     .flags
@@ -157,17 +182,21 @@ impl Compiler {
                 {
                     let binding = crate::build::public_api::bind(self, id, operation, span)?;
                     let index = self.ct.interp.public_bindings.len();
+
                     self.ct.interp.public_bindings.push(binding);
+
                     if matches!(
                         operation,
                         crate::build::public_api::Operation::TypeTable
                             | crate::build::public_api::Operation::RuntimeInfo
                     ) {
                         self.ty.table_funcs.insert(func);
+
                         if let Some(workspaces) = &self.ct.interp.workspaces {
                             crate::build::Workspaces::note_type_table_used(workspaces);
                         }
                     }
+
                     crate::interp::Hook::PublicCompiler(index)
                 } else {
                     crate::interp::Hook::for_compiler_proc(
@@ -177,12 +206,15 @@ impl Compiler {
                     .unwrap_or(crate::interp::Hook::UnsupportedCompiler(func))
                 };
                 let i = func.0 as usize;
+
                 if self.ct.interp.hooks.len() <= i {
                     self.ct.interp.hooks.resize(i + 1, None);
                 }
+
                 self.ct.interp.hooks[i] = Some(hook);
             }
         }
+
         Ok(target)
     }
 
@@ -192,14 +224,17 @@ impl Compiler {
         let sig = self.signature(id, span)?;
         let ir_sig = self.ir_sig(sig.ty, span)?;
         let func = self.out.program.reserve_func("__entry_point".into());
+
         // Set before the body is made, for a `main` that reaches the entry point again.
         self.pr.set_proc_target(id, ProcTarget::Func(func));
         let made = self.entry_point_body(id, func, sig, ir_sig, span);
+
         if made.is_err() {
             // `main` is unusable: a later use must meet the same error, not call this function
             // with nothing in it.
             self.pr.clear_proc_target(id, func);
         }
+
         made
     }
 
@@ -212,7 +247,9 @@ impl Compiler {
         let span = self.proc(id).span;
         let sig = self.signature(id, span)?;
         let ir_sig = self.ir_sig(sig.ty, span)?;
+
         self.entry_point_body(id, func, sig, ir_sig, span)?;
+
         match self.pr.pending_entry.take() {
             Some((_, _, error)) => Err(error),
             None => Ok(()),
@@ -238,37 +275,47 @@ impl Compiler {
                 if !self.ed.checks_every_body() {
                     self.pr.pending_entry = Some((id, func, error));
                 }
+
                 let mut f = FnCtx::new("__entry_point".into(), ir_sig.clone(), FileId(0));
+
                 f.b.intrinsic(ir::Intrinsic::Trap, Vec::new(), &[]);
                 let rets = ir_sig.returns.iter().map(|&t| f.b.iconst(t, 0)).collect();
+
                 f.b.ret(rets);
                 self.out.program.funcs[func.0 as usize] = Some(f.b.finish());
+
                 return Ok(func);
             }
         };
         let main_sig = self.signature(main, span)?;
+
         if !main_sig.params.is_empty() {
             let name = &self.options.entry_point;
+
             return err(
                 Code::ProcMust,
                 self.proc(main).span,
                 format!("`{name}` must not take parameters"),
             );
         }
+
         // The value `main` returns is the exit status, so only an integer has a meaning.
         let returns_status = match main_sig.returns.as_slice() {
             [] => true,
             [ty] => self.ty.types.is_integer(*ty),
             _ => false,
         };
+
         if !returns_status {
             let name = &self.options.entry_point;
+
             return err(
                 Code::ProcMust,
                 self.proc(main).span,
                 format!("`{name}` must return nothing or one integer"),
             );
         }
+
         let ProcTarget::Func(main_func) = self.proc_func(main, span)? else {
             return err(
                 Code::ProcMustBody,
@@ -279,6 +326,7 @@ impl Compiler {
         let main_ir = self.ir_sig(main_sig.ty, span)?;
         let mut f = FnCtx::new("__entry_point".into(), ir_sig, FileId(0));
         let mut args = Vec::new();
+
         if main_sig.has_context {
             args.push(if sig.has_context {
                 f.b.param(0)
@@ -286,14 +334,17 @@ impl Compiler {
                 f.b.iconst(Ty::Ptr, 0)
             });
         }
+
         let results =
             f.b.call(ir::Callee::Func(main_func), args, &main_ir.returns);
         let mut rets = Vec::new();
+
         if let Some(&rt) = sig.returns.first() {
             let want = self.ir_ty(rt).unwrap_or(Ty::I32);
             let v = match (results.first(), main_sig.returns.first()) {
                 (Some(&r), Some(&mt)) => {
                     let have = f.b.val_ty(r);
+
                     match have
                         .size(&self.options.layout)
                         .cmp(&want.size(&self.options.layout))
@@ -306,6 +357,7 @@ impl Compiler {
                             } else {
                                 ir::ConvOp::ZExt
                             };
+
                             f.b.conv(op, have, want, r)
                         }
                         std::cmp::Ordering::Equal => r,
@@ -313,8 +365,10 @@ impl Compiler {
                 }
                 _ => f.b.iconst(want, 0),
             };
+
             rets.push(v);
         }
+
         f.b.ret(rets);
         self.out.program.funcs[func.0 as usize] = Some(f.b.finish());
         Ok(func)
@@ -322,6 +376,7 @@ impl Compiler {
 
     fn proc_display_name(&self, id: ProcId) -> String {
         let p = self.proc(id);
+
         if p.bindings.is_some() {
             format!("{}#{}", p.name, id.0)
         } else {
@@ -337,6 +392,7 @@ impl Compiler {
         let ids = self.lookup(scope, ident.name)?;
         let Some(&e) = ids.first() else {
             let name = ident.name;
+
             return Err(Box::new(
                 Diagnostic::new(Code::UnknownLibrary, ident.span, format!("unknown library `{name}`"))
                     .with_label("no library of this name is declared here")
@@ -345,6 +401,7 @@ impl Compiler {
                     )),
             ));
         };
+
         match self.resolve_entity(e)? {
             scope::Resolved::Library(l) => Ok(Some(self.ns.libraries[l.0 as usize].ir)),
             _ => Err(Box::new(

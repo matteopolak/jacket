@@ -4,15 +4,19 @@ use std::{path::Path, rc::Rc};
 
 fn check(files: &[(&str, &str)]) -> Result<Compiler, String> {
     let mut fs = VirtualFs::default();
+
     for (path, source) in files {
         fs.insert(*path, source.as_bytes());
     }
+
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/prelude.jai".into());
     fs.insert("/prelude.jai", b"Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }".as_slice());
     options.import_paths = vec!["/lib".into()];
     let mut compiler = Compiler::new(options, Rc::new(fs));
+
     compiler
         .compile_program(Path::new("/main.jai"))
         .map_err(|error| error.render(&compiler.src.sources))?;

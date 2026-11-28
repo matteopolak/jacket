@@ -63,6 +63,7 @@ fn file_details(metadata: &fs::Metadata) -> FileDetails {
     };
     #[cfg(not(unix))]
     let identity = [0; 3];
+
     FileDetails {
         attributes: if metadata.is_dir() {
             0x10
@@ -84,9 +85,11 @@ fn file_details(metadata: &fs::Metadata) -> FileDetails {
 impl WindowsBackend for NativeFiles {
     fn details(&self, path: &str) -> Option<FileDetails> {
         let mut details = file_details(&fs::metadata(path).ok()?);
+
         if fs::symlink_metadata(path).ok()?.is_symlink() {
             details.attributes |= 0x400;
         }
+
         Some(details)
     }
 
@@ -109,6 +112,7 @@ impl WindowsBackend for NativeFiles {
             use std::os::unix::fs::FileExt;
             let file = self.files.get(&fd)?;
             let mut bytes = vec![0; file.metadata().ok()?.len().try_into().ok()?];
+
             file.read_exact_at(&mut bytes, 0).ok()?;
             Some(bytes)
         }
@@ -166,6 +170,7 @@ impl WindowsBackend for NativeFiles {
                 )
             })
             .collect();
+
         entries.sort();
         entries
     }
@@ -195,6 +200,7 @@ impl WindowsBackend for NativeFiles {
             .truncate(open.truncate)
             .open(&path)
             .map_err(errno)?;
+
         self.next_fd = self.next_fd.max(2) + 1;
         self.paths.insert(self.next_fd, path);
         self.files.insert(self.next_fd, file);
@@ -217,6 +223,7 @@ impl WindowsBackend for NativeFiles {
         } else {
             self.files.get_mut(&fd)?.read(&mut bytes).ok()?
         };
+
         write_bytes(out, &bytes[..n]);
         Some(n)
     }
@@ -236,6 +243,7 @@ impl WindowsBackend for NativeFiles {
             2 => SeekFrom::End(offset),
             _ => return None,
         };
+
         self.files
             .get_mut(&fd)?
             .seek(pos)

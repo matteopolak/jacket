@@ -18,10 +18,12 @@ main :: () {}
 #[test]
 fn a_failed_trait_field_type_is_resolved_once_per_layout() {
     let (tx, rx) = mpsc::channel();
+
     std::thread::Builder::new()
         .stack_size(256 << 20)
         .spawn(move || {
             let mut s = session();
+
             s.open(uri(), 1, PROGRAM.into()).unwrap();
             let _ = s.diagnostics(&uri());
             let _ = tx.send(());

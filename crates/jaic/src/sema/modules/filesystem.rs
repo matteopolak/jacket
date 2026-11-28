@@ -35,9 +35,11 @@ impl BootstrapModule {
 /// This is the one definition of what a module on disk looks like.
 pub fn module_file_in(fs: &dyn FileSystem, dir: &Path, name: &str) -> Option<PathBuf> {
     let file = dir.join(format!("{name}.jai"));
+
     if fs.is_file(&file) {
         return Some(file);
     }
+
     let entry = crate::paths::module_entry(&dir.join(name));
     fs.is_file(&entry).then_some(entry)
 }
@@ -67,6 +69,7 @@ impl PackageImports {
     /// package with its folders in the order given.
     pub fn grouped(pairs: &[(PathBuf, PathBuf)]) -> Vec<Self> {
         let mut out: Vec<Self> = Vec::new();
+
         for (package, dir) in pairs {
             match out.iter_mut().find(|p| &p.dir == package) {
                 Some(found) => found.import_paths.push(dir.clone()),
@@ -76,6 +79,7 @@ impl PackageImports {
                 }),
             }
         }
+
         out
     }
 }
@@ -98,6 +102,7 @@ pub fn search_roots(
         .filter(|p| from_dir.starts_with(&p.dir))
         .max_by_key(|p| p.dir.components().count());
     let mut roots = Vec::with_capacity(import_paths.len() + 1);
+
     roots.push(from_dir.join("modules"));
     roots.extend(own.into_iter().flat_map(|p| p.import_paths.iter().cloned()));
     roots.extend(import_paths.iter().cloned());
@@ -115,9 +120,11 @@ pub fn find_module_in(
     from_dir: &Path,
 ) -> Option<PathBuf> {
     let roots = search_roots(import_paths, packages, from_dir);
+
     if let Some(entry) = roots.iter().find_map(|dir| module_file_in(fs, dir, name)) {
         return Some(entry);
     }
+
     if BootstrapModule::named(name) == Some(BootstrapModule::Preload) {
         roots.iter().find_map(|dir| crate::find_preload(fs, dir))
     } else {
@@ -162,6 +169,7 @@ mod tests {
     #[test]
     fn search_roots_in_order() {
         let mut fs = VirtualFs::default();
+
         for file in [
             "/project/modules/Windows/module.jai",
             "/project/src/modules/Local.jai",
@@ -175,6 +183,7 @@ mod tests {
         ] {
             fs.insert(file, b"".to_vec());
         }
+
         let paths = [
             PathBuf::from("/project/modules"),
             PathBuf::from("/libs"),
@@ -223,6 +232,7 @@ mod tests {
                 Some("/std/prelude/module.jai"),
             ),
         ];
+
         for (name, from, expected) in table {
             assert_eq!(
                 find_module_in(&fs, &paths, &[], name, Path::new(from)),
@@ -230,6 +240,7 @@ mod tests {
                 "`#import \"{name}\"` from {from}"
             );
         }
+
         assert_eq!(
             search_roots(&paths, &[], Path::new("/project/src")),
             [
@@ -246,6 +257,7 @@ mod tests {
     #[test]
     fn a_packages_folders_reach_only_its_own_files() {
         let mut fs = VirtualFs::default();
+
         for file in [
             "/p/modules/Basic/module.jai",
             "/p/modules/dep/module.jai",
@@ -256,6 +268,7 @@ mod tests {
         ] {
             fs.insert(file, b"".to_vec());
         }
+
         let paths = [PathBuf::from("/p/modules")];
         let packages = [PackageImports {
             dir: "/p/modules/dep".into(),
@@ -263,6 +276,7 @@ mod tests {
         }];
         let find =
             |name: &str, from: &str| find_module_in(&fs, &paths, &packages, name, Path::new(from));
+
         // The package's own `Basic` is seen from the package, and from nowhere else.
         assert_eq!(
             find("Basic", "/p/modules/dep/src"),

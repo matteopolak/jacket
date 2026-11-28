@@ -29,6 +29,7 @@ pub fn float_literal_precision(text: &str, value: f64) -> FloatLiteralPrecision 
             ..Default::default()
         };
     }
+
     let mantissa = text.split(['e', 'E']).next().unwrap_or("").replace('_', "");
     let fractional = mantissa
         .split_once('.')
@@ -47,6 +48,7 @@ pub fn float_literal_precision(text: &str, value: f64) -> FloatLiteralPrecision 
     };
     let significant = counted > 8;
     let required = significant || has_big_float32_exponent(value);
+
     FloatLiteralPrecision {
         defaults_to_float64: !required && counted >= 8,
         requires_float64: required,

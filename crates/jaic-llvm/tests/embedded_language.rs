@@ -50,14 +50,17 @@ stub_entry :: () #elsewhere #c_call;
 fn optimized_ir() -> String {
     let dir = TempDir::new("embedded-language");
     let mut options = Options::host();
+
     options.os = TargetOs::None;
     options.cpu = TargetCpu::Arm64;
     options.runtime_support = false;
     options.stack_trace = false;
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(e) = compiler.compile_sources(&[ProgramSource::String(SOURCE.into())]) {
         panic!("{}", e.render(&compiler.src.sources));
     }
+
     let options = jaic_llvm::Options {
         target: Some(jaic::target::Target::parse("aarch64-none-elf").unwrap()),
         opt_level: OptLevel::O2,
@@ -68,6 +71,7 @@ fn optimized_ir() -> String {
         },
         ..Default::default()
     };
+
     emit_object(&compiler.out.program, &options, &dir.join("embedded.o")).unwrap();
     std::fs::read_to_string(dir.join("optimized.ll")).unwrap()
 }
@@ -75,12 +79,14 @@ fn optimized_ir() -> String {
 #[test]
 fn a_section_note_places_a_global_and_a_procedure() {
     let ir = optimized_ir();
+
     assert!(
         has_line(&ir, &["@vectors", "section \".vector_table\""]),
         "{ir}"
     );
     assert!(!has_line(&ir, &["@plain", "section"]), "{ir}");
     let boot = function(&ir, "boot");
+
     assert!(boot.contains("section \".text.boot\""), "{boot}");
     assert!(!function(&ir, "ordinary").contains("section"), "{ir}");
 }
@@ -89,12 +95,15 @@ fn a_section_note_places_a_global_and_a_procedure() {
 fn volatile_accesses_are_kept_one_for_one() {
     let ir = optimized_ir();
     let poll = function(&ir, "poll");
+
     assert_eq!(poll.matches("load volatile i32").count(), 3, "{poll}");
     let writes = function(&ir, "write_twice");
+
     assert_eq!(writes.matches("store volatile i32").count(), 2, "{writes}");
     assert!(function(&ir, "narrow").contains("load volatile i8"), "{ir}");
     // The same two reads through an ordinary pointer are merged.
     let plain = function(&ir, "plain_twice");
+
     assert_eq!(plain.matches("load i32").count(), 1, "{plain}");
     assert!(!plain.contains("volatile"), "{plain}");
 }
@@ -102,6 +111,7 @@ fn volatile_accesses_are_kept_one_for_one() {
 #[test]
 fn a_module_asm_note_adds_assembly_to_the_module() {
     let ir = optimized_ir();
+
     assert!(ir.contains("module asm"), "{ir}");
     assert!(ir.contains("stub_entry:"), "{ir}");
     assert!(function(&ir, "calls_stub").contains("@stub_entry"), "{ir}");

@@ -26,15 +26,20 @@ impl Sources<'_> {
     ) -> BTreeSet<PathBuf> {
         let mut seen = BTreeSet::new();
         let mut pending = vec![self.key(root)];
+
         while let Some(entry) = pending.pop() {
             if self.stopped() {
                 break;
             }
+
             let entry = self.key(&entry);
+
             if seen.len() >= MAX_LOADED || seen.contains(&entry) {
                 continue;
             }
+
             let files = self.closure(index, &entry);
+
             for file in &files {
                 for import in &self.scan(index, file).imports {
                     let found = module_dirs.iter().find_map(|dir| {
@@ -45,13 +50,16 @@ impl Sources<'_> {
                         .into_iter()
                         .find(|f| self.is_file(f))
                     });
+
                     if let Some(found) = found {
                         pending.push(project::normalize(&found));
                     }
                 }
             }
+
             seen.extend(files);
         }
+
         seen
     }
 
@@ -63,18 +71,23 @@ impl Sources<'_> {
         prefix: &str,
     ) -> Vec<Arc<Module>> {
         let mut modules = Vec::new();
+
         for (entry, is_dir) in self.list_dir(dir) {
             if self.stopped() {
                 break;
             }
+
             if entry.starts_with('.') {
                 continue;
             }
+
             let (name, file) = if is_dir {
                 let file = dir.join(&entry).join("module.jai");
+
                 if !self.is_file(&file) {
                     continue;
                 }
+
                 (entry, file)
             } else if let Some(stem) = entry.strip_suffix(".jai") {
                 (stem.to_string(), dir.join(&entry))
@@ -82,20 +95,26 @@ impl Sources<'_> {
                 continue;
             };
             let key = (file.clone(), prefix.to_string());
+
             if let Some(module) = index.warming.get(&key) {
                 // Session caches rely on watched-file invalidation. Their old reads must
                 // not be stamped as fresh inputs of a cache shared with other sessions.
                 self.note_own();
                 modules.push(module.clone());
+
                 continue;
             }
+
             let module =
                 Arc::new(self.read_module(index, dir, prefix, format!("{prefix}{name}"), file));
+
             if !self.stopped() {
                 index.warming.insert(key, module.clone());
             }
+
             modules.push(module);
         }
+
         modules
     }
 
@@ -111,11 +130,15 @@ impl Sources<'_> {
         let mut only_os = self.scan(index, &file).only_os.clone();
         let mut imports = BTreeSet::new();
         let mut files = self.closure(index, &file);
+
         for part in &files {
             let scan = self.scan(index, part);
+
             imports.extend(scan.imports.iter().map(|i| i.path.clone()));
         }
+
         let mut import_dirs = vec![dir.to_path_buf()];
+
         import_dirs.extend(self.options(&file).import_paths);
         let mut visiting = BTreeSet::from([file.clone()]);
         let mut reexported_os = Vec::new();
@@ -128,6 +151,7 @@ impl Sources<'_> {
             &mut files,
             &mut reexported_os,
         );
+
         // A module that only passes on others is gated as they are.
         if only_os.is_none()
             && decls.iter().all(|d| d.1)
@@ -135,7 +159,9 @@ impl Sources<'_> {
         {
             only_os = reexported_os.into_iter().next().flatten();
         }
+
         let decls = decls.into_iter().map(|(decl, _)| decl).collect();
+
         Module {
             name,
             only_os,
@@ -166,11 +192,14 @@ impl Sources<'_> {
         reexported_os: &mut Vec<Option<Vec<String>>>,
     ) -> Vec<(Decl, bool)> {
         let mut decls = Vec::new();
+
         for part in self.closure(index, entry) {
             if self.stopped() {
                 break;
             }
+
             let scan = self.scan(index, &part);
+
             for decl in scan
                 .decls
                 .iter()
@@ -182,19 +211,24 @@ impl Sources<'_> {
                         .map(|d| (d, false)),
                 );
             }
+
             for import in &scan.imports {
                 let Some(reexport) = &import.reexport else {
                     continue;
                 };
+
                 if import.visibility != Visibility::Export {
                     continue;
                 }
+
                 let Some(target) = self.find_module(&import.path, &part, import_dirs) else {
                     continue;
                 };
+
                 if !visiting.insert(target.clone()) {
                     continue;
                 }
+
                 files.extend(self.closure(index, &target));
                 reexported_os.push(self.scan(index, &target).only_os.clone());
                 let inner = self.exports_of(
@@ -206,6 +240,7 @@ impl Sources<'_> {
                     files,
                     reexported_os,
                 );
+
                 decls.extend(
                     inner
                         .into_iter()
@@ -214,6 +249,7 @@ impl Sources<'_> {
                 );
             }
         }
+
         decls
     }
 
@@ -230,6 +266,7 @@ impl Sources<'_> {
         {
             return modules.clone();
         }
+
         Arc::new(
             modules
                 .iter()
@@ -257,8 +294,10 @@ impl Sources<'_> {
             if cache.stale.is_empty() {
                 return cache.modules.clone();
             }
+
             let (modules, stale) = (cache.modules.clone(), cache.stale.clone());
             let modules = self.refreshed(index, &modules, &stale);
+
             index.stdlib = Some((
                 dir.to_path_buf(),
                 ModuleCache {
@@ -266,9 +305,12 @@ impl Sources<'_> {
                     stale: BTreeSet::new(),
                 },
             ));
+
             return modules;
         }
+
         let modules = self.shared_stdlib(index, dir);
+
         index.stdlib = Some((
             dir.to_path_buf(),
             ModuleCache {
@@ -294,27 +336,32 @@ impl Sources<'_> {
                     .collect()
             })
             .unwrap_or_default();
+
         if let Some(found) = candidates
             .into_iter()
             .find(|shared| shared.is_current(self))
         {
             return found.modules.clone();
         }
+
         // Scans this session already holds are reused: each carries the stamp from when it was
         // read, so the list is shared with the stamps of what it was really made from.
         let outer = self.recording.replace(Some(Recorded::default()));
         let modules = self.read_stdlib(index, dir);
         let recorded = self.recording.replace(outer).unwrap_or_default();
+
         if !self.stopped()
             && let Some(shared) = SharedStdlib::new(modules.clone(), recorded)
             && let Ok(mut kept) = KEPT_STDLIBS.lock()
         {
             kept.retain(|(root, old)| root != dir || old.is_current(self));
             kept.push((dir.to_path_buf(), Arc::new(shared)));
+
             if kept.len() > KEPT {
                 kept.remove(0);
             }
         }
+
         modules
     }
 
@@ -334,6 +381,7 @@ impl Sources<'_> {
             })
             .collect();
         let extensions = jaic::STDLIB_EXTENSIONS_DIR;
+
         modules.extend(self.modules_in(index, &dir.join(extensions), &format!("{extensions}/")));
         Arc::new(modules)
     }
@@ -346,12 +394,14 @@ impl Sources<'_> {
         {
             return ranking.clone();
         }
+
         let importers = jaic::sema::count_importers(
             modules
                 .iter()
                 .map(|m| (m.name.as_str(), m.imports.iter().map(String::as_str))),
         );
         let ranking = ModuleRanking::new(HashMap::default(), importers);
+
         index.ranking = Some((modules.clone(), ranking.clone()));
         ranking
     }
@@ -361,8 +411,10 @@ impl Sources<'_> {
             if cache.stale.is_empty() {
                 return cache.modules.clone();
             }
+
             let (modules, stale) = (cache.modules.clone(), cache.stale.clone());
             let modules = self.refreshed(index, &modules, &stale);
+
             index.module_dirs.insert(
                 dir.to_path_buf(),
                 ModuleCache {
@@ -370,9 +422,12 @@ impl Sources<'_> {
                     stale: BTreeSet::new(),
                 },
             );
+
             return modules;
         }
+
         let modules = Arc::new(self.modules_in(index, dir, ""));
+
         index.module_dirs.insert(
             dir.to_path_buf(),
             ModuleCache {
@@ -401,11 +456,13 @@ impl SharedStdlib {
         if recorded.own {
             return None;
         }
+
         let stamps = recorded
             .stamps
             .into_iter()
             .map(|(path, stamp)| Some((path, stamp?)))
             .collect::<Option<Vec<_>>>()?;
+
         Some(SharedStdlib {
             modules,
             paths: stamps.iter().map(|(path, _)| path.clone()).collect(),
@@ -428,6 +485,7 @@ impl SharedStdlib {
                 if sources.stopped() {
                     return false;
                 }
+
                 let options = (sources.env.options)(root);
                 options.import_paths == *import_paths && options.preload == *preload
             })

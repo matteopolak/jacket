@@ -48,6 +48,7 @@ impl CallGraph {
     ) -> Option<usize> {
         let start = shift.to_new(call.start)?;
         let end = shift.to_new(call.end)?;
+
         (self.text.get(call.start..call.end)? == text.get(start..end)?).then_some(start)
     }
 }
@@ -71,6 +72,7 @@ struct Site {
 fn sites(text: &str) -> Vec<Site> {
     let file = jaic::parser::parse_file_ide(FileId(0), text).file;
     let mut out = Vec::new();
+
     collect(text, &file.stmts, &mut out, &mut HashSet::default());
     out
 }
@@ -94,6 +96,7 @@ fn collect(text: &str, stmts: &[Stmt], out: &mut Vec<Site>, seen: &mut HashSet<u
                 .map(|b| (b.span.start as usize, b.span.end as usize));
             let from = value.span.start as usize;
             let to = body.map_or(b, |(x, _)| x);
+
             out.push(Site {
                 name: name.name.as_str().to_string(),
                 name_span: (name_span.start as usize, name_span.end as usize),
@@ -102,19 +105,24 @@ fn collect(text: &str, stmts: &[Stmt], out: &mut Vec<Site>, seen: &mut HashSet<u
                 header: text.get(from..to).unwrap_or("").trim().to_string(),
                 header_start: from,
             });
+
             if let Some(body) = &lit.body {
                 collect(text, &body.stmts, out, seen);
             }
+
             return true;
         }
+
         let Some(x) = node.expr() else {
             return true;
         };
+
         match &x.kind {
             E::Proc(lit) if !seen.contains(&lit.header.id.0) => {
                 if let Some(body) = &lit.body {
                     collect(text, &body.stmts, out, seen);
                 }
+
                 false
             }
             // Declared procedures are collected from their statement.
@@ -151,6 +159,7 @@ fn calling(sites: &[Site], at: usize) -> Option<&Site> {
 fn site_item(uri: &str, text: &str, site: &Site) -> Option<CallHierarchyItem> {
     let index = LineIndex::new(text);
     let range = |(a, b): (usize, usize)| index.range(text, Span::new(a, b)).ok();
+
     Some(CallHierarchyItem {
         name: site.name.clone(),
         detail: site.header.lines().next().unwrap_or("").trim().to_string(),
@@ -178,9 +187,11 @@ struct Grouped {
 impl Grouped {
     fn add(&mut self, item: CallHierarchyItem, key: usize, from: crate::Range) {
         let key = (item.uri.clone(), key);
+
         if !self.entries.contains_key(&key) {
             self.order.push(key.clone());
         }
+
         self.entries
             .entry(key)
             .or_insert_with(|| (item, Vec::new()))
@@ -214,15 +225,19 @@ impl Session {
         let doc = self.document(uri)?;
         let byte = doc.index.byte(&doc.text, position);
         let here = sites(&doc.text);
+
         if let Some(site) = here.iter().find(|s| contains(s.name_span, byte)) {
             return Ok(site_item(uri.as_str(), &doc.text, site)
                 .into_iter()
                 .collect());
         }
+
         if self.word(uri, position)?.is_none() {
             return Ok(Vec::new());
         }
+
         let mut items: Vec<CallHierarchyItem> = Vec::new();
+
         for location in self.definition(uri, position)? {
             let Ok(target) = DocumentUri::parse(&location.uri) else {
                 continue;
@@ -231,6 +246,7 @@ impl Session {
                 continue;
             };
             let at = LineIndex::new(&text).byte(&text, location.range.start);
+
             if let Some(found) =
                 declared_at(&sites(&text), at).and_then(|s| site_item(&location.uri, &text, s))
                 && !items
@@ -240,6 +256,7 @@ impl Session {
                 items.push(found);
             }
         }
+
         Ok(items)
     }
 
@@ -254,8 +271,10 @@ impl Session {
         let generation = self.semantic_revision();
         let mut parsed: HashMap<String, (SourceKey, Vec<Site>)> = HashMap::default();
         let mut targets: HashMap<(String, usize), Rc<CallTarget>> = HashMap::default();
+
         for uri in self.documents.keys().filter(|uri| self.root(uri) == root) {
             let path = Path::new(uri.path());
+
             analysis.focus(path);
             let Some(file) = analysis.file(path) else {
                 continue;
@@ -264,6 +283,7 @@ impl Session {
                 continue;
             };
             let text = source.text.clone();
+
             if self
                 .call_graphs
                 .borrow()
@@ -272,6 +292,7 @@ impl Session {
             {
                 continue;
             }
+
             let calls = analysis
                 .compiler
                 .ide_calls(file)
@@ -292,9 +313,11 @@ impl Session {
                             source_key: *source_key,
                             site,
                         });
+
                         targets.insert(key, target.clone());
                         target
                     };
+
                     Some(CallFact {
                         start: call.span.start as usize,
                         end: call.span.end as usize,
@@ -302,6 +325,7 @@ impl Session {
                     })
                 })
                 .collect();
+
             self.call_graphs.borrow_mut().insert(
                 uri.clone(),
                 Rc::new(CallGraph {
@@ -316,11 +340,13 @@ impl Session {
     fn call_graph(&self, uri: &DocumentUri) -> Option<Rc<CallGraph>> {
         let (uri, doc) = self.document_entry(uri).ok()?;
         let old = self.call_graphs.borrow().get(uri).cloned();
+
         if old.as_ref().is_some_and(|graph| {
             graph.generation == self.semantic_revision() && graph.text.as_ref() == doc.text
         }) {
             return old;
         }
+
         self.with_semantic(uri, &doc.text, |analysis, path| {
             self.remember_call_graphs(uri, analysis);
             analysis.focus(path);
@@ -340,18 +366,22 @@ impl Session {
         sources: &mut TargetSources,
     ) -> Option<(CallHierarchyItem, usize)> {
         let target = self.client_uri(Path::new(&fact.target.path))?;
+
         if target == *uri {
             let doc = self.document(uri).ok()?;
             let declared = shift.to_new(fact.target.site.name_span.0)?;
             let site = declared_at(here, declared)?;
+
             if site.header != fact.target.site.header {
                 return None;
             }
+
             return Some((
                 site_item(target.as_str(), &doc.text, site)?,
                 site.name_span.0,
             ));
         }
+
         let source = sources
             .entry(fact.target.path.clone())
             .or_insert_with(|| {
@@ -359,10 +389,13 @@ impl Session {
                 Some((crate::semantic::text_key(&text), text))
             })
             .as_ref()?;
+
         if source.0 != fact.target.source_key {
             return None;
         }
+
         let site = &fact.target.site;
+
         Some((
             site_item(target.as_str(), &source.1, site)?,
             site.name_span.0,
@@ -378,6 +411,7 @@ impl Session {
         let Ok((uri, _)) = self.document_entry(&requested) else {
             return Ok(Vec::new());
         };
+
         self.call_graph(uri);
         let graphs: Vec<_> = self
             .call_graphs
@@ -387,12 +421,14 @@ impl Session {
             .collect();
         let mut grouped = Grouped::default();
         let mut sources = HashMap::default();
+
         for (caller_uri, graph) in graphs {
             let Ok(doc) = self.document(&caller_uri) else {
                 continue;
             };
             let here = sites(&doc.text);
             let shift = crate::semantic::Shift::between(graph.text.as_bytes(), doc.text.as_bytes());
+
             for fact in &graph.calls {
                 let Some(at) = graph.moved_call(&doc.text, &shift, fact) else {
                     continue;
@@ -402,9 +438,11 @@ impl Session {
                 else {
                     continue;
                 };
+
                 if callee.uri != uri.as_str() || callee.selection_range != item.selection_range {
                     continue;
                 }
+
                 let Some(site) = calling(&here, at) else {
                     continue;
                 };
@@ -415,9 +453,11 @@ impl Session {
                 let Ok(from) = doc.index.range(&doc.text, Span::new(at, at + len)) else {
                     continue;
                 };
+
                 grouped.add(caller, site.name_span.0, from);
             }
         }
+
         Ok(grouped.finish())
     }
 
@@ -441,13 +481,16 @@ impl Session {
         let shift = crate::semantic::Shift::between(graph.text.as_bytes(), doc.text.as_bytes());
         let mut grouped = Grouped::default();
         let mut sources = HashMap::default();
+
         for fact in &graph.calls {
             let Some(at) = graph.moved_call(&doc.text, &shift, fact) else {
                 continue;
             };
+
             if calling(&here, at).is_none_or(|site| site.name_span != me.name_span) {
                 continue;
             }
+
             let Some((callee, key)) = self.call_target(uri, &here, &shift, fact, &mut sources)
             else {
                 continue;
@@ -456,8 +499,10 @@ impl Session {
             let Ok(from) = doc.index.range(&doc.text, Span::new(at, at + len)) else {
                 continue;
             };
+
             grouped.add(callee, key, from);
         }
+
         Ok(grouped.finish())
     }
 }

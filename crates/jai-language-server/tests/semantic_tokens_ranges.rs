@@ -16,6 +16,7 @@ fn send(session: &mut JsonSession, message: Value) -> Vec<Value> {
 
 fn opened() -> JsonSession {
     let mut session = JsonSession::new(Limits::default());
+
     send(
         &mut session,
         json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
@@ -48,6 +49,7 @@ fn integers(value: &Value) -> Vec<u64> {
 /// The (line, column, length) of every token an encoded array holds.
 fn positions(data: &[u64]) -> Vec<(u64, u64, u64)> {
     let (mut line, mut column) = (0, 0);
+
     data.chunks(5)
         .map(|t| {
             line += t[0];
@@ -69,6 +71,7 @@ fn the_capabilities_offer_range_and_delta() {
         json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
     );
     let provider = &out[0]["result"]["capabilities"]["semanticTokensProvider"];
+
     assert_eq!(provider["range"], true);
     assert_eq!(provider["full"]["delta"], true);
 }
@@ -97,6 +100,7 @@ fn a_range_holds_the_tokens_that_start_in_it() {
         .filter(|(line, _, _)| *line == 1)
         .copied()
         .collect();
+
     assert!(!expected.is_empty());
     // Encoded from the start of the document, so the first token's line is absolute.
     assert_eq!(found, expected);
@@ -112,6 +116,7 @@ fn a_delta_is_the_edit_from_the_last_answer() {
         json!({"textDocument": {"uri": URI}}),
     );
     let before = integers(&first["data"]);
+
     send(
         &mut session,
         json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {
@@ -127,10 +132,12 @@ fn a_delta_is_the_edit_from_the_last_answer() {
     let edits = delta["edits"]
         .as_array()
         .expect("an edit, not the whole array");
+
     assert_eq!(edits.len(), 1);
     let start = edits[0]["start"].as_u64().unwrap() as usize;
     let delete = edits[0]["deleteCount"].as_u64().unwrap() as usize;
     let mut patched = before.clone();
+
     patched.splice(start..start + delete, integers(&edits[0]["data"]));
     let full = request(
         &mut session,
@@ -138,6 +145,7 @@ fn a_delta_is_the_edit_from_the_last_answer() {
         "textDocument/semanticTokens/full",
         json!({"textDocument": {"uri": URI}}),
     );
+
     assert_eq!(patched, integers(&full["data"]));
     assert_ne!(patched, before);
 }
@@ -151,6 +159,7 @@ fn a_delta_against_an_unknown_result_is_the_whole_answer() {
         "textDocument/semanticTokens/full/delta",
         json!({"textDocument": {"uri": URI}, "previousResultId": "nothing"}),
     );
+
     assert!(delta["edits"].is_null());
     assert!(!integers(&delta["data"]).is_empty());
 }

@@ -52,6 +52,7 @@ impl Builder {
             target_features: None,
             debug: None,
         };
+
         Self {
             func,
             current: BlockId(0),
@@ -69,6 +70,7 @@ impl Builder {
     /// `advance(*s, 1)` does not move the caller's string. Which one is settled in `finish`.
     pub fn param_copy(&mut self, incoming: Val, size: u64, align: u64) -> Val {
         let addr = self.alloca(size.max(1), align);
+
         self.copy(addr, incoming, size);
         self.param_copies.push(ParamCopy {
             addr,
@@ -94,14 +96,18 @@ impl Builder {
             .filter(|copy| !copy.address_taken)
             .map(|copy| (copy.addr, copy.incoming))
             .collect();
+
         if elided.is_empty() {
             return;
         }
+
         let zeros: Vec<Val> = (0..elided.len()).map(|_| self.new_val(Ty::I64)).collect();
         let mut zeros = zeros.into_iter();
         let old = std::mem::take(&mut self.func.blocks[0].insts);
         let insts = &mut self.func.blocks[0].insts;
+
         insts.reserve(old.len() + elided.len());
+
         for inst in old {
             match inst {
                 Inst::Copy {
@@ -113,6 +119,7 @@ impl Builder {
                     dst, ..
                 } if elided.contains_key(&dst) => {
                     let zero = zeros.next().expect("one zero per elided copy");
+
                     insts.push(Inst::IConst {
                         dst: zero,
                         ty: Ty::I64,
@@ -175,6 +182,7 @@ impl Builder {
         let slot = self.slot(size, align);
         let addr = self.new_val(Ty::Ptr);
         let zero = self.new_val(ty);
+
         self.object_bytes.insert(addr, size);
         self.func.blocks[0].insts.splice(
             0..0,
@@ -202,8 +210,10 @@ impl Builder {
         if self.is_terminated() {
             // Code after return/break is unreachable; emit into a fresh dead block.
             let dead = self.new_block();
+
             self.current = dead;
         }
+
         self.func.blocks[self.current.0 as usize].insts.push(inst);
     }
 
@@ -211,12 +221,14 @@ impl Builder {
         if self.is_terminated() {
             return;
         }
+
         self.func.blocks[self.current.0 as usize].term = term;
         self.terminated.insert(self.current);
     }
 
     pub fn iconst(&mut self, ty: Ty, value: u64) -> Val {
         let dst = self.new_val(ty);
+
         self.push(Inst::IConst {
             dst,
             ty,
@@ -227,6 +239,7 @@ impl Builder {
 
     pub fn fconst(&mut self, ty: Ty, value: f64) -> Val {
         let dst = self.new_val(ty);
+
         self.push(Inst::FConst {
             dst,
             ty,
@@ -237,6 +250,7 @@ impl Builder {
 
     pub fn bin(&mut self, op: BinOp, ty: Ty, a: Val, b: Val) -> Val {
         let dst = self.new_val(ty);
+
         self.push(Inst::Bin {
             dst,
             op,
@@ -249,6 +263,7 @@ impl Builder {
 
     pub fn un(&mut self, op: UnOp, ty: Ty, a: Val) -> Val {
         let dst = self.new_val(ty);
+
         self.push(Inst::Un {
             dst,
             op,
@@ -260,6 +275,7 @@ impl Builder {
 
     pub fn cmp(&mut self, op: CmpOp, ty: Ty, a: Val, b: Val) -> Val {
         let dst = self.new_val(Ty::I8);
+
         self.push(Inst::Cmp {
             dst,
             op,
@@ -274,7 +290,9 @@ impl Builder {
         if from == to && matches!(op, ConvOp::Bitcast) {
             return src;
         }
+
         let dst = self.new_val(to);
+
         self.push(Inst::Conv {
             dst,
             op,
@@ -287,6 +305,7 @@ impl Builder {
 
     pub fn slot_addr(&mut self, slot: SlotId) -> Val {
         let dst = self.new_val(Ty::Ptr);
+
         self.push(Inst::SlotAddr {
             dst,
             slot,
@@ -312,6 +331,7 @@ impl Builder {
 
     pub fn global_addr(&mut self, global: GlobalId) -> Val {
         let dst = self.new_val(Ty::Ptr);
+
         self.push(Inst::GlobalAddr {
             dst,
             global,
@@ -321,6 +341,7 @@ impl Builder {
 
     pub fn func_addr(&mut self, func: FuncId) -> Val {
         let dst = self.new_val(Ty::Ptr);
+
         self.push(Inst::FuncAddr {
             dst,
             func,
@@ -330,6 +351,7 @@ impl Builder {
 
     pub fn foreign_addr(&mut self, foreign: ForeignId) -> Val {
         let dst = self.new_val(Ty::Ptr);
+
         self.push(Inst::ForeignAddr {
             dst,
             foreign,
@@ -339,6 +361,7 @@ impl Builder {
 
     pub fn load(&mut self, ty: Ty, addr: Val) -> Val {
         let dst = self.new_val(ty);
+
         self.push(Inst::Load {
             dst,
             ty,
@@ -361,15 +384,18 @@ impl Builder {
 
     fn ptr_add_with_proof(&mut self, base: Val, offset: Val, remaining: Option<u64>) -> Val {
         let dst = self.new_val(Ty::Ptr);
+
         self.push(Inst::PtrAdd {
             dst,
             base,
             offset,
             inbounds: remaining.is_some(),
         });
+
         if let Some(bytes) = remaining {
             self.object_bytes.insert(dst, bytes);
         }
+
         dst
     }
 
@@ -377,11 +403,13 @@ impl Builder {
         if offset == 0 {
             return base;
         }
+
         let off = self.iconst(Ty::I64, offset);
         let remaining = self
             .object_bytes
             .get(&base)
             .and_then(|n| n.checked_sub(offset));
+
         self.ptr_add_with_proof(base, off, remaining)
     }
 
@@ -423,6 +451,7 @@ impl Builder {
 
     pub fn call(&mut self, callee: Callee, args: Vec<Val>, returns: &[Ty]) -> Vec<Val> {
         let results: Vec<Val> = returns.iter().map(|&t| self.new_val(t)).collect();
+
         self.push(Inst::Call(Box::new(CallInst {
             results: results.clone(),
             callee,
@@ -433,6 +462,7 @@ impl Builder {
 
     pub fn intrinsic(&mut self, op: Intrinsic, args: Vec<Val>, returns: &[Ty]) -> Vec<Val> {
         let results: Vec<Val> = returns.iter().map(|&t| self.new_val(t)).collect();
+
         self.push(Inst::Intrinsic(Box::new(IntrinsicInst {
             results: results.clone(),
             op,
@@ -459,6 +489,7 @@ impl Builder {
 
     pub fn loc(&mut self, file: u32, line: u32, col: u32, scope: u32) {
         self.last_loc = Some((file, line, col, scope));
+
         if !self.is_terminated() {
             self.push(Inst::Loc {
                 line,
@@ -479,12 +510,14 @@ impl Builder {
 
     pub fn finish(mut self) -> Func {
         self.elide_param_copies();
+
         // Blocks that were never terminated fall off the end: void return.
         for (i, block) in self.func.blocks.iter_mut().enumerate() {
             if !self.terminated.contains(&BlockId(i as u32)) && self.func.sig.returns.is_empty() {
                 block.term = Term::Ret(Vec::new());
             }
         }
+
         self.func
     }
 }
@@ -508,16 +541,20 @@ mod tests {
         );
         let base = b.alloca(24, 8);
         let field = b.ptr_offset(base, 8);
+
         b.ptr_offset(field, 8);
         b.ptr_offset(base, 25);
         let null = b.iconst(Ty::Ptr, 0);
+
         b.ptr_offset(null, 8);
         b.ptr_offset(b.param(0), 8);
         let off = b.iconst(Ty::I64, 8);
         let raw = b.ptr_add(base, off);
+
         b.ptr_offset(raw, 8);
         let int = b.conv(ConvOp::Bitcast, Ty::Ptr, Ty::I64, base);
         let cast = b.conv(ConvOp::Bitcast, Ty::I64, Ty::Ptr, int);
+
         b.ptr_offset(cast, 8);
         b.checked_array_addr(base, off, 24, 8);
         b.checked_array_addr(base, off, 32, 8);
@@ -534,6 +571,7 @@ mod tests {
                 _ => None,
             })
             .collect();
+
         assert_eq!(
             hints,
             [

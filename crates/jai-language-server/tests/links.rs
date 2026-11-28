@@ -32,10 +32,12 @@ fn open_all() -> Session {
         ("pkg/module.jai", "pkg_value :: 5;\n"),
         ("part.jai", "part_value :: 6;\n"),
     ];
+
     for (path, text) in files {
         s.open(file_uri(&format!("/lsp-links-test/{path}")), 1, text.into())
             .unwrap();
     }
+
     s
 }
 
@@ -43,6 +45,7 @@ fn target(s: &Session, position: Position) -> (String, Position) {
     let found = s
         .definition(&file_uri("/lsp-links-test/main.jai"), position)
         .unwrap();
+
     assert_eq!(
         found.len(),
         1,
@@ -60,6 +63,7 @@ fn import_and_load_strings_go_to_the_file_the_compiler_reads() {
         .as_str()
         .to_owned();
     let start = Position::default();
+
     for (marker, expected) in [
         ("\"Basic\";\nB", basic.clone()),
         (
@@ -90,6 +94,7 @@ fn import_and_load_strings_go_to_the_file_the_compiler_reads() {
             "{marker}"
         );
     }
+
     // The directive itself links too.
     assert_eq!(
         target(&s, at_offset(MAIN, "#load", 1)),
@@ -112,8 +117,10 @@ fn document_links_span_the_strings() {
     let links = s
         .document_links(&file_uri("/lsp-links-test/main.jai"))
         .unwrap();
+
     assert_eq!(links.len(), 7, "{links:?}");
     let (range, target) = &links[6];
+
     assert_eq!(range.start, at_offset(MAIN, "\"part.jai\"", 0));
     assert_eq!(range.end, at_offset(MAIN, "\"part.jai\"", 10));
     assert_eq!(target, file_uri("/lsp-links-test/part.jai").as_str());
@@ -125,6 +132,7 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
     let diagnostics = s
         .diagnostics(&file_uri("/lsp-links-test/main.jai"))
         .unwrap();
+
     assert_eq!(diagnostics.len(), 1, "{diagnostics:?}");
     assert!(
         diagnostics[0]
@@ -135,6 +143,7 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
         .unwrap()
         .as_str()
         .to_owned();
+
     // `B` of `B.print`: the module's entry file.
     assert_eq!(
         target(&s, at_offset(MAIN, "B.print", 0)),
@@ -147,6 +156,7 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
             at_offset(MAIN, "B.print(", 3),
         )
         .unwrap();
+
     assert!(
         print
             .iter()
@@ -160,6 +170,7 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
             at_offset(MAIN, "B.print;", 3),
         )
         .unwrap();
+
     assert_eq!(
         overloads.len(),
         3,
@@ -180,6 +191,7 @@ fn module_names_and_reexported_symbols_go_to_their_declarations() {
             Position::default()
         )
     );
+
     // Names of modules imported with a plain `#import` (not merged: each has its own scope).
     for (marker, file) in [
         ("mine_value", "modules/Mine.jai"),
@@ -204,22 +216,26 @@ fn document_links_share_import_options_within_one_request() {
     let mut environment = test_support::lsp::environment();
     let options = environment.options;
     let counted = calls.clone();
+
     environment.options = Box::new(move |path| {
         counted.set(counted.get() + 1);
         options(path)
     });
     let mut s = Session::with_environment(jai_language_server::Limits::default(), environment);
     let uri = file_uri("/link-options/main.jai");
+
     s.open(
         uri.clone(),
         1,
         "#import \"A\"; #import \"B\"; #load \"part.jai\";".into(),
     )
     .unwrap();
+
     for path in ["modules/A.jai", "modules/B.jai", "part.jai"] {
         s.open(file_uri(&format!("/link-options/{path}")), 1, String::new())
             .unwrap();
     }
+
     assert_eq!(s.document_links(&uri).unwrap().len(), 3);
     calls.set(0);
     assert_eq!(s.document_links(&uri).unwrap().len(), 3);

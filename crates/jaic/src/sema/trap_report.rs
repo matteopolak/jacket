@@ -49,6 +49,7 @@ impl Compiler {
         // the line the assertion names.
         let asserting = trap.assertion.as_deref().and_then(|(path, line, _)| {
             let file = self.src.file_by_path(path)?;
+
             trap.frames
                 .iter()
                 .position(|f| f.loc.is_some_and(|(id, l, _)| id == file.0 && l == *line))
@@ -91,23 +92,29 @@ impl Compiler {
             .map(|loc| self.src.statement_span(loc))
             .or(site)
             .unwrap_or(Span::NONE);
+
         if trap.kind == Some(TrapKind::Stopped) {
             return stopped(site.unwrap_or(span));
         }
+
         if trap.kind == Some(TrapKind::BudgetExhausted) {
             return self.budget_diagnostic(trap, &frames, prefix, site.unwrap_or(span));
         }
+
         // Not a failure: the code could not know its result here (a pending or unavailable
         // service). Reported where the compile-time code started.
         if trap.kind == Some(TrapKind::Unknown) {
             let mut d = Diagnostic::new(Code::Unknown, site.unwrap_or(span), message);
+
             if let Some(site) = site
                 && site != span
             {
                 d = d.with_note(span, "the result became unknown here");
             }
+
             return d;
         }
+
         // A metaprogram's own report: its message, at the place it named when it named one;
         // the line that reported it becomes a note.
         if let Some((path, line, col)) = trap.reported.as_deref() {
@@ -128,6 +135,7 @@ impl Compiler {
             let same = |a: Span, b: Span| {
                 self.src.same_file(a.file, b.file) && (a.start, a.end) == (b.start, b.end)
             };
+
             if named.is_some()
                 && !same(reporter, primary)
                 && site.is_none_or(|site| !same(reporter, site))
@@ -136,6 +144,7 @@ impl Compiler {
             } else if named.is_none() && !path.is_empty() {
                 d = d.with_note(Span::NONE, format!("reported for {path}:{line}:{col}"));
             }
+
             // (Not when the report is already inside the directive's own line.)
             if let Some(site) = site
                 && !(self.src.same_file(site.file, primary.file)
@@ -144,12 +153,16 @@ impl Compiler {
             {
                 d = d.with_note(site, "while running compile-time code started here");
             }
+
             return d;
         }
+
         let mut d = Diagnostic::new(Code::RuntimeTrap, span, format!("{prefix}: {message}"));
+
         if let Some(condition) = condition.filter(|_| !bare_assertion) {
             d = d.with_label(format!("`{condition}` is false"));
         }
+
         // The failure was inside library code the user's line called: name the procedure the
         // user called and where inside it things went wrong.
         if let Some(i) = primary.filter(|&i| i > 0) {
@@ -165,6 +178,7 @@ impl Compiler {
             } else {
                 format!(" in {}", display_name(innermost))
             };
+
             d = d.with_note(
                 Span::NONE,
                 format!(
@@ -179,26 +193,32 @@ impl Compiler {
                 ),
             );
         }
+
         if let Some(site) = site
             && site != span
         {
             d = d.with_note(site, "while running compile-time code started here");
         }
+
         // The runtime's own entry procedures and other compiler-made code are left out.
         let visible: Vec<&TrapFrame> = frames
             .iter()
             .copied()
             .filter(|f| !is_internal_name(&f.name))
             .collect();
+
         if visible.len() > 1 {
             d = d.with_note(Span::NONE, self.call_stack(&visible, trap.omitted_frames));
         }
+
         if let Some(help) = trap.kind.and_then(help_for) {
             d = d.with_help(help);
         }
+
         if trap.kind == Some(TrapKind::Unavailable) {
             d = d.with_code(Code::Unavailable);
         }
+
         d
     }
 
@@ -221,8 +241,10 @@ impl Compiler {
             .copied()
             .filter(|f| !is_internal_name(&f.name))
             .collect();
+
         for (i, frame) in running.iter().take(MAX_BUDGET_FRAMES).enumerate() {
             let place = self.src.loc_suffix(frame.loc);
+
             d = d.with_note(
                 Span::NONE,
                 if i == 0 {
@@ -232,6 +254,7 @@ impl Compiler {
                 },
             );
         }
+
         if running.is_empty()
             && let Some(loc) = trap.loc
         {
@@ -240,6 +263,7 @@ impl Compiler {
                 format!("still running{}", self.src.loc_suffix(Some(loc))),
             );
         }
+
         if self.ct.interp.eval_steps.is_some() {
             d = d.with_help(match self.options.eval_step_flag {
                 Some(flag) => format!(
@@ -253,6 +277,7 @@ impl Compiler {
                 }
             });
         }
+
         d
     }
 
@@ -262,21 +287,25 @@ impl Compiler {
         let mut text = String::from("call stack (innermost first):");
         let mut i = 0;
         let mut shown = 0;
+
         while i < frames.len() {
             if shown == MAX_STACK_LINES {
                 omitted += frames.len() - i;
                 break;
             }
+
             let frame = frames[i];
             let repeats = frames[i + 1..]
                 .iter()
                 .take_while(|f| f.name == frame.name && f.loc == frame.loc)
                 .count();
+
             text += &format!(
                 "\n    {}{}",
                 display_name(frame),
                 self.src.loc_suffix(frame.loc)
             );
+
             if repeats > 0 {
                 text += &format!(
                     "\n    ... the same call {repeats} more time{}",
@@ -287,12 +316,15 @@ impl Compiler {
                     }
                 );
             }
+
             shown += 1;
             i += repeats + 1;
         }
+
         if omitted > 0 {
             text += &format!("\n    ... {omitted} more frames");
         }
+
         text
     }
 
@@ -302,6 +334,7 @@ impl Compiler {
         let file = self.src.file_by_path(path)?;
         let span = *self.pr.first_arguments.get(&(file.0, line, col))?;
         let text = self.src.sources.snippet(span).trim();
+
         (!text.is_empty() && !text.contains('\n')).then(|| text.to_string())
     }
 
@@ -311,13 +344,16 @@ impl Compiler {
         if self.src.sources.try_get(file).is_none() {
             return true;
         }
+
         if let Some(&known) = self.src.library_files.borrow().get(&file.0) {
             return known;
         }
+
         let known = self.options.stdlib_root().is_some_and(|stdlib| {
             let path = self.src.canon(&self.src.sources.get(file).path.to_path());
             path.starts_with(self.src.canon(stdlib))
         });
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::SrcLibraryFiles);
         self.src.library_files.borrow_mut().insert(file.0, known);
         known
@@ -335,11 +371,13 @@ fn display_name(frame: &TrapFrame) -> String {
         ir::FuncOrigin::ConstInit => return "a constant's compile-time initializer".to_string(),
         ir::FuncOrigin::Procedure => {}
     }
+
     // A polymorphic instance is `name#N`; the user knows it as `name`.
     let name = match frame.name.rsplit_once('#') {
         Some((base, n)) if !base.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => base,
         _ => &frame.name,
     };
+
     if name.is_empty() {
         "an anonymous procedure".to_string()
     } else if let Some(ty) = name.strip_prefix("__init_") {
@@ -405,6 +443,7 @@ fn cast_help(code: u64) -> Option<String> {
         (true, 1..=64) => format!("{} to {}", i64::MIN >> (64 - bits), i64::MAX >> (64 - bits)),
         _ => return None,
     };
+
     Some(format!(
         "`{target}` holds {range}; write `cast,trunc({target})` (or `xx,trunc`) to keep the low bits, or `cast,no_check({target})` to skip the check"
     ))
@@ -431,9 +470,11 @@ impl SourceState {
         let Some((path, ..)) = trap.reported.as_deref() else {
             return;
         };
+
         if path.is_empty() || self.file_by_path(path).is_some() {
             return;
         }
+
         let Some(text) = self
             .fs
             .read(std::path::Path::new(path))
@@ -444,6 +485,7 @@ impl SourceState {
         let file = self
             .sources
             .add(std::path::PathBuf::from(path), text.into());
+
         self.reported_files.borrow_mut().insert(path.clone(), file);
     }
 
@@ -464,11 +506,13 @@ impl SourceState {
         if let Some(&known) = self.reported_files.borrow().get(path) {
             return Some(known);
         }
+
         let wanted = std::path::absolute(path).ok();
         let found = (0..self.sources.len() as u32).map(FileId).find(|&id| {
             let have = &self.sources.get(id).path;
             have.to_string() == path || wanted.as_deref().is_some_and(|w| have.to_path() == w)
         })?;
+
         self.reported_files
             .borrow_mut()
             .insert(path.to_string(), found);
@@ -496,6 +540,7 @@ impl SourceState {
                 .filter(|t| matches!(t.tok, crate::lexer::Tok::Str(_)))
                 .map(|t| (t.span.start as usize, t.span.end as usize))
                 .collect();
+
             self.string_ranges.borrow_mut().insert(
                 loc.0,
                 super::source_state::StringRanges {
@@ -506,9 +551,11 @@ impl SourceState {
             ranges
         });
         let inside = ranges.iter().any(|&(start, end)| start < at && at < end);
+
         if !inside {
             return statement;
         }
+
         let word = source.text.as_bytes()[at..]
             .iter()
             .take_while(|b| b.is_ascii_alphanumeric() || **b == b'_' || **b >= 0x80)
@@ -543,6 +590,7 @@ impl SourceState {
             Err(_) => rest.trim_end().trim_end_matches(';').trim_end().len(),
         }
         .max(1);
+
         Span::new(FileId(file), start, start + len)
     }
 }

@@ -19,6 +19,7 @@ impl JsonSession {
         let Some(notification) = notification else {
             return Ok(vec![]);
         };
+
         match notification {
             // `$/cancelRequest` and `exit` are handled before the lifecycle is checked.
             Notification::Initialized => {
@@ -33,6 +34,7 @@ impl JsonSession {
                 let Some(target) = file_document(params)? else {
                     return Ok(vec![]);
                 };
+
                 self.session.save(&target).map_err(domain)?;
                 Ok(self.edited(crate::lints::is_config(&target)))
             }
@@ -45,11 +47,14 @@ impl JsonSession {
                         "jai/setTrusted needs a boolean `trusted`",
                     ));
                 };
+
                 self.session.set_trusted(on);
                 let mut messages = self.edited(true);
+
                 if !self.pull_diagnostics {
                     messages.extend(self.workspace_diagnostics_ready());
                 }
+
                 Ok(messages)
             }
             Notification::DidChangeWorkspaceFolders => {
@@ -61,9 +66,11 @@ impl JsonSession {
                 for change in params["changes"].as_array().into_iter().flatten() {
                     if let Some(path) = folder_path(&change["uri"]) {
                         let changed = change["type"].as_u64() == Some(2);
+
                         self.session.saved_file_changed(&path, !changed);
                     }
                 }
+
                 Ok(self.refresh())
             }
         }
@@ -72,9 +79,11 @@ impl JsonSession {
     /// The publications after an edit, and a pull request when a settings file changed.
     pub(super) fn edited(&mut self, settings_touched: bool) -> Vec<Value> {
         let mut messages = self.publications();
+
         if settings_touched {
             messages.extend(self.refresh());
         }
+
         messages
     }
 
@@ -85,19 +94,24 @@ impl JsonSession {
         let settings = item
             .uri
             .ends_with(&format!("/{}", jacket_config::FILE_NAME));
+
         if !is_file_uri(&item.uri) {
             // Untitled buffers and other schemes have no path to analyse.
             return Ok(vec![]);
         }
+
         let jai_file = item.uri.ends_with(".jai") || item.language_id.eq_ignore_ascii_case("jai");
+
         if !jai_file && !settings {
             return Err(fail(
                 ErrorCode::InvalidParams,
                 "Only Jai documents are supported",
             ));
         }
+
         let size = item.text.len();
         let target = uri(&item.uri)?;
+
         if let Err(error) = self.session.open(target, item.version, item.text) {
             // Never drop a document without telling the user.
             if let Error::Limit(what) = &error {
@@ -107,27 +121,33 @@ impl JsonSession {
                     size as f64 / (1024.0 * 1024.0)
                 ));
             }
+
             return Err(domain(error));
         }
+
         Ok(self.edited(settings))
     }
 
     fn did_change(&mut self, params: Value) -> Result<Vec<Value>, Failure> {
         let p: ChangeParams = decode(params)?;
+
         if !is_file_uri(&p.text_document.uri) {
             return Ok(vec![]);
         }
+
         let target = uri(&p.text_document.uri)?;
         let settings = crate::lints::is_config(&target);
         let changed = self
             .session
             .change(&target, p.text_document.version, &p.content_changes);
+
         if let Err(error) = changed {
             // A version the document is already past is a repeat; any other failure leaves the
             // client's text ahead of ours, so drop ours and wait for the file to be opened again.
             if matches!(error, Error::StaleVersion | Error::MissingDocument) {
                 return Err(domain(error));
             }
+
             self.session.notify(format!(
                 "jailsp could not apply an edit to {} ({error}) and closed it: its diagnostics, hover and completion are off until it is opened again.",
                 p.text_document.uri
@@ -135,18 +155,23 @@ impl JsonSession {
             let message = format!("textDocument/didChange failed: {error}");
             let _ = self.session.close(&target);
             let mut messages = vec![super::helpers::log_error(&message)];
+
             messages.extend(self.edited(settings));
+
             if !self.pull_diagnostics {
                 messages.push(self.closed_publication(&target));
             }
+
             return Ok(messages);
         }
+
         if settings {
             // Typing changes what the file says is wrong with it, not what the Jai files show:
             // that waits for the save.
             if self.pull_diagnostics {
                 return Ok(vec![]);
             }
+
             return Ok(Self::publication_messages(
                 self.session
                     .config_publication(&target)
@@ -154,6 +179,7 @@ impl JsonSession {
                     .collect(),
             ));
         }
+
         Ok(self.edited(false))
     }
 
@@ -161,7 +187,9 @@ impl JsonSession {
         let Some(closed) = file_document(params)? else {
             return Ok(vec![]);
         };
+
         self.session.close(&closed).map_err(domain)?;
+
         if self.pull_diagnostics {
             return Ok(
                 if crate::lints::is_config(&closed)
@@ -173,7 +201,9 @@ impl JsonSession {
                 },
             );
         }
+
         let mut publications = self.publications();
+
         publications.push(self.closed_publication(&closed));
         Ok(publications)
     }
@@ -183,6 +213,7 @@ impl JsonSession {
             .session
             .closed_workspace_diagnostics(target)
             .unwrap_or_default();
+
         json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{
             "uri":target.as_str(),"diagnostics":diagnostics.iter().map(diagnostic_wire).collect::<Vec<_>>()}})
     }
@@ -192,10 +223,13 @@ impl JsonSession {
         let trusted = self.session.trusted();
         let lenses = self.session.test_lenses_enabled();
         let limits = self.session.check_limits;
+
         self.configure(settings);
+
         if let Some(on) = settings["trusted"].as_bool() {
             self.session.set_trusted(on);
         }
+
         // Trust decides what the compile may run, so every document's diagnostics change.
         let mut messages =
             if trusted == self.session.trusted() && limits == self.session.check_limits {
@@ -203,13 +237,17 @@ impl JsonSession {
             } else {
                 self.publications()
             };
+
         messages.extend(self.refresh());
+
         if trusted != self.session.trusted() && !self.pull_diagnostics {
             messages.extend(self.workspace_diagnostics_ready());
         }
+
         if lenses != self.session.test_lenses_enabled() {
             messages.extend(self.code_lens_refresh());
         }
+
         messages
     }
 
@@ -230,6 +268,7 @@ impl JsonSession {
             .filter(|f| !removed.contains(f))
             .cloned()
             .collect();
+
         kept.extend(folders("added"));
         self.session.set_workspace_folders(kept);
     }
@@ -241,6 +280,7 @@ impl JsonSession {
         target: &DocumentUri,
     ) -> Result<(Option<i32>, Vec<Diagnostic>), Failure> {
         let version = self.session.version(target).ok();
+
         match self.session.diagnostics(target) {
             Ok(diagnostics) => Ok((version, diagnostics)),
             // A document that is not open has nothing to show.
@@ -256,6 +296,7 @@ impl JsonSession {
         if !self.watch_files {
             return Vec::new();
         }
+
         vec![json!({
             "jsonrpc": "2.0",
             "id": "jai-watch-files",
@@ -277,6 +318,7 @@ impl JsonSession {
         if !self.refresh_diagnostics {
             return Vec::new();
         }
+
         self.refresh_request("workspace/diagnostic/refresh")
             .into_iter()
             .collect()
@@ -286,10 +328,12 @@ impl JsonSession {
         if self.pull_diagnostics {
             return Vec::new();
         }
+
         if self.defer_publications {
             self.publications_pending = true;
             return Vec::new();
         }
+
         self.publications_now()
     }
 
@@ -304,6 +348,7 @@ impl JsonSession {
             .into_iter()
             .map(|(uri, version, diagnostics)| {
                 let diagnostics: Vec<Value> = diagnostics.iter().map(diagnostic_wire).collect();
+
                 json!({
                     "jsonrpc": "2.0",
                     "method": "textDocument/publishDiagnostics",
@@ -318,20 +363,24 @@ impl JsonSession {
         if self.pull_diagnostics {
             return self.refresh();
         }
+
         let Some(reports) = self.session.workspace_reports() else {
             return Vec::new();
         };
         let current = reports.iter().map(|(uri, _, _)| uri.clone()).collect();
         let mut messages: Vec<_> = reports.into_iter().map(|(uri, version, diagnostics)| {
             let mut params = json!({"uri":uri,"diagnostics":diagnostics.iter().map(diagnostic_wire).collect::<Vec<_>>()});
+
             if let Some(version) = version { params["version"] = json!(version); }
             json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":params})
         }).collect();
+
         for removed in self.workspace_published.difference(&current) {
             if uri(removed).is_ok_and(|u| self.session.version(&u).is_err()) {
                 messages.push(json!({"jsonrpc":"2.0","method":"textDocument/publishDiagnostics","params":{"uri":removed,"diagnostics":[]}}));
             }
         }
+
         self.workspace_published = current;
         messages
     }
@@ -344,29 +393,39 @@ impl JsonSession {
         if let Some(on) = settings["completion"]["autoImport"].as_bool() {
             self.session.set_auto_import(on);
         }
+
         if let Some(on) = settings["tests"]["codeLens"].as_bool() {
             self.session.set_test_lenses(on);
         }
+
         if let Some(path) = settings["formatter"]["path"].as_str() {
             let path = (!path.is_empty()).then(|| PathBuf::from(path));
+
             self.session.set_formatter_path(path);
         }
+
         if let Some(lines) = settings["inlayHints"]["closingBraceMinLines"].as_u64() {
             self.session.set_closing_brace_min_lines(lines as usize);
         }
+
         let compile_time = &settings["compileTime"];
+
         if let Some(blocks) = compile_time["evaluationBudget"].as_u64() {
             self.session.set_evaluation_budget(blocks);
         }
+
         if let Some(seconds) = compile_time["checkTimeLimit"].as_f64() {
             self.session.set_check_time_limit(seconds);
         }
+
         if let Some(blocks) = compile_time["costLensBlocks"].as_u64() {
             self.session.set_cost_lens_blocks(blocks);
         }
+
         if let Some(on) = compile_time["limitNotices"].as_bool() {
             self.session.set_limit_notices(on);
         }
+
         if let Some(mode) = settings["completion"]["callSnippets"]
             .as_str()
             .and_then(crate::call_snippets::CallSnippets::parse)

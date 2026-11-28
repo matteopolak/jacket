@@ -91,7 +91,9 @@ impl Probe {
         if (!CHECKED_COPY || len > CHECKED_VEC_LIMIT) && !self.accessible(addr, len, false) {
             return None;
         }
+
         let mut out = Vec::new();
+
         out.try_reserve_exact(len).ok()?;
         out.resize(len, 0);
         self.read(addr, &mut out).then_some(out)
@@ -103,6 +105,7 @@ impl Probe {
         if !CHECKED_COPY && !self.accessible(addr, out.len(), false) {
             return false;
         }
+
         out.is_empty() || sys::copy(addr, out.as_mut_ptr() as u64, out.len(), false)
     }
 
@@ -111,6 +114,7 @@ impl Probe {
         if !CHECKED_COPY && !self.accessible(addr, bytes.len(), true) {
             return false;
         }
+
         bytes.is_empty() || sys::copy(bytes.as_ptr() as u64, addr, bytes.len(), true)
     }
 
@@ -123,10 +127,12 @@ impl Probe {
         if addr >= PAGE && len != 0 && (len as u64) <= PAGE - addr % PAGE {
             let page = addr / PAGE;
             let known = &self.known[usize::from(write)][page as usize % REMEMBERED];
+
             if known.get() == (page + 1, EPOCH.load(Ordering::Relaxed)) {
                 return true;
             }
         }
+
         self.check(addr, len, write)
     }
 
@@ -135,26 +141,33 @@ impl Probe {
         if len == 0 {
             return true;
         }
+
         // A range may not wrap.
         let Some(end) = addr.checked_add(len as u64) else {
             return false;
         };
+
         if addr < PAGE || end > usize::MAX as u64 {
             return false;
         }
+
         let epoch = EPOCH.load(Ordering::Relaxed);
         let known = &self.known[usize::from(write)];
         let mut page = addr / PAGE;
+
         while page * PAGE < end {
             let slot = &known[page as usize % REMEMBERED];
+
             if slot.get() != (page + 1, epoch)
                 && !self.mapped(page, (page * PAGE).max(addr), write, epoch)
             {
                 return false;
             }
+
             slot.set((page + 1, epoch));
             page += 1;
         }
+
         true
     }
 
@@ -164,15 +177,18 @@ impl Probe {
     fn mapped(&self, page: u64, at: u64, write: bool, epoch: u64) -> bool {
         let regions = &self.regions[usize::from(write)];
         let (start, end) = (page * PAGE, page * PAGE + PAGE);
+
         if regions.iter().any(|r| {
             let (s, e, ep) = r.get();
             ep == epoch && s <= start && end <= e
         }) {
             return true;
         }
+
         let Some((s, e)) = sys::region(at, write) else {
             return false;
         };
+
         regions[self.next.get() % REGIONS].set((s, e, epoch));
         self.next.set(self.next.get() + 1);
         true
@@ -230,22 +246,27 @@ mod sys {
             if let Some(fds) = cached.0.get() {
                 return Some(fds);
             }
+
             let mut fds = [0 as c_int; 2];
+
             // SAFETY: `pipe` writes two descriptors; subsequent calls take plain integers.
             unsafe {
                 if pipe(fds.as_mut_ptr()) != 0 {
                     return None;
                 }
+
                 // A failed setup must not leave a blocking pipe or leak descriptors.
                 for fd in fds {
                     if fcntl(fd, F_SETFD, FD_CLOEXEC) < 0 || fcntl(fd, F_SETFL, O_NONBLOCK) < 0 {
                         close(fds[0]);
                         close(fds[1]);
+
                         return None;
                     }
                 }
             }
             let fds = (fds[0], fds[1]);
+
             cached.0.set(Some(fds));
             Some(fds)
         })
@@ -258,16 +279,20 @@ mod sys {
         let Some((from, to)) = pipe_fds() else {
             return false;
         };
+
         // SAFETY: the kernel reads `src`.
         if unsafe { sys_write(to, src as *const c_void, 1) } != 1 {
             return false;
         }
+
         // SAFETY: the kernel writes `dst`.
         if unsafe { sys_read(from, dst as *mut c_void, 1) } == 1 {
             return true;
         }
+
         // Take the byte back out, so the pipe is empty for the next check.
         let mut scratch = 0u8;
+
         // SAFETY: reads into a local byte.
         unsafe { sys_read(from, (&raw mut scratch).cast(), 1) };
         false
@@ -279,26 +304,34 @@ mod sys {
         let Some((from, to)) = pipe_fds() else {
             return false;
         };
+
         while len != 0 {
             let count = len.min(512);
             // SAFETY: the kernel validates both user ranges while copying.
             let written = unsafe { sys_write(to, src as *const c_void, count) };
+
             if written <= 0 {
                 return false;
             }
+
             // SAFETY: likewise, invalid destinations are reported by read.
             let read = unsafe { sys_read(from, dst as *mut c_void, written as usize) };
+
             if read != written {
                 let mut scratch = [0u8; 512];
                 let remaining = written - read.max(0);
+
                 // SAFETY: drain the outstanding bytes into a local buffer.
                 unsafe { sys_read(from, scratch.as_mut_ptr().cast(), remaining as usize) };
+
                 return false;
             }
+
             src += written as u64;
             dst += written as u64;
             len -= written as usize;
         }
+
         true
     }
 
@@ -315,10 +348,12 @@ mod sys {
     pub fn region(at: u64, write: bool) -> Option<(u64, u64)> {
         let mut byte = 0u8;
         let local = (&raw mut byte) as u64;
+
         // A write check stores back the byte just read, so only the access is tested.
         if !(copy_byte(at, local) && (!write || copy_byte(local, at))) {
             return None;
         }
+
         let page = at & !(super::PAGE - 1);
         Some((page, page + super::PAGE))
     }
@@ -331,6 +366,7 @@ mod sys {
     pub fn copy(src: u64, dst: u64, len: usize, write: bool) -> bool {
         unsafe extern "C" {
             static mach_task_self_: u32;
+
             fn mach_vm_read_overwrite(
                 task: u32,
                 address: u64,
@@ -338,19 +374,25 @@ mod sys {
                 data: u64,
                 out: *mut u64,
             ) -> c_int;
+
             fn mach_vm_write(task: u32, address: u64, data: usize, count: u32) -> c_int;
         }
+
         if !write {
             let mut copied = 0;
+
             // SAFETY: Mach validates the source and destination mappings in-kernel.
             return unsafe {
                 mach_vm_read_overwrite(mach_task_self_, src, len as u64, dst, &raw mut copied)
             } == 0
                 && copied == len as u64;
         }
+
         let mut offset = 0;
+
         while offset < len {
             let count = (len - offset).min(u32::MAX as usize);
+
             // SAFETY: Mach validates the target mapping; source is our owned slice.
             if unsafe {
                 mach_vm_write(
@@ -363,8 +405,10 @@ mod sys {
             {
                 return false;
             }
+
             offset += count;
         }
+
         true
     }
 
@@ -383,6 +427,7 @@ mod sys {
                 object: *mut u32,
             ) -> c_int;
         }
+
         const VM_REGION_BASIC_INFO_64: c_int = 9;
         const READ: c_int = 1;
         const WRITE: c_int = 2;
@@ -402,11 +447,13 @@ mod sys {
                 &raw mut object,
             )
         };
+
         // The call describes the next mapping at or after `at`: one that starts later means
         // `at` is in a gap.
         if status != 0 || start > at || info[0] & READ == 0 || (write && info[0] & WRITE == 0) {
             return None;
         }
+
         Some((start, start + size))
     }
 }
@@ -466,6 +513,7 @@ mod sys {
         // SAFETY: these APIs validate program addresses in the kernel and report faults.
         let status = unsafe {
             let process = GetCurrentProcess();
+
             if write {
                 WriteProcessMemory(
                     process,
@@ -484,6 +532,7 @@ mod sys {
                 )
             }
         };
+
         status != 0 && copied == len
     }
 
@@ -492,14 +541,17 @@ mod sys {
         // SAFETY: an all-zero struct of plain fields is valid; VirtualQuery fills it.
         let mut info: MemoryBasicInformation = unsafe { std::mem::zeroed() };
         let size = std::mem::size_of::<MemoryBasicInformation>();
+
         // SAFETY: VirtualQuery accepts any address and writes at most `size` bytes.
         if unsafe { VirtualQuery(at as *const c_void, &raw mut info, size) } != size {
             return None;
         }
+
         let allowed = info.state == MEM_COMMIT
             && info.protect & (PAGE_NOACCESS | PAGE_GUARD) == 0
             && (!write || info.protect & WRITABLE != 0);
         let start = info.base as u64;
+
         allowed.then_some((start, start + info.region_size as u64))
     }
 }
@@ -508,11 +560,13 @@ mod sys {
 mod sys {
     pub fn copy(src: u64, dst: u64, len: usize, _write: bool) -> bool {
         let end = core::arch::wasm32::memory_size(0) as u64 * 65536;
+
         if src.checked_add(len as u64).is_none_or(|x| x > end)
             || dst.checked_add(len as u64).is_none_or(|x| x > end)
         {
             return false;
         }
+
         // SAFETY: memory cannot shrink; both ranges are inside linear memory.
         unsafe { std::ptr::copy(src as *const u8, dst as *mut u8, len) };
         true
@@ -545,6 +599,7 @@ mod tests {
     fn copies_readable_memory_and_refuses_the_rest() {
         let data: Vec<u8> = (0..2000u32).map(|i| i as u8).collect();
         let mut out = vec![0u8; data.len()];
+
         assert!(read(data.as_ptr() as u64, &mut out));
         assert_eq!(out, data);
         // The fuzz input's address: an integer constant cast to a pointer.
@@ -554,6 +609,7 @@ mod tests {
         // A range of many pages, more than are remembered.
         let big: Vec<u8> = (0..(3 << 20) + 7u32).map(|i| (i * 31) as u8).collect();
         let mut copy = vec![0u8; big.len()];
+
         assert!(read(big.as_ptr() as u64, &mut copy));
         assert!(copy == big);
         // The pipe is empty again after a failure.
@@ -565,6 +621,7 @@ mod tests {
     fn read_vec_copies_readable_memory_and_refuses_garbage_lengths() {
         let data: Vec<u8> = (0..300u32).map(|i| i as u8).collect();
         let got = PROBE.with(|p| p.read_vec(data.as_ptr() as u64, data.len()));
+
         assert_eq!(got.as_deref(), Some(&data[..]));
         // A garbage length reads nothing and allocates nothing.
         assert!(
@@ -580,11 +637,13 @@ mod tests {
     fn writes_writable_memory_and_refuses_the_rest() {
         let mut target = vec![0u8; 1500];
         let bytes: Vec<u8> = (0..1500u32).map(|i| (i * 7) as u8).collect();
+
         assert!(write(target.as_mut_ptr() as u64, &bytes));
         assert_eq!(target, bytes);
         assert!(!write(80_000_000, &[1, 2, 3]));
         // Read-only memory: a string literal. Readable, not writable.
         let literal: &'static str = "read-only data";
+
         assert!(!write(literal.as_ptr() as u64, b"x"));
         assert!(read(literal.as_ptr() as u64, &mut [0u8; 4]));
     }
@@ -593,6 +652,7 @@ mod tests {
     fn released_memory_is_checked_again() {
         let block = vec![7u8; 64];
         let addr = block.as_ptr() as u64;
+
         assert!(read(addr, &mut [0u8; 8]));
         invalidate();
         // Still mapped (the allocator keeps it), so still readable: checked afresh.
@@ -604,11 +664,14 @@ mod tests {
     fn memory_intrinsics_preserve_overlap_and_empty_ranges() {
         let mut interp = super::super::Interp::native(crate::layout::DataLayout::host());
         let original: Vec<u8> = (0..15000).map(|i| (i % 251) as u8).collect();
+
         for (source, destination) in [(0, 3), (3, 0), (0, 7500)] {
             let mut actual = original.clone();
             let mut expected = original.clone();
+
             expected.copy_within(source..source + 7000, destination);
             let base = actual.as_mut_ptr() as u64;
+
             interp
                 .intrinsic(
                     crate::ir::Intrinsic::Memcpy,
@@ -629,7 +692,9 @@ mod tests {
                 [0]
             );
         }
+
         let mut filled = vec![0u8; 10000];
+
         interp
             .intrinsic(
                 crate::ir::Intrinsic::Memset,
@@ -638,6 +703,7 @@ mod tests {
             )
             .unwrap();
         assert!(filled.iter().all(|&byte| byte == 0xa5));
+
         for operation in [
             crate::ir::Intrinsic::Memcpy,
             crate::ir::Intrinsic::Memset,
@@ -661,6 +727,7 @@ mod tests {
             ])
             .status()
             .unwrap();
+
         assert!(
             status.success(),
             "guarded memory transfer child failed: {status}"
@@ -673,6 +740,7 @@ mod tests {
     #[ignore = "run by stale_mapping_cache_cannot_fault_compiler_memory_transfers"]
     fn stale_mapping_child() {
         use std::ffi::{c_int, c_void};
+
         unsafe extern "C" {
             fn mmap(
                 addr: *mut c_void,
@@ -682,20 +750,26 @@ mod tests {
                 fd: c_int,
                 off: i64,
             ) -> *mut c_void;
+
             fn mprotect(addr: *mut c_void, len: usize, prot: c_int) -> c_int;
             fn munmap(addr: *mut c_void, len: usize) -> c_int;
         }
+
         #[cfg(target_os = "linux")]
         const ANON: c_int = 0x20;
+
         #[cfg(not(target_os = "linux"))]
         const ANON: c_int = 0x1000;
+
         const SIZE: usize = 64 << 10;
         // SAFETY: owned anonymous mapping, released after all probe operations.
         let base = unsafe { mmap(std::ptr::null_mut(), SIZE, 3, 2 | ANON, -1, 0) };
+
         assert_ne!(base as usize, usize::MAX);
         let addr = base as u64;
         let probe = Probe::default();
         let mut bytes = [0u8; 8];
+
         assert!(probe.read(addr, &mut bytes));
         assert!(probe.write(addr, &bytes));
         std::thread::spawn(move || {
@@ -717,6 +791,7 @@ mod tests {
     #[test]
     fn a_protected_page_in_the_middle_of_a_known_mapping_is_found() {
         use std::ffi::{c_int, c_void};
+
         unsafe extern "C" {
             fn mmap(
                 addr: *mut c_void,
@@ -726,25 +801,32 @@ mod tests {
                 fd: c_int,
                 off: i64,
             ) -> *mut c_void;
+
             fn mprotect(addr: *mut c_void, len: usize, prot: c_int) -> c_int;
             fn munmap(addr: *mut c_void, len: usize) -> c_int;
         }
+
         #[cfg(target_os = "linux")]
         const MAP_ANON: c_int = 0x20;
+
         #[cfg(not(target_os = "linux"))]
         const MAP_ANON: c_int = 0x1000;
+
         // Three of the largest pages any host has, so the middle one is a page of its own.
         const SIZE: usize = 64 << 10;
         // SAFETY: an anonymous private mapping, unmapped below.
         // SAFETY: an anonymous private mapping at a kernel-chosen address touches no existing memory.
         let base = unsafe { mmap(std::ptr::null_mut(), 3 * SIZE, 3, 2 | MAP_ANON, -1, 0) };
+
         assert_ne!(base as usize, usize::MAX);
         let start = base as u64;
         let mut byte = [0u8; 8];
+
         // The whole mapping is known readable and writable first.
         assert!(read(start, &mut byte) && write(start + 2 * SIZE as u64, &byte));
         // SAFETY: the middle third of the mapping.
         let protected = unsafe { mprotect(base.wrapping_byte_add(SIZE), SIZE, 0) };
+
         assert_eq!(protected, 0);
         // A native thread can change page protections without calling the compiler.
         // Deliberately keep any cached mapping information from the earlier reads.

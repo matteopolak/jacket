@@ -38,9 +38,11 @@ pub(super) fn slots(compiler: &Compiler, body: &LifetimeBody) -> HashMap<Val, Sl
             else {
                 return None;
             };
+
             if !procedure(compiler, *ty) {
                 return None;
             }
+
             let EntityState::Done(Resolved::Global {
                 storage: Storage::Data(id),
                 ..
@@ -48,6 +50,7 @@ pub(super) fn slots(compiler: &Compiler, body: &LifetimeBody) -> HashMap<Val, Sl
             else {
                 return None;
             };
+
             Some((
                 *v,
                 Slot {
@@ -69,16 +72,21 @@ impl Globals {
         let mut this = Self::default();
         let mut exposed = HashSet::default();
         let mut private = HashSet::default();
+
         for (&id, body) in valid {
             let slots = slots(compiler, body);
+
             for slot in slots.values() {
                 let global = slot.global;
+
                 if slot.private {
                     private.insert(global);
                 }
+
                 this.users.entry(global).or_default().insert(id);
                 this.used_by.entry(id).or_default().insert(global);
             }
+
             for event in body.blocks.iter().flat_map(|b| &b.events) {
                 if let Event::Address {
                     place, ..
@@ -92,20 +100,25 @@ impl Globals {
                 }
             }
         }
+
         if this.users.is_empty() {
             return this;
         }
+
         let mut targets = HashMap::default();
+
         for (id, proc) in compiler.pr.procs.iter().enumerate() {
             let key = match proc.target {
                 Some(ProcTarget::Func(f)) => Some(RelocTarget::Func(f)),
                 Some(ProcTarget::Foreign(f)) => Some(RelocTarget::Foreign(f)),
                 None => None,
             };
+
             if let Some(key) = key {
                 targets.insert(key, ProcId(id as u32));
             }
         }
+
         for &id in this.users.keys() {
             let global = &compiler.out.program.globals[id.0 as usize];
             let retained = compiler
@@ -119,6 +132,7 @@ impl Globals {
                     || (!global.read_only && !private.contains(&id)),
                 ..Set::default()
             };
+
             if relocs.is_empty() {
                 set.unknown |= retained.map_or_else(
                     || global.init.iter().any(|&b| b != 0),
@@ -136,8 +150,10 @@ impl Globals {
                     }
                 }
             }
+
             this.initial.insert(id, set);
         }
+
         this
     }
 }

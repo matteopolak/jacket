@@ -16,16 +16,21 @@ impl Resolver<'_> {
         if depth > 24 {
             return false;
         }
+
         let key = (value, ty, projections.to_vec());
+
         if let Some(&temporary) = self.may_field_origins.borrow().get(&key) {
             return temporary;
         }
+
         let temporary = self.compute_field_may(value, ty, projections, all, depth);
+
         // A shallow negative is reusable within this inference iteration. A
         // recursive query's negative may instead be the traversal depth limit.
         if temporary || depth == 0 {
             self.may_field_origins.borrow_mut().insert(key, temporary);
         }
+
         temporary
     }
 
@@ -40,12 +45,14 @@ impl Resolver<'_> {
         let Some(steps) = steps(projections) else {
             return false;
         };
+
         if self
             .field_origin(value, ty, projections, all, depth + 1)
             .is_some_and(|p| p.root == Root::Temporary)
         {
             return true;
         }
+
         for def in self.values.get(&value).into_iter().flatten() {
             match def {
                 Def::Call(callee, args, index) => {
@@ -61,11 +68,13 @@ impl Resolver<'_> {
                                     ..
                                 }
                         );
+
                     if s.may_return_fields.contains(&(*index, steps.clone()))
                         || descriptor_data && s.may_returns.contains(index)
                     {
                         return true;
                     }
+
                     if let Some(path) = s.return_fields.get(&(*index, steps.clone())) {
                         if self.return_path_may(path, args, all, depth + 1) {
                             return true;
@@ -87,9 +96,11 @@ impl Resolver<'_> {
                 _ => {}
             }
         }
+
         let Some(root) = self.places.existing(value, ty) else {
             return false;
         };
+
         if let Some(field) = projections
             .iter()
             .try_fold(root, |p, proj| self.places.projected(p, *proj))
@@ -102,6 +113,7 @@ impl Resolver<'_> {
         {
             return true;
         }
+
         if let Some(field) = projections
             .iter()
             .try_fold(root, |p, proj| self.places.projected(p, *proj))
@@ -116,11 +128,14 @@ impl Resolver<'_> {
             )
         {
             let mut data = projections.to_vec();
+
             data.push(Projection::Field(jaic::intern::Sym::intern("data")));
+
             if self.field_may_temporary(value, ty, &data, all, depth + 1) {
                 return true;
             }
         }
+
         if self
             .stored_field_prefixes(root, ty, projections)
             .any(|(_, prefix_ty, sources, tail)| {
@@ -132,6 +147,7 @@ impl Resolver<'_> {
         {
             return true;
         }
+
         self.writes.get(&root).into_iter().flatten().any(|source| {
             *source != value && self.field_may_temporary(*source, ty, projections, all, depth + 1)
         })
@@ -147,12 +163,14 @@ impl Resolver<'_> {
         if path.root == Root::Temporary {
             return true;
         }
+
         if self
             .substitute(path, args, all, &mut HashSet::default(), depth + 1)
             .is_some_and(|p| p.root == Root::Temporary)
         {
             return true;
         }
+
         let Root::Parameter(formal) = path.root else {
             return false;
         };
@@ -162,9 +180,11 @@ impl Resolver<'_> {
         let Some(value) = super::value(arg) else {
             return false;
         };
+
         if path.steps.is_empty() {
             return self.may_temporary(value, all, &mut HashMap::default(), depth + 1);
         }
+
         let projections = path
             .steps
             .iter()
@@ -185,6 +205,7 @@ impl Resolver<'_> {
     ) {
         next.may_returns.clear();
         next.may_return_fields.clear();
+
         for event in self
             .body
             .blocks
@@ -208,6 +229,7 @@ impl Resolver<'_> {
                             ..
                         }
                 );
+
                 if self.compiler.ty.types.as_struct(*ty).is_none()
                     && (self.may_temporary(*value, all, &mut HashMap::default(), 0)
                         || descriptor
@@ -221,6 +243,7 @@ impl Resolver<'_> {
                 {
                     next.may_returns.insert(*index);
                 }
+
                 for projections in self.storage_fields(*ty, 0) {
                     if self.field_may_temporary(*value, *ty, &projections, all, 0)
                         && let Some(path) = steps(&projections)

@@ -50,6 +50,7 @@ impl<'a> Lookup<'a> {
     /// `name` in the first of `dirs` that has it.
     pub fn in_dirs(&self, dirs: &[PathBuf], name: &str) -> Option<PathBuf> {
         let names = self.file_names(name);
+
         dirs.iter().find_map(|dir| {
             names
                 .iter()
@@ -99,14 +100,17 @@ impl<'a> Lookup<'a> {
     pub fn llvm_tool(&self, name: &str) -> Option<PathBuf> {
         let major = jacket_config::llvm::MAJOR;
         let mut dirs = (self.llvm_bins)();
+
         for keg in ["lld".to_string(), format!("lld@{major}")] {
             for root in ["/opt/homebrew/opt", "/usr/local/opt"] {
                 dirs.push(PathBuf::from(root).join(&keg).join("bin"));
             }
         }
+
         for base in self.host.program_files() {
             dirs.push(base.join("LLVM").join("bin"));
         }
+
         self.in_dirs(&dirs, name)
             .or_else(|| self.which(&format!("{name}-{major}")))
             .or_else(|| self.which(name))
@@ -140,9 +144,11 @@ mod tests {
     #[test]
     fn path_comes_before_the_places_tools_hide_in() {
         let mut host = FakeHost::mac();
+
         host.file("/opt/homebrew/bin/qemu-system-arm");
         host.path = vec!["/usr/bin".into()];
         let lookup = Lookup::new(&host);
+
         assert_eq!(lookup.which("qemu-system-arm"), None);
         assert_eq!(
             lookup.tool("qemu-system-arm"),
@@ -159,6 +165,7 @@ mod tests {
     #[test]
     fn windows_tries_the_exe_name() {
         let mut host = FakeHost::new(Os::Windows, "x86_64");
+
         host.path = vec![r"C:\bin".into()];
         host.file(r"C:\bin/node.exe");
         host.program_files = vec![r"C:\Program Files".into()];
@@ -167,6 +174,7 @@ mod tests {
         host.file(r"C:\git/link.exe");
         host.file(r"C:\bin/link.exe");
         let lookup = Lookup::new(&host);
+
         assert_eq!(lookup.which("node"), Some(r"C:\bin/node.exe".into()));
         assert_eq!(
             lookup.every_on_path("link"),
@@ -185,10 +193,12 @@ mod tests {
     fn an_llvm_tool_is_found_in_the_installs_then_the_kegs_then_on_path() {
         let major = jacket_config::llvm::MAJOR;
         let mut host = FakeHost::mac();
+
         host.file("/opt/homebrew/bin/ld.lld");
         host.path.push("/opt/homebrew/bin".into());
         host.file("/opt/homebrew/opt/lld/bin/ld.lld");
         let lookup = Lookup::new(&host).with_llvm_bins(|| vec!["/llvm/bin".into()]);
+
         assert_eq!(
             lookup.llvm_tool("ld.lld"),
             Some("/opt/homebrew/opt/lld/bin/ld.lld".into())
@@ -196,9 +206,11 @@ mod tests {
         drop(lookup);
         host.file("/llvm/bin/ld.lld");
         let lookup = Lookup::new(&host).with_llvm_bins(|| vec!["/llvm/bin".into()]);
+
         assert_eq!(lookup.llvm_tool("ld.lld"), Some("/llvm/bin/ld.lld".into()));
         // On a Debian machine the versioned name beats the plain one.
         let mut host = FakeHost::debian();
+
         host.file("/usr/bin/wasm-ld");
         host.file(&format!("/usr/bin/wasm-ld-{major}"));
         assert_eq!(

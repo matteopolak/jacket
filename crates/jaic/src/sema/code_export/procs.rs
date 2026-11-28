@@ -23,6 +23,7 @@ impl Exporter<'_> {
             return false;
         };
         let scope = self.scope;
+
         match self.c.as_deref_mut() {
             Some(c) if c.meta.export.omit_bodies => {
                 c.meta.export.bodiless.push((p, scope));
@@ -36,6 +37,7 @@ impl Exporter<'_> {
     fn body(&mut self, body: &ast::Block, header_id: i64, proc: Option<ProcId>) -> i64 {
         // The header's arguments and named returns are in scope in the body.
         let locals = self.locals.len();
+
         for list in ["arguments", "returns"] {
             let Some(FieldRef::List(items)) = self.r.field(header_id, list) else {
                 continue;
@@ -47,17 +49,21 @@ impl Exporter<'_> {
                     _ => None,
                 })
                 .collect();
+
             for d in decls {
                 if let Some(FieldRef::Str(name)) = self.r.field(d, "name")
                     && !name.is_empty()
                 {
                     let name = Sym::intern(&String::from_utf8_lossy(name));
+
                     self.locals.push((name, d));
                 }
             }
         }
+
         let previous = std::mem::replace(&mut self.procedure, proc);
         let block = self.block(&body.stmts, 1, body.span);
+
         self.procedure = previous;
         self.locals.truncate(locals);
         let mut rec = self.node(
@@ -65,11 +71,14 @@ impl Exporter<'_> {
             node::PROCEDURE_BODY,
             body.span,
         );
+
         rec.ptr("block", block).ptr("header", header_id);
         let body_id = self.add(rec);
+
         if let (Some(p), Some(c)) = (proc, self.c.as_deref_mut()) {
             c.meta.export.bodies.insert(body_id, p);
         }
+
         body_id
     }
 
@@ -88,6 +97,7 @@ impl Exporter<'_> {
         let mut arguments = Vec::new();
         let mut usings = Vec::new();
         let mut runtime_index = 0;
+
         for param in &h.params {
             let ty = self.parameter_type(
                 resolved.as_ref().map(|(p, _)| *p),
@@ -110,19 +120,25 @@ impl Exporter<'_> {
             };
             let name = param.name.map_or(Sym::intern(""), |n| n.name);
             let arg = self.decl(&decl, name, ty, None, false, 0);
+
             if let Some(arg) = self.r.get_mut(arg) {
                 let flags = i64::from(param.baked)
                     | (i64::from(param.auto_bake) * 0x4000)
                     | (i64::from(param.discard) * 4);
+
                 arg.int("flags", flags);
             }
+
             if param.variadic {
                 self.mark_varargs(arg, param.span);
             }
+
             arguments.push(arg);
+
             // `using p: T` parameters are listed again as `Code_Using` of the parameter.
             if param.using {
                 let mut ident = self.node(RecordTag::CodeIdent, node::IDENT, param.span);
+
                 ident
                     .str("name", name.as_str().as_bytes())
                     .ptr("resolved_declaration", arg);
@@ -132,10 +148,12 @@ impl Exporter<'_> {
                     .as_ref()
                     .map_or((0, 0), |filter| self.using_filter(filter));
                 let mut using = self.node(RecordTag::CodeUsing, node::USING, param.span);
+
                 using
                     .ptr("expression", ident)
                     .int("filter_type", filter_type)
                     .ptr("filter_expression", filter_expression);
+
                 if let Some(filter) = &param.using_filter {
                     using
                         .str(SyntaxKey::Filter, Self::filter_syntax(filter).as_bytes())
@@ -152,10 +170,13 @@ impl Exporter<'_> {
                             Self::filter_arguments(filter).as_bytes(),
                         );
                 }
+
                 usings.push(self.add(using));
             }
         }
+
         let mut returns = Vec::new();
+
         for (i, ret) in h.returns.iter().enumerate() {
             let ty = sig.as_ref().and_then(|s| s.returns.get(i)).copied();
             let decl = ast::Decl {
@@ -173,18 +194,22 @@ impl Exporter<'_> {
             };
             let name = ret.name.map_or(Sym::intern(""), |n| n.name);
             let declaration = self.decl(&decl, name, ty, None, false, 0);
+
             self.r
                 .get_mut(declaration)
                 .unwrap()
                 .int(SyntaxKey::ReturnMust, i64::from(ret.must));
             returns.push(declaration);
         }
+
         let mut notes: Vec<&ast::Note> = h.notes.iter().collect();
+
         for n in decl_notes {
             if !notes.iter().any(|m| m.span == n.span) {
                 notes.push(n);
             }
         }
+
         let notes = self.notes(&notes);
         let polymorphic = match (resolved.as_ref(), self.c.as_deref()) {
             (Some((p, _)), Some(c)) => c.proc(*p).is_poly,
@@ -202,14 +227,17 @@ impl Exporter<'_> {
         };
         let header_id = known.unwrap_or_else(|| self.r.reserve(RecordTag::CodeProcedureHeader));
         let own = self.own;
+
         if let (Some((p, _)), Some(c)) = (&resolved, self.c.as_deref_mut()) {
             c.meta.export.resolved_headers.insert((*p, own), header_id);
         }
+
         let mut body_id = 0;
         // A procedure's body is reported once it is lowered; until then only its header.
         let deferred = match (&resolved, self.c.as_deref()) {
             (Some((p, _)), Some(c)) => {
                 let info = c.proc(*p);
+
                 lit.body.is_some()
                     && !info.is_poly
                     && !info.is_macro
@@ -217,10 +245,12 @@ impl Exporter<'_> {
             }
             _ => false,
         };
+
         if deferred {
             let (p, _) = resolved.as_ref().unwrap();
             let scope = self.scope;
             let c = self.c.as_deref_mut().unwrap();
+
             c.meta.export.schedule_body(*p, header_id, scope);
         } else if let Some(body) = &lit.body {
             if self.omit_body(resolved.as_ref().map(|(p, _)| *p)) {
@@ -231,6 +261,7 @@ impl Exporter<'_> {
                 };
             }
         }
+
         let mut rec = self.node(RecordTag::CodeProcedureHeader, node::PROCEDURE_HEADER, span);
         let foreign_name = match h.foreign.as_ref().map(|f| &f.name) {
             Some(ast::ForeignName::Named(n)) => n.as_bytes().to_vec(),
@@ -249,14 +280,17 @@ impl Exporter<'_> {
             .map_or(0, |name| self.name_ident(name.name, name.span));
         let modify = self.modify_syntax(h.modify.as_ref());
         let mut extra_flags = String::new();
+
         for bit in REPORTED_DIRECTIVES {
             if h.flags.has(bit) {
                 extra_flags.push_str(&format!(" #{}", bit.name()));
             }
         }
+
         for flag in &h.flags.other {
             extra_flags.push_str(&format!(" #{}", flag.name));
         }
+
         rec.refs("arguments", arguments)
             .refs("parameter_usings", usings)
             .refs("returns", returns)
@@ -318,9 +352,11 @@ impl Exporter<'_> {
             (None, Some(_)) if !own => false,
             _ => true,
         };
+
         if first_header {
             self.out.headers.push((header_id, sub.clone()));
         }
+
         let first_body = match (resolved.as_ref(), self.c.as_deref_mut()) {
             (Some((p, _)), Some(c)) if !own && body_id != 0 => {
                 c.meta.export.scheduled_bodies.insert(*p);
@@ -329,9 +365,11 @@ impl Exporter<'_> {
             (None, Some(_)) if !own => false,
             _ => true,
         };
+
         if body_id != 0 && first_body {
             self.out.bodies.push((body_id, sub));
         }
+
         header_id
     }
 }
@@ -339,50 +377,65 @@ impl Exporter<'_> {
 pub(super) fn procedure_flags(h: &ast::ProcHeader, polymorphic: bool) -> i64 {
     let f = &h.flags;
     let mut flags = 0;
+
     if f.elsewhere.is_some() {
         flags |= 0x1;
     }
+
     if polymorphic {
         flags |= 0x4;
     }
+
     if f.c_call() {
         flags |= 0x20;
     }
+
     if f.intrinsic() {
         flags |= 0x80;
     }
+
     if f.deprecated.is_some() {
         flags |= 0x100;
     }
+
     if f.no_context() {
         flags |= 0x200;
     }
+
     if f.lambda != ast::LambdaKind::None {
         flags |= 0x400;
     }
+
     if f.cpp_method() {
         flags |= 0x1000;
     }
+
     if f.no_call() {
         flags |= 0x2000;
     }
+
     if f.expand() {
         flags |= 0x4000;
     }
+
     if f.no_debug() {
         flags |= 0x8000;
     }
+
     if f.symmetric() {
         flags |= 0x4_0000;
     }
+
     if f.compiler() {
         flags |= 0x40_0000;
     }
+
     match f.inline {
         ast::CallHintFlag::Inline => flags |= 0x100_0000,
         ast::CallHintFlag::NoInline => flags |= 0x200_0000,
         ast::CallHintFlag::None => {}
     }
+
     flags
 }
 
@@ -424,5 +477,6 @@ pub(super) fn export_code_in(
         ast::CodeBody::Block(b) => ex.block(&b.stmts, 1, b.span),
     };
     let sub = std::mem::take(&mut ex.sub);
+
     (root, sub)
 }

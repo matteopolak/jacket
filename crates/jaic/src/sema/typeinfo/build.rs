@@ -23,6 +23,7 @@ impl Compiler {
         };
         let kind = self.ty.types.kind(ty).clone();
         let tag = descriptor_of(&kind).1;
+
         self.set_field(&mut agg, desc, "type", Value::Int(tag), span)?;
         let runtime_size = match &kind {
             TypeKind::Struct(s)
@@ -35,6 +36,7 @@ impl Compiler {
             }
             _ => self.size_of(ty, span)? as i128,
         };
+
         self.set_field(
             &mut agg,
             desc,
@@ -42,6 +44,7 @@ impl Compiler {
             Value::Int(runtime_size),
             span,
         )?;
+
         match kind {
             TypeKind::Struct(..) => self.type_info_struct(&mut agg, desc, ty, span, kind)?,
             TypeKind::Proc(..) | TypeKind::Enum(..) => {
@@ -67,6 +70,7 @@ impl Compiler {
                     ArrayKind::View => (1, -1),
                     ArrayKind::Resizable => (2, -1),
                 };
+
                 self.set_field(&mut agg, desc, "array_type", Value::Int(at), span)?;
                 self.set_field(&mut agg, desc, "array_count", Value::Int(count), span)?;
             }
@@ -84,6 +88,7 @@ impl Compiler {
             }
             TypeKind::Distinct(d) => {
                 let info = self.ty.types.distincts[d.0 as usize].clone();
+
                 self.set_field(
                     &mut agg,
                     desc,
@@ -106,6 +111,7 @@ impl Compiler {
             }
             _ => {}
         }
+
         Ok(agg)
     }
 
@@ -123,6 +129,7 @@ impl Compiler {
             relocs: Vec::new(),
         };
         let kind = self.ty.types.kind(ty).clone();
+
         self.set_field(
             &mut agg,
             desc,
@@ -131,11 +138,13 @@ impl Compiler {
             span,
         )?;
         self.set_field(&mut agg, desc, "runtime_size", Value::Int(-1), span)?;
+
         if let TypeKind::Struct(s) = kind {
             let name = match self.ty.types.struct_info(s).name.as_str() {
                 "struct" | "union" => String::new(),
                 name => name.to_string(),
             };
+
             self.set_field(
                 &mut agg,
                 desc,
@@ -144,6 +153,7 @@ impl Compiler {
                 span,
             )?;
         }
+
         Ok(agg)
     }
 
@@ -164,9 +174,11 @@ impl Compiler {
             (true, false) => 0x2,
             (false, false) => 0,
         };
+
         if is_union || tagged {
             self.set_field(agg, desc, "textual_flags", Value::Int(textual), span)?;
         }
+
         let Some(src) = self.ty.struct_asts.get(&s) else {
             return Ok(());
         };
@@ -180,11 +192,13 @@ impl Compiler {
             });
         // A struct declared inside a procedure, a block or another struct is LOCAL.
         let mut at = self.scope(src.scope).parent;
+
         while let Some(p) = at
             && self.scope(p).kind == ScopeKind::StructParams
         {
             at = self.scope(p).parent;
         }
+
         let local = at.is_some_and(|p| {
             !matches!(
                 self.scope(p).kind,
@@ -193,18 +207,23 @@ impl Compiler {
         });
         // Notes written on the struct itself: `S :: struct @thing { ... }`.
         let notes = src.lit.notes.clone();
+
         if no_padding {
             self.set_field(agg, desc, "textual_flags", Value::Int(textual | 0x4), span)?;
         }
+
         if all_uninit {
             self.set_field(agg, desc, "nontextual_flags", Value::Int(0x40), span)?;
         }
+
         if local {
             self.set_field(agg, desc, "status_flags", Value::Int(0x4), span)?;
         }
+
         if !notes.is_empty() {
             self.set_notes_view(agg, desc, &notes, span)?;
         }
+
         Ok(())
     }
 
@@ -220,6 +239,7 @@ impl Compiler {
             TypeKind::Struct(s) => {
                 self.layout_struct(s, span)?;
                 let info = self.ty.types.struct_info(s).clone();
+
                 self.set_field(agg, desc, "alignment", Value::Int(info.align as i128), span)?;
                 // Anonymous structs are named after the keyword internally; at runtime
                 // they have no name.
@@ -227,6 +247,7 @@ impl Compiler {
                     "struct" | "union" => "",
                     name => name,
                 };
+
                 self.set_field(
                     agg,
                     desc,
@@ -239,10 +260,12 @@ impl Compiler {
                 let malign = self.align_of(member_ty, span)?;
                 // `Type_Info_Flags` from `compiler_set_type_info_flags` plus the directives.
                 let mut tflags = self.ty.info_flags.get(&ty).copied().unwrap_or(0);
+
                 if let Some(src) = self.ty.struct_asts.get(&s) {
                     if src.lit.flags.has(ast::StructBits::TYPE_INFO_NONE) {
                         tflags |= 0x1;
                     }
+
                     if src
                         .lit
                         .flags
@@ -251,18 +274,23 @@ impl Compiler {
                         tflags |= 0x2;
                     }
                 }
+
                 let (mut fields, bindings) = self.tagged_union_members(s, &info.fields, span)?;
+
                 if tflags & 0x1 != 0 {
                     fields.clear();
                 }
+
                 // `constant_storage` holds the polymorphic arguments, then the body's constants.
                 let mut storage = Aggregate {
                     bytes: Vec::new(),
                     relocs: Vec::new(),
                 };
+
                 if !info.poly_args.is_empty() {
                     self.poly_struct_info(agg, desc, s, &mut storage, span)?;
                 }
+
                 let constants = if tflags & 0x1 != 0 {
                     Vec::new()
                 } else {
@@ -272,6 +300,7 @@ impl Compiler {
                 // declared after it.
                 let mut order = Vec::with_capacity(fields.len() + constants.len());
                 let mut next_const = 0;
+
                 for (i, field) in fields.iter().enumerate() {
                     while next_const < constants.len()
                         && constants[next_const].0.file == field.span.file
@@ -280,13 +309,16 @@ impl Compiler {
                         order.push(Err(next_const));
                         next_const += 1;
                     }
+
                     order.push(Ok(i));
                 }
+
                 order.extend((next_const..constants.len()).map(Err));
                 let mut members = Aggregate {
                     bytes: vec![0; (msize as usize) * order.len()],
                     relocs: Vec::new(),
                 };
+
                 for (slot, entry) in order.iter().enumerate() {
                     let field = match *entry {
                         Ok(i) => &fields[i],
@@ -300,7 +332,9 @@ impl Compiler {
                                 &mut storage,
                                 span,
                             )?;
+
                             structs::write_agg(&mut members, slot as u64 * msize, &m);
+
                             continue;
                         }
                     };
@@ -308,13 +342,16 @@ impl Compiler {
                         bytes: vec![0; msize as usize],
                         relocs: Vec::new(),
                     };
+
                     if let Some(img) = self.default_initializer(member_ty, span)? {
                         structs::write_agg(&mut m, 0, &img);
                     }
+
                     let name = field
                         .name
                         .map(|n| n.as_str().to_string())
                         .unwrap_or_default();
+
                     self.set_field(
                         &mut m,
                         member_ty,
@@ -329,6 +366,7 @@ impl Compiler {
                     } else {
                         field.ty
                     };
+
                     self.set_info_ptr(&mut m, member_ty, "type", reflected_type, span)?;
                     self.set_field(
                         &mut m,
@@ -342,20 +380,26 @@ impl Compiler {
                     } else {
                         0
                     };
+
                     if field.using {
                         flags |= 0x4;
                     }
+
                     if field.as_ {
                         flags |= 0x10;
                     }
+
                     if field.overlay {
                         flags |= 0x20;
                     }
+
                     self.set_field(&mut m, member_ty, "flags", Value::Int(flags), span)?;
                     let notes = field.notes.clone();
+
                     self.set_notes_view(&mut m, member_ty, &notes, span)?;
                     structs::write_agg(&mut members, slot as u64 * msize, &m);
                 }
+
                 self.set_view(
                     agg,
                     desc,
@@ -363,8 +407,10 @@ impl Compiler {
                     View::new(order.len(), members, malign),
                     span,
                 )?;
+
                 if !info.poly_args.is_empty() || !storage.bytes.is_empty() {
                     let storage_len = storage.bytes.len();
+
                     self.set_view(
                         agg,
                         desc,
@@ -373,9 +419,11 @@ impl Compiler {
                         span,
                     )?;
                 }
+
                 if !bindings.is_empty() {
                     self.set_tagged_union_bindings(agg, desc, &bindings, span)?;
                 }
+
                 self.type_info_struct_flags(agg, desc, s, info.is_union, span)?;
                 let (func, _) = self.initializer_proc(ty, span)?;
                 let Some((path, _)) = self.find_member(desc, Sym::intern("initializer"), span)?
@@ -396,6 +444,7 @@ impl Compiler {
                         }
                     })
                     .sum();
+
                 agg.relocs.push(ir::Reloc {
                     offset,
                     target: ir::RelocTarget::Func(func),
@@ -404,6 +453,7 @@ impl Compiler {
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 
@@ -417,6 +467,7 @@ impl Compiler {
         match kind {
             TypeKind::Proc(p) => {
                 let args = self.info_view(&p.params, span)?;
+
                 self.set_view(
                     agg,
                     desc,
@@ -425,6 +476,7 @@ impl Compiler {
                     span,
                 )?;
                 let rets = self.info_view(&p.returns, span)?;
+
                 self.set_view(
                     agg,
                     desc,
@@ -433,12 +485,15 @@ impl Compiler {
                     span,
                 )?;
                 let mut flags = 0;
+
                 if p.no_context {
                     flags |= 0x8;
                 }
+
                 if p.c_call {
                     flags |= 0x20;
                 }
+
                 self.set_field(agg, desc, "procedure_flags", Value::Int(flags), span)?;
             }
             TypeKind::Enum(e) => {
@@ -448,6 +503,7 @@ impl Compiler {
                     "enum" => "",
                     name => name,
                 };
+
                 self.set_field(
                     agg,
                     desc,
@@ -462,16 +518,19 @@ impl Compiler {
                     .map(|(n, _)| Arc::from(n.as_str().as_bytes()))
                     .collect();
                 let names_data = self.string_view(&names, span)?;
+
                 self.set_view(agg, desc, "names", View::of(names.len(), names_data), span)?;
                 let mut values = Aggregate {
                     bytes: Vec::new(),
                     relocs: Vec::new(),
                 };
+
                 for (_, v) in &info.members {
                     values
                         .bytes
                         .extend_from_slice(&self.options.layout.s64_bytes(*v as i64));
                 }
+
                 self.set_view(
                     agg,
                     desc,
@@ -480,10 +539,12 @@ impl Compiler {
                     span,
                 )?;
                 let flags = i128::from(info.type_flags());
+
                 self.set_field(agg, desc, "enum_type_flags", Value::Int(flags), span)?;
             }
             _ => unreachable!("dispatched only for this group's operations"),
         }
+
         Ok(())
     }
 }

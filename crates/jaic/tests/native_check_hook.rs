@@ -7,8 +7,10 @@ fn compiler(hook: &str) -> Compiler {
     let runtime = format!(
         "#module_parameters(DEFINE_SYSTEM_ENTRY_POINT: bool, DEFINE_INITIALIZATION: bool, ENABLE_BACKTRACE_ON_CRASH: bool);\n#scope_file\n{hook}\n"
     );
+
     fs.insert("/lib/Runtime_Support/module.jai", runtime.as_bytes());
     let mut options = Options::host();
+
     options.import_paths = vec!["/lib".into()];
     Compiler::new(options, Rc::new(fs))
 }
@@ -16,6 +18,7 @@ fn compiler(hook: &str) -> Compiler {
 #[test]
 fn custom_runtime_does_not_require_an_unreviewed_public_export() {
     let mut compiler = compiler("");
+
     compiler
         .compile_sources(&[ProgramSource::String("main :: () {}".into())])
         .unwrap();
@@ -36,6 +39,7 @@ fn malformed_private_hook_and_failed_body_are_not_ignored() {
         let error = compiler
             .compile_sources(&[ProgramSource::String("main :: () {}".into())])
             .expect_err("invalid hook must fail normally");
+
         assert!(
             error.message.contains(expected),
             "{}",

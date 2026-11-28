@@ -42,6 +42,7 @@ impl FakeHost {
 
     pub fn mac() -> FakeHost {
         let mut host = FakeHost::new(Os::MacOs, "aarch64");
+
         host.path = vec!["/usr/bin".into(), "/opt/homebrew/bin".into()];
         host.cache = Some("/cache/mac".into());
         host.file("/usr/bin/cc");
@@ -50,6 +51,7 @@ impl FakeHost {
 
     pub fn debian() -> FakeHost {
         let mut host = FakeHost::new(Os::Linux, "x86_64");
+
         host.path = vec!["/usr/bin".into()];
         host.cache = Some("/cache/linux".into());
         host.file("/usr/bin/cc");
@@ -60,9 +62,11 @@ impl FakeHost {
     /// Adds a file, and the folders above it.
     pub fn file(&mut self, path: &str) -> &mut Self {
         let path = PathBuf::from(path);
+
         for ancestor in path.ancestors().skip(1) {
             self.dirs.insert(ancestor.to_path_buf());
         }
+
         self.files.insert(path);
         self
     }
@@ -71,6 +75,7 @@ impl FakeHost {
         for ancestor in Path::new(path).ancestors() {
             self.dirs.insert(ancestor.to_path_buf());
         }
+
         self
     }
 
@@ -188,6 +193,7 @@ impl Host for FakeHost {
     /// fake host has no links of folders, so that is its canonical form.
     fn canonicalize(&self, path: &Path) -> Option<PathBuf> {
         let mut folded = PathBuf::new();
+
         for part in path.components() {
             match part {
                 std::path::Component::CurDir => {}
@@ -197,6 +203,7 @@ impl Host for FakeHost {
                 other => folded.push(other),
             }
         }
+
         (self.is_file(&folded) || self.is_dir(&folded)).then_some(folded)
     }
 

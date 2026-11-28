@@ -51,6 +51,7 @@ impl Levels {
     /// is an error (which `-A` and `-W` cannot soften), is refused with a message to show.
     pub fn parse(flags: &[(String, Level)]) -> Result<Levels, String> {
         let mut settings = Vec::new();
+
         for (name, level) in flags {
             let target = match name.as_str() {
                 "warnings" => Target::Warnings,
@@ -63,13 +64,16 @@ impl Levels {
                                 level.as_str()
                             ));
                         }
+
                         Target::Code(code)
                     }
                     None => return Err(unknown(other)),
                 },
             };
+
             settings.push((target, *level));
         }
+
         Ok(Levels {
             settings,
         })
@@ -93,6 +97,7 @@ impl Levels {
         if d.severity != Severity::Warning {
             return Some(d);
         }
+
         match self.level(d.code) {
             Level::Allow => None,
             Level::Warn => Some(d),
@@ -110,6 +115,7 @@ fn unknown(name: &str) -> String {
         .filter(|code| code.severity() == Severity::Warning)
         .map(|code| code.name())
         .chain(["warnings", "leniencies"]);
+
     match crate::suggest::closest(name, names) {
         Some(near) => format!("unknown warning `{name}`\nhelp: did you mean `{near}`?"),
         None => format!(

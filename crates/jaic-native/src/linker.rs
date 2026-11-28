@@ -15,9 +15,11 @@ pub(crate) fn static_library_file(lib: &Library) -> Option<PathBuf> {
     if lib.system {
         return None;
     }
+
     let path = Path::new(&lib.name);
     let file = path.file_name()?.to_string_lossy().into_owned();
     let dir = Path::new(&lib.base_dir).join(path.parent().unwrap_or(Path::new("")));
+
     [
         format!("{file}.a"),
         format!("lib{file}.a"),
@@ -41,9 +43,11 @@ pub fn linker_not_run(linker: &Found, e: &std::io::Error) -> String {
         "could not run the linker `{}`: {e}",
         linker.program.display()
     );
+
     if let Origin::Override(from) = linker.origin {
         text += &format!("\nnote: {from} names it");
     }
+
     text +=
         "\nnote: `jaic file.jai -interp` needs no linker: it runs the program in the interpreter";
     text
@@ -74,6 +78,7 @@ pub fn link_failure(program: &std::path::Path, out: &std::process::Output) -> St
     ]
     .iter()
     .any(|m| log.contains(m));
+
     if missing_library {
         text += "\nhelp: a `#library` or `#system_library` names a library the linker cannot find: \
                  check its path, or install the library";
@@ -81,6 +86,7 @@ pub fn link_failure(program: &std::path::Path, out: &std::process::Output) -> St
         text += "\nhelp: a `#foreign` procedure is not in any linked library: check its name and \
                  that its `#library` is the one that defines it";
     }
+
     text
 }
 
@@ -110,6 +116,7 @@ fn missing_dsymutil_message(lookup: &jaic_toolchain::Lookup) -> String {
 /// a dSYM does not fail after the compile and link.
 pub fn require_dsymutil() -> Result<PathBuf, String> {
     let lookup = lookup()?;
+
     lookup
         .llvm_tool("dsymutil")
         .ok_or_else(|| missing_dsymutil_message(&lookup))
@@ -122,6 +129,7 @@ pub fn require_dsymutil() -> Result<PathBuf, String> {
 /// gathers it into a bundle next to the binary, where lldb finds it by UUID.
 pub fn write_dsym(output: &Path) -> Result<(), String> {
     let mut bundle = output.to_path_buf().into_os_string();
+
     bundle.push(".dSYM");
     let dsymutil = require_dsymutil()?;
     let out =
@@ -131,6 +139,7 @@ pub fn write_dsym(output: &Path) -> Result<(), String> {
                 jaic::io_reason(&e)
             )
         })?;
+
     if out.status.success() {
         Ok(())
     } else {
@@ -153,17 +162,21 @@ pub fn archive(
         .map_err(|missing| missing.to_string())?;
     let program = found.program.display().to_string();
     let mut cmd = command(&found);
+
     if jaic_toolchain::names::is_lib_tool(&found.program) {
         cmd.arg("/NOLOGO").arg(format!("/OUT:{}", output.display()));
     } else {
         // `ar` appends to an existing archive; start from an empty one.
         let _ = std::fs::remove_file(output);
+
         cmd.arg("rcs").arg(output);
     }
+
     let status = cmd
         .args(objects)
         .status()
         .map_err(|e| format!("could not run '{program}': {e}"))?;
+
     status
         .success()
         .then_some(())
@@ -189,9 +202,11 @@ pub fn check_sanitizer_target(target: Option<BuildTarget>) -> Result<(), String>
     if target.is_some() {
         return Err("-sanitize supports only native builds for the host, not cross builds".into());
     }
+
     if !cfg!(any(target_os = "macos", target_os = "linux")) {
         return Err("-sanitize is supported on macOS and Linux hosts only".into());
     }
+
     Ok(())
 }
 
@@ -212,9 +227,11 @@ pub fn output_extension(target: Option<BuildTarget>, kind: OutputKind) -> Option
             _ => "wasm",
         });
     }
+
     if !toolchain_for(target).linker.is_windows() {
         return None;
     }
+
     Some(match kind {
         OutputKind::Executable => "exe",
         OutputKind::DynamicLibrary => "dll",
@@ -236,12 +253,15 @@ pub(super) fn library_args(
     cross_dirs: &[PathBuf],
 ) -> Result<Vec<LinkArg>, String> {
     let name = lib.name.as_str();
+
     // The C runtime is linked by the toolchain itself (see `link`); on Windows the POSIX-only
     // names are not libraries either.
     if toolchain.is_runtime(name) {
         return Ok(Vec::new());
     }
+
     let linker = toolchain.linker;
+
     if !lib.system {
         // A library shipped next to the source: link it by path when found.
         let path = Path::new(name);
@@ -258,6 +278,7 @@ pub(super) fn library_args(
                 } else {
                     "so"
                 };
+
                 vec![
                     format!("{file}.a"),
                     format!("lib{file}.a"),
@@ -277,22 +298,30 @@ pub(super) fn library_args(
             ],
             Linker::Msvc => vec![format!("{file}.lib"), format!("lib{file}.lib")],
         };
+
         for candidate in &candidates {
             let full = dir.join(candidate);
+
             if !full.exists() {
                 continue;
             }
+
             let mut args = vec![LinkArg::File(full.display().to_string())];
+
             if candidate.ends_with(".dylib") || candidate.ends_with(".so") {
                 let parent = full.parent().unwrap_or(Path::new("."));
+
                 args.push(LinkArg::Rpath(parent.display().to_string()));
             }
+
             return Ok(args);
         }
+
         // The compiler's own copy of the crash runtime is built for the host. A cross build
         // hands the source to the target's C driver, which compiles it as it links.
         if cross && linker == Linker::Unix && file == "portable_crash" {
             let source = dir.join("runtime.c");
+
             if source.exists() {
                 return Ok(vec![
                     LinkArg::Option("-funwind-tables".into()),
@@ -300,23 +329,29 @@ pub(super) fn library_args(
                 ]);
             }
         }
+
         // Not beside the source: a helper the compiler provides (the crash runtime) is found
         // by file name in the library directories, as the interpreter does.
         if name.contains('/') && helpers && linker == Linker::Unix {
             for lib_dir in jaic::interp::library_dirs() {
                 for candidate in &candidates {
                     let full = lib_dir.join(candidate);
+
                     if !full.exists() {
                         continue;
                     }
+
                     let mut args = vec![LinkArg::File(full.display().to_string())];
+
                     if candidate.ends_with(".dylib") || candidate.ends_with(".so") {
                         args.push(LinkArg::Rpath(lib_dir.display().to_string()));
                     }
+
                     return Ok(args);
                 }
             }
         }
+
         // A path is never a system library name: report it instead of a confusing `-l`.
         if name.contains('/') {
             let searched = jaic::interp::library_dirs();
@@ -336,6 +371,7 @@ pub(super) fn library_args(
             let why = jaic::interp::missing_library(name)
                 .map(|note| format!("\n{note}"))
                 .unwrap_or_default();
+
             return Err(format!(
                 "library '{name}' not found: looked for {} in {}{elsewhere}{why}",
                 candidates.join(", "),
@@ -343,29 +379,36 @@ pub(super) fn library_args(
             ));
         }
     }
+
     // Built third-party libraries (`tools/native/build_native_libs.py`: `freetype.lib`...) link
     // statically, as on macOS and Linux below.
     if linker == Linker::Msvc && !cross {
         let bare = name.strip_prefix("lib").unwrap_or(name);
+
         for dir in jaic::interp::library_dirs() {
             let archive = dir.join(format!("{bare}.lib"));
+
             if archive.exists() {
                 return Ok(vec![LinkArg::File(archive.display().to_string())]);
             }
         }
     }
+
     // A cross build links third-party libraries built for its target
     // (`tools/native/build_native_libs.py --platform windows-x64-mingw`) from the target's own
     // `native-libs` folder, never the host's, whose archives are for the host.
     if cross {
         let bare = name.strip_prefix("lib").unwrap_or(name);
+
         for dir in cross_dirs {
             let archive = dir.join(format!("lib{bare}.a"));
+
             if archive.exists() {
                 return Ok(vec![LinkArg::File(archive.display().to_string())]);
             }
         }
     }
+
     if linker.is_windows() {
         // Import libraries of system DLLs (`kernel32`, `user32`...) come with the toolchain.
         // Windows file names ignore case, but a MinGW toolchain on Linux or macOS has
@@ -374,9 +417,12 @@ pub(super) fn library_args(
             .iter()
             .map(|d| LinkArg::SearchDir(d.display().to_string()))
             .collect();
+
         args.push(LinkArg::Lib(name.to_ascii_lowercase()));
+
         return Ok(args);
     }
+
     // Apple frameworks (`AppKit`, `Metal`...) link with `-framework`; their directories exist on
     // disk even though the binaries live in the shared cache.
     if cfg!(target_os = "macos")
@@ -385,26 +431,32 @@ pub(super) fn library_args(
     {
         return Ok(vec![LinkArg::Framework(name.to_string())]);
     }
+
     // Jai names libraries either way (`"libobjc"` / `"objc"`); `-l` wants the bare name.
     let name = name.strip_prefix("lib").unwrap_or(name);
+
     // Built third-party libraries link statically, so the executable is self-contained.
     if !cross {
         for dir in jaic::interp::library_dirs() {
             let archive = dir.join(format!("lib{name}.a"));
+
             if archive.exists() {
                 return Ok(vec![LinkArg::File(archive.display().to_string())]);
             }
         }
     }
+
     // Directories a metaprogram added (`compiler_add_library_search_directory`).
     let mut args: Vec<LinkArg> = jaic::interp::extra_library_dirs()
         .iter()
         .map(|d| LinkArg::SearchDir(d.display().to_string()))
         .collect();
     let homebrew = jaic::interp::homebrew_lib_dir();
+
     if cfg!(target_os = "macos") && !cross && Path::new(homebrew).exists() {
         args.push(LinkArg::SearchDir(homebrew.to_string()));
     }
+
     args.push(LinkArg::Lib(name.to_string()));
     Ok(args)
 }
@@ -419,6 +471,7 @@ mod dsymutil_tests {
     fn a_mac_without_dsymutil_is_told_what_to_install_and_how_to_skip_debug_info() {
         let host = FakeHost::mac();
         let message = missing_dsymutil_message(&Lookup::new(&host));
+
         assert!(
             message.starts_with("`dsymutil` is not installed"),
             "{message}"

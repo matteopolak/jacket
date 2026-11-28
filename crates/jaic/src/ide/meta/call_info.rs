@@ -32,6 +32,7 @@ impl Compiler {
         let Some(ide) = self.ed.facts() else {
             return Vec::new();
         };
+
         ide.implicit_loop_names
             .iter()
             .filter(|(at, _)| at.file == file)
@@ -84,6 +85,7 @@ impl Compiler {
         if ps.len() < 2 {
             return None;
         }
+
         let ide = self.ed.facts()?;
         let call = ide
             .calls
@@ -103,9 +105,11 @@ impl Compiler {
                         .contains('(')
             })
             .min_by_key(|c| c.span.end - c.span.start)?;
+
         if call.ambiguous {
             return None;
         }
+
         let chosen = self.proc(call.chosen).span;
         ps.iter().copied().find(|&p| self.proc(p).span == chosen)
     }
@@ -127,6 +131,7 @@ impl Compiler {
         let head = self.ide_header_text(p);
         let head = head.lines().next().unwrap_or("").trim();
         let head = head.trim_end_matches('{').trim_end();
+
         IdeSignature {
             label: format!("{} :: {}", info.name, head),
             params,
@@ -173,6 +178,7 @@ impl Compiler {
                     .map(|t| self.ty.types.name(t)),
             })
             .collect();
+
         IdeCallInfo {
             span: call.span,
             signatures,
@@ -189,13 +195,16 @@ impl Compiler {
         let Some(crate::ide::IdeReceiver::Value(mut ty)) = self.ide_receiver(scope, chain) else {
             return None;
         };
+
         while let Some(inner) = self.ty.types.pointee(ty) {
             ty = inner;
         }
+
         let TypeKind::Proc(proc) = self.ty.types.kind(ty).clone() else {
             return None;
         };
         let mut params: Vec<String> = proc.params.iter().map(|&t| self.ty.types.name(t)).collect();
+
         if proc.variadic
             && let Some(last) = proc.params.last()
             && let TypeKind::Array {
@@ -203,19 +212,23 @@ impl Compiler {
             } = self.ty.types.kind(*last)
         {
             let elem = *elem;
+
             if let Some(slot) = params.last_mut() {
                 *slot = format!("..{}", self.ty.types.name(elem));
             }
         }
+
         let returns: Vec<String> = proc
             .returns
             .iter()
             .map(|&t| self.ty.types.name(t))
             .collect();
         let mut label = format!("{}: ({})", chain.last()?, params.join(", "));
+
         if !returns.is_empty() {
             label.push_str(&format!(" -> {}", returns.join(", ")));
         }
+
         Some(IdeSignature {
             label,
             param_names: vec![String::new(); params.len()],
@@ -247,6 +260,7 @@ impl Compiler {
             }
         };
         let mut out = Vec::new();
+
         for id in ids {
             match self.resolve_entity(id) {
                 Ok(
@@ -260,6 +274,7 @@ impl Compiler {
                 _ => {}
             }
         }
+
         out.dedup();
         out
     }

@@ -32,6 +32,7 @@ impl Session {
             return Vec::new();
         };
         let dir = Path::new(uri.path()).parent().unwrap_or(Path::new("."));
+
         jacket_config::issues(&doc.text, dir, jailint::config::CHECKS)
             .into_iter()
             .filter_map(|issue| {
@@ -39,6 +40,7 @@ impl Session {
                     let end = doc.text.find('\n').unwrap_or(doc.text.len());
                     0..end
                 });
+
                 Some(Diagnostic {
                     range: doc
                         .index
@@ -57,6 +59,7 @@ impl Session {
     /// edits that must not touch what the Jai files show until the file is saved.
     pub fn config_publication(&self, uri: &DocumentUri) -> Option<(String, i32, Vec<Diagnostic>)> {
         let (key, doc) = self.config_document(uri)?;
+
         Some((
             key.as_str().to_string(),
             doc.version,
@@ -80,6 +83,7 @@ impl Session {
             MarkupKind::Markdown => format!("`{name}`\n\n{text}"),
             MarkupKind::PlainText => format!("{name}\n\n{text}"),
         };
+
         Ok(Some(Hover {
             contents: MarkupContent {
                 kind,
@@ -144,6 +148,7 @@ impl Session {
             } => self.path_items(uri, &folder, kind, replace(start, end)),
             Place::Nothing => Vec::new(),
         };
+
         Ok(CompletionList {
             items,
             is_incomplete: false,
@@ -163,6 +168,7 @@ impl Session {
         };
         let base = Path::new(uri.path()).parent().unwrap_or(Path::new("/"));
         let root = base.join(folder);
+
         environment
             .fs
             .list_dir(&root)
@@ -205,14 +211,17 @@ impl Session {
         };
         let dir = Path::new(uri.path()).parent().unwrap_or(Path::new("/"));
         let mut hints = Vec::new();
+
         for (name, entry) in &config.dependencies {
             let Some(end) = lines::dependency_line_end(&doc.text, name) else {
                 continue;
             };
             let position = doc.index.range(&doc.text, Span::new(end, end))?.start;
+
             if position.line < range.start.line || position.line > range.end.line {
                 continue;
             }
+
             let request = dependencies::Request {
                 dir: dir.to_path_buf(),
                 name: name.clone(),
@@ -222,8 +231,10 @@ impl Session {
             let Some(standing) = source.lookup(&request) else {
                 continue;
             };
+
             hints.extend(standing.hints(position));
         }
+
         Ok(hints)
     }
 }

@@ -22,12 +22,15 @@ fn main() -> ExitCode {
     // Errors about the command line or configuration go to stderr in its own style.
     let args: Vec<String> = std::env::args().skip(1).collect();
     let color = jaic::render::ColorChoice::from_args(&args, jaic::flags::COLOR.names);
+
     jaic::render::set_style(jaic::render::detect(color));
+
     match run() {
         Ok(code) => code,
         Err(message) => {
             let report =
                 jaic::render::Report::from_text(jaic::diagnostics::Code::CliFailure, &message);
+
             eprint!("{}", report.render());
             ExitCode::from(2)
         }
@@ -38,6 +41,7 @@ fn main() -> ExitCode {
 fn test_note_problem(path: &std::path::Path, problem: &str, cwd: &std::path::Path) {
     let shown = path.strip_prefix(cwd).unwrap_or(path).display();
     let text = format!("{shown}: {problem}");
+
     eprint!("{}", Report::from_text(Code::LintTestNote, &text).render());
 }
 
@@ -63,9 +67,11 @@ fn project_entries(
             .find(|p| p.is_file())
             .map(|entry| vec![entry])
     };
+
     if entries.is_some() {
         options.paths = vec![base.to_path_buf()];
     }
+
     Ok(entries)
 }
 
@@ -74,6 +80,7 @@ fn run() -> Result<ExitCode, String> {
         return Ok(ExitCode::SUCCESS);
     };
     let cwd = std::env::current_dir().map_err(|e| e.to_string())?;
+
     if let Some(source) = &args.context {
         let metadata = std::fs::metadata(source).map_err(|e| {
             format!(
@@ -82,6 +89,7 @@ fn run() -> Result<ExitCode, String> {
                 jaic::io_reason(&e)
             )
         })?;
+
         if !metadata.is_file() {
             return Err(format!(
                 "context `{}` must be a program file",
@@ -89,12 +97,15 @@ fn run() -> Result<ExitCode, String> {
             ));
         }
     }
+
     for path in &args.paths {
         if let Err(e) = std::fs::metadata(path) {
             let shown = path.display();
+
             if e.kind() != std::io::ErrorKind::NotFound {
                 return Err(format!("cannot read `{shown}`: {}", jaic::io_reason(&e)));
             }
+
             let help = match jaic::suggest::similar_sibling(path, |_| true) {
                 Some(near) => format!("did you mean `{}`?", near.display()),
                 None => {
@@ -102,9 +113,11 @@ fn run() -> Result<ExitCode, String> {
                         .to_string()
                 }
             };
+
             return Err(format!("`{shown}` does not exist\nhelp: {help}"));
         }
     }
+
     let mut config = if let Some(path) = &args.config {
         Config::load(path)?
     } else {
@@ -114,25 +127,32 @@ fn run() -> Result<ExitCode, String> {
         } else {
             first.parent().map(PathBuf::from).unwrap_or(cwd.clone())
         };
+
         Config::find_on_disk(&start)?.unwrap_or_else(|| Config {
             root: cwd.clone(),
             ..Config::default()
         })
     };
+
     config.discover = args.config.is_none();
+
     if let Some(mode) = args.lifetime_mode {
         config.lifetime_mode = Some(mode);
         config.flag_lifetime_mode = Some(mode);
     }
+
     if args.max_nesting.is_some() {
         config.max_nesting = args.max_nesting;
         config.flag_max_nesting = args.max_nesting;
     }
+
     set_levels(&mut config, &args.levels)?;
     let stdlib = jaic::default_stdlib_dir();
+
     if let Some(message) = jaic::missing_stdlib(&stdlib) {
         return Err(message);
     }
+
     let stdlib = jaic::canonicalize(&stdlib).unwrap_or(stdlib);
     // A whole stdlib scan includes modules for other operating systems. Keep their notes,
     // while actual lint findings still determine failure below. Explicit files stay strict.
@@ -142,6 +162,7 @@ fn run() -> Result<ExitCode, String> {
             .iter()
             .any(|path| path.is_dir() && jaic::canonicalize(path).is_ok_and(|path| path == stdlib));
     let mut compiler_options = jaic::sema::Options::host();
+
     args.common.target.apply(&mut compiler_options)?;
     let limits = args.limits();
     let mut options = jailint::driver::Options {
@@ -167,17 +188,22 @@ fn run() -> Result<ExitCode, String> {
         None => jailint::driver::run(&options),
     };
     let outcome = lint();
+
     for (path, problem) in &outcome.test_note_problems {
         test_note_problem(path, problem, &cwd);
     }
+
     if let Some(error) = outcome.config_errors.first() {
         return Err(error.clone());
     }
+
     if let Some(path) = &args.checked_files {
         let mut paths = outcome.texts.keys().cloned().collect::<Vec<_>>().join("\n");
+
         paths.push('\n');
         std::fs::write(path, paths).map_err(|e| format!("cannot write {}: {e}", path.display()))?;
     }
+
     if let Some(path) = &args.manifest {
         write_manifest(
             path,
@@ -186,6 +212,7 @@ fn run() -> Result<ExitCode, String> {
             &outcome,
         )?;
     }
+
     // Lints go to stdout: its terminal decides the layout.
     let style = jaic::render::detect_with(
         args.common.color.unwrap_or(jaic::render::ColorChoice::Auto),
@@ -194,6 +221,7 @@ fn run() -> Result<ExitCode, String> {
     );
     let shown = |p: &str| {
         let path = PathBuf::from(p);
+
         path.strip_prefix(&cwd)
             .map_or_else(|_| p.to_string(), |r| r.to_string_lossy().into_owned())
     };
@@ -204,6 +232,7 @@ fn run() -> Result<ExitCode, String> {
     let mut out = std::io::BufWriter::new(std::io::stdout().lock());
     let mut indexes: jaic::fxhash::HashMap<&str, jaic::source::LineIndex> =
         jaic::fxhash::HashMap::default();
+
     for lint in &outcome.lints {
         let Some(text) = outcome.texts.get(&lint.path) else {
             continue;
@@ -220,17 +249,21 @@ fn run() -> Result<ExitCode, String> {
             "{}",
             render(lint, text, lines, &shown(&lint.path), default, &style)
         );
+
         match lint.level {
             Level::Deny => errors += 1,
             _ => warnings += 1,
         }
     }
+
     let _ = out.flush();
+
     drop(out);
     // Under --allow-incomplete these are expected (other targets' modules, files only their
     // module loads), so one count stands in for the list unless -v asks for it.
     // They are diagnostics like the findings, in the style of standard error.
     let incomplete = |message: String| Report::new(Code::LintIncomplete, message);
+
     if allow_incomplete && !args.verbose {
         if !outcome.incomplete.is_empty() {
             let report = incomplete(format!(
@@ -238,6 +271,7 @@ fn run() -> Result<ExitCode, String> {
                 count(outcome.incomplete.len(), "program"),
             ))
             .help("-v lists them");
+
             eprint!("{}", report.render());
         }
     } else {
@@ -247,45 +281,58 @@ fn run() -> Result<ExitCode, String> {
                 shown(&root.to_string_lossy())
             ))
             .note(error.clone());
+
             eprint!("{}", report.render());
         }
     }
+
     if args.fix {
         // Fixes that wrap or overlap another are left for the next pass, which lints the
         // fixed text again (a few passes at most; most runs need one).
         let mut total = 0;
         let mut later: Option<jailint::driver::Outcome> = None;
+
         for pass in 0..MAX_FIX_PASSES {
             let current = later.as_ref().unwrap_or(&outcome);
             let mut by_file: std::collections::BTreeMap<&str, Vec<&Lint>> =
                 std::collections::BTreeMap::default();
+
             for l in &current.lints {
                 by_file.entry(&l.path).or_default().push(l);
             }
+
             let mut pending = 0;
+
             for (path, lints) in by_file {
                 let Some(text) = current.texts.get(path) else {
                     continue;
                 };
+
                 pending += jailint::fix::pending(&lints);
                 let (fixed, n) = jailint::fix::apply(text, &lints);
+
                 if n > 0 {
                     std::fs::write(path, fixed).map_err(|e| format!("cannot write {path}: {e}"))?;
                     total += n;
                     eprintln!("jailint: fixed {n} in {}", shown(path));
                 }
             }
+
             if pending == 0 || pass + 1 == MAX_FIX_PASSES {
                 break;
             }
+
             later = Some(lint());
         }
+
         if total > 0 {
             eprintln!("jailint: applied {total} fixes; run again to see what remains");
         }
     }
+
     let files: std::collections::BTreeSet<&str> =
         outcome.lints.iter().map(|l| l.path.as_str()).collect();
+
     if errors + warnings > 0 {
         eprintln!(
             "jailint: {} and {} in {} ({} checked)",
@@ -295,6 +342,7 @@ fn run() -> Result<ExitCode, String> {
             count(outcome.roots, "program"),
         );
     }
+
     Ok(
         if errors > 0 || (!allow_incomplete && !outcome.incomplete.is_empty()) {
             ExitCode::from(1)
@@ -339,6 +387,7 @@ fn write_manifest(
         "incomplete": incomplete,
     });
     let mut text = serde_json::to_vec_pretty(&document).map_err(|e| e.to_string())?;
+
     text.push(b'\n');
     std::fs::write(path, text).map_err(|e| format!("cannot write manifest {}: {e}", path.display()))
 }
@@ -386,5 +435,6 @@ fn set_levels(config: &mut Config, levels: &[(String, Level)]) -> Result<(), Str
             return Err(format!("unknown rule `{rule}`\nhelp: {help}"));
         }
     }
+
     Ok(())
 }

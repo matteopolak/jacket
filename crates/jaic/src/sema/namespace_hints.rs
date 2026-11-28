@@ -25,6 +25,7 @@ impl Compiler {
         if seen.contains(&module) {
             return false;
         }
+
         seen.push(module);
         let data = &self.ns.modules[module.0 as usize];
         let scope = self.scope(data.scope);
@@ -34,6 +35,7 @@ impl Compiler {
                 e.exported && !e.file_private
             })
         });
+
         declared
             || data
                 .exported_using_imports
@@ -52,9 +54,11 @@ impl Compiler {
         if seen.contains(&module) {
             return;
         }
+
         seen.push(module);
         let data = &self.ns.modules[module.0 as usize];
         let scope = self.scope(data.scope);
+
         for (name, ids) in &scope.names {
             if ids.iter().any(|&id| {
                 let e = self.entity(id);
@@ -63,6 +67,7 @@ impl Compiler {
                 out.push(name.as_str());
             }
         }
+
         for inner in data
             .exported_using_imports
             .iter()
@@ -84,8 +89,10 @@ impl Compiler {
         let sym = Sym::intern(name);
         let mut found: Vec<Namespace> = Vec::new();
         let mut current = Some(scope);
+
         while let Some(sid) = current {
             let s = self.scope(sid);
+
             for (id, _) in s.declared() {
                 let EntityKind::Import(import) = &self.entity(id).kind else {
                     continue;
@@ -105,6 +112,7 @@ impl Compiler {
                     || declaring
                         .iter()
                         .any(|i| i.name.is_none() && i.module == **module_name);
+
                 if exports && !found.iter().any(|n| n.binding == binding.name.as_str()) {
                     found.push(Namespace {
                         binding: binding.name.to_string(),
@@ -113,8 +121,10 @@ impl Compiler {
                     });
                 }
             }
+
             current = s.parent;
         }
+
         found
     }
 
@@ -132,8 +142,10 @@ impl Compiler {
         } else {
             Applicability::MaybeIncorrect
         };
+
         for n in namespaces {
             let binding = &n.binding;
+
             d = d.with_suggestion(
                 Suggestion::insert(
                     format!(
@@ -145,6 +157,7 @@ impl Compiler {
                 )
                 .with_action(format!("Write `{binding}.{wanted}`")),
             );
+
             if let Some((at, text)) = self.using_after(n) {
                 d = d.with_suggestion(
                     Suggestion::insert(
@@ -160,6 +173,7 @@ impl Compiler {
                 );
             }
         }
+
         d
     }
 
@@ -170,9 +184,11 @@ impl Compiler {
         let end = n.import.end as usize;
         let rest = text.get(end..)?;
         let trimmed = rest.trim_start();
+
         if !trimmed.starts_with(';') {
             return None;
         }
+
         let at = end + (rest.len() - trimmed.len()) + 1;
         let line_start = text
             .get(..n.import.start as usize)?
@@ -187,6 +203,7 @@ impl Compiler {
             start: at as u32,
             end: at as u32,
         };
+
         Some((point, format!("\n{indent}using {};", n.binding)))
     }
 
@@ -223,14 +240,18 @@ impl Compiler {
                         !e.exported || e.file_private
                     })
                 });
+
         if hidden {
             return d.with_help(format!(
                 "`{name}` is declared in `{module_name}` but is not exported: it is private to the module"
             ));
         }
+
         let mut names = Vec::new();
+
         self.module_export_names(module, &mut Vec::new(), &mut names);
         names.retain(|n| !n.starts_with("__"));
+
         if let Some(near) = crate::suggest::closest(name.as_str(), names.iter().copied()) {
             d = d.with_replacement(
                 format!("a member with a similar name exists: `{near}`"),
@@ -238,6 +259,7 @@ impl Compiler {
                 near,
             );
         }
+
         d
     }
 }

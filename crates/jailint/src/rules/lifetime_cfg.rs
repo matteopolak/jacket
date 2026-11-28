@@ -121,6 +121,7 @@ struct Cells {
 impl Cells {
     fn id(&mut self, key: Cell) -> usize {
         let n = self.ids.len();
+
         *self.ids.entry(key).or_insert_with(|| {
             self.values.push(key);
             n
@@ -131,6 +132,7 @@ impl Cells {
 /// For each cell, the cells that receive a copy of it.
 fn copy_targets(cells: usize, blocks: &[Block]) -> Vec<Vec<usize>> {
     let mut forward = vec![Vec::new(); cells];
+
     for block in blocks {
         match &block.op {
             Op::Copy(pairs) => {
@@ -142,6 +144,7 @@ fn copy_targets(cells: usize, blocks: &[Block]) -> Vec<Vec<usize>> {
             _ => {}
         }
     }
+
     forward
 }
 
@@ -210,18 +213,23 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
         .count();
     let mut rejected = BTreeMap::<&str, usize>::new();
     let mut rejected_candidates = BTreeMap::<&str, usize>::new();
+
     for site in &cx.procs {
         for &id in cx.compiler.ide_procs_with_header(site.header.span).iter() {
             let proc = &cx.compiler.pr.procs[id.0 as usize];
+
             if proc.is_poly || proc.is_macro {
                 continue;
             }
+
             if proc.lit.body.is_none() {
                 continue;
             }
+
             if !checked.insert(id) {
                 continue;
             }
+
             if !facts.lifetime_bodies.contains_key(&id) {
                 let reason = if proc.body_state == BodyState::Done {
                     "missing-sidecar"
@@ -230,10 +238,12 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                 } else {
                     "failed-or-unchecked"
                 };
+
                 *rejected.entry(reason).or_default() += 1;
             }
         }
     }
+
     let mut bytes = 0;
     let summaries = cx.run.lifetimes.get_or_init(|| {
         Summaries::build_for(
@@ -244,30 +254,38 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
     });
     // Hash iteration order must not affect the order of diagnostics.
     let mut selected: Vec<_> = facts.lifetime_bodies_in(cx.file).collect();
+
     selected.sort_by_key(|b| b.procedure.0);
     checked.extend(selected.iter().map(|body| body.procedure));
     let bodies = checked.len();
+
     for body in selected {
         if jaic::interrupt::should_stop() {
             return;
         }
+
         let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
         let Some(syntax) = &body.syntax.body else {
             continue;
         };
+
         if syntax.span.file != cx.file {
             continue;
         }
+
         if proc.body_state != BodyState::Done || !std::sync::Arc::ptr_eq(&proc.lit, &body.syntax) {
             *rejected.entry("failed-or-obsolete").or_default() += 1;
             continue;
         }
+
         bytes += body.vector_bytes();
         let defs = Prepared::for_body(cx.compiler, body, summaries);
         let built = shared(cx, body, &defs, summaries);
+
         if jaic::interrupt::fired() {
             return;
         }
+
         let mut places = built.places.clone();
         let cells = built.cells.clone();
         let chains = built.chains.clone();
@@ -276,6 +294,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
         let mut allowed_addresses = HashSet::default();
         let mut derived_addresses = HashSet::default();
         let mut resolver = Resolver::for_prepared(cx.compiler, body, &defs, summaries);
+
         for event in body.blocks.iter().flat_map(|b| &b.events) {
             match event {
                 Event::Expression {
@@ -308,6 +327,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                         || !summaries.procs[callee].returns.is_empty()) =>
                 {
                     let summary = &summaries.procs[callee];
+
                     for arg in args.iter().filter(|a| {
                         !summary.unknown_write.contains(&a.formal)
                             && (summary.may.keys().any(|e| {
@@ -326,6 +346,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                     }) {
                         if let LifetimeOperand::Value(place) = arg.operand {
                             allowed_addresses.insert((place, arg.span));
+
                             if let Some(path) = resolver.value(place, &summaries.procs)
                                 && let Some(id) = resolver.materialize(&path)
                             {
@@ -341,6 +362,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                     ..
                 } => {
                     let targets = resolver.call_targets(event);
+
                     for arg in args {
                         if (cx.lifetime_mode == jacket_config::LifetimeMode::Strict
                             || !targets.unknown
@@ -359,8 +381,10 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                 _ => {}
             }
         }
+
         let exposed =
             unallowed_addresses(body, &mut places, &allowed_addresses, &derived_addresses);
+
         cfgs += 1;
         let forward = copy_targets(cells.ids.len(), &blocks);
         let model = Model {
@@ -373,10 +397,12 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
         };
         let graph = Graph::new(&model.blocks);
         let observed = Observed::new(&model.blocks);
+
         for (origin, block) in model.blocks.iter().enumerate() {
             if jaic::interrupt::should_stop() {
                 return;
             }
+
             if let Op::Borrow(_, region, _)
             | Op::ElementBorrow(_, region, ..)
             | Op::LogicalBorrow(_, region, ..)
@@ -385,13 +411,16 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                 if resizable_only && !resizable(cx, &model.places, region) {
                     continue;
                 }
+
                 if matches!(block.op, Op::PointerLoad(..)) && !observed.grown.contains(&region) {
                     continue;
                 }
+
                 if model.places.unresolved(region) && !model.places.stable_projection(region) {
                     *rejected_candidates.entry("indirect-region").or_default() += 1;
                     continue;
                 }
+
                 if model
                     .exposed
                     .iter()
@@ -400,8 +429,10 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                     *rejected_candidates.entry("address-exposed").or_default() += 1;
                     continue;
                 }
+
                 let (root, path) = &model.places.paths[region];
                 let mut name = names.get(&root.0).copied().unwrap_or("storage").to_owned();
+
                 for projection in path {
                     match projection {
                         Projection::Field(name_) => {
@@ -413,6 +444,7 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
                         Projection::Deref => {}
                     }
                 }
+
                 solved += usize::from(solve(
                     cx,
                     &model,
@@ -425,12 +457,15 @@ pub(super) fn check(cx: &Cx, out: &mut Vec<Finding>, resizable_only: bool) {
             }
         }
     }
+
     if jacket_config::env::LIFETIME_STATS.is_set() {
         let rank = |map: BTreeMap<&'static str, usize>| {
             let mut pairs: Vec<_> = map.into_iter().collect();
+
             pairs.sort_by_key(|(reason, count)| (std::cmp::Reverse(*count), *reason));
             pairs
         };
+
         eprintln!(
             "lifetime-stats file={} bodies={bodies} contracts={contracts} cfgs={cfgs} candidates={solved} sweep_blocks={sweep_blocks} sidecar_bytes={bytes} rejected={:?} rejected_candidates={:?}",
             cx.compiler.src.sources.get(cx.file).path,
@@ -452,6 +487,7 @@ impl Observed {
     fn new(blocks: &[Block]) -> Self {
         let mut reads = HashMap::<usize, Vec<usize>>::default();
         let mut grown = HashSet::default();
+
         for (i, block) in blocks.iter().enumerate() {
             match block.op {
                 Op::Use(cell, _)
@@ -465,6 +501,7 @@ impl Observed {
                 _ => {}
             }
         }
+
         Self {
             reads,
             grown,
@@ -503,22 +540,27 @@ fn solve(
     // do not multiply per-candidate state memory.
     let mut relevant = HashMap::default();
     let mut queue = VecDeque::from([first]);
+
     while let Some(cell) = queue.pop_front() {
         if relevant.contains_key(&cell) {
             continue;
         }
+
         relevant.insert(cell, relevant.len());
         queue.extend(&forward[cell]);
     }
+
     let reads: Vec<_> = relevant
         .keys()
         .filter_map(|c| observed.reads.get(c))
         .flatten()
         .copied()
         .collect();
+
     if reads.is_empty() {
         return false;
     }
+
     let exposed_cells: HashSet<_> = relevant
         .iter()
         .filter_map(|(&cell, &dense)| match cells.values[cell] {
@@ -534,9 +576,11 @@ fn solve(
     // starts at the candidate and stops past the last read of its cells.
     let scope = graph.scope(blocks, candidate, reads);
     let (mut states, mut queue) = scope.begin(graph, vec![UNKNOWN; relevant.len()]);
+
     while let Some(i) = queue.pop_front() {
         *sweep_blocks += 1;
         let mut state = states.visited(i).unwrap().clone();
+
         match &blocks[i].op {
             Op::LogicalBorrow(target, ..)
                 if matches!(blocks[candidate].op, Op::LogicalBorrow(..)) =>
@@ -563,6 +607,7 @@ fn solve(
                     let source = relevant
                         .get(source)
                         .map_or(UNKNOWN, |&source| state[source]);
+
                     state[cell] = if i == candidate {
                         (source & !UNKNOWN)
                             | if source & UNKNOWN != 0 {
@@ -588,9 +633,11 @@ fn solve(
                         let value = relevant
                             .get(source)
                             .map_or(UNKNOWN, |&source| state[source]);
+
                         Some((target, value))
                     })
                     .collect();
+
                 for (target, value) in values {
                     state[target] = value;
                 }
@@ -648,15 +695,18 @@ fn solve(
             }
             _ => {}
         }
+
         for &cell in &exposed_cells {
             state[cell] = UNKNOWN;
         }
+
         for &next in &blocks[i].next {
             if scope.contains(next) && states.join(next, &state) {
                 queue.push_back(next);
             }
         }
     }
+
     out.extend(diagnostics::emit(
         cx,
         model,
@@ -683,6 +733,7 @@ fn invalidation_cut(
 ) -> Vec<Span> {
     let blocks = &model.blocks;
     let mut incoming = vec![Vec::new(); blocks.len()];
+
     for (from, block) in blocks
         .iter()
         .enumerate()
@@ -692,13 +743,16 @@ fn invalidation_cut(
             incoming[to].push(from);
         }
     }
+
     let mut seen = HashSet::default();
     let mut queue = VecDeque::from([(use_at, use_cell)]);
     let mut spans = Vec::new();
+
     while let Some((i, mut cell)) = queue.pop_front() {
         if !seen.insert((i, cell)) {
             continue;
         }
+
         match &blocks[i].op {
             Op::Grow(id, at)
             | Op::MayGrow(id, at)
@@ -724,9 +778,11 @@ fn invalidation_cut(
                 } else {
                     LIVE | POSITION_UNKNOWN
                 };
+
                 if before & live != 0 {
                     spans.push(*at);
                 }
+
                 if before & DEAD == 0 {
                     continue;
                 }
@@ -739,6 +795,7 @@ fn invalidation_cut(
                     let Some(&source) = relevant.get(source) else {
                         continue;
                     };
+
                     cell = source;
                 }
             }
@@ -746,6 +803,7 @@ fn invalidation_cut(
                 let Some(&source) = relevant.get(source) else {
                     continue;
                 };
+
                 cell = source;
             }
             Op::LogicalBorrow(target, ..)
@@ -761,8 +819,10 @@ fn invalidation_cut(
             Op::Barrier => continue,
             _ => {}
         }
+
         queue.extend(incoming[i].iter().map(|&p| (p, cell)));
     }
+
     spans.sort_unstable_by_key(|s| (s.file.0, s.start, s.end));
     spans.dedup();
     spans
@@ -790,6 +850,7 @@ fn move_element(
     } else {
         return;
     };
+
     for cell in state {
         if *cell & LIVE != 0 {
             *cell = (*cell & !LIVE) | replacement;

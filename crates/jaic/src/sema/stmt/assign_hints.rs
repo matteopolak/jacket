@@ -25,6 +25,7 @@ impl Compiler {
             place,
             Operand::Const { value, .. } if !matches!(value, Value::Type(_) | Value::Null)
         );
+
         if is_constant && matches!(target.kind, E::Ident(_) | E::Member(..)) {
             let d = Diagnostic::new(
                 Code::CannotAssignConstant2,
@@ -32,11 +33,13 @@ impl Compiler {
                 format!("cannot assign to constant `{written}`"),
             )
             .with_label("a constant has no storage to assign to");
+
             return Box::new(match target.kind {
                 E::Ident(name) => self.constant_declaration_hints(d, scope, name),
                 _ => d,
             });
         }
+
         let message = match &target.kind {
             E::Int(..) | E::Float(..) | E::Str(_) | E::Bool(_) | E::Null => {
                 "cannot assign to a literal".to_string()
@@ -53,6 +56,7 @@ impl Compiler {
             } => "cannot assign to the result of a cast".into(),
             _ => format!("cannot assign to {}", self.describe(place)),
         };
+
         Box::new(
             Diagnostic::new(Code::AssignTargetInvalid, target.span, message).with_help(
                 "only a variable, a member, an element or a dereference (`p.*`) can be assigned to",
@@ -72,12 +76,15 @@ impl Compiler {
             return d;
         };
         let entity = self.entity(id);
+
         if !matches!(entity.kind, EntityKind::Decl { .. }) || entity.span == Span::NONE {
             return d;
         }
+
         let at = entity.span;
         let d = d.with_note(at, format!("`{name}` is declared as a constant here"));
         let help = "declare it with `:=` to make it a variable";
+
         match self.constant_marker(at) {
             Some(marker) => d.with_suggestion(
                 Suggestion::replace(help, marker, ":=", Applicability::MaybeIncorrect)
@@ -94,10 +101,13 @@ impl Compiler {
         let rest = file.text.get(name.end as usize..)?;
         let skipped = rest.len() - rest.trim_start_matches([' ', '\t']).len();
         let after = &rest[skipped..];
+
         if !after.starts_with("::") || after.starts_with("::=") {
             return None;
         }
+
         let start = name.end + u32::try_from(skipped).ok()?;
+
         Some(Span {
             start,
             end: start + 2,
@@ -128,6 +138,7 @@ impl Compiler {
             "Can't assign to an immutable argument.",
         );
         let declared = self.entity(entity);
+
         if declared.span != Span::NONE {
             d = d.with_note(
                 declared.span,
@@ -137,6 +148,7 @@ impl Compiler {
                 ),
             );
         }
+
         let help = format!("copy it into a local first: `{name} := {name};`");
         // The copy goes at the top of the body. A name that reaches the argument through
         // `using` keeps reaching it, so a copy of the argument would not help there.
@@ -148,8 +160,10 @@ impl Compiler {
                     && declared.span.end <= outer.end
             };
             let body = lit.body.as_ref()?;
+
             (declared.name == name && inside(lit.header.span)).then_some(body.span)
         });
+
         Box::new(match body {
             Some(body) => {
                 let open = Span {
@@ -157,6 +171,7 @@ impl Compiler {
                     end: body.start + 1,
                     ..body
                 };
+
                 d.with_suggestion(
                     Suggestion::insert(
                         help,

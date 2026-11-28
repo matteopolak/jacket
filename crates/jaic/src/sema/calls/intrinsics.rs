@@ -18,22 +18,29 @@ impl Compiler {
         span: Span,
     ) -> Result<Operand> {
         let name = self.proc(proc).name;
+
         if name.as_str() == crate::sema::private_names::RUNTIME_TEMPORARY_STORAGE_SIZE {
             return self.runtime_storage_operand(f, sig, span);
         }
+
         let mut values = Vec::new();
         let mut k = 0;
+
         for (i, slot) in slots.iter().enumerate() {
             if header.params[i].baked {
                 continue;
             }
+
             let param = sig.params[k].clone();
+
             k += 1;
             values.push(self.param_value(f, sig, &param, slot, &args, span)?);
         }
+
         if name.as_str() == "black_box" {
             return self.emit_black_box(f, sig, &values, span);
         }
+
         let op = match name.as_str() {
             "memcpy" => ir::Intrinsic::Memcpy,
             "memset" => ir::Intrinsic::Memset,
@@ -49,9 +56,11 @@ impl Compiler {
                 // The last parameter is the memory order, a compile-time constant that the IR
                 // op carries (a compare-exchange packs success | failure << 4).
                 let mode = self.const_int_arg(f, slots, &args, ordered, span)?;
+
                 if !header.params.last().is_some_and(|p| p.baked) {
                     values.pop();
                 }
+
                 self.atomic_intrinsic(kind, mode, span)?
             }
             "debug_break" => ir::Intrinsic::DebugBreak,
@@ -71,6 +80,7 @@ impl Compiler {
                         "rdtsc requires an x86-64 target",
                     );
                 }
+
                 ir::Intrinsic::X86Timestamp {
                     aux: false,
                 }
@@ -83,6 +93,7 @@ impl Compiler {
                         "no architectural cycle counter is available on a WebAssembly target",
                     );
                 }
+
                 ir::Intrinsic::CycleCounter
             }
             "pause" | "mm_pause" => ir::Intrinsic::Pause,
@@ -92,7 +103,9 @@ impl Compiler {
             "byte_lookup" | "sign_mask" => {
                 // The last parameter is the vector width in bytes; the IR op carries it.
                 let width = self.const_width_arg(f, slots, &args, name.as_str(), span)?;
+
                 values.pop();
+
                 if name.as_str() == "byte_lookup" {
                     ir::Intrinsic::ByteLookup(width)
                 } else {
@@ -113,6 +126,7 @@ impl Compiler {
             // An aggregate result comes back by address.
             .map(|&t| self.ir_ty(t).unwrap_or(Ty::Ptr))
             .collect();
+
         if matches!(
             op,
             ir::Intrinsic::Sqrt
@@ -135,6 +149,7 @@ impl Compiler {
                 "floating intrinsic signature requires one float32/float64 argument and the same result type",
             );
         }
+
         if matches!(
             op,
             ir::Intrinsic::X86Timestamp { .. } | ir::Intrinsic::CycleCounter
@@ -146,6 +161,7 @@ impl Compiler {
                 format!("{name} requires no arguments and one 64-bit integer result"),
             );
         }
+
         let atomic = matches!(
             op,
             ir::Intrinsic::AtomicLoad(_)
@@ -157,6 +173,7 @@ impl Compiler {
             op,
             ir::Intrinsic::VolatileLoad | ir::Intrinsic::VolatileStore
         );
+
         if (op == ir::Intrinsic::CompareAndSwap && values.len() == 3) || atomic || volatile {
             // The interpreter needs the operand width: 1, 2, 4 or 8 bytes. A load has only the
             // pointer; the other operations take the value as their second parameter.
@@ -177,6 +194,7 @@ impl Compiler {
                 })?;
             let repr = self.ty.types.repr(pointee);
             let width = self.size_of(pointee, span)?;
+
             if !matches!(
                 self.ty.types.kind(repr),
                 TypeKind::Int { .. }
@@ -196,6 +214,7 @@ impl Compiler {
                     },
                 );
             }
+
             let (arguments, expected_returns) = match op {
                 ir::Intrinsic::AtomicLoad(_) => (1, vec![pointee]),
                 ir::Intrinsic::AtomicStore(_) | ir::Intrinsic::VolatileStore => (2, vec![]),
@@ -205,6 +224,7 @@ impl Compiler {
                 }
                 _ => (2, vec![pointee]),
             };
+
             if values.len() != arguments
                 || sig.returns != expected_returns
                 || sig
@@ -220,6 +240,7 @@ impl Compiler {
                     "the intrinsic's signature must preserve its pointer's scalar type and documented results",
                 );
             }
+
             // A device register's alignment is the program's to get right; an atomic's is checked.
             if !volatile {
                 let address = f.b.conv(ir::ConvOp::Bitcast, Ty::Ptr, Ty::I64, values[0]);
@@ -230,6 +251,7 @@ impl Compiler {
                 let bad = f.b.cmp(ir::CmpOp::Ne, Ty::I64, low, zero);
                 let fail = f.b.new_block();
                 let ready = f.b.new_block();
+
                 f.b.branch(bad, fail, ready);
                 f.b.switch_to(fail);
                 self.emit_stopping_check(
@@ -241,15 +263,19 @@ impl Compiler {
                 )?;
                 f.b.switch_to(ready);
             }
+
             values.push(f.b.iconst(Ty::I64, width));
         }
+
         if !f.type_only
             && let Some(call) = f.lifetimes.as_mut().and_then(|r| r.calls.last_mut())
         {
             call.memory = intrinsic_memory_effects(op);
         }
+
         let results = f.b.intrinsic(op, values, &returns);
         let outs = vec![None; sig.returns.len()];
+
         Ok(self.call_results(f, &sig.returns, results, outs, &sig.return_callables))
     }
 
@@ -273,6 +299,7 @@ impl Compiler {
                 "`black_box` needs a value with a runtime representation",
             );
         }
+
         let (&[value], &[ty], [param]) = (values, sig.returns.as_slice(), sig.params.as_slice())
         else {
             return err(
@@ -281,6 +308,7 @@ impl Compiler {
                 "`black_box` takes one value and returns it",
             );
         };
+
         if param.ty != ty {
             return err(
                 Code::CallBlackBox,
@@ -288,12 +316,15 @@ impl Compiler {
                 "`black_box` returns the type of its argument",
             );
         }
+
         if self.is_memory_type(ty) {
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
             let slot = f.b.alloca(size.max(1), align);
+
             f.b.copy(slot, value, size);
             f.b.intrinsic(ir::Intrinsic::BlackBoxMemory, vec![slot], &[]);
+
             return Ok(self.call_results(
                 f,
                 &sig.returns,
@@ -302,6 +333,7 @@ impl Compiler {
                 &sig.return_callables,
             ));
         }
+
         let Some(scalar) = self.ir_ty(ty) else {
             return err(
                 Code::CallBlackBox,
@@ -311,6 +343,7 @@ impl Compiler {
         };
         let results =
             f.b.intrinsic(ir::Intrinsic::BlackBox, vec![value], &[scalar]);
+
         Ok(self.call_results(f, &sig.returns, results, vec![None], &sig.return_callables))
     }
 
@@ -332,11 +365,13 @@ impl Compiler {
             op.clone()
         } else {
             let expr = arg.expr.as_ref().unwrap();
+
             match self.check_expr_no_emit(arg.scope, expr) {
                 Ok(op) => op,
                 Err(_) => self.check_expr(f, arg.scope, expr, Some(TypeId::S64))?,
             }
         };
+
         match op {
             Operand::Const {
                 value: Value::Int(v),
@@ -366,6 +401,7 @@ impl Compiler {
             }
         };
         let cas = kind == OrderedAtomic::CompareExchange;
+
         if cas && !(0..=0xff).contains(&mode) {
             return err(
                 Code::CallAtomicOperation,
@@ -373,12 +409,14 @@ impl Compiler {
                 format!("`{name}` was given an unknown memory order"),
             );
         }
+
         let (first, second) = if cas {
             (order(mode & 15)?, order(mode >> 4)?)
         } else {
             (order(mode)?, ir::ORDER_RELAXED)
         };
         let released = |o: u8| o == ir::ORDER_RELEASE || o == ir::ORDER_ACQ_REL;
+
         Ok(match kind {
             OrderedAtomic::Load => {
                 if released(first) {
@@ -388,6 +426,7 @@ impl Compiler {
                         "an atomic load cannot use release or acq_rel ordering",
                     );
                 }
+
                 ir::Intrinsic::AtomicLoad(first)
             }
             OrderedAtomic::Store => {
@@ -398,6 +437,7 @@ impl Compiler {
                         "an atomic store cannot use acquire or acq_rel ordering",
                     );
                 }
+
                 ir::Intrinsic::AtomicStore(first)
             }
             OrderedAtomic::Exchange => ir::Intrinsic::AtomicRmw(Op::Xchg, first),
@@ -414,6 +454,7 @@ impl Compiler {
                         "the failure ordering of a compare-exchange cannot be release or acq_rel",
                     );
                 }
+
                 if !matches!((first, second), (0..=4, 0) | (1 | 3 | 4, 1) | (4, 4)) {
                     return err(
                         Code::CallAtomicOperation,
@@ -421,6 +462,7 @@ impl Compiler {
                         "compare-exchange failure ordering cannot be stronger than success ordering",
                     );
                 }
+
                 ir::Intrinsic::AtomicCas(first, second)
             }
         })
@@ -445,11 +487,13 @@ impl Compiler {
             op.clone()
         } else {
             let expr = arg.expr.as_ref().unwrap();
+
             match self.check_expr_no_emit(arg.scope, expr) {
                 Ok(op) => op,
                 Err(_) => self.check_expr(f, arg.scope, expr, Some(TypeId::S64))?,
             }
         };
+
         match op {
             Operand::Const {
                 value: Value::Int(w @ (16 | 32 | 64)),
@@ -464,6 +508,7 @@ fn intrinsic_memory_effects(
     op: ir::Intrinsic,
 ) -> Option<crate::ide::lifetimes::LifetimeMemoryEffects> {
     use crate::ide::lifetimes::LifetimeMemoryEffects as Memory;
+
     match op {
         ir::Intrinsic::FiberFree => Some(Memory {
             reads: 0,

@@ -28,6 +28,7 @@ fn code_declares(code: &[u8], name: &str) -> bool {
     let Ok(file) = crate::parser::parse_file(FileId(u32::MAX), code) else {
         return false;
     };
+
     file.stmts.iter().any(|stmt| match &stmt.kind {
         StmtKind::Decl(decl) => decl.names.iter().any(|n| n.name.as_str() == name),
         _ => false,
@@ -42,6 +43,7 @@ fn adds_declaration(text: &str, name: &str) -> bool {
     let Ok(tokens) = crate::lexer::lex(FileId(u32::MAX), text) else {
         return false;
     };
+
     tokens.windows(3).any(|w| {
         matches!(&w[0].tok, Tok::Ident(f) if f.as_str() == "add_build_string")
             && w[1].tok == Tok::Punct(P::LParen)
@@ -88,10 +90,13 @@ impl Compiler {
     fn suggest_unknown_identifier(&self, d: &Diagnostic, scope: ScopeId) -> Option<Diagnostic> {
         let span = d.span;
         let wanted = self.src.sources.snippet(span);
+
         if wanted.is_empty() {
             return None;
         }
+
         let mut d = d.clone().with_label("not found in this scope");
+
         if let Some((declared, file)) = self.file_scoped_elsewhere(scope, wanted) {
             d.code = Code::ScopeFileName;
             return Some(
@@ -104,16 +109,20 @@ impl Compiler {
                 )),
             );
         }
+
         // An exact declaration elsewhere is a better lead than a similar name in scope.
         if let Some(builder) = self.src.metaprogram_defining(wanted, span) {
             return Some(d.with_help(format!(
                 "`{wanted}` is added by `{builder}` (with `add_build_string`) when it builds this file: build through it, as in `jaic {builder}`"
             )));
         }
+
         let mut imports = self.imports_declaring(wanted);
         let namespaces = self.namespaces_exporting(scope, wanted, &imports);
+
         if namespaces.is_empty() {
             let names = self.names_visible_from(scope);
+
             if let Some(found) = crate::suggest::closest(wanted, names.iter().copied()) {
                 d = d.with_replacement(format!("a similar name exists: `{found}`"), span, found);
             }
@@ -122,6 +131,7 @@ impl Compiler {
             imports.clear();
             d = self.with_namespace_suggestions(d, wanted, span, &namespaces);
         }
+
         Some(self.with_import_suggestions(d, wanted, &imports, None))
     }
 
@@ -131,6 +141,7 @@ impl Compiler {
         let name = Sym::intern(wanted);
         let module = self.scope(scope).module;
         let here = self.scope_file(scope);
+
         self.src
             .files
             .iter()
@@ -146,6 +157,7 @@ impl Compiler {
                     .as_file()
                     .and_then(|p| p.file_name())
                     .map_or_else(|| f.path.to_string(), |n| n.to_string_lossy().into_owned());
+
                 Some((entity.span, format!("`{file}`")))
             })
     }
@@ -153,11 +165,14 @@ impl Compiler {
     /// An unknown `Module.name`: the modules that declare `name` (other than `Module`).
     fn suggest_module_member(&self, d: &Diagnostic, module: ModuleId) -> Option<Diagnostic> {
         let wanted = self.src.sources.snippet(d.span);
+
         if wanted.is_empty() {
             return None;
         }
+
         let module_name = self.ns.modules[module.0 as usize].name.as_str();
         let mut imports = self.imports_declaring(wanted);
+
         imports.retain(|i| i.module != module_name);
         Some(self.with_import_suggestions(d.clone(), wanted, &imports, Some(module_name)))
     }
@@ -197,22 +212,26 @@ impl Compiler {
             } else {
                 suggestion
             };
+
             d = d.with_suggestion(if i == 0 {
                 suggestion
             } else {
                 suggestion.unlisted()
             });
         }
+
         if imports.len() > 1 {
             let others: Vec<String> = imports[1..]
                 .iter()
                 .map(|i| format!("`{}`", i.module))
                 .collect();
+
             d = d.with_help(format!(
                 "other modules that declare `{wanted}`: {}",
                 others.join(", ")
             ));
         }
+
         d
     }
 
@@ -222,10 +241,13 @@ impl Compiler {
     /// (named by that path) last. At most [`MAX_IMPORTS`].
     fn imports_declaring(&self, name: &str) -> Vec<ImportSuggestion> {
         let key = DeclaringKey::Name(name.to_string());
+
         if let Some(found) = self.caches.declaring_imports.borrow().get(&key) {
             return found.clone();
         }
+
         let found = self.imports_declaring_name(name);
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::CachesDeclaringImports);
         self.caches
             .declaring_imports
@@ -245,6 +267,7 @@ impl Compiler {
     ) -> Vec<ImportSuggestion> {
         let mut names = Vec::new();
         let mut homes = Vec::new();
+
         for &ty in tys {
             let Some(home) = self.ty.struct_home_scope(ty) else {
                 continue;
@@ -256,6 +279,7 @@ impl Compiler {
                 .chars()
                 .take_while(|c| c.is_alphanumeric() || *c == '_')
                 .collect();
+
             names.push(base);
             // Prelude scopes belong to no module.
             homes.extend(
@@ -265,10 +289,13 @@ impl Compiler {
                     .map(|m| m.name.clone()),
             );
         }
+
         let key = DeclaringKey::Operator(text.to_string(), names.clone(), homes.clone());
+
         if let Some(found) = self.caches.declaring_imports.borrow().get(&key) {
             return found.clone();
         }
+
         let found = match self.stdlib_view() {
             Some(view) => {
                 let modules = view.modules_exporting_operator(text, &names, &homes);
@@ -276,6 +303,7 @@ impl Compiler {
             }
             None => Vec::new(),
         };
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::CachesDeclaringImports);
         self.caches
             .declaring_imports
@@ -288,6 +316,7 @@ impl Compiler {
         if name.len() < 2 || name.starts_with("__") {
             return Vec::new();
         }
+
         let Some(view) = self.stdlib_view() else {
             return Vec::new();
         };
@@ -300,6 +329,7 @@ impl Compiler {
             Vec::new()
         };
         let modules = view.modules_exporting_name(name, &*self.src.fs);
+
         self.ranked_imports(&view, named, modules)
     }
 
@@ -314,21 +344,26 @@ impl Compiler {
         if modules.is_empty() {
             return found;
         }
+
         let ranking = ModuleRanking::new(HashMap::default(), (*view.importers).clone())
             .with_project(self.project_import_counts());
+
         modules.sort_by_cached_key(|&m| {
             let name = view.module_name(m);
             (ranking.rank(name), name.to_string(), m)
         });
+
         for m in modules {
             if found.len() >= MAX_IMPORTS {
                 break;
             }
+
             found.push(ImportSuggestion {
                 module: view.module_name(m).to_string(),
                 name: None,
             });
         }
+
         found
     }
 
@@ -337,14 +372,17 @@ impl Compiler {
         if let Some(view) = self.caches.stdlib_view.borrow().as_ref() {
             return view.clone();
         }
+
         let view = self.options.stdlib_root().map(|stdlib| {
             let index = StdlibIndex::shared(&*self.src.fs, stdlib);
+
             Rc::new(StdlibView::new(
                 index,
                 self.options.preload.as_deref(),
                 &*self.src.fs,
             ))
         });
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::CachesStdlibView);
         *self.caches.stdlib_view.borrow_mut() = Some(view.clone());
         view
@@ -356,6 +394,7 @@ impl Compiler {
         let Some(main) = self.ns.main_module else {
             return counts;
         };
+
         for file in self.src.files.iter().filter(|f| f.module == main) {
             for import in &self.scope(file.scope).imports {
                 if let Some(module) = import.module {
@@ -365,6 +404,7 @@ impl Compiler {
                 }
             }
         }
+
         counts
     }
 
@@ -374,30 +414,38 @@ impl Compiler {
         let mut names = Vec::new();
         let mut module_scopes = Vec::new();
         let mut current = Some(scope);
+
         while let Some(sid) = current {
             let s = self.scope(sid);
+
             names.extend(s.names.keys().map(|n| n.as_str()));
+
             for entry in &s.usings {
                 if let UsingEntry::Module(m, _) = entry {
                     module_scopes.push(self.ns.modules[m.0 as usize].scope);
                 }
             }
+
             for import in &s.imports {
                 if let Some(m) = import.module {
                     module_scopes.push(self.ns.modules[m.0 as usize].scope);
                 }
             }
+
             current = s.parent;
         }
+
         for m in [self.ns.preload, self.ns.runtime_support]
             .into_iter()
             .flatten()
         {
             module_scopes.push(self.ns.modules[m.0 as usize].scope);
         }
+
         for sid in module_scopes {
             names.extend(self.scope(sid).names.keys().map(|n| n.as_str()));
         }
+
         names.retain(|n| !n.starts_with("__"));
         names.sort_unstable();
         names.dedup();
@@ -437,29 +485,35 @@ impl Compiler {
             ),
         }
         .with_code(Code::StaticAssert);
+
         self.src
             .import_trace
             .failure(span, &d.message, mentions_os(cond));
+
         if !message.is_empty()
             && let Some(text) = shown
         {
             d = d.with_label(format!("`{text}` is false"));
         }
+
         // A condition on the target: say which one this compile is for.
         if mentions_target(cond) {
             let os = crate::target::os_member(self.options.os);
             let cpu = crate::target::cpu_member(self.options.cpu);
+
             d = d.with_note(
                 Span::NONE,
                 format!("this compile targets `OS == .{os}` and `CPU == .{cpu}`; the code is written for other targets"),
             );
         }
+
         if literal_false {
             d = d.with_note(
                 Span::NONE,
                 "`#assert(false)` marks code that does not support this configuration (OS, CPU or build options); the code around it says which",
             );
         }
+
         d
     }
 }
@@ -471,6 +525,7 @@ impl TypeState {
             if let Some(n) = f.name {
                 out.push(n.to_string());
             }
+
             if f.using
                 && depth < 3
                 && let Some(inner) = self.types.as_struct(self.types.repr_struct(f.ty))
@@ -495,6 +550,7 @@ impl TypeState {
         let (what, members): (&str, Vec<String>) = match self.types.kind(ty) {
             TypeKind::Struct(id) => {
                 let mut members = Vec::new();
+
                 self.field_names(*id, 0, &mut members);
                 members.extend(extra);
                 members.sort();
@@ -521,6 +577,7 @@ impl TypeState {
                         "this is a pointer to a pointer: dereference it once with `.*` first",
                     );
                 }
+
                 ("type", Vec::new())
             }
             _ => ("type", Vec::new()),
@@ -530,10 +587,12 @@ impl TypeState {
             span,
             format!("{what} `{shown}` has no member `{name}`"),
         );
+
         if let Some(near) =
             crate::suggest::closest(name.as_str(), members.iter().map(String::as_str))
         {
             let near = near.to_string();
+
             d = d.with_replacement(
                 format!("a member with a similar name exists: `{near}`"),
                 span,
@@ -541,6 +600,7 @@ impl TypeState {
             );
         } else if !members.is_empty() && members.len() <= 12 {
             let list: Vec<String> = members.iter().map(|m| format!("`{m}`")).collect();
+
             d = d.with_note(Span::NONE, format!("its members are {}", list.join(", ")));
         } else if members.is_empty()
             && matches!(
@@ -553,6 +613,7 @@ impl TypeState {
                 format!("`{shown}` is a plain value without members"),
             );
         }
+
         d
     }
 }
@@ -563,22 +624,29 @@ impl SourceState {
     fn metaprogram_defining(&self, name: &str, span: Span) -> Option<String> {
         let file = self.sources.try_get(span.file)?.path.as_file()?;
         let dir = file.parent()?;
+
         for candidate_dir in [Some(dir), dir.parent()].into_iter().flatten() {
             let mut entries = self.fs.list_dir(candidate_dir);
+
             entries.sort();
+
             for (entry, is_dir) in entries {
                 let path = candidate_dir.join(&entry);
+
                 if is_dir || !entry.ends_with(".jai") || path == file {
                     continue;
                 }
+
                 let Some(bytes) = self.fs.read(&path) else {
                     continue;
                 };
+
                 if adds_declaration(&String::from_utf8_lossy(&bytes), name) {
                     return Some(crate::display_path(&path));
                 }
             }
         }
+
         None
     }
 

@@ -7,38 +7,48 @@ const PLUGIN: &str = include_str!("../../../tests/compiler/semantics/plugin-life
 #[test]
 fn plugin_hooks_build_and_execute_a_real_native_child_workspace() {
     let dir = TempDir::new("cli-plugins");
+
     std::fs::create_dir_all(dir.join("modules/Lifecycle")).unwrap();
     std::fs::write(dir.join("modules/Lifecycle/module.jai"), PLUGIN).unwrap();
     let source = dir.join("program.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\"; main :: () { assert(generated==42); }\n",
     )
     .unwrap();
     let exe = dir.join("program");
+
     for check in [true, false] {
         let mut command = Command::new(env!("CARGO_BIN_EXE_jaic"));
+
         command.arg(&source);
+
         if check {
             command.arg("-check");
         } else {
             command.arg("-exe").arg(&exe);
         }
+
         let output = command.args(["+Lifecycle", "accept"]).output().unwrap();
+
         assert!(
             output.status.success(),
             "{}",
             String::from_utf8_lossy(&output.stderr)
         );
+
         if !check {
             assert!(Command::new(&exe).status().unwrap().success());
         }
     }
+
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
         .arg(&source)
         .args(["-check", "+Lifecycle", "refuse"])
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("plugin initialization failed"),
@@ -51,6 +61,7 @@ fn plugin_hooks_build_and_execute_a_real_native_child_workspace() {
 fn runtime_storage_options_distinguish_metadata_from_target_initialization() {
     let dir = TempDir::new("cli-runtime-settings");
     let source = dir.join("settings.jai");
+
     for no_output in [false, true] {
         let output_setting = if no_output {
             "options.output_type=.NO_OUTPUT;"
@@ -71,12 +82,14 @@ fn runtime_storage_options_distinguish_metadata_from_target_initialization() {
             main :: () {{}}
         "#
         );
+
         std::fs::write(&source, text).unwrap();
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg(&source)
             .arg("-check")
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -92,10 +105,13 @@ fn runtime_storage_options_distinguish_metadata_from_target_initialization() {
 #[test]
 fn module_scope_factories_support_default_and_explicit_parameters() {
     let dir = TempDir::new("cli-scoped-plugins");
+
     std::fs::create_dir_all(dir.join("modules/Scoped")).unwrap();
     let plugin=format!("#module_parameters (XYZ := true);\n#scope_module;\n{}\n#scope_export;\n",PLUGIN.replace("C.add_build_string(\"generated :: 42;\", p.workspace);","if XYZ C.add_build_string(\"generated :: 42;\", p.workspace); else C.add_build_string(\"generated :: 43;\", p.workspace);"));
+
     std::fs::write(dir.join("modules/Scoped/module.jai"), plugin).unwrap();
     let source = dir.join("program.jai");
+
     for (import, expected) in [("+Scoped", 42), ("+Scoped(XYZ=false)", 43)] {
         std::fs::write(
             &source,
@@ -107,6 +123,7 @@ fn module_scope_factories_support_default_and_explicit_parameters() {
             .args(["-check", import, "accept"])
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -119,6 +136,7 @@ fn module_scope_factories_support_default_and_explicit_parameters() {
 fn test_discovery_names_the_example_of_a_bad_bench_note() {
     let dir = TempDir::new("cli-plugins-bench-note");
     let source = dir.join("bench.jai");
+
     std::fs::write(
         &source,
         "#import \"Extensions/Testing\";\nslow :: (b: *Bench) {} @bench @samples(lots)\n",
@@ -130,6 +148,7 @@ fn test_discovery_names_the_example_of_a_bad_bench_note() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(!output.status.success(), "{stderr}");
     assert!(
         stderr

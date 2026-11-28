@@ -28,6 +28,7 @@ impl TempDir {
         let base = jacket_config::env::TEST_TMPDIR
             .os()
             .map_or_else(std::env::temp_dir, PathBuf::from);
+
         std::fs::create_dir_all(&base).expect("the test temp directory can be created");
         let clean: String = name
             .chars()
@@ -48,6 +49,7 @@ impl TempDir {
                 std::process::id(),
                 NEXT.fetch_add(1, Ordering::Relaxed)
             ));
+
             match std::fs::create_dir(&path) {
                 Ok(()) => break path,
                 Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
@@ -55,6 +57,7 @@ impl TempDir {
             }
         };
         let path = path.canonicalize().unwrap_or(path);
+
         TempDir {
             path,
         }
@@ -69,10 +72,12 @@ impl TempDir {
     /// Writes `text` to `relative` (creating parent directories) and returns the file's path.
     pub fn write(&self, relative: &str, text: impl AsRef<[u8]>) -> PathBuf {
         let path = self.path.join(relative);
+
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)
                 .unwrap_or_else(|error| panic!("cannot create {}: {error}", parent.display()));
         }
+
         std::fs::write(&path, text)
             .unwrap_or_else(|error| panic!("cannot write {}: {error}", path.display()));
         path
@@ -90,6 +95,7 @@ impl TempDir {
     #[must_use]
     pub fn keep(self) -> PathBuf {
         let path = self.path.clone();
+
         std::mem::forget(self);
         path
     }
@@ -101,6 +107,7 @@ impl Drop for TempDir {
             eprintln!("test files kept in {}", self.path.display());
             return;
         }
+
         let _ = std::fs::remove_dir_all(&self.path);
     }
 }
@@ -133,6 +140,7 @@ mod tests {
     fn directories_are_unique_and_empty() {
         let a = TempDir::new("same");
         let b = TempDir::new("same");
+
         assert_ne!(a.path(), b.path());
         assert!(a.read_dir().unwrap().next().is_none());
     }
@@ -141,6 +149,7 @@ mod tests {
     fn write_creates_parents() {
         let dir = TempDir::new("write");
         let file = dir.write("a/b/c.txt", "hi");
+
         assert_eq!(std::fs::read_to_string(file).unwrap(), "hi");
     }
 
@@ -148,6 +157,7 @@ mod tests {
     fn dropping_removes_the_directory() {
         let dir = TempDir::new("drop");
         let path = dir.path().to_path_buf();
+
         drop(dir);
         assert!(!path.exists());
     }
@@ -155,8 +165,10 @@ mod tests {
     #[test]
     fn names_are_made_safe() {
         let dir = TempDir::new("a/b c");
+
         assert!(dir.exists());
         let name = dir.file_name().unwrap().to_string_lossy().into_owned();
+
         assert!(name.starts_with("jaic-test-a_b_c-"), "{name}");
     }
 
@@ -171,17 +183,21 @@ mod tests {
         let stale: Vec<PathBuf> = (from..from + 64)
             .map(|n| base.join(format!("jaic-test-leftover-{}-{n}", std::process::id())))
             .collect();
+
         for dir in &stale {
             std::fs::create_dir_all(dir).unwrap();
             std::fs::write(dir.join("old"), "from an earlier run").unwrap();
         }
+
         let fresh = TempDir::new("leftover");
         let canonical: Vec<PathBuf> = stale.iter().filter_map(|d| d.canonicalize().ok()).collect();
         let reused = canonical.contains(&fresh.path().to_path_buf());
         let empty = fresh.read_dir().unwrap().next().is_none();
+
         for dir in &stale {
             let _ = std::fs::remove_dir_all(dir);
         }
+
         assert!(!reused && empty, "reused a leftover directory");
     }
 }

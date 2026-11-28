@@ -15,16 +15,19 @@ pub fn lines(want: &str, got: &str) -> String {
     let w: Vec<&str> = want.lines().collect();
     let g: Vec<&str> = got.lines().collect();
     let mut out = String::from("--- want\n+++ got\n");
+
     for change in TextDiff::from_slices(&w, &g).iter_all_changes() {
         let mark = match change.tag() {
             ChangeTag::Equal => "  ",
             ChangeTag::Delete => "- ",
             ChangeTag::Insert => "+ ",
         };
+
         out.push_str(mark);
         out.push_str(change.value());
         out.push('\n');
     }
+
     if want.ends_with('\n') != got.ends_with('\n') {
         out.push_str(if got.ends_with('\n') {
             "(got ends with a line break; want does not)\n"
@@ -32,6 +35,7 @@ pub fn lines(want: &str, got: &str) -> String {
             "(want ends with a line break; got does not)\n"
         });
     }
+
     out.truncate(out.trim_end().len());
     out
 }
@@ -60,6 +64,7 @@ mod tests {
         let want: String = (0..5000).map(|i| format!("line {i}\n")).collect();
         let got = want.replace("line 2500\n", "line 2500 changed\n");
         let diff = super::lines(&want, &got);
+
         assert!(
             diff.contains("\n- line 2500\n+ line 2500 changed\n"),
             "{diff}"

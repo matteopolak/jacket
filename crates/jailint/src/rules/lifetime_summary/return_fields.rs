@@ -11,11 +11,13 @@ impl super::prepared::Core<'_> {
         places: &super::Places,
     ) {
         let stack: HashSet<_> = body.stack_places.iter().copied().collect();
+
         for (id, ((value, _), path)) in places.paths.iter().enumerate() {
             if path.is_empty() && stack.contains(value) {
                 self.owned.insert(id);
             }
         }
+
         self.write_sources = self
             .writes
             .iter()
@@ -38,6 +40,7 @@ impl super::prepared::Core<'_> {
                 _ => None,
             })
             .collect();
+
         self.nullable_sources = self
             .writes
             .iter()
@@ -45,7 +48,9 @@ impl super::prepared::Core<'_> {
                 if self.write_sources.contains_key(&place) {
                     return None;
                 }
+
                 let mut selected = None;
+
                 for &source in sources {
                     let empty = empty_descriptors.get(&source).is_some_and(|ty| {
                         places.existing(source, *ty).is_none_or(|p| {
@@ -57,14 +62,18 @@ impl super::prepared::Core<'_> {
                                     .any(|p| self.writes.contains_key(p))
                         })
                     });
+
                     if empty {
                         continue;
                     }
+
                     if selected.is_some_and(|old| old != source) {
                         return None;
                     }
+
                     selected = Some(source);
                 }
+
                 selected.map(|source| (place, source))
             })
             .collect();
@@ -80,15 +89,18 @@ impl Resolver<'_> {
         if depth > super::MAX_PATH {
             return Vec::new();
         }
+
         let Some(st) = self.compiler.ty.types.as_struct(ty) else {
             return Vec::new();
         };
         let mut out = Vec::new();
+
         for field in self.compiler.ty.types.struct_info(st).fields.iter() {
             let Some(name) = field.name else {
                 continue;
             };
             let head = Projection::Field(name);
+
             if self.compiler.ty.types.as_struct(field.ty).is_some() {
                 for path in self.storage_fields(field.ty, depth + 1) {
                     out.push(std::iter::once(head).chain(path).collect());
@@ -99,6 +111,7 @@ impl Resolver<'_> {
                 out.push(vec![head]);
             }
         }
+
         out
     }
 
@@ -107,6 +120,7 @@ impl Resolver<'_> {
             let doms = super::flow::return_dominators(self.body);
             let mut writes = HashSet::default();
             let mut initialized = HashSet::default();
+
             for event in self
                 .body
                 .blocks
@@ -137,6 +151,7 @@ impl Resolver<'_> {
                     _ => {}
                 }
             }
+
             (writes, initialized)
         })
     }
@@ -145,24 +160,32 @@ impl Resolver<'_> {
         if self.return_definitions().0.contains(&place) {
             return true;
         }
+
         if let Some(&proven) = self.return_cuts.borrow().get(&place) {
             return proven;
         }
+
         let mut queue = std::collections::VecDeque::from([0]);
         let mut seen = vec![false; self.body.blocks.len()];
         let mut proven = true;
+
         while let Some(i) = queue.pop_front() {
             if std::mem::replace(&mut seen[i], true) {
                 continue;
             }
+
             let b = &self.body.blocks[i];
+
             if b.events.iter().any(|e| matches!(e, Event::Store{place:p,ty,..} if self.places.existing(*p,*ty) == Some(place))) {continue;}
+
             if b.normal_return {
                 proven = false;
                 break;
             }
+
             queue.extend(&b.successors);
         }
+
         self.return_cuts.borrow_mut().insert(place, proven);
         proven
     }
@@ -175,11 +198,13 @@ impl Resolver<'_> {
         {
             return false;
         }
+
         let mut ty = self.places.paths[place].0.1;
         let Some(image) = self.compiler.ty.default_images.get(&ty) else {
             return false;
         };
         let mut offset = 0u64;
+
         for projection in projections {
             let Projection::Field(name) = projection else {
                 return false;
@@ -198,13 +223,16 @@ impl Resolver<'_> {
             else {
                 return false;
             };
+
             offset += field.offset;
             ty = field.ty;
         }
+
         let Some(image) = image else {
             return true;
         };
         let end = offset + self.compiler.ty.types.size_of(ty);
+
         image
             .bytes
             .get(offset as usize..end as usize)
@@ -221,9 +249,11 @@ impl Resolver<'_> {
         if let Some(&source) = self.write_sources.get(&place) {
             return Some(source);
         }
+
         if !self.return_mode.get() {
             return None;
         }
+
         self.nullable_sources.get(&place).copied()
     }
 
@@ -238,6 +268,7 @@ impl Resolver<'_> {
         if depth > 24 {
             return None;
         }
+
         for def in self.values.get(&value).into_iter().flatten() {
             match def {
                 Def::Call(..) => return self.field_origin(value, ty, projections, all, depth + 1),
@@ -247,13 +278,16 @@ impl Resolver<'_> {
                 _ => {}
             }
         }
+
         let root = self.places.existing(value, ty)?;
+
         if let Some(source) = self.return_source(root)
             && source != value
             && (self.return_definition(root) || self.empty_field_default(root, projections))
         {
             return self.returned_field_origin(source, ty, projections, all, depth + 1);
         }
+
         None
     }
 
@@ -266,10 +300,13 @@ impl Resolver<'_> {
         depth: usize,
     ) -> Option<Path> {
         let key = (value, ty, projections.to_vec());
+
         if let Some(path) = self.field_origins.borrow().get(&key).cloned() {
             return Some(path);
         }
+
         let path = self.compute_field_origin(value, ty, projections, all, depth)?;
+
         self.field_origins.borrow_mut().insert(key, path.clone());
         Some(path)
     }
@@ -285,6 +322,7 @@ impl Resolver<'_> {
         if depth > 24 {
             return None;
         }
+
         let steps = projections
             .iter()
             .map(|p| match p {
@@ -294,6 +332,7 @@ impl Resolver<'_> {
                 Projection::DynamicElement(_) => None,
             })
             .collect::<Option<Vec<_>>>()?;
+
         for def in self.values.get(&value).into_iter().flatten() {
             match def {
                 Def::Call(callee, args, index) => {
@@ -302,7 +341,9 @@ impl Resolver<'_> {
                         .return_fields
                         .get(&(*index, steps.clone()))?;
                     let mut path = path.clone();
+
                     path.root = self.allocation_root(&path.root, value, args)?;
+
                     return self.substitute(&path, args, all, &mut HashSet::default(), depth + 1);
                 }
                 Def::Copy(source) if *source != value => {
@@ -311,10 +352,12 @@ impl Resolver<'_> {
                 _ => {}
             }
         }
+
         let root = self.places.existing(value, ty)?;
         let field = projections
             .iter()
             .try_fold(root, |p, projection| self.places.projected(p, *projection));
+
         if let Some(sources) = field.and_then(|p| self.writes.get(&p)) {
             if !(self.return_definition(field?)
                 || self.field_defined_before_uses(root, field?)
@@ -322,7 +365,9 @@ impl Resolver<'_> {
             {
                 return None;
             }
+
             let mut origin = None;
+
             for source in sources {
                 if self
                     .return_guard(*source, all, &mut HashSet::default())?
@@ -330,14 +375,19 @@ impl Resolver<'_> {
                 {
                     return None;
                 }
+
                 let path = self.trace(*source, all, &mut HashSet::default(), depth + 1)?;
+
                 if origin.as_ref().is_some_and(|old| old != &path) {
                     return None;
                 }
+
                 origin = Some(path);
             }
+
             return origin;
         }
+
         if let Some(field_ty) = field.and_then(|p| self.places.types.get(&p))
             && matches!(
                 self.compiler.ty.types.kind(*field_ty),
@@ -349,32 +399,42 @@ impl Resolver<'_> {
             )
         {
             let mut data = projections.to_vec();
+
             data.push(Projection::Field(jaic::intern::Sym::intern("data")));
+
             if let Some(path) = self.field_origin(value, ty, &data, all, depth + 1) {
                 return Some(path);
             }
         }
+
         for (prefix, prefix_ty, sources, tail) in self.stored_field_prefixes(root, ty, projections)
         {
             if !(self.return_definition(prefix) || self.field_defined_before_uses(root, prefix)) {
                 continue;
             }
+
             let mut origin = None;
+
             for source in sources {
                 let path = self.field_origin(*source, prefix_ty, tail, all, depth + 1)?;
+
                 if origin.as_ref().is_some_and(|old| old != &path) {
                     return None;
                 }
+
                 origin = Some(path);
             }
+
             return origin;
         }
+
         if let Some(source) = self.return_source(root)
             && source != value
             && (self.return_definition(root) || self.empty_field_default(root, projections))
         {
             return self.field_origin(source, ty, projections, all, depth + 1);
         }
+
         // Memory-class results share one physical return slot across branches.
         // Different headers can still select exactly the same storage origin.
         if self.return_mode.get()
@@ -382,15 +442,20 @@ impl Resolver<'_> {
             && self.return_definition(root)
         {
             let mut origin = None;
+
             for source in self.writes.get(&root)? {
                 let path = self.field_origin(*source, ty, projections, all, depth + 1)?;
+
                 if origin.as_ref().is_some_and(|old| old != &path) {
                     return None;
                 }
+
                 origin = Some(path);
             }
+
             return origin;
         }
+
         None
     }
 }
@@ -408,6 +473,7 @@ impl Resolver<'_> {
             let info = self.compiler.ty.types.struct_info(st);
             !info.is_union && !info.fields.iter().any(|f| f.overlay)
         });
+
         (1..projections.len()).rev().filter_map(move |split| {
             if !ordinary
                 || self.writes.contains_key(&root)
@@ -418,15 +484,18 @@ impl Resolver<'_> {
             {
                 return None;
             }
+
             let prefix = projections[..split]
                 .iter()
                 .try_fold(root, |p, field| self.places.projected(p, *field))?;
             let ty = *self.places.types.get(&prefix)?;
             let st = self.compiler.ty.types.as_struct(ty)?;
             let info = self.compiler.ty.types.struct_info(st);
+
             if info.is_union || info.fields.iter().any(|f| f.overlay) {
                 return None;
             }
+
             Some((
                 prefix,
                 ty,
@@ -443,21 +512,26 @@ impl Resolver<'_> {
         if self.exposed.contains(&self.places.root_of(root)) {
             return false;
         }
+
         let (value, ty) = self.places.paths[root].0;
         let mut queue = std::collections::VecDeque::from([0]);
         let mut seen = vec![false; self.body.blocks.len()];
+
         while let Some(i) = queue.pop_front() {
             if std::mem::replace(&mut seen[i], true) {
                 continue;
             }
+
             let block = &self.body.blocks[i];
             let mut defined = false;
+
             for event in &block.events {
                 if matches!(event, Event::Store{place,ty,..} if self.places.existing(*place,*ty)==Some(field))
                 {
                     defined = true;
                     break;
                 }
+
                 let used = match event {
                     Event::Return {
                         value: source,
@@ -483,14 +557,17 @@ impl Resolver<'_> {
                     } => *source == value,
                     _ => false,
                 };
+
                 if used {
                     return false;
                 }
             }
+
             if !defined {
                 queue.extend(&block.successors);
             }
         }
+
         true
     }
 }
@@ -505,14 +582,19 @@ impl Resolver<'_> {
         if !visiting.insert(v) {
             return None;
         }
+
         if let Some(cast) = self.address_casts.get(&v).filter(|c| c.to_pointer) {
             let original =
                 self.integer_address_source(cast.source, all, &mut HashSet::default(), 0)?;
             let guard = self.return_guard(original, all, visiting);
+
             visiting.remove(&v);
+
             return guard;
         }
+
         let mut guard = None;
+
         for def in self.values.get(&v)? {
             let next = match def {
                 Def::Load(p, _) => {
@@ -553,6 +635,7 @@ impl Resolver<'_> {
                             })
                             .or_else(|| summary.returns.get(index))?
                     };
+
                     if let Some((formal, expected)) = condition {
                         self.mode_guard(args.iter().find(|a| a.formal == *formal)?, *expected, all)?
                     } else {
@@ -565,11 +648,14 @@ impl Resolver<'_> {
                 }
                 Def::Address(_) | Def::Borrow(_) | Def::Parameter(_) => None,
             };
+
             if guard.is_some() && next != guard {
                 return None;
             }
+
             guard = next;
         }
+
         visiting.remove(&v);
         Some(guard)
     }
@@ -583,10 +669,12 @@ impl Resolver<'_> {
         if let Some(actual) = mode.constant {
             return (actual == expected).then_some(None);
         }
+
         let path = self.trace(value(mode)?, all, &mut HashSet::default(), 0)?;
         let Root::Parameter(formal) = path.root else {
             return None;
         };
+
         path.steps.is_empty().then_some(Some((formal, expected)))
     }
 
@@ -597,9 +685,11 @@ impl Resolver<'_> {
         {
             return true;
         }
+
         let Root::Parameter(formal) = path.root else {
             return false;
         };
+
         path.steps.is_empty()
             && self.params.values().any(|(n, t)| {
                 *n == formal
@@ -626,6 +716,7 @@ impl Resolver<'_> {
         let mut returns = HashMap::default();
         let mut elements = HashMap::default();
         let mut fields: HashMap<usize, HashMap<Vec<super::Step>, super::Path>> = HashMap::default();
+
         for event in body
             .blocks
             .iter()
@@ -644,14 +735,17 @@ impl Resolver<'_> {
                 if self.adjusted_pointer(*value, all, &mut HashSet::default(), 0) {
                     next.adjusted_returns.insert(*index);
                 }
+
                 let selected: HashMap<_, _> = self
                     .storage_fields(*ty, 0)
                     .into_iter()
                     .filter_map(|projections| {
                         let origin = self.field_origin(*value, *ty, &projections, all, 0)?;
+
                         if matches!(origin.root, Root::Local(_)) {
                             return None;
                         }
+
                         let steps = projections
                             .into_iter()
                             .map(|p| match p {
@@ -662,21 +756,25 @@ impl Resolver<'_> {
                         Some((steps, origin))
                     })
                     .collect();
+
                 if let Some(old) = fields.get_mut(index) {
                     old.retain(|path, origin| selected.get(path) == Some(origin));
                 } else {
                     fields.insert(*index, selected);
                 }
+
                 if *constant == Some(0)
                     && (self.compiler.ty.types.is_pointer(*ty)
                         || matches!(self.compiler.ty.types.kind(*ty), TypeKind::Proc(_)))
                 {
                     continue;
                 }
+
                 let element = self.element(*value, all).filter(|(p, s)| {
                     matches!(p.root, Root::Parameter(_))
                         && !matches!(s, Selector::Local(_) | Selector::Unknown)
                 });
+
                 elements
                     .entry(*index)
                     .and_modify(|old| {
@@ -701,6 +799,7 @@ impl Resolver<'_> {
                         )
                     })
                     .zip(self.return_guard(*value, all, &mut HashSet::default()));
+
                 returns
                     .entry(*index)
                     .and_modify(|previous| {
@@ -711,16 +810,19 @@ impl Resolver<'_> {
                     .or_insert(path);
             }
         }
+
         for (index, selected) in fields {
             for (path, origin) in selected {
                 next.return_fields.insert((index, path), origin);
             }
         }
+
         for (index, element) in elements {
             if let Some(e) = element {
                 next.elements.insert(index, e);
             }
         }
+
         for (index, path) in returns {
             if let Some(path) = path {
                 if index == 0
@@ -730,12 +832,15 @@ impl Resolver<'_> {
                 {
                     continue;
                 }
+
                 next.returns.insert(index, path);
             }
         }
+
         self.field_origins.borrow_mut().clear();
         self.allocation_mode.set(true);
         let mut allocations = HashMap::default();
+
         for event in body
             .blocks
             .iter()
@@ -754,12 +859,14 @@ impl Resolver<'_> {
                 if *constant == Some(0) && self.compiler.ty.types.is_pointer(*ty) {
                     continue;
                 }
+
                 let path = self
                     .trace(*value, all, &mut HashSet::default(), 0)
                     .filter(|p| {
                         !matches!(p.root, Root::Local(_)) && self.result_carries_storage(*ty, p)
                     })
                     .zip(self.return_guard(*value, all, &mut HashSet::default()));
+
                 allocations
                     .entry(*index)
                     .and_modify(|old| {
@@ -770,6 +877,7 @@ impl Resolver<'_> {
                     .or_insert(path);
             }
         }
+
         for (index, path) in allocations {
             if let Some(path) = path
                 && path.1.is_some()
@@ -778,6 +886,7 @@ impl Resolver<'_> {
                 next.allocations.insert(index, path);
             }
         }
+
         self.allocation_mode.set(false);
         self.return_mode.set(false);
         self.field_origins.borrow_mut().clear();
@@ -793,6 +902,7 @@ fn ordered_load_sources(
     owned: &HashSet<usize>,
 ) -> HashMap<Val, Val> {
     let mut stores = HashMap::<usize, Vec<(usize, usize, Val)>>::default();
+
     for (block, events) in body.blocks.iter().enumerate() {
         for (ordinal, event) in events.events.iter().enumerate() {
             if let Event::Store {
@@ -813,12 +923,16 @@ fn ordered_load_sources(
             }
         }
     }
+
     let mut result = HashMap::default();
+
     if stores.is_empty() {
         return result;
     }
+
     let edges: Vec<_> = body.blocks.iter().map(|b| b.successors.clone()).collect();
     let parents = super::flow::dominators(&edges);
+
     for (block, events) in body.blocks.iter().enumerate() {
         for (ordinal, event) in events.events.iter().enumerate() {
             if let Event::Load {
@@ -841,6 +955,7 @@ fn ordered_load_sources(
             }
         }
     }
+
     result
 }
 
@@ -958,17 +1073,21 @@ fn stored_loads(
                 _ => stored.clear(),
             }
         }
+
         stored
     };
     // Forward to a fixed point; a block no path has reached yet agrees with whatever arrives first.
     let mut entering: Vec<Option<Stored>> = vec![None; body.blocks.len()];
+
     entering[0] = Some(Stored::default());
     let mut pending = vec![0];
+
     while let Some(at) = pending.pop() {
         let Some(start) = entering[at].clone() else {
             continue;
         };
         let leaving = run(&body.blocks[at], start, None);
+
         for &next in &body.blocks[at].successors {
             let merged = match &entering[next] {
                 None => leaving.clone(),
@@ -978,16 +1097,20 @@ fn stored_loads(
                     .map(|(&place, &value)| (place, value))
                     .collect(),
             };
+
             if entering[next].as_ref() != Some(&merged) {
                 entering[next] = Some(merged);
                 pending.push(next);
             }
         }
     }
+
     let mut result = HashMap::default();
+
     for (block, start) in body.blocks.iter().zip(entering) {
         run(block, start.unwrap_or_default(), Some(&mut result));
     }
+
     result
 }
 
@@ -996,10 +1119,13 @@ fn dominates(parents: &[Option<usize>], ancestor: usize, mut node: usize) -> boo
         if node == ancestor {
             return true;
         }
+
         if parent == node {
             return false;
         }
+
         node = parent;
     }
+
     false
 }

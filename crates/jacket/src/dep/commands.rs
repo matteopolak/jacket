@@ -50,6 +50,7 @@ pub(super) fn asked(entry: &Dependency) -> String {
         Ok(Asked::Rev(rev)) => format!("rev {rev}"),
         Ok(Asked::Unpinned) | Err(_) => "-".into(),
     };
+
     if entry.shared {
         format!("{text} (shared)")
     } else {
@@ -67,10 +68,13 @@ pub struct Pin {
 
 pub fn dispatch(action: Action, cwd: &Path, ctx: &mut Ctx) -> Result<bool> {
     let mut project = Project::open(cwd)?;
+
     ctx.git.preflight(&project.dir)?;
+
     if asks_forges(&action, &project) {
         ctx.forge.preflight()?;
     }
+
     match action {
         Action::Add {
             spec,
@@ -128,10 +132,12 @@ fn asks_forges(action: &Action, project: &Project) -> bool {
         } => return false,
         _ => {}
     }
+
     let resolver = &project.config.resolver;
     let active = |entry: &Dependency| {
         Policy::from_config(resolver, entry).is_ok_and(|policy| policy.active())
     };
+
     active(&Dependency::default()) || project.config.dependencies.values().any(active)
 }
 
@@ -141,6 +147,7 @@ pub(super) fn say(ctx: &mut Ctx, text: String) {
 
 fn newest_list(tags: &[Tagged]) -> String {
     let names: Vec<&str> = tags.iter().take(5).map(|t| t.tag.as_str()).collect();
+
     if names.is_empty() {
         "it has no tags that read as versions".to_string()
     } else {
@@ -182,6 +189,7 @@ impl Gate {
     ) -> Result<Self> {
         let policy = Policy::from_config(resolver, entry)
             .map_err(|e| DepError::new(format!("{name}: {e}")))?;
+
         Ok(Self {
             name: name.to_string(),
             entry: entry.clone(),
@@ -201,13 +209,16 @@ impl Gate {
         if !self.active() {
             return Verdict::Allowed;
         }
+
         let Some(repo) = &self.repo else {
             return Verdict::Unknown("a local path keeps no release times".into());
         };
+
         match forge::published(ctx.forge, ctx.cache, repo, tag, commit) {
             Ok(published) => {
                 let age = ctx.now - published;
                 let required = self.policy.required(&self.name, tag);
+
                 if age >= required {
                     Verdict::Allowed
                 } else {
@@ -229,12 +240,14 @@ impl Gate {
             policy::ago(age),
             self.policy.min_age.unwrap_or(Age::ZERO)
         );
+
         if let Some(jitter) = self.policy.jitter.filter(|jitter| *jitter > Age::ZERO) {
             said.push_str(&format!(
                 ", plus up to {jitter} of jitter (this version waits {})",
                 policy::span(required)
             ));
         }
+
         said
     }
 
@@ -252,11 +265,13 @@ impl Gate {
             Verdict::Allowed => format!("{} {subject} is allowed", self.name),
         };
         let mut waived = waived.clone();
+
         waived.min_release_age = Some("0".into());
         let mut error = DepError::new(message).note(format!(
             "to accept it, add `min-release-age = \"0\"` to its entry:\n{}",
             manifest::line(&self.name, &waived)
         ));
+
         error.too_new = matches!(verdict, Verdict::TooNew { .. });
         error
     }
@@ -287,6 +302,7 @@ fn pick(
         version: None,
         ..gate.entry.clone()
     };
+
     match ask {
         Ask::Tag(tag) => {
             let found = tags
@@ -299,6 +315,7 @@ fn pick(
                 rev: None,
                 version: None,
             };
+
             match gate.check(ctx, &tag, &found.commit) {
                 Verdict::Allowed => Ok(pin),
                 refused => Err(gate.refuse(&tag, &refused, &entry_for(&base, &pin))),
@@ -311,25 +328,31 @@ fn pick(
                 rev: Some(rev.as_str().to_string()),
                 version: None,
             };
+
             if gate.active() {
                 let why =
                     Verdict::Unknown("a commit has no release, so no recorded publish time".into());
                 return Err(gate.refuse(&format!("rev {rev}"), &why, &entry_for(&base, &pin)));
             }
+
             Ok(pin)
         }
         Ask::Range(requirement) => {
             let text = requirement.as_str();
             let found = resolve::matching(reading, tags, Some(requirement.range()));
+
             if found.is_empty() {
                 let all = resolve::matching(reading, tags, None);
+
                 return Err(DepError::new(format!("no tag of {url} satisfies `{text}`"))
                     .note(newest_list(&all)));
             }
+
             let recorded = Dependency {
                 version: Some(text.to_string()),
                 ..base
             };
+
             accept_newest(ctx, gate, &found, &recorded, |newest| Pin {
                 commit: newest.commit.clone().into(),
                 tag: None,
@@ -339,6 +362,7 @@ fn pick(
         }
         Ask::Latest => {
             let found = resolve::matching(reading, tags, None);
+
             if !found.is_empty() {
                 return accept_newest(ctx, gate, &found, &base, |newest| {
                     match resolve::recorded(reading, newest) {
@@ -357,6 +381,7 @@ fn pick(
                     }
                 });
             }
+
             if !tags.is_empty() {
                 let _ = writeln!(
                     ctx.err,
@@ -365,6 +390,7 @@ fn pick(
                     scheme_name(reading)
                 );
             }
+
             let head = ctx.git.remote_head(url)?;
             let pin = Pin {
                 rev: Some(short(&head).to_string()),
@@ -372,12 +398,15 @@ fn pick(
                 tag: None,
                 version: None,
             };
+
             if gate.active() {
                 let why =
                     Verdict::Unknown("a commit has no release, so no recorded publish time".into());
                 let subject = format!("rev {}", short(&pin.commit));
+
                 return Err(gate.refuse(&subject, &why, &entry_for(&base, &pin)));
             }
+
             Ok(pin)
         }
     }
@@ -394,6 +423,7 @@ pub(super) fn accept_newest(
     shape: impl Fn(&Tagged) -> Pin,
 ) -> Result<Pin> {
     let mut newest_refusal: Option<(String, Verdict)> = None;
+
     for candidate in found {
         match gate.check(ctx, &candidate.tag, &candidate.commit) {
             Verdict::Allowed => {
@@ -412,6 +442,7 @@ pub(super) fn accept_newest(
                         gate.too_new(*age, *required)
                     );
                 }
+
                 return Ok(shape(candidate));
             }
             Verdict::Unknown(why) => {
@@ -424,6 +455,7 @@ pub(super) fn accept_newest(
             }
         }
     }
+
     let (tag, verdict) = newest_refusal.expect("candidates were given");
     Err(gate.refuse(&tag, &verdict, waived))
 }
@@ -472,23 +504,29 @@ fn add(
     let url = source.url();
     let explicit = name.is_some();
     let name = name.unwrap_or_else(|| source.name());
+
     if name.is_empty() || name.contains(['/', '\\']) || name == "." || name == ".." {
         return Err(
             DepError::new(format!("`{name}` is not a usable dependency name"))
                 .note("pass one with --name"),
         );
     }
+
     if project.config.dependencies.contains_key(&name) {
         return Err(DepError::new(format!("`{name}` is already a dependency")));
     }
+
     let path = SubPath::parse(&format!("modules/{name}")).map_err(DepError::new)?;
     let known = ctx.git.submodules(&project.dir)?;
+
     if known.iter().any(|s| s.path == path) {
         return Err(DepError::new(format!("{path} is already a submodule"))
             .note("`jacket dep init` adopts existing submodules"));
     }
+
     let full = project.dir.join(&path);
     let vendored = full.exists() && full.read_dir().is_ok_and(|mut d| d.next().is_some());
+
     if vendored && !explicit {
         return Err(
             DepError::new(format!("{path} already exists and is not a submodule")).note(format!(
@@ -496,6 +534,7 @@ fn add(
             )),
         );
     }
+
     let mut entry = Dependency {
         git: source.to_string(),
         scheme: scheme.map(|s| s.name().to_string()),
@@ -510,14 +549,17 @@ fn add(
     let pin = pick(ctx, &gate, &url, &reading, &tags, ask)?;
     // Everything that can fail without changing anything has been asked; now the tree changes.
     let undo = Snapshot::take(ctx, project)?;
+
     if vendored {
         ctx.git
             .remove_tree(&project.dir, &path)
             .map_err(|e| DepError::new(format!("{path} already exists: {e}")))?;
     }
+
     if let Err(error) = ctx.git.add(&project.dir, &url, &path, &pin.commit) {
         return Err(undone(ctx, project, &undo, vendored, error));
     }
+
     entry.tag.clone_from(&pin.tag);
     entry.rev.clone_from(&pin.rev);
     entry.version.clone_from(&pin.version);
@@ -542,26 +584,33 @@ fn add(
         Err(error) => return Err(undone(ctx, project, &undo, vendored, error)),
     };
     let (name, path) = (found.name, found.path);
+
     entry.module = found.module;
+
     if project.config.dependencies.contains_key(&name) {
         let error = DepError::new(format!("`{name}` is already a dependency"));
         return Err(undone(ctx, project, &undo, vendored, error));
     }
+
     if path.as_str() != format!("modules/{name}") {
         entry.path = Some(path.to_string());
     }
+
     let mut text = match manifest::set_dependency(&project.text, &name, &entry) {
         Ok(text) => text,
         Err(error) => {
             return Err(undone(ctx, project, &undo, vendored, DepError::new(error)));
         }
     };
+
     if project.config.resolver.seed.is_none() {
         text = manifest::set_seed(&text, &fresh_seed());
     }
+
     if let Err(error) = project.save(text) {
         return Err(undone(ctx, project, &undo, vendored, error));
     }
+
     let head = match ctx.git.head(&project.dir, &path) {
         Ok(head) => head,
         Err(error) => return Err(undone(ctx, project, &undo, vendored, error)),
@@ -573,12 +622,14 @@ fn add(
         .version
         .as_deref()
         .map_or(String::new(), |v| format!(" ({v})"));
+
     // Sharing can add or move other copies; all of them go if it fails.
     if let Err(error) =
         dedupe::run(ctx, project, false).and_then(|()| dedupe::checkout_nested(ctx, project))
     {
         return Err(undone(ctx, project, &undo, vendored, error));
     }
+
     say(
         ctx,
         format!("added {name} {shown}{asked} at {path} ({})", short(&head)),
@@ -596,11 +647,13 @@ fn undone(
     error: DepError,
 ) -> DepError {
     let mut error = before.restore(ctx, project, error);
+
     if vendored {
         error = error.note(
             "the copy that was replaced was removed; restore it with `git checkout HEAD -- <path>`",
         );
     }
+
     error
 }
 
@@ -608,16 +661,19 @@ fn remove(ctx: &mut Ctx, project: &mut Project, name: &str) -> Result<()> {
     let Some(entry) = project.config.dependencies.get(name) else {
         return Err(DepError::new(format!("`{name}` is not a dependency")));
     };
+
     if entry.shared {
         return Err(
             DepError::new(format!("{name} is shared: other dependencies need it"))
                 .note("it is removed with the last of them"),
         );
     }
+
     let path = path_of(name, entry)?;
     let known = ctx.git.submodules(&project.dir)?;
     let before = Snapshot::take(ctx, project)?;
     let (text, _) = manifest::remove_dependency(&project.text, name);
+
     project.save(text)?;
     // The entry stays until the submodule is gone, and a package that cannot be shared without it
     // brings both back.
@@ -625,11 +681,14 @@ fn remove(ctx: &mut Ctx, project: &mut Project, name: &str) -> Result<()> {
         if known.iter().any(|s| s.path == path) {
             ctx.git.remove(&project.dir, &path)?;
         }
+
         dedupe::run(ctx, project, false)
     })();
+
     if let Err(error) = result {
         return Err(before.restore(ctx, project, error));
     }
+
     say(ctx, format!("removed {name} ({path})"));
     Ok(())
 }
@@ -644,6 +703,7 @@ pub(super) fn resolved_tag(
 ) -> Option<String> {
     let tags = git.tags_at(&project.dir, path, commit).ok()?;
     let reading = Reading::of(entry).ok()?;
+
     resolve::resolved(&reading, &tags).map(ToString::to_string)
 }
 
@@ -663,9 +723,11 @@ fn newer(
         return "-".into();
     };
     let asked = Asked::of(entry).unwrap_or(Asked::Unpinned);
+
     if let Asked::Range(requirement) = &asked {
         let range = requirement.range().clone();
         let current = resolved.and_then(|t| reading.parse(t));
+
         return match (
             resolve::matching(&reading, &tags, Some(&range)).first(),
             current,
@@ -687,12 +749,14 @@ fn newer(
             _ => "-".into(),
         };
     }
+
     if matches!(asked, Asked::Rev(_)) {
         return match ctx.git.remote_head(url) {
             Ok(head) if Some(&head) != commit => format!("{} (new commits)", short(&head)),
             _ => "-".into(),
         };
     }
+
     "-".into()
 }
 
@@ -701,6 +765,7 @@ fn age_note(ctx: &Ctx, gate: &Gate, tag: &str, commit: &CommitId) -> &'static st
     if !gate.active() {
         return "";
     }
+
     match gate
         .repo
         .as_ref()
@@ -717,14 +782,18 @@ fn list(ctx: &mut Ctx, project: &Project, all_tags: bool, offline: bool) -> Resu
         say(ctx, "no dependencies".into());
         return Ok(());
     }
+
     let known = ctx.git.submodules(&project.dir)?;
     let mut header = ["NAME", "ASKED", "RESOLVED", "COMMIT", "PATH"]
         .map(String::from)
         .to_vec();
+
     if !offline {
         header.push("NEWER".into());
     }
+
     let mut rows = vec![header];
+
     for (name, entry) in &project.config.dependencies {
         let path = path_of(name, entry)?;
         let sub = known.iter().find(|s| s.path == path);
@@ -745,29 +814,37 @@ fn list(ctx: &mut Ctx, project: &Project, all_tags: bool, offline: bool) -> Resu
             _ => "-".into(),
         };
         let mut row = vec![name.clone(), asked(entry), shown, commit, path.to_string()];
+
         if !offline {
             let full = sub.map(|s| &s.commit);
             let url = url_of(project, entry)?;
             let gate = Gate::new(project, name, entry, &url)?;
+
             row.push(newer(ctx, &gate, entry, &url, resolved.as_deref(), full));
         }
+
         rows.push(row);
     }
+
     let columns = rows[0].len();
     let widths: Vec<usize> = (0..columns)
         .map(|c| rows.iter().map(|r| r[c].chars().count()).max().unwrap_or(0))
         .collect();
+
     for row in rows {
         let cells: Vec<String> = row
             .iter()
             .zip(&widths)
             .map(|(cell, w)| format!("{cell:<w$}"))
             .collect();
+
         say(ctx, cells.join("  ").trim_end().to_string());
     }
+
     for line in requirements(ctx, project, &known)? {
         say(ctx, line);
     }
+
     if all_tags {
         for (name, entry) in &project.config.dependencies {
             let tags = ctx.git.remote_tags(&url_of(project, entry)?)?;
@@ -777,11 +854,13 @@ fn list(ctx: &mut Ctx, project: &Project, all_tags: bool, offline: bool) -> Resu
                 .filter(|t| reading.parse(t.name.as_str()).is_none())
                 .map(|t| t.name.as_str())
                 .collect();
+
             if !skipped.is_empty() {
                 say(ctx, format!("{name}: not versions: {}", skipped.join(", ")));
             }
         }
     }
+
     Ok(())
 }
 
@@ -811,8 +890,10 @@ fn apply(ctx: &mut Ctx, project: &mut Project, plan: &Planned, keep_range: bool)
         next,
         ..
     } = plan;
+
     ctx.git.move_to(&project.dir, path, &next.commit)?;
     let manifest = package::read(&path.under(&project.dir)).unwrap_or_default();
+
     package::check_jacket_version(&manifest.package, env!("CARGO_PKG_VERSION"))
         .map_err(|why| DepError::new(format!("{name}: {why}")))?;
     let updated = Dependency {
@@ -825,10 +906,12 @@ fn apply(ctx: &mut Ctx, project: &mut Project, plan: &Planned, keep_range: bool)
         ..entry.clone()
     };
     let text = manifest::set_dependency(&project.text, name, &updated).map_err(DepError::new)?;
+
     project.save(text)?;
     let head = ctx.git.head(&project.dir, path)?;
     let now = resolved_tag(ctx.git, project, &updated, path, &head)
         .unwrap_or_else(|| format!("rev {}", short(&head)));
+
     Ok(format!("updated {name} to {now} ({})", short(&head)))
 }
 
@@ -856,22 +939,29 @@ fn update(ctx: &mut Ctx, project: &mut Project, only: Option<&str>, to: Option<A
             .map(|(name, _)| name.clone())
             .collect(),
     };
+
     if to.is_some() && names.len() != 1 {
         return Err(DepError::new("--to needs one dependency name"));
     }
+
     let known = ctx.git.submodules(&project.dir)?;
     let mut gates = Vec::new();
+
     for name in &names {
         let entry = &project.config.dependencies[name];
+
         gates.push(Gate::new(project, name, entry, &url_of(project, entry)?)?);
     }
+
     let repos: Vec<Repo> = gates
         .iter()
         .filter(|g| g.active() && !matches!(Asked::of(&g.entry), Ok(Asked::Tag(_))))
         .filter_map(|g| g.repo.clone())
         .collect();
+
     forge::prefetch(ctx.forge, ctx.cache, &repos);
     let mut plans: Vec<Planned> = Vec::new();
+
     for (name, gate) in names.into_iter().zip(gates) {
         let entry = project.config.dependencies[&name].clone();
         let path = path_of(&name, &entry)?;
@@ -888,6 +978,7 @@ fn update(ctx: &mut Ctx, project: &mut Project, only: Option<&str>, to: Option<A
             Asked::Tag(tag) => Some(tag.to_string()),
             _ => None,
         };
+
         if let (Some(pinned), true) = (&pinned, ctx.git.initialised(&project.dir, &path)?)
             && let Some(tag) = named
                 .clone()
@@ -905,6 +996,7 @@ fn update(ctx: &mut Ctx, project: &mut Project, only: Option<&str>, to: Option<A
                 _ => {}
             }
         }
+
         let ask = match (&to, &asked) {
             (Some(at), _) => resolve::classify(&reading, &tags, Some(at))?,
             (None, Asked::Tag(tag)) => {
@@ -927,13 +1019,16 @@ fn update(ctx: &mut Ctx, project: &mut Project, only: Option<&str>, to: Option<A
                     tag: None,
                     version: None,
                 };
+
                 if gate.active() {
                     let why = Verdict::Unknown(
                         "a commit has no release, so no recorded publish time".into(),
                     );
                     let subject = format!("rev {}", short(&pin.commit));
+
                     return Err(gate.refuse(&subject, &why, &entry_for(&entry, &pin)));
                 }
+
                 pin
             }
             _ => match pick(ctx, &gate, &url, &reading, &tags, ask) {
@@ -946,10 +1041,12 @@ fn update(ctx: &mut Ctx, project: &mut Project, only: Option<&str>, to: Option<A
                 Err(error) => return Err(error),
             },
         };
+
         if pinned.as_ref().map(CommitId::as_str) == Some(next.commit.as_str()) {
             say(ctx, format!("{name} is up to date"));
             continue;
         }
+
         plans.push(Planned {
             name,
             entry,
@@ -957,6 +1054,7 @@ fn update(ctx: &mut Ctx, project: &mut Project, only: Option<&str>, to: Option<A
             next,
         });
     }
+
     // Every remote has been asked and every version chosen; only now does anything change.
     let before = Snapshot::take(ctx, project)?;
     let mut lines = Vec::new();
@@ -964,35 +1062,44 @@ fn update(ctx: &mut Ctx, project: &mut Project, only: Option<&str>, to: Option<A
         for plan in &plans {
             lines.push(apply(ctx, project, plan, to.is_none())?);
         }
+
         dedupe::run(ctx, project, only.is_none())?;
         dedupe::checkout_nested(ctx, project)
     })();
+
     if let Err(error) = result {
         return Err(before.restore(ctx, project, error));
     }
+
     for line in lines {
         say(ctx, line);
     }
+
     Ok(())
 }
 
 fn sync(ctx: &mut Ctx, project: &Project) -> Result<()> {
     let known = ctx.git.submodules(&project.dir)?;
     let mut paths = Vec::new();
+
     for (name, entry) in &project.config.dependencies {
         let path = path_of(name, entry)?;
+
         if !known.iter().any(|s| s.path == path) {
             return Err(DepError::new(format!(
                 "{name} is in jacket.toml but {path} is not a submodule"
             ))
             .note(format!("run `jacket dep remove {name}` and add it again")));
         }
+
         paths.push(path);
     }
+
     if paths.is_empty() {
         say(ctx, "no dependencies".into());
         return Ok(());
     }
+
     ctx.git.sync(&project.dir, &paths)?;
     dedupe::checkout_nested(ctx, project)?;
     say(ctx, format!("checked out {} dependencies", paths.len()));
@@ -1002,12 +1109,15 @@ fn sync(ctx: &mut Ctx, project: &Project) -> Result<()> {
 /// The module folders a compile searches by itself: `<dir>/modules` and `[project] import_path`.
 pub(super) fn module_folders(project: &Project) -> Vec<String> {
     let mut folders = vec!["modules".to_string()];
+
     for dir in &project.config.project.import_path.0 {
         let dir = dir.trim_end_matches('/').trim_start_matches("./");
+
         if !dir.is_empty() && !folders.iter().any(|f| f == dir) {
             folders.push(dir.to_string());
         }
     }
+
     folders
 }
 
@@ -1016,15 +1126,19 @@ fn fresh_seed() -> String {
     use std::hash::{BuildHasher, Hasher};
     let mut seed = String::new();
     let state = std::collections::hash_map::RandomState::new();
+
     while seed.len() < 8 {
         let mut hasher = state.build_hasher();
+
         hasher.write_usize(seed.len());
         let mut n = hasher.finish();
+
         for _ in 0..4 {
             seed.push(char::from_digit((n % 36) as u32, 36).unwrap_or('0'));
             n /= 36;
         }
     }
+
     seed
 }
 
@@ -1033,19 +1147,25 @@ fn init(ctx: &mut Ctx, project: &mut Project, reseed: bool) -> Result<()> {
     let folders = module_folders(project);
     let mut text = project.text.clone();
     let mut adopted = 0;
+
     for sub in &known {
         let folder = sub.path.parent().unwrap_or("");
+
         if !folders.iter().any(|f| f == folder) {
             continue;
         }
+
         let name = sub.path.name().to_string();
         let mut listed = false;
+
         for e in project.config.dependencies.values() {
             listed |= path_of(&name, e)? == sub.path;
         }
+
         if listed || project.config.dependencies.contains_key(&name) {
             continue;
         }
+
         let Some(url) = &sub.url else {
             continue;
         };
@@ -1059,10 +1179,12 @@ fn init(ctx: &mut Ctx, project: &mut Project, reseed: bool) -> Result<()> {
         } else {
             None
         };
+
         match tag {
             Some(tag) => entry.tag = Some(tag),
             None => entry.rev = Some(short(&sub.commit).to_string()),
         }
+
         let gate = Gate::new(project, &name, &entry, &url_of(project, &entry)?)?;
         let (subject, verdict) = match &entry.tag {
             Some(tag) => (tag.clone(), gate.check(ctx, tag, &sub.commit)),
@@ -1072,21 +1194,26 @@ fn init(ctx: &mut Ctx, project: &mut Project, reseed: bool) -> Result<()> {
             ),
             None => (String::new(), Verdict::Allowed),
         };
+
         if !matches!(verdict, Verdict::Allowed) {
             let error = gate.refuse(&subject, &verdict, &entry);
             let _ = writeln!(ctx.err, "warning: {}", error.message);
+
             for note in &error.notes {
                 let mut lines = note.lines();
                 let _ = writeln!(ctx.err, "note: {}", lines.next().unwrap_or(""));
+
                 for rest in lines {
                     let _ = writeln!(ctx.err, "      {rest}");
                 }
             }
         }
+
         text = manifest::set_dependency(&text, &name, &entry).map_err(DepError::new)?;
         say(ctx, format!("adopted {name} ({})", asked(&entry)));
         adopted += 1;
     }
+
     for folder in &folders {
         let dir = project.dir.join(folder);
         let Ok(entries) = std::fs::read_dir(&dir) else {
@@ -1096,6 +1223,7 @@ fn init(ctx: &mut Ctx, project: &mut Project, reseed: bool) -> Result<()> {
             .filter_map(std::result::Result::ok)
             .filter(|e| {
                 let path = e.path();
+
                 !known.iter().any(|s| project.dir.join(&s.path) == path)
                     && (path.join("module.jai").is_file()
                         || path.extension().is_some_and(|x| x == "jai"))
@@ -1109,19 +1237,25 @@ fn init(ctx: &mut Ctx, project: &mut Project, reseed: bool) -> Result<()> {
                     .any(|(n, e)| path_of(n, e).is_ok_and(|own| own.as_str() == p))
             })
             .collect();
+
         vendored.sort();
+
         for path in vendored {
             say(ctx, format!("vendored, not managed: {path}"));
         }
     }
+
     if reseed || project.config.resolver.seed.is_none() {
         text = manifest::set_seed(&text, &fresh_seed());
     }
+
     if text != project.text {
         project.save(text)?;
     }
+
     if adopted == 0 {
         say(ctx, "no submodules to adopt".into());
     }
+
     Ok(())
 }

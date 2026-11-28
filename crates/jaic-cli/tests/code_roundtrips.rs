@@ -83,8 +83,10 @@ fn unsupported_edits_are_rejected() {
             .arg("-check")
             .output()
             .unwrap();
+
         assert!(!output.status.success(), "{path}");
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         assert!(stderr.contains(message), "{path}: {stderr}");
     }
 }
@@ -93,9 +95,11 @@ fn unsupported_edits_are_rejected() {
 #[test]
 fn graph_roundtrips_execute_native_at_o0_and_o2() {
     let dir = TempDir::new("code-roundtrips");
+
     for (i, &(path, expected)) in CASES.iter().enumerate() {
         for opt in ["-O0", "-O2"] {
             let executable = dir.join(format!("case-{i}{opt}"));
+
             success(
                 Command::new(env!("CARGO_BIN_EXE_jaic"))
                     .arg(source(path))
@@ -116,12 +120,15 @@ fn edited_parameter_filters_and_named_literal_targets_execute_as_real_wasi_comma
     if !toolchain::require_all(&["node"]) {
         return;
     }
+
     let dir = TempDir::new("code-roundtrip-wasi");
+
     for (i, (path, expected)) in [CASES[1], CASES[3], CASES[4], CASES[5], CASES[6], CASES[9]]
         .into_iter()
         .enumerate()
     {
         let module = dir.join(format!("syntax-{i}.wasm"));
+
         success(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
                 .arg(source(path))
@@ -133,6 +140,7 @@ fn edited_parameter_filters_and_named_literal_targets_execute_as_real_wasi_comma
         );
         let runner = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../../tools/browser/run_foundations_wasm.ts");
+
         success(
             toolchain::command("node")
                 .arg(runner)

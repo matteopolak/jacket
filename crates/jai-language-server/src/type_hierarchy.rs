@@ -13,6 +13,7 @@ impl Session {
             .lines()
             .next()
             .unwrap_or("");
+
         Ok(TypeHierarchyItem {
             name: row.name.as_str().into(),
             detail: detail.trim().into(),
@@ -30,15 +31,19 @@ impl Session {
         position: Position,
     ) -> Result<Vec<TypeHierarchyItem>, Error> {
         let mut items: Vec<TypeHierarchyItem> = Vec::new();
+
         for (target, row) in self.bindings(uri, position)? {
             if row.kind != SymbolKind::Struct || row.local {
                 continue;
             }
+
             let item = self.type_item(target, row)?;
+
             if !items.contains(&item) {
                 items.push(item);
             }
         }
+
         Ok(items)
     }
 
@@ -53,6 +58,7 @@ impl Session {
             .rows
             .iter()
             .position(|row| row.selection.start == start && row.kind == SymbolKind::Struct)?;
+
         Some((key, at))
     }
 
@@ -62,10 +68,12 @@ impl Session {
             return Ok(Vec::new());
         };
         let mut items: Vec<TypeHierarchyItem> = Vec::new();
+
         for (owner, base) in &self.analyses[key].bases {
             if *owner != id {
                 continue;
             }
+
             for candidate in self.reachable(key) {
                 for row in &self.analyses[candidate].rows {
                     if row.parent.is_none()
@@ -75,6 +83,7 @@ impl Session {
                         && (candidate == key || !row.file_private)
                     {
                         let found = self.type_item(candidate, row)?;
+
                         if !items.contains(&found) {
                             items.push(found);
                         }
@@ -82,6 +91,7 @@ impl Session {
                 }
             }
         }
+
         Ok(items)
     }
 
@@ -92,23 +102,29 @@ impl Session {
         };
         let name = self.analyses[key].rows[id].name;
         let mut items: Vec<TypeHierarchyItem> = Vec::new();
+
         for (uri, analysis) in &self.analyses {
             if analysis.bases.iter().all(|(_, base)| *base != name) {
                 continue;
             }
+
             if uri != key && !self.reachable(uri).contains(&key) {
                 continue;
             }
+
             for (owner, base) in &analysis.bases {
                 let row = &analysis.rows[*owner];
+
                 if *base == name && row.parent.is_none() && !row.local {
                     let found = self.type_item(uri, row)?;
+
                     if !items.contains(&found) {
                         items.push(found);
                     }
                 }
             }
         }
+
         Ok(items)
     }
 }

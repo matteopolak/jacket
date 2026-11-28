@@ -13,6 +13,7 @@ fn a_fixed_arity_overload_beats_a_packing_one() {
         .arg(source)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",

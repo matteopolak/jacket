@@ -6,6 +6,7 @@ fn lexings_of_many_files_are_kept_for_the_next_lookup() {
         .map(|i| format!("// File {i}.\nf_{i} :: () {{}}\n"))
         .collect();
     let first: Vec<_> = texts.iter().map(|t| trivia(t)).collect();
+
     // Going round the files again lexes none of them again.
     for (text, before) in texts.iter().zip(&first) {
         assert!(Rc::ptr_eq(&trivia(text), before), "{text}");
@@ -19,27 +20,33 @@ fn doc(text: &str, name: &str) -> Option<String> {
 #[test]
 fn line_comments_directly_above_are_the_docs() {
     let text = "x :: 1;\n\n// First.\n//  Indented *md*.\n//\n// Last.\nf :: () {}\n";
+
     assert_eq!(
         doc(text, "f ::").unwrap(),
         "First.\n Indented *md*.\n\nLast."
     );
     let gap = "// Not docs.\n\nf :: () {}\n";
+
     assert_eq!(doc(gap, "f ::"), None);
     let rule = "// ------\nf :: () {}\n";
+
     assert_eq!(doc(rule, "f ::"), None);
 }
 
 #[test]
 fn block_comments_are_docs() {
     let text = "/* Adds.\n * Twice.\n */\nf :: () {}\n";
+
     assert_eq!(doc(text, "f ::").unwrap(), "Adds.\nTwice.");
     let one = "/* One line. */\nf :: () {}\n";
+
     assert_eq!(doc(one, "f ::").unwrap(), "One line.");
 }
 
 #[test]
 fn fields_and_members_take_trailing_comments() {
     let text = "P :: struct {\n    x: int; // the x\n    // the y\n    y: int;\n}\n";
+
     assert_eq!(doc(text, "x:").unwrap(), "the x");
     assert_eq!(doc(text, "y:").unwrap(), "the y");
     assert_eq!(doc("f :: () { // not docs\n}\n", "f ::"), None);
@@ -60,6 +67,7 @@ right: int, // the right
 ) {}
 ";
     let at = |n: &str| text.find(n).unwrap();
+
     assert_eq!(declaration(text, at("a: int")).unwrap(), "the first");
     assert_eq!(
         declaration(text, at("b: int")).unwrap(),
@@ -68,6 +76,7 @@ right: int, // the right
     assert_eq!(declaration(text, at("left")).unwrap(), "the left");
     assert_eq!(declaration(text, at("right")).unwrap(), "the right");
     let open = header_open(text, at("g ::")).unwrap();
+
     assert_eq!(
         parameters(text, open),
         [
@@ -80,6 +89,7 @@ right: int, // the right
 #[test]
 fn locals_are_not_parameters() {
     let text = "// Doc.\nf :: (a: int) {\n    local := 1;\n}\n";
+
     assert_eq!(enclosing_header(text, text.find("local").unwrap()), None);
     assert!(enclosing_header(text, text.find("a:").unwrap()).is_some());
 }
@@ -87,6 +97,7 @@ fn locals_are_not_parameters() {
 #[test]
 fn links_in_prose() {
     let names = |s: &str| -> Vec<Vec<String>> { links(s).into_iter().map(|l| l.names).collect() };
+
     assert_eq!(
         names("see [print] and [`Basic.print`]"),
         [vec!["print"], vec!["Basic", "print"]]
@@ -105,6 +116,7 @@ fn fenced_code_is_the_jai_blocks_of_comments() {
         .into_iter()
         .map(|(s, e)| &text[s..e])
         .collect();
+
     assert_eq!(code, [" x := f(1);", " y := 2;"]);
 }
 
@@ -112,6 +124,7 @@ fn fenced_code_is_the_jai_blocks_of_comments() {
 fn markdown_tags_fences_and_links() {
     let resolve = |names: &[String]| (names == ["print"]).then(|| "file:///a.jai#L3".to_owned());
     let doc = "See [`print`] and [x].\n\n```\nlet [print]\n```\n\n```c\nint x;\n```";
+
     assert_eq!(
         markdown(doc, &resolve),
         "See [`print`](file:///a.jai#L3) and [x].\n\n```jai\nlet [print]\n```\n\n```c\nint x;\n```"
@@ -121,11 +134,13 @@ fn markdown_tags_fences_and_links() {
 #[test]
 fn targeted_links_include_their_closing_parenthesis() {
     let resolve = |names: &[String]| (names == ["print"]).then(|| "file:///a.jai#L3".to_owned());
+
     assert_eq!(
         markdown("a [the text](print) b", &resolve),
         "a [the text](file:///a.jai#L3) b"
     );
     let found = links("a [`x`](Basic.print) b");
+
     assert_eq!(
         &"a [`x`](Basic.print) b"[found[0].whole.0..found[0].whole.1],
         "[`x`](Basic.print)"
@@ -141,6 +156,7 @@ fn link_paths_exclude_code_marks() {
     let line = "[ `Basic.print()` ] [print()]";
     let found = links(line);
     let path = |i: usize| &line[found[i].path.0..found[i].path.1];
+
     assert_eq!((path(0), path(1)), ("Basic.print", "print"));
 }
 
@@ -158,6 +174,7 @@ fn meant_links_are_told_from_prose() {
         })
         .collect();
     let meant = |what: &str| found.iter().find(|f| f.0 == what).map(|f| f.1);
+
     assert_eq!(meant("[print]"), Some(true));
     assert_eq!(meant("[`print`]"), Some(true));
     assert_eq!(meant("[TODO]"), Some(false));
@@ -176,6 +193,7 @@ fn stale_offsets_answer_nothing() {
     // now, or inside a multibyte character.
     let text = "// docs\nf :: (a: int) {}\n\u{e9}";
     let inside = text.len() - 1;
+
     for at in [text.len() + 100, inside] {
         assert_eq!(declaration(text, at), None);
         assert_eq!(above(text, at), None);
@@ -201,6 +219,7 @@ fn declaration_lines() {
     ] {
         assert!(declaration_line(yes), "{yes}");
     }
+
     for no in ["x = 1;", "f(x);", "return a;", "case X:", "}", "if a {"] {
         assert!(!declaration_line(no), "{no}");
     }
@@ -211,6 +230,7 @@ fn sites_cover_runs_blocks_and_trailing_comments() {
     let text = "// Uses [helper].\nf :: () {}\nx: int; // see [Mode.IDLE]\n\n// stray [nothing]\n\ng :: 1;\n";
     let found = sites(text);
     let labels: Vec<&str> = found.iter().map(|s| &text[s.label.0..s.label.1]).collect();
+
     assert_eq!(labels, ["helper", "Mode.IDLE"]);
     assert_eq!(found[0].scope_at, text.find("f ::").unwrap());
     assert!(site_at(text, text.find("helper").unwrap() + 2).is_some());
@@ -220,12 +240,14 @@ fn sites_cover_runs_blocks_and_trailing_comments() {
 #[test]
 fn markdown_escapes_and_block_comment_links_map_back_to_the_file() {
     let found = links("not \\[a link\\] but [one]");
+
     assert_eq!(found.len(), 1);
     let text = "/* Block with [helper].\n * More [Mode.IDLE].\n */\nf :: () {}\n";
     let labels: Vec<&str> = sites(text)
         .iter()
         .map(|s| &text[s.label.0..s.label.1])
         .collect();
+
     assert_eq!(labels, ["helper", "Mode.IDLE"]);
 }
 
@@ -233,6 +255,7 @@ fn markdown_escapes_and_block_comment_links_map_back_to_the_file() {
 fn a_comment_above_an_export_line_documents_the_exported_procedure() {
     let text =
         "// The C `abort`: stops in a loop.\n#program_export \"abort\"\nstop :: () #c_call {}\n";
+
     assert_eq!(
         doc(text, "stop ::").unwrap(),
         "The C `abort`: stops in a loop."

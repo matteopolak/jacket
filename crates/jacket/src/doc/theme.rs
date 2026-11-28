@@ -30,6 +30,7 @@ impl Input {
             || std::env::temp_dir().join(format!("jacket-doc-input-{}", nonce())),
             Path::to_path_buf,
         );
+
         Ok(Self {
             path,
             temporary: keep.is_none(),
@@ -55,6 +56,7 @@ fn read_tree(root: &Path, dir: &Path, files: &mut BTreeMap<String, Vec<u8>>) -> 
         std::fs::read_dir(dir).map_err(|e| format!("cannot read {}: {e}", dir.display()))?
     {
         let path = entry.map_err(|e| e.to_string())?.path();
+
         // Hidden files are skipped as build.rs skips them in the embedded theme.
         if path
             .file_name()
@@ -62,23 +64,28 @@ fn read_tree(root: &Path, dir: &Path, files: &mut BTreeMap<String, Vec<u8>>) -> 
         {
             continue;
         }
+
         let meta = std::fs::symlink_metadata(&path).map_err(|e| e.to_string())?;
+
         if meta.file_type().is_symlink() {
             return Err(format!(
                 "theme symlinks are not supported: {}",
                 path.display()
             ));
         }
+
         if meta.is_dir() {
             read_tree(root, &path, files)?;
         } else if meta.is_file() {
             let name = jacket_config::slashed(path.strip_prefix(root).unwrap());
+
             files.insert(
                 name,
                 std::fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?,
             );
         }
     }
+
     Ok(())
 }
 
@@ -104,9 +111,11 @@ impl Theme {
             .map(|(p, b)| ((*p).to_owned(), b.to_vec()))
             .collect();
         let mut extra = BTreeMap::new();
+
         if let Some(root) = overrides {
             read_tree(root, root, &mut extra)?;
         }
+
         files.extend(extra.clone());
         Ok(Self {
             files,
@@ -124,22 +133,28 @@ impl Theme {
 
     fn key(&self, compiler_version: &[u8], web: &BTreeMap<String, Vec<u8>>) -> String {
         let mut hash = Sha256::new();
+
         hash_part(&mut hash, "jacket", env!("CARGO_PKG_VERSION").as_bytes());
         hash_part(&mut hash, "jaic", compiler_version);
+
         // Hash the original and the merged tree: even an override identical to an embedded
         // file is represented, and removed/added files cannot collide by concatenation.
         for (name, bytes) in FILES {
             hash_part(&mut hash, name, bytes);
         }
+
         for (name, bytes) in &self.files {
             hash_part(&mut hash, name, bytes);
         }
+
         for (name, bytes) in &self.overrides {
             hash_part(&mut hash, &format!("override/{name}"), bytes);
         }
+
         for (name, bytes) in web {
             hash_part(&mut hash, &format!("Web/{name}"), bytes);
         }
+
         crate::upgrade::checksum::hex(hash.finalize().as_slice())
     }
 
@@ -159,33 +174,42 @@ impl Theme {
             .arg("-version")
             .output()
             .map_err(|e| e.to_string())?;
+
         if !version.status.success() {
             return Err("jaic -version failed".into());
         }
+
         let mut web = BTreeMap::new();
         let web_root = stdlib.join("Extensions/Web");
+
         read_tree(&web_root, &web_root, &mut web)?;
         let mut identity = version.stdout;
         // Backend features may differ between two compilers with the same -version string.
         let compiler =
             std::fs::read(jaic).map_err(|e| format!("cannot read {}: {e}", jaic.display()))?;
+
         identity.extend_from_slice(&Sha256::digest(compiler));
         let key = self.key(&identity, &web);
         let dir = cache.join("jacket/doc-site").join(key);
+
         std::fs::create_dir_all(&dir)
             .map_err(|e| format!("cannot create theme cache {}: {e}", dir.display()))?;
         // Install sources before compiling: #filepath is also the theme's asset root, so
         // the compiler must see the final path rather than a staging directory's name.
         let source = dir.join("src");
+
         if !source.is_dir() {
             let stage = dir.join(format!(".src-{}", nonce()));
+
             std::fs::create_dir(&stage).map_err(|e| e.to_string())?;
             let result = (|| {
                 for (name, bytes) in &self.files {
                     let file = stage.join(name);
+
                     std::fs::create_dir_all(file.parent().unwrap()).map_err(|e| e.to_string())?;
                     std::fs::write(&file, bytes).map_err(|e| e.to_string())?;
                 }
+
                 match std::fs::rename(&stage, &source) {
                     Ok(()) => Ok(()),
                     Err(_) if source.is_dir() => Ok(()),
@@ -193,9 +217,12 @@ impl Theme {
                 }
             })();
             let _ = std::fs::remove_dir_all(&stage);
+
             result?;
         }
+
         let binary = dir.join(format!("doc-site{}", std::env::consts::EXE_SUFFIX));
+
         if binary.is_file() {
             if timings {
                 eprintln!(
@@ -203,10 +230,12 @@ impl Theme {
                     start.elapsed().as_secs_f64()
                 );
             }
+
             return Ok(Prepared {
                 binary,
             });
         }
+
         let temp = dir.join(format!(
             ".doc-site-{}{}",
             nonce(),
@@ -219,10 +248,12 @@ impl Theme {
             .arg(&temp)
             .output()
             .map_err(|e| format!("cannot start jaic: {e}"))?;
+
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
             let _ = std::fs::remove_file(&temp);
+
             if stderr.contains("built without the `llvm` feature and cannot write native output")
                 || stdout
                     .contains("built without the `llvm` feature and cannot write native output")
@@ -232,21 +263,26 @@ impl Theme {
                     jaic.display()
                 ));
             }
+
             eprint!("{stderr}");
             print!("{stdout}");
+
             return Err("documentation theme did not compile".into());
         } else if let Err(e) = std::fs::rename(&temp, &binary) {
             if !binary.is_file() {
                 return Err(format!("cannot install theme binary: {e}"));
             }
+
             let _ = std::fs::remove_file(&temp);
         }
+
         if timings {
             eprintln!(
                 "jacket doc timings: theme compile: {:.3}s",
                 start.elapsed().as_secs_f64()
             );
         }
+
         Ok(Prepared {
             binary,
         })
@@ -262,13 +298,16 @@ impl Prepared {
         check: bool,
     ) -> Result<ExitCode, String> {
         let mut command = Command::new(&self.binary);
+
         command
             .env(jacket_config::env::STDLIB.name, stdlib)
             .arg(input)
             .arg(out);
+
         if check {
             command.arg("--check");
         }
+
         let status = command
             .status()
             .map_err(|e| {
@@ -278,9 +317,11 @@ impl Prepared {
                     jaic::io_reason(&e)
                 )
             })?;
+
         if status.code().is_none() {
             eprintln!("jacket: error: documentation theme terminated: {status}");
         }
+
         Ok(ExitCode::from(
             status.code().unwrap_or(1).clamp(0, 255) as u8
         ))
@@ -296,6 +337,7 @@ mod tests {
     fn embedded_files_match_the_complete_theme_tree() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/doc/site");
         let mut disk = BTreeMap::new();
+
         read_tree(&root, &root, &mut disk).unwrap();
         assert_eq!(Theme::new(None).unwrap().files, disk);
     }
@@ -308,11 +350,13 @@ mod tests {
                 .all(|(name, _)| name.split('/').all(|part| !part.starts_with('.')))
         );
         let temp = TempDir::new("doc-hidden");
+
         std::fs::create_dir_all(temp.path().join(".vscode")).unwrap();
         std::fs::write(temp.path().join(".vscode/settings.json"), "{}").unwrap();
         std::fs::write(temp.path().join(".DS_Store"), "x").unwrap();
         std::fs::write(temp.path().join("extra.jai"), "").unwrap();
         let mut files = BTreeMap::new();
+
         read_tree(temp.path(), temp.path(), &mut files).unwrap();
         assert_eq!(files.keys().collect::<Vec<_>>(), ["extra.jai"]);
     }
@@ -323,13 +367,16 @@ mod tests {
         let web = BTreeMap::from([("module.jai".into(), b"Web".to_vec())]);
         let key = original.key(b"jaic 1", &web);
         let temp = TempDir::new("doc-overrides");
+
         // Identical overrides still have their own presence in the key.
         temp.write("main.jai", &original.files["main.jai"]);
         let same = Theme::new(Some(&temp)).unwrap();
+
         assert_ne!(key, same.key(b"jaic 1", &web));
         temp.write("assets/site.css", "body{color:green}");
         temp.write("assets/extra.txt", "extra");
         let theme = Theme::new(Some(&temp)).unwrap();
+
         assert_eq!(theme.files["assets/site.css"], b"body{color:green}");
         assert!(theme.assets().contains(&"assets/extra.txt".into()));
         assert_ne!(key, theme.key(b"jaic 1", &web));
@@ -340,11 +387,14 @@ mod tests {
     #[test]
     fn temporary_inputs_are_removed_and_explicit_inputs_are_kept() {
         let temporary = Input::new(None).unwrap();
+
         std::fs::create_dir(&temporary.path).unwrap();
         let path = temporary.path.clone();
+
         drop(temporary);
         assert!(!path.exists());
         let kept = TempDir::new("doc-input-kept");
+
         drop(Input::new(Some(&kept)).unwrap());
         assert!(kept.is_dir());
     }
@@ -363,6 +413,7 @@ printf '#!/bin/sh\nexit 0\n' > "$last"
 chmod +x "$last"
 "#,
         );
+
         std::fs::set_permissions(&jaic, std::fs::Permissions::from_mode(0o755)).unwrap();
         temp.write("stdlib/Extensions/Web/module.jai", "Web");
         std::thread::scope(|scope| {
@@ -373,6 +424,7 @@ chmod +x "$last"
                         let prepared = theme
                             .prepare_at(&jaic, &temp.join("stdlib"), false, &temp)
                             .unwrap();
+
                         assert!(prepared.binary.is_file());
                         assert_eq!(
                             std::fs::read(prepared.binary.parent().unwrap().join("src/main.jai"))
@@ -382,6 +434,7 @@ chmod +x "$last"
                     })
                 })
                 .collect();
+
             for handle in handles {
                 handle.join().unwrap();
             }
@@ -401,6 +454,7 @@ echo 'this jaic was built without the `llvm` feature and cannot write native out
 exit 1
 "#,
         );
+
         std::fs::set_permissions(&jaic, std::fs::Permissions::from_mode(0o755)).unwrap();
         temp.write("stdlib/Extensions/Web/module.jai", "Web");
         let theme = Theme::new(None).unwrap();
@@ -408,10 +462,12 @@ exit 1
             .prepare_at(&jaic, &temp.join("stdlib"), false, &temp)
             .err()
             .expect("the theme needs the native backend");
+
         assert!(error.contains("native backend"), "{error}");
         assert!(error.contains("install"), "{error}");
         // Nothing is cached, so a later run with a good compiler is not shadowed.
         let again = theme.prepare_at(&jaic, &temp.join("stdlib"), false, &temp);
+
         assert!(again.is_err());
     }
 }

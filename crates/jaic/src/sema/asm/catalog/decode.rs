@@ -30,15 +30,19 @@ pub(super) fn decode(name: &str) -> Option<Kind> {
             _ => None,
         };
     }
+
     if let Some(op) = lookup_op(name) {
         return Some(Kind::Core(op));
     }
+
     if let Some(op) = lookup_xop(name) {
         return Some(Kind::Scalar(op));
     }
+
     if let Some((op, ty)) = lookup_kop(name) {
         return Some(Kind::Mask(op, ty));
     }
+
     lookup_vec(name)
         .or_else(|| name.strip_prefix('v').and_then(lookup_vec))
         .map(Kind::Vector)
@@ -162,6 +166,7 @@ fn expand(pattern: &str) -> Vec<String> {
     };
     let close = open + pattern[open..].find('}').expect("closed alternative");
     let (head, tail) = (&pattern[..open], &pattern[close + 1..]);
+
     pattern[open + 1..close]
         .split(',')
         .flat_map(|alt| expand(&format!("{head}{alt}{tail}")))
@@ -177,20 +182,26 @@ pub(super) fn build() -> Vec<AsmInstruction> {
             feature,
             mnemonic: mnemonic.clone(),
         };
+
         table.entry(mnemonic).or_insert(entry);
     };
+
     for pattern in PATTERNS {
         for name in expand(pattern) {
             let Some(kind) = decode(&name) else {
                 continue;
             };
+
             match kind {
                 Kind::Vector(op) => {
                     let (legacy, vex) = vector_features(&name, op);
+
                     if let Some(feature) = legacy {
                         add(name.clone(), kind, feature, false);
                     }
+
                     let v = format!("v{name}");
+
                     if let Some(feature) = vex
                         && decode(&v).is_some()
                     {
@@ -201,5 +212,6 @@ pub(super) fn build() -> Vec<AsmInstruction> {
             }
         }
     }
+
     table.into_values().collect()
 }

@@ -11,27 +11,34 @@ fn sections(md: &str) -> HashMap<String, String> {
     let mut out = HashMap::default();
     let mut current: Option<(String, String)> = None;
     let mut in_code = false;
+
     for line in md.lines() {
         if line.trim_start().starts_with("```") {
             in_code = !in_code;
         }
+
         if !in_code && line.starts_with('#') {
             if let Some((name, body)) = current.take() {
                 out.insert(name, body);
             }
+
             if let Some(name) = line.strip_prefix("### ") {
                 current = Some((name.trim().to_owned(), String::new()));
             }
+
             continue;
         }
+
         if let Some((_, body)) = &mut current {
             body.push_str(line);
             body.push('\n');
         }
     }
+
     if let Some((name, body)) = current {
         out.insert(name, body);
     }
+
     out
 }
 
@@ -62,9 +69,11 @@ fn example(rule: &jailint::RuleInfo) -> String {
         .collect();
     // The fences are one group on the site: the example, the finding it draws, the fixed code.
     let mut out = String::new();
+
     if rule.default() == Level::Allow {
         out.push_str("Off by default; the example is shown with the rule enabled.\n\n");
     }
+
     if let Ok(settings) = std::fs::read_to_string(format!("{dir}/example.toml")) {
         let _ = write!(
             out,
@@ -72,15 +81,18 @@ fn example(rule: &jailint::RuleInfo) -> String {
             settings.trim_end()
         );
     }
+
     let _ = write!(out, "```jai example\n{}\n```\n\n", code.trim_end());
     let _ = write!(
         out,
         "```diagnostic\n{}\n```\n",
         finding.join("\n").trim_end()
     );
+
     if let Ok(fixed) = std::fs::read_to_string(format!("{dir}/example-fixed.jai")) {
         let _ = write!(out, "\n```jai fixed\n{}\n```\n", fixed.trim_end());
     }
+
     out
 }
 
@@ -89,11 +101,13 @@ fn example(rule: &jailint::RuleInfo) -> String {
 fn relink(text: &str, rules: &[&str]) -> String {
     let mut out = String::new();
     let mut rest = text;
+
     while let Some(at) = rest.find("](") {
         out.push_str(&rest[..at + 2]);
         rest = &rest[at + 2..];
         let end = rest.find(')').unwrap_or(rest.len());
         let dest = &rest[..end];
+
         if let Some(anchor) = dest.strip_prefix('#') {
             if rules.contains(&anchor) {
                 out.push_str(dest);
@@ -105,14 +119,17 @@ fn relink(text: &str, rules: &[&str]) -> String {
         } else {
             let _ = write!(out, "../tools/{dest}");
         }
+
         rest = &rest[end..];
     }
+
     out.push_str(rest);
     out
 }
 
 fn title(word: &str) -> String {
     let mut c = word.chars();
+
     c.next()
         .map(|f| f.to_uppercase().chain(c).collect())
         .unwrap_or_default()
@@ -140,6 +157,7 @@ fn main() {
          | Category | Default | What |\n| --- | --- | --- |\n",
         RULES.len()
     );
+
     for category in Category::ALL {
         let _ = writeln!(
             out,
@@ -150,11 +168,14 @@ fn main() {
             category.about()
         );
     }
+
     for category in Category::ALL {
         let mut rules: Vec<_> = RULES.iter().filter(|r| r.category == category).collect();
+
         if rules.is_empty() {
             continue;
         }
+
         rules.sort_by_key(|rule| rule.name);
         let _ = write!(
             out,
@@ -163,6 +184,7 @@ fn main() {
             title(category.about()),
             category.level().as_str()
         );
+
         for rule in rules {
             let _ = write!(
                 out,
@@ -173,13 +195,16 @@ fn main() {
                 rule.default().as_str(),
             );
             let _ = write!(out, "\n{}", example(rule));
+
             if let Some(text) = prose.get(rule.name) {
                 let text = relink(text.trim(), &names);
+
                 if !text.is_empty() {
                     let _ = write!(out, "\n{text}\n");
                 }
             }
         }
     }
+
     print!("{out}");
 }

@@ -10,14 +10,17 @@ fn definition_and_hierarchy_encode_reserved_native_filename_characters() {
     let mut s = lean_session();
     let uri = DocumentUri::parse("file:///file-uris/main%20%23%25%3F%C3%A9.jai").unwrap();
     let text = "target :: () {}\nmain :: () { target(); }";
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     assert!(s.hover(&uri, at_last(text, "target()")).unwrap().is_some());
     let definitions = s.definition(&uri, at_last(text, "target()")).unwrap();
+
     assert_eq!(definitions.len(), 1, "{definitions:?}");
     assert_eq!(definitions[0].uri, uri.as_str());
     let hierarchy = s
         .prepare_call_hierarchy(&uri, at_last(text, "target()"))
         .unwrap();
+
     assert_eq!(hierarchy.len(), 1, "{hierarchy:?}");
     assert_eq!(hierarchy[0].uri, uri.as_str());
 }
@@ -27,8 +30,10 @@ fn load_links_and_cross_file_definitions_use_encoded_destinations() {
     let mut s = lean_session();
     let main = file_uri("/file-uris/main.jai");
     let helper = DocumentUri::parse("file:///file-uris/helper%20%23%25%C3%A9.jai").unwrap();
+
     s.open(helper.clone(), 1, "answer :: 42;".into()).unwrap();
     let text = "#load \"helper #%é.jai\";\nmain :: () { value := answer; }";
+
     s.open(main.clone(), 1, text.into()).unwrap();
     assert_eq!(
         s.document_links(&main)
@@ -39,6 +44,7 @@ fn load_links_and_cross_file_definitions_use_encoded_destinations() {
         [helper.as_str()]
     );
     let definitions = s.definition(&main, at_last(text, "answer")).unwrap();
+
     assert_eq!(definitions.len(), 1, "{definitions:?}");
     assert_eq!(definitions[0].uri, helper.as_str());
 }
@@ -49,6 +55,7 @@ fn auto_import_keeps_authored_docs_for_encoded_module_directory() {
     let module =
         DocumentUri::parse("file:///file-uris/modules/Documented%20%23%25%C3%A9/module.jai")
             .unwrap();
+
     s.open(
         module,
         1,
@@ -57,6 +64,7 @@ fn auto_import_keeps_authored_docs_for_encoded_module_directory() {
     .unwrap();
     let main = file_uri("/file-uris/main.jai");
     let text = "main :: () { value: Visible_; }";
+
     s.open(main.clone(), 1, text.into()).unwrap();
     let start = at_last(text, "Visible_");
     let items = s
@@ -73,6 +81,7 @@ fn auto_import_keeps_authored_docs_for_encoded_module_directory() {
         .iter()
         .find(|item| item.label == "Visible_Record")
         .expect("actual public module export");
+
     assert!(
         item.additional_edits
             .iter()
@@ -121,6 +130,7 @@ fn filesystem_proven_alias_uses_one_current_open_document_and_edit_identity() {
             fs: std::rc::Rc::new(ProvenAlias),
             options: Box::new(|_| {
                 let mut o = jaic::sema::Options::host();
+
                 o.runtime_support = false;
                 o.stack_trace = false;
                 o
@@ -130,6 +140,7 @@ fn filesystem_proven_alias_uses_one_current_open_document_and_edit_identity() {
     let original = file_uri("/file-uris/Helper.jai");
     let alias = file_uri("/file-uris/helper.jai");
     let text = "/* 😀 */ answer :: 42;";
+
     s.open(original.clone(), 1, text.into()).unwrap();
     assert_eq!(s.source(&alias).as_deref(), Some(text));
     assert!(matches!(
@@ -137,6 +148,7 @@ fn filesystem_proven_alias_uses_one_current_open_document_and_edit_identity() {
         Err(jai_language_server::Error::AlreadyOpen)
     ));
     let start = at_last(text, "42");
+
     s.change(
         &alias,
         2,
@@ -158,11 +170,13 @@ fn filesystem_proven_alias_uses_one_current_open_document_and_edit_identity() {
     assert!(s.hover(&alias, at_last(text, "answer")).unwrap().is_some());
     let main = file_uri("/file-uris/main.jai");
     let main_text = "#load \"helper.jai\";\nmain :: () { value := answer; }";
+
     s.open(main.clone(), 1, main_text.into()).unwrap();
     let hover = s
         .hover(&main, at_last(main_text, "answer"))
         .unwrap()
         .unwrap();
+
     assert!(hover.contents.value.contains("99"), "{hover:?}");
     assert_eq!(s.document_links(&main).unwrap().len(), 1);
     s.close(&alias).unwrap();
@@ -184,6 +198,7 @@ fn native_windows_drive_uri_resolves_production_print() {
             fs: std::rc::Rc::new(jaic::sema::NativeFs),
             options: Box::new(move |_| {
                 let mut o = jaic::sema::Options::host();
+
                 o.import_paths = vec![configured.clone()];
                 o.set_stdlib(&jaic::sema::NativeFs, &configured);
                 o
@@ -195,13 +210,16 @@ fn native_windows_drive_uri_resolves_production_print() {
     let canonical = uri.clone();
     let mut vscode = uri.as_str().to_owned();
     let drive = vscode[8..9].to_ascii_lowercase();
+
     vscode.replace_range(8..9, &drive);
     assert_eq!(vscode.as_bytes()[9], b':', "a local drive path is required");
     vscode.replace_range(9..10, "%3A");
     let uri = DocumentUri::parse(&vscode).unwrap();
+
     assert_eq!(uri, canonical);
     assert!(Path::new(uri.path()).is_absolute());
     let text = "main :: () { print(\"hello world\\n\"); }\n#import \"Basic\";";
+
     s.open(uri.clone(), 1, text.into()).unwrap();
     assert!(
         s.diagnostics(&uri)
@@ -211,9 +229,12 @@ fn native_windows_drive_uri_resolves_production_print() {
     );
     assert!(s.hover(&uri, at_last(text, "print(")).unwrap().is_some());
     let definitions = s.definition(&uri, at_last(text, "print(")).unwrap();
+
     assert!(!definitions.is_empty());
+
     for definition in definitions {
         let destination = DocumentUri::parse(&definition.uri).unwrap();
+
         assert!(Path::new(destination.path()).is_absolute());
         assert!(
             jaic::canonicalize(destination.path())
@@ -227,16 +248,20 @@ fn native_windows_drive_uri_resolves_production_print() {
 #[test]
 fn unsaved_document_alias_uses_the_stored_key_and_preserves_private_scope() {
     let dir = TempDir::new("jailsp-unsaved-alias");
+
     std::fs::create_dir_all(&dir).unwrap();
     let alias = dir.with_extension("alias");
     let _ = std::fs::remove_file(&alias);
+
     std::os::unix::fs::symlink(&dir, &alias).unwrap();
     let stored = DocumentUri::from_path(&alias.join("unsaved.jai")).unwrap();
     let real = DocumentUri::from_path(&dir.join("unsaved.jai")).unwrap();
+
     assert!(!Path::new(real.path()).exists());
     let mut s = lean_session();
     let text =
         "/* 😀 */ #scope_file private_answer :: 42; use_value :: () { value := private_answer; }";
+
     s.open(stored.clone(), 1, text.into()).unwrap();
     assert_eq!(s.source(&real).as_deref(), Some(text));
     assert!(
@@ -247,6 +272,7 @@ fn unsaved_document_alias_uses_the_stored_key_and_preserves_private_scope() {
     let definitions = s
         .definition(&real, at_last(text, "private_answer;"))
         .unwrap();
+
     assert_eq!(definitions.len(), 1);
     assert_eq!(definitions[0].uri, stored.as_str());
     assert!(matches!(
@@ -254,6 +280,7 @@ fn unsaved_document_alias_uses_the_stored_key_and_preserves_private_scope() {
         Err(jai_language_server::Error::AlreadyOpen)
     ));
     let start = at_last(text, "42");
+
     s.change(
         &real,
         2,
@@ -274,6 +301,7 @@ fn unsaved_document_alias_uses_the_stored_key_and_preserves_private_scope() {
     assert!(s.document_text(&stored).unwrap().contains("99"));
     let other = DocumentUri::from_path(&dir.join("other.jai")).unwrap();
     let other_text = "#load \"unsaved.jai\"; outsider :: () { value := private_answer; }";
+
     s.open(other.clone(), 1, other_text.into()).unwrap();
     assert_eq!(
         s.definition(&other, at_last(other_text, "private_answer;"))

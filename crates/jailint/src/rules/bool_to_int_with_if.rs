@@ -35,6 +35,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             match n {
                 Node::Expr(e) => {
@@ -52,6 +53,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 }
                 Node::Stmt(s) => assignments(cx, s, out),
             }
+
             true
         });
     }
@@ -71,17 +73,22 @@ fn assignments(cx: &Cx, s: &Stmt, out: &mut Vec<Finding>) {
     else {
         return;
     };
+
     if !pure(target) || !cx.same_tokens(target, target2) {
         return;
     }
+
     let (Some(inverted), Some(ty)) = (zero_one(a, b), cx.ty(target)) else {
         return;
     };
     let types = &cx.compiler.ty.types;
+
     if !types.is_integer(ty) {
         return;
     }
+
     let target_text = cx.whole_src(target).trim();
+
     report(
         cx,
         s.span,
@@ -107,9 +114,11 @@ fn assignment(s: &Stmt) -> Option<(&Expr, &Expr)> {
         S::Block(b) => {
             let mut stmts = b.stmts.iter().filter(|s| !matches!(s.kind, S::Empty));
             let only = stmts.next()?;
+
             if stmts.next().is_some() {
                 return None;
             }
+
             assignment(only)
         }
         _ => None,
@@ -123,6 +132,7 @@ fn zero_one(a: &Expr, b: &Expr) -> Option<bool> {
         E::Int(v, ..) => Some(v.get()),
         _ => None,
     };
+
     match (value(a)?, value(b)?) {
         (1, 0) => Some(false),
         (0, 1) => Some(true),
@@ -134,6 +144,7 @@ fn zero_one(a: &Expr, b: &Expr) -> Option<bool> {
 fn int_type(cx: &Cx, e: &Expr) -> Option<String> {
     let ty: TypeId = cx.ty(e)?;
     let types = &cx.compiler.ty.types;
+
     types.is_integer(ty).then(|| types.name(ty))
 }
 
@@ -149,6 +160,7 @@ fn report(
     if cx.ty(cond) != Some(TypeId::BOOL) {
         return;
     }
+
     let operand = condition(cx, cond, inverted, true);
     let cast = format!("cast({ty}) {operand}");
     let semicolon = if prefix.is_empty() {
@@ -157,6 +169,7 @@ fn report(
         ";"
     };
     let replacement = format!("{prefix}{cast}{semicolon}");
+
     out.push(suggesting(
         span,
         "a `bool` is turned into an integer with a branch".into(),

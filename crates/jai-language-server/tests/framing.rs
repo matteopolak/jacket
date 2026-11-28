@@ -9,9 +9,11 @@ fn fragmented_and_coalesced_frames_count_utf8_bytes() {
         .collect::<Vec<_>>();
     let mut decoder = FrameDecoder::new(1024);
     let mut output = vec![];
+
     for chunk in wire.chunks(3) {
         output.extend(decoder.push(chunk).unwrap());
     }
+
     decoder.finish().unwrap();
     assert_eq!(output, messages);
 }
@@ -30,10 +32,13 @@ fn invalid_framing_never_accepts_conflicting_lengths_or_encodings() {
         ),
         (b"Content-Length: 1\r\n\r\n\xff", FrameError::InvalidUtf8),
     ];
+
     for (frame, error) in cases {
         assert_eq!(FrameDecoder::new(128).push(frame), Err(error));
     }
+
     let mut incomplete = FrameDecoder::new(128);
+
     incomplete.push(b"Content-Length: 3\r\n\r\na").unwrap();
     assert_eq!(incomplete.finish(), Err(FrameError::Incomplete));
 }
@@ -44,12 +49,15 @@ fn an_oversized_message_is_skipped_and_the_stream_stays_in_step() {
     let wire = [encode("{\"a\":1}"), encode(&big), encode("{\"b\":2}")].concat();
     let mut decoder = FrameDecoder::new(128);
     let mut output = vec![];
+
     for chunk in wire.chunks(7) {
         output.extend(decoder.push(chunk).unwrap());
     }
+
     decoder.finish().unwrap();
     assert_eq!(output, ["{\"a\":1}", "{\"b\":2}"]);
     let skipped = decoder.take_oversized();
+
     assert_eq!(skipped.len(), 1);
     assert_eq!(skipped[0].length, 300);
     assert_eq!(skipped[0].head, big.as_bytes());
@@ -68,6 +76,7 @@ fn a_message_near_the_limit_followed_by_another_in_one_chunk() {
     // The second chunk holds the last 1000 bytes of the first body and all of the second.
     let first_cut = frame(&big).len() - 1000;
     let mut messages = decoder.push(&stream.as_bytes()[..first_cut]).unwrap();
+
     messages.extend(decoder.push(&stream.as_bytes()[first_cut..]).unwrap());
     assert_eq!(messages, vec![big, small]);
 }
@@ -78,11 +87,15 @@ fn a_message_near_the_limit_followed_by_another_in_one_chunk() {
 fn an_absurd_content_length_is_skipped_without_buffering() {
     let mut decoder = FrameDecoder::new(1 << 20);
     let header = format!("Content-Length: {}\r\n\r\n", usize::MAX);
+
     assert!(decoder.push(header.as_bytes()).unwrap().is_empty());
+
     for _ in 0..64 {
         assert!(decoder.push(&vec![b'x'; 64 * 1024]).unwrap().is_empty());
     }
+
     let skipped = decoder.take_oversized();
+
     assert_eq!(skipped.len(), 1);
     assert_eq!(skipped[0].length, usize::MAX);
 }

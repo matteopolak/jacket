@@ -12,6 +12,7 @@ fn freestanding_frame_limit_comes_from_the_settings() {
             ..Config::default()
         };
         let (lints, _) = lint_with(&file, &levels, config);
+
         lints
             .into_iter()
             .filter(|l| l.message.contains("of locals on the stack"))
@@ -19,6 +20,7 @@ fn freestanding_frame_limit_comes_from_the_settings() {
     };
     // `buffer_work` keeps a 4 KiB array in its locals.
     let lints = frames(1024);
+
     assert_eq!(lints.len(), 1, "{lints:?}");
     assert!(
         lints[0]
@@ -35,12 +37,15 @@ fn freestanding_cpu_checks_wait_for_a_cpu_that_lacks_something() {
     let file = repo().join("tests/lint/freestanding/cpu.jai");
     let levels = [("freestanding", Level::Warn)];
     let (lints, text) = lint_with(&file, &levels, Config::default());
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
     let mut options = jaic::sema::Options::host();
+
     jaic::target::Target::parse("aarch64-none-elf")
         .unwrap()
         .apply(&mut options);
     let (lints, text) = lint_target(&file, &levels, Config::default(), options);
+
     assert!(lints.is_empty(), "{}", rendered(&lints, &text, &file));
 }
 
@@ -49,12 +54,14 @@ fn freestanding_reports_the_cortex_m_gaps_in_double_floats_and_wide_division() {
     let file = repo().join("tests/lint/freestanding/cpu.jai");
     let levels = [("freestanding", Level::Warn)];
     let mut options = jaic::sema::Options::host();
+
     jaic::target::Target::parse("thumbv7em-none-eabihf")
         .unwrap()
         .apply(&mut options);
     let (lints, text) = lint_target(&file, &levels, Config::default(), options);
     let messages: Vec<_> = lints.iter().map(|l| l.message.as_str()).collect();
     let rendered = rendered(&lints, &text, &file);
+
     assert_eq!(
         messages
             .iter()

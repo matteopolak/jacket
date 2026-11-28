@@ -12,6 +12,7 @@ mod cpuid {
     #[test]
     fn cpuid_executes_real_host_query_or_diagnoses_unsupported_host() {
         let mut options = Options::host();
+
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
         let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
@@ -19,12 +20,14 @@ mod cpuid {
             "{SOURCE}\nprobe :: () -> bool #no_context {{ data:[4]u64; cpu_query(0,0,*data); return (data[1]|data[2]|data[3])!=0; }} #assert probe();"
         );
         let result = compiler.compile_sources(&[ProgramSource::String(source)]);
+
         if cfg!(target_arch = "x86_64") {
             if let Err(e) = result {
                 panic!("{}", e.render(&compiler.src.sources));
             }
         } else {
             let error = result.expect_err("non-x64 host must not report fake features");
+
             assert!(
                 error.message.contains("x86-64 interpreter host")
                     || error.message.contains("requires an x86-64 target"),
@@ -38,12 +41,14 @@ mod cpuid {
     fn cpuid_rejects_non_x64_target() {
         for cpu in [TargetCpu::Arm64, TargetCpu::Wasm] {
             let mut options = Options::host();
+
             options.cpu = cpu;
             options.runtime_support = false;
             let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
             let error = c
                 .compile_sources(&[ProgramSource::String(SOURCE.into())])
                 .expect_err("CPUID has no alternate ISA fallback");
+
             assert!(
                 error.message.contains("x86-64 target"),
                 "{}",
@@ -56,13 +61,17 @@ mod cpuid {
     #[test]
     fn cpuid_interpreter_matches_all_hardware_registers_and_subleaves() {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
         let mut source = SOURCE.to_owned();
+
         for (leaf, subleaf) in [(0u32, 0u32), (7, 0), (7, 1), (0x8000_0000, 0)] {
             let r = std::arch::x86_64::__cpuid_count(leaf, subleaf);
+
             source.push_str(&format!("\nprobe_{leaf}_{subleaf} :: () -> bool #no_context {{ data:[4]u64; cpu_query({leaf},{subleaf},*data); return data[0]=={} && data[1]=={} && data[2]=={} && data[3]=={}; }} #assert probe_{leaf}_{subleaf}();",r.eax,r.ebx,r.ecx,r.edx));
         }
+
         if let Err(e) = compiler.compile_sources(&[ProgramSource::String(source)]) {
             panic!("{}", e.render(&compiler.src.sources));
         }
@@ -82,12 +91,14 @@ mod cpuid {
             ("a:u32; b:u32; c:u32; #asm { cpuid a,b,c; }", "operand"),
         ] {
             let mut options = Options::host();
+
             options.cpu = TargetCpu::X64;
             options.runtime_support = false;
             let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
             let error = compiler
                 .compile_sources(&[ProgramSource::String(format!("main :: () {{ {body} }}"))])
                 .expect_err("invalid architectural operand must fail");
+
             assert!(
                 error.message.contains(expected),
                 "{}",
@@ -107,12 +118,14 @@ mod cpuid_leaf_zero {
     fn cpuid_leaf_zero_compiles_for_x64_and_rejects_other_targets() {
         for cpu in [TargetCpu::X64, TargetCpu::Arm64, TargetCpu::Wasm] {
             let mut options = Options::host();
+
             options.cpu = cpu;
             options.runtime_support = false;
             let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
             let result = c.compile_sources(&[ProgramSource::String(
                 include_str!("../../../tests/compiler/semantics/cpuid-leaf-zero.jai").into(),
             )]);
+
             if cpu == TargetCpu::X64 {
                 result.unwrap();
             } else {
@@ -126,9 +139,11 @@ mod cpuid_leaf_zero {
     fn interpreter_returns_all_real_leaf_zero_vendor_fields() {
         use std::arch::x86_64::__cpuid_count;
         let mut options = Options::host();
+
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         c.compile_sources(&[ProgramSource::String(
             include_str!("../../../tests/compiler/semantics/cpuid-leaf-zero.jai").into(),
         )])
@@ -146,8 +161,10 @@ mod cpuid_leaf_zero {
                 .unwrap() as u32,
         );
         let expected = __cpuid_count(0, 0);
+
         assert!(expected.eax >= 1);
         assert_ne!(expected.ebx | expected.ecx | expected.edx, 0);
+
         for (index, value) in [expected.eax, expected.ebx, expected.ecx, expected.edx]
             .into_iter()
             .enumerate()
@@ -157,6 +174,7 @@ mod cpuid_leaf_zero {
                 c.ct.interp
                     .call(&c.out.program, function, &[0, 0, index as u64])
                     .unwrap()[0];
+
             assert_eq!(actual, u64::from(value), "leaf zero register {index}");
             assert!(c.ct.interp.effects > effects);
         }
@@ -176,6 +194,7 @@ mod xgetbv {
             TargetCpu::X64,
             "#program_export \"read_xcr\" read_xcr :: (index:u64) -> u64 #no_context { hi:u64;lo:u64; #asm {xgetbv hi,lo,index;} return (hi<<32)|lo; }",
         );
+
         result.unwrap();
         let function = c
             .out
@@ -195,6 +214,7 @@ mod xgetbv {
             })
             .filter(|i| i.op == Intrinsic::X86Xgetbv)
             .collect::<Vec<_>>();
+
         assert_eq!(operations.len(), 1, "XGETBV must not fabricate constants");
         assert_eq!(operations[0].args.len(), 1, "ECX input must be consumed");
         assert_eq!(operations[0].results.len(), 2, "EDX:EAX result pair");
@@ -208,6 +228,7 @@ mod xgetbv {
                 "main :: () {hi:u32;lo:u32;index:u32;#asm{xgetbv hi,lo,index;}}",
             );
             let error = result.expect_err("XGETBV requires x64");
+
             assert!(
                 error.message.contains("x86-64 target"),
                 "{}",
@@ -227,6 +248,7 @@ mod xgetbv {
             "hi:u32;lo:u32;index:u32;#asm{lock_xgetbv hi,lo,index;}",
         ] {
             let (_, result) = compile(TargetCpu::X64, &format!("main :: () {{ {body} }}"));
+
             result.expect_err("invalid XGETBV operand must diagnose");
         }
     }
@@ -239,6 +261,7 @@ mod xgetbv {
             "read :: () -> u64 {hi:u32;lo:u32;index:u32;#asm{xgetbv hi,lo,index;}return (cast(u64)hi<<32)|lo;} #run read(); main :: () {}",
         );
         let error = result.expect_err("non-x64 host must reject architectural execution");
+
         assert!(
             error.message.contains("x86-64 interpreter host")
                 || error.message.contains("requires an x86-64 target"),
@@ -257,6 +280,7 @@ mod xgetbv {
             TargetCpu::X64,
             include_str!("../../../tests/compiler/semantics/xgetbv.jai"),
         );
+
         result.unwrap();
         let function = |c: &jaic::sema::Compiler, name: &str| {
             jaic::ir::FuncId(
@@ -289,20 +313,26 @@ mod xgetbv {
             c.ct.interp
                 .call(&c.out.program, read, &[2, pointers[0], pointers[1]])
                 .unwrap_err();
+
         assert!(invalid.message.contains("index"), "{invalid:?}");
+
         if features & (3 << 26) != (3 << 26) {
             let error =
                 c.ct.interp
                     .call(&c.out.program, read, &[0, pointers[0], pointers[1]])
                     .unwrap_err();
+
             assert!(error.message.contains("XSAVE"), "{error:?}");
             eprintln!(
                 "XGETBV execution UNAVAILABLE: XSAVE/OSXSAVE absent; managed diagnostic PASS"
             );
+
             return; // This is the required unsupported-host diagnostic test.
         }
+
         // SAFETY: the real processor exposes both XSAVE and OSXSAVE.
         let expected = unsafe { _xgetbv(0) };
+
         assert_ne!(expected & 1, 0, "XCR0.x87 must be enabled");
         let defined = if maximum >= 0xd {
             let fields = __cpuid_count(0xd, 0);
@@ -310,12 +340,14 @@ mod xgetbv {
         } else {
             1
         };
+
         for index in [0, 1u64 << 32] {
             let effects = c.ct.interp.effects;
             let actual =
                 c.ct.interp
                     .call(&c.out.program, read, &[index, pointers[0], pointers[1]])
                     .unwrap()[0];
+
             assert_eq!((actual ^ expected) & defined, 0);
             assert_eq!(actual, (high << 32) | low);
             assert!(u32::try_from(high).is_ok() && u32::try_from(low).is_ok());
@@ -329,16 +361,19 @@ mod xgetbv {
                 0
             );
         }
+
         assert_eq!(
             (c.ct.interp.call(&c.out.program, read32, &[0]).unwrap()[0] ^ expected) & defined,
             0
         );
         let index1 = maximum >= 0xd && __cpuid_count(0xd, 1).eax & 4 != 0;
+
         if index1 {
             let actual =
                 c.ct.interp
                     .call(&c.out.program, read, &[1, pointers[0], pointers[1]])
                     .unwrap()[0];
+
             assert_eq!(
                 actual & !expected & defined,
                 0,
@@ -350,8 +385,10 @@ mod xgetbv {
                 c.ct.interp
                     .call(&c.out.program, read, &[1, pointers[0], pointers[1]])
                     .unwrap_err();
+
             assert!(error.message.contains("index 1"), "{error:?}");
         }
+
         for index in 0..=u64::from(index1) {
             for (lhs, rhs) in [
                 (0, 0),
@@ -367,7 +404,9 @@ mod xgetbv {
                     1
                 );
             }
+
             let effects = c.ct.interp.effects;
+
             c.ct.interp.call(&c.out.program, discard, &[index]).unwrap();
             assert!(c.ct.interp.effects > effects);
         }
@@ -383,11 +422,13 @@ mod pointer_operands {
     #[test]
     fn unsized_instructions_take_their_size_from_a_pointer_operand() {
         let mut options = Options::host();
+
         options.cpu = TargetCpu::X64;
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         let source =
             "main :: () { value: u64; p := *value; q: *u64; #asm { mov q, p; add q, 8; } }";
+
         if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
             panic!("{}", e.render(&c.src.sources));
         }
@@ -405,8 +446,10 @@ mod registers {
     #[test]
     fn registers_forward_through_expansion_and_extract_scalar_lanes() {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
         if let Err(e) = c.compile_sources(&[ProgramSource::String(format!(
             "{SOURCE}\n#assert(check()==0);"
         ))]) {
@@ -417,24 +460,30 @@ mod registers {
     #[test]
     fn bootstrap_register_identity_and_scalar_misuse_are_checked() {
         let mut fs = VirtualFs::default();
+
         fs.insert(
             "/lib/prelude/module.jai",
             "__reg :: #type,distinct u16;".as_bytes(),
         );
         let fs = Rc::new(fs);
         let mut options = Options::host();
+
         options.runtime_support = false;
         options.preload = Some("/lib/prelude/module.jai".into());
         let mut c = Compiler::new(options.clone(), fs.clone());
+
         if let Err(e) = c.compile_sources(&[ProgramSource::String(format!(
             "{SOURCE}\n#assert(check()==0);"
         ))]) {
             panic!("{}", e.render(&c.src.sources));
         }
+
         let ty = c
             .preload_type(jaic::sema::PreludeType::Reg, jaic::source::Span::NONE)
             .unwrap();
+
         assert_eq!(c.ty.types.name(ty), "__reg");
+
         for bad in [
             "use :: (v:__reg) #expand {} main :: () { n:u16; use(n); }",
             "use :: (v:__reg) #expand {} main :: () { n:[16]u8; use(n); }",
@@ -450,6 +499,7 @@ mod registers {
             let error = c
                 .compile_sources(&[ProgramSource::String(bad.into())])
                 .expect_err("register misuse must be rejected");
+
             assert!(
                 error.message.contains("register"),
                 "{}",
@@ -482,6 +532,7 @@ mod x86_machine {
                 let (c, result) = compile(cpu, &format!("main :: () {{ {body} }}"));
                 let error =
                     result.expect_err("x86 ISA needs x64, not a synthetic alternate target");
+
                 assert!(
                     error.message.contains("x86-64 target"),
                     "{}",
@@ -510,6 +561,7 @@ mod x86_machine {
                 &format!("probe :: () {{ {body} }} #run probe(); main :: () {{}}"),
             );
             let error = result.expect_err("host cannot execute x86 without actual translation");
+
             assert!(
                 error.message.contains("x86-64 interpreter host")
                     || error.message.contains("requires an x86-64 target"),
@@ -531,6 +583,7 @@ mod x86_machine {
             "#asm {mfence 1;}",
         ] {
             let (_, result) = compile(TargetCpu::X64, &format!("main :: () {{ {body} }}"));
+
             result.expect_err("invalid architectural operand must diagnose");
         }
     }
@@ -545,6 +598,7 @@ mod x86_machine {
             TargetCpu::X64,
             include_str!("../../../tests/compiler/semantics/x86-machine.jai"),
         );
+
         result.unwrap();
         let function = |c: &jaic::sema::Compiler, name: &str| {
             jaic::ir::FuncId(
@@ -560,6 +614,7 @@ mod x86_machine {
             )
         };
         let tsc = function(&c, "machine_tsc");
+
         if __cpuid_count(1, 0).edx & (1 << 4) != 0 {
             // SAFETY: real CPUID guards timestamp instructions; fences are baseline x64.
             let before = unsafe {
@@ -573,6 +628,7 @@ mod x86_machine {
                 _mm_lfence();
                 _rdtsc()
             };
+
             assert!(
                 before <= actual && actual <= after,
                 "{before} <= {actual} <= {after}"
@@ -590,12 +646,15 @@ mod x86_machine {
                     .contains("unavailable")
             );
         }
+
         let tscp = function(&c, "machine_tscp");
         let mut auxiliary = 0u32;
+
         if __cpuid_count(0x8000_0000, 0).eax >= 0x8000_0001
             && __cpuid_count(0x8000_0001, 0).edx & (1 << 27) != 0
         {
             let mut matched = false;
+
             for _ in 0..100 {
                 let mut a = 0;
                 let mut b = 0;
@@ -607,11 +666,13 @@ mod x86_machine {
                         .unwrap()[0];
                 // SAFETY: as above, with `b`.
                 let after = unsafe { __rdtscp(&raw mut b) };
+
                 if a == b && auxiliary == a && before <= actual && actual <= after {
                     matched = true;
                     break;
                 }
             }
+
             assert!(
                 matched,
                 "RDTSCP must match a real AUX/timestamp bracket; CPU migration cannot silently skip the assertion"
@@ -625,7 +686,9 @@ mod x86_machine {
                     .contains("unavailable")
             );
         }
+
         let maximum = __cpuid_count(0, 0).eax;
+
         for (name, width, available) in [
             (
                 "machine_random16",
@@ -659,20 +722,26 @@ mod x86_machine {
             ),
         ] {
             let id = function(&c, name);
+
             for _ in 0..64 {
                 let mut value = 0u64;
                 let result =
                     c.ct.interp
                         .call(&c.out.program, id, &[(&raw mut value) as u64]);
+
                 if available {
                     let flags = result.unwrap()[0];
+
                     assert!(flags <= 1, "other arithmetic flags must clear: {flags}");
+
                     if width == 16 {
                         assert_eq!(value & !0xffff, 0x1234_5678_9abc_0000);
                     }
+
                     if width == 32 {
                         assert_eq!(value >> 32, 0);
                     }
+
                     if flags == 0 {
                         assert_eq!(
                             value
@@ -689,10 +758,13 @@ mod x86_machine {
                 }
             }
         }
+
         let fences = function(&c, "machine_fences");
+
         c.ct.interp.call(&c.out.program, fences, &[]).unwrap();
         let prefetch = function(&c, "machine_prefetch");
         let mut value = 0x1234_5678_9abc_def0_u64;
+
         c.ct.interp
             .call(&c.out.program, prefetch, &[(&raw mut value) as u64])
             .unwrap();
@@ -712,6 +784,7 @@ mod x86_machine {
                     TargetCpu::X64,
                     &format!("{name} :: {signature} #intrinsic; main :: () {{ {name}({call}); }}"),
                 );
+
                 assert!(
                     result
                         .expect_err("counter signature must match architectural result")
@@ -744,6 +817,7 @@ mod x86_machine {
     main :: () {}
     "#,
         );
+
         result.unwrap();
         let function = |name: &str| {
             jaic::ir::FuncId(
@@ -760,10 +834,13 @@ mod x86_machine {
         };
         let result_parity = function("result_parity");
         let cleared_parity = function("cleared_parity");
+
         for low in 0u64..=255 {
             let input = 0xabcd_ef12_3456_7800 | low;
+
             for count in [0, 1, 7, 63, 64] {
                 let expected = u64::from((low as u8).count_ones().is_multiple_of(2));
+
                 assert_eq!(
                     c.ct.interp
                         .call(&c.out.program, result_parity, &[input, count])
@@ -780,6 +857,7 @@ mod x86_machine {
                             .is_multiple_of(2),
                     )
                 };
+
                 assert_eq!(
                     c.ct.interp
                         .call(&c.out.program, cleared_parity, &[input, count])
@@ -806,6 +884,7 @@ mod x86_machine {
                     "main :: () {{ value:u64; pointer:=*value; #asm {{ {instruction} [pointer]; }} }}"
                 ),
             );
+
             assert!(
                 result
                     .unwrap_err()
@@ -849,6 +928,7 @@ mod x86_machine {
         ] {
             let (c, result) = compile(TargetCpu::X64, &format!("main :: () {{ {body} }}"));
             let error = result.expect_err("a malformed string compare must diagnose");
+
             assert!(
                 error.message.contains(message),
                 "{message}: {}",
@@ -863,6 +943,7 @@ mod x86_machine {
             TargetCpu::Wasm,
             "get_cpu_cycle_count :: () -> u64 #intrinsic; main :: () { value:=get_cpu_cycle_count(); }",
         );
+
         assert!(
             result
                 .unwrap_err()

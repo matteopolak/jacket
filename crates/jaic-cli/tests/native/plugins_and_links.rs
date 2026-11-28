@@ -21,6 +21,7 @@ fn plug_builds_the_plugin_workspace() {
         .arg("+Echo_Plugin")
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
@@ -31,6 +32,7 @@ fn plug_builds_the_plugin_workspace() {
         "finished, typechecked: true\n"
     );
     let run = Command::new(&exe).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&run.stdout), "42\n");
 
     let default_exe = dir.join(if cfg!(windows) {
@@ -40,12 +42,14 @@ fn plug_builds_the_plugin_workspace() {
     });
     let _ = std::fs::remove_file(&default_exe);
     let build = jaic().arg(&source).arg("+Echo_Plugin").output().unwrap();
+
     assert!(
         build.status.success(),
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
     let run = Command::new(&default_exe).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&run.stdout), "42\n");
 }
 
@@ -56,18 +60,21 @@ fn plug_builds_the_plugin_workspace() {
 fn unnamed_link_always_library_is_linked() {
     let dir = TempDir::new("native-link-always");
     let source = dir.join("link_always.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n#if true {\n    #library,system,link_always \"libc++\";\n}\nmain :: () { print(\"ok\\n\"); }\n",
     )
     .unwrap();
     let output = build_and_run(&source, &dir, "link_always").unwrap();
+
     assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n");
     let libs = Command::new("otool")
         .arg("-L")
         .arg(dir.join("link_always"))
         .output()
         .unwrap();
+
     assert!(String::from_utf8_lossy(&libs.stdout).contains("libc++"));
 }
 
@@ -79,6 +86,7 @@ fn unnamed_link_always_library_is_linked() {
 fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
     let dir = TempDir::new("native-cpp-non-pod");
     let cpp = dir.join("small.cpp");
+
     std::fs::write(&cpp, "#ifdef _WIN32\n#define API __declspec(dllexport)\n#else\n#define API\n#endif\nstruct Small { int value; explicit Small(int v): value(v) {} Small(const Small& v): value(v.value) {} ~Small() {} };\nextern \"C\" API Small make_small(int value) { return Small(value); }\n").unwrap();
     let library = dir.join(if cfg!(windows) {
         "small.dll"
@@ -88,18 +96,24 @@ fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
         "libsmall.so"
     });
     let mut cc = Command::new("clang++");
+
     cc.args(["-shared", "-Wno-return-type-c-linkage"]);
+
     if !cfg!(windows) {
         cc.arg("-fPIC");
     }
+
     let compiled = cc.arg(cpp).arg("-o").arg(&library).output().unwrap();
+
     assert!(
         compiled.status.success(),
         "{}",
         String::from_utf8_lossy(&compiled.stderr)
     );
     let source = dir.join("main.jai");
+
     std::fs::write(&source, "#import \"Basic\";\nlib :: #library \"small\";\nSmall :: struct { value: s32; }\nmake_small :: (value: s32) -> Small #foreign lib #cpp_return_type_is_non_pod;\nmain :: () { result := make_small(41); assert(result.value == 41); print(\"ok\\n\"); }\n").unwrap();
+
     for level in ["-O0", "-O2"] {
         let executable = exe_path(&dir, &format!("small{level}"));
         let build = jaic()
@@ -110,12 +124,14 @@ fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
             .env("JAIC_NATIVE_LIBS", &dir)
             .output()
             .unwrap();
+
         assert!(
             build.status.success(),
             "{}",
             String::from_utf8_lossy(&build.stderr)
         );
         let output = Command::new(executable).output().unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -130,12 +146,14 @@ fn cpp_non_pod_return_uses_the_native_hidden_result_pointer() {
 fn compiler_primitive_at_run_time_explains_the_trap() {
     let dir = TempDir::new("native-compiler-primitive");
     let source = dir.join("primitive.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n#import \"Compiler\";\nmain :: () {\n    print(\"before\\n\");\n    compiler_create_workspace(\"late\");\n    print(\"after\\n\");\n}\n",
     )
     .unwrap();
     let output = build_and_run(&source, &dir, "primitive").unwrap();
+
     assert!(!output.status.success());
     assert_eq!(String::from_utf8_lossy(&output.stdout), "before\n");
     assert!(
@@ -165,12 +183,14 @@ fn optimized_sub_recurrence_matches_the_interpreter() {
         .current_dir(case.source.parent().unwrap())
         .output()
         .unwrap();
+
     assert!(
         build.status.success(),
         "{}",
         String::from_utf8_lossy(&build.stderr)
     );
     let output = Command::new(&exe).output().unwrap();
+
     assert!(
         matches(&case, &output),
         "stdout {:?}, expected {:?}",
@@ -184,6 +204,7 @@ fn optimized_sub_recurrence_matches_the_interpreter() {
 /// could not be built (no Python or C compiler).
 fn ensure_debug_helper() -> Result<(), String> {
     let folder = repo_root().join("stdlib/internal/developer-tools/debug-native");
+
     if ["dylib", "so", "a"].iter().any(|ext| {
         folder
             .join(format!("libdeveloper_tools_debug.{ext}"))
@@ -191,7 +212,9 @@ fn ensure_debug_helper() -> Result<(), String> {
     }) {
         return Ok(());
     }
+
     let script = repo_root().join("tools/developer_checks/build_developer_debug.py");
+
     // The script imports its helpers from `tools/`.
     match Command::new("python3")
         .env("PYTHONPATH", repo_root().join("tools"))
@@ -214,12 +237,15 @@ fn backtrace_sees_compiled_callers() {
     if !cfg!(unix) {
         return;
     }
+
     if let Err(reason) = ensure_debug_helper() {
         eprintln!("skipping: the native Debug helper is not built and {reason}");
         return;
     }
+
     let dir = TempDir::new("native-backtrace");
     let source = dir.join("backtrace.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\nDebug :: #import \"Debug\";\n\
@@ -228,6 +254,7 @@ fn backtrace_sees_compiled_callers() {
          main :: () {\n    print(\"%\\n\", ifx outer() > 3 then \"ok\" else \"short\");\n}\n",
     )
     .unwrap();
+
     for opt in ["-O0", "-O2"] {
         let exe = exe_path(&dir, &format!("backtrace{opt}"));
         let build = jaic()
@@ -236,12 +263,14 @@ fn backtrace_sees_compiled_callers() {
             .arg(&exe)
             .output()
             .unwrap();
+
         assert!(
             build.status.success(),
             "{}",
             String::from_utf8_lossy(&build.stderr)
         );
         let output = Command::new(&exe).output().unwrap();
+
         assert_eq!(String::from_utf8_lossy(&output.stdout), "ok\n", "{opt}");
     }
 }
@@ -253,6 +282,7 @@ fn backtrace_sees_compiled_callers() {
 fn run_writes_workspace_output() {
     let dir = TempDir::new("native-run-workspace-output");
     let source = dir.join("meta.jai");
+
     std::fs::write(
         &source,
         r##"#import "Basic";
@@ -277,6 +307,7 @@ fn run_writes_workspace_output() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "{stderr}");
     assert!(!stderr.contains("does not write"), "{stderr}");
     let exe = dir.join(if cfg!(windows) {
@@ -285,6 +316,7 @@ fn run_writes_workspace_output() {
         "target-prog"
     });
     let ran = Command::new(&exe).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&ran.stdout), "built\n");
 }
 
@@ -357,6 +389,7 @@ fn custom_link_command() {
     let linked = "result := run_command(..args); phase.linker_exit_code = result.exit_code; compiler_custom_link_command_is_complete(w);";
     let (dir, output) = build_custom_link("linked", linked, "", units);
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "{stderr}");
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
@@ -364,13 +397,16 @@ fn custom_link_command() {
     );
     assert!(dir.join("obj/linked.o").exists() && !dir.join("out/linked.o").exists());
     let ir = std::fs::read_to_string(dir.join("obj/linked.ll")).unwrap();
+
     // `enable_frame_pointers` (true unless set_optimization says otherwise) keeps every frame.
     assert!(ir.contains("\"frame-pointer\"=\"all\""), "{ir}");
     let ran = Command::new(dir.join("out/linked")).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&ran.stdout), "started at start\n");
 
     let (_, output) = build_custom_link("unlinked", "", "", units);
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         !output.status.success()
             && stderr.contains("error: the metaprogram did not link")
@@ -385,6 +421,7 @@ fn custom_link_command() {
         units,
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         !output.status.success() && stderr.contains("failed with exit code 3"),
         "{stderr}"
@@ -408,12 +445,16 @@ fn build_custom_link(
     let source = CUSTOM_LINK
         .replace("@LINK@", link)
         .replace("@OPTIONS@", options);
+
     std::fs::write(dir.join("meta.jai"), source).unwrap();
     let mut command = jaic();
+
     command.args(["meta.jai"]).current_dir(&dir);
+
     if let Some(units) = units {
         command.args(["-codegen_units", units]);
     }
+
     let output = command.output().unwrap();
     (dir, output)
 }
@@ -428,22 +469,28 @@ fn custom_link_command_with_several_codegen_units() {
     let linked = "result := run_command(..args); phase.linker_exit_code = result.exit_code; compiler_custom_link_command_is_complete(w);";
     let (dir, output) = build_custom_link("split", linked, "", Some("3"));
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "{stderr}");
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "objects 3\nwritten: failed false, linker exit code 0\n"
     );
+
     for object in ["obj/linked.o", "obj/linked.o.1.o", "obj/linked.o.2.o"] {
         assert!(dir.join(object).exists(), "{object} is missing");
     }
+
     for ir in ["obj/linked.ll", "obj/linked.1.ll", "obj/linked.2.ll"] {
         let text = std::fs::read_to_string(dir.join(ir)).unwrap_or_else(|e| panic!("{ir}: {e}"));
+
         assert!(
             text.contains("\"frame-pointer\"=\"all\""),
             "{ir} has no function with the frame-pointer attribute"
         );
     }
+
     let ran = Command::new(dir.join("out/linked")).output().unwrap();
+
     assert_eq!(String::from_utf8_lossy(&ran.stdout), "started at start\n");
 }
 
@@ -472,12 +519,14 @@ fn backtrace_on_crash_and_minimum_os_version() {
         let source = CUSTOM_LINK
             .replace("@OPTIONS@", &options)
             .replace("@LINK@", "");
+
         std::fs::write(dir.join("meta.jai"), source).unwrap();
         let output = jaic()
             .args(["meta.jai"])
             .current_dir(&dir)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -485,9 +534,12 @@ fn backtrace_on_crash_and_minimum_os_version() {
         );
         let exe = dir.join("out/linked");
         let crashed = Command::new(&exe).arg("crash").output().unwrap();
+
         assert!(!crashed.status.success());
         let stderr = String::from_utf8_lossy(&crashed.stderr);
+
         assert_eq!(stderr.contains("native stack:"), on, "{name}: {stderr}");
+
         if on {
             assert!(stderr.contains("crash signal"), "{name}: {stderr}");
             assert!(
@@ -499,9 +551,11 @@ fn backtrace_on_crash_and_minimum_os_version() {
                 "{name}: no native frame addresses: {stderr}"
             );
         }
+
         if cfg!(target_os = "macos") {
             let load = Command::new("otool").arg("-l").arg(&exe).output().unwrap();
             let load = String::from_utf8_lossy(&load.stdout);
+
             assert!(load.contains("minos 12.0"), "{load}");
         }
     }
@@ -515,10 +569,13 @@ fn backtrace_on_crash_and_minimum_os_version() {
 fn library_search_directory_added_by_a_metaprogram() {
     let fixture = repo_root().join("tests/compiler/native/library-search-dir");
     let dir = TempDir::new("native-library-search-dir");
+
     std::fs::create_dir_all(dir.join("lib")).unwrap();
+
     for name in ["probe.c", "probe.jai"] {
         std::fs::copy(fixture.join(name), dir.join(name)).unwrap();
     }
+
     let lib = if cfg!(target_os = "macos") {
         "lib/libsearchprobe.dylib"
     } else {
@@ -532,12 +589,14 @@ fn library_search_directory_added_by_a_metaprogram() {
         eprintln!("skipping: no C compiler");
         return;
     };
+
     assert!(built.status.success());
     let output = jaic()
         .args(["-interp", "probe.jai"])
         .current_dir(&dir)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -559,8 +618,10 @@ fn function_sections_name_a_section_per_function() {
         Some("1"),
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "{stderr}");
     let ir = std::fs::read_to_string(dir.join("obj/linked.ll")).unwrap();
+
     assert!(ir.contains("section \".text.start"), "{ir}");
 
     let (dir, output) = build_custom_link(
@@ -569,12 +630,14 @@ fn function_sections_name_a_section_per_function() {
         "options.os_target = .LINUX; options.cpu_target = .X64;",
         Some("1"),
     );
+
     assert!(
         output.status.success(),
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
     let ir = std::fs::read_to_string(dir.join("obj/linked.ll")).unwrap();
+
     assert!(!ir.contains("section \".text."), "{ir}");
 
     let (_, output) = build_custom_link(
@@ -583,6 +646,7 @@ fn function_sections_name_a_section_per_function() {
         "options.llvm_options.function_sections = true;",
         Some("1"),
     );
+
     assert!(
         output.status.success(),
         "{}",

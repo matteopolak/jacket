@@ -41,10 +41,13 @@ impl Compiler {
     /// Load the bootstrap modules (Preload, `Runtime_Support`).
     pub fn load_bootstrap(&mut self) -> Result<()> {
         let span = Span::NONE;
+
         if let Some(preload) = self.options.preload.clone() {
             let m = self.load_module(lang_items::modules::PRELUDE, &preload, Vec::new(), span)?;
+
             self.ns.preload = Some(m);
         }
+
         if self.options.runtime_support {
             let Some(entry) = self.runtime_support_entry() else {
                 return err(
@@ -72,9 +75,11 @@ impl Compiler {
             ];
             let m =
                 self.load_module(BootstrapModule::RuntimeSupport.name(), &entry, params, span)?;
+
             self.ns.runtime_support = Some(m);
             self.prepare_interpreter_assertion(span)?;
         }
+
         Ok(())
     }
 
@@ -83,16 +88,21 @@ impl Compiler {
         if !self.ed.allows_parse_ahead() || self.src.ahead.is_some() || !self.src.fs.is_native() {
             return;
         }
+
         let mut roots: Vec<PathBuf> = Vec::new();
+
         roots.extend(self.options.preload.clone());
+
         if self.options.runtime_support {
             roots.extend(self.runtime_support_entry());
         }
+
         for source in sources {
             if let ProgramSource::File(path) = source {
                 roots.push(path.clone());
             }
         }
+
         self.src.ahead = crate::parse_ahead::ParseAhead::start(&self.options, roots).into();
     }
 
@@ -131,10 +141,13 @@ impl Compiler {
         self.start_parse_ahead(sources);
         self.load_bootstrap()?;
         let m = self.new_module("main", None, Vec::new());
+
         self.ns.main_module = Some(m);
+
         for source in sources {
             self.add_source(source)?;
         }
+
         Ok(())
     }
 
@@ -154,6 +167,7 @@ impl Compiler {
         let sources: Vec<_> = std::iter::once(ProgramSource::String("main :: () {}".into()))
             .chain(extra.iter().cloned())
             .collect();
+
         self.prepare_sources(&sources)?;
         self.expand_all()?;
         let entry = self.src.canon(entry);
@@ -163,9 +177,11 @@ impl Compiler {
                 .as_ref()
                 .is_some_and(|path| self.src.canon(path) == entry)
         });
+
         if !loaded {
             self.add_source(&ProgramSource::File(stub.to_path_buf()))?;
         }
+
         self.settle()?;
         self.finish_program()
     }
@@ -185,7 +201,9 @@ impl Compiler {
                 "no main module to add sources to",
             );
         };
+
         self.src.added += 1;
+
         match source {
             ProgramSource::File(path) => self.load_file(path, m, Span::NONE),
             ProgramSource::String(text) => {
@@ -211,6 +229,7 @@ impl Compiler {
                     );
                 };
                 let label = format!("added file string {}", self.src.added);
+
                 self.load_string_in_scope(&label, text, scope)
             }
             ProgramSource::CodeString(text, code) => {
@@ -223,6 +242,7 @@ impl Compiler {
                     );
                 };
                 let label = format!("added code string {}", self.src.added);
+
                 self.load_string_in_scope(&label, text, scope)
             }
         }
@@ -241,16 +261,20 @@ impl Compiler {
         if self.meta.twin {
             return self.pull_sources_for_twin();
         }
+
         let Some(workspaces) = self.ct.interp.workspaces.clone() else {
             return Ok(false);
         };
         let added = crate::build::take_own_sources(&workspaces, self.meta.workspace);
+
         if added.is_empty() {
             return Ok(false);
         }
+
         for source in &added {
             self.add_source(source)?;
         }
+
         self.expand_all()?;
         Ok(true)
     }
@@ -258,6 +282,7 @@ impl Compiler {
     /// Lower everything reachable from the program's exports.
     pub fn finish_program(&mut self) -> Result<()> {
         let result = self.finish_program_inner();
+
         super::body_probe::report();
         super::speculative::report();
         self.diag.with_deferred_errors(result)
@@ -284,41 +309,55 @@ impl Compiler {
             .lookup(scope, Sym::intern(&self.options.entry_point))?
             .is_empty();
         let mut i = 0;
+
         while i < self.ns.export_entities.len() {
             let e = self.ns.export_entities[i];
             let resolved = self.resolve_entity(e)?;
+
             self.module_asm_text(e, &resolved)?;
             i += 1;
         }
+
         self.collect_module_asm()?;
         // A freestanding program with no entry point still has code to lower when it exports
         // procedures: it starts at a symbol of its own. A hosted one starts at the runtime's
         // `main`, which calls the entry point, so without one (only `#run` and `#assert`
         // directives) there is nothing to lower.
         let starts_by_itself = self.options.os == TargetOs::None && !self.pr.exports.is_empty();
+
         if !has_entry && !starts_by_itself {
             return Ok(false);
         }
+
         let mut i = 0;
+
         while i < self.pr.exports.len() {
             let p = self.pr.exports[i];
+
             self.proc_func(p, self.proc(p).span)?;
             i += 1;
         }
+
         if let Some(workspaces) = self.ct.interp.workspaces.clone() {
             for header in crate::build::take_live_requests(&workspaces, self.meta.workspace) {
                 self.make_procedure_live(header);
             }
         }
+
         let mut i = 0;
+
         while i < self.pr.live_procs.len() {
             let p = self.pr.live_procs[i];
+
             i += 1;
+
             if self.proc(p).is_poly || self.proc(p).is_macro {
                 continue;
             }
+
             self.proc_func(p, self.proc(p).span)?;
         }
+
         if lenient {
             // A metaprogram looks for procedures by their notes (`@glsl`, `@thread`) whether
             // or not the program calls them: lower those whose headers it was shown. Only the
@@ -328,18 +367,22 @@ impl Compiler {
             let noted: Vec<ProcId> = (self.meta.export.pending_procs())
                 .filter(|&p| {
                     let proc = self.proc(p);
+
                     Some(self.scope(proc.scope).module) == self.ns.main_module
                         && (!proc.lit.header.notes.is_empty()
                             || self.pr.proc_decl_notes.contains_key(&p))
                 })
                 .collect();
+
             for p in noted {
                 let _ = self.proc_func(p, self.proc(p).span);
             }
+
             self.drain_bodies_lenient();
         } else {
             self.drain_bodies()?;
         }
+
         Ok(true)
     }
 
@@ -349,6 +392,7 @@ impl Compiler {
             return false;
         };
         let settings = workspaces.borrow().top_level_settings();
+
         !settings.do_output || settings.output_type == crate::builtin_keys::OutputType::NoOutput
     }
 
@@ -358,21 +402,26 @@ impl Compiler {
             return Ok(());
         };
         let mut sets: Vec<Vec<EntityId>> = Vec::new();
+
         for scope in &self.ns.scopes {
             if scope.module != m {
                 continue;
             }
+
             for ids in scope.names.values() {
                 if ids.len() > 1 {
                     sets.push(ids.clone());
                 }
             }
         }
+
         // Declaration order: the first set that fails is the one reported.
         sets.sort_unstable_by_key(|ids| ids[0]);
+
         for ids in sets {
             self.check_identical_overloads(&ids)?;
         }
+
         Ok(())
     }
 
@@ -398,21 +447,26 @@ impl Compiler {
             }
             Err(error) => return Err(error),
         };
+
         // A program with no `main` writes no executable: the CLI says so when one is wanted
         // (`lacks_main`).
         if let Err(error) = self.finish_pending_entry() {
             if error.code != Code::ProgramNoProcedure {
                 return Err(error);
             }
+
             self.pr.lacks_main = true;
         }
+
         self.check_declared_structs()?;
         self.check_declared_overloads()?;
         self.warn_declarations_hiding_imports();
         self.warn_main_returning_a_value();
+
         if lowered {
             self.fill_runtime_info()?;
         }
+
         // Last: the runtime information above lists only what the program reaches.
         // Body-only imports can register header contracts and further top-level
         // work. Settle those dependencies normally, then check anything that
@@ -420,10 +474,12 @@ impl Compiler {
         loop {
             self.settle()?;
             self.check_unreferenced()?;
+
             if self.ns.unsettled.is_empty() {
                 break;
             }
         }
+
         // Root workspace setters may have changed target initialization options
         // while settling or lowering. Update the private target data last.
         self.finalize_runtime_configuration()
@@ -443,9 +499,11 @@ impl Compiler {
         {
             self.options.dead_code = mode;
         }
+
         if self.options.dead_code == DeadCode::All {
             return Ok(());
         }
+
         self.out.unreferenced_from.get_or_insert(ProgramMark {
             funcs: self.out.program.funcs.len(),
             globals: self.out.program.globals.len(),
@@ -454,35 +512,46 @@ impl Compiler {
         // Checking creates more of both (a body's nested procedures, the declarations of an
         // `#insert`): go on until a round finds nothing new.
         let (mut entity_index, mut proc_index) = (0, 0);
+
         while entity_index < self.ns.entities.len() || proc_index < self.pr.procs.len() {
             while entity_index < self.ns.entities.len() {
                 let id = EntityId(entity_index as u32);
+
                 entity_index += 1;
+
                 if self.unreferenced_entity_wanted(id) {
                     // A struct constant may name the struct's members (`size_of(type_of(info))`),
                     // which are only known while or after the struct is laid out; a use of the
                     // struct lays it out first, so do the same here.
                     let scope = self.entity(id).scope;
+
                     if let ScopeKind::Struct(t) = self.scope(scope).kind
                         && let TypeKind::Struct(s) = self.ty.types.kind(t).clone()
                     {
                         let span = self.entity(id).span;
+
                         self.layout_struct(s, span)?;
                     }
+
                     self.resolve_entity(id)?;
                 }
             }
+
             let queued = self.pr.body_queue.len();
+
             while proc_index < self.pr.procs.len() {
                 let id = ProcId(proc_index as u32);
+
                 proc_index += 1;
                 self.check_unreferenced_proc(id)?;
             }
+
             // All at once, since one body may use what another declares (`#insert,scope`), and
             // in creation order: the queue is taken from the back.
             self.pr.body_queue[queued..].reverse();
             self.drain_bodies()?;
         }
+
         Ok(())
     }
 
@@ -503,14 +572,19 @@ impl Compiler {
         else {
             return false;
         };
+
         if !matches!(e.state, EntityState::Unresolved) {
             return false;
         }
+
         let scope = self.scope(e.scope);
+
         if !self.checks_unreferenced_in(scope.module) || self.inside_instance(e.scope) {
             return false;
         }
+
         let is_const = decl.kind == ast::DeclKind::Const;
+
         match scope.kind {
             // Globals and constants alike.
             ScopeKind::Module | ScopeKind::File => true,
@@ -533,6 +607,7 @@ impl Compiler {
     pub(crate) fn inside_instance(&self, mut scope: ScopeId) -> bool {
         loop {
             let s = self.scope(scope);
+
             match s.kind {
                 ScopeKind::Macro | ScopeKind::StructParams => return true,
                 ScopeKind::Struct(t) => {
@@ -550,6 +625,7 @@ impl Compiler {
                 ScopeKind::Module | ScopeKind::File | ScopeKind::Root => return false,
                 ScopeKind::Block => {}
             }
+
             match s.parent {
                 Some(parent) => scope = parent,
                 None => return false,
@@ -561,6 +637,7 @@ impl Compiler {
     /// polymorphic or a macro.
     fn check_unreferenced_proc(&mut self, id: ProcId) -> Result<()> {
         let p = self.proc(id);
+
         if p.is_macro
             && p.bindings.is_none()
             && p.target.is_none()
@@ -569,7 +646,9 @@ impl Compiler {
         {
             self.ide_note_unchecked_header(id);
         }
+
         let p = self.proc(id);
+
         if p.is_macro
             || p.bindings.is_some()
             || p.target.is_some()
@@ -579,24 +658,31 @@ impl Compiler {
         {
             return Ok(());
         }
+
         let span = p.span;
+
         self.refresh_implicit_poly(id)?;
+
         if self.proc(id).is_poly {
             if self.ed.is_live() {
                 self.ide_note_unchecked_header(id);
             }
+
             return Ok(());
         }
+
         if self.proc(id).lit.body.is_none() {
             // `#foreign`, `#compiler`, `#intrinsic`: only the types. Reserving a target would
             // add a foreign symbol (and link its library).
             self.signature(id, span)?;
             return Ok(());
         }
+
         if self.waits_for_a_call(id) {
             self.signature(id, span)?;
             return Ok(());
         }
+
         self.proc_func(id, span)?;
         Ok(())
     }
@@ -607,6 +693,7 @@ impl Compiler {
     /// the default `dead_code_elimination` leaves them; `.NONE` checks every body.
     fn waits_for_a_call(&self, id: ProcId) -> bool {
         let p = self.proc(id);
+
         self.options.dead_code == DeadCode::ModulesOnly
             && matches!(
                 self.scope(p.scope).kind,
@@ -624,16 +711,20 @@ impl Compiler {
     /// Polymorphic structs are checked per instance, when one is made.
     fn check_declared_structs(&mut self) -> Result<()> {
         let mut index = 0;
+
         while index < self.ns.entities.len() {
             let id = EntityId(index as u32);
+
             index += 1;
             let e = self.entity(id);
+
             if !matches!(
                 self.scope(e.scope).kind,
                 ScopeKind::Module | ScopeKind::File | ScopeKind::Root
             ) {
                 continue;
             }
+
             let EntityKind::Decl {
                 decl, ..
             } = &e.kind
@@ -645,10 +736,13 @@ impl Compiler {
                     decl.value.as_ref().map(|v| &v.kind),
                     Some(ast::ExprKind::Struct(lit)) if lit.params.is_empty()
                 );
+
             if !is_plain_struct {
                 continue;
             }
+
             let span = e.span;
+
             if let Resolved::Const {
                 value: Value::Type(t),
                 ..
@@ -660,6 +754,7 @@ impl Compiler {
                 self.default_initializer(t, span)?;
             }
         }
+
         Ok(())
     }
 
@@ -682,6 +777,7 @@ impl Compiler {
         let scope = self.ns.modules[m.0 as usize].scope;
         let name = self.options.entry_point.clone();
         let ids = self.lookup(scope, Sym::intern(&name))?;
+
         for id in ids {
             match self.resolve_entity(id)? {
                 Resolved::Proc(p) => return Ok(p),
@@ -692,6 +788,7 @@ impl Compiler {
                 _ => {}
             }
         }
+
         err(
             Code::ProgramNoProcedure,
             span,
@@ -730,14 +827,17 @@ impl Compiler {
         if !self.options.stack_trace {
             return;
         }
+
         if self.out.program.stack_trace.is_some()
             && self.out.program.file_paths.len() == self.src.sources.len()
         {
             return;
         }
+
         let Some(layout) = self.trace_layout(span) else {
             return;
         };
+
         self.out.program.file_paths = (0..self.src.sources.len())
             .map(|i| self.src.sources.get(FileId(i as u32)).path.to_string())
             .collect();
@@ -764,9 +864,11 @@ impl Compiler {
             .preload_type(PreludeType::SourceCodeLocation, span)
             .ok()?;
         let (location_at, ty) = self.member_offset(info, "location", span).ok()??;
+
         if ty != location_ty {
             return None;
         }
+
         Some(ir::TraceLayout {
             context: field(self, context, "stack_trace", pointer)?,
             node: ir::TraceNodeLayout {
@@ -796,12 +898,15 @@ impl Compiler {
         self.out.drop_unreferenced_code();
         self.reject_c_library_calls_without_a_c_library()?;
         self.enable_stack_traces(Span::NONE);
+
         if let Some(layout) = self.out.program.stack_trace {
             crate::stack_trace::instrument(&mut self.out.program, &layout, &self.options.layout);
         }
+
         if self.options.debug_info {
             self.collect_debug_types();
         }
+
         Ok(())
     }
 
@@ -812,11 +917,14 @@ impl Compiler {
         if self.options.os != TargetOs::None {
             return Ok(());
         }
+
         let program = &self.out.program;
+
         for foreign in &program.foreigns {
             let Some(library) = foreign.library.and_then(|i| program.libraries.get(i)) else {
                 continue;
             };
+
             if library.system {
                 return err(
                     Code::UnsupportedOperation,
@@ -828,6 +936,7 @@ impl Compiler {
                 );
             }
         }
+
         Ok(())
     }
 
@@ -843,6 +952,7 @@ impl Compiler {
                 continue;
             };
             let g = &mut self.out.program.globals[global.0 as usize];
+
             g.init.clone_from(&agg.bytes);
             g.relocs.clone_from(&agg.relocs);
         }
@@ -865,8 +975,10 @@ impl Compiler {
         } else {
             let interp = &mut self.ct.interp;
             let mut pointers = Vec::with_capacity(args.len() + 1);
+
             for arg in args {
                 let mut bytes = arg.as_bytes().to_vec();
+
                 bytes.push(0);
                 let Some(address) = interp.keep(&bytes, 1) else {
                     return err(
@@ -875,8 +987,10 @@ impl Compiler {
                         "cannot allocate the program's arguments",
                     );
                 };
+
                 pointers.push(address);
             }
+
             pointers.push(0);
             let Some(argv) = interp.keep_pointers(&pointers) else {
                 return err(
@@ -893,27 +1007,34 @@ impl Compiler {
             let declares_main = match self.ns.main_module {
                 Some(m) => {
                     let scope = self.ns.modules[m.0 as usize].scope;
+
                     !self
                         .lookup(scope, Sym::intern(&self.options.entry_point))?
                         .is_empty()
                 }
                 None => false,
             };
+
             if self.pr.exports.is_empty() || !declares_main {
                 return Ok(0);
             }
+
             return err(
                 Code::RuntimeConfigurationInvalid,
                 Span::NONE,
                 "`main` is declared, but no entry point calls it (is Runtime_Support loaded?)",
             );
         };
+
         self.ct.interp.compile_time = false;
         self.enable_stack_traces(Span::NONE);
+
         if let Err(trap) = self.ct.interp.reset_globals(&self.out.program) {
             return Err(Box::new(self.runtime_error(&trap)));
         }
+
         let result = self.ct.interp.call(&self.out.program, main, &[argc, argv]);
+
         match result {
             Ok(values) => Ok(values.first().map_or(0, |&v| v as u32 as i32)),
             // `exit` in a sandbox host (the browser playground) ends the program as returning
@@ -929,6 +1050,7 @@ impl Compiler {
     /// trap has a more specific kind, such as a foreign procedure the host cannot provide).
     fn runtime_error(&self, trap: &crate::interp::Trap) -> Diagnostic {
         let d = self.trap_diagnostic(trap, "runtime error", None);
+
         if d.code == Code::RuntimeTrap {
             d.with_code(Code::Runtime)
         } else {
@@ -946,12 +1068,14 @@ impl Diagnostics {
                 for (span, message) in d.secondary_labels() {
                     e = Box::new((*e).with_secondary_label(*span, message.clone()));
                 }
+
                 e.notes.push((
                     d.span,
                     format!("a top-level item failed earlier: {}", d.message),
                 ));
                 e.notes.extend(d.notes);
             }
+
             e
         })
     }
@@ -976,6 +1100,7 @@ impl Output {
         let mut foreigns: Vec<bool> = (0..program.foreigns.len())
             .map(|i| i < mark.foreigns)
             .collect();
+
         for (i, f) in program.funcs.iter().enumerate() {
             if f.as_ref()
                 .is_some_and(|f| matches!(f.linkage, ir::Linkage::Export(_)))
@@ -983,13 +1108,16 @@ impl Output {
                 funcs[i] = true;
             }
         }
+
         for (i, g) in program.globals.iter().enumerate() {
             globals[i] |= g.export.is_some() || g.section.is_some();
         }
+
         // Native code calls the check reporter from its failure paths, not through an `Inst`.
         if let Some(handler) = program.check_failed {
             funcs[handler.0 as usize] = true;
         }
+
         let mut func_work: Vec<usize> = (0..funcs.len()).filter(|&i| funcs[i]).collect();
         let mut global_work: Vec<usize> = (0..globals.len()).filter(|&i| globals[i]).collect();
         let mark_live = |live: &mut Vec<bool>, work: &mut Vec<usize>, i: usize| {
@@ -998,6 +1126,7 @@ impl Output {
                 work.push(i);
             }
         };
+
         while !func_work.is_empty() || !global_work.is_empty() {
             while let Some(g) = global_work.pop() {
                 for r in &program.globals[g].relocs {
@@ -1012,10 +1141,12 @@ impl Output {
                     }
                 }
             }
+
             while let Some(f) = func_work.pop() {
                 let Some(func) = &program.funcs[f] else {
                     continue;
                 };
+
                 for inst in func.blocks.iter().flat_map(|b| &b.insts) {
                     match inst {
                         ir::Inst::Call(call) => match call.callee {
@@ -1039,17 +1170,20 @@ impl Output {
                 }
             }
         }
+
         for (f, live) in program.funcs.iter_mut().zip(funcs) {
             if !live {
                 *f = None;
             }
         }
+
         for (g, live) in program.globals.iter_mut().zip(globals) {
             if !live {
                 g.init = Vec::new();
                 g.relocs = Vec::new();
             }
         }
+
         for (x, live) in program.foreigns.iter_mut().zip(foreigns) {
             if !live {
                 x.library = None;
@@ -1067,9 +1201,11 @@ impl Compiler {
         else {
             return Ok(None);
         };
+
         if !decl.notes.iter().any(|n| n.is(MODULE_ASM_NOTE)) {
             return Ok(None);
         }
+
         let Resolved::Const {
             value: Value::String(text),
             ..
@@ -1087,14 +1223,17 @@ impl Compiler {
     /// The module's assembly: every `@Module_Asm` constant, in source order.
     fn collect_module_asm(&mut self) -> Result<()> {
         let mut texts = Vec::new();
+
         for i in 0..self.ns.export_entities.len() {
             let entity = self.ns.export_entities[i];
+
             if let EntityState::Done(resolved) = self.entity(entity).state.clone()
                 && let Some(text) = self.module_asm_text(entity, &resolved)?
             {
                 texts.push(text);
             }
         }
+
         self.out.program.module_asm = texts;
         Ok(())
     }

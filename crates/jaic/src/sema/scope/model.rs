@@ -147,6 +147,7 @@ impl Scope {
             .iter()
             .flat_map(|(&name, ids)| ids.iter().map(move |&id| (id, name)))
             .collect();
+
         out.sort_unstable_by_key(|&(id, _)| id);
         out
     }

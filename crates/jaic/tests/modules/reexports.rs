@@ -17,6 +17,7 @@ fn named_filtered_reexport_preserves_qualified_alias_and_filter() {
         ],
         false,
     );
+
     rejects(&mut c, "hidden");
 }
 
@@ -36,6 +37,7 @@ fn named_except_reexport_hides_excluded_name() {
         ],
         false,
     );
+
     rejects(&mut c, "hidden");
 }
 
@@ -58,6 +60,7 @@ fn facade_procedure_alias_preserves_full_overload_set_and_defaults() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -77,6 +80,7 @@ fn unfiltered_reexport_preserves_mutable_storage() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -92,14 +96,17 @@ fn anonymous_filtered_reexports_preserve_storage_and_visibility() {
                 "I :: #import \"Impl\"; F :: #import \"Facade\"; #assert(*I.state == *F.state); main :: () { F.state = 9; }",
             ),
         ];
+
         succeeds(&mut compiler(&files, false));
         let mut invalid = files;
+
         invalid[2].1 = "F :: #import \"Facade\"; main :: () { F.hidden = 9; }";
         rejects(&mut compiler(&invalid, false), "hidden");
         invalid[1].1 = "#scope_module using,only(state) #import \"Impl\";";
         invalid[2].1 = "F :: #import \"Facade\"; main :: () { F.state = 9; }";
         succeeds(&mut compiler(&invalid, false));
     }
+
     let files = [
         (
             "/lib/Impl/module.jai",
@@ -114,6 +121,7 @@ fn anonymous_filtered_reexports_preserve_storage_and_visibility() {
             "F :: #import \"Facade\"; #assert type_of(F.state) == s32; main :: () {}",
         ),
     ];
+
     succeeds(&mut compiler(&files, false));
 }
 
@@ -132,6 +140,7 @@ fn module_pointer_arguments_preserve_relocation_identity() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -150,6 +159,7 @@ fn module_argument_order_and_omitted_defaults_are_distinct() {
         ],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -171,6 +181,7 @@ fn computed_import_filters_preserve_filter_kind() {
             ],
             false,
         );
+
         rejects(&mut c, hidden);
     }
 }
@@ -184,6 +195,7 @@ fn aggregate_mapper_changes_names_and_preserves_lvalues() {
         )],
         false,
     );
+
     succeeds(&mut c);
 }
 
@@ -196,6 +208,7 @@ fn aggregate_only_filter_hides_other_members() {
         )],
         false,
     );
+
     rejects(&mut c, "y");
 }
 
@@ -208,6 +221,7 @@ fn aggregate_using_declaration_keeps_filter() {
         )],
         false,
     );
+
     rejects(&mut c, "y");
 }
 
@@ -220,6 +234,7 @@ fn file_scope_aggregate_using_keeps_computed_filter() {
         )],
         false,
     );
+
     rejects(&mut c, "y");
 }
 
@@ -232,6 +247,7 @@ fn mapper_omission_hides_original_short_name() {
         )],
         false,
     );
+
     rejects(&mut c, "y");
 }
 
@@ -247,5 +263,6 @@ fn invalid_computed_filter_is_an_error() {
         ],
         false,
     );
+
     rejects(&mut c, "strings");
 }

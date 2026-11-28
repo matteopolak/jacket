@@ -24,6 +24,7 @@ impl Rng {
     fn next(&mut self) -> u64 {
         self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
         let mut z = self.0;
+
         z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
         z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
         z ^ (z >> 31)
@@ -100,13 +101,16 @@ pub struct Fit {
 /// Least squares of `y = slope * x`, with the R-squared against the mean of `y`.
 pub fn fit_through_origin(x: &[f64], y: &[f64]) -> Option<Fit> {
     let sxx: f64 = x.iter().map(|a| a * a).sum();
+
     if x.len() < 2 || sxx <= 0.0 {
         return None;
     }
+
     let slope = x.iter().zip(y).map(|(a, b)| a * b).sum::<f64>() / sxx;
     let my = y.iter().sum::<f64>() / y.len() as f64;
     let residual: f64 = x.iter().zip(y).map(|(a, b)| (b - slope * a).powi(2)).sum();
     let total: f64 = y.iter().map(|b| (b - my).powi(2)).sum();
+
     Some(Fit {
         slope,
         intercept: 0.0,
@@ -121,25 +125,31 @@ pub fn fit_through_origin(x: &[f64], y: &[f64]) -> Option<Fit> {
 /// Ordinary least squares of `y` on `x`. `None` when all `x` are equal.
 pub fn fit(x: &[f64], y: &[f64]) -> Option<Fit> {
     let n = x.len() as f64;
+
     if x.len() < 2 {
         return None;
     }
+
     let (mx, my) = (x.iter().sum::<f64>() / n, y.iter().sum::<f64>() / n);
     let (mut sxx, mut sxy, mut syy) = (0.0, 0.0, 0.0);
+
     for (&a, &b) in x.iter().zip(y) {
         sxx += (a - mx) * (a - mx);
         sxy += (a - mx) * (b - my);
         syy += (b - my) * (b - my);
     }
+
     if sxx <= 0.0 {
         return None;
     }
+
     let slope = sxy / sxx;
     let r_squared = if syy <= 0.0 {
         1.0
     } else {
         (sxy * sxy / (sxx * syy)).clamp(0.0, 1.0)
     };
+
     Some(Fit {
         slope,
         intercept: my - slope * mx,
@@ -156,6 +166,7 @@ fn variance(values: &[f64]) -> f64 {
     if values.len() < 2 {
         return 0.0;
     }
+
     let m = mean(values);
     values.iter().map(|v| (v - m) * (v - m)).sum::<f64>() / (values.len() - 1) as f64
 }
@@ -163,6 +174,7 @@ fn variance(values: &[f64]) -> f64 {
 /// The median of values that are already sorted.
 pub fn median_sorted(sorted: &[f64]) -> f64 {
     let n = sorted.len();
+
     if n == 0 {
         0.0
     } else if n % 2 == 1 {
@@ -178,6 +190,7 @@ pub fn median(values: &[f64]) -> f64 {
 
 pub fn sorted(values: &[f64]) -> Vec<f64> {
     let mut v = values.to_vec();
+
     v.sort_by(f64::total_cmp);
     v
 }
@@ -187,9 +200,11 @@ pub fn percentile(sorted: &[f64], percent: f64) -> f64 {
     if sorted.is_empty() {
         return 0.0;
     }
+
     let position = (sorted.len() - 1) as f64 * percent / 100.0;
     let low = position.floor() as usize;
     let high = (low + 1).min(sorted.len() - 1);
+
     sorted[low] + (sorted[high] - sorted[low]) * (position - low as f64)
 }
 
@@ -202,6 +217,7 @@ pub fn mad(values: &[f64]) -> f64 {
 /// The interval holding `CONFIDENCE` of a bootstrap distribution.
 fn interval(estimate: f64, mut distribution: Vec<f64>) -> Interval {
     distribution.retain(|v| v.is_finite());
+
     if distribution.is_empty() {
         return Interval {
             low: estimate,
@@ -209,8 +225,10 @@ fn interval(estimate: f64, mut distribution: Vec<f64>) -> Interval {
             high: estimate,
         };
     }
+
     distribution.sort_by(f64::total_cmp);
     let tail = (1.0 - CONFIDENCE) / 2.0 * 100.0;
+
     Interval {
         low: percentile(&distribution, tail).min(estimate),
         estimate,
@@ -224,11 +242,13 @@ fn estimate(samples: &Samples, estimator: Estimator, pick: &[usize]) -> f64 {
         Estimator::Slope => {
             let x: Vec<f64> = pick.iter().map(|&i| samples.iterations[i]).collect();
             let y: Vec<f64> = pick.iter().map(|&i| samples.nanoseconds[i]).collect();
+
             fit_through_origin(&x, &y).map_or(f64::NAN, |f| f.slope)
         }
         Estimator::Mean => {
             let ns: f64 = pick.iter().map(|&i| samples.nanoseconds[i]).sum();
             let it: f64 = pick.iter().map(|&i| samples.iterations[i]).sum();
+
             ns / it
         }
     }
@@ -250,11 +270,13 @@ fn bootstrap(
     mut statistic: impl FnMut(&[usize]) -> f64,
 ) -> Vec<f64> {
     let mut pick = vec![0; n];
+
     (0..resamples)
         .map(|_| {
             for slot in &mut pick {
                 *slot = rng.below(n);
             }
+
             statistic(&pick)
         })
         .collect()
@@ -275,6 +297,7 @@ impl Outliers {
         let (q1, q3) = (percentile(&sorted, 25.0), percentile(&sorted, 75.0));
         let iqr = q3 - q1;
         let mut found = Outliers::default();
+
         for &v in &sorted {
             if v < q1 - 3.0 * iqr {
                 found.low_severe += 1;
@@ -286,6 +309,7 @@ impl Outliers {
                 found.high_mild += 1;
             }
         }
+
         found
     }
 
@@ -346,6 +370,7 @@ pub fn analyze(samples: &Samples, resamples: usize, rng: &mut Rng) -> Analysis {
     let free = (estimator == Estimator::Slope)
         .then(|| fit(&samples.iterations, &samples.nanoseconds))
         .flatten();
+
     Analysis {
         estimator,
         time,
@@ -399,6 +424,7 @@ pub struct Comparison {
 fn t_statistic(a: &[f64], b: &[f64]) -> f64 {
     let difference = mean(a) - mean(b);
     let spread = (variance(a) / a.len() as f64 + variance(b) / b.len() as f64).sqrt();
+
     if spread > 0.0 {
         difference / spread
     } else if difference == 0.0 {
@@ -434,9 +460,11 @@ pub fn compare(
         estimate(now, estimator, &all(now)),
         estimate(before, estimator, &all(before)),
     );
+
     if !(old_time > 0.0 && new_time.is_finite()) {
         return None;
     }
+
     let point = new_time / old_time - 1.0;
 
     let (mut new_pick, mut old_pick) = (vec![0; now.len()], vec![0; before.len()]);
@@ -445,9 +473,11 @@ pub fn compare(
             for slot in &mut new_pick {
                 *slot = rng.below(now.len());
             }
+
             for slot in &mut old_pick {
                 *slot = rng.below(before.len());
             }
+
             estimate(now, estimator, &new_pick) / estimate(before, estimator, &old_pick) - 1.0
         })
         .collect();
@@ -458,17 +488,21 @@ pub fn compare(
     let pool: Vec<f64> = a.iter().chain(&b).copied().collect();
     let (mut left, mut right) = (vec![0.0; a.len()], vec![0.0; b.len()]);
     let mut extreme = 0usize;
+
     for _ in 0..resamples {
         for slot in &mut left {
             *slot = pool[rng.below(pool.len())];
         }
+
         for slot in &mut right {
             *slot = pool[rng.below(pool.len())];
         }
+
         if t_statistic(&left, &right).abs() >= observed {
             extreme += 1;
         }
     }
+
     let p_value = extreme as f64 / resamples.max(1) as f64;
 
     let verdict = if p_value >= significance {
@@ -480,6 +514,7 @@ pub fn compare(
     } else {
         Verdict::WithinNoise
     };
+
     Some(Comparison {
         change,
         p_value,
@@ -499,14 +534,17 @@ mod tests {
             iterations: vec![],
             nanoseconds: vec![],
         };
+
         for k in 1..=count {
             let iterations = (k * 1000) as f64;
             let wobble = 1.0 + noise * (rng.below(2001) as f64 / 1000.0 - 1.0);
+
             samples.iterations.push(iterations);
             samples
                 .nanoseconds
                 .push((overhead + per * iterations) * wobble);
         }
+
         samples
     }
 
@@ -515,6 +553,7 @@ mod tests {
         let x: Vec<f64> = (1..=20).map(f64::from).collect();
         let y: Vec<f64> = x.iter().map(|v| 3.0 * v + 40.0).collect();
         let f = fit(&x, &y).unwrap();
+
         assert!((f.slope - 3.0).abs() < 1e-9 && (f.intercept - 40.0).abs() < 1e-9);
         assert!((f.r_squared - 1.0).abs() < 1e-12);
         assert!(fit(&[2.0, 2.0, 2.0], &[1.0, 2.0, 3.0]).is_none());
@@ -525,11 +564,13 @@ mod tests {
         // The shortest sample lasts 2 us here, and the clock reads and the call cost 100 ns.
         let samples = linear(2.0, 100.0, 0.0, 30, 1);
         let analysis = analyze(&samples, 2000, &mut Rng::new(7));
+
         assert_eq!(analysis.estimator, Estimator::Slope);
         assert!((analysis.time.estimate - 2.0).abs() < 0.01, "{analysis:?}");
         assert!((analysis.overhead.unwrap() - 100.0).abs() < 1e-6);
         assert!(analysis.r_squared.unwrap() > 0.999);
         let through = fit_through_origin(&samples.iterations, &samples.nanoseconds).unwrap();
+
         assert_eq!(through.intercept, 0.0);
     }
 
@@ -538,6 +579,7 @@ mod tests {
         let samples = linear(10.0, 300.0, 0.01, 50, 3);
         let analysis = analyze(&samples, 5000, &mut Rng::new(9));
         let t = analysis.time;
+
         assert!(t.low <= t.estimate && t.estimate <= t.high);
         assert!(t.high - t.low < 0.05 * t.estimate, "{t:?}");
         assert!(analysis.median.low <= analysis.median.high);
@@ -550,6 +592,7 @@ mod tests {
             nanoseconds: (0..12).map(|i| 1000.0 + f64::from(i)).collect(),
         };
         let analysis = analyze(&samples, 1000, &mut Rng::new(1));
+
         assert_eq!(analysis.estimator, Estimator::Mean);
         assert!(analysis.r_squared.is_none());
         assert!((analysis.time.estimate - 10.055).abs() < 1e-9);
@@ -560,14 +603,17 @@ mod tests {
         let samples = linear(4.0, 100.0, 0.05, 40, 5);
         let first = analyze(&samples, 1000, &mut Rng::new(11));
         let second = analyze(&samples, 1000, &mut Rng::new(11));
+
         assert_eq!(first, second);
     }
 
     #[test]
     fn tukey_fences_split_mild_from_severe() {
         let mut values: Vec<f64> = (0..40).map(|i| 100.0 + f64::from(i % 5)).collect();
+
         values.extend([107.0, 160.0, 40.0]);
         let found = Outliers::classify(&values);
+
         assert_eq!(found.high_severe, 1, "{found:?}");
         assert_eq!(found.low_severe, 1, "{found:?}");
         assert_eq!(found.total(), found.low_mild + found.high_mild + 2);
@@ -579,6 +625,7 @@ mod tests {
         let a = linear(10.0, 200.0, 0.02, 40, 1);
         let b = linear(10.0, 200.0, 0.02, 40, 2);
         let c = compare(&a, &b, 5000, 0.02, 0.05, &mut Rng::new(3)).unwrap();
+
         assert_ne!(c.verdict, Verdict::Regressed);
         assert_ne!(c.verdict, Verdict::Improved);
         assert!(c.change.low <= c.change.estimate && c.change.estimate <= c.change.high);
@@ -589,10 +636,12 @@ mod tests {
         let base = linear(10.0, 200.0, 0.01, 40, 1);
         let slower = linear(12.0, 200.0, 0.01, 40, 2);
         let c = compare(&slower, &base, 5000, 0.02, 0.05, &mut Rng::new(3)).unwrap();
+
         assert_eq!(c.verdict, Verdict::Regressed);
         assert!((c.change.estimate - 0.2).abs() < 0.02, "{c:?}");
         assert!(c.p_value < 0.05);
         let c = compare(&base, &slower, 5000, 0.02, 0.05, &mut Rng::new(3)).unwrap();
+
         assert_eq!(c.verdict, Verdict::Improved);
     }
 
@@ -601,6 +650,7 @@ mod tests {
         let base = linear(10.0, 200.0, 0.002, 40, 1);
         let barely = linear(10.05, 200.0, 0.002, 40, 2);
         let c = compare(&barely, &base, 5000, 0.02, 0.05, &mut Rng::new(3)).unwrap();
+
         assert!(
             matches!(c.verdict, Verdict::WithinNoise | Verdict::NoChange),
             "{c:?}"

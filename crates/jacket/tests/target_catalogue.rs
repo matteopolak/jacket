@@ -7,13 +7,17 @@ use test_support::TempDir;
 
 fn run(project: &Path, listing: Option<bool>) -> Vec<serde_json::Value> {
     let mut command = Command::new(env!("CARGO_BIN_EXE_jacket"));
+
     command.args(["test", "--interp", "--no-doc", "--format", "json"]);
+
     if let Some(target) = listing {
         command.arg("--list");
+
         if target {
             command.arg("--list-target");
         }
     }
+
     let output = command
         .args(["--", "-os=wasm"])
         .current_dir(project)
@@ -23,6 +27,7 @@ fn run(project: &Path, listing: Option<bool>) -> Vec<serde_json::Value> {
         )
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}\n{}",
@@ -54,11 +59,13 @@ fn project() -> TempDir {
         .parent()
         .unwrap()
         .join("jaic");
+
     assert!(
         compiler.is_file(),
         "build the paired debug compiler with cargo build -p jaic-cli"
     );
     let project = TempDir::new("target-catalogue");
+
     std::fs::create_dir_all(project.join("tests")).unwrap();
     std::fs::write(project.join("jacket.toml"), "[project]\n").unwrap();
     std::fs::write(
@@ -82,17 +89,23 @@ fn project() -> TempDir {
 fn target_catalogue_matches_actual_wasm_execution_without_changing_host_listing() {
     let project = project();
     let host = names(&run(&project, Some(false)), None);
+
     assert_eq!(host.len(), 1);
     assert!(host.iter().next().unwrap().ends_with("host_only"));
     let target = names(&run(&project, Some(true)), None);
+
     assert_eq!(target.len(), 1);
     assert!(target.iter().next().unwrap().ends_with("wasm_only"));
+
     for target in [false, true] {
         let mut command = Command::new(env!("CARGO_BIN_EXE_jacket"));
+
         command.args(["test", "--list", "--deps", "--interp"]);
+
         if target {
             command.arg("--list-target");
         }
+
         let output = command
             .args(["--", "-os=wasm"])
             .current_dir(&project)
@@ -102,6 +115,7 @@ fn target_catalogue_matches_actual_wasm_execution_without_changing_host_listing(
             )
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}",
@@ -112,7 +126,9 @@ fn target_catalogue_matches_actual_wasm_execution_without_changing_host_listing(
             target
         );
     }
+
     let executed = run(&project, None);
+
     assert_eq!(names(&executed, Some("passed")), target);
     assert!(names(&executed, Some("skipped")).is_empty());
 }
@@ -135,6 +151,7 @@ fn changed_selection_uses_the_actual_mode_target_catalogue() {
         )
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -145,6 +162,7 @@ fn changed_selection_uses_the_actual_mode_target_catalogue() {
         .lines()
         .map(str::to_owned)
         .collect();
+
     assert_eq!(selected, names(&run(&project, Some(true)), None));
     assert!(selected.iter().next().unwrap().ends_with("wasm_only"));
     let output = Command::new(env!("CARGO_BIN_EXE_jacket"))
@@ -165,6 +183,7 @@ fn changed_selection_uses_the_actual_mode_target_catalogue() {
         )
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -174,5 +193,6 @@ fn changed_selection_uses_the_actual_mode_target_catalogue() {
         .lines()
         .map(|line| serde_json::from_str(line).unwrap())
         .collect();
+
     assert_eq!(names(&records, Some("passed")), selected);
 }

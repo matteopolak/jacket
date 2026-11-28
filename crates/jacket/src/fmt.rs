@@ -48,6 +48,7 @@ struct Resolved {
 impl Resolved {
     fn new(config: &Config, file: &Path) -> Result<Resolved, String> {
         let at = |message: String| format!("in `{}`, {message}", file.display());
+
         config.format.validate().map_err(at)?;
         config.doc.format.validate_doc().map_err(at)?;
         let ignore = config
@@ -56,6 +57,7 @@ impl Resolved {
             .iter()
             .map(|pattern| PathPattern::new(pattern).map_err(|e| at(e.to_string())))
             .collect::<Result<_, _>>()?;
+
         Ok(Resolved {
             root: file.parent().unwrap_or(Path::new("")).to_path_buf(),
             settings: config
@@ -78,6 +80,7 @@ impl Resolved {
 
     fn is_ignored(&self, path: &Path) -> bool {
         let relative = relative_text(path, &self.root);
+
         self.ignore
             .iter()
             .any(|pattern| pattern.is_match(&relative))
@@ -103,22 +106,27 @@ impl Resolver<'_> {
         if let Some(explicit) = &self.explicit {
             return Some(explicit.clone());
         }
+
         if let Some(found) = self.by_dir.get(dir) {
             return found.clone();
         }
+
         let found = match locate(self.fs, dir) {
             None => Some(self.defaults.clone()),
             Some(location) => {
                 let file = location.file();
+
                 if let Some(found) = self.by_config.get(&location.dir) {
                     found.clone()
                 } else {
                     let found = self.load(&file, location.dir.clone());
+
                     self.by_config.insert(location.dir, found.clone());
                     found
                 }
             }
         };
+
         self.by_dir.insert(dir.to_path_buf(), found.clone());
         found
     }
@@ -130,6 +138,7 @@ impl Resolver<'_> {
                 dir: dir.clone(),
             },
         );
+
         match loaded {
             Err(error) => self.report(&error.to_string()),
             Ok(loaded) => {
@@ -138,6 +147,7 @@ impl Resolver<'_> {
                         eprintln!("jacket: {note}");
                     }
                 }
+
                 match Resolved::new(&loaded.config, file) {
                     Ok(resolved) => Some(Rc::new(resolved)),
                     Err(message) => self.report(&message),
@@ -160,6 +170,7 @@ fn file_dir(file: &Path) -> PathBuf {
 /// `path` made absolute against `cwd`, without `.` and `x/..` components.
 fn clean(path: &Path, cwd: &Path) -> PathBuf {
     let mut out = PathBuf::new();
+
     for component in cwd.join(path).components() {
         match component {
             Component::CurDir => {}
@@ -169,6 +180,7 @@ fn clean(path: &Path, cwd: &Path) -> PathBuf {
             other => out.push(other),
         }
     }
+
     out
 }
 
@@ -188,8 +200,10 @@ struct Arguments {
 fn parse(args: &[OsString]) -> Arguments {
     let mut parsed = Arguments::default();
     let mut iter = args.iter();
+
     while let Some(arg) = iter.next() {
         let text = arg.to_str().unwrap_or("");
+
         match text {
             "--config" => match iter.next() {
                 Some(value) => parsed.config = Some(PathBuf::from(value)),
@@ -216,6 +230,7 @@ fn parse(args: &[OsString]) -> Arguments {
             _ => parsed.paths.push(PathBuf::from(arg)),
         }
     }
+
     parsed
 }
 
@@ -227,12 +242,14 @@ pub fn plan(args: &[OsString], ctx: &Context) -> Plan {
 /// [`plan`] with `budget` bytes of file names per `jaifmt` command line.
 fn plan_within(args: &[OsString], ctx: &Context, budget: usize) -> Plan {
     let parsed = parse(args);
+
     if parsed.raw {
         return Plan {
             runs: vec![args.to_vec()],
             ..Plan::default()
         };
     }
+
     let mut resolver = Resolver {
         fs: ctx.fs,
         explicit: None,
@@ -244,9 +261,12 @@ fn plan_within(args: &[OsString], ctx: &Context, budget: usize) -> Plan {
         noted: ctx.loaded.map(|loaded| loaded.dir().to_path_buf()),
         failed: false,
     };
+
     if let Some(file) = &parsed.config {
         let file = clean(file, ctx.cwd);
+
         resolver.explicit = explicit_settings(&mut resolver, &file);
+
         if resolver.explicit.is_none() {
             return Plan {
                 answer: Some(2),
@@ -263,6 +283,7 @@ fn plan_within(args: &[OsString], ctx: &Context, budget: usize) -> Plan {
                 ..Plan::default()
             };
         };
+
         return Plan {
             answer: Some(u8::from(!settings.is_ignored(&file))),
             ..Plan::default()
@@ -270,11 +291,13 @@ fn plan_within(args: &[OsString], ctx: &Context, budget: usize) -> Plan {
     }
 
     let mut plan = Plan::default();
+
     if parsed.stdin {
         match resolver.for_dir(ctx.cwd) {
             Some(settings) => plan.runs.push(command(&settings, &parsed.pass, &[])),
             None => plan.failed = true,
         }
+
         return plan;
     }
 
@@ -285,6 +308,7 @@ fn plan_within(args: &[OsString], ctx: &Context, budget: usize) -> Plan {
     };
     // Files by the settings they get, so equal settings share a run.
     let mut groups: BTreeMap<Vec<String>, (Rc<Resolved>, Vec<PathBuf>)> = BTreeMap::new();
+
     for root in &roots {
         if !root.exists() {
             eprintln!(
@@ -300,26 +324,33 @@ fn plan_within(args: &[OsString], ctx: &Context, budget: usize) -> Plan {
             add(&mut groups, settings, root.clone());
         }
     }
+
     plan.failed |= resolver.failed;
+
     for (settings, mut files) in groups.into_values() {
         files.sort();
         files.dedup();
         let mut chunk: Vec<OsString> = Vec::new();
         let mut size = 0;
+
         for file in files {
             let file = file.into_os_string();
+
             if size + file.len() > budget && !chunk.is_empty() {
                 plan.runs.push(command(&settings, &parsed.pass, &chunk));
                 chunk.clear();
                 size = 0;
             }
+
             size += file.len() + 1;
             chunk.push(file);
         }
+
         if !chunk.is_empty() {
             plan.runs.push(command(&settings, &parsed.pass, &chunk));
         }
     }
+
     plan
 }
 
@@ -334,12 +365,14 @@ fn explicit_settings(resolver: &mut Resolver, file: &Path) -> Option<Rc<Resolved
             ));
         }
     };
+
     match jacket_config::parse_noting(&text) {
         Err(message) => resolver.report(&format!("in `{}`, {message}", file.display())),
         Ok((config, unknown)) => {
             for key in unknown {
                 eprintln!("jacket: {}", jacket_config::unknown_note(&key));
             }
+
             match Resolved::new(&config, file) {
                 Ok(resolved) => Some(Rc::new(resolved)),
                 Err(message) => resolver.report(&message),
@@ -370,19 +403,24 @@ fn collect(
     let Ok(entries) = std::fs::read_dir(dir) else {
         eprintln!("jacket: error: could not read `{}`", dir.display());
         resolver.failed = true;
+
         return;
     };
     let Some(settings) = resolver.for_dir(dir) else {
         return;
     };
+
     for entry in entries.flatten() {
         let path = entry.path();
+
         if entry.file_name().to_string_lossy().starts_with('.') {
             continue;
         }
+
         let Ok(kind) = entry.file_type() else {
             continue;
         };
+
         if kind.is_dir() {
             if !settings.is_ignored(&path) {
                 collect(&path, resolver, groups);
@@ -398,10 +436,12 @@ fn collect(
 
 fn command(settings: &Resolved, pass: &[OsString], files: &[OsString]) -> Vec<OsString> {
     let mut out: Vec<OsString> = vec!["--no-config".into()];
+
     for setting in &settings.settings {
         out.push("--set".into());
         out.push(setting.into());
     }
+
     out.extend(pass.iter().cloned());
     out.extend(files.iter().cloned());
     out
@@ -410,9 +450,11 @@ fn command(settings: &Resolved, pass: &[OsString], files: &[OsString]) -> Vec<Os
 /// Runs the plan with `jaifmt` and returns the exit status.
 pub fn run(plan: &Plan) -> std::process::ExitCode {
     use std::process::{Command, ExitCode};
+
     if let Some(code) = plan.answer {
         return ExitCode::from(code);
     }
+
     let Some(jaifmt) = crate::tools::require(crate::tools::JAIFMT, "jacket fmt") else {
         return ExitCode::from(127);
     };
@@ -421,10 +463,12 @@ pub fn run(plan: &Plan) -> std::process::ExitCode {
     } else {
         0
     };
+
     for args in &plan.runs {
         match Command::new(&jaifmt).args(args).status() {
             Ok(status) => {
                 let code = status.code().unwrap_or(2);
+
                 // 2 (errors) outranks 1 (files would change).
                 worst = if worst == 2 || code == 2 {
                     2
@@ -442,6 +486,7 @@ pub fn run(plan: &Plan) -> std::process::ExitCode {
             }
         }
     }
+
     ExitCode::from(worst)
 }
 
@@ -453,6 +498,7 @@ mod tests {
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("jacket-fmt-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         std::fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -469,6 +515,7 @@ mod tests {
             cwd,
             fs: &Disk,
         };
+
         plan(&args, &ctx)
     }
 
@@ -489,10 +536,12 @@ mod tests {
     #[test]
     fn settings_are_resolved_and_ignored_files_dropped() {
         let root = scratch("ignore");
+
         write(
             &root.join("jacket.toml"),
             "[format]\nindent-width = 2\nignore = [\"gen/**\", \"skip.jai\"]\n",
         );
+
         for file in [
             "a.jai",
             "skip.jai",
@@ -502,11 +551,14 @@ mod tests {
         ] {
             write(&root.join(file), "");
         }
+
         write(&root.join("notes.txt"), "");
         let plan = plan_in(&root, &["--check", "."]);
+
         assert!(!plan.failed);
         assert_eq!(plan.runs.len(), 1);
         let run = texts(&plan.runs[0]);
+
         assert_eq!(run[0], "--no-config");
         assert!(run.windows(2).any(|w| w == ["--set", "indent-width=2"]));
         assert!(run.windows(2).any(|w| w == ["--set", "case-indent=2"]));
@@ -517,14 +569,17 @@ mod tests {
     #[test]
     fn doc_format_overrides_are_passed_on_and_checked() {
         let root = scratch("doc-format");
+
         write(
             &root.join("jacket.toml"),
             "[format]\nblank-line-before-return = true\n[doc.format]\nblank-line-before-return = false\n",
         );
         write(&root.join("a.jai"), "");
         let plan = plan_in(&root, &["--check", "."]);
+
         assert!(!plan.failed);
         let run = texts(&plan.runs[0]);
+
         assert!(
             run.windows(2)
                 .any(|w| w == ["--set", "blank-line-before-return=true"])
@@ -544,6 +599,7 @@ mod tests {
     #[test]
     fn nested_configs_group_files_by_their_settings() {
         let root = scratch("nested");
+
         write(&root.join("jacket.toml"), "[format]\nindent-width = 2\n");
         write(
             &root.join("sub/jacket.toml"),
@@ -553,6 +609,7 @@ mod tests {
         write(&root.join("sub/b.jai"), "");
         write(&root.join("sub/deep/c.jai"), "");
         let plan = plan_in(&root, &[]);
+
         assert_eq!(plan.runs.len(), 2);
         let mut by_indent: Vec<(String, Vec<String>)> = plan
             .runs
@@ -565,6 +622,7 @@ mod tests {
                 (indent, files_of(run, &root))
             })
             .collect();
+
         by_indent.sort();
         assert_eq!(
             by_indent[0],
@@ -582,9 +640,11 @@ mod tests {
     #[test]
     fn a_bad_value_fails_the_run() {
         let root = scratch("bad");
+
         write(&root.join("jacket.toml"), "[format]\nindent-width = 99\n");
         write(&root.join("a.jai"), "");
         let plan = plan_in(&root, &["."]);
+
         assert!(plan.failed);
         assert!(plan.runs.is_empty());
     }
@@ -592,6 +652,7 @@ mod tests {
     #[test]
     fn an_explicit_file_is_checked_against_ignore() {
         let root = scratch("explicit");
+
         write(
             &root.join("jacket.toml"),
             "[format]\nignore = [\"x.jai\"]\n",
@@ -607,12 +668,14 @@ mod tests {
     #[test]
     fn stdin_uses_the_working_directory_settings() {
         let root = scratch("stdin");
+
         write(
             &root.join("jacket.toml"),
             "[format]\nbrace-style = \"preserve\"\n",
         );
         let plan = plan_in(&root, &["--stdin"]);
         let run = texts(&plan.runs[0]);
+
         assert!(
             run.windows(2)
                 .any(|w| w == ["--set", "brace-style=\"preserve\""])
@@ -623,14 +686,18 @@ mod tests {
     #[test]
     fn flag_values_are_not_paths_and_raw_flags_pass_through() {
         let root = scratch("flags");
+
         write(&root.join("a.jai"), "");
         let plan = plan_in(&root, &["--color", "never", "--check"]);
         let run = texts(&plan.runs[0]);
+
         assert!(run.windows(2).any(|w| w == ["--color", "never"]));
         assert_eq!(files_of(&plan.runs[0], &root), ["a.jai"]);
         let raw = plan_in(&root, &["--version"]);
+
         assert_eq!(texts(&raw.runs[0]), ["--version"]);
         let raw = plan_in(&root, &["--no-config", "--stdin"]);
+
         assert_eq!(texts(&raw.runs[0]), ["--no-config", "--stdin"]);
     }
 
@@ -638,6 +705,7 @@ mod tests {
     fn missing_paths_are_reported() {
         let root = scratch("missing");
         let plan = plan_in(&root, &["nope.jai"]);
+
         assert!(plan.failed);
         assert!(plan.runs.is_empty());
     }
@@ -645,6 +713,7 @@ mod tests {
     #[test]
     fn long_file_lists_split_into_runs() {
         let root = scratch("long");
+
         for n in 0..400 {
             write(
                 &root.join(format!(
@@ -654,14 +723,17 @@ mod tests {
                 "",
             );
         }
+
         let ctx = Context {
             loaded: None,
             cwd: &root,
             fs: &Disk,
         };
         let plan = plan_within(&[".".into()], &ctx, 8 * 1024);
+
         assert!(plan.runs.len() > 1);
         let total: usize = plan.runs.iter().map(|r| files_of(r, &root).len()).sum();
+
         assert_eq!(total, 400);
     }
 }

@@ -109,6 +109,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if !cx.complete || cx.compiler.ed.facts().is_none_or(|facts| facts.untrusted) {
         return;
     }
+
     let read: HashSet<(u32, u32)> = cx
         .compiler
         .ide_note_readers_in(cx.file)
@@ -116,11 +117,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         .map(|(span, _)| (span.start, span.end))
         .collect();
     let mut notes = Vec::new();
+
     collect(cx.stmts, &mut notes);
     notes.sort_by_key(|n| n.span.start);
     notes.dedup_by_key(|n| n.span.start);
+
     for note in notes {
         let name = note.text.split('(').next().unwrap_or_default().trim();
+
         if jaic::sema::COMPILER_NOTES.contains(&name)
             || LINT_NOTES.contains(&name)
             || TOOL_NOTES.contains(&name)
@@ -130,6 +134,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         {
             continue;
         }
+
         out.push(finding(
             note.span,
             format!("no compile-time code read the note `@{}`", note.text.trim()),
@@ -142,10 +147,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 fn collect<'a>(stmts: &'a [Stmt], out: &mut Vec<&'a Note>) {
     for s in stmts {
         let mut stack = Vec::new();
+
         walk_node(Node::Stmt(s), &mut stack, &mut |n, _| {
             match n {
                 Node::Stmt(s) => {
                     out.extend(s.notes.iter());
+
                     if let StmtKind::Decl(d) = &s.kind {
                         out.extend(d.notes.iter());
                     }
@@ -153,19 +160,23 @@ fn collect<'a>(stmts: &'a [Stmt], out: &mut Vec<&'a Note>) {
                 Node::Expr(e) => match &e.kind {
                     ExprKind::Proc(lit) => {
                         header(&lit.header, out);
+
                         if let Some(body) = &lit.body {
                             collect(&body.stmts, out);
                         }
                     }
                     ExprKind::Struct(st) => {
                         out.extend(st.notes.iter());
+
                         for p in &st.params {
                             out.extend(p.notes.iter());
                         }
+
                         collect(&st.body, out);
                     }
                     ExprKind::Enum(en) => {
                         out.extend(en.notes.iter());
+
                         for item in &en.items {
                             if let EnumItem::Member(m) = item {
                                 out.extend(m.notes.iter());
@@ -175,6 +186,7 @@ fn collect<'a>(stmts: &'a [Stmt], out: &mut Vec<&'a Note>) {
                     _ => {}
                 },
             }
+
             true
         });
     }
@@ -182,6 +194,7 @@ fn collect<'a>(stmts: &'a [Stmt], out: &mut Vec<&'a Note>) {
 
 fn header<'a>(h: &'a ProcHeader, out: &mut Vec<&'a Note>) {
     out.extend(h.notes.iter());
+
     for p in &h.params {
         out.extend(p.notes.iter());
     }

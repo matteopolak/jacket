@@ -88,6 +88,7 @@ pub(super) fn other_posix_library(program: &Program) -> Option<posix::Libraries>
     let (os, cpu) = (program.target_os?, program.target_cpu?);
     let target = posix::PosixAbi::of(os, cpu)?;
     let host = posix::PosixAbi::host()?;
+
     (os != crate::sema::compiler_host().0).then_some(posix::Libraries {
         target,
         host,
@@ -103,26 +104,35 @@ pub(super) fn reach(program: &Program, foreign: &ir::Foreign) -> Option<Reach> {
     let library = &program.libraries[foreign.library?];
     let target = program.target_os?;
     let host = crate::sema::compiler_host().0;
+
     if !native::is_c_library(&library.name, library.system) || target == host {
         return None;
     }
+
     let symbol = foreign.symbol.as_str();
+
     if SAME_IN_EVERY_C_LIBRARY.contains(&symbol) {
         return Some(Reach::Native);
     }
+
     let posix = |os| matches!(os, TargetOs::Linux | TargetOs::MacOS);
+
     if !(posix(target) && posix(host)) {
         return Some(Reach::Refused);
     }
+
     if SAME_IN_POSIX_C_LIBRARIES.contains(&symbol) {
         return Some(Reach::Native);
     }
+
     if let Some(&(_, name)) = POSIX_RENAMED.iter().find(|(name, _)| *name == symbol) {
         return Some(Reach::Renamed(name));
     }
+
     #[cfg(unix)]
     if let Some(fun) = posix::native::PosixFn::from_name(symbol) {
         return Some(Reach::Answered(fun));
     }
+
     Some(Reach::Refused)
 }

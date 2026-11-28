@@ -24,9 +24,11 @@ const PARAM_PREFIX: &str = "__lambda_";
 /// body becomes `return <expr>;`.
 pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Arc<ast::ProcLit> {
     let mut header = header.clone();
+
     for (i, p) in header.params.iter_mut().enumerate() {
         if p.ty.is_none() && p.default.is_none() {
             let name = p.name.map_or_else(|| i.to_string(), |n| n.name.to_string());
+
             p.ty = Some(ast::Expr {
                 kind: E::PolyVar {
                     name: Sym::intern(&format!("{PARAM_PREFIX}{name}")),
@@ -37,6 +39,7 @@ pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Arc<ast::ProcLi
             });
         }
     }
+
     let block = if let E::Block(block) = &body.kind {
         header.flags.lambda = ast::LambdaKind::Block;
         (**block).clone()
@@ -61,6 +64,7 @@ pub fn lambda_lit(header: &ast::ProcHeader, body: &ast::Expr) -> Arc<ast::ProcLi
             checks_off: crate::ast::CheckBits::NONE,
         }
     };
+
     Arc::new(ast::ProcLit {
         header: Arc::new(header),
         body: Some(block),
@@ -79,8 +83,10 @@ impl Compiler {
         if let Some(&p) = self.pr.anonymous_procs.get(&(header.id, scope)) {
             return p;
         }
+
         let name = Sym::intern("lambda");
         let p = self.new_proc(name, lambda_lit(header, body), scope, span);
+
         self.pr.anonymous_procs.insert((header.id, scope), p);
         p
     }
@@ -102,11 +108,14 @@ impl Compiler {
         let TypeKind::Proc(pt) = self.ty.types.kind(expected).clone() else {
             return Ok(Operand::Procs(vec![proc]));
         };
+
         if pt.params.len() != header.params.len() {
             return Err(self.lambda_arity_error(header.params.len(), expected, span));
         }
+
         let ret = pt.returns.first().copied().unwrap_or(TypeId::VOID);
         let inst = self.lambda_instance(proc, &pt.params, Some(ret), span)?;
+
         Ok(Operand::Procs(vec![inst]))
     }
 
@@ -120,6 +129,7 @@ impl Compiler {
     ) -> Result<ProcId> {
         let header = self.proc(proc).lit.header.clone();
         let mut bindings = Vec::new();
+
         for (p, &ty) in header.params.iter().zip(params) {
             if let Some(ast::Expr {
                 kind: E::PolyVar {
@@ -132,9 +142,11 @@ impl Compiler {
                 bindings.push((*name, Value::Type(ty), TypeId::TYPE));
             }
         }
+
         if let Some(ret) = ret {
             bindings.push((Sym::intern(LAMBDA_RETURN), Value::Type(ret), TypeId::TYPE));
         }
+
         self.instantiate(proc, bindings, span)
     }
 
@@ -148,9 +160,11 @@ impl Compiler {
     ) -> Result<Option<TypeId>> {
         let lit = self.proc(id).lit.clone();
         let kind = lit.header.flags.lambda;
+
         if kind == ast::LambdaKind::None {
             return Ok(None);
         }
+
         if let Ok(ids) = self.lookup(scope, Sym::intern(LAMBDA_RETURN))
             && let [entity] = ids[..]
             && let Ok(Resolved::Const {
@@ -160,6 +174,7 @@ impl Compiler {
         {
             return Ok(Some(t));
         }
+
         let Some(ast::StmtKind::Return {
             values, ..
         }) = lit
@@ -185,9 +200,11 @@ impl Compiler {
             },
             file,
         );
+
         scratch.set_context(Some(scratch.b.param(0)));
         let module = self.scope(scope).module;
         let body_scope = self.new_scope(ScopeKind::Proc, Some(scope), module, None);
+
         for param in params {
             let Some(name) = param.name else {
                 continue;
@@ -196,6 +213,7 @@ impl Compiler {
             let align = self.align_of(param.ty, param.span)?;
             let addr = scratch.b.alloca(size.max(1), align);
             let depth = self.scope(body_scope).proc_depth;
+
             self.add_entity(
                 body_scope,
                 name,
@@ -208,8 +226,10 @@ impl Compiler {
                 false,
             );
         }
+
         let value = &values[0].value;
         let op = self.check_expr(&mut scratch, body_scope, value, None)?;
+
         Ok(Some(match op {
             Operand::Const {
                 ty,
@@ -240,6 +260,7 @@ impl Compiler {
         let E::ProcType(pattern_header) = &pattern.kind else {
             return Ok(());
         };
+
         if pattern_header.params.len() != header.params.len() {
             return Err(Box::new(
                 Diagnostic::new(
@@ -260,8 +281,10 @@ impl Compiler {
                 ),
             ));
         }
+
         let known = self.const_scope(def_scope, bindings.clone(), span);
         let mut params = Vec::new();
+
         for p in &pattern_header.params {
             let Some(t) = &p.ty else {
                 return err(
@@ -270,8 +293,10 @@ impl Compiler {
                     "cannot infer the parameter types of this lambda",
                 );
             };
+
             params.push(self.eval_type(known, t)?);
         }
+
         let ret = match pattern_header.returns.as_slice() {
             [] => Some(TypeId::VOID),
             [r] => r.ty.as_ref().and_then(|t| self.eval_type(known, t).ok()),
@@ -280,6 +305,7 @@ impl Compiler {
         let proc = self.lambda_proc(arg_scope, header, body, span);
         let inst = self.lambda_instance(proc, &params, ret, span)?;
         let ty = self.proc_type(inst, span)?;
+
         self.match_pattern(pattern, ty, bindings, def_scope)
     }
 }
@@ -314,6 +340,7 @@ impl Compiler {
             _ => 0,
         };
         let name = self.ty.types.name(expected);
+
         Box::new(
             Diagnostic::new(
                 Code::LambdaSignatureMismatch,

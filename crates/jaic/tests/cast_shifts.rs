@@ -8,6 +8,7 @@ const SOURCE: &str = include_str!("../../../tests/compiler/semantics/cast-shift-
 #[test]
 fn explicit_widening_preserves_constant_and_runtime_shift_bits() {
     let mut c = compiler();
+
     if let Err(error) = c.compile_sources(&[ProgramSource::String(format!(
         "{SOURCE}\n#assert(check()==0);"
     ))]) {
@@ -31,6 +32,7 @@ fn shift_use_does_not_remove_checked_cast_errors() {
             .compile_sources(&[ProgramSource::String(source.into())])
             .expect_err("checked out-of-range cast must still reject or trap");
         let rendered = error.render(&c.src.sources);
+
         assert!(error.message.contains(expected), "{rendered}");
     }
 }

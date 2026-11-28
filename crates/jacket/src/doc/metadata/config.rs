@@ -28,6 +28,7 @@ pub fn prepare(
     let origin = pick(&args.site_url, &doc.url)
         .trim_end_matches('/')
         .to_owned();
+
     if origin.is_empty() {
         eprintln!(
             "jacket: warning: no [doc] url or --site-url; canonical URLs and sitemaps are omitted"
@@ -35,6 +36,7 @@ pub fn prepare(
     } else if !valid_origin(&origin) {
         return Err("site URL must be an absolute HTTP(S) origin".into());
     }
+
     if let Some(version) = &doc.canonical_version
         && (version.is_empty()
             || !version
@@ -44,6 +46,7 @@ pub fn prepare(
     {
         return Err("canonical_version must be a version path segment".into());
     }
+
     let image = pick(&args.og_image, &doc.og_image);
     let mut image_file = None;
     let image = if image.is_empty() || image.starts_with("https://") || image.starts_with("http://")
@@ -61,10 +64,12 @@ pub fn prepare(
             .ok_or("og_image needs a file name")?
             .to_string_lossy();
         let dest = format!("assets/og-{name}");
+
         image_file = Some((
             dest.clone(),
             std::fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?,
         ));
+
         if origin.is_empty() {
             String::new()
         } else {
@@ -80,11 +85,13 @@ pub fn prepare(
         canonical_version: doc.canonical_version.clone(),
     };
     let mut urls = Vec::new();
+
     shared.site_name.clone_from(&metadata.name);
     shared.index.title.clone_from(&metadata.name);
     metadata.apply(&mut shared.index);
     urls.push(metadata.url("", false));
     let mut not_found = view::site(site).index;
+
     not_found.not_found = true;
     not_found.path = "404.html".into();
     not_found.title = site.title("Page not found");

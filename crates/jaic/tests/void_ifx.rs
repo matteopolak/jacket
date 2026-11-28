@@ -30,6 +30,7 @@ fn void_ifx_does_not_supply_values_or_accept_incompatible_arms() {
     ] {
         let source = format!("touch :: () {{}} exercise :: (flag:bool) {{{body}}} main :: () {{}}");
         let error = compile(&source).expect_err("void must never become a fabricated value");
+
         assert!(
             error.contains("void") || error.contains("no value"),
             "{error}"

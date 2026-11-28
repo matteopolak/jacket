@@ -90,6 +90,7 @@ pub fn set_missing_libraries(notes: Vec<(String, String)>) {
 pub fn missing_library(name: &str) -> Option<&'static str> {
     let file = std::path::Path::new(name).file_name()?.to_str()?;
     let bare = file.strip_prefix("lib").unwrap_or(file);
+
     MISSING_LIBRARIES
         .get()?
         .iter()
@@ -106,6 +107,7 @@ pub fn add_library_dir(dir: std::path::PathBuf) {
     let mut dirs = EXTRA_LIBRARY_DIRS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
+
     if !dirs.contains(&dir) {
         dirs.push(dir);
     }
@@ -123,6 +125,7 @@ pub fn extra_library_dirs() -> Vec<std::path::PathBuf> {
 /// driver's.
 pub fn library_dirs() -> Vec<std::path::PathBuf> {
     let mut dirs = extra_library_dirs();
+
     dirs.extend(LIBRARY_DIRS.get().into_iter().flatten().cloned());
     dirs
 }
@@ -162,6 +165,7 @@ pub fn syscall(args: &[u64]) -> Option<i64> {
     unsafe extern "C" {
         fn syscall(number: i64, ...) -> i64;
     }
+
     let arg = |i: usize| crate::interp::word_or_zero(args, i);
     // SAFETY: the program asked for this system call; it is as unsafe as the `#asm` it wrote.
     let ret = unsafe {
@@ -175,10 +179,12 @@ pub fn syscall(args: &[u64]) -> Option<i64> {
             arg(6),
         )
     };
+
     if ret == -1 {
         let errno = std::io::Error::last_os_error().raw_os_error().unwrap_or(1);
         return Some(-i64::from(errno));
     }
+
     Some(ret)
 }
 
@@ -191,10 +197,13 @@ pub fn syscall(args: &[u64]) -> Option<i64> {
     const CLASS_MASK: u64 = 0xff00_0000;
     const UNIX_CLASS: u64 = 0x0200_0000;
     let arg = |i: usize| crate::interp::word_or_zero(args, i);
+
     if arg(0) & CLASS_MASK != UNIX_CLASS {
         return None;
     }
+
     let mut rax = arg(0);
+
     // SAFETY: the program asked for this system call; it is as unsafe as the `#asm` it wrote.
     unsafe {
         std::arch::asm!(
@@ -236,6 +245,7 @@ mod syscall_tests {
         assert_eq!(syscall(&[GETPID]), Some(i64::from(std::process::id())));
         // Anonymous private read-write mapping (MAP_ANON | MAP_PRIVATE), then released.
         let address = syscall(&[MMAP, 0, 4096, 3, 0x1002, u64::MAX, 0]).unwrap();
+
         assert!(address > 4096, "mmap returned {address}");
         assert_eq!(syscall(&[MUNMAP, address as u64, 4096]), Some(0));
     }
@@ -264,6 +274,7 @@ pub fn memory_only_syscall(args: &[u64]) -> bool {
     const MAP_ANONYMOUS: u64 = 0x20;
     const MREMAP_FIXED: u64 = 2;
     let arg = |i: usize| crate::interp::word_or_zero(args, i);
+
     match arg(0) {
         MMAP => arg(4) & MAP_ANONYMOUS != 0 && arg(4) & MAP_FIXED == 0,
         MREMAP => arg(4) & MREMAP_FIXED == 0,
@@ -283,11 +294,13 @@ impl Library {
     #[cfg(unix)]
     pub fn open(name: &str, system: bool, base_dir: &str) -> Option<Library> {
         use std::ffi::CString;
+
         if is_c_library(name, system) {
             return Some(Library {
                 handle: sys::RTLD_DEFAULT as usize,
             });
         }
+
         let ext = if cfg!(target_os = "macos") {
             "dylib"
         } else {
@@ -309,24 +322,31 @@ impl Library {
                 format!("{d}/{f}")
             }
         };
+
         if !system {
             let base = joined(base_dir, &dir);
+
             candidates.push(joined(&base, &format!("{file}.{ext}")));
             candidates.push(joined(&base, &format!("lib{file}.{ext}")));
         }
+
         // A name that already carries the library extension (`libstdc++.so.6`, a versioned
         // soname) is a complete file name: hand it to the loader as written.
         if file.contains(&format!(".{ext}")) {
             candidates.push(name.to_string());
         }
+
         // A name with a directory part (`crash-native/portable_crash`) that is not beside the
         // source is looked up by file name.
         let bare = file.strip_prefix("lib").unwrap_or(&file);
+
         for d in library_dirs() {
             candidates.push(d.join(format!("lib{bare}.{ext}")).display().to_string());
         }
+
         candidates.push(format!("lib{name}.{ext}"));
         candidates.push(format!("{name}.{ext}"));
+
         // Without the development package only the versioned name exists (`libatomic.so.1`,
         // which GCC links through its own `libatomic.so`).
         if cfg!(target_os = "linux") {
@@ -334,12 +354,14 @@ impl Library {
                 candidates.push(format!("lib{bare}.so.{version}"));
             }
         }
+
         if cfg!(target_os = "macos") {
             candidates.push(format!(
                 "/System/Library/Frameworks/{name}.framework/{name}"
             ));
             candidates.push(format!("{}/lib{name}.dylib", homebrew_lib_dir()));
         }
+
         for c in candidates {
             let Ok(path) = CString::new(c) else {
                 continue;
@@ -357,6 +379,7 @@ impl Library {
                     c_fixed: 2,
                     c_abi: None,
                 };
+
                 main_thread::forward_loader(
                     sys::dlopen as *const () as u64,
                     &[path.as_ptr() as u64, sys::RTLD_NOW as u64],
@@ -376,12 +399,14 @@ impl Library {
             // SAFETY: this is a live NUL-terminated CString.
             #[cfg(not(target_os = "macos"))]
             let handle = unsafe { sys::dlopen(path.as_ptr(), sys::RTLD_NOW) };
+
             if !handle.is_null() {
                 return Some(Library {
                     handle: handle as usize,
                 });
             }
         }
+
         None
     }
 
@@ -429,10 +454,12 @@ pub fn lookup(lib: Option<&Library>, symbol: &str) -> Option<u64> {
     // SAFETY: `handle` is `RTLD_DEFAULT` or the live handle of a library this module opened and
     // never closes; `name` is NUL-terminated.
     let mut p = unsafe { sys::dlsym(handle, name.as_ptr()) };
+
     if p.is_null() {
         // SAFETY: `RTLD_DEFAULT` is always a valid handle; `name` is NUL-terminated.
         p = unsafe { sys::dlsym(sys::RTLD_DEFAULT, name.as_ptr()) };
     }
+
     (!p.is_null()).then_some(p as u64)
 }
 
@@ -519,6 +546,7 @@ impl Regs {
         if self.ni == self.int_avail {
             return self.stack(v);
         }
+
         self.ints[self.ni] = v;
         self.ni += 1;
         Ok(())
@@ -529,6 +557,7 @@ impl Regs {
         if self.nf == 8 {
             return self.stack(bits);
         }
+
         self.floats[self.nf] = bits as u128;
         self.nf += 1;
         Ok(())
@@ -539,8 +568,10 @@ impl Regs {
         if self.nf == 8 {
             self.align_stack()?;
             self.stack(bits as u64)?;
+
             return self.stack((bits >> 64) as u64);
         }
+
         self.floats[self.nf] = bits;
         self.quads = true;
         self.nf += 1;
@@ -550,9 +581,11 @@ impl Regs {
     /// Pad the stack arguments so the next one is 16-byte aligned (slot `k` is at `sp + 8k`).
     fn align_stack(&mut self) -> Result<(), String> {
         self.tail = 0;
+
         if self.ns % 2 == 1 {
             self.stack(0)?;
         }
+
         Ok(())
     }
 
@@ -561,6 +594,7 @@ impl Regs {
         if self.ns == STACK_SLOTS + 8 - self.int_avail {
             return Err("foreign call has too many stack arguments".into());
         }
+
         self.stack[self.ns] = v;
         self.ns += 1;
         self.tail = 0;
@@ -571,13 +605,17 @@ impl Regs {
     /// next offset aligned to its size, sharing a slot with the small arguments before it.
     fn packed(&mut self, v: u64, size: usize) -> Result<(), String> {
         let at = self.tail.next_multiple_of(size);
+
         if self.tail == 0 || at + size > 8 {
             self.stack(0)?;
             self.stack[self.ns - 1] = v & ((1u64 << (size * 8)) - 1);
             self.tail = size;
+
             return Ok(());
         }
+
         let mask = (1u64 << (size * 8)) - 1;
+
         self.stack[self.ns - 1] |= (v & mask) << (at * 8);
         self.tail = at + size;
         Ok(())
@@ -596,6 +634,7 @@ impl Regs {
         if X86_64 {
             return;
         }
+
         if pieces.iter().any(|p| p.ty == PieceTy::I64) {
             self.ni = self.int_avail;
         } else {
@@ -608,9 +647,11 @@ impl Regs {
     fn prototype(&self) -> ([u64; 8], [f64; 8], [u64; STACK_SLOTS]) {
         let mut ints = [0; 8];
         let spill = 8 - self.int_avail;
+
         ints[..self.int_avail].copy_from_slice(&self.ints[..self.int_avail]);
         ints[self.int_avail..].copy_from_slice(&self.stack[..spill]);
         let mut stack = [0; STACK_SLOTS];
+
         stack.copy_from_slice(&self.stack[spill..spill + STACK_SLOTS]);
         (ints, self.floats.map(|f| f64::from_bits(f as u64)), stack)
     }
@@ -684,12 +725,14 @@ fn call_as<R>(addr: u64, regs: &Regs) -> R {
         s14,
         s15,
     ] = s;
+
     #[cfg(target_arch = "x86_64")]
     {
         type Proto<R> = unsafe extern "C" fn(u64, ...) -> R;
         // SAFETY: `addr` is a C function (see above); the prototype passes the registers and
         // slots `regs` holds in the order the C ABI assigns them.
         let f: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+
         // SAFETY: as above.
         unsafe {
             f(
@@ -707,9 +750,11 @@ fn call_as<R>(addr: u64, regs: &Regs) -> R {
             u64, u64, u64, u64, u64, u64, u64, u64,
             u64, u64, u64, u64, u64, u64, u64, u64,
         ) -> R;
+
         // SAFETY: `addr` is a C function (see above); the prototype passes the registers and
         // slots `regs` holds in the order the C ABI assigns them.
         let f: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+
         // SAFETY: as above.
         unsafe {
             f(
@@ -737,6 +782,7 @@ pub fn call_planned(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
     if let Some(result) = main_thread::forward(addr, args, sig, plan) {
         return result;
     }
+
     call_with(addr, args, sig, plan)
 }
 
@@ -758,6 +804,7 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
         .ok_or("native foreign calls are not available on this CPU")?;
     // A foreign call follows the host's C ABI, whatever the program's own layout.
     let host = &plan.host;
+
     // The register model below is System V / AAPCS64 (Windows on arm64 included); the
     // Microsoft x64 convention has its own (`windows.rs`).
     if arch == Arch::Win64 {
@@ -768,11 +815,13 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
             "the interpreter does not implement the Microsoft x64 calling convention".into(),
         );
     }
+
     if plan.scalar
         && let Some(result) = register_call(addr, args, sig)
     {
         return Ok(result);
     }
+
     let cabi = sig.c_abi.as_deref();
     let ret_layout = cabi.and_then(|c| c.ret.as_ref());
     let ret_pieces = plan.ret_pieces.as_ref();
@@ -787,11 +836,13 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
     // Copies of large aggregates passed by address; alive until the call returns.
     let mut copies: Vec<Vec<u64>> = Vec::new();
     let mut out_ptr = 0;
+
     if (result_in_x0 || oversize && X86_64)
         && let Some(&out) = args.get(sig.out_index())
     {
         regs.int(out)?;
     }
+
     for (i, &a) in args.iter().enumerate() {
         // A C++ member function's result pointer follows its object.
         if result_after_this
@@ -800,12 +851,15 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
         {
             regs.int(out)?;
         }
+
         if ret_layout.is_some() && i == sig.out_index() {
             out_ptr = a;
             continue;
         }
+
         let layout = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref);
         let arg_plan = plan.params.get(i).and_then(Option::as_ref);
+
         if VARARGS_ON_STACK && sig.c_varargs && i >= sig.c_fixed as usize {
             // Apple's arm64 puts every variadic argument on the stack: an aggregate as its own
             // words, or as the address of a copy when it is over 16 bytes and not a float aggregate.
@@ -821,8 +875,10 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
                     }
                 }
             }
+
             continue;
         }
+
         if general_only {
             match layout.zip(arg_plan.and_then(|p| p.vararg.as_ref())) {
                 None => regs.int(a)?,
@@ -834,8 +890,10 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
                 }
                 Some((l, _)) => regs.int(indirect_copy(a, l.size, &mut copies))?,
             }
+
             continue;
         }
+
         let Some(layout) = layout else {
             let ty = sig.params.get(i).copied().unwrap_or(Ty::I64);
             let full = if ty.is_float() {
@@ -843,34 +901,41 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
             } else {
                 regs.ni == regs.int_avail
             };
+
             if full && PACKED_STACK && ty.size(host) < 8 {
                 regs.packed(a, ty.size(host) as usize)?;
                 continue;
             }
+
             if ty.is_float() {
                 regs.float(a)?;
             } else {
                 regs.int(a)?;
             }
+
             continue;
         };
         let Some(arg_plan) = arg_plan else {
             continue;
         };
+
         match &arg_plan.regular {
             // An x87 `long double` is memory class: a 16-byte aligned stack slot.
             Passing::Registers(pieces) if pieces.iter().any(|p| p.ty == PieceTy::X87) => {
                 regs.align_stack()?;
                 // SAFETY: `a` points at the 16-byte value.
                 let (low, high) = unsafe { (read_bytes(a, 8), read_bytes(a + 8, 8)) };
+
                 regs.stack(low)?;
                 regs.stack(high)?;
             }
             Passing::Registers(pieces) if !regs.fits(pieces) => {
                 regs.exhaust(pieces);
+
                 if layout.align >= 16 {
                     regs.align_stack()?;
                 }
+
                 for k in 0..layout.size.div_ceil(8) {
                     // SAFETY: `a` points at the aggregate, `layout.size` bytes long.
                     regs.stack(unsafe { read_bytes(a + k * 8, layout.size - k * 8) })?;
@@ -880,9 +945,11 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
                 for p in pieces {
                     // SAFETY: `a` points at the aggregate, `layout.size` bytes long.
                     let v = unsafe { read_bytes(a + p.offset, layout.size - p.offset) };
+
                     if p.ty == PieceTy::F128 {
                         // SAFETY: a binary128 piece spans 16 bytes of the aggregate.
                         let high = unsafe { read_bytes(a + p.offset + 8, 8) };
+
                         regs.quad(v as u128 | (high as u128) << 64)?;
                     } else if p.ty == PieceTy::I64 {
                         regs.int(v)?;
@@ -900,9 +967,11 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
                         layout.align
                     ));
                 }
+
                 if layout.align == 16 {
                     regs.align_stack()?;
                 }
+
                 for k in 0..layout.size.div_ceil(8) {
                     // SAFETY: `a` points at the aggregate, `layout.size` bytes long.
                     regs.stack(unsafe { read_bytes(a + k * 8, layout.size - k * 8) })?;
@@ -910,24 +979,31 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
             }
         }
     }
+
     // `long double` results in `st(0)` and binary128 values in vector registers need the
     // assembly call of `wide.rs`.
     let wide_ret = plan.wide_ret;
+
     if regs.quads || wide_ret {
         let ret = ret_layout.map(|l| (l.size, ret_pieces.map(Vec::as_slice)));
         // SAFETY: the callee's declared C signature matches these registers.
         let result = unsafe { wide::call(addr, &regs, sig, ret, out_ptr) };
+
         drop(copies);
+
         return result;
     }
+
     let Some(layout) = ret_layout else {
         return Ok(scalar_call(addr, &regs, sig.returns.first().copied()));
     };
+
     if result_in_x0 || result_after_this {
         // The callee writes the result through the pointer in x0 (or x1, after `this`).
         call_as::<u64>(addr, &regs);
         return Ok(Rets::default());
     }
+
     if oversize {
         let result = if X86_64 {
             // The callee fills the buffer `rdi` addresses.
@@ -938,12 +1014,16 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
             // buffer `x8` addresses.
             unsafe { wide::call(addr, &regs, sig, Some((layout.size, None)), out_ptr) }
         };
+
         drop(copies);
+
         return result;
     }
+
     match ret_pieces {
         None => {
             let r: Sret = call_as(addr, &regs);
+
             // SAFETY: the out-pointer addresses `layout.size` writable bytes, and `r` holds at
             // least that many (results over `SRET_WORDS` words take the `oversize` path).
             unsafe {
@@ -991,16 +1071,19 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
                 }
                 _ => return Err("unsupported C aggregate return shape".into()),
             };
+
             for (p, w) in pieces.iter().zip(words) {
                 let size = match p.ty {
                     PieceTy::F32 => 4,
                     _ => 8,
                 };
+
                 // SAFETY: the out-pointer addresses `layout.size` writable bytes.
                 unsafe { write_bytes(out_ptr + p.offset, w, size.min(layout.size - p.offset)) };
             }
         }
     }
+
     drop(copies);
     Ok(Rets::default())
 }
@@ -1009,6 +1092,7 @@ fn call_with_unkept(addr: u64, args: &[u64], sig: &Sig, plan: &Plan) -> Result<R
 /// passing by reference; returns its address.
 fn indirect_copy(a: u64, size: u64, copies: &mut Vec<Vec<u64>>) -> u64 {
     let mut copy = vec![0u64; size.div_ceil(8) as usize];
+
     // SAFETY: `a` points at the aggregate, `size` bytes long; the copy is at least as long.
     unsafe {
         std::ptr::copy_nonoverlapping(
@@ -1018,6 +1102,7 @@ fn indirect_copy(a: u64, size: u64, copies: &mut Vec<Vec<u64>>) -> u64 {
         );
     };
     let addr = copy.as_ptr() as u64;
+
     copies.push(copy);
     addr
 }
@@ -1035,6 +1120,7 @@ const INT_REGISTERS: usize = if X86_64 {
 fn register_call(addr: u64, args: &[u64], sig: &Sig) -> Option<Rets> {
     let (mut ints, mut floats) = ([0u64; 8], [0f64; 8]);
     let (mut ni, mut nf) = (0, 0);
+
     for (i, &a) in args.iter().enumerate() {
         if sig.params.get(i).copied().unwrap_or(Ty::I64).is_float() {
             *floats.get_mut(nf)? = f64::from_bits(a);
@@ -1043,13 +1129,16 @@ fn register_call(addr: u64, args: &[u64], sig: &Sig) -> Option<Rets> {
             if ni == INT_REGISTERS {
                 return None;
             }
+
             ints[ni] = a;
             ni += 1;
         }
     }
+
     Some(match sig.returns.first().copied() {
         Some(t) if t.is_float() => {
             let bits = call_registers::<f64>(addr, &ints, &floats).to_bits();
+
             Rets::one(if t == Ty::F32 {
                 bits & 0xffff_ffff
             } else {
@@ -1069,9 +1158,11 @@ fn register_call(addr: u64, args: &[u64], sig: &Sig) -> Option<Rets> {
 fn call_registers<R>(addr: u64, ints: &[u64; 8], floats: &[f64; 8]) -> R {
     let [i0, i1, i2, i3, i4, i5, i6, i7] = *ints;
     let [f0, f1, f2, f3, f4, f5, f6, f7] = *floats;
+
     #[cfg(target_arch = "x86_64")]
     {
         let _ = (i6, i7);
+
         type Proto<R> = unsafe extern "C" fn(u64, ...) -> R;
         // SAFETY: `addr` is a C function the program declared (see `call_as`), whose scalar
         // arguments are these registers; the variadic form also sets `al`.
@@ -1086,8 +1177,10 @@ fn call_registers<R>(addr: u64, ints: &[u64; 8], floats: &[f64; 8]) -> R {
             u64, u64, u64, u64, u64, u64, u64, u64,
             f64, f64, f64, f64, f64, f64, f64, f64,
         ) -> R;
+
         // SAFETY: as above.
         let f: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+
         // SAFETY: as above.
         unsafe {
             f(
@@ -1102,6 +1195,7 @@ fn scalar_call(addr: u64, regs: &Regs, ret: Option<Ty>) -> Rets {
     match ret {
         Some(t) if t.is_float() => {
             let bits = call_as::<f64>(addr, regs).to_bits();
+
             Rets::one(if t == Ty::F32 {
                 bits & 0xffff_ffff
             } else {

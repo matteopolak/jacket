@@ -15,16 +15,21 @@ fn collect(dir: &Path, root: &Path, out: &mut Vec<PathBuf>) {
         .unwrap_or_else(|e| panic!("cannot read {}: {e}", dir.display()))
         .filter_map(Result::ok)
         .collect();
+
     entries.sort_by_key(std::fs::DirEntry::file_name);
+
     for entry in entries {
         let path = entry.path();
+
         if entry.file_name().to_string_lossy().starts_with('.') {
             continue;
         }
+
         if path.is_dir() {
             if entry.file_name() == "tests" {
                 continue;
             }
+
             collect(&path, root, out);
         } else if path.is_file() && path.extension().is_some_and(|e| e == "jai") {
             out.push(path.strip_prefix(root).unwrap().to_path_buf());
@@ -34,31 +39,40 @@ fn collect(dir: &Path, root: &Path, out: &mut Vec<PathBuf>) {
 
 fn main() {
     let manifest = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+
     println!("cargo:rerun-if-changed=build.rs");
     // The sources are compressed into one blob (the stdlib is most of the module otherwise) and
     // expanded once at startup; `INDEX` lists each file's span in the expanded text.
     let mut code = String::from(
         "#[allow(clippy::unreadable_literal)]\npub static INDEX: &[(&str, usize, usize)] = &[\n",
     );
+
     // Bootstrap support is part of stdlib, so one tree is sufficient for every host.
     println!("cargo:rerun-if-env-changed=JAIC_STDLIB");
     let source = std::env::var_os("JAIC_STDLIB")
         .map_or_else(|| manifest.join("../../stdlib"), PathBuf::from);
+
     println!("cargo:rerun-if-changed={}", source.display());
     let root = source.canonicalize().expect("standard-library source tree");
     let mut files = Vec::new();
+
     collect(&root, &root, &mut files);
     let mut text = Vec::new();
+
     for relative in &files {
         let name = format!("stdlib/{}", jacket_config::slashed(relative));
         let absolute = root.join(relative);
+
         println!("cargo:rerun-if-changed={}", absolute.display());
         let bytes = std::fs::read(&absolute).unwrap();
         let _ = writeln!(code, "    ({name:?}, {}, {}),", text.len(), bytes.len());
+
         text.extend_from_slice(&bytes);
     }
+
     code.push_str("];\n");
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+
     std::fs::write(
         out_dir.join("stdlib.deflate"),
         miniz_oxide::deflate::compress_to_vec(&text, 10),
@@ -69,7 +83,9 @@ fn main() {
         "pub static COMPRESSED: &[u8] = include_bytes!({:?});",
         out_dir.join("stdlib.deflate").to_string_lossy()
     );
+
     std::fs::write(out_dir.join("stdlib_files.rs"), code).unwrap();
+
     // cargo-fuzz builds this crate as a dependency of the fuzz harness (`--cfg fuzzing`); the
     // unused cdylib then references libFuzzer's coverage hooks, which only the fuzz binaries
     // define. Linux shared objects may leave them undefined; macOS needs to be told.
@@ -78,6 +94,7 @@ fn main() {
     {
         println!("cargo:rustc-link-arg-cdylib=-Wl,-undefined,dynamic_lookup");
     }
+
     // The compiler recurses deeply; the default 1 MiB wasm shadow stack is too small.
     if std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("wasm32") {
         println!("cargo:rustc-link-arg-cdylib=-zstack-size=268435456");

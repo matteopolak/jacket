@@ -27,6 +27,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 let (Some((a, b)), Some((c, d))) = (simple(&pair[0]), simple(&pair[1])) else {
                     continue;
                 };
+
                 if same_pure(cx, a, d)
                     && same_pure(cx, b, c)
                     && !same_pure(cx, a, b)
@@ -41,11 +42,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     let (_, end) = statement_range(cx, pair[1].span);
                     // Both complete statements, terminators included.
                     let span = jaic::source::Span::new(pair[0].span.file, start, end);
+
                     // Comments between the two statements would be lost with them.
                     if cx.text[start..end].contains("//") || cx.text[start..end].contains("/*") {
                         out.push(finding(span, message, Some(help)));
                         continue;
                     }
+
                     out.push(suggesting(
                         span,
                         message,

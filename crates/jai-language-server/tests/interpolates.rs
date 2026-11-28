@@ -19,6 +19,7 @@ fn hole(nth: usize, offset: usize) -> Position {
     let line = SOURCE.lines().nth(6).unwrap();
     let base = SOURCE.find(line).unwrap();
     let rel = line.match_indices("%user").nth(nth).unwrap().0 + offset;
+
     position(SOURCE, base + rel)
 }
 
@@ -30,11 +31,13 @@ fn text_at(range: jai_language_server::Range) -> (u32, u32, u32) {
 fn hover_on_a_hole_names_the_variable() {
     let s = open(SOURCE);
     let hover = s.hover(&uri(), hole(0, 3)).unwrap().expect("a hover");
+
     assert!(hover.contents.value.contains("user_id"), "{hover:?}");
     assert!(hover.contents.value.contains("s64") || hover.contents.value.contains("int"));
     // The hover covers the name in the string, not the string.
     let line = SOURCE.lines().nth(6).unwrap();
     let name = line.find("%user_id").unwrap() + 1;
+
     assert_eq!(text_at(hover.range), (6, name as u32, name as u32 + 7));
 }
 
@@ -42,33 +45,41 @@ fn hover_on_a_hole_names_the_variable() {
 fn go_to_definition_from_a_hole() {
     let s = open(SOURCE);
     let found = s.definition(&uri(), hole(0, 2)).unwrap();
+
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].range.start.line, 4);
     // A field inside the string finds its declaration too.
     let found = s
         .definition(&uri(), at_offset(SOURCE, "%user.name", 7))
         .unwrap();
+
     assert_eq!(found[0].range.start.line, 2);
 }
 
 #[test]
 fn references_and_rename_edit_the_string() {
     let mut s = session();
+
     s.open(uri(), 1, SOURCE.into()).unwrap();
     let refs = s.references(&uri(), hole(0, 2), true).unwrap();
     // The declaration and the one hole; the `'%user_id'` inside quotes is text.
     let lines: Vec<u32> = refs.iter().map(|l| l.range.start.line).collect();
+
     assert_eq!(lines, [4, 6], "{refs:?}");
     let range = s
         .prepare_rename(&uri(), hole(0, 2))
         .unwrap()
         .expect("renamable");
+
     assert_eq!(range.end.character - range.start.character, 7);
     let edits = s.rename(&uri(), hole(0, 2), "uid").unwrap().expect("edits");
+
     assert_eq!(edits[0].1.len(), 2);
     let mut text = SOURCE.to_string();
     let mut starts: Vec<_> = edits[0].1.iter().collect();
+
     starts.sort_by_key(|e| std::cmp::Reverse((e.range.start.line, e.range.start.character)));
+
     for edit in starts {
         let line_start: usize = SOURCE
             .split_inclusive('\n')
@@ -77,8 +88,10 @@ fn references_and_rename_edit_the_string() {
             .sum();
         let a = line_start + edit.range.start.character as usize;
         let b = line_start + edit.range.end.character as usize;
+
         text.replace_range(a..b, &edit.new_text);
     }
+
     assert!(text.contains("id = %uid and"), "{text}");
     assert!(text.contains("n = '%user_id'"), "{text}");
     assert!(text.contains("uid := 4;"), "{text}");
@@ -90,6 +103,7 @@ fn completion_after_a_percent_offers_the_callers_names() {
     let s = open(&text);
     let list = s.completion(&uri(), at).unwrap();
     let labels: Vec<&str> = list.items.iter().map(|i| i.label.as_str()).collect();
+
     assert!(labels.contains(&"user_id"), "{labels:?}");
     assert!(labels.contains(&"user"), "{labels:?}");
     assert!(!labels.contains(&"run_query_missing"));
@@ -109,6 +123,7 @@ fn completion_of_a_typed_prefix_and_members() {
     let s = open(&text);
     let list = s.completion(&uri(), at).unwrap();
     let labels: Vec<&str> = list.items.iter().map(|i| i.label.as_str()).collect();
+
     assert!(
         labels.contains(&"name") && labels.contains(&"id"),
         "{labels:?}"
@@ -124,6 +139,7 @@ fn completion_of_a_typed_prefix_and_members() {
         .into_iter()
         .map(|i| i.label)
         .collect();
+
     assert!(
         labels.contains(&"user_id".to_string()) && labels.contains(&"user".to_string()),
         "{labels:?}"
@@ -134,10 +150,12 @@ fn completion_of_a_typed_prefix_and_members() {
 #[test]
 fn quoted_sql_is_not_code() {
     let s = open(SOURCE);
+
     assert!(s.in_interpolation_hole(&uri(), hole(0, 3)));
     let line = SOURCE.lines().nth(6).unwrap();
     let base = SOURCE.find(line).unwrap();
     let quoted = line.find("'%user_id'").unwrap() + 4;
+
     assert!(!s.in_interpolation_hole(&uri(), position(SOURCE, base + quoted)));
     assert!(
         s.hover(&uri(), position(SOURCE, base + quoted))
@@ -158,6 +176,7 @@ fn holes_are_highlighted_as_code() {
             .iter()
             .any(|t| t.position.character == c && t.length == len && t.kind == kind)
     };
+
     // `%` is an operator, `user_id` a variable.
     assert!(
         has(col("%user_id", 0), 1, SemanticTokenKind::Operator),
@@ -192,6 +211,7 @@ fn errors_in_a_hole_are_reported_there() {
         .collect();
     let line = source.lines().nth(6).unwrap();
     let col = line.find("missing").unwrap() as u32;
+
     assert!(
         errors
             .iter()

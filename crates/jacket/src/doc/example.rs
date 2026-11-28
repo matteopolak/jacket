@@ -15,6 +15,7 @@ fn why_not_run(block: &Block) -> Option<String> {
     if block.options.ignore {
         return Some("Not run: the example is marked ignore.".into());
     }
+
     match block.mode {
         Mode::NoRun => return Some("This one is only checked to compile, not run.".into()),
         Mode::CompileFail => return Some("This one is meant not to compile.".into()),
@@ -23,9 +24,11 @@ fn why_not_run(block: &Block) -> Option<String> {
         }
         Mode::Run => {}
     }
+
     if let Some(reason) = browser_skip(block) {
         return Some(format!("Doesn't run in the browser ({reason})."));
     }
+
     None
 }
 
@@ -45,15 +48,18 @@ fn browser_skip(block: &Block) -> Option<String> {
 pub fn base64url(bytes: &[u8]) -> String {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut out = String::with_capacity(bytes.len().div_ceil(3) * 4);
+
     for chunk in bytes.chunks(3) {
         let n = chunk
             .iter()
             .enumerate()
             .fold(0u32, |n, (i, b)| n | u32::from(*b) << (16 - 8 * i));
+
         for k in 0..=chunk.len() {
             out.push(ALPHABET[(n >> (18 - 6 * k) & 63) as usize] as char);
         }
     }
+
     out
 }
 
@@ -74,16 +80,20 @@ fn template_json(t: &doctest::Template) -> serde_json::Value {
 /// The block a fence describes, or `None` when the fence is not Jai.
 fn block(info: &str, code: &str, (file, line): (&str, usize), notes: &[String]) -> Option<Block> {
     let mut lines = vec![format!("```{info}")];
+
     lines.extend(code.lines().map(str::to_owned));
     lines.push("```".into());
     let refs: Vec<&str> = lines.iter().map(String::as_str).collect();
     let (_, mut found) = doctest::fenced(&refs).into_iter().next()?;
+
     found.file = PathBuf::from(format!("stdlib/{file}"));
     found.line = u32::try_from(line).unwrap_or(0);
+
     for note in notes {
         // A note that does not apply is `jacket test`'s to warn about.
         let _ = found.options.apply(note);
     }
+
     Some(found)
 }
 
@@ -95,6 +105,7 @@ pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Examp
     } else {
         highlight::other(lang, code.trim_end()).unwrap_or_else(|| escape(code.trim_end()))
     };
+
     Example {
         plain: true,
         compact: false,
@@ -122,6 +133,7 @@ pub fn view(
     let text = skipped
         .is_none()
         .then(|| doctest::generate(&block, module.import_name()).0);
+
     if let Some(text) = &text {
         site.add_runnable(
             &program_id(text),
@@ -132,6 +144,7 @@ pub fn view(
             },
         );
     }
+
     let note = skipped.or_else(|| (!site.runtime).then(|| NO_RUNTIME.to_owned()));
     let program = text.filter(|_| note.is_none()).map(|text| {
         let parts = serde_json::json!({
@@ -152,6 +165,7 @@ pub fn view(
                 base64url(text.as_bytes())
             )
         });
+
     Example {
         plain: false,
         compact,
@@ -182,11 +196,14 @@ mod tests {
     #[test]
     fn fence_options_decide_the_browser() {
         let b = block("jai,skip_on(wasm)", "x := 1;\n", ("a.jai", 3), &[]).unwrap();
+
         assert!(browser_skip(&b).is_some());
         let b = block("jai", "x := 1;\n", ("a.jai", 3), &[]).unwrap();
+
         assert!(browser_skip(&b).is_none());
         let notes = [r#"skip_on(.WASM, reason = "no threads")"#.to_owned()];
         let b = block("jai", "x := 1;\n", ("a.jai", 3), &notes).unwrap();
+
         assert!(browser_skip(&b).is_some());
         assert!(block("text", "x", ("a.jai", 3), &[]).is_none());
     }

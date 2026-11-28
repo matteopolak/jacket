@@ -59,6 +59,7 @@ pub(crate) fn int_bin(op: BinOp, ty: Ty, x: u64, y: u64) -> Result<u64, DivideBy
         operand(y)
     };
     let bits = register_bits(ty);
+
     int_binop(iop, operand(x), rhs, bits, signed).map(|r| mask(ty, r as u64))
 }
 
@@ -68,11 +69,14 @@ pub(crate) fn int_bin(op: BinOp, ty: Ty, x: u64, y: u64) -> Result<u64, DivideBy
 #[inline(always)]
 pub(crate) fn divide_64(op: BinOp, ty: Ty, x: u64, y: u64) -> Result<u64, DivideByZero> {
     let remainder = matches!(op, BinOp::SRem | BinOp::URem);
+
     if matches!(op, BinOp::SDiv | BinOp::SRem) {
         let (a, b) = (sext(ty, x), sext(ty, y));
+
         if b == 0 {
             return Err(DivideByZero);
         }
+
         let r = if remainder {
             a.wrapping_rem(b)
         } else {
@@ -81,9 +85,11 @@ pub(crate) fn divide_64(op: BinOp, ty: Ty, x: u64, y: u64) -> Result<u64, Divide
         Ok(mask(ty, r as u64))
     } else {
         let (a, b) = (mask(ty, x), mask(ty, y));
+
         if b == 0 {
             return Err(DivideByZero);
         }
+
         Ok(if remainder {
             a % b
         } else {
@@ -113,6 +119,7 @@ pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
         BinOp::FAdd | BinOp::FSub | BinOp::FMul | BinOp::FDiv => {
             if ty == Ty::F32 {
                 let (a, b) = (f32::from_bits(x as u32), f32::from_bits(y as u32));
+
                 (match op {
                     BinOp::FAdd => a + b,
                     BinOp::FSub => a - b,
@@ -122,6 +129,7 @@ pub(crate) fn bin_total(op: BinOp, ty: Ty, x: u64, y: u64) -> u64 {
                 .to_bits() as u64
             } else {
                 let (a, b) = (f64::from_bits(x), f64::from_bits(y));
+
                 (match op {
                     BinOp::FAdd => a + b,
                     BinOp::FSub => a - b,
@@ -200,6 +208,7 @@ pub(crate) fn cmp_shifted(op: CmpOp, shift: u8, x: u64, y: u64) -> bool {
             f64::from_bits(x)
         }
     };
+
     match op {
         CmpOp::Eq => ux == uy,
         CmpOp::Ne => ux != uy,
@@ -235,6 +244,7 @@ pub(super) fn conv(op: ConvOp, from: Ty, to: Ty, v: u64) -> u64 {
             x.to_bits()
         }
     };
+
     match op {
         ConvOp::Trunc => mask(to, v),
         ConvOp::ZExt => mask(from, v),

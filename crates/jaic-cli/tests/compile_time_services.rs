@@ -26,6 +26,7 @@ fn jaic(dir: &Path, args: &[&str]) -> Output {
 fn program(body: &str) -> String {
     let upper = tests_dir().join("services/upper.jai");
     let upper = jacket_config::slashed(&upper);
+
     format!(
         "#import \"Basic\";\nService :: #import \"Extensions/Service\";\n\
          UPPER :: \"{upper}\";\n{body}\nmain :: () {{}}\n"
@@ -37,6 +38,7 @@ fn every_status_reaches_compile_time_code() {
     let dir = tests_dir();
     let output = jaic(&dir, &["call.jai", "-interp"]);
     let stdout = String::from_utf8_lossy(&output.stdout);
+
     assert!(
         output.status.success(),
         "{}",
@@ -51,6 +53,7 @@ fn every_status_reaches_compile_time_code() {
 #[test]
 fn a_crash_is_reported_with_the_service_output_and_not_retried_at_once() {
     let dir = TempDir::new("crash");
+
     std::fs::write(
         dir.join("case.jai"),
         program(
@@ -65,8 +68,10 @@ fn a_crash_is_reported_with_the_service_output_and_not_retried_at_once() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let mut lines = stdout.lines();
     let first = lines.next().unwrap_or_default();
+
     assert!(first.starts_with("FAILED|the service stopped"), "{stdout}");
     let second = lines.next().unwrap_or_default();
+
     assert!(
         second.starts_with("FAILED|the service failed and is not restarted for 1 s"),
         "{stdout}"
@@ -76,6 +81,7 @@ fn a_crash_is_reported_with_the_service_output_and_not_retried_at_once() {
 #[test]
 fn an_unknown_result_is_an_error_in_a_build() {
     let dir = TempDir::new("unknown");
+
     std::fs::write(
         dir.join("case.jai"),
         program("#run Service.unknown(\"no database configured\");"),
@@ -83,8 +89,10 @@ fn an_unknown_result_is_an_error_in_a_build() {
     .unwrap();
     let output = jaic(&dir, &["case.jai", "-check"]);
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert_eq!(output.status.code(), Some(1), "{stderr}");
     let first = stderr.lines().next().unwrap_or_default();
+
     assert!(
         first.starts_with("case.jai:4:") && first.ends_with(": no database configured"),
         "{stderr}"

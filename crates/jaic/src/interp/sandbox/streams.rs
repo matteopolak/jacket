@@ -19,9 +19,11 @@ impl SandboxHost {
                     append: first == Some('a'),
                     ..Open::default()
                 };
+
                 match self.open_file(path, open) {
                     Ok(fd) => {
                         let handle = self.alloc(256);
+
                         self.streams.insert(handle, fd);
                         handle
                     }
@@ -42,6 +44,7 @@ impl SandboxHost {
             LibcFn::Fflush => 0,
             LibcFn::Fread => {
                 let (size, count) = (arg(1) as usize, arg(2) as usize);
+
                 match self.streams.get(&arg(3)).copied() {
                     Some(fd) if size > 0 => {
                         match self.read_fd(fd, arg(0), size.saturating_mul(count)) {
@@ -55,9 +58,11 @@ impl SandboxHost {
             LibcFn::Fwrite => {
                 let (size, count) = (arg(1) as usize, arg(2) as usize);
                 let total = size.saturating_mul(count);
+
                 match self.streams.get(&arg(3)).copied() {
                     Some(fd) if total > 0 => {
                         let bytes = read_bytes(arg(0), total);
+
                         match self.write_fd(fd, &bytes) {
                             Some(n) => (n / size) as u64,
                             None => 0,
@@ -85,6 +90,7 @@ impl SandboxHost {
                 if let Some(fd) = self.streams.get(&arg(0)).copied() {
                     self.seek(fd, 0, 0);
                 }
+
                 0
             }
             LibcFn::Feof => match self.streams.get(&arg(0)).copied() {

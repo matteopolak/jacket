@@ -47,6 +47,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             Node::Expr(e) => {
                 if let E::Float(v, ..) = e.kind {
                     let text = cx.src(e.span).trim();
+
                     if let Some((name, wide)) = known(text, v) {
                         let help = if name == wide {
                             format!("write `{name}` from `Math`")
@@ -73,6 +74,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         } else {
                             written.to_string()
                         };
+
                         out.push(suggesting(
                             e.span,
                             format!("`{text}` is an approximation of `{name}`"),
@@ -86,6 +88,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         ));
                     }
                 }
+
                 true
             }
         });
@@ -95,10 +98,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// The constant a literal spells, to as many decimals as it has.
 fn known(text: &str, value: f64) -> Option<(&'static str, &'static str)> {
     let digits: String = text.chars().filter(|c| *c != '_').collect();
+
     // `1.5e3` and suffixed or hex forms are not hand-typed constants.
     if !digits.chars().all(|c| c.is_ascii_digit() || c == '.') {
         return None;
     }
+
     let (whole, fraction) = digits.split_once('.')?;
     let significant = whole.trim_start_matches('0').len()
         + if whole.trim_start_matches('0').is_empty() {
@@ -106,11 +111,14 @@ fn known(text: &str, value: f64) -> Option<(&'static str, &'static str)> {
         } else {
             fraction.len()
         };
+
     if significant < MIN_DIGITS {
         return None;
     }
+
     // Rounded or cut off at the literal's last digit.
     let step = 10f64.powi(-(fraction.len() as i32));
+
     KNOWN
         .iter()
         .find(|(c, ..)| (value - c).abs() < step)

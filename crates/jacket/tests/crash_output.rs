@@ -19,8 +19,10 @@ fn golden_killed_by_a_signal_shows_output_and_native_stack() {
     if toolchain::jaic_beside(Path::new(env!("CARGO_BIN_EXE_jacket"))).is_none() {
         return;
     }
+
     let project = TempDir::new("jacket-crash-golden");
     let tests = project.join("tests");
+
     std::fs::create_dir_all(&tests).unwrap();
     std::fs::write(project.join("jacket.toml"), "[project]\n").unwrap();
     std::fs::write(tests.join("boom.jai"), PROGRAM).unwrap();
@@ -40,6 +42,7 @@ fn golden_killed_by_a_signal_shows_output_and_native_stack() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+
     assert!(!out.status.success(), "{text}");
     assert!(text.contains("killed by signal 11"), "{text}");
     assert!(text.contains("[36 earlier lines omitted]"), "{text}");

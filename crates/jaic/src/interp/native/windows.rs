@@ -54,6 +54,7 @@ pub fn keeping_last_error<R>(call: impl FnOnce() -> R) -> R {
     // SAFETY: this only writes the calling thread's last-error value.
     unsafe { SetLastError(LAST_ERROR.get()) };
     let result = call();
+
     // SAFETY: this only reads the calling thread's last-error value.
     LAST_ERROR.set(unsafe { GetLastError() });
     result
@@ -75,6 +76,7 @@ fn runtime_dlls() -> RuntimeDlls {
 /// names resolve.
 fn default_modules() -> [&'static str; 5] {
     let dlls = runtime_dlls();
+
     [
         dlls.c,
         dlls.stdio,
@@ -89,16 +91,20 @@ fn load_checked(path: &str) -> Result<usize, std::io::Error> {
     let wide: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
     // SAFETY: `wide` is NUL-terminated.
     let handle = unsafe { LoadLibraryW(wide.as_ptr()) };
+
     if handle.is_null() {
         // Capture the Win32 error before dropping the UTF16 allocation or doing other work.
         return Err(std::io::Error::last_os_error());
     }
+
     let handle = handle as usize;
+
     if let Ok(mut opened) = OPENED.lock()
         && !opened.contains(&handle)
     {
         opened.push(handle);
     }
+
     Ok(handle)
 }
 
@@ -120,11 +126,13 @@ pub(super) enum Library {
 pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String> {
     use super::windows_imports::{Candidate, archive, candidates};
     let lower = name.to_ascii_lowercase();
+
     if system && let Some(dll) = Toolchain::interpreter().interpreter_dll(&lower) {
         return load_checked(dll)
             .map(Library::Module)
             .map_err(|error| error.to_string());
     }
+
     let (arch, machine) = match crate::sema::Options::host().cpu {
         crate::target::TargetCpu::Arm64 => (
             crate::toolchain::discover::arch_dir(crate::target::TargetCpu::Arm64),
@@ -133,11 +141,13 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
         cpu => (crate::toolchain::discover::arch_dir(cpu), 0x8664),
     };
     let mut dirs = super::library_dirs();
+
     for dir in crate::toolchain::discover::library_dirs(arch) {
         if !dirs.contains(&dir) {
             dirs.push(dir);
         }
     }
+
     if cfg!(target_env = "gnu")
         && let Some(value) = jacket_config::env::LIBRARY_PATH.os()
     {
@@ -147,7 +157,9 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
             }
         }
     }
+
     let mut failure = String::from("no matching DLL or import archive found");
+
     'candidates: for candidate in
         candidates(name, system, base_dir, &dirs, cfg!(target_env = "gnu"))?
     {
@@ -164,6 +176,7 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
                 };
                 let archive = archive(&data, machine)
                     .map_err(|error| format!("{}: {error}", path.display()))?;
+
                 if archive.providers.is_empty() {
                     // A static archive sits beside its DLL in a built library directory; the
                     // candidates after it name that DLL.
@@ -173,6 +186,7 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
                     );
                     continue;
                 }
+
                 // Long COFF descriptors alone carry no per-symbol mapping.
                 // Retain the existing single-provider behavior for those;
                 // never guess a provider for an unsupported multi-provider map.
@@ -183,16 +197,20 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
                         archive.providers.join(", ")
                     ));
                 }
+
                 let mut modules = Vec::new();
+
                 for provider in &archive.providers {
                     let mut locations = vec![
                         path.parent()
                             .unwrap_or(std::path::Path::new(""))
                             .join(provider),
                     ];
+
                     locations.extend(dirs.iter().map(|dir| dir.join(provider)));
                     locations.push(provider.into());
                     let mut loaded = None;
+
                     for location in locations {
                         match load_checked(&location.to_string_lossy()) {
                             Ok(handle) => {
@@ -202,6 +220,7 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
                             Err(error) => failure = format!("{}: {error}", location.display()),
                         }
                     }
+
                     // A static archive of a DLL's own dependencies (wgpu_native.lib) names DLLs
                     // that are not shipped beside it; the DLL candidate after it is the library.
                     let Some(handle) = loaded else {
@@ -211,14 +230,17 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
                         );
                         continue 'candidates;
                     };
+
                     modules.push((provider.clone(), handle));
                 }
+
                 // Loading all named providers retains required-library startup
                 // side effects. Keep metadata so each later lookup selects its
                 // own provider/export without falling through to another DLL.
                 if archive.imports.is_empty() {
                     return Ok(Library::Module(modules[0].1));
                 }
+
                 return Ok(Library::Imports {
                     path,
                     archive,
@@ -227,11 +249,13 @@ pub fn open(name: &str, system: bool, base_dir: &str) -> Result<Library, String>
             }
         }
     }
+
     Err(failure)
 }
 
 pub fn lookup_library(lib: Option<&Library>, symbol: &str) -> Result<Option<u64>, String> {
     use super::windows_imports::ImportTarget;
+
     match lib {
         Some(Library::Imports {
             path,
@@ -271,6 +295,7 @@ pub fn lookup_library(lib: Option<&Library>, symbol: &str) -> Result<Option<u64>
             // SAFETY: module is loaded; pointer is a terminated validated export
             // name or the documented integer-ordinal encoding.
             let address = unsafe { GetProcAddress(module as *mut c_void, pointer) };
+
             if address.is_null() {
                 return Err(format!(
                     "{} selects {} export {:?} for `{symbol}`, which could not be resolved: {}",
@@ -280,6 +305,7 @@ pub fn lookup_library(lib: Option<&Library>, symbol: &str) -> Result<Option<u64>
                     std::io::Error::last_os_error()
                 ));
             }
+
             Ok(Some(address as u64))
         }
         Some(Library::Module(handle)) => Ok(lookup(Some(*handle), symbol)),
@@ -295,17 +321,22 @@ pub fn lookup(lib: Option<usize>, symbol: &str) -> Option<u64> {
         let p = unsafe { GetProcAddress(module as *mut c_void, name.as_ptr()) };
         (!p.is_null()).then_some(p as u64)
     };
+
     if let Some(found) = lib.and_then(find) {
         return Some(found);
     }
+
     let defaults: Vec<usize> = default_modules().iter().filter_map(|m| load(m)).collect();
     let opened = OPENED.lock().map(|o| o.clone()).unwrap_or_default();
+
     if let Some(found) = defaults.iter().copied().chain(opened).find_map(find) {
         return Some(found);
     }
+
     if let Some(found) = stdio::inline_only(symbol) {
         return Some(found);
     }
+
     // The runtime may export a function under another name (`Toolchain::renames`).
     lookup(lib, Toolchain::interpreter().rename(symbol)?)
 }
@@ -348,6 +379,7 @@ mod stdio {
         let name: Vec<u8> = name.bytes().chain(Some(0)).collect();
         // SAFETY: `module` is a loaded module handle and `name` is NUL-terminated.
         let p = unsafe { super::GetProcAddress(module as *mut c_void, name.as_ptr()) };
+
         (!p.is_null()).then_some(p as u64)
     }
 
@@ -515,6 +547,7 @@ mod stdio {
             u64,
             u64,
         ) -> i32;
+
         let entry: Entry = match symbol {
             "snprintf" => snprintf_entry,
             "vsnprintf" => vsnprintf_entry,
@@ -526,6 +559,7 @@ mod stdio {
             "vfprintf" => vfprintf_entry,
             _ => return None,
         };
+
         // The UCRT must be there for the stand-in to call.
         runtime_export("__stdio_common_vsprintf")?;
         Some(entry as usize as u64)
@@ -568,11 +602,13 @@ unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R
         s22,
         s23,
     ] = *slots;
+
     if first_float {
         type Proto<R> = unsafe extern "C" fn(f64, ...) -> R;
         // SAFETY: `addr` is a function with this variadic prototype; the callee's declared C
         // signature matches the slots.
         let p: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+
         // SAFETY: the callee's declared C signature matches these slots.
         unsafe {
             p(
@@ -607,6 +643,7 @@ unsafe fn call_slots<R>(addr: u64, slots: &[u64; SLOTS], first_float: bool) -> R
         // SAFETY: `addr` is a function with this variadic prototype; the callee's declared C
         // signature matches the slots.
         let p: Proto<R> = unsafe { std::mem::transmute::<usize, Proto<R>>(addr as usize) };
+
         // SAFETY: the callee's declared C signature matches these slots.
         unsafe {
             p(
@@ -655,30 +692,39 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
     // The hidden result pointer is the first argument, or the second for a C++ member
     // function (after its object).
     let after_this = cabi.is_some_and(|c| c.ret_after_this);
+
     if ret_layout.is_some() && ret_pieces.is_none() && !after_this {
         slots.push(out_ptr);
     }
+
     // Copies of aggregates passed by reference; alive until the call returns.
     let mut copies: Vec<Vec<u64>> = Vec::new();
+
     for (i, &a) in args.iter().enumerate() {
         if Some(i) == out_index {
             continue;
         }
+
         let layout = cabi.and_then(|c| c.params.get(i)).and_then(Option::as_ref);
         let Some(layout) = layout else {
             let ty = sig.params.get(i).copied().unwrap_or(Ty::I64);
+
             if slots.is_empty() && ty.is_float() {
                 first_float = true;
             }
+
             slots.push(a);
+
             continue;
         };
+
         match abi::classify_arg(Arch::Win64, layout, &DataLayout::host()) {
             Passing::Registers(pieces) if pieces.is_empty() => {}
             // SAFETY: `a` points at the aggregate, `layout.size` (<= 8) bytes long.
             Passing::Registers(_) => slots.push(unsafe { read_bytes(a, layout.size) }),
             Passing::Indirect | Passing::ByVal => {
                 let mut copy = vec![0u64; layout.size.div_ceil(8) as usize];
+
                 // SAFETY: `a` points at the aggregate; the copy is at least as long.
                 unsafe {
                     std::ptr::copy_nonoverlapping(
@@ -692,15 +738,19 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
             }
         }
     }
+
     if after_this && ret_layout.is_some() {
         slots.insert(slots.len().min(1), out_ptr);
     }
+
     if slots.len() > SLOTS {
         return Err(format!(
             "the interpreter passes at most {SLOTS} arguments to a foreign procedure"
         ));
     }
+
     let mut padded = [0u64; SLOTS];
+
     padded[..slots.len()].copy_from_slice(&slots);
     let result = match (ret_layout, ret_pieces) {
         (Some(_), None) => {
@@ -711,16 +761,19 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
         (Some(layout), Some(pieces)) => {
             // SAFETY: the callee's declared C signature matches these slots.
             let value = unsafe { call_slots::<u64>(addr, &padded, first_float) };
+
             if !pieces.is_empty() {
                 // SAFETY: the out-pointer addresses `layout.size` writable bytes.
                 unsafe { write_bytes(out_ptr, value, layout.size) };
             }
+
             Rets::default()
         }
         (None, _) => match sig.returns.first().copied() {
             Some(t) if t.is_float() => {
                 // SAFETY: the callee's declared C signature matches these slots.
                 let bits = unsafe { call_slots::<f64>(addr, &padded, first_float) }.to_bits();
+
                 Rets::one(if t == Ty::F32 {
                     bits & 0xffff_ffff
                 } else {
@@ -730,6 +783,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
             Some(t) => {
                 // SAFETY: the callee's declared C signature matches these slots.
                 let r = unsafe { call_slots::<u64>(addr, &padded, first_float) };
+
                 Rets::one(match t {
                     Ty::I8 => r & 0xff,
                     Ty::I16 => r & 0xffff,
@@ -744,6 +798,7 @@ pub fn call(addr: u64, args: &[u64], sig: &Sig) -> Result<Rets, String> {
             }
         },
     };
+
     drop(copies);
     Ok(result)
 }

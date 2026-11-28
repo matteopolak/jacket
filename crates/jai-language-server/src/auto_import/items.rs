@@ -37,26 +37,32 @@ impl Session {
             return;
         };
         let mut sources = self.sources(env);
+
         sources.stoppable = stoppable;
         let file = sources.key(Path::new(uri.path()));
         // Cheap shared scans/module lists are cloned; only complete results are committed.
         let mut index = self.index.borrow().clone();
         let program = sources.program(&mut index, &file, &self.workspace_folders);
+
         for dir in &program.module_dirs {
             if sources.stopped() {
                 break;
             }
+
             sources.user_modules(&mut index, dir);
         }
+
         if !sources.stopped()
             && let Some(stdlib) = &program.stdlib
         {
             sources.stdlib(&mut index, stdlib);
         }
+
         if sources.stopped() {
             // Only completed scans/modules are reusable. Derived folder lists and graphs may
             // be partial, so leave them out and invalidate graphs that used older scans.
             let mut kept = self.index.borrow_mut();
+
             kept.files = index.files;
             kept.open = index.open;
             kept.loads_seen = index.loads_seen;
@@ -83,33 +89,42 @@ impl Session {
         let mut index = self.index.borrow_mut();
         let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
         let mut out = Vec::new();
+
         for entry in program.unattributed {
             if index.builds.contains_key(&entry) && !index.stale_source_graphs.contains_key(&entry)
             {
                 continue;
             }
+
             // Everything the run reads: the metaprogram, what it loads, the settings file.
             let mut files: Vec<PathBuf> = sources.closure(&mut index, &entry).into_iter().collect();
+
             if let Some(facts) = index.builds.get(&entry) {
                 files.extend(facts.sources.keys().cloned());
                 files.sort();
                 files.dedup();
             }
+
             if let Some((folder, _)) = sources.config(&mut index, &entry) {
                 files.push(folder.join(jacket_config::FILE_NAME));
             }
+
             let mut texts = String::new();
+
             for file in files {
                 texts.push_str(&file.to_string_lossy());
                 texts.push('\0');
                 texts.push_str(&sources.read(&file).unwrap_or_default());
                 texts.push('\0');
             }
+
             let hash = hash(&texts);
+
             if index.probed.get(&entry) != Some(&hash) {
                 out.push((entry, hash));
             }
         }
+
         out
     }
 
@@ -120,6 +135,7 @@ impl Session {
         let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
         let program = sources.program(&mut index, Path::new(uri.path()), &self.workspace_folders);
+
         Some(program.root)
     }
 
@@ -140,6 +156,7 @@ impl Session {
             .program(&mut index, path, &self.workspace_folders)
             .root;
         let mut roots = sources.reaching_entries(&mut index, path, &self.workspace_folders);
+
         roots.retain(|root| *root != primary && programs.contains(root));
         roots
     }
@@ -152,6 +169,7 @@ impl Session {
         let entries = self.workspace_entry_set(env);
         let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
+
         sources.is_unreached(
             &mut index,
             Path::new(uri.path()),
@@ -168,6 +186,7 @@ impl Session {
         let entries = self.workspace_entry_set(env);
         let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
+
         sources
             .unreached_files(&mut index, &self.workspace_folders, &entries)
             .unwrap_or_default()
@@ -181,6 +200,7 @@ impl Session {
         };
         let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
+
         sources.scan(&mut index, root).adds_build_files
     }
 
@@ -199,6 +219,7 @@ impl Session {
         let sources = self.sources(env);
         let mut index = self.index.borrow_mut();
         let mut folders: BTreeSet<PathBuf> = self.workspace_folders.iter().cloned().collect();
+
         for uri in self.documents.keys() {
             folders.insert(
                 sources
@@ -206,16 +227,21 @@ impl Session {
                     .dir,
             );
         }
+
         let mut files: BTreeSet<PathBuf> = BTreeSet::new();
+
         for folder in &folders {
             files.extend(sources.project_files(&mut index, folder));
         }
+
         let mut out = Vec::new();
+
         for file in files {
             // Listed files are keys, as are the open documents'.
             if sources.open.contains_key(&file) {
                 continue;
             }
+
             // Changed on disk without a notification since it was scanned: the scan may lack
             // the names it has now.
             if index
@@ -225,19 +251,23 @@ impl Session {
             {
                 index.changed(&file);
             }
+
             let mut scan = sources.scan_keyed(&mut index, &file);
             let has_hit = |scan: &crate::exports::FileScan| {
                 scan.symbols
                     .iter()
                     .any(|s| s.name.to_lowercase().contains(query))
             };
+
             if !has_hit(&scan) {
                 continue;
             }
+
             let Some(bytes) = env.fs.read(&file) else {
                 continue;
             };
             let text = String::from_utf8_lossy(&bytes);
+
             if scan.text_hash != crate::auto_import::hash(&text) {
                 // Edited on disk without a notification and without a new stamp: the cached
                 // offsets are for older text. The positions come from this text, so this text
@@ -245,6 +275,7 @@ impl Session {
                 index.changed(&file);
                 scan = std::rc::Rc::new(crate::exports::scan(&text));
             }
+
             let hits: Vec<_> = scan
                 .symbols
                 .iter()
@@ -254,16 +285,19 @@ impl Session {
             let Some(uri) = self.client_uri(&file) else {
                 continue;
             };
+
             for symbol in hits {
                 if out.len() >= room {
                     return out;
                 }
+
                 let Ok(range) = lines.range(
                     &text,
                     Span::new(symbol.offset, symbol.offset + symbol.name.len()),
                 ) else {
                     continue;
                 };
+
                 out.push(crate::model::SymbolInformation {
                     name: symbol.name.clone(),
                     kind: match symbol.kind {
@@ -282,6 +316,7 @@ impl Session {
                 });
             }
         }
+
         out
     }
 
@@ -295,15 +330,18 @@ impl Session {
         let Some(env) = self.environment.as_ref().filter(|_| self.auto_import) else {
             return (Vec::new(), false);
         };
+
         if prefix.chars().count() < MIN_PREFIX {
             return (Vec::new(), true);
         }
+
         // A request that may not compile does not read the module indexes either (a few
         // hundred milliseconds the first time): the idle warm-up does, and the client asks
         // again as the word grows.
         if !self.may_compile() && !self.index.borrow().warm {
             return (Vec::new(), true);
         }
+
         let sources = self.sources(env);
         let file = sources.key(Path::new(uri.path()));
         let here = file.parent().unwrap_or(Path::new("/")).to_path_buf();
@@ -312,11 +350,13 @@ impl Session {
         let program = sources.program(&mut index, &file, &self.workspace_folders);
         let current = sources.scan(&mut index, &file);
         let mut import_counts: HashMap<String, u32> = HashMap::default();
+
         for f in &program.closure {
             for import in &sources.scan(&mut index, f).imports {
                 *import_counts.entry(import.path.clone()).or_insert(0) += 1;
             }
         }
+
         let imported: BTreeSet<&String> = import_counts.keys().collect();
         // (rank, source, declaration)
         let mut found: Vec<(Rank, Source, Decl)> = Vec::new();
@@ -330,6 +370,7 @@ impl Session {
             .as_deref()
             .map(|s| sources.key(s))
             .filter(|s| !program.dir.starts_with(s) || program.dir == *s);
+
         for f in sources.project_files(&mut index, &program.dir) {
             if f == file
                 || module_dirs.iter().any(|d| f.starts_with(d))
@@ -337,6 +378,7 @@ impl Session {
             {
                 continue;
             }
+
             let scan = sources.scan(&mut index, &f);
             let source = if program.closure.contains(&f) {
                 Source::Loaded(f.clone())
@@ -351,6 +393,7 @@ impl Session {
             } else {
                 &f
             };
+
             for d in scan.decls.iter().filter(|d| matches(d)) {
                 for declaration in sources.alias_documentation(
                     &mut index,
@@ -363,6 +406,7 @@ impl Session {
                 }
             }
         }
+
         // Modules: the project's, then the stdlib's (one the project has hides it), never the
         // module the document is part of.
         let mut seen_modules: BTreeSet<String> = module_dirs
@@ -376,13 +420,16 @@ impl Session {
             .map(|d| (sources.user_modules(&mut index, d), true))
             .collect();
         let mut ranking = ModuleRanking::default();
+
         if let Some(stdlib) = &program.stdlib {
             let modules = sources.stdlib(&mut index, stdlib);
+
             ranking = sources
                 .stdlib_ranking(&mut index, &modules)
                 .with_project(import_counts.clone());
             sets.push((modules, false));
         }
+
         for (modules, user) in &sets {
             for module in modules.iter() {
                 if !seen_modules.insert(module.name.clone())
@@ -391,16 +438,19 @@ impl Session {
                 {
                     continue;
                 }
+
                 let rank = if *user {
                     5
                 } else {
                     ranking.rank(&module.name)
                 };
+
                 for d in module.decls.iter().filter(|d| matches(d)) {
                     found.push((rank, Source::Import(module.name.clone()), d.clone()));
                 }
             }
         }
+
         drop(index);
         found.sort_by(|a, b| {
             (&a.2.lower, &a.2.name, a.0, &a.1).cmp(&(&b.2.lower, &b.2.name, b.0, &b.1))
@@ -408,6 +458,7 @@ impl Session {
         // Overloads (and `#if` variants) of one name in one place are one item showing every
         // signature; a procedure's kind wins over `print :: print_to_builder;`.
         let mut merged: Vec<(Rank, Source, Decl)> = Vec::with_capacity(found.len());
+
         for (rank, source, decl) in found {
             match merged.last_mut() {
                 Some((_, s, d)) if *s == source && d.name == decl.name => {
@@ -416,12 +467,15 @@ impl Session {
                     {
                         d.signature = format!("{}\n{}", d.signature, decl.signature);
                     }
+
                     if d.doc.is_empty() {
                         d.doc = decl.doc;
                     }
+
                     if decl.kind == CompletionKind::Function {
                         d.kind = decl.kind;
                     }
+
                     d.call = match (d.call.take(), decl.call) {
                         (Some(a), Some(b)) => Some(a.overloaded(&b)),
                         (a, b) => a.or(b),
@@ -430,8 +484,10 @@ impl Session {
                 _ => merged.push((rank, source, decl)),
             }
         }
+
         let mut found = merged;
         let incomplete = found.len() > MAX_ITEMS;
+
         found.truncate(MAX_ITEMS);
         // Where a new `#import` and `#load` go: after the last of their kind at the top level.
         let last =
@@ -450,6 +506,7 @@ impl Session {
                 let (statement, after, description, detail) = match &source {
                     Source::Loaded(path) => {
                         let shown = project::relative(&here, path);
+
                         return Some(CompletionItem {
                             label: decl.name.clone(),
                             kind: decl.kind,
@@ -464,6 +521,7 @@ impl Session {
                     }
                     Source::Load(path) => {
                         let shown = project::relative(&here, path);
+
                         (
                             format!("#load \"{shown}\";"),
                             after_loads,
@@ -481,6 +539,7 @@ impl Session {
                 let (offset, new_text) =
                     crate::suggestion_fixes::insertion(text, after, current.first_code, &statement);
                 let range = self.range_of(uri, Span::new(offset, offset))?;
+
                 Some(CompletionItem {
                     label: decl.name.clone(),
                     kind: decl.kind,
@@ -498,6 +557,7 @@ impl Session {
                 })
             })
             .collect();
+
         (items, incomplete)
     }
 }

@@ -11,9 +11,11 @@ use crate::reflection_bootstrap as bootstrap;
 #[test]
 fn baked_mixed_type_packs_preserve_relocations_and_deduplicate_instances() {
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/lib/prelude/module.jai".into());
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
     let mut c = Compiler::new(options, Rc::new(fs));
     let source = r"
@@ -28,6 +30,7 @@ fn baked_mixed_type_packs_preserve_relocations_and_deduplicate_instances() {
         #assert(identity(u16,u32));
         #assert(!identity(u32,u16));
     ";
+
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&c.src.sources));
     }
@@ -36,6 +39,7 @@ fn baked_mixed_type_packs_preserve_relocations_and_deduplicate_instances() {
 #[test]
 fn baked_mixed_packs_preserve_values_and_order() {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
     let source = r"
@@ -44,6 +48,7 @@ fn baked_mixed_packs_preserve_values_and_order() {
     #assert(forward(2,3)==1234);
     main :: () {}
     ";
+
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&c.src.sources));
     }
@@ -52,8 +57,10 @@ fn baked_mixed_packs_preserve_values_and_order() {
 #[test]
 fn scalar_prefix_is_not_discarded_by_a_following_spread() {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(e)=c.compile_sources(&[ProgramSource::String("encode :: (items: ..int) -> int { result: int; for items result=result*10+it; return result; } test :: () -> int { tail: [2]int = .[2,3]; return encode(1,..tail); } #assert(test()==123);".into())]) {
         panic!("{}",e.render(&c.src.sources));
     }
@@ -62,8 +69,10 @@ fn scalar_prefix_is_not_discarded_by_a_following_spread() {
 #[test]
 fn mixed_segments_preserve_values_order_defaults_and_polymorphism() {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(e) = c.compile_sources(&[ProgramSource::String(format!(
         "{SOURCE}\n#assert(check()==0);"
     ))]) {
@@ -91,11 +100,13 @@ fn invalid_spread_lengths_and_c_variadic_arity_are_diagnosed() {
         ),
     ] {
         let mut options = Options::host();
+
         options.runtime_support = false;
         let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
         let error = c
             .compile_sources(&[ProgramSource::String(source.into())])
             .expect_err("invalid variadic use must diagnose");
+
         assert!(
             error.message.contains(expected),
             "{}",

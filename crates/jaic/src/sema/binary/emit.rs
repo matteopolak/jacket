@@ -48,17 +48,21 @@ impl Compiler {
             ) && s.ty.types.is_integer(o.ty())
                 && !matches!(s.ty.types.kind(o.ty()), TypeKind::Enum(_))
         };
+
         if !is_shift && is_float_lit(&rhs) && is_int_value(self, &lhs) {
             let ty = self
                 .ty
                 .default_untyped(rhs.ty(), &rhs.const_value().unwrap());
+
             lhs = self.explicit_cast(f, lhs, ty, ast::CastFlags::default(), span)?;
         } else if !is_shift && is_float_lit(&lhs) && is_int_value(self, &rhs) {
             let ty = self
                 .ty
                 .default_untyped(lhs.ty(), &lhs.const_value().unwrap());
+
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
+
         // Comparing integers compares their values: a distinct integer type meets another
         // integer type as the type it is made from.
         if is_comparison(op)
@@ -81,6 +85,7 @@ impl Compiler {
             for operand in [&mut lhs, &mut rhs] {
                 let ty = operand.ty();
                 let base = self.ty.types.repr(ty);
+
                 if base != ty && is_int_value(self, operand) {
                     *operand = self.explicit_cast(
                         f,
@@ -92,8 +97,10 @@ impl Compiler {
                 }
             }
         }
+
         // Unify operand types.
         let ty = self.binary_operand_type(&lhs, &rhs, expected, op, (a, b), span)?;
+
         // A negative constant cannot meet a `u64`: nothing wider takes its place.
         if !is_shift {
             for (constant, other) in [(&rhs, &lhs), (&lhs, &rhs)] {
@@ -124,6 +131,7 @@ impl Compiler {
                 }
             }
         }
+
         if self.ty.types.repr(ty) == TypeId::BOOL
             && matches!(
                 op,
@@ -131,18 +139,21 @@ impl Compiler {
             )
         {
             let symbol = binop_text(op);
+
             return err(
                 Code::BinaryOperatorNotDefined,
                 span,
                 format!("operator `{symbol}` is not defined for bool"),
             );
         }
+
         // A literal that met the other operand's type takes it as a bit pattern
         // (`mask & ~0x7` with a `u32` mask).
         if !is_shift {
             lhs = self.ty.literal_as_bits(lhs, ty);
             rhs = self.ty.literal_as_bits(rhs, ty);
         }
+
         // A negative untyped shift amount is a bit pattern of the amount's type, which shifts every
         // bit out: `a << (64 - x)` with a baked `x` of 127 sits in code that never runs but still
         // has to compile.
@@ -162,6 +173,7 @@ impl Compiler {
                 origin: Origin::Named,
             };
         }
+
         let rhs_ty = if is_shift {
             self.ty.shift_amount_type(&rhs, ty)
         } else {
@@ -171,22 +183,28 @@ impl Compiler {
         let int_to_float = |s: &Self, o: &Operand| {
             !is_shift && s.ty.types.is_float(ty) && s.ty.types.is_integer(o.ty())
         };
+
         if int_to_float(self, &lhs) {
             lhs = self.explicit_cast(f, lhs, ty, ast::CastFlags::default(), span)?;
         }
+
         if int_to_float(self, &rhs) {
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
+
         if ty == TypeId::VOID_PTR && matches!(self.ty.types.kind(lhs.ty()), TypeKind::Proc(_)) {
             lhs = self.explicit_cast(f, lhs, ty, ast::CastFlags::default(), span)?;
         }
+
         if ty == TypeId::VOID_PTR && matches!(self.ty.types.kind(rhs.ty()), TypeKind::Proc(_)) {
             rhs = self.explicit_cast(f, rhs, ty, ast::CastFlags::default(), span)?;
         }
+
         let lhs = self.convert(f, lhs, ty, a)?;
         let rhs = self.convert(f, rhs, rhs_ty, b)?;
         let (_, x) = self.rvalue(f, lhs, span)?;
         let (_, y) = self.rvalue(f, rhs, span)?;
+
         Ok(Unified {
             ty,
             rhs_ty,
@@ -210,12 +228,15 @@ impl Compiler {
             y,
         } = values;
         let (is_cmp, is_shift) = (is_comparison(op), is_shift(op));
+
         if ty == TypeId::STRING && is_cmp {
             return self.string_compare(f, op, x, y, span);
         }
+
         if self.ty.types.wide_float(ty).is_some() && !is_shift {
             return self.wide_binary(f, ty, op, x, y, span);
         }
+
         let Some(t) = self.ir_ty(ty) else {
             if is_cmp && matches!(op, BinOp::Eq | BinOp::Ne) {
                 // Aggregate equality: bytewise.
@@ -229,11 +250,13 @@ impl Compiler {
                 } else {
                     CmpOp::Ne
                 };
+
                 return Ok(Operand::Value {
                     ty: TypeId::BOOL,
                     val: f.b.cmp(cmp, Ty::I16, r[0], zero),
                 });
             }
+
             return err(
                 Code::BinaryOperatorNotDefined2,
                 span,
@@ -245,17 +268,21 @@ impl Compiler {
             );
         };
         let signed = self.ty.types.int_info(ty).is_some_and(|(_, s)| s);
+
         if is_cmp {
             let cmp = cmp_op(op, t.is_float(), signed);
+
             return Ok(Operand::Value {
                 ty: TypeId::BOOL,
                 val: f.b.cmp(cmp, t, x, y),
             });
         }
+
         if matches!(op, BinOp::Div | BinOp::Rem) && !t.is_float() && !f.type_only {
             // Native code reports a division by zero through Runtime_Support.
             self.note_check_handler(span)?;
         }
+
         let ir_op = arith_op(op, t.is_float(), signed).ok_or_else(|| {
             Box::new(Diagnostic::new(
                 Code::BinaryOperatorNotDefined2,
@@ -267,6 +294,7 @@ impl Compiler {
                 ),
             ))
         })?;
+
         if t == Ty::Ptr {
             return err(
                 Code::BinaryArithmeticOperator,
@@ -278,8 +306,10 @@ impl Compiler {
                 ),
             );
         }
+
         let y = if is_shift {
             let rt = self.ir_ty(rhs_ty).unwrap();
+
             if rt.size(&self.options.layout) == t.size(&self.options.layout) {
                 y
             } else {
@@ -294,6 +324,7 @@ impl Compiler {
             y
         };
         let val = f.b.bin(ir_op, t, x, y);
+
         if !f.type_only
             && matches!(ir_op, ir::BinOp::Add | ir::BinOp::Sub)
             && self.ty.types.is_integer(ty)
@@ -311,6 +342,7 @@ impl Compiler {
                 },
             );
         }
+
         if self.options.arithmetic_overflow_check != 0
             && !f.checks_off.no_aoc()
             && !f.type_only
@@ -320,6 +352,7 @@ impl Compiler {
         {
             self.emit_overflow_check(f, (ir_op, signed, t), (x, y), span)?;
         }
+
         Ok(Operand::Value {
             ty,
             val,
@@ -383,6 +416,7 @@ impl Compiler {
         let overflowed = f.b.intrinsic(intrinsic, vec![x, y, width], &[Ty::I8])[0];
         let fail = f.b.new_block();
         let cont = f.b.new_block();
+
         f.b.branch(overflowed, fail, cont);
         f.b.switch_to(fail);
         let widen = if signed {
@@ -410,6 +444,7 @@ impl Compiler {
         let line = f.b.iconst(Ty::I64, line as u64);
         let global = self.out.string_global(&path);
         let filename = f.b.global_addr(global);
+
         f.b.call(
             ir::Callee::Func(func),
             vec![left, right, code, line, filename],

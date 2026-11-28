@@ -59,6 +59,7 @@ fn grouped(expr: &str) -> String {
             other => format!("{other:?}"),
         }
     }
+
     show(&value(&format!("x := {expr};")))
 }
 
@@ -74,6 +75,7 @@ fn binary_precedence() {
         grouped("a & b * c % d + e < f == g && h || i"),
         "((((((((a & b) * c) % d) + e) < f) == g) && h) || i)"
     );
+
     // Every level is left associative.
     for (src, want) in [
         ("a - b - c", "((a - b) - c)"),
@@ -169,6 +171,7 @@ fn cast_value_op(src: &str) -> Option<BinOp> {
     else {
         panic!("{src}: not a cast")
     };
+
     match inner.kind {
         ExprKind::Binary(op, ..) => Some(op),
         _ => None,
@@ -192,11 +195,13 @@ fn prefix_cast_takes_bitwise_and_shift_operators() {
     ] {
         assert_eq!(cast_value_op(src), Some(op), "{src}");
     }
+
     // They share one level, left associative: `a << 16 | b` is `(a << 16) | b`.
     assert_eq!(
         cast_value_op("x := cast(u32) a << 16 | b;"),
         Some(BinOp::BitOr)
     );
+
     // Arithmetic, comparison and logical operators apply to the cast's result.
     for (src, op) in [
         ("x := cast(*u8) p + offset;", BinOp::Add),
@@ -212,11 +217,13 @@ fn prefix_cast_takes_bitwise_and_shift_operators() {
     ] {
         assert_eq!(top_op(src), (op, true), "{src}");
     }
+
     // A bitwise operator after the cast's value still stops at the next arithmetic one:
     // `cast(T) a & b + c` adds `c` to the cast.
     let ExprKind::Binary(BinOp::Add, lhs, _) = value("x := cast(u8) a & b + c;").kind else {
         panic!("expected an addition")
     };
+
     assert!(matches!(lhs.kind, ExprKind::Cast { ref value, .. }
         if matches!(value.kind, ExprKind::Binary(BinOp::BitAnd, ..))));
     // Postfix operators bind before the cast; a parenthesized cast or the call form
@@ -248,6 +255,7 @@ fn unary_and_cast_forms() {
     else {
         panic!()
     };
+
     assert!(ty.is_some() && flags.no_check);
     assert!(matches!(
         value("x := xx y;").kind,
@@ -287,6 +295,7 @@ fn ifx_forms() {
     else {
         panic!()
     };
+
     assert!(then_value.is_some() && else_value.is_some() && !is_static);
     assert!(matches!(
         value("x := ifx c a else b;").kind,
@@ -326,6 +335,7 @@ fn ifx_forms() {
     else {
         panic!()
     };
+
     assert_eq!(args.len(), 2);
 }
 
@@ -339,6 +349,7 @@ fn call_arguments() {
     else {
         panic!()
     };
+
     assert_eq!(hint, CallHint::Inline);
     assert_eq!(args.len(), 4);
     assert!(args[1].name.is_some() && !args[1].context);
@@ -356,6 +367,7 @@ fn trailing_comma_before_context_arguments() {
     else {
         panic!()
     };
+
     assert_eq!(args.len(), 3);
     assert!(!args[0].context && !args[1].context);
     assert!(args[2].context);
@@ -364,6 +376,7 @@ fn trailing_comma_before_context_arguments() {
 #[test]
 fn here_string_argument_in_call() {
     let stmts = body_of("print(#string END\nhello\nEND, 7);\ns := #string END\nraw\nEND\ny := 1;");
+
     assert_eq!(stmts.len(), 3);
     let StmtKind::Expr(Expr {
         kind: ExprKind::Call {
@@ -374,6 +387,7 @@ fn here_string_argument_in_call() {
     else {
         panic!()
     };
+
     assert!(matches!(&args[0].value.kind, ExprKind::Str(s) if &**s == b"hello\n"));
     // A here-string ends its statement without a semicolon.
     assert!(matches!(
@@ -430,6 +444,7 @@ fn inferred_members_and_directive_primaries() {
     else {
         panic!("expected #library");
     };
+
     assert_eq!(
         directive
             .flags
@@ -442,6 +457,7 @@ fn inferred_members_and_directive_primaries() {
     let ExprKind::Insert(insert) = value("x := #insert,scope(s) code;").kind else {
         panic!()
     };
+
     assert!(insert.scope.is_some());
 }
 
@@ -454,6 +470,7 @@ fn directive_comma_is_a_flag_only_when_it_hugs_the_directive() {
     else {
         panic!()
     };
+
     assert_eq!(args.len(), 2);
     let ExprKind::Call {
         args, ..
@@ -461,6 +478,7 @@ fn directive_comma_is_a_flag_only_when_it_hugs_the_directive() {
     else {
         panic!()
     };
+
     assert_eq!(args.len(), 2);
 }
 
@@ -476,6 +494,7 @@ fn parentheses_are_recorded_on_the_expression_they_enclose() {
     let ExprKind::Binary(_, a, b) = value("x := (a + b) * c;").kind else {
         panic!()
     };
+
     assert!(a.parenthesized() && !b.parenthesized());
     // The parentheses of a call are not a group around an expression.
     let ExprKind::Call {
@@ -484,31 +503,38 @@ fn parentheses_are_recorded_on_the_expression_they_enclose() {
     else {
         panic!()
     };
+
     assert!(!args[0].value.parenthesized() && args[1].value.parenthesized());
     assert!(value("x := ((a));").parenthesized());
     assert!(!value("x := a;").parenthesized());
     // The span still leaves the parentheses out; `parens` and the extent take them in.
     let src = "x := (a + b);";
     let e = value(src);
+
     assert_eq!(&src[e.span.start as usize..e.span.end as usize], "a + b");
     assert!(e.parenthesized());
     let parens = e.outer_span();
+
     assert_eq!(&src[parens.start as usize..parens.end as usize], "(a + b)");
     let src = "x := ((a)) * c;";
     let ExprKind::Binary(_, a, _) = value(src).kind else {
         panic!()
     };
+
     assert!(a.parenthesized());
     let parens = a.outer_span();
+
     assert_eq!(&src[parens.start as usize..parens.end as usize], "((a))");
     // A node whose span stops inside a parenthesis gets it back from its operands.
     let src = "x := (a + b) * (c);";
     let e = value(src);
+
     assert_ne!(
         &src[e.span.start as usize..e.span.end as usize],
         "(a + b) * (c)"
     );
     let whole = e.extent();
+
     assert_eq!(
         &src[whole.start as usize..whole.end as usize],
         "(a + b) * (c)"
@@ -525,6 +551,7 @@ fn numeric_literals_record_how_they_were_written() {
         ExprKind::Float(_, _, spelling) => spelling,
         other => panic!("{other:?}"),
     };
+
     assert_eq!(int("x := 255;"), Spelling::Decimal);
     assert_eq!(int("x := 0xff;"), Spelling::Radix);
     assert_eq!(int("x := 0B101;"), Spelling::Radix);
@@ -536,6 +563,7 @@ fn numeric_literals_record_how_they_were_written() {
     let ExprKind::Float(_, precision, _) = value("x := 1.12345678;").kind else {
         panic!()
     };
+
     assert!(precision.defaults_to_float64);
 }
 
@@ -557,6 +585,7 @@ fn atomic_expressions_need_no_parentheses() {
     ] {
         assert!(value(&format!("x := {src};")).is_atomic(), "{src}");
     }
+
     for src in [
         "x + 1",
         "f(1) + g(2)",
@@ -583,6 +612,7 @@ fn a_written_expression_with_parentheses_reads_as_a_unit() {
     ] {
         assert!(value(&format!("x := {src};")).is_atomic_written(), "{src}");
     }
+
     for src in ["x + 1", "(a) + 1", "-x", "a.*"] {
         assert!(!value(&format!("x := {src};")).is_atomic_written(), "{src}");
     }

@@ -18,7 +18,9 @@ impl Compiler {
     ) -> Result<()> {
         // `#import` in a body is visible to the whole module, also before the statement.
         let file_scope = self.file_scope_of(scope);
+
         self.hoist_body_imports(file_scope, stmts, false);
+
         // So is a `#load`: the code before it can use what the file declares.
         for stmt in stmts {
             if let S::Load {
@@ -29,8 +31,10 @@ impl Compiler {
                 self.load_from_body(scope, path, *span)?;
             }
         }
+
         // Constants are visible throughout their block, also before their declaration.
         let mut failed = None;
+
         for stmt in stmts {
             if let S::Decl(decl) = &stmt.kind
                 && decl.kind == ast::DeclKind::Const
@@ -41,9 +45,11 @@ impl Compiler {
                 self.check_block_error_ide(f, &mut failed, error)?;
             }
         }
+
         for stmt in stmts {
             self.check_block_stmt_ide(f, scope, stmt, &mut failed)?;
         }
+
         failed.map_or(Ok(()), Err)
     }
 
@@ -59,6 +65,7 @@ impl Compiler {
         // A body can have any number of statements (a metaprogram wrote it): the limit of an
         // editor's check ends it here, and is not kept for later like an error of the statement.
         self.check_not_stopped(stmt.span)?;
+
         if let Err(error) = self.check_block_stmt(f, scope, stmt) {
             match (
                 self.ed
@@ -74,8 +81,10 @@ impl Compiler {
                 (StmtRecovery::Declare, S::Decl(decl)) => self.ide_sketch_declare(f, scope, decl),
                 _ => {}
             }
+
             self.check_block_error_ide(f, failed, error)?;
         }
+
         Ok(())
     }
 
@@ -84,12 +93,15 @@ impl Compiler {
             let at = frame.defer_depth.position();
             let caller = frame.caller_cleanup_serial;
             let active = f.b.entry_zeroed_slot(Ty::I8, 1, 1);
+
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
             {
                 record.cleanup_flags.insert(active);
             }
+
             let yes = f.b.iconst(Ty::I8, 1);
+
             f.b.store(Ty::I8, active, yes);
             entry.active = Some(active);
             f.insert_caller_defer(at, caller, entry);
@@ -107,10 +119,13 @@ impl Compiler {
         if !self.ed.continues_past_errors() {
             return Err(error);
         }
+
         self.ed.error(&error);
+
         if failed.is_none() {
             *failed = Some(error);
         }
+
         self.sketch_reopen(f);
         Ok(())
     }
@@ -133,6 +148,7 @@ impl Compiler {
     fn sketch_reopen(&mut self, f: &mut FnCtx) {
         if f.b.is_terminated() {
             let rest = f.b.new_block();
+
             f.b.switch_to(rest);
         }
     }
@@ -149,6 +165,7 @@ impl Compiler {
                 let _ = c.check_expr(f, scope, e, None);
             }
         };
+
         match &stmt.kind {
             S::Decl(decl) => {
                 decl.value
@@ -172,6 +189,7 @@ impl Compiler {
                 else_branch,
             } if !typed(self, cond) => {
                 check(self, f, cond);
+
                 for branch in std::iter::once(then_branch).chain(else_branch) {
                     self.sketch_reopen(f);
                     let _ = self.check_scoped(f, scope, branch);
@@ -201,6 +219,7 @@ impl Compiler {
             let size = self.size_of(ctx_ty, span)?;
             let align = self.align_of(ctx_ty, span)?;
             let addr = f.b.alloca(size, align);
+
             self.init_default(f, ctx_ty, addr, span)?;
             Operand::Place {
                 ty: ctx_ty,
@@ -214,6 +233,7 @@ impl Compiler {
             let align = self.align_of(ctx_ty, span)?;
             let addr = f.b.alloca(size, align);
             let (_, from) = self.address_of(f, current, span)?;
+
             f.b.copy(addr, from, size);
             f.lifetime_store(addr, from, ctx_ty, span);
             Operand::Place {
@@ -227,6 +247,7 @@ impl Compiler {
             t if t == ctx_ty => op,
             t if self.ty.types.pointee(t) == Some(ctx_ty) => {
                 let (_, p) = self.rvalue(f, op, span)?;
+
                 Operand::Place {
                     ty: ctx_ty,
                     addr: p,
@@ -244,6 +265,7 @@ impl Compiler {
             }
         };
         let (_, addr) = self.address_of(f, op, span)?;
+
         Ok(addr)
     }
 
@@ -259,6 +281,7 @@ impl Compiler {
                 self.check_redeclared(target, name.name, name.span, Some(decl))?;
                 self.reject_using_redeclaration(target, name.name, name.span)?;
             }
+
             for s in [target, scope] {
                 self.add_entity(
                     s,
@@ -270,11 +293,13 @@ impl Compiler {
                     },
                     false,
                 );
+
                 if target == scope {
                     break;
                 }
             }
         }
+
         Ok(())
     }
 
@@ -287,6 +312,7 @@ impl Compiler {
         cond: &ast::Expr,
     ) -> Result<bool> {
         use ast::ExprKind as E;
+
         match &cond.kind {
             E::Unary(ast::UnOp::Not, inner) if matches!(inner.kind, E::Exists(..)) => {
                 Ok(!self.body_static_condition(f, scope, inner)?)
@@ -298,6 +324,7 @@ impl Compiler {
                     None => Ok(()),
                 };
                 let exists = other_checked.is_ok() && self.check_expr(f, scope, e, None).is_ok();
+
                 f.type_only = type_only;
                 other_checked?;
                 Ok(exists)
@@ -311,6 +338,7 @@ impl Compiler {
     /// declarations someone wrote is made here.
     pub(in crate::sema) fn new_block_scope(&mut self, parent: ScopeId, covers: Span) -> ScopeId {
         let inner = self.new_hidden_scope(parent);
+
         self.ide_scope_span(inner, covers);
         inner
     }
@@ -331,32 +359,40 @@ impl Compiler {
     ) -> Result<()> {
         let inner = self.new_block_scope(scope, stmt.span);
         let depth = f.mark_defers();
+
         match &stmt.kind {
             S::Block(b) if b.checks_off.adds_to(f.checks_off) => {
                 let saved = f.checks_off;
+
                 f.checks_off = saved.with(b.checks_off);
                 let result = self.check_block_stmts(f, inner, &b.stmts);
+
                 f.checks_off = saved;
                 result?;
             }
             S::Block(b) => self.check_block_stmts(f, inner, &b.stmts)?,
             _ => self.check_stmt(f, inner, stmt)?,
         }
+
         if !f.b.is_terminated() {
             self.emit_defers(f, depth.position(), stmt.span)?;
             f.lifetime_scope_end(inner, stmt.span);
         }
+
         f.truncate_defers(depth.position());
         Ok(())
     }
 
     pub fn check_stmt(&mut self, f: &mut FnCtx, scope: ScopeId, stmt: &ast::Stmt) -> Result<()> {
         let span = stmt.span;
+
         if span.file == f.file && !f.b.is_terminated() {
             let (line, col) = self.src.sources.get(span.file).line_col(span.start);
             let debug_scope = self.debug_scope(f, scope, line, col);
+
             f.b.loc(span.file.0, line, col, debug_scope);
         }
+
         let result = match &stmt.kind {
             S::Decl(decl) => self.check_local_decl(f, scope, decl),
             S::Case(_) => err(
@@ -373,9 +409,11 @@ impl Compiler {
                 crate::sema::body_probe::write(crate::sema::body_probe::W::PrLastCallMust);
                 self.pr.last_call_must = None;
                 self.check_expr(f, scope, e, None)?;
+
                 if matches!(e.kind, E::Call { .. }) {
                     self.check_must_used(e.span, 0)?;
                 }
+
                 Ok(())
             }
             S::Assign {
@@ -384,6 +422,7 @@ impl Compiler {
                 rhs,
             } => {
                 let result = self.check_assign(f, scope, *op, lhs, rhs, span);
+
                 self.ide_note_assign(scope, lhs, span);
                 result
             }
@@ -408,9 +447,11 @@ impl Compiler {
                     cases,
                     ..
                 } = &**boxed;
+
                 for case in self.static_switch_cases(scope, value, cases)? {
                     self.check_block_stmts(f, scope, &case.body)?;
                 }
+
                 Ok(())
             }
             S::Overlay(_) => err(
@@ -427,10 +468,13 @@ impl Compiler {
                 {
                     self.ide_note_label(scope, *l);
                 }
+
                 let label = label.map(|l| l.name);
+
                 if self.try_insert_replacement(f, label, |r| &r.break_, span)? {
                     return Ok(());
                 }
+
                 self.check_break(f, label, true, span)
             }
             S::Continue(label) => {
@@ -439,10 +483,13 @@ impl Compiler {
                 {
                     self.ide_note_label(scope, *l);
                 }
+
                 let label = label.map(|l| l.name);
+
                 if self.try_insert_replacement(f, label, |r| &r.continue_, span)? {
                     return Ok(());
                 }
+
                 self.check_break(f, label, false, span)
             }
             S::Remove(label) => {
@@ -451,10 +498,13 @@ impl Compiler {
                 {
                     self.ide_note_label(scope, *l);
                 }
+
                 let label = label.map(|l| l.name);
+
                 if self.try_insert_replacement(f, label, |r| &r.remove, span)? {
                     return Ok(());
                 }
+
                 self.check_remove(f, label, span)
             }
             S::Return {
@@ -462,6 +512,7 @@ impl Compiler {
                 backtick,
             } => {
                 let backtick = *backtick || f.caller_code_macros == Some(f.macros.len());
+
                 f.macro_returned |= backtick;
                 self.check_return(f, scope, values, backtick, span)
             }
@@ -495,6 +546,7 @@ impl Compiler {
                         false,
                     );
                 }
+
                 Ok(())
             }
             S::Load {
@@ -518,6 +570,7 @@ impl Compiler {
             | S::Directive(_)
             | S::Empty => Ok(()),
         };
+
         if result.is_ok()
             && !f.type_only
             && !f.b.is_terminated()
@@ -530,6 +583,7 @@ impl Compiler {
                 },
             );
         }
+
         result
     }
 
@@ -545,6 +599,7 @@ impl Compiler {
         let previous = f.lifetime_current_context();
         let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
         let saved = previous.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
+
         f.b.store(Ty::Ptr, saved_slot, saved);
         f.set_context(Some(addr));
         let entry = DeferEntry {
@@ -557,6 +612,7 @@ impl Compiler {
             lifetime_site: f.lifetimes.as_ref().and_then(|r| r.source_site),
             caller_scope: None,
         };
+
         self.register_defer(f, entry, defer.backtick);
         Ok(())
     }
@@ -580,6 +636,7 @@ impl Compiler {
         let saved = f.lifetime_current_context();
         let saved_slot = f.b.entry_zeroed_slot(Ty::Ptr, 8, 8);
         let previous = saved.unwrap_or_else(|| f.b.iconst(Ty::Ptr, 0));
+
         f.b.store(Ty::Ptr, saved_slot, previous);
         f.set_context(Some(addr));
         f.defers.push(DeferEntry {
@@ -593,9 +650,11 @@ impl Compiler {
             caller_scope: None,
         });
         let result = self.check_scoped(f, scope, body);
+
         if result.is_ok() && !f.b.is_terminated() {
             self.emit_defers(f, depth.position(), span)?;
         }
+
         f.truncate_defers(depth.position());
         result
     }
@@ -614,6 +673,7 @@ impl Compiler {
             else_branch,
             ..
         } = boxed;
+
         if self.ed.sketching() {
             // Which branch a stand-in takes says nothing: a sketch checks both.
             let taken = self.body_static_condition(f, scope, cond).unwrap_or(true);
@@ -623,11 +683,16 @@ impl Compiler {
                 (else_branch, then_branch)
             };
             let _ = self.check_block_stmts(f, scope, first);
+
             self.sketch_reopen(f);
+
             return self.check_block_stmts(f, scope, second);
         }
+
         let taken = self.body_static_condition(f, scope, cond)?;
+
         f.static_taken.insert(span, taken);
+
         if !f.type_only
             && let Some(record) = &mut f.lifetimes
         {
@@ -639,6 +704,7 @@ impl Compiler {
                 },
             );
         }
+
         self.ide_note_branches(boxed, taken);
         self.check_block_stmts(
             f,
@@ -665,17 +731,22 @@ impl Compiler {
         } = boxed;
         // A sketch's stand-ins meet no condition.
         let holds = self.eval_static_condition_as(scope, cond, None);
+
         if self.ed.sketching() {
             return Ok(());
         }
+
         if !holds? {
             let msg = self.assert_message(scope, message.as_ref(), args)?;
             let failure = self.static_assert_failed(cond, span, msg);
+
             if self.src.import_trace.keeps_going() {
                 return Ok(());
             }
+
             return Err(Box::new(failure));
         }
+
         Ok(())
     }
 
@@ -694,6 +765,7 @@ impl Compiler {
             scope,
             caller_scope: f.macros.last().filter(|_| backtick).map(|m| m.caller_scope),
         };
+
         self.register_defer(f, entry, backtick);
         Ok(())
     }
@@ -709,19 +781,23 @@ impl Compiler {
         let v = self.eval_const(scope, value, None)?;
         let mut default = None;
         let mut matched = None;
+
         'cases: for (i, case) in cases.iter().enumerate() {
             if case.values.is_empty() {
                 default.get_or_insert(i);
                 continue;
             }
+
             for cv in &case.values {
                 let c = self.eval_const(scope, cv, Some(v.ty()))?;
+
                 if self.const_equal(&v, &c) {
                     matched = Some(i);
                     break 'cases;
                 }
             }
         }
+
         let Some(start) = matched.or(default) else {
             return Ok(&[]);
         };
@@ -729,6 +805,7 @@ impl Compiler {
             .iter()
             .position(|case| !case.through)
             .map_or(cases.len(), |n| start + n + 1);
+
         Ok(&cases[start..end])
     }
 
@@ -751,6 +828,7 @@ impl Compiler {
                         // the file that wrote it.
                         let module = self.scope(file_scope).module;
                         let target = self.ns.modules[module.0 as usize].scope;
+
                         self.push_import(
                             target,
                             scope::ImportEntry {
@@ -771,6 +849,7 @@ impl Compiler {
                     ..
                 } => {
                     self.hoist_body_imports(file_scope, std::slice::from_ref(then_branch), true);
+
                     if let Some(e) = else_branch {
                         self.hoist_body_imports(file_scope, std::slice::from_ref(e), true);
                     }
@@ -792,9 +871,11 @@ impl Compiler {
     pub(in crate::sema) fn file_scope_of(&self, mut scope: ScopeId) -> ScopeId {
         loop {
             let s = self.scope(scope);
+
             if s.kind == ScopeKind::File {
                 return scope;
             }
+
             match s.parent {
                 Some(p) => scope = p,
                 None => return scope,

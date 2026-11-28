@@ -85,16 +85,20 @@ pub fn lower_program<'ctx>(
         shard,
         imported: shard.map_or_else(Vec::new, |s| {
             let mut flags = vec![false; program.funcs.len()];
+
             for &i in &s.plan.imports[s.index as usize] {
                 flags[i as usize] = true;
             }
+
             flags
         }),
         imported_globals: shard.map_or_else(Vec::new, |s| {
             let mut flags = vec![false; program.globals.len()];
+
             for &i in &s.plan.global_imports[s.index as usize] {
                 flags[i as usize] = true;
             }
+
             flags
         }),
         funcs: cells(program.funcs.len()),
@@ -111,6 +115,7 @@ pub fn lower_program<'ctx>(
         simd,
         features: features.to_string(),
     };
+
     backend.run().map_err(|e| e.0)
 }
 
@@ -176,6 +181,7 @@ fn cells<T>(n: usize) -> Vec<OnceCell<T>> {
 /// Program function ids by exported symbol name (the first of a repeated name).
 fn export_names(program: &Program) -> HashMap<&str, usize> {
     let mut names = HashMap::default();
+
     for (i, func) in program.funcs.iter().enumerate() {
         if let Some(func) = func
             && let IrLinkage::Export(name) = &func.linkage
@@ -183,14 +189,17 @@ fn export_names(program: &Program) -> HashMap<&str, usize> {
             names.entry(name.as_str()).or_insert(i);
         }
     }
+
     names
 }
 
 /// The first foreign id of each symbol.
 pub(super) fn foreign_ids(program: &Program) -> HashMap<&str, usize> {
     let mut ids = HashMap::default();
+
     for (i, foreign) in program.foreigns.iter().enumerate() {
         ids.entry(foreign.symbol.as_str()).or_insert(i);
     }
+
     ids
 }

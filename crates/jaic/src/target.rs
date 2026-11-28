@@ -207,6 +207,7 @@ impl Target {
             TargetOs::Wasm => TargetAbi::Wasi,
             TargetOs::None => TargetAbi::Unknown,
         };
+
         Target {
             os,
             cpu,
@@ -219,11 +220,13 @@ impl Target {
     pub fn host() -> Target {
         let host = Options::host();
         let mut target = Target::new(host.os, host.cpu);
+
         if cfg!(target_env = "gnu") && host.os == TargetOs::Windows {
             target.abi = TargetAbi::Gnu;
         } else if cfg!(target_env = "musl") && host.os == TargetOs::Linux {
             target.abi = TargetAbi::Musl;
         }
+
         target
     }
 
@@ -279,6 +282,7 @@ impl Target {
             "thumbv8m.main" => Some(CortexM::V8mMain),
             _ => None,
         };
+
         if let Some(core) = cortex_m {
             if parts[1..] != ["none", "eabihf"] {
                 return Err(format!(
@@ -286,6 +290,7 @@ impl Target {
                     core.triple_arch()
                 ));
             }
+
             return Ok(Target {
                 os: TargetOs::None,
                 cpu,
@@ -293,6 +298,7 @@ impl Target {
                 memory32: false,
             });
         }
+
         if matches!(
             cpu,
             TargetCpu::X86 | TargetCpu::S390x | TargetCpu::PowerPc64 | TargetCpu::Arm
@@ -308,11 +314,13 @@ impl Target {
                 }
             ));
         }
+
         if cpu == TargetCpu::Arm && !parts.iter().any(|p| p.ends_with("eabihf")) {
             return Err(format!(
                 "unsupported target environment in `{triple}`: 32-bit ARM is built for hard-float (`gnueabihf`, `musleabihf`)"
             ));
         }
+
         let (os, abi) = if cpu == TargetCpu::Wasm {
             // `wasm64-unknown-wasi`, `wasm32-wasi`, `wasm32-unknown-unknown`.
             let system = parts.get(2).or(parts.get(1)).copied();
@@ -321,6 +329,7 @@ impl Target {
                 Some("unknown") => TargetAbi::Unknown,
                 _ => return Err(format!("unsupported WebAssembly target `{triple}`")),
             };
+
             (TargetOs::Wasm, abi)
         } else if cpu == TargetCpu::Avr {
             // `avr-none`, `avr-none-elf`: bare metal, the only kind of AVR target.
@@ -329,6 +338,7 @@ impl Target {
                     "unsupported target OS in `{triple}`: AVR is built bare metal (`avr-none`)"
                 ));
             }
+
             (TargetOs::None, TargetAbi::Unknown)
         } else if parts.contains(&"none") && parts.last() == Some(&"elf") {
             // `aarch64-none-elf`: bare metal. Only the CPUs jaic has a freestanding ABI for.
@@ -337,6 +347,7 @@ impl Target {
                     "unsupported CPU for a freestanding target in `{triple}`: only aarch64 is supported"
                 ));
             }
+
             (TargetOs::None, TargetAbi::Unknown)
         } else if parts
             .iter()
@@ -367,6 +378,7 @@ impl Target {
         } else {
             return Err(format!("unsupported target OS in `{triple}`"));
         };
+
         Ok(Target {
             os,
             cpu,
@@ -379,12 +391,14 @@ impl Target {
     /// pointers; the rest are 64-bit little-endian.
     pub fn data_layout(self) -> DataLayout {
         let mut layout = DataLayout::lp64_little();
+
         if self.cpu == TargetCpu::Wasm && self.memory32 {
             layout.pointer_size = 4;
             layout.pointer_align = 4;
             layout.c.long = 4;
             layout.c.size_t = 4;
         }
+
         if self.cpu == TargetCpu::X86 {
             // System V i386: `s64` and `float64` align to 4, and `long double` is 12 bytes.
             layout.pointer_size = 4;
@@ -396,6 +410,7 @@ impl Target {
             layout.c.long = 4;
             layout.c.size_t = 4;
         }
+
         if self.cpu == TargetCpu::Arm {
             // AAPCS: 4-byte pointers and `long`, 8-byte `s64` and `float64` alignment, and a
             // `long double` that is a plain `double`.
@@ -404,6 +419,7 @@ impl Target {
             layout.c.long = 4;
             layout.c.size_t = 4;
         }
+
         if self.cpu == TargetCpu::Avr {
             // avr-gcc: 16-bit pointers, `int` and `size_t`, and no alignment padding at all.
             layout.pointer_size = 2;
@@ -415,19 +431,23 @@ impl Target {
             layout.c.long = 4;
             layout.c.size_t = 2;
         }
+
         if self.cpu == TargetCpu::PowerPc64 {
             // ELFv1 powerpc64 is big-endian LP64; its `long double` is IBM double-double, which
             // `long_double_for` does not model.
             layout.endian = crate::layout::Endian::Big;
         }
+
         if self.cpu == TargetCpu::S390x {
             // z/Architecture ELF: big-endian, `long double` is a 16-byte binary128 aligned to 8.
             layout.endian = crate::layout::Endian::Big;
         }
+
         // LLP64: `long` stays 32 bits on 64-bit Windows.
         if self.os == TargetOs::Windows {
             layout.c.long = 4;
         }
+
         // The stdlib's wasm C library (`internal/files/wasi-libc`) declares 64-bit time fields
         // on wasm32 too.
         layout.c.time_long = if self.cpu == TargetCpu::Wasm {
@@ -473,6 +493,7 @@ impl Target {
     /// WebAssembly target.
     pub fn arch(self) -> Option<crate::abi::Arch> {
         use crate::abi::Arch;
+
         match (self.cpu, self.os) {
             (TargetCpu::Arm64, TargetOs::Windows) => Some(Arch::Win64Arm),
             (TargetCpu::Arm64, _) => Some(Arch::Aarch64),
@@ -528,6 +549,7 @@ impl std::fmt::Display for Target {
             (TargetOs::None, _) => "none-elf",
             (TargetOs::Wasm, _) => unreachable!("a wasm OS has a wasm CPU"),
         };
+
         write!(f, "{arch}-{rest}")
     }
 }
@@ -562,11 +584,14 @@ impl Selection {
         if let Some(triple) = &self.triple {
             return Target::parse(triple).map(Some);
         }
+
         let os = self.os.unwrap_or(host_os);
         let cpu = self.cpu.unwrap_or(host_cpu);
+
         if os == host_os && cpu == host_cpu {
             return Ok(None);
         }
+
         match os {
             TargetOs::Windows => Ok(Some(Target::windows(
                 self.cpu.unwrap_or(if host_os == TargetOs::Windows { host_cpu } else { TargetCpu::X64 }),
@@ -584,6 +609,7 @@ impl Selection {
             Some(target) => target.apply(options),
             None => select_os_cpu(options, self.os, self.cpu),
         }
+
         Ok(())
     }
 
@@ -594,6 +620,7 @@ impl Selection {
             Some(triple) => Target::parse(triple)?.apply(options),
             None => select_os_cpu(options, self.os, self.cpu),
         }
+
         Ok(())
     }
 }
@@ -607,7 +634,9 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
     if os.is_none() && cpu.is_none() {
         return;
     }
+
     let host_os = options.os;
+
     options.os = os.unwrap_or(options.os);
     options.cpu = match options.os {
         TargetOs::Wasm => TargetCpu::Wasm,
@@ -629,6 +658,7 @@ pub fn select_os_cpu(options: &mut Options, os: Option<TargetOs>, cpu: Option<Ta
         options.cpu,
         options.os == TargetOs::Windows && host_os != TargetOs::Windows,
     );
+
     // Another OS is checked with its usual C compiler, which for Windows is MinGW's.
     if options.os != host_os {
         options.msvc = false;
@@ -643,8 +673,10 @@ mod tests {
     fn effective_mode_targets_match_host_and_cross_defaults() {
         for host_cpu in [TargetCpu::X64, TargetCpu::Arm64] {
             let mut host = Options::host();
+
             host.os = TargetOs::MacOS;
             host.cpu = host_cpu;
+
             for (selection, native, os, cpu) in [
                 (Selection::default(), true, TargetOs::MacOS, host_cpu),
                 (
@@ -715,13 +747,16 @@ mod tests {
                 ),
             ] {
                 let mut options = host.clone();
+
                 selection.apply_for_mode(&mut options, native).unwrap();
                 assert_eq!((options.os, options.cpu), (os, cpu));
             }
+
             let invalid = Selection {
                 triple: Some("not-a-target".into()),
                 ..Selection::default()
             };
+
             assert!(invalid.apply_for_mode(&mut host, true).is_err());
         }
     }
@@ -729,6 +764,7 @@ mod tests {
     #[test]
     fn a_freestanding_target_is_the_none_operating_system() {
         let target = Target::parse("aarch64-none-elf").unwrap();
+
         assert!(target.is_freestanding());
         assert!(!Target::host().is_freestanding());
         assert_eq!(os_member(TargetOs::None), "NONE");
@@ -746,6 +782,7 @@ mod tests {
             ("thumbv8m.main-none-eabihf", CortexM::V8mMain, "cortex-m33"),
         ] {
             let target = Target::parse(triple).unwrap();
+
             assert_eq!(
                 (target.os, target.cpu, target.abi),
                 (TargetOs::None, TargetCpu::Arm, TargetAbi::CortexM(core)),
@@ -756,6 +793,7 @@ mod tests {
             assert_eq!(target.arch(), Some(crate::abi::Arch::Arm32));
             assert_eq!(target.data_layout().pointer_size, 4);
         }
+
         // Only the hard-float bare-metal triple is a target; Linux armv7 stays a different one.
         for triple in [
             "thumbv7em-none-eabi",
@@ -765,6 +803,7 @@ mod tests {
         ] {
             assert!(Target::parse(triple).is_err(), "{triple}");
         }
+
         assert_eq!(
             Target::parse("armv7-unknown-linux-gnueabihf").unwrap().abi,
             TargetAbi::Gnu
@@ -782,6 +821,7 @@ mod tests {
         ] {
             assert_eq!(parse_os(os_name(os)), Some(os));
         }
+
         for cpu in [TargetCpu::X64, TargetCpu::Arm64, TargetCpu::Wasm] {
             assert_eq!(parse_cpu(cpu_name(cpu)), Some(cpu));
         }
@@ -790,6 +830,7 @@ mod tests {
     #[test]
     fn another_os_defaults_to_x64_and_the_hosts_os_keeps_its_cpu() {
         let mut host = Options::host();
+
         host.cpu = TargetCpu::Arm64;
         let other = if host.os == TargetOs::Linux {
             TargetOs::MacOS
@@ -797,18 +838,23 @@ mod tests {
             TargetOs::Linux
         };
         let mut options = host.clone();
+
         select_os_cpu(&mut options, Some(other), None);
         assert_eq!((options.os, options.cpu), (other, TargetCpu::X64));
         let mut options = host.clone();
+
         select_os_cpu(&mut options, Some(host.os), None);
         assert_eq!(options.cpu, TargetCpu::Arm64);
         let mut options = host.clone();
+
         select_os_cpu(&mut options, Some(TargetOs::Wasm), None);
         assert_eq!(options.cpu, TargetCpu::Wasm);
         let mut options = host.clone();
+
         select_os_cpu(&mut options, Some(other), Some(TargetCpu::Arm64));
         assert_eq!(options.cpu, TargetCpu::Arm64);
         let mut options = host;
+
         select_os_cpu(&mut options, Some(TargetOs::None), None);
         assert_eq!(
             (options.os, options.cpu),
@@ -884,6 +930,7 @@ mod tests {
             ),
         ] {
             let target = Target::parse(triple).unwrap();
+
             assert_eq!(
                 (target.os, target.cpu, target.abi),
                 (os, cpu, abi),
@@ -892,6 +939,7 @@ mod tests {
             assert_eq!(target.to_string(), text, "{triple}");
             assert_eq!(Target::parse(text), Ok(target), "{triple}");
         }
+
         assert!(Target::parse("riscv64-unknown-linux-gnu").is_err());
         assert!(Target::parse("x86_64-unknown-freebsd").is_err());
         // A freestanding target needs a CPU jaic has an embedded ABI for.
@@ -902,6 +950,7 @@ mod tests {
     #[test]
     fn calling_conventions_follow_the_target() {
         use crate::abi::Arch;
+
         for (triple, arch) in [
             ("x86_64-pc-windows-msvc", Some(Arch::Win64)),
             ("x86_64-w64-windows-gnu", Some(Arch::Win64)),
@@ -928,6 +977,7 @@ mod tests {
             ("x86_64-pc-windows-msvc", 4, 4),
         ] {
             let c = Target::parse(triple).unwrap().data_layout().c;
+
             assert_eq!((c.long, c.time_long), (long, time_long), "{triple}");
         }
     }
@@ -942,8 +992,10 @@ mod tests {
             "i386-linux-gnu",
         ] {
             let target = Target::parse(triple).unwrap();
+
             assert_eq!((target.os, target.cpu), (TargetOs::Linux, TargetCpu::X86));
             let layout = target.data_layout();
+
             assert_eq!(
                 (layout.pointer_size, layout.c.long, layout.c.size_t),
                 (4, 4, 4)
@@ -951,6 +1003,7 @@ mod tests {
             assert_eq!((layout.int_align_of(8), layout.float_align_of(8)), (4, 4));
             assert_eq!((layout.f80_size, layout.f80_align), (12, 4));
         }
+
         assert_eq!(
             Target::parse("i686-unknown-linux-musl")
                 .unwrap()

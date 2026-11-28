@@ -13,6 +13,7 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 fn sandbox_threads_wake_waiters_and_report_deadlocks() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../tests/compiler/semantics/sandbox-threads");
+
     for name in ["returned.jai", "blocked.jai", "timed.jai"] {
         let path = dir.join(name);
         let output = Command::new(JAIC)
@@ -23,6 +24,7 @@ fn sandbox_threads_wake_waiters_and_report_deadlocks() {
             .unwrap();
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
+
         if name == "timed.jai" {
             assert!(output.status.success(), "{name}: {stderr}");
             assert_eq!(stdout, "TIMEOUT SUCCESS\n", "{name}");
@@ -49,6 +51,7 @@ fn sandbox_has_basic_time_sleep_and_exit() {
         .args(["-os", "wasm"])
         .output()
         .unwrap();
+
     assert_eq!(
         String::from_utf8_lossy(&output.stdout),
         "true true true\n29 February 2024, 12:00:00\n",
@@ -63,6 +66,7 @@ fn sandbox_has_basic_time_sleep_and_exit() {
 fn wasm_interp_passes_program_arguments() {
     let dir = TempDir::new("cli-wasm-run-args");
     let source = dir.join("args.jai");
+
     std::fs::write(
         &source,
         "#import \"Basic\";\n\
@@ -79,6 +83,7 @@ fn wasm_interp_passes_program_arguments() {
         .args(["--", "a", "b c"])
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -113,6 +118,7 @@ fn sandbox_serves_a_preopened_listener() {
         .unwrap();
     // The listener exists before the program is compiled, so a connection waits for `accept`.
     let mut stream = None;
+
     for _ in 0..200 {
         match TcpStream::connect(("127.0.0.1", port)) {
             Ok(connected) => {
@@ -122,6 +128,7 @@ fn sandbox_serves_a_preopened_listener() {
             Err(_) => std::thread::sleep(std::time::Duration::from_millis(50)),
         }
     }
+
     let mut stream = stream.expect("the listener never came up");
     let _ = stream.write_all(b"copper");
     let _ = stream.shutdown(Shutdown::Write);
@@ -129,6 +136,7 @@ fn sandbox_serves_a_preopened_listener() {
     let read = stream.read_to_string(&mut reply);
     let output = child.wait_with_output().unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "{stderr}");
     read.unwrap();
     assert_eq!(reply, "echo: copper");

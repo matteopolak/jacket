@@ -22,6 +22,7 @@ fn errors(files: &[(&str, &str)], import_paths: &[&str], main: &str, text: &str)
         virtual_session(files, import_paths, None)
     };
     let uri = file_uri(main);
+
     session.open(uri.clone(), 1, text.into()).unwrap();
     session
         .diagnostics(&uri)
@@ -48,6 +49,7 @@ fn a_body_waits_for_a_name_another_body_inserts() {
             x := uses();\n\
         }\n";
     let errors = errors(&[], &[], "/waits/full.jai", text);
+
     assert!(errors.is_empty(), "{errors:?}");
 }
 
@@ -59,6 +61,7 @@ fn a_name_nothing_declares_is_still_unknown() {
         }\n\
         main :: () { x := uses(); }\n";
     let errors = errors(&[], &[], "/waits/missing.jai", text);
+
     assert!(errors.iter().any(|e| e.contains("Missing")), "{errors:?}");
 }
 
@@ -81,5 +84,6 @@ fn a_comment_naming_module_parameters_does_not_make_a_module() {
         "/params/main.jai",
         text,
     );
+
     assert!(errors.is_empty(), "{errors:?}");
 }

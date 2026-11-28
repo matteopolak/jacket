@@ -36,6 +36,7 @@ fn decl(stmt: &Stmt) -> &Arc<Decl> {
 /// The value of the first declaration in `src`.
 fn value(src: &str) -> Expr {
     let stmts = parse(src);
+
     decl(&stmts[0])
         .value
         .clone()
@@ -52,6 +53,7 @@ fn proc_of(expr: &Expr) -> &ProcLit {
 /// Statements of the body of `f :: () { ... }`.
 fn body_of(src: &str) -> Vec<Stmt> {
     let stmts = parse(&format!("f :: () {{\n{src}\n}}"));
+
     proc_of(decl(&stmts[0]).value.as_ref().unwrap())
         .body
         .clone()

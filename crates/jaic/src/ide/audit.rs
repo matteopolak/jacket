@@ -18,20 +18,24 @@ impl Compiler {
     /// a declaration another one depends on reports its own error once, at its own span).
     pub fn ide_check_all(&mut self) -> Vec<Diagnostic> {
         let mut errors: Vec<Diagnostic> = Vec::new();
+
         if let Some(ide) = self.ed.facts_mut() {
             errors.append(&mut ide.errors);
         } else {
             return errors;
         }
+
         // Normal compilation has ended (possibly before finish_program). The IDE
         // audit has a complete source snapshot: no metaprogram is still supplying
         // placeholders. Use the compiler's existing finalization rule so a failed
         // generator cannot stay speculative and recreate nested procedures forever.
         self.epochs.placeholders_final = true;
+
         for i in 0..self.ns.entities.len() {
             let id = EntityId(i as u32);
             let e = self.entity(id);
             let (scope, span) = (e.scope, e.span);
+
             if matches!(e.kind, EntityKind::Decl { .. })
                 && matches!(e.state, EntityState::Unresolved)
                 && self.ide_wants(span.file)
@@ -47,19 +51,23 @@ impl Compiler {
                 } else {
                     self.resolve_entity(id)
                 };
+
                 if let Err(e) = result {
                     errors.push(*e);
                 }
             }
         }
+
         // A struct with a member of an unknown type fails when it is laid out. Each struct is
         // tried once: a layout that fails re-evaluates its member types, and what that
         // creates (instances, bound constants) would otherwise be laid out in turn without end.
         let mut laid_out = crate::fxhash::HashSet::default();
         let mut unused_defaults = Vec::new();
         let mut i = 0;
+
         while i < self.ns.entities.len() {
             let id = EntityId(i as u32);
+
             i += 1;
             let e = self.entity(id);
             let span = e.span;
@@ -70,6 +78,7 @@ impl Compiler {
                 }) => Some(*t),
                 _ => None,
             };
+
             if let Some(t) = ty
                 && let TypeKind::Struct(s) = *self.ty.types.kind(t)
                 && self.ty.types.struct_info(s).poly_args.is_empty()
@@ -82,6 +91,7 @@ impl Compiler {
                 }
             }
         }
+
         // Field defaults are evaluated when a value of the struct is first made, so a struct
         // nothing uses has none: evaluate them for their facts (`void` in `t: Type = void` is a
         // type either way), keeping quiet about their errors as compilation does.
@@ -91,29 +101,37 @@ impl Compiler {
             self.diag.warnings.len(),
             self.diag.deferred_errors.len(),
         );
+
         for (t, span) in unused_defaults {
             let _ = self.default_initializer(t, span);
         }
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.errors.truncate(quiet.0);
         }
+
         self.diag.warnings.truncate(quiet.1);
         self.diag.deferred_errors.truncate(quiet.2);
         let mut i = 0;
+
         while i < self.pr.procs.len() {
             let id = ProcId(i as u32);
+
             i += 1;
+
             // Header classification resolves names and can run compile-time code. Apply
             // the recording policy before starting independent audit work; actual calls
             // still resolve their selected dependencies through the normal checker.
             if !self.ide_wants(self.proc(id).span.file) {
                 continue;
             }
+
             // `t: *Table` makes a procedure polymorphic, which is only known once names
             // resolve (a compile that stopped early may not have asked yet).
             let _ = self.refresh_implicit_poly(id);
             let p = self.proc(id);
             let span = p.span;
+
             if p.is_poly
                 // A concrete instance is not a source declaration. Matching may
                 // cache it before rejecting a candidate, or prefer another overload.
@@ -127,10 +145,12 @@ impl Compiler {
             {
                 continue;
             }
+
             if let Err(e) = self.proc_func(id, span) {
                 errors.push(*e);
             }
         }
+
         errors.extend(self.drain_bodies_lenient().map(|e| *e));
         self.ide_note_bodiless();
         let mut failed: Vec<_> = self
@@ -139,11 +159,14 @@ impl Compiler {
             .into_iter()
             .filter(|e| self.ide_wants(e.span.file))
             .collect();
+
         failed.sort_by_key(|e| (e.span.file.0, e.span.start));
         errors.extend(failed);
+
         if let Some(ide) = self.ed.facts_mut() {
             errors.append(&mut ide.errors);
         }
+
         self.ide_note_never_returns();
         errors
     }
@@ -154,18 +177,24 @@ impl Compiler {
     fn ide_note_bodiless(&mut self) {
         for i in 0..self.pr.procs.len() {
             let id = ProcId(i as u32);
+
             if !self.ide_wants(self.proc(id).span.file) {
                 continue;
             }
+
             let _ = self.refresh_implicit_poly(id);
             let p = self.proc(id);
+
             if p.is_poly || p.lit.body.is_some() {
                 continue;
             }
+
             let (span, scope, header) = (p.span, p.scope, p.lit.header.clone());
+
             if !self.ide_wants(span.file) {
                 continue;
             }
+
             if let Ok(sig) = self.signature(id, span) {
                 for (param, sp) in header.params.iter().zip(&sig.params) {
                     if let Some(name) = param.name.filter(|n| n.span.end > n.span.start) {
@@ -173,6 +202,7 @@ impl Compiler {
                     }
                 }
             }
+
             if let Some(lib) = header.foreign.as_ref().and_then(|f| f.library)
                 && let Ok(ids) = self.lookup(scope, lib.name)
                 && let [lib_id] = ids[..]
@@ -197,11 +227,13 @@ impl Compiler {
         } else {
             (s.else_arm, Some(s.then_arm), &s.then_branch)
         };
+
         for (arm, ran) in [(ran, true), (faded, false)] {
             if let Some(arm) = arm {
                 self.ide_note_ran(arm, ran);
             }
         }
+
         self.ide_note_skipped(&s.cond, skipped);
     }
 
@@ -224,10 +256,13 @@ impl Compiler {
         let (Some(first), Some(last)) = (branch.first(), branch.last()) else {
             return;
         };
+
         if !self.ed.is_live() || !self.ide_wants(first.span.file) || !names_target(cond) {
             return;
         }
+
         let span = first.span.to(last.span);
+
         if let Some(ide) = self.ed.facts_mut() {
             ide.skipped.push(span);
         }

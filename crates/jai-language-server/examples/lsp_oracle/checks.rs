@@ -25,12 +25,15 @@ pub fn real_hover(hover: Option<&Hover>) -> bool {
 
 fn skip_space_and_comments_back(text: &str, mut at: usize) -> usize {
     let bytes = text.as_bytes();
+
     loop {
         while at > 0 && bytes[at - 1].is_ascii_whitespace() {
             at -= 1;
         }
+
         // A line comment ending just before: back to its `//`.
         let line_start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+
         match text[line_start..at].find("//") {
             Some(i) if !text[line_start..line_start + i].contains('"') => at = line_start + i,
             _ => return at,
@@ -45,18 +48,23 @@ fn probe_point(text: &str, start: usize, end: usize) -> Option<usize> {
     let region = &text[start..end];
     let trimmed = region.trim_start();
     let at = start + (region.len() - trimmed.len());
+
     if trimmed.starts_with('{') {
         return Some(at + 1);
     }
+
     if trimmed.starts_with("case")
         && !trimmed[4..].starts_with(|c: char| c.is_alphanumeric() || c == '_')
     {
         return trimmed.find(';').map(|i| at + i + 1).filter(|&p| p <= end);
     }
+
     if trimmed.starts_with('#') || trimmed.starts_with("else") {
         return None;
     }
+
     let before = skip_space_and_comments_back(text, at);
+
     matches!(
         text.as_bytes().get(before.wrapping_sub(1)),
         Some(b';' | b'{' | b'}')
@@ -84,6 +92,7 @@ pub fn diagnostics(
             return;
         }
     };
+
     for d in diagnostics {
         if d.code == DiagnosticCode::Unreachable {
             let (Some(start), Some(end)) = (
@@ -93,6 +102,7 @@ pub fn diagnostics(
                 continue;
             };
             let shown: String = text[start..end].chars().take(120).collect();
+
             dead.push(Dead {
                 start,
                 end,
@@ -127,11 +137,13 @@ pub fn resolutions(
     findings: &mut Vec<Finding>,
 ) -> usize {
     let mut probed = 0;
+
     for r in evenly(&oracle.refs, cap) {
         probed += 1;
         let name = &text[r.start..r.end];
         let at = pos_of(text, r.start);
         let hover = session.hover(uri, at);
+
         match &hover {
             Ok(h) if real_hover(h.as_ref()) => {}
             Ok(_) => findings.push(Finding::new(
@@ -142,14 +154,17 @@ pub fn resolutions(
             )),
             Err(e) => findings.push(Finding::new("b-hover", at, name, format!("{e:?}"))),
         }
+
         let wanted = match &r.resolved {
             Resolved::Entity(places) => !places.is_empty(),
             Resolved::Member(declared) | Resolved::Type(declared) => *declared,
             Resolved::Procs | Resolved::Module | Resolved::Baked => true,
         };
+
         if !wanted {
             continue;
         }
+
         let locations = match session.definition(uri, at) {
             Ok(l) => l,
             Err(e) => {
@@ -157,6 +172,7 @@ pub fn resolutions(
                 continue;
             }
         };
+
         if locations.is_empty() {
             findings.push(Finding::new(
                 "b-definition",
@@ -166,24 +182,29 @@ pub fn resolutions(
             ));
             continue;
         }
+
         if let Resolved::Entity(places) = &r.resolved
             && !places.is_empty()
         {
             let hit = places.iter().any(|(path, first, last)| {
                 let want = path.canonicalize().unwrap_or_else(|_| path.clone());
+
                 locations.iter().any(|l| {
                     DocumentUri::parse(&l.uri).is_ok_and(|u| {
                         let got = std::path::Path::new(u.path());
+
                         got.canonicalize().unwrap_or_else(|_| got.to_path_buf()) == want
                             && (*first..=*last).contains(&l.range.start.line)
                     })
                 })
             });
+
             if !hit {
                 let got: Vec<String> = locations
                     .iter()
                     .map(|l| format!("{}:{}", l.uri, l.range.start.line + 1))
                     .collect();
+
                 findings.push(Finding::new(
                     "b-definition-target",
                     at,
@@ -201,6 +222,7 @@ pub fn resolutions(
             }
         }
     }
+
     probed
 }
 
@@ -223,10 +245,12 @@ pub fn completions(
         .filter(|r| !text[r.end..].trim_start().starts_with(",,"))
         .collect();
     let mut probed = 0;
+
     for r in evenly(&members, cap) {
         probed += 1;
         let name = &text[r.start..r.end];
         let at = pos_of(text, r.start);
+
         match session.completion(uri, at) {
             // A list cut short (a module with thousands of names) is filtered as the user types.
             Ok(list) if list.is_incomplete || list.items.iter().any(|i| i.label == name) => {}
@@ -239,9 +263,11 @@ pub fn completions(
             Err(e) => findings.push(Finding::new("d-member", at, name, format!("{e:?}"))),
         }
     }
+
     for literal in evenly(&oracle.literals, cap) {
         probed += 1;
         let at = pos_of(text, literal.at);
+
         match session.completion(uri, at) {
             Ok(list) => {
                 let missing: Vec<&str> = literal
@@ -250,6 +276,7 @@ pub fn completions(
                     .filter(|f| !list.items.iter().any(|i| &i.label == *f))
                     .map(String::as_str)
                     .collect();
+
                 if !missing.is_empty() {
                     findings.push(Finding::new(
                         "d-literal",
@@ -267,6 +294,7 @@ pub fn completions(
             )),
         }
     }
+
     probed
 }
 
@@ -279,6 +307,7 @@ pub fn notes(
     findings: &mut Vec<Finding>,
 ) {
     let canonical = |p: &std::path::Path| p.canonicalize().unwrap_or_else(|_| p.to_path_buf());
+
     for note in &oracle.notes {
         let at = pos_of(text, note.at);
         let name: String = text[note.at..]
@@ -296,12 +325,14 @@ pub fn notes(
             .iter()
             .filter_map(|l| {
                 let u = DocumentUri::parse(&l.uri).ok()?;
+
                 Some((
                     canonical(std::path::Path::new(u.path())),
                     l.range.start.line,
                 ))
             })
             .collect();
+
         for (path, line) in &note.readers {
             if !got.contains(&(canonical(path), *line)) {
                 findings.push(Finding::new(

@@ -68,6 +68,7 @@ impl Session {
         };
         let mut index = self.index.borrow_mut();
         let loaded = crate::config::load(&crate::config::SessionFiles(self), &mut index, start)?;
+
         // `load` checked `[lint]`: it holds nothing invalid.
         Ok(loaded.and_then(|loaded| Config::from_lint(&loaded.config.lint, loaded.dir()).ok()))
     }
@@ -78,6 +79,7 @@ impl Session {
             return false;
         };
         let mut index = self.index.borrow_mut();
+
         crate::config::is_broken(&crate::config::SessionFiles(self), &mut index, start)
     }
 
@@ -86,9 +88,11 @@ impl Session {
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
+
         if crate::semantic::parse_error(&doc.text).is_some() {
             return Vec::new();
         }
+
         let Some(config) = self.lint_config(Path::new(uri.path())) else {
             return Vec::new();
         };
@@ -103,10 +107,12 @@ impl Session {
             .map(Path::to_path_buf)
             .collect();
         let group = [(config, together)];
+
         self.with_semantic(uri, &doc.text, |analysis, path| {
             if !analysis.warm_lints(&group) {
                 return None;
             }
+
             analysis.lints(path, &group[0].0)
         })
         .unwrap_or_default()
@@ -119,9 +125,11 @@ impl Session {
 
     pub(crate) fn lint_diagnostic_at(&self, l: &Lint, range: crate::Range) -> Diagnostic {
         let mut message = l.message.clone();
+
         if let Some(help) = &l.help {
             message = format!("{message}\n{help}");
         }
+
         Diagnostic {
             range,
             severity: match l.level {
@@ -135,6 +143,7 @@ impl Session {
                 .iter()
                 .filter_map(|label| {
                     let at = self.location_in(&label.path, &label.text, label.start, label.end)?;
+
                     Some(crate::model::RelatedInformation {
                         uri: at.uri,
                         range: at.range,
@@ -157,12 +166,15 @@ impl Session {
     /// Nothing is remembered of a pass that was stopped.
     pub(crate) fn published_lint_diagnostics(&self, uri: &DocumentUri) -> Vec<Diagnostic> {
         let lints = self.lints(uri);
+
         if let Ok((key, doc)) = self.document_entry(uri)
             && !jaic::interrupt::fired()
         {
             let found = (std::rc::Rc::from(doc.text.as_str()), lints.clone());
+
             self.published_lints.borrow_mut().insert(key.clone(), found);
         }
+
         lints
             .iter()
             .filter_map(|l| self.lint_diagnostic(uri, l))
@@ -185,18 +197,23 @@ impl Session {
             if label.path != uri.path() {
                 return Some(());
             }
+
             (label.start, label.end) = shift.to_new_range(label.start, label.end)?;
             label.text = now.clone();
             Some(())
         };
+
         lints
             .iter()
             .filter_map(|l| {
                 let mut l = l.clone();
+
                 (l.start, l.end) = shift.to_new_range(l.start, l.end)?;
+
                 for label in &mut l.secondary {
                     moved(label)?;
                 }
+
                 self.lint_diagnostic(uri, &l)
             })
             .collect()
@@ -225,6 +242,7 @@ impl Session {
     ) -> Vec<CodeAction> {
         let lints = self.lints(uri);
         let mut actions = Vec::new();
+
         if context.wants("quickfix") {
             for l in &lints {
                 let Some(fix) = &l.fix else {
@@ -237,12 +255,15 @@ impl Session {
                     .diagnostics
                     .iter()
                     .any(|(rule, range)| rule == l.rule && *range == diagnostic.range);
+
                 if !named && (l.start > end || start > l.end) {
                     continue;
                 }
+
                 let Some(edits) = self.edits(uri, fix) else {
                     continue;
                 };
+
                 actions.push(CodeAction {
                     title: sentence(&fix.title),
                     kind: Some("quickfix"),
@@ -254,11 +275,13 @@ impl Session {
                 });
             }
         }
+
         if context.wants(FIX_ALL_KIND)
             && let Some(all) = self.fix_all(uri, &lints)
         {
             actions.push(all);
         }
+
         actions
     }
 
@@ -272,15 +295,20 @@ impl Session {
         let chosen = jailint::fix::choose(&safe);
         let mut edits = Vec::new();
         let mut diagnostics = Vec::new();
+
         for l in chosen {
             let fix = l.fix.as_ref()?;
+
             edits.extend(self.edits(uri, fix)?);
             diagnostics.extend(self.lint_diagnostic(uri, l));
         }
+
         if edits.is_empty() {
             return None;
         }
+
         let n = diagnostics.len();
+
         Some(CodeAction {
             title: if n == 1 {
                 "Fix 1 lint problem".into()
@@ -298,6 +326,7 @@ impl Session {
 /// `remove the unused variable` → `Remove the unused variable`.
 fn sentence(title: &str) -> String {
     let mut chars = title.chars();
+
     match chars.next() {
         Some(first) => first.to_uppercase().chain(chars).collect(),
         None => String::new(),

@@ -64,6 +64,7 @@ impl Reexport {
         use jaic::ast::UsingFilter;
         let names =
             |list: &[jaic::ast::Ident]| list.iter().map(|n| n.name.as_str().to_owned()).collect();
+
         match using {
             UsingFilter::Only(list) => Reexport::Only(names(list)),
             UsingFilter::Except(list) => Reexport::Except(names(list)),
@@ -141,6 +142,7 @@ pub fn scan(text: &str) -> FileScan {
         first_code: tokens.first().map(|t| t.span.start as usize),
         ..FileScan::default()
     };
+
     for item in ide_facts::top_level(&parsed.file) {
         match item.kind {
             TopLevelKind::Decl(decl) => out.declaration(text, &docs, tokens, decl, &item),
@@ -148,6 +150,7 @@ pub fn scan(text: &str) -> FileScan {
                 ImportSource::Module(path) => {
                     let name = import.name.map(|n| n.name.as_str().to_owned());
                     let mut found = directive(tokens, path, name, &item);
+
                     found.reexport = import.using.as_ref().map(Reexport::of);
                     out.imports.push(found);
                 }
@@ -165,6 +168,7 @@ pub fn scan(text: &str) -> FileScan {
             TopLevelKind::ModuleParameters(_) => {}
         }
     }
+
     out
 }
 
@@ -197,8 +201,10 @@ impl FileScan {
             Some(jaic::ast::ExprKind::Proc(lit)) => Some(IdeCall::of_headers([&*lit.header])),
             _ => None,
         };
+
         for name in &decl.names {
             let name_text = name.name.as_str();
+
             self.declares_main |= name_text == "main";
             self.symbols.push(Symbol {
                 name: name_text.into(),
@@ -215,9 +221,11 @@ impl FileScan {
                 alias: alias.clone(),
                 call: call.clone(),
             };
+
             if item.visibility != Visibility::File {
                 self.decls.push(decl.clone());
             }
+
             self.local_decls.push(decl);
         }
     }
@@ -231,6 +239,7 @@ fn directive(tokens: &[Token], path: &str, name: Option<String>, item: &TopLevel
         Some(t) if t.tok == Tok::Punct(P::Semi) => t.span.end,
         _ => end,
     };
+
     Directive {
         path: path.to_owned(),
         name,
@@ -244,12 +253,15 @@ fn directive(tokens: &[Token], path: &str, name: Option<String>, item: &TopLevel
 /// The string literals written next to an `import_path`.
 fn import_paths(tokens: &[Token]) -> Vec<String> {
     let mut found = Vec::new();
+
     for (i, token) in tokens.iter().enumerate() {
         if !matches!(&token.tok, Tok::Ident(name) if name.as_str() == "import_path") {
             continue;
         }
+
         // The rest of the statement: up to the `;` that is not inside brackets.
         let mut depth = 0i32;
+
         for next in &tokens[i + 1..] {
             match &next.tok {
                 Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
@@ -257,6 +269,7 @@ fn import_paths(tokens: &[Token]) -> Vec<String> {
                 }
                 Tok::Punct(P::RParen | P::RBracket | P::RBrace) => {
                     depth -= 1;
+
                     if depth < 0 {
                         break;
                     }
@@ -274,6 +287,7 @@ fn import_paths(tokens: &[Token]) -> Vec<String> {
             }
         }
     }
+
     found
 }
 
@@ -300,6 +314,7 @@ fn signature(text: &str, tokens: &[Token], start: usize) -> String {
     };
     let mut end = first.span.end as usize;
     let mut depth = 0usize;
+
     for t in tokens[i..].iter().take(400) {
         match t.tok {
             Tok::Punct(P::LParen | P::LBracket | P::DotBrace | P::DotBracket) => depth += 1,
@@ -307,21 +322,29 @@ fn signature(text: &str, tokens: &[Token], start: usize) -> String {
             Tok::Punct(P::Semi | P::LBrace) if depth == 0 => break,
             _ => {}
         }
+
         end = t.span.end as usize;
     }
+
     let mut out = String::new();
+
     for word in text[start..end].split_whitespace() {
         if !out.is_empty() {
             out.push(' ');
         }
+
         out.push_str(word);
+
         if out.len() > SIGNATURE_BYTES {
             let cut = out.floor_char_boundary(SIGNATURE_BYTES);
+
             out.truncate(cut);
             out.push_str(" ...");
+
             break;
         }
     }
+
     out
 }
 
@@ -369,6 +392,7 @@ internal :: () {}
 hidden :: () {}
 ";
         let scan = scan(text);
+
         use CompletionKind::*;
         use Visibility::{Export, Module as ModuleScope};
         assert_eq!(
@@ -393,6 +417,7 @@ hidden :: () {}
             .iter()
             .map(|d| (d.path.as_str(), d.name.as_deref()))
             .collect();
+
         assert_eq!(imports, [("Basic", None), ("Math", Some("M"))]);
         assert_eq!(
             &text[..scan.imports[1].end],
@@ -411,6 +436,7 @@ hidden :: () {}
             .iter()
             .map(|d| (d.path.as_str(), d.reexport.clone(), d.visibility))
             .collect();
+
         assert_eq!(
             found,
             [
@@ -436,6 +462,7 @@ hidden :: () {}
         let scan = scan(
             "build :: () {\n    w := compiler_create_workspace();\n    add_build_file(\"src/main.jai\", w);\n}\n",
         );
+
         assert_eq!(scan.builds, ["src/main.jai"]);
         assert!(scan.adds_build_files);
     }
@@ -443,6 +470,7 @@ hidden :: () {}
     #[test]
     fn a_computed_build_file_still_marks_a_metaprogram() {
         let scan = scan("build :: () { add_build_file(tprint(\"%/main.jai\", dir), w); }\n");
+
         assert!(scan.builds.is_empty());
         assert!(scan.adds_build_files);
         assert!(!super::scan("main :: () {}\n").adds_build_files);
@@ -453,6 +481,7 @@ hidden :: () {}
         let scan = scan(
             "#assert OS == .MACOS || OS == .IOS \"Apple only\";\n#load \"a/b.jai\";\nmain :: () {}\n",
         );
+
         assert_eq!(scan.only_os, Some(vec!["MACOS".into(), "IOS".into()]));
         assert_eq!(scan.loads[0].path, "a/b.jai");
         assert!(scan.declares_main);

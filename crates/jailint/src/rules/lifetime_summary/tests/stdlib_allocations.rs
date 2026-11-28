@@ -8,19 +8,24 @@ fn postgres_generated_row_shapes_use_temporary_results() {
         .canonicalize()
         .unwrap();
     let stdlib = root.join("stdlib");
+
     for windows in [false, true] {
         let mut options = Options::host();
+
         options.import_paths = vec![stdlib.clone()];
         options.set_stdlib(&NativeFs, &stdlib);
+
         if windows {
             options.os = jaic::target::TargetOs::Windows;
             options.cpu = jaic::target::TargetCpu::X64;
         }
+
         let mut c = Compiler::new(options, Rc::new(NativeFs));
         let mut facts = IdeFacts::new(vec![
             IdeRoot::under(stdlib.join("Extensions/Postgres")),
             IdeRoot::Virtual,
         ]);
+
         facts.lint = true;
         c.ed.record(facts);
         c.begin_sources(&[ProgramSource::File(
@@ -32,6 +37,7 @@ fn postgres_generated_row_shapes_use_temporary_results() {
         without_body_notes(&mut c);
         c.release_lowered_code();
         let summaries = Summaries::build(&c);
+
         for name in ["row_shape_text", "row_shape"] {
             let id = ProcId(
                 c.pr.procs
@@ -39,8 +45,10 @@ fn postgres_generated_row_shapes_use_temporary_results() {
                     .position(|p| p.name.as_str() == name)
                     .unwrap() as u32,
             );
+
             assert!(c.ed.facts().unwrap().lifetime_bodies.contains_key(&id));
             let summary = &summaries.procs[&id];
+
             assert!(
                 summary
                     .returns
@@ -49,12 +57,14 @@ fn postgres_generated_row_shapes_use_temporary_results() {
                 "{name} windows={windows}: {summary:?}"
             );
         }
+
         let address = ProcId(
             c.pr.procs
                 .iter()
                 .position(|p| p.name.as_str() == "address_text")
                 .unwrap() as u32,
         );
+
         assert!(c.ed.facts().unwrap().lifetime_bodies.contains_key(&address));
         assert!(
             summaries.procs[&address].may_returns.contains(&0),
@@ -68,10 +78,12 @@ fn postgres_generated_row_shapes_use_temporary_results() {
 fn stdlib_swap_contract_matches_every_checked_instance_without_notes() {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(
@@ -95,8 +107,10 @@ fn stdlib_swap_contract_matches_every_checked_instance_without_notes() {
             .filter(|(_, p)| p.name.as_str() == "swap" && !p.is_poly && p.sig.is_some())
             .map(|(i, _)| ProcId(i as u32))
             .collect();
+
     assert!(ids.len() >= 3);
     without_body_notes(&mut c);
+
     for id in ids {
         assert!(super::super::swap::swaps_arguments(&c, id));
     }
@@ -109,14 +123,18 @@ fn checked_without_contracts(source: &str) -> (Compiler, Summaries) {
 fn checked_without_contracts_target(source: &str, windows: bool) -> (Compiler, Summaries) {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
+
     if windows {
         options.os = jaic::target::TargetOs::Windows;
         options.cpu = jaic::target::TargetCpu::X64;
     }
+
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(source.into())])
@@ -142,6 +160,7 @@ fn builtin_cleanup_contracts_release_backing_storage_in_every_checked_instance()
     "#,
     );
     let mut checked = 0;
+
     for (i, p) in c.pr.procs.iter().enumerate() {
         if !["free", "array_free"].contains(&p.name.as_str())
             || p.is_poly
@@ -149,9 +168,11 @@ fn builtin_cleanup_contracts_release_backing_storage_in_every_checked_instance()
         {
             continue;
         }
+
         let Some(first) = p.sig.as_ref().and_then(|s| s.params.first()) else {
             continue;
         };
+
         if !matches!(
             c.ty.types.kind(first.ty),
             TypeKind::String
@@ -162,9 +183,11 @@ fn builtin_cleanup_contracts_release_backing_storage_in_every_checked_instance()
         ) {
             continue;
         }
+
         let Some(summary) = all.procs.get(&ProcId(i as u32)) else {
             continue;
         };
+
         checked += 1;
         assert!(
             summary.guaranteed.keys().any(|e| e.kind == Kind::Free
@@ -177,6 +200,7 @@ fn builtin_cleanup_contracts_release_backing_storage_in_every_checked_instance()
             && e.target.root == Root::Parameter(0)
             && e.target.steps.is_empty()));
     }
+
     assert!(checked >= 3);
 }
 
@@ -195,6 +219,7 @@ fn range_formatter_temporary_allocation_contract_is_inferred_from_its_body() {
             .unwrap() as u32,
     );
     let summary = &all.procs[&id];
+
     assert!(
         summary
             .allocation_effects
@@ -228,6 +253,7 @@ fn debug_backtrace_cleanup_contract_follows_the_native_release_abi() {
                 .unwrap() as u32,
         );
         let summary = &all.procs[&id];
+
         assert!(
             summary.guaranteed.keys().any(|e| e.kind == Kind::Free
                 && e.target.root == Root::Parameter(0)
@@ -243,6 +269,7 @@ fn debug_backtrace_cleanup_contract_follows_the_native_release_abi() {
                 })
                 .unwrap() as u32,
         );
+
         assert!(!all.procs[&fake].may.keys().any(|e| e.kind == Kind::Free));
     }
 }
@@ -255,14 +282,18 @@ fn visualization_descriptor_reset_contract_preserves_the_header() {
             .canonicalize()
             .unwrap();
         let mut options = Options::host();
+
         options.import_paths = vec![stdlib.clone()];
         options.set_stdlib(&NativeFs, &stdlib);
+
         if windows {
             options.os = jaic::target::TargetOs::Windows;
             options.cpu = jaic::target::TargetCpu::X64;
         }
+
         let mut c = Compiler::new(options, Rc::new(NativeFs));
         let mut facts = IdeFacts::new(vec![IdeRoot::Virtual, IdeRoot::under(&stdlib)]);
+
         facts.lint = true;
         c.ed.record(facts);
         c.begin_sources(&[ProgramSource::String(
@@ -282,12 +313,15 @@ fn visualization_descriptor_reset_contract_preserves_the_header() {
                 })
                 .map(|(i, _)| ProcId(i as u32))
                 .collect();
+
         assert!(!ids.is_empty());
         without_body_notes(&mut c);
         c.release_lowered_code();
         let all = Summaries::build(&c);
+
         for id in ids {
             let summary = &all.procs[&id];
+
             assert!(
                 summary.guaranteed.keys().any(|e| e.kind == Kind::Free
                     && e.guard.is_none()

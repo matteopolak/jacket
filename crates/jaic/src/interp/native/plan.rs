@@ -52,6 +52,7 @@ impl Plan {
             (None, false, false, false, false);
         let mut general_only = false;
         let mut params = Vec::new();
+
         if let Some(arch) = arch {
             ret_pieces = ret_layout
                 .filter(|_| !forced_sret)
@@ -78,6 +79,7 @@ impl Plan {
                 })
                 .unwrap_or_default();
         }
+
         let wide_ret = ret_pieces.as_ref().is_some_and(|p| {
             p.iter()
                 .any(|p| matches!(p.ty, PieceTy::X87 | PieceTy::F128))
@@ -86,6 +88,7 @@ impl Plan {
             && ret_layout.is_none()
             && params.iter().all(Option::is_none)
             && !(sig.c_varargs && super::VARARGS_ON_STACK);
+
         Plan {
             arch,
             host,

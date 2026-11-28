@@ -15,6 +15,7 @@ fn scratch(name: &str) -> TempDir {
 fn check_in(dir: &Path, source: &str, layout: &str) -> String {
     std::fs::write(dir.join("t.jai"), source).unwrap();
     let mut command = Command::new(JAIC);
+
     command
         .args(["-check", "t.jai", "-no_color"])
         .current_dir(dir)
@@ -22,9 +23,11 @@ fn check_in(dir: &Path, source: &str, layout: &str) -> String {
         .env_remove("CLICOLOR_FORCE")
         .env_remove("NO_COLOR")
         .env_remove("JAIC_DIAGNOSTICS");
+
     if !layout.is_empty() {
         command.env("JAIC_DIAGNOSTICS", layout);
     }
+
     String::from_utf8_lossy(&command.output().unwrap().stderr).into_owned()
 }
 
@@ -35,6 +38,7 @@ fn check(name: &str, source: &str, layout: &str) -> String {
 #[track_caller]
 fn assert_in_order(text: &str, needles: &[&str]) {
     let mut rest = text;
+
     for needle in needles {
         match rest.find(needle) {
             Some(at) => rest = &rest[at + needle.len()..],
@@ -48,6 +52,7 @@ const MISMATCH: &str = "main :: () {\n    a: s64 = 3;\n    b: s32 = a;\n}\n";
 #[test]
 fn a_conversion_error_names_the_cast() {
     let plain = check("mismatch-plain", MISMATCH, "");
+
     assert_in_order(
         &plain,
         &[
@@ -60,6 +65,7 @@ fn a_conversion_error_names_the_cast() {
 #[test]
 fn the_cast_shows_the_changed_code() {
     let rich = check("mismatch-rich", MISMATCH, "unicode");
+
     assert_in_order(
         &rich,
         &[
@@ -73,6 +79,7 @@ fn the_cast_shows_the_changed_code() {
 fn a_loop_over_a_number_shows_the_range() {
     let source = "main :: () {\n    n: s64 = 3;\n    for n { }\n}\n";
     let rich = check("loop-rich", source, "unicode");
+
     assert_in_order(
         &rich,
         &[
@@ -87,6 +94,7 @@ fn a_loop_over_a_number_shows_the_range() {
 fn a_return_with_too_many_values_names_the_results() {
     let source = "f :: () -> s64 {\n    return 1, 2;\n}\nmain :: () { f(); }\n";
     let plain = check("return-plain", source, "");
+
     assert_in_order(
         &plain,
         &[

@@ -12,10 +12,12 @@ impl Compiler {
     ) -> Result<()> {
         let mut pending = vec![(actual, required)];
         let mut checked = HashSet::default();
+
         while let Some((actual, required)) = pending.pop() {
             if !checked.insert((actual, required)) {
                 continue;
             }
+
             let Some(contract) = self.ty.types.as_struct(self.ty.types.repr_struct(required))
             else {
                 return err(
@@ -24,6 +26,7 @@ impl Compiler {
                     "an interface restriction must name a struct contract",
                 );
             };
+
             if self
                 .ty
                 .types
@@ -40,17 +43,21 @@ impl Compiler {
                     ),
                 );
             }
+
             self.layout_struct(contract, span)?;
             let fields = self.ty.types.struct_info(contract).fields.clone();
+
             for field in fields.iter() {
                 if field.using {
                     pending.push((actual, self.ty.types.pointee(field.ty).unwrap_or(field.ty)));
                     continue;
                 }
+
                 let Some(name) = field.name else {
                     continue;
                 };
                 let found = self.find_member(actual, name, span)?;
+
                 if found.is_none_or(|(_, ty)| ty != field.ty) {
                     return err(
                         Code::InterfaceConstraint,
@@ -64,9 +71,11 @@ impl Compiler {
                     );
                 }
             }
+
             let Some(source) = self.ty.struct_asts.get(&contract) else {
                 continue;
             };
+
             for (id, name) in self.scope(source.scope).declared() {
                 let wanted = self.resolve_entity(id)?;
                 let Some(candidates) = self.struct_constant(actual, name)? else {
@@ -81,9 +90,11 @@ impl Compiler {
                     );
                 };
                 let mut found = Vec::new();
+
                 for id in candidates {
                     found.push(self.resolve_entity(id)?);
                 }
+
                 let required_procs = match &wanted {
                     Resolved::Proc(p) => vec![*p],
                     Resolved::ProcSet(p) => p.clone(),
@@ -95,17 +106,22 @@ impl Compiler {
                         || matches!((&wanted,value),(Resolved::Const{ty:a,..},Resolved::Const{ty:b,..}) if a==b && *a!=TypeId::TYPE))
                 } else {
                     let mut ok = true;
+
                     for required_proc in required_procs {
                         let target = self.proc_type(required_proc, span)?;
                         let mut matched = false;
+
                         for procedure in found.iter().flat_map(procs_of) {
                             matched |=
                                 self.satisfies_proc(procedure, required_proc, target, span)?;
                         }
+
                         ok &= matched;
                     }
+
                     ok
                 };
+
                 if !compatible {
                     return err(
                         Code::InterfaceConstraint,
@@ -119,6 +135,7 @@ impl Compiler {
                 }
             }
         }
+
         Ok(())
     }
 
@@ -134,6 +151,7 @@ impl Compiler {
         if self.proc(procedure).is_macro != self.proc(required).is_macro {
             return Ok(false);
         }
+
         let candidate = if self.proc(procedure).is_poly {
             self.instantiate_for_proc_type(procedure, target, span)
         } else {
@@ -143,6 +161,7 @@ impl Compiler {
             return Ok(false);
         };
         let ty = self.proc_type(candidate, span)?;
+
         Ok(matches!(
             (self.ty.types.kind(ty), self.ty.types.kind(target)),
             (crate::types::TypeKind::Proc(a), crate::types::TypeKind::Proc(b)) if a == b

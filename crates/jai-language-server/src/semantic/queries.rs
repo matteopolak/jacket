@@ -87,9 +87,11 @@ pub(super) fn limit_hits(
                 .filter(|d| d.code == jaic::diagnostics::Code::CheckingTimeLimit)
                 .map(|d| (LimitKind::Time, d)),
         );
+
     found
         .filter_map(|(kind, d)| {
             let file = compiler.src.sources.try_get(d.span.file)?;
+
             Some(LimitHit {
                 kind,
                 path: file.path.to_string(),
@@ -109,6 +111,7 @@ impl Analysis {
             .flat_map(|(compiler, _)| {
                 (0..compiler.src.sources.len() as u32).filter_map(|id| {
                     let source = compiler.src.sources.get(FileId(id));
+
                     source
                         .path
                         .as_file()
@@ -142,14 +145,18 @@ impl Analysis {
                     .copied()
                     .filter(|f| !cache.contains_key(f))
                     .collect();
+
                 if todo.is_empty() {
                     continue;
                 }
+
                 // The lints read the bodies of what the code calls.
                 compiler.lower_deferred_bodies();
+
                 if jaic::interrupt::fired() {
                     return false;
                 }
+
                 let done = jailint::lint_each(
                     compiler,
                     &files,
@@ -161,15 +168,19 @@ impl Analysis {
                         cache.insert(file, found);
                     },
                 );
+
                 if !done || jaic::interrupt::fired() {
                     return false;
                 }
             }
+
             true
         }
+
         if !program(&mut self.compiler, self.complete, &mut self.lints, groups) {
             return false;
         }
+
         for other in &mut self.others {
             if !program(
                 &mut other.compiler,
@@ -180,6 +191,7 @@ impl Analysis {
                 return false;
             }
         }
+
         true
     }
 
@@ -187,6 +199,7 @@ impl Analysis {
     /// metaprogram built, costliest first. A run inside another counts in the one around it.
     pub fn evaluation_costs(&self) -> Vec<EvalCost> {
         let mut sums: BTreeMap<(String, usize, usize), EvalCost> = BTreeMap::new();
+
         for (compiler, _) in self.polymorph_compilers() {
             for run in &compiler.meta.perf.runs {
                 let (Some(blocks), true) = (run.blocks, run.outermost) else {
@@ -205,11 +218,14 @@ impl Analysis {
                     blocks: 0,
                     elapsed: std::time::Duration::ZERO,
                 });
+
                 entry.blocks += blocks;
                 entry.elapsed += run.elapsed;
             }
         }
+
         let mut costs: Vec<EvalCost> = sums.into_values().collect();
+
         costs.sort_by_key(|c| std::cmp::Reverse((c.blocks, c.elapsed)));
         costs
     }
@@ -223,6 +239,7 @@ impl Analysis {
             .filter(|(path, _)| reads.concerns(path))
             .map(|(path, bytes)| (path.clone(), super::text_hash(bytes)))
             .collect();
+
         (reads, buffers)
     }
 
@@ -240,6 +257,7 @@ impl Analysis {
         if self.others.is_empty() || self.file(path).is_some() {
             return;
         }
+
         let Some(at) = self
             .others
             .iter()
@@ -248,6 +266,7 @@ impl Analysis {
             return;
         };
         let other = &mut self.others[at];
+
         std::mem::swap(&mut self.compiler, &mut other.compiler);
         std::mem::swap(&mut self.entry, &mut other.entry);
         std::mem::swap(&mut self.complete, &mut other.complete);
@@ -264,24 +283,30 @@ impl Analysis {
         config: &jailint::config::Config,
     ) -> Option<Vec<jailint::Lint>> {
         let file = self.file(path)?;
+
         if let Some(found) = self.lints.get(&file) {
             return Some(found.clone());
         }
+
         // The lints read the bodies of what the code calls.
         self.compiler.lower_deferred_bodies();
+
         if jaic::interrupt::fired() {
             return None;
         }
+
         let found = jailint::lint_files(
             &mut self.compiler,
             &[file],
             &jailint::config::Configs::new(config),
             self.complete,
         );
+
         // A stopped lint pass must be retried even though the semantic compile is complete.
         if jaic::interrupt::fired() {
             return None;
         }
+
         self.lints.insert(file, found.clone());
         Some(found)
     }
@@ -295,6 +320,7 @@ impl Analysis {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
+
         self.errors
             .iter()
             .filter(|e| e.code == code && e.span.file == file)
@@ -309,6 +335,7 @@ impl Analysis {
         let Some(file) = self.file(path) else {
             return Vec::new();
         };
+
         if self.enriched.is_none() {
             // The render-time help (similar names, the imports that declare a name) of the
             // first errors: working out each one reads the standard library.
@@ -318,14 +345,17 @@ impl Analysis {
                 .enumerate()
                 .map(|(i, e)| {
                     let wanted = i < ENRICHED_ERRORS;
+
                     wanted
                         .then(|| self.compiler.with_name_suggestion(e))
                         .flatten()
                         .unwrap_or_else(|| e.clone())
                 })
                 .collect();
+
             self.enriched = Some(enriched);
         }
+
         let warnings: Vec<_> = self
             .compiler
             .diag
@@ -344,14 +374,17 @@ impl Analysis {
             .iter()
             .map(|d| (d, false))
             .chain(warnings.iter().map(|d| (d, true)));
+
         for (d, warning) in tagged {
             let Some(finding) = self.finding(file, d, warning) else {
                 continue;
             };
+
             if seen.insert((finding.start, finding.end, finding.display.clone())) {
                 out.push(finding);
             }
         }
+
         out
     }
 
@@ -379,10 +412,12 @@ impl Analysis {
         };
         let mut display = base.clone();
         let mut related = Vec::new();
+
         for (span, note) in d.secondary_labels().iter().chain(&d.notes) {
             if at_note.is_some_and(|(at, _)| at == span) {
                 continue;
             }
+
             match files.try_get(span.file) {
                 Some(found) => related.push(Related {
                     path: found.path.to_string(),
@@ -394,12 +429,15 @@ impl Analysis {
                 None => display.push_str(&format!("\nnote: {note}")),
             }
         }
+
         for suggestion in d.suggestions().iter().filter(|s| s.listed) {
             display.push_str(&format!("\nhelp: {}", suggestion.title));
         }
+
         for help in &d.help {
             display.push_str(&format!("\nhelp: {help}"));
         }
+
         // Edits in another file cannot be applied to this one, and an import goes to the file
         // the diagnostic is in.
         let suggestions = d
@@ -411,6 +449,7 @@ impl Analysis {
             })
             .cloned()
             .collect();
+
         Some(CheckFinding {
             start: span.start as usize,
             end: span.end as usize,
@@ -434,6 +473,7 @@ impl Analysis {
         let Some(file) = self.file(path) else {
             return Some((0, usize::MAX));
         };
+
         self.compiler.ed.facts().and_then(|ide| {
             ide.skipped
                 .iter()
@@ -472,14 +512,17 @@ impl Analysis {
             .filter(|s| s.file == file && s.start < s.end)
             .map(|s| (s.start as usize, s.end as usize))
             .collect();
+
         found.sort_unstable_by_key(|&(start, end)| (start, std::cmp::Reverse(end)));
         // A dead run inside another needs no range of its own.
         let mut kept: Vec<(usize, usize)> = Vec::new();
+
         for range in found {
             if kept.last().is_none_or(|last| range.1 > last.1) {
                 kept.push(range);
             }
         }
+
         kept
     }
 
@@ -487,7 +530,9 @@ impl Analysis {
         if let Some(&found) = self.found.borrow().get(path) {
             return found;
         }
+
         let found = find_file(&self.compiler, path);
+
         self.found.borrow_mut().insert(path.to_path_buf(), found);
         found
     }
@@ -495,6 +540,7 @@ impl Analysis {
     pub fn coverage(&self, path: &Path) -> SemanticCoverage {
         let file = self.file(path);
         let ide = self.compiler.ed.facts();
+
         SemanticCoverage {
             context_id: format!("{:016x}", self.key),
             analysis: SemanticAnalysisContext {
@@ -531,6 +577,7 @@ impl Analysis {
     /// (`Span::NONE`, which builtins carry).
     pub fn location(&self, span: jaic::source::Span) -> Option<Decl> {
         let source = self.compiler.src.sources.try_get(span.file)?;
+
         Some((
             source.path.to_string(),
             source.text.clone(),
@@ -552,6 +599,7 @@ impl Analysis {
             .into_iter()
             .filter_map(|span| self.location(span))
             .collect();
+
         Some(HoverFacts {
             start: hover.span.start as usize,
             end: hover.span.end as usize,
@@ -572,6 +620,7 @@ impl Analysis {
             return Vec::new();
         };
         let names: Vec<Sym> = names.iter().map(|n| Sym::intern(n)).collect();
+
         self.compiler
             .ide_resolve_path(scope, &names)
             .into_iter()
@@ -583,6 +632,7 @@ impl Analysis {
     pub fn compiled_text(&self, path: &Path) -> Option<&str> {
         let file = self.file(path)?;
         let source = self.compiler.src.sources.try_get(file)?;
+
         Some(&*source.text)
     }
 
@@ -596,6 +646,7 @@ impl Analysis {
             return;
         };
         let shift = super::Shift::between(old.as_bytes(), text.as_bytes());
+
         for name in names.iter_mut() {
             for span in std::iter::once(&mut name.decl).chain(name.docs.as_mut()) {
                 if span.file == file {
@@ -611,6 +662,7 @@ impl Analysis {
     pub fn forward_docs(&mut self, names: &mut [IdeName]) {
         for name in names {
             let site = self.compiler.ide_doc_site(name.decl);
+
             name.docs = (site != name.decl).then_some(site);
         }
     }
@@ -618,6 +670,7 @@ impl Analysis {
     /// The path of each file `names` are declared in, by file number.
     pub fn decl_files(&self, names: &[IdeName]) -> BTreeMap<u32, String> {
         let mut out = BTreeMap::new();
+
         for name in names {
             for file in std::iter::once(name.decl.file).chain(name.docs.map(|d| d.file)) {
                 if let std::collections::btree_map::Entry::Vacant(slot) = out.entry(file.0)
@@ -627,6 +680,7 @@ impl Analysis {
                 }
             }
         }
+
         out
     }
 
@@ -643,6 +697,7 @@ impl Analysis {
             .into_iter()
             .filter_map(|span| self.location(span))
             .collect();
+
         // A note leads to the compile-time code that read it, in whichever program that ran.
         found.extend(
             self.compiler
@@ -663,9 +718,11 @@ impl Analysis {
         let text = self.compiler.src.sources.try_get(file)?.text.clone();
         let bytes = text.as_bytes();
         let word = |b: u8| b == b'_' || b.is_ascii_alphanumeric();
+
         if !bytes.get(offset).copied().is_some_and(word) {
             return None;
         }
+
         let start = (0..=offset).rev().take_while(|&i| word(bytes[i])).last()?;
         let end = (offset..bytes.len())
             .take_while(|&i| word(bytes[i]))
@@ -675,9 +732,11 @@ impl Analysis {
         let before = bytes[..start]
             .iter()
             .rposition(|b| !b.is_ascii_whitespace());
+
         if before.is_some_and(|i| bytes[i] == b'.') {
             return None;
         }
+
         let facts = self.compiler.ed.facts()?;
         let recorded = facts.refs_at(file, offset as u32);
         let declared = !recorded.is_empty()
@@ -690,12 +749,15 @@ impl Analysis {
                             | jaic::ide::IdeWhat::Type(_)
                     )
             });
+
         if !declared || self.compiler.ide_builtin_reference(file, offset as u32) {
             return None;
         }
+
         let scope = self.compiler.ide_scope_at(file, offset as u32)?;
         let name = jaic::intern::Sym::intern(&text[start..end]);
         let spans = self.compiler.ide_scope_procs(scope, name);
+
         Some(
             spans
                 .into_iter()
@@ -725,6 +787,7 @@ impl Analysis {
         let fitting = self
             .compiler
             .ide_fitting_names(file, offset as u32 + 1, &names)?;
+
         Some(fitting.into_iter().collect())
     }
 
@@ -739,18 +802,23 @@ impl Analysis {
     pub fn complete(&mut self, path: &Path, offset: usize, chain: &[&str]) -> Option<Vec<IdeName>> {
         let file = self.file(path)?;
         let scope = self.compiler.ide_scope_at(file, offset as u32)?;
+
         if chain.is_empty() {
             return Some(self.compiler.ide_visible(scope, file, offset as u32));
         }
+
         let names: Vec<Sym> = chain.iter().map(|n| Sym::intern(n)).collect();
         // A polymorphic body is checked once per instance, and the receiver is a different type
         // in each (`a.text` where `T` is `Numeric`, `a.count` where it is a string): offer the
         // members of all of them.
         let mut scopes = self.compiler.ide_innermost_scopes_at(file, offset as u32);
+
         if !scopes.contains(&scope) {
             scopes.insert(0, scope);
         }
+
         let mut members: Option<Vec<IdeName>> = None;
+
         for scope in scopes {
             let Some(receiver) =
                 self.compiler
@@ -760,12 +828,14 @@ impl Analysis {
             };
             let found = self.compiler.ide_members(receiver);
             let all = members.get_or_insert_with(Vec::new);
+
             for name in found {
                 if !all.contains(&name) {
                     all.push(name);
                 }
             }
         }
+
         members
     }
 }

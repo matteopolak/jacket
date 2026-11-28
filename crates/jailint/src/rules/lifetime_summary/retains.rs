@@ -24,10 +24,12 @@ impl Resolver<'_> {
         let body = self.body;
         let live = returning_blocks(body, all, self.targets);
         let mut effects = vec![Vec::new(); body.blocks.len()];
+
         for (b, block) in body.blocks.iter().enumerate() {
             if !live.contains(b) {
                 continue;
             }
+
             for event in &block.events {
                 for (dest, formal) in self.retained_by(event, all) {
                     let effect = Effect {
@@ -35,10 +37,12 @@ impl Resolver<'_> {
                         kind: Kind::Retain(formal),
                         guard: None,
                     };
+
                     effects[b].push((effect, Vec::new()));
                 }
             }
         }
+
         let overlaps = |a: &Path, b: &Path| {
             a.root == b.root && (a.steps.starts_with(&b.steps) || b.steps.starts_with(&a.steps))
         };
@@ -48,6 +52,7 @@ impl Resolver<'_> {
             .map(|(effect, _)| effect.clone())
             .collect();
         let mut result = HashMap::default();
+
         for effect in &candidates {
             let Kind::Retain(formal) = effect.kind else {
                 continue;
@@ -67,6 +72,7 @@ impl Resolver<'_> {
             let other_formals = candidates
                 .iter()
                 .any(|e| e.target == effect.target && e.kind != effect.kind);
+
             if unknown.contains(&owner)
                 || events != written
                 || other_formals
@@ -74,8 +80,10 @@ impl Resolver<'_> {
             {
                 continue;
             }
+
             result.insert(effect.target.clone(), formal);
         }
+
         result
     }
 
@@ -96,6 +104,7 @@ impl Resolver<'_> {
                 let Some(dest) = self.location(p, all, &mut HashSet::default(), 0) else {
                     return Vec::new();
                 };
+
                 match self.value(*stored, all) {
                     Some(Path {
                         root: Root::Parameter(formal),
@@ -115,6 +124,7 @@ impl Resolver<'_> {
                 let Some(called) = all.get(callee) else {
                     return Vec::new();
                 };
+
                 called
                     .retains
                     .iter()
@@ -132,6 +142,7 @@ impl Resolver<'_> {
     /// or array descriptor pointing at its data.
     fn holds_storage(&self, ty: jaic::types::TypeId) -> bool {
         let types = &self.compiler.ty.types;
+
         types.is_pointer(ty)
             || matches!(
                 types.kind(ty),
@@ -158,6 +169,7 @@ impl Resolver<'_> {
     ) -> Option<(Path, usize)> {
         let dest = self.substitute(dest, args, all, &mut HashSet::default(), 0)?;
         let arg = args.iter().find(|a| a.formal == formal)?;
+
         match self.value(value(arg)?, all)? {
             Path {
                 root: Root::Parameter(formal),
@@ -191,12 +203,14 @@ impl Resolver<'_> {
         let Some(called) = all.get(callee) else {
             return Vec::new();
         };
+
         called
             .retains
             .iter()
             .filter_map(|(dest, formal)| {
                 let dest = self.substitute(dest, args, all, &mut HashSet::default(), 0)?;
                 let arg = args.iter().find(|a| a.formal == *formal)?;
+
                 Some((dest, arg))
             })
             .collect()

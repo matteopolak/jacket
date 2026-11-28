@@ -4,6 +4,7 @@ use super::*;
 fn lines_of_lf_text() {
     let text = "ab\ncd\n";
     let index = LineIndex::new(text);
+
     assert_eq!(index.line_count(), 3);
     assert_eq!(index.line_range(0), Some((0, 2)));
     assert_eq!(index.line_range(1), Some((3, 5)));
@@ -18,6 +19,7 @@ fn crlf_line_ends_exclude_the_carriage_return() {
     let text = "ab\r\ncd\r\n\r\nef\r";
     let index = LineIndex::new(text);
     let lines: Vec<&str> = index.lines().map(|(a, b)| &text[a..b]).collect();
+
     assert_eq!(lines, ["ab", "cd", "", "ef", ""]);
     // On the `\r` itself the position is the line's end, not past it.
     assert_eq!(index.utf16_position(text, 2), Some((0, 2)));
@@ -29,6 +31,7 @@ fn crlf_line_ends_exclude_the_carriage_return() {
 #[test]
 fn empty_text_has_one_empty_line() {
     let index = LineIndex::new("");
+
     assert_eq!(index.line_count(), 1);
     assert_eq!(index.line_range(0), Some((0, 0)));
     assert_eq!(index.line_col("", 0), (1, 1));
@@ -41,6 +44,7 @@ fn empty_text_has_one_empty_line() {
 fn offsets_at_and_past_the_end() {
     let text = "ab\ncd";
     let index = LineIndex::new(text);
+
     assert_eq!(index.line_col(text, 5), (2, 3));
     assert_eq!(index.line_col(text, 99), (2, 3));
     assert_eq!(index.utf16_position(text, 5), Some((1, 2)));
@@ -48,6 +52,7 @@ fn offsets_at_and_past_the_end() {
     assert_eq!(index.line_end(99), 5);
     let ends_in_newline = "ab\n";
     let index = LineIndex::new(ends_in_newline);
+
     assert_eq!(index.line_col(ends_in_newline, 3), (2, 1));
     assert_eq!(index.utf16_position(ends_in_newline, 3), Some((1, 0)));
     assert_eq!(index.offset_utf16(ends_in_newline, 1, 0), 3);
@@ -62,6 +67,7 @@ fn columns_in_characters_bytes_and_utf16() {
     let text = "x\né😀z";
     let index = LineIndex::new(text);
     let z = text.find('z').unwrap();
+
     assert_eq!(index.line_col(text, z), (2, 3));
     assert_eq!(index.line_byte_col(z), (2, 7));
     assert_eq!(index.utf16_position(text, z), Some((1, 3)));
@@ -81,6 +87,7 @@ fn columns_in_characters_bytes_and_utf16() {
 #[test]
 fn line_start_of_free_function() {
     let text = "a\nbc\r\nd";
+
     assert_eq!(line_start(text, 0), 0);
     assert_eq!(line_start(text, 3), 2);
     assert_eq!(line_start(text, 7), 6);
@@ -91,6 +98,7 @@ fn line_start_of_free_function() {
 #[test]
 fn source_file_columns_count_bytes() {
     let file = SourceFile::new("a.jai".into(), "é\nxy\r\nz".into());
+
     assert_eq!(file.line_col(2), (1, 3));
     assert_eq!(file.line_col(3), (2, 1));
     assert_eq!(file.line_text(2), "xy");
@@ -110,6 +118,7 @@ fn random_text(seed: &mut u64) -> String {
     };
     let alphabet = ['a', 'b', ' ', '\n', '\r', '\n', 'é', '😀', '\u{2028}'];
     let len = next() % 30;
+
     (0..len)
         .map(|_| alphabet[next() % alphabet.len()])
         .collect()
@@ -122,6 +131,7 @@ fn reference(text: &str) -> (Vec<usize>, Vec<usize>) {
     let mut starts = vec![0];
     let mut ends = vec![];
     let mut at = 0;
+
     while at < bytes.len() {
         match bytes[at] {
             b'\r' if bytes.get(at + 1) == Some(&b'\n') => {
@@ -137,6 +147,7 @@ fn reference(text: &str) -> (Vec<usize>, Vec<usize>) {
             _ => at += 1,
         }
     }
+
     ends.push(text.len());
     (starts, ends)
 }
@@ -144,26 +155,31 @@ fn reference(text: &str) -> (Vec<usize>, Vec<usize>) {
 #[test]
 fn utf16_positions_agree_with_the_original_on_random_text() {
     let mut seed = 7;
+
     for _ in 0..2000 {
         let text = random_text(&mut seed);
         let index = LineIndex::new(&text);
         let (starts, ends) = reference(&text);
+
         for byte in 0..=text.len() {
             if !text.is_char_boundary(byte) {
                 assert_eq!(index.utf16_position(&text, byte), None);
                 continue;
             }
+
             let line = starts.partition_point(|s| *s <= byte) - 1;
             let end = ends[line];
             let want = (
                 line as u32,
                 text[starts[line]..byte.min(end)].encode_utf16().count() as u32,
             );
+
             assert_eq!(
                 index.utf16_position(&text, byte),
                 Some(want),
                 "{text:?} at {byte}"
             );
+
             // And back, unless the offset sat inside a line ending.
             if byte <= end {
                 assert_eq!(
@@ -179,15 +195,18 @@ fn utf16_positions_agree_with_the_original_on_random_text() {
 #[test]
 fn char_columns_agree_with_counting_from_the_line_start() {
     let mut seed = 99;
+
     for _ in 0..2000 {
         let text = random_text(&mut seed);
         let index = LineIndex::new(&text);
+
         for byte in 0..=text.len() + 2 {
             let clamped = text.floor_char_boundary(byte.min(text.len()));
             let (starts, _) = reference(&text);
             let line = starts.partition_point(|s| *s <= clamped);
             let start = starts[line - 1];
             let col = text[start..clamped].chars().count() + 1;
+
             assert_eq!(
                 index.line_col(&text, byte),
                 (line, col),
@@ -210,6 +229,7 @@ fn naming_the_typechecked_message_is_tracked_per_build() {
     let (first, second) = (TypecheckedUse::default(), TypecheckedUse::default());
     let mut a = SourceMap::default();
     let mut b = SourceMap::default();
+
     a.share_typechecked_use(first.clone());
     b.share_typechecked_use(second.clone());
     a.add("/app/main.jai", "m: *Message_Typechecked;".into());
@@ -225,6 +245,7 @@ fn naming_the_typechecked_message_is_tracked_per_build() {
     assert!(!named(&second));
     // A map that named it before joining a build brings that along.
     let mut c = SourceMap::default();
+
     c.add("/app/late.jai", "Message_Typechecked".into());
     c.share_typechecked_use(second.clone());
     assert!(named(&second));
@@ -233,9 +254,11 @@ fn naming_the_typechecked_message_is_tracked_per_build() {
 #[test]
 fn updating_after_random_edits_matches_a_full_rebuild() {
     let mut seed = 31;
+
     for _ in 0..300 {
         let mut text = random_text(&mut seed);
         let mut index = LineIndex::new(&text);
+
         for _ in 0..20 {
             let piece = random_text(&mut seed);
             let at = |seed: &mut u64| {
@@ -244,6 +267,7 @@ fn updating_after_random_edits_matches_a_full_rebuild() {
             };
             let start = at(&mut seed);
             let end = at(&mut seed).max(start);
+
             text.replace_range(start..end, &piece);
             index.update(&text, start);
             assert_eq!(
@@ -260,6 +284,7 @@ fn a_lone_carriage_return_ends_a_line() {
     let text = "ab\rcd\r\nef\ngh";
     let index = LineIndex::new(text);
     let lines: Vec<&str> = index.lines().map(|(a, b)| &text[a..b]).collect();
+
     assert_eq!(lines, ["ab", "cd", "ef", "gh"]);
     assert_eq!(index.offset_utf16(text, 1, 1), 4);
     assert_eq!(index.utf16_position(text, 6), Some((1, 2)));
@@ -272,6 +297,7 @@ fn typing_a_newline_after_a_carriage_return_updates_the_index() {
     let before = "ab\rcd";
     let after = "ab\r\ncd";
     let mut index = LineIndex::new(before);
+
     index.update(after, 3);
     assert_eq!(index, LineIndex::new(after));
 }
@@ -280,11 +306,14 @@ fn typing_a_newline_after_a_carriage_return_updates_the_index() {
 fn procedure_bodies_are_readable_only_by_names_in_code() {
     let reads = |files: &[(&str, &str)]| {
         let mut map = SourceMap::default();
+
         for (path, text) in files {
             map.add(*path, (*text).into());
         }
+
         map.reads_procedure_bodies()
     };
+
     assert!(!reads(&[(
         "/app/a.jai",
         "m: *Message_Typechecked; m.declarations;"
@@ -314,6 +343,7 @@ fn procedure_bodies_are_readable_only_by_names_in_code() {
         "/app/a.jai",
         "m: *Message_Typechecked; s :: #string END\nh.body_or_null\nEND\n"
     )]));
+
     for text in [
         "for m.procedure_bodies print();",
         "h.body_or_null",
@@ -326,8 +356,10 @@ fn procedure_bodies_are_readable_only_by_names_in_code() {
     ] {
         assert!(reads(&[("/app/a.jai", text)]), "{text}");
     }
+
     // A file added later is looked at too.
     let mut map = SourceMap::default();
+
     map.add("/app/a.jai", "x := 1;".into());
     assert!(!map.reads_procedure_bodies());
     map.add("/app/b.jai", "h.body_or_null".into());
@@ -339,6 +371,7 @@ fn readers_of_procedure_bodies_are_found_in_every_map_of_the_build() {
     let usage = TypecheckedUse::default();
     let mut host = SourceMap::default();
     let mut workspace = SourceMap::default();
+
     host.share_typechecked_use(usage.clone());
     workspace.share_typechecked_use(usage);
     workspace.add("/app/main.jai", "x := 1;".into());
@@ -350,15 +383,19 @@ fn readers_of_procedure_bodies_are_found_in_every_map_of_the_build() {
 #[test]
 fn line_breaks_are_found_in_every_position() {
     use super::find_line_break;
+
     for len in 0..40usize {
         for at in 0..len {
             for brk in *b"\n\r" {
                 let mut bytes = vec![b'x'; len];
+
                 bytes[at] = brk;
                 assert_eq!(find_line_break(&bytes), Some(at), "{len} {at}");
             }
         }
+
         assert_eq!(find_line_break(&vec![b'x'; len]), None);
     }
+
     assert_eq!(find_line_break(b"ab\xff\x0a\x0d"), Some(3));
 }

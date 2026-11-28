@@ -98,6 +98,7 @@ pub(super) fn build(
         .clone()
         .unwrap_or_else(|| PathBuf::from(&settings.output_path));
     let output = dir.join(name);
+
     if let Some(level) = cli.opt_level.or(cli.flavor.map(Flavor::level)) {
         // `-O` and the flavors stand for a whole build: the metaprogram's code generation
         // switches go too.
@@ -106,6 +107,7 @@ pub(super) fn build(
         settings.llvm_switches.clear();
         settings.frame_pointers = None;
     }
+
     if settings.use_custom_link_command {
         // Nothing waits for the top-level program's messages, so nothing could link it.
         return Err(
@@ -115,12 +117,15 @@ pub(super) fn build(
                 .into(),
         );
     }
+
     timings::time("prepare output", || compiler.prepare_compiled_output())
         .map_err(|error| compiler.render(&error))?;
     native_backend(cli).write_output(&compiler.out.program, &settings, &output)?;
+
     if cli.verbose {
         eprintln!("jaic: wrote {}", shown(&output));
     }
+
     Ok(())
 }
 
@@ -243,15 +248,19 @@ impl LlvmBackend {
         if self.explicit_target {
             return Ok(self.target);
         }
+
         if settings.llvm_target.is_some() {
             return Ok(settings.llvm_target);
         }
+
         let host = Options::host();
         let os = settings.os.unwrap_or(host.os);
         let cpu = settings.cpu.unwrap_or(host.cpu);
+
         if os == TargetOs::Wasm {
             return Ok(Some(Target::wasm_module()));
         }
+
         if os == TargetOs::None {
             if cpu != TargetCpu::Arm64 {
                 return Err(
@@ -259,14 +268,18 @@ impl LlvmBackend {
                         .into(),
                 );
             }
+
             return Ok(Some(Target::new(os, cpu)));
         }
+
         if cpu == TargetCpu::Wasm {
             return Err("a native workspace OS requires an X64 or ARM64 CPU".into());
         }
+
         if os == host.os && cpu == host.cpu {
             return Ok(None);
         }
+
         Ok(Some(match os {
             TargetOs::Windows => Target::windows(cpu, cfg!(target_os = "windows")),
             _ => Target::new(os, cpu),
@@ -278,6 +291,7 @@ impl LlvmBackend {
         // triple or its OS/CPU, including non-WASM child workspaces.
         let target = self.workspace_target(settings)?;
         let non_empty = |s: &String| (!s.is_empty()).then(|| s.clone());
+
         // Windows wants `.exe`/`.dll`/`.lib`; a name without an extension gets the platform's,
         // unless the metaprogram turned `append_executable_filename_extension` off.
         use jaic_native::OutputKind;
@@ -288,20 +302,24 @@ impl LlvmBackend {
             OutputType::ObjectFile | OutputType::NoOutput => None,
         };
         let mut output = output.to_path_buf();
+
         if settings.append_extension
             && output.extension().is_none()
             && let Some(ext) = kind.and_then(|k| jaic_native::output_extension(target, k))
         {
             output.set_extension(ext);
         }
+
         if output.is_dir() {
             let name = output.join("program");
+
             return Err(format!(
                 "the output path `{}` is a directory\nhelp: name the file to write inside it, as in `-exe {}`",
                 shown(&output),
                 shown(&name)
             ));
         }
+
         let create_dir = |dir: &Path, what: &str| {
             std::fs::create_dir_all(dir).map_err(|e| {
                 format!(
@@ -311,9 +329,11 @@ impl LlvmBackend {
                 )
             })
         };
+
         if let Some(dir) = output.parent().filter(|d| !d.as_os_str().is_empty()) {
             create_dir(dir, "output")?;
         }
+
         // Objects, IR and bitcode go to `intermediate_path` when it is set, else next to the
         // output.
         let file_name = output.file_name().unwrap_or_default().to_os_string();
@@ -321,14 +341,17 @@ impl LlvmBackend {
             output.parent().map(Path::to_path_buf).unwrap_or_default()
         } else {
             let dir = PathBuf::from(&settings.intermediate_path);
+
             create_dir(&dir, "intermediate")?;
             dir
         };
         let beside = |suffix: &str| {
             let mut name = file_name.clone();
+
             name.push(suffix);
             intermediate.join(name)
         };
+
         use jaic_native::OptLevel;
         let opt_level = match settings.optimization {
             BitcodeOptimization::O1 => OptLevel::O1,
@@ -352,9 +375,11 @@ impl LlvmBackend {
         let macos_version = (macos && !settings.minimum_os_version.is_empty())
             .then(|| settings.minimum_os_version.clone());
         let mut extra_link_args = Vec::new();
+
         if let Some(version) = &macos_version {
             extra_link_args.push(format!("-mmacosx-version-min={version}").into());
         }
+
         let switch = |flag: WorkspaceFlag| settings.llvm_switch(flag);
         let wanted = |on: bool, suffix: &str| on.then(|| beside(suffix));
         let codegen = jaic_native::Codegen {
@@ -420,6 +445,7 @@ impl LlvmBackend {
                 OutputType::Executable | OutputType::DynamicLibrary
             )
             && jacket_config::env::DSYM.os().is_none();
+
         // Every other macOS build with debug information collects a dSYM after linking: find out
         // now that `dsymutil` is there, not after the compile and link.
         if debug_info
@@ -432,14 +458,17 @@ impl LlvmBackend {
         {
             jaic_native::require_dsymutil()?;
         }
+
         let kept_dir = if settings.intermediate_path.is_empty() {
             intermediate.join(".build")
         } else {
             intermediate.clone()
         };
+
         if settings.output_type != OutputType::ObjectFile {
             remove_stale_objects(&kept_dir, &file_name);
         }
+
         let object = if settings.output_type == OutputType::ObjectFile {
             output.clone()
         } else if keep_objects {
@@ -447,6 +476,7 @@ impl LlvmBackend {
         } else {
             beside(".o")
         };
+
         // Creating the object file now finds out, with the system's reason, when that place
         // cannot be written, rather than from LLVM or the linker after code generation.
         if keep_objects {
@@ -458,6 +488,7 @@ impl LlvmBackend {
                 )
             })?;
         }
+
         std::fs::File::create(&object).map_err(|e| {
             format!(
                 "cannot write `{}`: {}\nhelp: choose a directory you can write to with `-output_path`",
@@ -485,6 +516,7 @@ fn remove_stale_objects(dir: &Path, file_name: &std::ffi::OsStr) {
         return;
     };
     let prefix = file_name.to_string_lossy().into_owned();
+
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         // `<name>.o`, then `<name>.o.N.o` for the other codegen units.
@@ -495,6 +527,7 @@ fn remove_stale_objects(dir: &Path, file_name: &std::ffi::OsStr) {
                     .and_then(|r| r.strip_suffix(".o"))
                     .is_some_and(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
         });
+
         if stale {
             let _ = std::fs::remove_file(entry.path());
         }
@@ -533,12 +566,14 @@ impl OutputBackend for LlvmBackend {
             extra_link_args,
         } = self.prepare(settings, output)?;
         let output = output.as_path();
+
         if matches!(
             settings.output_type,
             OutputType::ObjectFile | OutputType::NoOutput
         ) {
             return timings::time("codegen", || generate::object(program, &options, &object));
         }
+
         let objects = timings::time("codegen", || generate::objects(program, &options, &object))?;
         let libraries = jaic_native::used_libraries(program);
         let wasm = target.is_some_and(jaic::target::Target::is_wasm);
@@ -551,6 +586,7 @@ impl OutputBackend for LlvmBackend {
             .chain(self.link_args.iter().cloned())
             .collect();
         let mut link_args = metaprogram_args.clone();
+
         link_args.extend(extra_link_args);
         let debug_info = options.debug_info;
         let cross_library_dirs = cross_library_dirs(target);
@@ -558,6 +594,7 @@ impl OutputBackend for LlvmBackend {
             OutputType::ObjectFile | OutputType::NoOutput => unreachable!(),
             OutputType::Executable | OutputType::DynamicLibrary if wasm => {
                 let start = jaic::ir::Linkage::Export("_start".into());
+
                 jaic_native::link_wasm(&jaic_native::WasmLink {
                     objects: &objects,
                     memory64: target.is_none_or(|t| !t.memory32),
@@ -606,17 +643,20 @@ impl OutputBackend for LlvmBackend {
             && linked.is_ok()
             && target.unwrap_or_else(Target::host).is_apple()
             && settings.output_type != OutputType::StaticLibrary;
+
         if macho
             && !keep_objects
             && let Err(message) = timings::time("debug info", || jaic_native::write_dsym(output))
         {
             eprintln!("warning: {message}");
         }
+
         if !(keep_objects && linked.is_ok()) {
             for object in &objects {
                 let _ = std::fs::remove_file(object);
             }
         }
+
         linked
     }
 
@@ -636,6 +676,7 @@ impl OutputBackend for LlvmBackend {
             prepared.target,
             &cross_library_dirs(prepared.target),
         )?;
+
         jaic::build::report_executable(settings, &prepared.output)?;
         Ok(jaic::build::LinkObjects {
             objects: objects.iter().map(|o| o.display().to_string()).collect(),

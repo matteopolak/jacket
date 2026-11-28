@@ -24,10 +24,12 @@ pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
 
 pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let types = &cx.compiler.ty.types;
+
     for p in &cx.procs {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -48,16 +50,20 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 (Some(c), None) => (&**y, c),
                 _ => return true,
             };
+
             if k < 0 || c < 0 || cx.constant(x) || !cx.ty(x).is_some_and(|t| types.is_integer(t)) {
                 return true;
             }
+
             let impossible = match op {
                 BinOp::BitAnd => k & !c != 0,
                 _ => c & !k != 0,
             };
+
             if !impossible {
                 return true;
             }
+
             let always = *cmp == BinOp::Ne;
             let shown = cx.whole_src(e).trim();
             let why = if *op == BinOp::BitAnd {
@@ -65,6 +71,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             } else {
                 format!("`| {c}` always sets the bits of {c}, and {k} lacks some of them")
             };
+
             out.push(replacing(
                 e.span,
                 format!("`{shown}` is always `{always}`: {why}"),

@@ -30,9 +30,11 @@ pub(crate) fn completion_wire(completion: &CompletionList) -> Value {
         .map(|item| {
             let kind = completion_kind_wire(item.kind);
             let mut wire = json!({ "label": item.label, "kind": kind, "detail": item.detail });
+
             if let Some(doc) = &item.documentation {
                 wire["documentation"] = json!({ "kind": "markdown", "value": doc });
             }
+
             if let Some(data) = &item.data {
                 wire["data"] = json!({
                     "document": data.document,
@@ -40,18 +42,23 @@ pub(crate) fn completion_wire(completion: &CompletionList) -> Value {
                     "offset": data.offset,
                 });
             }
+
             if let Some(description) = &item.label_description {
                 wire["labelDetails"] = json!({ "description": description });
             }
+
             if let Some(filter) = &item.filter_text {
                 wire["filterText"] = json!(filter);
             }
+
             if let Some(sort) = &item.sort_text {
                 wire["sortText"] = json!(sort);
             }
+
             if item.preselect {
                 wire["preselect"] = json!(true);
             }
+
             if !item.additional_edits.is_empty() {
                 wire["additionalTextEdits"] = item
                     .additional_edits
@@ -59,14 +66,17 @@ pub(crate) fn completion_wire(completion: &CompletionList) -> Value {
                     .map(|e| json!({ "range": e.range, "newText": e.new_text }))
                     .collect();
             }
+
             // `textEdit` replaces the whole word; `insertText` is for items without a range.
             let text = item.insert_text.as_deref();
+
             if let Some(range) = &item.replace {
                 wire["textEdit"] =
                     json!({ "range": range, "newText": text.unwrap_or(&item.label) });
             } else if let Some(text) = text {
                 wire["insertText"] = json!(text);
             }
+
             if text.is_some() {
                 // 2: snippet syntax (`${1:name}`), 1: plain text.
                 wire["insertTextFormat"] =
@@ -76,12 +86,14 @@ pub(crate) fn completion_wire(completion: &CompletionList) -> Value {
                         1
                     });
             }
+
             if item.trigger_signature_help {
                 wire["command"] = json!({
                     "title": "Trigger Parameter Hints",
                     "command": "editor.action.triggerParameterHints",
                 });
             }
+
             wire
         })
         .collect();

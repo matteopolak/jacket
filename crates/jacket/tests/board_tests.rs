@@ -71,13 +71,16 @@ fn tests_run_on_a_cortex_m33_board_and_report_through_semihosting() {
 #[test]
 fn a_board_skips_the_golden_tests_it_cannot_run_and_checks_the_compile_fail_ones() {
     let jacket = PathBuf::from(env!("CARGO_BIN_EXE_jacket"));
+
     if toolchain::jaic_beside(&jacket).is_none()
         || toolchain::optional("qemu-system-aarch64").is_none()
         || !toolchain::buildable("aarch64-none-elf")
     {
         return;
     }
+
     let dir = TempDir::new("board-host-cases");
+
     dir.write(
         "tests/basic.jai",
         "#import \"Basic\";\n#import \"Extensions/Testing\";\n\nadds :: (t: *Test) {\n    expect(1 + 1 == 2);\n} @test\n",
@@ -97,6 +100,7 @@ fn a_board_skips_the_golden_tests_it_cannot_run_and_checks_the_compile_fail_ones
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+
     assert!(out.status.success(), "{text}");
     assert!(
         text.lines()
@@ -118,6 +122,7 @@ fn a_board_skips_the_golden_tests_it_cannot_run_and_checks_the_compile_fail_ones
 /// program needs them (a Cortex-M core), builtins for the board's triple (`jacket toolchain add`).
 fn tests_run_on_a_board(board: &str, triple: &str, qemu: &str, builtins: bool) {
     let jacket = PathBuf::from(env!("CARGO_BIN_EXE_jacket"));
+
     if toolchain::jaic_beside(&jacket).is_none()
         || toolchain::optional(qemu).is_none()
         || !(if builtins {
@@ -128,12 +133,15 @@ fn tests_run_on_a_board(board: &str, triple: &str, qemu: &str, builtins: bool) {
     {
         return;
     }
+
     let dir = TempDir::new("board-tests");
+
     dir.write("tests/basic.jai", TESTS);
     let out = run(&jacket, &dir, &["--target", board]);
     let stderr = String::from_utf8_lossy(&out.stderr);
     // The report goes to standard error when it is not a terminal.
     let text = format!("{}{stderr}", String::from_utf8_lossy(&out.stdout));
+
     assert_eq!(out.status.code(), Some(1), "{text}");
     assert!(text.contains("PASS") && text.contains("adds"), "{text}");
     assert!(text.contains("heap"), "{text}");
@@ -151,6 +159,7 @@ fn tests_run_on_a_board(board: &str, triple: &str, qemu: &str, builtins: bool) {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+
     assert!(out.status.success(), "{text}");
     assert!(text.contains("1 passed"), "{text}");
 }

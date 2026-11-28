@@ -28,6 +28,7 @@ fn terminated(data: &[u8]) -> Result<(&[u8], &[u8]), String> {
 
 fn provider(data: &[u8]) -> Result<String, String> {
     let (name, _) = terminated(data)?;
+
     if name.is_empty()
         || name
             .iter()
@@ -35,6 +36,7 @@ fn provider(data: &[u8]) -> Result<String, String> {
     {
         return Err("import provider must be a nonempty module basename".into());
     }
+
     // Import providers can be .drv/.ocx as well as .dll. Preserve their actual name.
     String::from_utf8(name.to_vec()).map_err(|_| "invalid import provider name".into())
 }
@@ -64,6 +66,7 @@ impl Archive {
     /// Linker symbols are case-sensitive; DLL identities are case-insensitive.
     pub fn select(&self, symbol: &str) -> Result<Option<&Import>, String> {
         let mut selected: Option<&Import> = None;
+
         for import in self.imports.iter().filter(|import| import.symbol == symbol) {
             if let Some(previous) = selected {
                 if !previous.provider.eq_ignore_ascii_case(&import.provider)
@@ -78,6 +81,7 @@ impl Archive {
                 selected = Some(import);
             }
         }
+
         if selected.is_none()
             && let Some((actual, _)) = self
                 .incompatible_symbols
@@ -89,6 +93,7 @@ impl Archive {
                 self.expected
             ));
         }
+
         Ok(selected)
     }
 }
@@ -113,6 +118,7 @@ fn symbol(data: &[u8]) -> Result<String, String> {
     if data.is_empty() || data.iter().any(|&byte| !(32..127).contains(&byte)) {
         return Err("invalid or empty short import symbol/export name".into());
     }
+
     String::from_utf8(data.to_vec()).map_err(|_| "invalid short import symbol/export name".into())
 }
 
@@ -130,18 +136,23 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
         {
             return Err("truncated COFF import object header".into());
         }
+
         return Ok(Vec::new());
     }
+
     if u16_at(data, 0)? == 0 && u16_at(data, 2)? == 0xffff {
         // BigObj has a different header; it is not a short import object.
         if u16_at(data, 4)? != 0 {
             return Ok(Vec::new());
         }
+
         let actual = u16_at(data, 6)?;
         let flags = u16_at(data, 18)?;
+
         if flags & !0x1f != 0 || flags & 3 > 2 || (flags >> 2) & 7 > 4 {
             return Err("invalid short import type/name flags".into());
         }
+
         let payload = bytes(data, 20, u32_at(data, 12)? as usize)?;
         let (public, dll) = terminated(payload)?;
         let public = symbol(public)?;
@@ -157,6 +168,7 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
                 } else {
                     export
                 };
+
                 (ImportTarget::Name(symbol(export.as_bytes())?), rest)
             }
             4 => {
@@ -165,6 +177,7 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
             }
             _ => unreachable!("validated import name type"),
         };
+
         // The ARM64EC members of the Windows SDK's import libraries append the export name to
         // a `#`-prefixed symbol; those members are for another CPU and only their provider
         // matters. Elsewhere only NUL padding may follow the names.
@@ -174,20 +187,25 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
                 &rest[..rest.len().min(32)]
             ));
         }
+
         return Ok(vec![Record {
             machine: actual,
             provider: provider(dll)?,
             import: Some((public, target)),
         }]);
     }
+
     let actual = u16_at(data, 0)?;
+
     if !matches!(actual, 0x14c | 0x8664 | 0xaa64 | 0xa641) {
         return Ok(Vec::new());
     }
+
     let count = u16_at(data, 2)? as usize;
     let start = 20 + u16_at(data, 16)? as usize;
     let table = bytes(data, start, count * 40)?;
     let mut found = Vec::new();
+
     for header in table.as_chunks::<40>().0 {
         let name = &header[..8];
         let raw = || {
@@ -197,14 +215,17 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
                 u32_at(header, 16)? as usize,
             )
         };
+
         // GNU's DLL-name member is a relocation-free .idata$7 section. Per-symbol
         // .idata$7 references have relocations and are not provider names.
         if name == b".idata$7" && u16_at(header, 32)? == 0 {
             let payload = raw()?;
+
             if payload.first().is_some_and(|&b| b != 0) {
                 found.push(Record::descriptor(actual, provider(payload)?));
             }
         }
+
         // Long MS COFF descriptors point at the DLL-name section through the
         // Name RVA relocation at offset12. Never interpret a hint/name as a DLL.
         if name == b".idata$2" {
@@ -214,14 +235,18 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
                 u32_at(header, 24)? as usize,
                 u16_at(header, 32)? as usize * 10,
             )?;
+
             for reloc in relocs.as_chunks::<10>().0 {
                 if u32_at(reloc, 0)? != 12 {
                     continue;
                 }
+
                 let index = u32_at(reloc, 4)? as usize;
+
                 if index >= u32_at(data, 12)? as usize {
                     return Err("COFF import relocation symbol out of bounds".into());
                 }
+
                 let symbols = u32_at(data, 8)? as usize;
                 let symbol = bytes(
                     data,
@@ -231,16 +256,21 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
                     18,
                 )?;
                 let section = u16_at(symbol, 12)? as i16;
+
                 if section == 0 {
                     continue;
                 } // GNU's name is in another member.
+
                 if section < 0 || section as usize > count {
                     return Err("invalid COFF import name section".into());
                 }
+
                 let target = &table[(section as usize - 1) * 40..section as usize * 40];
+
                 if &target[..8] != b".idata$6" && &target[..8] != b".idata$7" {
                     return Err("COFF import name relocation has no name section".into());
                 }
+
                 let contents = bytes(
                     data,
                     u32_at(target, 20)? as usize,
@@ -249,6 +279,7 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
                 let offset = (u32_at(symbol, 8)? as usize)
                     .checked_add(u32_at(descriptor, 12)? as usize)
                     .ok_or("COFF import name overflow")?;
+
                 found.push(Record::descriptor(
                     actual,
                     provider(
@@ -260,6 +291,7 @@ fn object(data: &[u8]) -> Result<Vec<Record>, String> {
             }
         }
     }
+
     Ok(found)
 }
 
@@ -269,47 +301,61 @@ pub(crate) fn archive(data: &[u8], expected: u16) -> Result<Archive, String> {
     if !data.starts_with(b"!<arch>\n") {
         return Err("not a COFF import archive".into());
     }
+
     let mut cursor = 8;
     let mut result: Vec<String> = Vec::new();
     let mut incompatible = None;
     let mut imports = Vec::new();
     let mut incompatible_symbols = Vec::new();
+
     while cursor < data.len() {
         let header = bytes(data, cursor, 60)?;
+
         if &header[58..] != b"`\n" {
             return Err("invalid COFF archive member trailer".into());
         }
+
         let length = std::str::from_utf8(&header[48..58])
             .map_err(|_| "invalid archive member length")?
             .trim();
+
         if length.is_empty() || !length.bytes().all(|c| c.is_ascii_digit()) {
             return Err("invalid archive member length".into());
         }
+
         let size = length
             .parse::<usize>()
             .map_err(|_| "archive member length overflow")?;
+
         cursor += 60;
         let mut payload = bytes(data, cursor, size)?;
         let name = std::str::from_utf8(&header[..16])
             .map_err(|_| "invalid archive member name")?
             .trim_end();
+
         if let Some(len) = name.strip_prefix("#1/") {
             let len = len
                 .parse::<usize>()
                 .map_err(|_| "invalid extended member name")?;
+
             payload = payload.get(len..).ok_or("truncated extended member name")?;
         }
+
         if !matches!(name, "/" | "//" | "/SYM64/") {
             for record in object(payload)? {
                 let actual = record.machine;
                 let name = record.provider;
+
                 if actual != expected {
                     incompatible.get_or_insert(actual);
+
                     if let Some((symbol, _)) = record.import {
                         incompatible_symbols.push((actual, symbol));
                     }
+
                     continue;
                 }
+
                 if let Some((symbol, target)) = record.import {
                     imports.push(Import {
                         symbol,
@@ -317,25 +363,31 @@ pub(crate) fn archive(data: &[u8], expected: u16) -> Result<Archive, String> {
                         target,
                     });
                 }
+
                 if !result.iter().any(|known| known.eq_ignore_ascii_case(&name)) {
                     result.push(name);
                 }
             }
         }
+
         cursor = cursor.checked_add(size).ok_or("archive member overflow")?;
+
         if size % 2 != 0 {
             // PE/COFF documents IMAGE_ARCHIVE_PAD as newline; Microsoft SDK
             // archives also use NUL. Both occupy the same required alignment
             // byte. Never consume payload or a following header as padding.
             let pad = bytes(data, cursor, 1)?[0];
+
             if !matches!(pad, 0 | b'\n') {
                 return Err(format!(
                     "invalid archive member padding 0x{pad:02x} at offset {cursor}"
                 ));
             }
+
             cursor += 1;
         }
     }
+
     if result.is_empty()
         && let Some(actual) = incompatible
     {
@@ -343,6 +395,7 @@ pub(crate) fn archive(data: &[u8], expected: u16) -> Result<Archive, String> {
             "import provider CPU 0x{actual:04x} does not match interpreter CPU 0x{expected:04x}"
         ));
     }
+
     Ok(Archive {
         providers: result,
         imports,
@@ -378,6 +431,7 @@ pub(crate) fn candidates(
     if name.contains('\0') {
         return Err("native library name contains NUL".into());
     }
+
     let path = Path::new(name);
     let file = path
         .file_name()
@@ -386,6 +440,7 @@ pub(crate) fn candidates(
     let lower = file.to_ascii_lowercase();
     let explicit = lower.ends_with(".dll") || lower.ends_with(".drv") || lower.ends_with(".ocx");
     let archive = lower.ends_with(".lib") || lower.ends_with(".a");
+
     if path.is_absolute() {
         return Ok(vec![if archive {
             Candidate::Archive(path.into())
@@ -393,15 +448,19 @@ pub(crate) fn candidates(
             Candidate::Dll(path.into())
         }]);
     }
+
     let mut locations = Vec::new();
+
     if !system {
         locations.push((
             Path::new(base).join(path.parent().unwrap_or(Path::new(""))),
             false,
         ));
     }
+
     locations.extend(dirs.iter().cloned().map(|dir| (dir, true)));
     let mut out = Vec::new();
+
     for (dir, strip_lib) in locations {
         if explicit || archive {
             out.push(if archive {
@@ -411,6 +470,7 @@ pub(crate) fn candidates(
             });
             continue;
         }
+
         let stem = if strip_lib {
             file.strip_prefix("lib").unwrap_or(file)
         } else {
@@ -431,6 +491,7 @@ pub(crate) fn candidates(
                 format!("lib{stem}.a"),
             ]
         };
+
         out.extend(
             archives
                 .into_iter()
@@ -439,6 +500,7 @@ pub(crate) fn candidates(
         out.push(Candidate::Dll(dir.join(format!("{stem}.dll"))));
         out.push(Candidate::Dll(dir.join(format!("lib{stem}.dll"))));
     }
+
     if archive {
         out.push(Candidate::Archive(path.into()));
     } else if explicit {
@@ -446,9 +508,11 @@ pub(crate) fn candidates(
     } else {
         out.push(Candidate::Dll(PathBuf::from(format!("{name}.dll"))));
         let bare = name.strip_prefix("lib").unwrap_or(name);
+
         if bare != name {
             out.push(Candidate::Dll(PathBuf::from(format!("{bare}.dll"))));
         }
     }
+
     Ok(out)
 }

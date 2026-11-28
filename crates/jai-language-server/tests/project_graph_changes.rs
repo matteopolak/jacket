@@ -17,6 +17,7 @@ fn check_errors(s: &Session, uri: &DocumentUri) -> Vec<String> {
 /// Rewrite a file on disk and tell the session, as a client's file watcher would.
 fn rewrite(s: &mut Session, path: &Path, text: &str) {
     let existed = path.exists();
+
     std::fs::write(path, text).unwrap();
     s.file_changed(path, !existed);
 }
@@ -37,6 +38,7 @@ fn a_load_added_on_disk_gives_the_fragment_its_new_siblings() {
         &[("main.jai", MAIN), ("a.jai", A), ("b.jai", B)],
     );
     let (mut s, a, _) = open_file(&dir, "a.jai");
+
     assert_ne!(
         check_errors(&s, &a),
         Vec::<String>::new(),
@@ -58,6 +60,7 @@ fn a_load_removed_on_disk_takes_the_siblings_away() {
         &[("main.jai", main), ("a.jai", A), ("b.jai", B)],
     );
     let (mut s, a, _) = open_file(&dir, "a.jai");
+
     assert_eq!(check_errors(&s, &a), Vec::<String>::new());
     rewrite(&mut s, &dir.join("main.jai"), MAIN);
     assert_ne!(check_errors(&s, &a), Vec::<String>::new());
@@ -68,6 +71,7 @@ fn a_loaded_file_created_later_joins_the_program() {
     let main = "#import \"Basic\";\n#load \"a.jai\";\n#load \"b.jai\";\nmain :: () { use_it(); }\n";
     let dir = project("create-loaded", &[("main.jai", main), ("a.jai", A)]);
     let (mut s, a, _) = open_file(&dir, "a.jai");
+
     assert_ne!(check_errors(&s, &a), Vec::<String>::new());
     rewrite(&mut s, &dir.join("b.jai"), B);
     assert_eq!(check_errors(&s, &a), Vec::<String>::new());
@@ -81,6 +85,7 @@ fn a_loaded_file_deleted_leaves_the_program() {
         &[("main.jai", main), ("a.jai", A), ("b.jai", B)],
     );
     let (mut s, a, _) = open_file(&dir, "a.jai");
+
     assert_eq!(check_errors(&s, &a), Vec::<String>::new());
     remove(&mut s, &dir.join("b.jai"));
     assert_ne!(check_errors(&s, &a), Vec::<String>::new());
@@ -94,6 +99,7 @@ fn a_renamed_loaded_file_follows_the_load_line() {
         &[("main.jai", main), ("a.jai", A), ("b.jai", B)],
     );
     let (mut s, a, _) = open_file(&dir, "a.jai");
+
     assert_eq!(check_errors(&s, &a), Vec::<String>::new());
     // Rename `b.jai` to `c.jai`, then fix the load.
     remove(&mut s, &dir.join("b.jai"));
@@ -123,12 +129,14 @@ fn a_changed_entry_in_jacket_toml_moves_the_fragments_program() {
         ],
     );
     let (mut s, a, _) = open_file(&dir, "a.jai");
+
     assert_ne!(
         check_errors(&s, &a),
         Vec::<String>::new(),
         "first.jai has no helper"
     );
     let toml = dir.join("jacket.toml");
+
     std::fs::write(&toml, "[project]\nentry = [\"second.jai\"]\n").unwrap();
     s.file_changed(&toml, false);
     assert_eq!(check_errors(&s, &a), Vec::<String>::new());
@@ -147,13 +155,17 @@ fn each_workspace_folder_keeps_its_own_entries() {
         &[("main.jai", other_main), ("a.jai", A), ("b.jai", B)],
     );
     let mut s = workspace_session(&one);
+
     s.set_workspace_folders(vec![one.path().to_path_buf(), two.path().to_path_buf()]);
+
     for (folder, clean) in [(&one, false), (&two, true)] {
         let path = folder.join("a.jai");
         let uri = uri_of(&path);
+
         s.open(uri.clone(), 1, std::fs::read_to_string(&path).unwrap())
             .unwrap();
         let errors = check_errors(&s, &uri);
+
         assert_eq!(errors.is_empty(), clean, "{}: {errors:?}", folder.display());
     }
 }
@@ -172,6 +184,7 @@ fn a_loaded_file_created_or_deleted_gives_what_a_fresh_session_gives() {
         let (s, uri, _) = open_file(dir, "main.jai");
         s.diagnostics(&uri).unwrap()
     };
+
     assert_eq!(s.diagnostics(&uri).unwrap(), fresh(&dir));
     remove(&mut s, &dir.join("gone.jai"));
     assert_eq!(s.diagnostics(&uri).unwrap(), fresh(&dir));
@@ -192,11 +205,14 @@ fn opening_a_loader_after_its_target_was_deleted_gives_what_a_fresh_session_give
     );
     let (mut s, other, _) = open_file(&dir, "other.jai");
     let _ = s.diagnostics(&other).unwrap();
+
     remove(&mut s, &dir.join("gone.jai"));
     let path = dir.join("main.jai");
     let uri = uri_of(&path);
+
     s.open(uri.clone(), 1, main.into()).unwrap();
     let (fresh, fresh_uri, _) = open_file(&dir, "main.jai");
+
     assert_eq!(
         s.diagnostics(&uri).unwrap(),
         fresh.diagnostics(&fresh_uri).unwrap()

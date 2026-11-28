@@ -362,6 +362,7 @@ impl Interp {
     /// ```
     pub fn end_compile_time_budget(&mut self) {
         self.eval_steps = None;
+
         if self.block_budget.is_some() {
             self.block_budget = Some(u64::MAX);
         }
@@ -375,6 +376,7 @@ impl Interp {
         {
             self.block_budget = Some(limit);
         }
+
         self.block_budget
     }
 
@@ -398,6 +400,7 @@ impl Interp {
         if let Some(window) = &self.window {
             host.attach_window(window);
         }
+
         self.host = host;
     }
 
@@ -412,16 +415,20 @@ impl Interp {
         if host.native_linking() {
             native::waits::prepare();
         }
+
         let window = (usize::from(layout.pointer_size) < std::mem::size_of::<usize>()).then(|| {
             Window::shared(layout.pointer_size).expect(
                 "cannot reserve address space for a program with narrow pointers: it needs 3 GiB of virtual memory",
             )
         });
+
         if let Some(window) = &window {
             host.attach_window(window);
         }
+
         let read_only = read_only_in(window.as_ref());
         let addresses = window.as_ref().map_or(AddressMap::HOST, |w| w.addresses());
+
         Self {
             layout,
             window,
@@ -543,6 +550,7 @@ impl Interp {
             .into_iter()
             .chain(self.calls.iter().rev().filter_map(|c| c.1))
             .collect();
+
         if let Some(watch) = self.note_watch.as_mut() {
             watch.read(addr, len, &stack);
         }
@@ -558,11 +566,13 @@ impl Interp {
         self.retired = Vec::new();
         self.globals = Vec::new();
         self.ranges = BTreeMap::new();
+
         if self.window.is_some() {
             self.read_only.clear();
         } else {
             self.read_only = read_only::ReadOnlyData::default();
         }
+
         self.ct_type_table = (0, 0);
         self.stack = ValueStack::default();
         self.sp = 0;
@@ -585,6 +595,7 @@ impl Interp {
         if let Some(lines) = self.lines.as_mut() {
             lines.flush();
         }
+
         if let Some(counts) = self.profile.as_mut() {
             counts.flush();
         }
@@ -598,6 +609,7 @@ fn exit_forked_child(code: i32) -> ! {
         unsafe extern "C" {
             fn _exit(code: i32) -> !;
         }
+
         // SAFETY: `_exit` ends the process at once, without unwinding, and accepts any status.
         unsafe { _exit(code) }
     }
@@ -611,6 +623,7 @@ impl Interp {
     /// forever, while a native program's exit just ends it.
     pub fn stop_for_exit(&mut self) {
         self.flush_profile();
+
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(shared) = &self.shared {
             shared.stop();
@@ -622,12 +635,14 @@ impl Interp {
     /// again does nothing more.
     pub fn shutdown(&mut self) {
         self.flush_profile();
+
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(shared) = self.shared.take() {
             #[cfg(windows)]
             threads::release_own_windows();
             shared.close();
             let gate: std::sync::Arc<dyn native::Gate> = shared;
+
             native::release_callbacks(&gate);
         }
     }

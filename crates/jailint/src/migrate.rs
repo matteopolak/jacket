@@ -106,6 +106,7 @@ impl Selection {
         let Some(only) = &self.only else {
             return Ok(MIGRATIONS.iter().filter(|m| !m.ambiguous).collect());
         };
+
         only.iter()
             .map(|name| {
                 MIGRATIONS
@@ -119,6 +120,7 @@ impl Selection {
 
 fn unknown_migration(name: &str) -> String {
     let names: Vec<&str> = MIGRATIONS.iter().map(|m| m.name).collect();
+
     match jaic::suggest::closest(name, names.iter().copied()) {
         Some(near) => format!("no migration is called `{name}`\nhelp: did you mean `{near}`?"),
         None => {
@@ -209,6 +211,7 @@ impl Trial {
             .map(|e| {
                 let text = self.work.texts.get(&e.path).map_or("", |(_, t)| t.as_str());
                 let before = text.get(..e.start).unwrap_or(text);
+
                 RejectedError {
                     path: e.path.clone(),
                     line: before.matches('\n').count() + 1,
@@ -231,18 +234,21 @@ impl Work {
             let chosen = non_overlapping(file_edits);
             let file_shifts = self.shifts.entry(path.clone()).or_default();
             let file_applied = self.applied.entry(path.clone()).or_default();
+
             for (edit, name) in &chosen {
                 file_applied.push(Applied {
                     migration: name,
                     start: original_offset(file_shifts, edit.start),
                 });
             }
+
             for (edit, _) in &chosen {
                 file_shifts.push((
                     edit.start,
                     edit.text.len() as isize - (edit.end - edit.start) as isize,
                 ));
             }
+
             *text = crate::fix::apply_edits(text, chosen.into_iter().map(|(e, _)| e).collect());
         }
     }
@@ -273,16 +279,20 @@ impl TokenCache {
     fn tokens(&mut self, path: &Path, text: &str) -> &[Token] {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
+
         text.hash(&mut hasher);
         let key = hasher.finish();
+
         if self.files.get(path).is_none_or(|(kept, _)| *kept != key) {
             let (tokens, _) = jaic::lexer::lex_ide(jaic::source::FileId(0), text);
+
             #[cfg(test)]
             {
                 self.lexed += 1;
             }
             self.files.insert(path.to_path_buf(), (key, tokens));
         }
+
         &self.files[path].1
     }
 }
@@ -310,6 +320,7 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
         shifts: BTreeMap::new(),
     };
     let mut skipped = Vec::new();
+
     for path in &first.files {
         let bytes = std::fs::read(path)
             .map_err(|e| format!("cannot read `{}`: {}", path.display(), jaic::io_reason(&e)))?;
@@ -319,8 +330,10 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
         };
         let before: Arc<str> = Arc::from(text);
         let after = before.to_string();
+
         work.texts.insert(path.clone(), (before, after));
     }
+
     let mut manual = Vec::new();
     let mut rejected: Vec<Rejected> = Vec::new();
     let mut active: Vec<&'static Migration> = migrations.to_vec();
@@ -328,41 +341,53 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
     let mut tokens = TokenCache::default();
     let trial = |options: &mut Options, work: &Work, edits: Edits| {
         let mut next = work.clone();
+
         next.apply(edits);
         options.overlay = next.overlay();
         let errors = driver::run(options).errors;
         let (introduced, _) = compare(&first.errors, &errors);
+
         Trial {
             work: next,
             errors,
             introduced,
         }
     };
+
     for pass in 0..MAX_PASSES {
         let (edits, found) = detect(&work, &errors, &options, &active, &mut tokens);
+
         manual = found;
+
         if edits.is_empty() {
             break;
         }
+
         if pass + 1 == MAX_PASSES {
             return Err(format!(
                 "the migrations did not settle after {MAX_PASSES} passes; this is a bug in a migration, please report it"
             ));
         }
+
         let all = trial(&mut options, &work, edits.clone());
+
         if all.introduced.is_empty() {
             work = all.work;
             errors = all.errors;
+
             continue;
         }
+
         // Something in this pass is wrong. Try each migration on its own to find which, and keep
         // the ones that introduce nothing.
         let mut names: Vec<&'static str> = Vec::new();
+
         for (_, name) in edits.values().flatten() {
             if !names.contains(name) {
                 names.push(name);
             }
         }
+
         let only = |keep: &dyn Fn(&str) -> bool| -> Edits {
             edits
                 .iter()
@@ -375,6 +400,7 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
         };
         let mut good: Vec<Trial> = Vec::new();
         let mut good_names: Vec<&'static str> = Vec::new();
+
         if names.len() == 1 {
             rejected.push(Rejected {
                 migration: names[0],
@@ -383,6 +409,7 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
         } else {
             for name in &names {
                 let own = trial(&mut options, &work, only(&|n| n == *name));
+
                 if own.introduced.is_empty() {
                     good_names.push(name);
                     good.push(own);
@@ -394,19 +421,24 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
                 }
             }
         }
+
         active.retain(|m| !rejected.iter().any(|r| r.migration == m.name));
+
         // The accepted migrations together, or the first alone when they disagree.
         if good.len() > 1 {
             let together = trial(&mut options, &work, only(&|n| good_names.contains(&n)));
+
             if together.introduced.is_empty() {
                 good = vec![together];
             }
         }
+
         if let Some(next) = good.into_iter().next() {
             work = next.work;
             errors = next.errors;
         }
     }
+
     let (_, remaining) = compare(&first.errors, &errors);
     let files = work
         .texts
@@ -414,6 +446,7 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
         .filter(|(_, (before, after))| **before != **after)
         .map(|(path, (before, after))| {
             let mut file_applied = work.applied.remove(&path).unwrap_or_default();
+
             file_applied.sort_by_key(|a| a.start);
             Migrated {
                 path,
@@ -423,6 +456,7 @@ fn plan_with(mut options: Options, migrations: &[&'static Migration]) -> Result<
             }
         })
         .collect();
+
     Ok(Plan {
         files,
         manual,
@@ -442,6 +476,7 @@ fn detect(
 ) -> (Edits, Vec<Manual>) {
     let mut edits = Edits::new();
     let mut manual = Vec::new();
+
     for (path, (_, text)) in &work.texts {
         let tokens = cache.tokens(path, text);
         // The `modules` folder beside the main file: the file's own folder, or a folder the
@@ -468,6 +503,7 @@ fn detect(
             tokens,
             module_dirs: &module_dirs,
         };
+
         for m in migrations {
             let answers = match m.detect {
                 Detect::Tokens(detect) => detect(&source),
@@ -480,6 +516,7 @@ fn detect(
                     .filter_map(|e| answer(e, &source))
                     .collect(),
             };
+
             for a in answers {
                 match a {
                     Answer::Edit {
@@ -509,6 +546,7 @@ fn detect(
             }
         }
     }
+
     (edits, manual)
 }
 
@@ -517,6 +555,7 @@ fn non_overlapping(mut edits: Vec<(Edit, &'static str)>) -> Vec<(Edit, &'static 
     edits.sort_by_key(|(e, _)| (e.start, e.end));
     edits.dedup_by(|(a, _), (b, _)| a == b);
     let mut chosen: Vec<(Edit, &'static str)> = Vec::new();
+
     for (edit, name) in edits {
         if chosen
             .last()
@@ -524,8 +563,10 @@ fn non_overlapping(mut edits: Vec<(Edit, &'static str)>) -> Vec<(Edit, &'static 
         {
             continue;
         }
+
         chosen.push((edit, name));
     }
+
     chosen
 }
 
@@ -533,11 +574,13 @@ fn non_overlapping(mut edits: Vec<(Edit, &'static str)>) -> Vec<(Edit, &'static 
 /// as (start, change in length).
 fn original_offset(shifts: &[(usize, isize)], offset: usize) -> usize {
     let mut at = offset as isize;
+
     for &(start, delta) in shifts.iter().rev() {
         if (start as isize) < at {
             at -= delta;
         }
     }
+
     at.max(0) as usize
 }
 
@@ -550,9 +593,11 @@ fn compare(
     let mut left: Vec<&CompileError> = before.iter().collect();
     let mut introduced = Vec::new();
     let mut remaining = Vec::new();
+
     for e in after {
         let same =
             |b: &&CompileError| b.path == e.path && b.code == e.code && b.message == e.message;
+
         if let Some(i) = left.iter().position(same) {
             left.remove(i);
             remaining.push(e.clone());
@@ -560,6 +605,7 @@ fn compare(
             introduced.push(e.clone());
         }
     }
+
     (introduced, remaining)
 }
 

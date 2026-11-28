@@ -19,6 +19,7 @@ pub(super) fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
             Vec::new()
         }
     };
+
     match native_libs::host_lib_dirs(&System, stdlib) {
         Ok(found) => dirs.extend(found),
         // A misnamed folder is a mistake in the environment, reported before anything runs.
@@ -27,11 +28,13 @@ pub(super) fn native_lib_dirs(stdlib: &Path) -> Vec<PathBuf> {
             std::process::exit(1);
         }
     }
+
     if cfg!(target_os = "macos")
         && let Err(why) = apple::libclang_dir(&System).map(|dir| dirs.push(dir))
     {
         missing.push(("clang".into(), why.to_string()));
     }
+
     jaic::interp::set_missing_libraries(missing);
     dirs
 }

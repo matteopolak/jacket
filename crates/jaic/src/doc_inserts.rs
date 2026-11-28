@@ -34,9 +34,11 @@ fn line_of(text: &str, at: usize) -> usize {
 /// made, the path of the `#insert` that made it (see `generated_path`).
 fn place_of(compiler: &Compiler, file: FileId) -> Option<PathBuf> {
     let source = compiler.src.sources.try_get(file)?;
+
     if let Some(real) = source.path.as_file() {
         return Some(canonical(real));
     }
+
     let site = *compiler.src.insert_sites.get(&file)?;
     let at = compiler
         .ed
@@ -45,6 +47,7 @@ fn place_of(compiler: &Compiler, file: FileId) -> Option<PathBuf> {
         .map_or(site, |(span, _)| *span);
     let parent = place_of(compiler, at.file)?;
     let text = &compiler.src.sources.try_get(at.file)?.text;
+
     Some(crate::doc_comments::generated_path(
         &parent,
         line_of(text, at.start as usize),
@@ -85,6 +88,7 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
     });
     let compiler = &mut started.compiler;
     let mut facts = IdeFacts::new(vec![IdeRoot::under(canonical(dir)), IdeRoot::Virtual]);
+
     // The model parses what an insert made in full; it is not the bounded text of a hover.
     facts.keep_insert_text = true;
     compiler.ed.record(facts);
@@ -95,6 +99,7 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
         .ed
         .facts()
         .map_or_else(Vec::new, |f| f.insert_sources.values().cloned().collect());
+
     for (span, text) in inserted {
         if let Some(file) = place_of(compiler, span.file) {
             let line = compiler
@@ -102,9 +107,11 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
                 .sources
                 .try_get(span.file)
                 .map_or(1, |s| line_of(&s.text, span.start as usize));
+
             texts.insert((file, line), text);
         }
     }
+
     let error = result.err().map(|e| {
         let at = compiler
             .src
@@ -114,6 +121,7 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
             .unwrap_or_default();
         format!("{}{at}", e.message)
     });
+
     Expanded {
         texts,
         error,
@@ -126,6 +134,7 @@ fn compile(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> Expanded {
 pub fn model_json(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> String {
     let (dir, stdlib) = (canonical(dir), canonical(stdlib));
     let mut expanded: Option<Expanded> = None;
+
     crate::doc_comments::model_json_expanding(&dir, &stdlib, import_dirs, &mut |file, line| {
         let expanded = expanded.get_or_insert_with(|| {
             // Compiling needs a large stack, as `jaic` itself runs on.
@@ -141,6 +150,7 @@ pub fn model_json(dir: &Path, stdlib: &Path, import_dirs: &[PathBuf]) -> String 
                     })
             })
         });
+
         match expanded.texts.get(&(canonical(file), line)) {
             Some(text) => Ok(text.clone()),
             // Not reached: under an `#if` that is off for this system, or in a file the module

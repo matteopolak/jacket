@@ -45,6 +45,7 @@ fn linter_options(dir: &Path) -> Options {
 fn language_server_linter_and_command_line_search_the_same_folders() {
     let dir = project("import-agreement", &files());
     let expected = existing([dir.join("modules"), dir.join("vendor"), stdlib()]);
+
     assert_eq!(expected.len(), 3);
 
     // The command line: `jacket` passes `import-path` as `-import_dir`, jaic puts its own
@@ -52,16 +53,20 @@ fn language_server_linter_and_command_line_search_the_same_folders() {
     let config =
         jacket_config::parse(&std::fs::read_to_string(dir.join("jacket.toml")).unwrap()).unwrap();
     let cli = jaic::project::import_paths(&dir, &[], &config.project.import_dirs(&dir), &stdlib());
+
     assert_eq!(existing(cli), expected);
 
     // The linter.
     let linted = root_import_paths(&linter_options(&dir), &dir.join("main.jai"));
+
     assert_eq!(existing(linted), expected);
 
     // The language server, over the live text of the open file.
     let mut session = Session::with_environment(Limits::default(), modules_environment(None));
+
     session.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("main.jai"));
+
     session
         .open(uri.clone(), 1, "main :: () {}\n".into())
         .unwrap();
@@ -72,16 +77,20 @@ fn language_server_linter_and_command_line_search_the_same_folders() {
         .unwrap()
         .into_iter()
         .map(|p| p.path);
+
     assert_eq!(existing(served), expected);
 }
 
 #[test]
 fn import_dir_flags_come_after_the_project_import_path() {
     let dir = project("import-agreement-flags", &files());
+
     std::fs::create_dir_all(dir.join("extra")).unwrap();
     let mut options = linter_options(&dir);
+
     options.import_dirs = vec![dir.join("extra")];
     let linted = existing(root_import_paths(&options, &dir.join("main.jai")));
+
     assert_eq!(
         linted,
         existing([
@@ -103,13 +112,16 @@ fn changing_the_workspace_folders_changes_the_module_folders_served() {
         ],
     );
     let mut session = Session::with_environment(Limits::default(), modules_environment(None));
+
     session.set_workspace_folders(vec![dir.to_path_buf()]);
     let uri = uri_of(&dir.join("sub/main.jai"));
+
     session
         .open(uri.clone(), 1, "main :: () {}\n".into())
         .unwrap();
     let served = |session: &mut Session| -> Vec<PathBuf> {
         let coverage = session.semantic_coverage(&uri).unwrap().unwrap();
+
         existing(
             coverage
                 .analysis
@@ -120,6 +132,7 @@ fn changing_the_workspace_folders_changes_the_module_folders_served() {
         )
     };
     let up = dir.join("modules").canonicalize().unwrap();
+
     assert!(served(&mut session).contains(&up));
     session.set_workspace_folders(vec![dir.join("sub")]);
     assert!(!served(&mut session).contains(&up));

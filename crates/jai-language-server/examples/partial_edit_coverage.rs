@@ -24,6 +24,7 @@ fn run() {
     let max_lines = args
         .next()
         .map_or(0, |s| s.parse().expect("integer MAX_LINES"));
+
     edit_coverage::set_progress(args.next().as_deref() == Some("--progress"));
     let file = file.canonicalize().expect("source file exists");
     let bytes = std::fs::read(&file).expect("Jai source");
@@ -31,8 +32,10 @@ fn run() {
     // are Unicode; record the decoding instead of silently skipping the file.
     let source = String::from_utf8_lossy(&bytes);
     let mut report = edit_coverage::check(&file, &source, stdlib, max_lines);
+
     report.utf8_lossy = std::str::from_utf8(&bytes).is_err();
     println!("{}", serde_json::to_string(&report).unwrap());
+
     if !report.failures.is_empty() {
         std::process::exit(1);
     }

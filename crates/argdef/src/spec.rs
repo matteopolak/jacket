@@ -90,7 +90,9 @@ impl Opt {
         if !self.synopsis.is_empty() {
             return self.synopsis.to_string();
         }
+
         let names = self.names.join(", ");
+
         if self.kind == Kind::Value {
             format!("{names} <{}>", self.value)
         } else {
@@ -144,6 +146,7 @@ pub trait Args: Default + Sized {
     /// The options and the tool's description.
     fn spec() -> Spec {
         let mut opts = Vec::new();
+
         Self::options(0, &mut opts);
         Spec {
             meta: Self::META,
@@ -281,11 +284,13 @@ impl Spec {
         if let Some(opt) = self.find(arg) {
             return (arg, None, Some(opt));
         }
+
         if let Some((name, value)) = arg.split_once('=')
             && let Some(opt) = self.find(name).filter(|o| o.kind == Kind::Value)
         {
             return (name, Some(value.to_string()), Some(opt));
         }
+
         for opt in self
             .opts
             .iter()
@@ -302,6 +307,7 @@ impl Spec {
                 }
             }
         }
+
         (arg, None, None)
     }
 
@@ -344,6 +350,7 @@ impl Spec {
             error: None,
         };
         let mut index = 0;
+
         while let Some(os) = args.get(index) {
             // An argument that is not UTF-8 is a value or an operand, never an option.
             let Some(arg) = os.as_ref().to_str() else {
@@ -356,12 +363,15 @@ impl Spec {
                     width: 1,
                 });
                 index += 1;
+
                 continue;
             };
+
             if self.marker(arg).is_some() {
                 scan.boundary = Some(index);
                 break;
             }
+
             let (name, inline, opt) = self.split(arg);
             let mut token = Token {
                 index,
@@ -371,6 +381,7 @@ impl Spec {
                 inline: inline.is_some(),
                 width: 1,
             };
+
             if let Some(opt) = opt.filter(|o| o.kind == Kind::Value)
                 && inline.is_none()
             {
@@ -378,12 +389,15 @@ impl Spec {
                     scan.error = Some(Error::missing(name, opt.needs));
                     break;
                 };
+
                 token.value = value.as_ref().to_str().map(String::from);
                 token.width = 2;
             }
+
             index += token.width;
             scan.tokens.push(token);
         }
+
         scan
     }
 }

@@ -15,12 +15,15 @@ fn formatter_table() -> Vec<String> {
         .expect("the formatter's punctuation table");
     let mut spellings = Vec::new();
     let mut chars = body.chars();
+
     while let Some(c) = chars.next() {
         if c == '"' {
             let spelling: String = chars.by_ref().take_while(|&c| c != '"').collect();
+
             spellings.push(spelling);
         }
     }
+
     spellings
 }
 
@@ -28,6 +31,7 @@ fn formatter_table() -> Vec<String> {
 fn the_formatters_punctuation_is_the_compilers() {
     let theirs = formatter_table();
     let ours: Vec<&str> = punctuation_spellings().collect();
+
     assert_eq!(
         theirs, ours,
         "update PUNCTUATION in the formatter's lexer.jai"
@@ -43,6 +47,7 @@ fn every_spelling_is_one_punctuation_token() {
             .iter()
             .filter(|t| !matches!(t.tok, Tok::Eof))
             .collect();
+
         assert_eq!(tokens.len(), 1, "{spelling}");
         assert!(matches!(tokens[0].tok, Tok::Punct(_)), "{spelling}");
     }

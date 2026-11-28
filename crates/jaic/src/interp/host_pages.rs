@@ -88,6 +88,7 @@ mod sys {
         // SAFETY: the caller owns `base..base + len`, a page-aligned range of a reservation; a
         // fixed mapping over it replaces only those pages.
         let at = unsafe { mmap(base as *mut c_void, len, 0, FLAGS | FIXED, -1, 0) };
+
         crate::interp::probe::invalidate();
         at as usize == base
     }
@@ -151,6 +152,7 @@ mod sys {
     pub(in crate::interp) fn decommit(base: usize, len: usize) -> bool {
         // SAFETY: a page-aligned range inside a reservation the caller owns.
         let ok = unsafe { VirtualFree(base as *mut c_void, len, DECOMMIT) } != 0;
+
         crate::interp::probe::invalidate();
         ok
     }

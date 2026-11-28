@@ -33,17 +33,21 @@ impl Session {
             LinkSource::Import(source) => {
                 let (import_paths, packages) = paths.get_or_init(|| {
                     let root = PathBuf::from(self.root(uri).path());
+
                     self.options_for(&root)
                         .map(|o| (o.import_paths, o.package_imports))
                         .unwrap_or_default()
                 });
                 let dir = Path::new(uri.path()).parent()?;
+
                 jaic::sema::import_entry(&files, import_paths, packages, source, dir)?
             }
         };
+
         if !files.is_file(&path) {
             return None;
         }
+
         let path = self
             .environment
             .as_ref()
@@ -66,12 +70,14 @@ impl Session {
             .iter()
             .filter_map(|link| {
                 let target = self.link_target_with_paths(uri, link, &paths)?;
+
                 Some((
                     self.range_of(uri, Span::new(link.string.start, link.string.end))?,
                     target.as_str().to_string(),
                 ))
             })
             .collect();
+
         out.extend(self.doc_comment_links(uri));
         Ok(out)
     }
@@ -84,6 +90,7 @@ impl Session {
             .iter()
             .find(|l| l.directive.start <= byte && byte <= l.directive.end)?;
         let target = self.link_target(uri, link)?;
+
         Some(Location {
             uri: target.as_str().into(),
             range: Range::default(),

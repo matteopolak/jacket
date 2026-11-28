@@ -37,10 +37,12 @@ pub(super) unsafe fn call(
         let Some((size, Some([piece]))) = ret else {
             return Err("unexpected long double call shape".into());
         };
+
         debug_assert_eq!(piece.ty, PieceTy::X87);
         // SAFETY: as this function's contract.
         let bytes = unsafe { x87::call(addr, regs) };
         let mut value = [0u8; 16];
+
         value[..10].copy_from_slice(&bytes[..10]);
         // SAFETY: the out-pointer addresses `size` (16) bytes.
         unsafe {
@@ -60,6 +62,7 @@ pub(super) unsafe fn call(
         };
         // SAFETY: as this function's contract.
         let (x, q) = unsafe { vector::call(addr, regs, sret) };
+
         match ret {
             None => Ok(match sig.returns.first() {
                 None => Rets::default(),
@@ -70,9 +73,11 @@ pub(super) unsafe fn call(
             Some((_, None)) => Ok(Rets::default()),
             Some((size, Some(pieces))) => {
                 let (mut ni, mut nq) = (0, 0);
+
                 for p in pieces {
                     let at = out_ptr + p.offset;
                     let room = size - p.offset;
+
                     match p.ty {
                         PieceTy::I64 => {
                             // SAFETY: the out-pointer addresses `size` bytes and `room` stays
@@ -83,6 +88,7 @@ pub(super) unsafe fn call(
                         PieceTy::F128 => {
                             let bytes = q[nq].to_le_bytes();
                             let n = room.min(16) as usize;
+
                             // SAFETY: the out-pointer addresses `size` bytes and `n` stays
                             // within them; `bytes` is host memory, so they cannot overlap.
                             unsafe {
@@ -96,6 +102,7 @@ pub(super) unsafe fn call(
                             } else {
                                 8
                             };
+
                             // SAFETY: the out-pointer addresses `size` bytes and `room`
                             // stays within them.
                             unsafe { write_bytes(at, q[nq] as u64, room.min(width)) };
@@ -103,6 +110,7 @@ pub(super) unsafe fn call(
                         }
                     }
                 }
+
                 Ok(Rets::default())
             }
         }
@@ -137,8 +145,10 @@ mod x87 {
             target: addr,
             result: [0; 16],
         };
+
         block.ints.copy_from_slice(&regs.ints[..6]);
         let p: *mut Block = &raw mut block;
+
         // SAFETY: the sequence restores `rsp`; `r12` (callee-saved) keeps the block address
         // across the call, `r13` the caller's stack pointer.
         unsafe {
@@ -226,6 +236,7 @@ mod vector {
             out_quads: [0; 4],
         };
         let p: *mut Block = &raw mut block;
+
         // SAFETY: the sequence restores `sp`; `x21` (callee-saved) keeps the block address
         // across the call, `x22` the caller's stack pointer.
         unsafe {
@@ -308,9 +319,11 @@ mod tests {
                 }
             })
             .collect();
+
         params.push(Ty::Ptr);
         let mut abi_params: Vec<Option<AggLayout>> =
             wide.iter().map(|&w| w.then(|| wide_layout(ty))).collect();
+
         abi_params.push(None);
         Sig {
             c_fixed: params.len() as u32,
@@ -364,6 +377,7 @@ mod tests {
         ];
         let signature = sig(Ty::F80, &[false, true, true]);
         let plan = super::super::Plan::new(&signature);
+
         super::super::call_with(x87_sum as *const () as u64, &args, &signature, &plan).unwrap();
         let sum = wide_float::arith(fmt, wide_float::Arith::Add, &x, &y);
         let want = wide_float::arith(
@@ -372,6 +386,7 @@ mod tests {
             &sum,
             &wide_float::from_f64(fmt, 5.0),
         );
+
         assert_eq!(out, want);
     }
 
@@ -419,12 +434,15 @@ mod tests {
             let spilled = words(0x30, 0x40);
             let mut out = [0u8; 16];
             let mut args = vec![a.as_ptr() as u64, 0x100];
+
             args.extend((0..7).map(|_| filler.as_ptr() as u64));
             args.push(spilled.as_ptr() as u64);
             args.push(out.as_mut_ptr() as u64);
             let mut wide = vec![true, false];
+
             wide.extend([true; 8]);
             let sig = sig(Ty::F128, &wide);
+
             super::super::super::call(mix as *const () as u64, &args, &sig).unwrap();
             assert_eq!(
                 out,

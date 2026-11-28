@@ -43,6 +43,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         let message = "both branches of this `if` are the same".to_string();
                         let help = "the condition decides nothing: was one branch meant to differ?"
                             .to_string();
+
                         // Without the test and the second copy, the block that is left runs
                         // as it did; only an `if` whose condition has no effect can lose it.
                         out.push(if pure(cond) && matches!(then_branch.kind, S::Block(_)) {
@@ -75,6 +76,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         let message = "both branches of this `ifx` are the same".to_string();
                         let help = "the condition decides nothing: was one branch meant to differ?"
                             .to_string();
+
                         out.push(if pure(cond) {
                             suggesting(
                                 e.span,
@@ -97,6 +99,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     }
                 }
             }
+
             true
         });
     }
@@ -120,6 +123,7 @@ fn empty(s: &Stmt) -> bool {
 /// The tokens of `a` and `b` (comments and layout are not tokens) are the same.
 fn same_tokens<'n>(cx: &Cx, a: impl Into<Node<'n>>, b: impl Into<Node<'n>>) -> bool {
     let (a, b) = (tokens(cx, a), tokens(cx, b));
+
     a.len() == b.len()
         && a.iter()
             .zip(b)
@@ -132,5 +136,6 @@ fn tokens<'a, 'n>(cx: &Cx<'a>, node: impl Into<Node<'n>>) -> &'a [Token] {
         .tokens
         .partition_point(|t| (t.span.start as usize) < start);
     let last = cx.tokens.partition_point(|t| (t.span.end as usize) <= end);
+
     &cx.tokens[first..last.max(first)]
 }

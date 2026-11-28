@@ -9,6 +9,7 @@ fn leak_path(path: &str) -> &'static SourcePath {
 fn label(text: &str, needle: &str, message: Option<&str>) -> Label<'static> {
     let text: &'static str = Box::leak(text.to_string().into_boxed_str());
     let start = text.find(needle).unwrap();
+
     Label {
         path: leak_path("u.jai"),
         text,
@@ -23,6 +24,7 @@ fn unknown_name() -> Report<'static> {
     let primary = label(SOURCE, "countr)", Some("not found in this scope"));
     let at = primary.start;
     let mut report = Report::new(Code::UnknownIdentifier, "unknown identifier `countr`");
+
     report.primary = Some(Label {
         end: at + 6,
         ..primary
@@ -53,10 +55,12 @@ const UNICODE_STYLE: Style = Style {
 #[test]
 fn a_lint_finding_is_named_by_its_rule() {
     let mut report = unknown_name();
+
     report.code = Code::LintFinding;
     report.severity = Code::LintFinding.severity();
     report.name = Some("magic_number");
     let text = report.render_with(Style::PLAIN);
+
     assert!(
         text.starts_with("u.jai:3:18: warning[magic_number]: unknown identifier"),
         "{text}"
@@ -66,6 +70,7 @@ fn a_lint_finding_is_named_by_its_rule() {
 #[test]
 fn plain_compact_is_the_long_standing_layout() {
     let text = unknown_name().render_with(Style::PLAIN);
+
     assert_eq!(
         text,
         "u.jai:3:18: error[unknown-identifier]: unknown identifier `countr`\n\
@@ -82,6 +87,7 @@ fn msvc_layout_is_one_located_line_per_item_and_never_coloured() {
         layout: Layout::Msvc,
         color: true,
     };
+
     assert_eq!(
         unknown_name().render_with(style),
         "u.jai(3,18): error[unknown-identifier]: unknown identifier `countr`\n\
@@ -89,12 +95,14 @@ fn msvc_layout_is_one_located_line_per_item_and_never_coloured() {
          u.jai(3,18): note: help: a similar name exists: `counter`\n"
     );
     let bare = Report::new(Code::TypeMismatch, "no place").render_with(style);
+
     assert_eq!(bare, "error[type-mismatch]: no place\n");
 }
 
 #[test]
 fn ascii_block_has_line_numbers_context_labels_and_the_fix() {
     let text = unknown_name().render_with(ASCII_STYLE);
+
     assert_eq!(
         text,
         "error[unknown-identifier]: unknown identifier `countr`\n\
@@ -116,6 +124,7 @@ fn ascii_block_has_line_numbers_context_labels_and_the_fix() {
 #[test]
 fn unicode_block_draws_boxes() {
     let text = unknown_name().render_with(UNICODE_STYLE);
+
     assert_eq!(
         text,
         "error[unknown-identifier]: unknown identifier `countr`\n\
@@ -139,6 +148,7 @@ fn colour_marks_severity_gutter_and_labels() {
         layout: Layout::Unicode,
         color: true,
     });
+
     assert!(
         text.starts_with("\x1b[1;31merror[unknown-identifier]\x1b[0m\x1b[1m: unknown identifier"),
         "{text}"
@@ -155,14 +165,17 @@ fn secondary_labels_and_other_files() {
         Code::TypeMismatch,
         "type mismatch: expected `int`, found `string`",
     );
+
     report.primary = Some(label(source, "\"text\"", Some("this is a `string`")));
     report
         .secondary
         .push(label(source, "int", Some("`x` is declared as `int` here")));
     let mut other = label("helper :: () {}\n", "helper", Some("also here"));
+
     other.path = leak_path("other.jai");
     report.secondary.push(other);
     let text = report.render_with(ASCII_STYLE);
+
     assert_eq!(
         text,
         "error[type-mismatch]: type mismatch: expected `int`, found `string`\n\
@@ -183,6 +196,7 @@ fn secondary_labels_and_other_files() {
     );
     // The plain compact layout keeps one item per place.
     let plain = report.render_with(Style::PLAIN);
+
     assert!(
         plain.contains("u.jai:1:4: note: `x` is declared as `int` here\n"),
         "{plain}"
@@ -195,6 +209,7 @@ fn multi_line_spans_get_a_connector() {
     let mut report = Report::new(Code::ShadowsBuiltinType, "`f` is never used");
     let start = 0;
     let end = source.find("}\n").unwrap() + 1;
+
     report.primary = Some(Label {
         path: leak_path("m.jai"),
         text: source,
@@ -204,6 +219,7 @@ fn multi_line_spans_get_a_connector() {
         lines: None,
     });
     let text = report.render_with(UNICODE_STYLE);
+
     assert_eq!(
         text,
         "warning[shadows-builtin-type]: `f` is never used\n\
@@ -217,6 +233,7 @@ fn multi_line_spans_get_a_connector() {
          \x20  ╰─\n"
     );
     let ascii = report.render_with(ASCII_STYLE);
+
     assert!(ascii.contains(" 1 | / f :: () {\n"), "{ascii}");
     assert!(ascii.contains("   | \\__ this procedure\n"), "{ascii}");
 }
@@ -224,11 +241,14 @@ fn multi_line_spans_get_a_connector() {
 #[test]
 fn long_spans_show_their_edges_and_long_lines_are_cut() {
     let mut source = String::from("f :: () {\n");
+
     for i in 0..20 {
         source += &format!("    x{i} := {i};\n");
     }
+
     source += "}\n";
     let mut report = Report::new(Code::TypeMismatch, "long");
+
     report.primary = Some(Label {
         path: leak_path("l.jai"),
         text: Box::leak(source.clone().into_boxed_str()),
@@ -238,18 +258,22 @@ fn long_spans_show_their_edges_and_long_lines_are_cut() {
         lines: None,
     });
     let text = report.render_with(ASCII_STYLE);
+
     assert!(text.contains("\n   ...\n"), "{text}");
     assert!(!text.contains("x10"), "{text}");
     assert!(text.contains("x19"), "{text}");
 
     let long = format!("x := {}needle{};\n", "a".repeat(200), "b".repeat(200));
     let mut report = Report::new(Code::TypeMismatch, "cut");
+
     report.primary = Some(label(&long, "needle", None));
     let text = report.render_with(UNICODE_STYLE);
     let line = text.lines().find(|l| l.contains("needle")).unwrap();
+
     assert!(line.chars().count() < 150, "{line}");
     assert!(line.contains('…'), "{line}");
     let marks = text.lines().find(|l| l.contains('━')).unwrap();
+
     assert_eq!(
         marks.find('━').map(|i| marks[..i].chars().count()),
         line.find("needle").map(|i| line[..i].chars().count())
@@ -260,14 +284,17 @@ fn long_spans_show_their_edges_and_long_lines_are_cut() {
 fn tabs_are_expanded_outside_the_plain_layout() {
     let source = "main :: () {\n\tx := y;\n}\n";
     let mut report = Report::new(Code::TypeMismatch, "unknown identifier `y`");
+
     report.primary = Some(label(source, "y;", None));
     report.primary.as_mut().unwrap().end -= 1;
     let text = report.render_with(ASCII_STYLE);
+
     assert!(
         text.contains(" 2 |     x := y;\n   |          ^\n"),
         "{text}"
     );
     let plain = report.render_with(Style::PLAIN);
+
     assert!(plain.contains("    \tx := y;\n    \t     ^\n"), "{plain}");
 }
 
@@ -275,6 +302,7 @@ fn tabs_are_expanded_outside_the_plain_layout() {
 fn reports_without_a_place() {
     let report = Report::new(Code::TypeMismatch, "file `nope.jai` does not exist")
         .help("did you mean `nop.jai`?");
+
     for style in [Style::PLAIN, ASCII_STYLE, UNICODE_STYLE] {
         assert_eq!(
             report.render_with(style),
@@ -295,6 +323,7 @@ fn detection_follows_terminal_flags_and_environment() {
     };
     let utf8 = env(&[("LANG", "en_US.UTF-8"), ("TERM", "xterm-256color")]);
     let auto = ColorChoice::Auto;
+
     // Pipes: the plain layout, no colour.
     assert_eq!(detect_with(auto, false, utf8), Style::PLAIN);
     // A UTF-8 terminal.
@@ -346,6 +375,7 @@ fn reports_from_text_split_help_and_note_lines() {
         Code::CliFailure,
         "linking failed\nld: oops\nhelp: install it\nnote: why\n",
     );
+
     assert_eq!(report.message, "linking failed\nld: oops");
     assert_eq!(report.help.len(), 1);
     assert_eq!(report.help[0].message, "install it");
@@ -365,6 +395,7 @@ fn scoped_style_stays_on_its_thread() {
         color: true,
     };
     let global = style();
+
     with_style(unicode, || {
         assert_eq!(style(), unicode);
         assert_eq!(std::thread::spawn(style).join().unwrap(), global);
@@ -384,6 +415,7 @@ fn fix_diff_omits_unchanged_lines() {
             (dead - newline.len(), dead + 5, String::new()),
             (old, old + 4, "new;".into()),
         ];
+
         assert_eq!(
             changed_lines(&text, &LineIndex::new(&text), &edits),
             vec![
@@ -392,7 +424,9 @@ fn fix_diff_omits_unchanged_lines() {
             ]
         );
     }
+
     let text = "keep;\ndead;";
+
     assert_eq!(
         changed_lines(
             text,
@@ -438,6 +472,7 @@ fn fix_diff_handles_inline_insertions_and_blank_lines() {
             vec![("2", '-', "b;")],
         ),
     ];
+
     for (text, edits, expected) in cases {
         assert_eq!(
             changed_lines(text, &LineIndex::new(text), &edits),
@@ -452,14 +487,17 @@ fn fix_diff_handles_inline_insertions_and_blank_lines() {
 #[test]
 fn warning_fix_deletion_marker_is_red() {
     let mut report = unknown_name();
+
     report.severity = Severity::Warning;
     let start = SOURCE.find("    counter").unwrap();
     let end = SOURCE[start..].find('\n').unwrap() + start + 1;
+
     report.help[0].fix.as_mut().unwrap().edits = vec![(start, end, String::new())];
     let text = report.render_with(Style {
         layout: Layout::Ascii,
         color: true,
     });
+
     assert!(text.contains("\x1b[1;33mwarning"), "{text}");
     assert!(text.contains("\x1b[31m-\x1b[0m"), "{text}");
 }

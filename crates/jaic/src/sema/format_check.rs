@@ -17,6 +17,7 @@ fn forwards_format(text: &str, format: Sym, values: Sym) -> bool {
     };
     // (saw the format, saw the values) per open parenthesis.
     let mut open: Vec<(bool, bool)> = Vec::new();
+
     for t in tokens {
         match t.tok {
             Tok::Punct(P::LParen) => open.push((false, false)),
@@ -25,6 +26,7 @@ fn forwards_format(text: &str, format: Sym, values: Sym) -> bool {
                     if f && v {
                         return true;
                     }
+
                     if let Some(parent) = open.last_mut() {
                         parent.0 |= f;
                         parent.1 |= v;
@@ -40,6 +42,7 @@ fn forwards_format(text: &str, format: Sym, values: Sym) -> bool {
             _ => {}
         }
     }
+
     false
 }
 
@@ -53,6 +56,7 @@ impl Compiler {
     /// Whether `p` is declared with the note `@name`, on its header or after its body.
     pub fn proc_has_note(&self, p: ProcId, name: &str) -> bool {
         let noted = |notes: &[ast::Note]| notes.iter().any(|n| n.is(name));
+
         noted(&self.proc(p).lit.header.notes)
             || self.pr.proc_decl_notes.get(&p).is_some_and(|n| noted(n))
     }
@@ -65,6 +69,7 @@ impl Compiler {
                 .find_map(|n| n.string_argument(name))
                 .map(str::to_string)
         };
+
         found(&self.proc(p).lit.header.notes)
             .or_else(|| self.pr.proc_decl_notes.get(&p).and_then(|n| found(n)))
     }
@@ -73,6 +78,7 @@ impl Compiler {
     /// `..Any`, by the parameters' resolved types rather than how they are spelled.
     pub(crate) fn format_string_param(&mut self, proc: ProcId, span: Span) -> Option<usize> {
         let sig = self.signature(proc, span).ok()?;
+
         sig.params.windows(2).position(|w| {
             w[0].ty == TypeId::STRING
                 && w[1].variadic
@@ -115,12 +121,14 @@ impl Compiler {
             Some(Slot::Default) | None => &[],
             Some(_) => return Ok(()),
         };
+
         if given
             .iter()
             .any(|&a| args[a].spread || args[a].name.is_some())
         {
             return Ok(());
         }
+
         // `@PrintLike` states the intent; without it a body that hands both parameters to one
         // call (a wrapper around `print`) is taken for a formatter.
         if !self.is_print_like(chosen) {
@@ -129,10 +137,12 @@ impl Compiler {
             else {
                 return Ok(());
             };
+
             if !forwards_format(self.src.sources.snippet(body.span), f.name, v.name) {
                 return Ok(());
             }
         }
+
         let need = format_string::required(&format_string::specs_of_value(bytes));
         let name = self.proc(chosen).name;
         let plural = |n: usize| {
@@ -145,9 +155,11 @@ impl Compiler {
                 }
             )
         };
+
         if given.len() == need {
             return Ok(());
         }
+
         let message = format!(
             "incorrect number of arguments supplied to `{name}`: the format string requires {}, but {} {} given",
             plural(need),
@@ -175,9 +187,11 @@ impl Compiler {
         } else {
             self.drop_extra_arguments(format_arg.span, need, given.iter().map(|&a| args[a].span))
         };
+
         if let Some(fix) = fix {
             warning = warning.with_suggestion(fix);
         }
+
         self.warn(warning);
         Ok(())
     }
@@ -192,27 +206,35 @@ impl Compiler {
     /// directive is a bare `%` and the string then asks for exactly the arguments passed.
     fn escape_unmatched(&self, format: Span, given: usize) -> Option<Suggestion> {
         let literal = self.source_of(format)?;
+
         if !literal.starts_with('"') {
             return None;
         }
+
         let specs = format_string::specs(literal, 0, literal.len());
         let mut unmatched: Vec<_> = specs
             .iter()
             .filter(|s| s.index.is_some_and(|i| i >= given))
             .collect();
+
         if unmatched.is_empty() || unmatched.iter().any(|s| s.end - s.start != 1) {
             return None;
         }
+
         unmatched.sort_by_key(|s| s.start);
         let mut fixed = literal.to_string();
+
         for spec in unmatched.iter().rev() {
             fixed.insert(spec.start, '\\');
         }
+
         // The escaped string must use exactly the arguments the call passes.
         let after = format_string::specs(&fixed, 0, fixed.len());
+
         if format_string::required(&after) != given {
             return None;
         }
+
         let title = if unmatched.len() == 1 {
             "write the last `%` as `\\%` to print a percent sign"
         } else {
@@ -222,12 +244,14 @@ impl Compiler {
             .iter()
             .map(|s| {
                 let at = format.start as usize + s.start;
+
                 Edit::Replace {
                     span: Span::new(format.file, at, at),
                     text: "\\".into(),
                 }
             })
             .collect();
+
         Some(
             Suggestion::with_edits(title, edits, Applicability::MaybeIncorrect)
                 .with_action("Escape the `%`"),
@@ -250,23 +274,28 @@ impl Compiler {
         } else {
             *given.get(need - 1)?
         };
+
         if keep.file != last.file || keep.file != format.file || keep.end > last.start {
             return None;
         }
+
         let removed = Span::new(keep.file, keep.end as usize, last.end as usize);
         let removed_text = self.source_of(removed)?;
         let text_len = self.src.sources.get(keep.file).text.len();
         let after = Span::new(keep.file, last.end as usize, text_len);
         let rest = self.source_of(after)?.trim_start();
         let rest = rest.strip_prefix(',').unwrap_or(rest).trim_start();
+
         if !rest.starts_with(')') || !balanced(removed_text) {
             return None;
         }
+
         let (title, action) = if given.len() - need == 1 {
             ("remove the extra argument", "Remove the extra argument")
         } else {
             ("remove the extra arguments", "Remove the extra arguments")
         };
+
         Some(
             Suggestion::replace(title, removed, "", Applicability::MaybeIncorrect)
                 .with_action(action),
@@ -279,6 +308,7 @@ fn balanced(text: &str) -> bool {
     let mut depth = 0i32;
     let mut quote = false;
     let mut chars = text.chars();
+
     while let Some(c) = chars.next() {
         match c {
             '\\' if quote => {
@@ -288,6 +318,7 @@ fn balanced(text: &str) -> bool {
             '(' | '[' | '{' if !quote => depth += 1,
             ')' | ']' | '}' if !quote => {
                 depth -= 1;
+
                 if depth < 0 {
                     return false;
                 }
@@ -295,5 +326,6 @@ fn balanced(text: &str) -> bool {
             _ => {}
         }
     }
+
     depth == 0 && !quote
 }

@@ -9,6 +9,7 @@ mod doc {
     fn tools() -> Option<(PathBuf, PathBuf)> {
         let jacket = PathBuf::from(env!("CARGO_BIN_EXE_jacket"));
         let jaic = toolchain::jaic_beside(&jacket)?;
+
         Some((jacket, jaic))
     }
 
@@ -30,6 +31,7 @@ mod doc {
             .env("JAIC_STDLIB", repo().join("stdlib"))
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{}{}",
@@ -47,6 +49,7 @@ mod doc {
             return;
         };
         let temp = TempDir::new("doc-theme-e2e");
+
         temp.write("jacket.toml", "[doc]\npath = 'lib'\nname = 'Tiny'\n");
         temp.write(
             "lib/Tiny/module.jai",
@@ -65,6 +68,7 @@ mod doc {
                 .unwrap()
         };
         let output = run(&["--emit-input", "input"]);
+
         assert!(
             output.status.success(),
             "{}{}",
@@ -74,6 +78,7 @@ mod doc {
         let input_file = temp.join("input/site.json");
         let mut bad_input: serde_json::Value =
             serde_json::from_slice(&std::fs::read(&input_file).unwrap()).unwrap();
+
         bad_input["format"] = 999.into();
         std::fs::write(&input_file, serde_json::to_vec(&bad_input).unwrap()).unwrap();
         let cache = std::fs::read_dir(temp.join("cache/jacket/doc-site"))
@@ -83,6 +88,7 @@ mod doc {
             .unwrap()
             .path();
         let native = cache.join(format!("doc-site{}", std::env::consts::EXE_SUFFIX));
+
         assert!(native.is_file(), "the theme is always compiled natively");
         let bad = Command::new(native)
             .env("JAIC_STDLIB", repo().join("stdlib"))
@@ -91,6 +97,7 @@ mod doc {
             .arg("--check")
             .output()
             .unwrap();
+
         assert_eq!(bad.status.code(), Some(2));
         assert!(!temp.join("unused").exists());
         assert!(temp.join("site/.jacket-doc").is_file());
@@ -101,16 +108,20 @@ mod doc {
                 .contains("Tiny")
         );
         let module = std::fs::read_to_string(temp.join("site/api/Tiny.html")).unwrap();
+
         assert!(module.contains("href=\"/api/Tiny/answer\""));
         let item = std::fs::read_to_string(temp.join("site/api/Tiny/answer.html")).unwrap();
+
         assert!(item.contains("The answer."));
         let icons = std::fs::read(temp.join("site/assets/icons.svg")).unwrap();
         let stamp = icons.iter().fold(0xcbf2_9ce4_8422_2325_u64, |hash, byte| {
             (hash ^ u64::from(*byte)).wrapping_mul(0x0100_0000_01b3)
         }) >> 32;
+
         for icon in ["search", "system"] {
             assert!(item.contains(&format!("href=\"/assets/icons.svg?v={stamp:08x}#{icon}\"")));
         }
+
         assert!(!item.contains("assets/icons.svg#"));
         assert!(run(&["--check"]).status.success());
         temp.write("theme/assets/site.css", "body{color:green}");
@@ -136,6 +147,7 @@ mod doc {
             .split('"')
             .next()
             .unwrap();
+
         assert!(!overridden.contains(&format!("assets/site.css?v={original_css}")));
         temp.write("flag-theme/assets/site.css", "body{color:blue}");
         assert!(run(&["--theme", "flag-theme"]).status.success());
@@ -145,6 +157,7 @@ mod doc {
         );
         temp.write("bad-theme/parts.jai", "this is not valid Jai");
         let compile_error = run(&["--theme", "bad-theme"]);
+
         assert_eq!(compile_error.status.code(), Some(2));
         assert!(String::from_utf8_lossy(&compile_error.stderr).contains("parts.jai"));
         // A link in trusted prose must be checked by the Jai writer as well.
@@ -154,12 +167,14 @@ mod doc {
             "[doc]\npath = 'lib'\n[[doc.page]]\nfile = 'broken.md'\nname = 'Broken'\n",
         );
         let broken = run(&["--check"]);
+
         assert_eq!(broken.status.code(), Some(1));
         let message = format!(
             "{}{}",
             String::from_utf8_lossy(&broken.stdout),
             String::from_utf8_lossy(&broken.stderr)
         );
+
         assert!(
             message.contains("/missing` leads to no written file"),
             "{message}"
@@ -175,6 +190,7 @@ mod doc {
             return;
         };
         let temp = TempDir::new("doc-icon");
+
         temp.write(
             "lib/Tiny/module.jai",
             "// Tiny.\n\n// The answer.\nanswer :: 42;\n",
@@ -191,6 +207,7 @@ mod doc {
                 .current_dir(&temp)
                 .output()
                 .unwrap();
+
             assert!(
                 output.status.success(),
                 "{}",
@@ -199,11 +216,13 @@ mod doc {
             std::fs::read_to_string(temp.join("site/index.html")).unwrap()
         };
         let html = index("[doc]\npath = 'lib'\nlogo = 'logo.svg'\n");
+
         assert!(
             html.contains("<link rel=\"icon\" href=\"/assets/logo.svg\" type=\"image/svg+xml\">"),
             "{html}"
         );
         let html = index("[doc]\npath = 'lib'\nlogo = 'logo.svg'\nicon = 'icon.png'\n");
+
         assert!(
             html.contains("<link rel=\"icon\" href=\"/assets/icon.png\" type=\"image/png\">"),
             "{html}"
@@ -222,6 +241,7 @@ mod doc {
             return;
         };
         let temp = TempDir::new("doc-metadata");
+
         temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\nbreadcrumb='std'\nurl='https://example.com'\nsite-name='Tiny std'\nog-image='https://example.com/og.png'\ncanonical-version='2'\n[[doc.page]]\nfile='guide.md'\nname='Guide'\n[[doc.section]]\nfile='rules.md'\nname='Rules'\n");
         temp.write(
             "lib/String/module.jai",
@@ -249,8 +269,10 @@ mod doc {
                 .output()
                 .unwrap()
         };
+
         for version in ["2", "1"] {
             let output = run(version);
+
             assert!(
                 output.status.success(),
                 "{}{}",
@@ -266,9 +288,11 @@ mod doc {
                 ("guides/guide.html", "Guide — Tiny"),
                 ("404.html", "Page not found — Tiny"),
             ];
+
             for (path, title) in pages {
                 let page = std::fs::read_to_string(temp.join("site").join(path)).unwrap();
                 let head = page.split_once("</head>").unwrap().0;
+
                 assert!(head.contains(&format!("<title>{title}</title>")), "{head}");
                 let description = head
                     .split_once("name=\"description\" content=\"")
@@ -277,8 +301,10 @@ mod doc {
                     .split('"')
                     .next()
                     .unwrap();
+
                 assert!(description.chars().count() <= 155);
                 assert!(!description.contains(['<', '>']));
+
                 for property in [
                     "og:title",
                     "og:description",
@@ -288,6 +314,7 @@ mod doc {
                 ] {
                     assert!(head.contains(property), "{path}: {property}");
                 }
+
                 assert_eq!(head.contains("og:url"), path != "404.html");
                 assert!(head.contains("summary_large_image"));
                 assert!(head.contains("rel=\"icon\""));
@@ -306,11 +333,13 @@ mod doc {
                 } else {
                     format!("https://example.com/{folder}")
                 };
+
                 // A 404 is served at many URLs, so it has no canonical one.
                 assert_eq!(
                     head.contains(&format!("rel=\"canonical\" href=\"{target}\"")),
                     path != "404.html"
                 );
+
                 if let Some((_, json)) = head.split_once("application/ld+json\">") {
                     let data: serde_json::Value =
                         serde_json::from_str(json.split_once("</script>").unwrap().0).unwrap();
@@ -320,20 +349,25 @@ mod doc {
                         .iter()
                         .find(|d| d["@type"] == "BreadcrumbList")
                         .unwrap();
+
                     assert_eq!(breadcrumbs["itemListElement"][0]["name"], "std");
                     assert_eq!(breadcrumbs["itemListElement"][1]["name"], "String");
+
                     if path.contains("/trim") {
                         assert_eq!(data[0]["@type"], "TechArticle");
                         assert_eq!(breadcrumbs["itemListElement"][2]["name"], "trim");
                     }
                 }
+
                 if path == "404.html" {
                     // Absolute from the base URL, so it works at any depth on any host.
                     assert!(page.contains("href=\"/api/String\""));
                     assert!(!page.contains("href=\"https://example.com/api/"));
                 }
             }
+
             let sitemap = std::fs::read_to_string(temp.join("site/sitemap.xml")).unwrap();
+
             assert!(sitemap.contains("https://example.com/api/String/trim"));
             assert!(!sitemap.contains("404.html"));
             assert_eq!(
@@ -352,6 +386,7 @@ mod doc {
             return;
         };
         let temp = TempDir::new("doc-context");
+
         temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\nhome='docs/home.md'\n[[doc.page]]\nfile='docs/language/context.md'\nname='Implicit context'\n");
         temp.write(
             "docs/home.md",
@@ -362,6 +397,7 @@ mod doc {
             "# Implicit context\n\n`#Context` is synthesized; `context` is active.\n",
         );
         temp.write("lib/Tiny/module.jai", "// An owned library.\n\n// An ordinary user type.\nContext :: struct { field: int; }\n\n// An alias to the program type.\nActive :: #Context;\n\n// Uses the implicit type.\nuse :: (active: *#Context, alias: *Active, ordinary: *Context) {}\n");
+
         for base in ["/", "/reference/"] {
             let output = Command::new(&jacket)
                 .args(["doc", "--base-url", base, "--out", "site"])
@@ -370,6 +406,7 @@ mod doc {
                 .env("XDG_CACHE_HOME", temp.join("cache"))
                 .output()
                 .unwrap();
+
             assert!(
                 output.status.success(),
                 "{}{}",
@@ -383,6 +420,7 @@ mod doc {
                 .env("XDG_CACHE_HOME", temp.join("cache"))
                 .output()
                 .unwrap();
+
             assert!(
                 checked.status.success(),
                 "{}{}",
@@ -390,12 +428,15 @@ mod doc {
                 String::from_utf8_lossy(&checked.stderr)
             );
             let home = std::fs::read_to_string(temp.join("site/index.html")).unwrap();
+
             assert!(home.contains(&format!("href=\"{base}guides/context\"")));
             assert!(temp.join("site/guides/context.html").is_file());
             let ordinary =
                 std::fs::read_to_string(temp.join("site/api/Tiny/Context.html")).unwrap();
+
             assert!(ordinary.contains("An ordinary user type."));
             let signature = std::fs::read_to_string(temp.join("site/api/Tiny/use.html")).unwrap();
+
             assert!(signature.contains(&format!("href=\"{base}api/Tiny/Context\"")));
             assert!(signature.contains("(active: *#Context, alias: *<a"));
             let search: serde_json::Value = serde_json::from_slice(
@@ -408,6 +449,7 @@ mod doc {
                 .iter()
                 .find(|row| row[1] == "Active")
                 .unwrap();
+
             assert_eq!(alias[2], "type");
             assert_eq!(alias[4], ":: #Context");
         }
@@ -422,11 +464,13 @@ mod doc {
             return;
         };
         let temp = TempDir::new("doc-private-foreign");
+
         temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\n[[doc.category]]\nname='Standard library'\nmodules=['lib/**']\n[[doc.category]]\nname='Extensions'\nmodules=['lib/Ext']\n[[doc.page]]\nfile='guide.md'\nname='Guide'\n[[doc.section]]\nfile='tools.md'\nname='Tools'\n");
         temp.write("guide.md", "# Guide\n\nA guide.\n");
         temp.write("tools.md", "# Tools\n\nTool documentation.\n");
         temp.write("lib/Core/module.jai", "// Core.\n\nVALUE :: 1;\n");
         temp.write("lib/Ext/module.jai", "// An owned API with private native helpers.\n\nCase :: struct { value: int; }\npublic_call :: native_call;\n#scope_file\nlib :: #library \"native\";\nnative_call :: () #foreign lib;\n");
+
         for base in ["/", "/reference/"] {
             let output = Command::new(&jacket)
                 .args(["doc", "--base-url", base, "--out", "site"])
@@ -435,6 +479,7 @@ mod doc {
                 .env("XDG_CACHE_HOME", temp.join("cache"))
                 .output()
                 .unwrap();
+
             assert!(
                 output.status.success(),
                 "{}{}",
@@ -449,11 +494,14 @@ mod doc {
                         .unwrap()
                 })
                 .collect();
+
             assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
             let case = std::fs::read_to_string(temp.join("site/api/Ext/Case.html")).unwrap();
+
             assert!(!case.contains("class=\"badge foreign\""));
             let foreign =
                 std::fs::read_to_string(temp.join("site/api/Ext/public_call.html")).unwrap();
+
             assert!(foreign.contains("class=\"badge foreign\""));
             let search: serde_json::Value = serde_json::from_slice(
                 &std::fs::read(temp.join("site/search-index.json")).unwrap(),
@@ -465,6 +513,7 @@ mod doc {
                     .as_u64()
                     .unwrap()
             };
+
             assert_eq!(flags("Case") & 2, 0);
             assert_eq!(flags("public_call") & 2, 2);
             assert!(home.contains(&format!("href=\"{base}guides/guide\"")));

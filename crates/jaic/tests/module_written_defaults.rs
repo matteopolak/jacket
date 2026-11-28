@@ -11,10 +11,12 @@ const BRIDGE: &str =
 
 fn compiler(main: &str) -> Compiler {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/Leaf/module.jai", LEAF.as_bytes());
     fs.insert("/lib/Bridge/module.jai", BRIDGE.as_bytes());
     fs.insert("/app/main.jai", main.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec!["/lib".into()];
     Compiler::new(options, Rc::new(fs))
@@ -25,6 +27,7 @@ fn written_defaults_forwarding_and_storage_follow_instance_identity() {
     let mut c = compiler(include_str!(
         "../../../tests/fixtures/module-written-defaults/main.jai"
     ));
+
     if let Err(error) = c.compile_program(Path::new("/app/main.jai")) {
         panic!("{}", error.render(&c.src.sources));
     }
@@ -41,6 +44,7 @@ main :: () {}
 "#,
     );
     let error = c.compile_program(Path::new("/app/main.jai")).unwrap_err();
+
     assert!(error.message.contains("#assert failed"), "{error:?}");
 }
 
@@ -54,6 +58,7 @@ main :: () { accept(*Omitted.token); }
 "#,
     );
     let error = c.compile_program(Path::new("/app/main.jai")).unwrap_err();
+
     assert!(
         error.message.contains("does not match parameter"),
         "{error:?}"

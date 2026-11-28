@@ -14,8 +14,10 @@ fn settle(json: &mut JsonSession) {
         if !json.has_background_work() {
             return;
         }
+
         json.background_work().unwrap();
     }
+
     panic!("indexing did not finish");
 }
 
@@ -24,6 +26,7 @@ const MAIN: &str = "#import \"Basic\";\nmain :: () { print(\"hi\\n\"); }\n";
 fn started(files: &[(&str, &str)]) -> (JsonSession, test_support::TempDir) {
     let dir = project("entry-traversals", files);
     let mut json = JsonSession::with_environment(Limits::default(), environment());
+
     send(
         &mut json,
         &json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
@@ -43,26 +46,33 @@ fn idle_checks_do_not_walk_the_entries_again() {
         ("a.jai", MAIN),
         ("b.jai", MAIN),
     ]);
+
     settle(&mut json);
     let settled = json.session().entry_scans();
+
     // Whole indexing, four entries worth of steps: a handful of walks, not one per check.
     assert!(settled <= 8, "{settled} walks to index two entries");
+
     for _ in 0..50 {
         assert!(!json.indexing_pending());
         assert!(!json.has_background_work());
     }
+
     assert_eq!(json.session().entry_scans(), settled);
     // A change on disk is one more walk, however often progress is asked about it.
     let a = dir.join("a.jai");
+
     std::fs::write(&a, format!("{MAIN}// edited\n")).unwrap();
     send(
         &mut json,
         &json!({"jsonrpc": "2.0", "method": "workspace/didChangeWatchedFiles", "params": {
             "changes": [{"uri": uri_of(&a).as_str(), "type": 2}]}}),
     );
+
     for _ in 0..50 {
         let _ = json.indexing_pending();
     }
+
     assert!(
         json.session().entry_scans() <= settled + 1,
         "{} walks after one change",

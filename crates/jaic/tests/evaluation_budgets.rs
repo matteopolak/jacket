@@ -11,9 +11,11 @@ const PRELUDE: &str = "Operating_System_Tag :: enum u32 { WINDOWS; LINUX; MACOS;
 
 fn compiler(source: &str, limit: Option<u64>) -> Compiler {
     let mut fs = VirtualFs::default();
+
     fs.insert("/main.jai", source.as_bytes());
     fs.insert("/prelude/module.jai", PRELUDE.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/prelude/module.jai".into());
     options.eval_step_limit = limit;
@@ -38,11 +40,14 @@ main :: () {}
 fn every_evaluation_starts_with_its_own_budget() {
     // Together the runs spend more than the limit, but none of them does alone.
     let mut each = compiler(EIGHT_RUNS, Some(2000));
+
     run(&mut each).unwrap();
     // With one budget for the whole compile, as before, the later runs trap.
     let mut shared = compiler(EIGHT_RUNS, None);
+
     shared.ct.interp.block_budget = Some(2000);
     let error = run(&mut shared).unwrap_err();
+
     assert!(error.contains("execution budget exhausted"), "{error}");
 }
 
@@ -56,6 +61,7 @@ main :: () {}
 ";
     let mut c = compiler(source, Some(1000));
     let error = run(&mut c).unwrap_err();
+
     assert!(
         error.contains("execution budget exhausted (1000 steps)"),
         "{error}"
@@ -82,6 +88,7 @@ main :: () {}
 ";
     let mut c = compiler(source, Some(1000));
     let error = run(&mut c).unwrap_err();
+
     assert!(error.contains("still running `spin`"), "{error}");
     let diagnostics = c.ide_check_all();
     let messages: Vec<_> = diagnostics.iter().map(|d| d.message.as_str()).collect();
@@ -89,30 +96,37 @@ main :: () {}
         .iter()
         .filter(|m| m.contains("execution budget exhausted"))
         .count();
+
     assert!(exhausted <= 1, "{messages:#?}");
 }
 
 #[test]
 fn a_stopped_host_runs_no_compile_time_code() {
     let host = Rc::new(RefCell::new(SandboxHost::default()));
+
     host.borrow_mut().stop_after(Duration::ZERO);
     let mut c = compiler(
         "count :: (n: int) -> int { total := 0; for 0..n { total += it; } return total; } #run count(3); main :: () {}",
         Some(1000),
     );
+
     c.ct.interp.set_host(Box::new(SharedHost(host)));
     let error = run(&mut c).unwrap_err();
+
     assert!(error.contains("checking stopped"), "{error}");
 }
 
 #[test]
 fn the_wall_clock_limit_interrupts_a_running_loop() {
     let host = Rc::new(RefCell::new(SandboxHost::default()));
+
     host.borrow_mut().stop_after(Duration::from_millis(100));
     let mut c = compiler("#run { while true {} } main :: () {}", None);
+
     c.ct.interp.block_budget = Some(u64::MAX);
     c.ct.interp.set_host(Box::new(SharedHost(host.clone())));
     let error = run(&mut c).unwrap_err();
+
     assert!(error.contains("checking stopped"), "{error}");
     assert!(!error.contains("budget"), "{error}");
     assert!(host.borrow_mut().has_stopped());

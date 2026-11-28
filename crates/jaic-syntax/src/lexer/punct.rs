@@ -156,8 +156,10 @@ fn candidates() -> &'static [Vec<Candidate>; 256] {
                 .map(|&(text, p)| {
                     let bytes = text.as_bytes();
                     let mut bits = [0u8; 4];
+
                     bits[..bytes.len()].copy_from_slice(bytes);
                     let mut mask = [0u8; 4];
+
                     mask[..bytes.len()].fill(0xff);
                     Candidate {
                         mask: u32::from_le_bytes(mask),
@@ -180,8 +182,10 @@ pub(super) fn match_punct(rest: &[u8]) -> Option<(usize, P)> {
     let first = *rest.first()?;
     let mut window = [0u8; 4];
     let n = rest.len().min(4);
+
     window[..n].copy_from_slice(&rest[..n]);
     let word = u32::from_le_bytes(window);
+
     candidates()[first as usize]
         .iter()
         .find(|c| word & c.mask == c.bits)

@@ -27,6 +27,7 @@ impl Compiler {
                 scope.module == main && matches!(scope.kind, ScopeKind::Module | ScopeKind::File)
             })
             .collect();
+
         for &scope in &scopes {
             let reaching: Vec<ScopeId> = if self.scope(scope).kind == ScopeKind::Module {
                 scopes.clone()
@@ -40,24 +41,30 @@ impl Compiler {
             // Each module an unfiltered import names is asked once, however many files import it.
             let mut plain: HashSet<ModuleId> = HashSet::default();
             let mut imports: Vec<(ModuleId, ScopeId, usize)> = Vec::new();
+
             for &reached in &reaching {
                 for (i, entry) in self.scope(reached).imports.iter().enumerate() {
                     let Some(module) = entry.module else {
                         continue;
                     };
+
                     if matches!(entry.filter, ast::UsingFilter::None) && !plain.insert(module) {
                         continue;
                     }
+
                     imports.push((module, reached, i));
                 }
             }
+
             let mut names: Vec<(Sym, Vec<EntityId>)> = self
                 .scope(scope)
                 .names
                 .iter()
                 .map(|(&name, ids)| (name, ids.clone()))
                 .collect();
+
             names.sort_by_key(|(name, _)| name.as_str());
+
             for (name, ids) in names {
                 self.warn_if_imports_export(&imports, name, &ids);
             }
@@ -85,15 +92,18 @@ impl Compiler {
             return;
         };
         let mut imported: Vec<(ModuleId, Sym)> = Vec::new();
+
         for &(module, scope, index) in reaching {
             let Some(target) = filter_name(Some(&self.scope(scope).imports[index].filter), name)
             else {
                 continue;
             };
+
             if !imported.contains(&(module, target)) {
                 imported.push((module, target));
             }
         }
+
         for (module, target) in imported {
             let Ok(Found::Entities(theirs)) = self.module_lookup(module, target) else {
                 continue;
@@ -103,17 +113,21 @@ impl Compiler {
             };
             let procedures = own.iter().all(|&id| self.overloadable_entity(id))
                 && theirs.iter().all(|&id| self.overloadable_entity(id));
+
             if procedures {
                 let mine = self.parameter_lists(&own);
                 let same = self
                     .parameter_lists(&theirs)
                     .iter()
                     .any(|signature| mine.contains(signature));
+
                 if !same {
                     continue;
                 }
             }
+
             self.report_hidden_import(first, their, module, name, procedures);
+
             return;
         }
     }
@@ -151,6 +165,7 @@ impl Compiler {
             .with_help(format!(
                 "rename it, or import the module under a name (`{alias} :: #import \"{module_name}\";`) and write `{alias}.{name}` for the imported one"
             ));
+
         self.warn(d);
     }
 
@@ -171,6 +186,7 @@ impl Compiler {
     /// The parameter types of the monomorphic procedures among `ids`.
     fn parameter_lists(&mut self, ids: &[EntityId]) -> Vec<Parameters> {
         let mut lists = Vec::new();
+
         for &id in ids {
             let procs = match self.resolve_entity(id) {
                 Ok(Resolved::Proc(p)) => vec![p],
@@ -181,10 +197,12 @@ impl Compiler {
                 }) => vec![p],
                 _ => continue,
             };
+
             for p in procs {
                 if self.proc(p).is_poly {
                     continue;
                 }
+
                 let span = self.entity(id).span;
                 let Ok(signature) = self.signature(p, span) else {
                     continue;
@@ -193,9 +211,11 @@ impl Compiler {
                 else {
                     continue;
                 };
+
                 lists.push((ty.params.clone(), ty.variadic));
             }
         }
+
         lists
     }
 }

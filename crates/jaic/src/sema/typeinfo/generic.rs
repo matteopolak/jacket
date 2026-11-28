@@ -20,14 +20,17 @@ impl Compiler {
         span: Span,
     ) -> Result<ir::GlobalId> {
         let cached = self.ty.generic_struct_infos.get(&key).copied();
+
         if let Some(g) = cached {
             return Ok(g);
         }
+
         let size = self.size_of(desc, span)?;
         let mut generic = Aggregate {
             bytes: vec![0; size as usize],
             relocs: Vec::new(),
         };
+
         self.set_field(&mut generic, desc, "type", Value::Int(tag::STRUCT), span)?;
         self.set_field(
             &mut generic,
@@ -55,14 +58,17 @@ impl Compiler {
                     "generic declaration metadata is unavailable",
                 ))
             })?;
+
         {
             let (lit, scope) = (source.lit.clone(), source.scope);
             let mut storage = Aggregate {
                 bytes: Vec::new(),
                 relocs: Vec::new(),
             };
+
             self.generic_parameters(&mut generic, desc, &lit, (scope, &[]), &mut storage, span)?;
             let len = storage.bytes.len();
+
             self.set_view(
                 &mut generic,
                 desc,
@@ -82,6 +88,7 @@ impl Compiler {
             export: None,
             section: None,
         });
+
         self.ty.generic_struct_infos.insert(key, g);
         Ok(g)
     }
@@ -100,6 +107,7 @@ impl Compiler {
     ) -> Result<()> {
         let module = self.scope(parent).module;
         let scope = self.new_scope(ScopeKind::StructParams, Some(parent), module, None);
+
         // Inferred pattern bindings and baked arguments are not ordinary
         // declared parameters, but their types/default expressions can name them.
         for (name, value, ty) in actual.iter().filter(|(name, _, _)| {
@@ -109,6 +117,7 @@ impl Compiler {
         }) {
             self.add_const(scope, *name, span, value.clone(), *ty);
         }
+
         let member_ty = self.preload_type(PreludeType::TypeInfoStructMember, span)?;
         let msize = self.size_of(member_ty, span)?;
         let malign = self.align_of(member_ty, span)?;
@@ -116,13 +125,17 @@ impl Compiler {
             bytes: Vec::new(),
             relocs: Vec::new(),
         };
+
         for parameter in &lit.params {
             let name = parameter.name.map_or_else(|| Sym::intern("_"), |n| n.name);
+
             if actual.is_empty()
                 && let Some(pattern) = &parameter.ty
             {
                 let mut names = Vec::new();
+
                 crate::sema::procs::for_poly_binders(pattern, &mut |name| names.push(name));
+
                 for name in names {
                     if !self.scope(scope).names.contains_key(&name) {
                         self.add_entity(
@@ -135,6 +148,7 @@ impl Compiler {
                     }
                 }
             }
+
             let declared = match &parameter.ty {
                 Some(ty) => match self.eval_type(scope, ty) {
                     Ok(ty) => Some(ty),
@@ -156,6 +170,7 @@ impl Compiler {
                             declared.unwrap_or(TypeId::VOID),
                             expr.span,
                         )?;
+
                         Some(
                             match (value, declared.is_some_and(|t| self.ty.types.is_float(t))) {
                                 (Value::Int(i), true) => Value::float(i as f64),
@@ -185,8 +200,10 @@ impl Compiler {
                 parameter.span,
             )?;
             let at = members.bytes.len();
+
             members.bytes.resize(at + msize as usize, 0);
             structs::write_agg(&mut members, at as u64, &member);
+
             if let Some((_, value, ty)) = actual.iter().find(|(n, _, _)| *n == name) {
                 self.add_const(scope, name, parameter.span, value.clone(), *ty);
             } else if let Some(value) = default {
@@ -207,6 +224,7 @@ impl Compiler {
                 );
             }
         }
+
         self.set_view(
             agg,
             desc,
@@ -230,13 +248,17 @@ impl Compiler {
             relocs: Vec::new(),
         };
         let mut offset = -1;
+
         if let (Some(ty), Some(value)) = (ty, value) {
             let size = self.size_of(ty, span)?;
             let align = self.align_of(ty, span)?;
             let at = storage.bytes.len().next_multiple_of(align.max(1) as usize);
+
             storage.bytes.resize(at + size as usize, 0);
+
             if let Value::Type(t) = value {
                 let global = self.type_info_global(*t, span)?;
+
                 storage.relocs.push(ir::Reloc {
                     offset: at as u64,
                     target: ir::RelocTarget::Global(global),
@@ -245,8 +267,10 @@ impl Compiler {
             } else {
                 self.write_value(storage, at as u64, value, ty, span)?;
             }
+
             offset = at as i128;
         }
+
         self.set_field(
             &mut member,
             member_ty,
@@ -254,9 +278,11 @@ impl Compiler {
             Value::String(name.as_str().as_bytes().into()),
             span,
         )?;
+
         if let Some(ty) = ty {
             self.set_info_ptr(&mut member, member_ty, "type", ty, span)?;
         }
+
         self.set_field(&mut member, member_ty, "flags", Value::Int(1), span)?;
         self.set_field(
             &mut member,
@@ -293,15 +319,19 @@ impl Compiler {
             relocs: Vec::new(),
         };
         let actual = self.poly_struct_bindings(s);
+
         if let Some(source) = self.ty.struct_asts.get(&s) {
             let (lit, scope) = (source.lit.clone(), source.scope);
             let parent = self.scope(scope).parent.unwrap_or(scope);
+
             self.generic_parameters(agg, desc, &lit, (parent, &actual), storage, span)?;
         }
+
         for (name, value, mut ty) in actual.iter().cloned() {
             if self.size_of(ty, span).is_err() {
                 ty = self.type_of_value(&value); // Untyped literal arguments.
             }
+
             let m = self.parameter_member(
                 (member_ty, msize),
                 name,
@@ -311,9 +341,11 @@ impl Compiler {
                 span,
             )?;
             let at = members.bytes.len() as u64;
+
             members.bytes.resize(at as usize + msize as usize, 0);
             structs::write_agg(&mut members, at, &m);
         }
+
         self.set_view(
             agg,
             desc,
@@ -351,6 +383,7 @@ impl Compiler {
                 }
             })
             .sum();
+
         agg.relocs.push(ir::Reloc {
             offset,
             target: ir::RelocTarget::Global(g),

@@ -36,6 +36,7 @@ impl Compiler {
                 );
             }
         };
+
         match name {
             "long_double" => Ok(self.long_double_type()),
             other => err(
@@ -71,21 +72,26 @@ impl Compiler {
         };
         let inner = self.new_block_scope(scope, span);
         let depth = f.mark_defers();
+
         self.check_block_stmts(f, inner, rest)?;
         let mut op = self.check_expr(f, inner, last, expected)?;
+
         if f.defers.len() > depth.position() {
             // Deferred code runs after the value is computed.
             if !matches!(op, Operand::Void) {
                 let op_settled = self.settle_untyped(op, expected);
                 let ty = op_settled.ty();
                 let (_, v) = self.rvalue(f, op_settled, span)?;
+
                 op = Operand::Value {
                     ty,
                     val: v,
                 };
             }
+
             self.emit_defers(f, depth.position(), span)?;
         }
+
         f.truncate_defers(depth.position());
         Ok(op)
     }
@@ -102,6 +108,7 @@ impl Compiler {
         let E::Ident(name) = &root.kind else {
             return Ok(false);
         };
+
         Ok(match self.lookup(scope, *name)?.as_slice() {
             [id] => matches!(
                 self.entity(*id).kind,
@@ -131,10 +138,12 @@ impl Compiler {
             },
             _ => None,
         };
+
         if let Some((id, ty)) = found {
             // The name is a use of the local, as it is when `type_of` checks it as an expression.
             self.ide_note_entity_use(expr.span, id, ty);
         }
+
         Ok(found.map(|(_, ty)| ty))
     }
 
@@ -146,6 +155,7 @@ impl Compiler {
         expr: &ast::Expr,
     ) -> Result<TypeId> {
         let op = self.check_expr(f, scope, expr, Some(TypeId::TYPE))?;
+
         if let Operand::Value {
             ty: TypeId::TYPE, ..
         }
@@ -159,6 +169,7 @@ impl Compiler {
                 "type must be known at compile time",
             );
         }
+
         self.operand_as_type(op, expr.span)
     }
 
@@ -173,11 +184,13 @@ impl Compiler {
             && let Some(ty) = self.struct_field_type(scope, name, span)?
         {
             let addr = f.b.iconst(Ty::Ptr, 0);
+
             return Ok(Operand::Place {
                 ty,
                 addr,
             });
         }
+
         match self.lookup_full(scope, name)? {
             Found::Using(entry, member) => {
                 let place = match &entry {
@@ -190,18 +203,23 @@ impl Compiler {
                     }
                     _ => None,
                 };
+
                 if place.is_some() {
                     let providers = self.ambiguous_using_providers(scope, member)?;
+
                     if !providers.is_empty() {
                         return Err(self.ambiguous_using_member(member, span, &providers));
                     }
                 }
+
                 let op = self.using_member(f, scope, entry, member, span)?;
+
                 // `name` stands for `value.name`: hover and go to definition treat it as the field.
                 if let Some(ty) = place {
                     self.ide_note_member_use(span, ty, member);
                     self.ed.named_using_member(member);
                 }
+
                 Ok(op)
             }
             Found::Entities(ids) => {
@@ -211,11 +229,13 @@ impl Compiler {
                     {
                         // Only the type is wanted, so the address is never used.
                         let addr = f.b.iconst(Ty::Ptr, 0);
+
                         return Ok(Operand::Place {
                             ty,
                             addr,
                         });
                     }
+
                     return Err(Box::new(
                         Diagnostic::new(
                             Code::UnknownIdentifier,
@@ -225,10 +245,13 @@ impl Compiler {
                         .with_data(Data::Scope(scope.0)),
                     ));
                 }
+
                 if let [id] = ids[..] {
                     self.note_use_before_declaration(scope, id, name, span)?;
                 }
+
                 let op = self.entities_operand(f, scope, &ids, span);
+
                 // A name whose declaration failed (a `#run` that asserted) still names it, so it
                 // is colored and navigable as it is when the declaration succeeds.
                 if op.is_err()
@@ -236,6 +259,7 @@ impl Compiler {
                 {
                     self.ide_note_entity_use(span, id, TypeId::COMPILE_TIME);
                 }
+
                 self.ed.named(span, &ids);
                 op
             }
@@ -250,10 +274,12 @@ impl Compiler {
         use_span: Span,
     ) -> Result<Option<TypeId>> {
         let mut s = Some(scope);
+
         while let Some(sid) = s {
             if self.scope(sid).names.contains_key(&name) {
                 return Ok(None);
             }
+
             if let Some(decl) = self
                 .ty
                 .field_declarations
@@ -263,14 +289,19 @@ impl Compiler {
             {
                 let ty = self.resolve_field_decl_type(sid, &decl)?;
                 let declared = decl.names.iter().find(|n| n.name == name).unwrap().span;
+
                 self.ide_note_named_field(use_span, name, declared, ty);
+
                 return Ok(Some(ty));
             }
+
             if let Some(ty) = self.declared_promoted_field_type(sid, name, use_span)? {
                 return Ok(Some(ty));
             }
+
             s = self.scope(sid).parent;
         }
+
         Ok(None)
     }
 
@@ -301,19 +332,24 @@ impl Compiler {
                 else {
                     return None;
                 };
+
                 if decl.kind != ast::DeclKind::Const || decl.names.len() != 1 {
                     return None;
                 }
+
                 let (decl, home) = (decl.clone(), entity.home);
                 self.failed_run_type(home, decl.value.as_ref()?, depth - 1)
             }
             E::Member(base, member) if depth > 0 => {
                 let mut ty = self.failed_run_type(scope, base, depth - 1)?;
+
                 while let Some(p) = self.ty.types.pointee(ty) {
                     ty = p;
                 }
+
                 let s = self.ty.types.as_struct(self.ty.types.repr(ty))?;
                 let fields = &self.ty.types.struct_info(s).fields;
+
                 fields
                     .iter()
                     .find(|f| f.name == Some(member.name))
@@ -339,8 +375,10 @@ impl Compiler {
         {
             return self.entity_operand(f, scope, ids[ids.len() - 1], span);
         }
+
         if ids.len() > 1 || self.entity_is_overloadable(ids[0]) {
             let mut procs = Vec::new();
+
             for &id in ids {
                 match self.resolve_entity(id)? {
                     Resolved::Proc(p) => procs.push(p),
@@ -353,27 +391,34 @@ impl Compiler {
                         if ids.len() == 1 {
                             return self.entity_operand(f, scope, id, span);
                         }
+
                         let name = self.entity(id).name;
                         let mut d = Diagnostic::new(
                             Code::DeclaredMoreOnce,
                             span,
                             format!("`{name}` is declared more than once"),
                         );
+
                         for &other in ids {
                             let at = self.entity(other).span;
+
                             if at != Span::NONE {
                                 d = d.with_note(at, format!("`{name}` is declared here"));
                             }
                         }
+
                         return Err(Box::new(d));
                     }
                 }
             }
+
             if ids.len() > 1 {
                 self.check_identical_overloads(ids)?;
             }
+
             return Ok(Operand::Procs(procs));
         }
+
         self.entity_operand(f, scope, ids[0], span)
     }
 
@@ -394,6 +439,7 @@ impl Compiler {
                 ),
             );
         }
+
         match self.entity(id).kind.clone() {
             EntityKind::Local {
                 ty,
@@ -404,6 +450,7 @@ impl Compiler {
                     if let Value::Type(t) = value {
                         return Ok(Operand::Type(t));
                     }
+
                     return Ok(Operand::Const {
                         ty,
                         value,
@@ -412,6 +459,7 @@ impl Compiler {
                     }
                     .with_callable(self.pr.callable_entities.get(&id).cloned()));
                 }
+
                 if depth != self.scope(scope).proc_depth {
                     if let Some((value, ty)) = self.pr.local_consts.get(&id).cloned() {
                         return Ok(Operand::Const {
@@ -422,15 +470,19 @@ impl Compiler {
                         }
                         .with_callable(self.pr.callable_entities.get(&id).cloned()));
                     }
+
                     if f.type_only {
                         // `type_of(local.*)` at compile time: the address is never used.
                         let addr = f.b.iconst(Ty::Ptr, 0);
+
                         return Ok(Operand::Place {
                             ty,
                             addr,
                         });
                     }
+
                     let name = self.entity(id).name;
+
                     return err(
                         Code::LocalNotAccessible,
                         span,
@@ -443,6 +495,7 @@ impl Compiler {
                         },
                     );
                 }
+
                 return Ok(Operand::Place {
                     ty,
                     addr,
@@ -452,7 +505,9 @@ impl Compiler {
             EntityKind::Builtin(scope::Builtin::Proc(p)) => return Ok(Operand::Builtin(p)),
             _ => {}
         }
+
         let resolved = self.resolve_entity(id)?;
+
         self.out.use_runtime_storage_entity(f, id);
         Ok(match resolved {
             Resolved::Const {
@@ -482,18 +537,21 @@ impl Compiler {
                     && !f.type_only
                 {
                     let name = self.entity(id).name;
+
                     return err(
                         Code::ExpectedConstantFoundVariable,
                         span,
                         format!("{what}, but `{name}` is a variable"),
                     );
                 }
+
                 let addr = f.b.storage_addr(storage);
                 let parameters = if matches!(self.ty.types.kind(ty), TypeKind::Proc(_)) {
                     self.callable_entity_parameters(id)?
                 } else {
                     None
                 };
+
                 Operand::Place {
                     ty,
                     addr,
@@ -525,17 +583,21 @@ impl Compiler {
                 )),
             ));
         };
+
         if self.ed.is_live() && self.ide_wants_pub(name.span.file) {
             self.ed.inferred(name.span, t);
         }
+
         // Allow pointer-to-enum targets? No: enums only, but look through distinct.
         match self.ty.types.kind(t).clone() {
             TypeKind::Enum(_) | TypeKind::Struct(_) => {
                 let result =
                     self.member_access(f, ScopeId(0), Operand::Type(t), name.name, name.span);
+
                 if result.is_ok() {
                     self.ide_note_member_use(name.span, t, name.name);
                 }
+
                 result
             }
             _ => Err(Box::new(
@@ -574,9 +636,11 @@ impl Compiler {
         else {
             return Ok(None);
         };
+
         if !self.names_field(*ty, member.name)? {
             return Ok(None);
         }
+
         Ok(Some(self.member_access(
             f,
             scope,
@@ -605,15 +669,19 @@ impl Compiler {
                 self.member_access(f, scope, owner, field.name, field.span)?,
             ));
         }
+
         let Ok(Operand::Type(ty)) = self.check_expr(f, scope, base, None) else {
             return Ok(None);
         };
+
         if self.ty.types.as_struct(ty).is_none() {
             return Ok(None);
         }
+
         let size = self.size_of(ty, base.span)?;
         let align = self.align_of(ty, base.span)?;
         let addr = f.b.alloca(size.max(1), align);
+
         self.init_default(f, ty, addr, base.span)?;
         Ok(Some(Operand::Place {
             ty,
@@ -647,6 +715,7 @@ impl Compiler {
         let [id] = ids[..] else {
             return Ok(None);
         };
+
         self.outer_local_constant(f, scope, id, member.name, member.span)
     }
 
@@ -669,13 +738,17 @@ impl Compiler {
         else {
             return Ok(None);
         };
+
         if depth == self.scope(scope).proc_depth {
             return Ok(None);
         }
+
         let ty = self.ty.types.pointee(ty).unwrap_or(ty);
+
         if self.ty.types.as_struct(ty).is_none() || self.names_field(ty, member)? {
             return Ok(None);
         }
+
         Ok(self
             .member_access(f, scope, Operand::Type(ty), member, span)
             .ok()
@@ -690,6 +763,7 @@ impl Compiler {
     /// `#this`: the innermost enclosing struct type or, inside a procedure body, the procedure.
     pub(super) fn check_this(&mut self, scope: ScopeId, span: Span) -> Result<Operand> {
         let mut s = Some(scope);
+
         while let Some(sid) = s {
             match self.scope(sid).kind {
                 ScopeKind::Struct(t) => return Ok(Operand::Type(t)),
@@ -700,8 +774,10 @@ impl Compiler {
                 }
                 _ => {}
             }
+
             s = self.scope(sid).parent;
         }
+
         err(
             Code::UsedOutsideStruct,
             span,
@@ -721,6 +797,7 @@ impl Compiler {
         let mut params = Vec::new();
         let mut variadic = false;
         let mut c_varargs = false;
+
         for p in &header.params {
             // `(s: string, start := 0) -> s64`: a parameter may take its default's type.
             let ty = match (&p.ty, &p.default) {
@@ -737,23 +814,28 @@ impl Compiler {
                     );
                 }
             };
+
             if let Some(name) = &p.name
                 && self.ed.is_live()
             {
                 self.ide_note_param_name(name.span, name.name, ty);
             }
+
             if p.variadic {
                 if c_call {
                     c_varargs = true;
                     continue;
                 }
+
                 variadic = true;
                 params.push(self.ty.types.array(ty, ArrayKind::View));
             } else {
                 params.push(ty);
             }
         }
+
         let mut returns = Vec::new();
+
         for r in &header.returns {
             let Some(rt) = &r.ty else {
                 return err(
@@ -763,13 +845,16 @@ impl Compiler {
                 );
             };
             let t = self.eval_type_in(f, scope, rt)?;
+
             if let Some(name) = r.name {
                 self.ide_note_param_name(name.span, name.name, t);
             }
+
             if t != TypeId::VOID || header.returns.len() > 1 {
                 returns.push(t);
             }
         }
+
         let ty = self.ty.types.intern(TypeKind::Proc(Arc::new(ProcType {
             params,
             returns,
@@ -791,6 +876,7 @@ impl Compiler {
         let path = file.path.to_string();
         let _ = f;
         let value = self.build_location_value(ty, &path, line as i64, col as i64, span)?;
+
         Ok(Operand::Const {
             ty,
             value,
@@ -816,6 +902,7 @@ impl Compiler {
                 format!("Preload does not define `{name}`"),
             );
         };
+
         match self.resolve_entity(id)? {
             Resolved::Const {
                 value: Value::Type(t),

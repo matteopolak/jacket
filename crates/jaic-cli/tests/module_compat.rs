@@ -8,10 +8,13 @@ use test_support::TempDir;
 fn check_with(name: &str, source: &str, extra: &[&str]) -> Option<String> {
     let dir = TempDir::new(name);
     let file = dir.join("main.jai");
+
     std::fs::write(&file, source).unwrap();
     let mut command = Command::new(env!("CARGO_BIN_EXE_jaic"));
+
     command.arg("-check").arg(&file).args(extra);
     let output = command.output().unwrap();
+
     if output.status.success() {
         None
     } else {
@@ -23,11 +26,14 @@ fn check_with(name: &str, source: &str, extra: &[&str]) -> Option<String> {
 /// and asserts that its `main.jai` checks with and without `-no_dce`.
 fn accepted_with_modules(name: &str, files: &[(&str, &str)]) {
     let dir = TempDir::new(name);
+
     for (path, source) in files {
         let file = dir.join(path);
+
         std::fs::create_dir_all(file.parent().unwrap()).unwrap();
         std::fs::write(file, source).unwrap();
     }
+
     for extra in [&[][..], &["-no_dce"][..]] {
         let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
             .arg("-check")
@@ -37,6 +43,7 @@ fn accepted_with_modules(name: &str, files: &[(&str, &str)]) {
             .args(extra)
             .output()
             .unwrap();
+
         assert!(
             output.status.success(),
             "{name} {extra:?} was rejected:\n{}",
@@ -250,6 +257,7 @@ fn overlay_on_a_missing_member_path_is_an_error() {
         &[],
     )
     .expect("an overlay on a member that does not exist must be rejected");
+
     assert!(
         text.contains("no member named `table` to anchor on"),
         "{text}"

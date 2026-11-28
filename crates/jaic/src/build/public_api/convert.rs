@@ -56,11 +56,13 @@ const STATEMENT_KINDS: &[&str] = &[
 
 pub(super) fn get_code(cx: &Call, interp: &mut Interp) -> R<Rets> {
     let scope_from = cx.arg(1) as usize;
+
     if scope_from >= interp.codes.len() {
         return Err(Trap::new(
             "compiler_get_code: no code to take the scope from",
         ));
     }
+
     let mut c = Convert::new(cx, interp);
     let body = c.code_body(cx.arg(0))?;
     let (source, fingerprint) = c.finish();
@@ -68,6 +70,7 @@ pub(super) fn get_code(cx: &Call, interp: &mut Interp) -> R<Rets> {
     // (`export_request`), and does what the earlier attempt did: its n-th code is the
     // n-th code that attempt made, or it would ask for that new code's nodes again.
     let (made, replayed) = &mut interp.run_codes;
+
     if let Some(&id) = made.get(*replayed)
         && interp
             .made_codes
@@ -77,7 +80,9 @@ pub(super) fn get_code(cx: &Call, interp: &mut Interp) -> R<Rets> {
         *replayed += 1;
         return Ok(Rets::one(id as u64));
     }
+
     let id = interp.codes.len();
+
     interp.codes.push(Arc::new(body));
     interp.made_codes.push(MadeCode {
         id,
@@ -86,6 +91,7 @@ pub(super) fn get_code(cx: &Call, interp: &mut Interp) -> R<Rets> {
         fingerprint,
     });
     let (made, replayed) = &mut interp.run_codes;
+
     made.truncate(*replayed);
     made.push(id);
     *replayed = made.len();
@@ -98,13 +104,16 @@ pub(super) fn modify(cx: &Call, interp: &mut Interp) -> R<Rets> {
     let ty = cx.schema().pointed(cx.binding.parameters[1])?;
     let mut c = Convert::new(cx, interp);
     let block = c.ptr(cx.arg(1), ty, "block")?;
+
     if block == 0 {
         return Err(Trap::new(
             "compiler_modify_procedure requires a procedure body and block",
         ));
     }
+
     let stmts = c.statements(block)?;
     let (source, _) = c.finish();
+
     cx.shared
         .borrow_mut()
         .ws(workspace)
@@ -155,12 +164,14 @@ impl<'a, 'b> Convert<'a, 'b> {
     )]
     fn num(&mut self, at: u64, ty: TypeId, field: &str) -> R<u64> {
         let value = self.cx.number(self.interp, ty, at, field)?;
+
         self.print.extend_from_slice(&value.to_le_bytes());
         Ok(value)
     }
 
     fn ptr(&mut self, at: u64, ty: TypeId, field: &str) -> R<u64> {
         let value = self.cx.number(self.interp, ty, at, field)?;
+
         self.print.push(u8::from(value != 0));
         Ok(value)
     }
@@ -173,6 +184,7 @@ impl<'a, 'b> Convert<'a, 'b> {
         let (count, data) = view(self.interp, self.cx.field(ty, at, field)?.0)?;
         let size = usize::try_from(count).map_err(|_| Trap::new("invalid syntax string size"))?;
         let raw = bytes(self.interp, data, size)?;
+
         self.print.extend_from_slice(&count.to_le_bytes());
         self.print.extend_from_slice(&raw);
         Ok(raw)
@@ -201,17 +213,21 @@ impl<'a, 'b> Convert<'a, 'b> {
             None => view(self.interp, address)?,
         };
         let size = self.cx.schema().get(element)?.size;
+
         if count
             .checked_mul(size)
             .is_none_or(|bytes| bytes > crate::sema::value::MAX_IMAGE)
         {
             return Err(Trap::new("syntax array size overflow"));
         }
+
         self.print.extend_from_slice(&count.to_le_bytes());
         let pointers = matches!(self.cx.schema().get(element)?.kind, Kind::Pointer(_));
+
         (0..count)
             .map(|index| {
                 let at = data + index * size;
+
                 if pointers {
                     self.cx.schema().read_number(self.interp, element, at)
                 } else {
@@ -252,6 +268,7 @@ impl<'a, 'b> Convert<'a, 'b> {
             .syntax_field(id, key)
             .and_then(FieldRef::item)
             .unwrap_or(Item::Int(0));
+
         match &item {
             Item::Int(value) => self.print.extend_from_slice(&value.to_le_bytes()),
             Item::Str(text) => {
@@ -260,6 +277,7 @@ impl<'a, 'b> Convert<'a, 'b> {
             }
             Item::Ref(id) => self.print.push(u8::from(*id != 0)),
         }
+
         Ok(item)
     }
 
@@ -287,9 +305,11 @@ impl<'a, 'b> Convert<'a, 'b> {
             Item::Ref(id) => id,
             _ => 0,
         };
+
         if id == 0 {
             return Ok(0);
         }
+
         let node = self.ty("Code_Node")?;
         records::build(self.cx, self.interp, id, node)
     }
@@ -297,19 +317,24 @@ impl<'a, 'b> Convert<'a, 'b> {
     /// The nodes of an attribute holding one node or a `COMMA_SEPARATED_ARGUMENTS` of them.
     fn extra_list(&mut self, at: u64, key: SyntaxKey) -> R<Vec<u64>> {
         let child = self.extra(at, key)?;
+
         if child == 0 {
             return Ok(Vec::new());
         }
+
         self.comma_nodes(child)
     }
 
     /// `at`'s nodes when it is a `COMMA_SEPARATED_ARGUMENTS`, else `at` alone.
     fn comma_nodes(&mut self, at: u64) -> R<Vec<u64>> {
         let (name, ty) = self.node_type(at)?;
+
         if name != "COMMA_SEPARATED_ARGUMENTS" {
             return Ok(vec![at]);
         }
+
         let argument = self.ty("Code_Comma_Separated_Argument")?;
+
         self.list(at, ty, "arguments")?
             .into_iter()
             .map(|arg| self.ptr(arg, argument, "node"))
@@ -330,8 +355,10 @@ impl<'a, 'b> Convert<'a, 'b> {
 
     fn word(&mut self, word: &str) -> Span {
         let start = self.mark();
+
         self.text.push_str(word);
         let span = self.since(start);
+
         self.text.push(' ');
         span
     }
@@ -358,6 +385,7 @@ impl<'a, 'b> Convert<'a, 'b> {
             .filter(|name| !name.is_empty())
             .map(str::to_owned)
             .collect::<Vec<_>>();
+
         Ok(self.idents(names))
     }
 
@@ -366,9 +394,11 @@ impl<'a, 'b> Convert<'a, 'b> {
     fn node_type(&mut self, at: u64) -> R<(String, TypeId)> {
         let base = self.ty("Code_Node")?;
         let kind = self.num(at, base, "kind")?;
+
         if kind == 0 {
             return Err(Trap::new("cannot serialize an uninitialized syntax node"));
         }
+
         let (_, kind_type) = self.cx.schema().field(base, "kind")?;
         let name = self
             .cx
@@ -390,6 +420,7 @@ impl<'a, 'b> Convert<'a, 'b> {
                 .collect::<Vec<_>>()
                 .join("_")
         );
+
         Ok((name, self.ty(&class)?))
     }
 
@@ -398,22 +429,28 @@ impl<'a, 'b> Convert<'a, 'b> {
         if at == 0 {
             return Err(Trap::new("cannot serialize a null syntax node"));
         }
+
         if self.depth >= 512 {
             return Err(Trap::new("syntax serialization nesting limit exceeded"));
         }
+
         let (name, ty) = self.node_type(at)?;
         let original = self.int_attribute(at, SyntaxKey::OriginalKind)?;
         let kind = self.num(at, self.ty("Code_Node")?, "kind")?;
+
         if original != 0 && original as u64 != kind {
             return Err(Trap::new(
                 "cannot serialize a node whose kind was changed without rebuilding its record",
             ));
         }
+
         if self.flag(at, SyntaxKey::Incomplete)? {
             return Err(Trap::new("cannot serialize incomplete syntax"));
         }
+
         self.depth += 1;
         let result = f(self, &name, ty);
+
         self.depth -= 1;
         result
     }
@@ -423,7 +460,9 @@ impl<'a, 'b> Convert<'a, 'b> {
         if at != 0 && self.node_type(at)?.0 == "BLOCK" {
             return Ok(CodeBody::Block(self.block(at)?));
         }
+
         let stmt = self.stmt(at)?;
+
         Ok(match stmt.kind {
             ast::StmtKind::Expr(e) if stmt.notes.is_empty() => CodeBody::Expr(e),
             _ => CodeBody::Stmt(stmt),
@@ -435,6 +474,7 @@ impl<'a, 'b> Convert<'a, 'b> {
             if name != "BLOCK" {
                 return Err(Trap::new(format!("expected a block, got {name}")));
             }
+
             c.block_node(at, ty)
         })
     }
@@ -442,15 +482,20 @@ impl<'a, 'b> Convert<'a, 'b> {
     /// A `BLOCK` node already checked by `node`.
     fn block_node(&mut self, at: u64, ty: TypeId) -> R<ast::Block> {
         let start = self.mark();
+
         self.word("{");
         let mut checks_off = ast::CheckBits::NONE;
+
         if self.has(at, ty, "block_flags", "NO_ARRAY_BOUNDS_CHECK")? {
             checks_off = checks_off.with(ast::CheckBits::NO_ABC);
         }
+
         if self.has(at, ty, "block_flags", "NO_ARITHMETIC_OVERFLOW_CHECK")? {
             checks_off = checks_off.with(ast::CheckBits::NO_AOC);
         }
+
         let stmts = self.statements(at)?;
+
         self.word("}");
         Ok(ast::Block {
             stmts,
@@ -461,6 +506,7 @@ impl<'a, 'b> Convert<'a, 'b> {
 
     fn statements(&mut self, block: u64) -> R<Vec<ast::Stmt>> {
         let ty = self.ty("Code_Block")?;
+
         self.list(block, ty, "statements")?
             .into_iter()
             .map(|stmt| self.stmt(stmt))
@@ -477,8 +523,10 @@ impl<'a, 'b> Convert<'a, 'b> {
             if name != "NOTE" {
                 return Err(Trap::new(format!("expected a note, got {name}")));
             }
+
             let text = c.text(at, ty, "text")?;
             let span = c.word(&format!("@{text}"));
+
             Ok(Note {
                 text: text.into(),
                 span,
@@ -492,6 +540,7 @@ impl<'a, 'b> Convert<'a, 'b> {
             if name != "IDENT" {
                 return Err(Trap::new(format!("expected an identifier, got {name}")));
             }
+
             let text = c.text(at, ty, "name")?;
             Ok(c.name(&text))
         })
@@ -505,9 +554,11 @@ impl<'a, 'b> Convert<'a, 'b> {
 
     fn opt_name(&mut self, at: u64, ty: TypeId, field: &str) -> R<Option<Ident>> {
         let child = self.ptr(at, ty, field)?;
+
         if child == 0 {
             return Ok(None);
         }
+
         self.ident_name(child).map(Some)
     }
 
@@ -517,20 +568,26 @@ impl<'a, 'b> Convert<'a, 'b> {
         let node = self.ty("Code_Node")?;
         let arguments = self.list(at, ty, field)?;
         let mut result = Vec::new();
+
         for (index, arg) in arguments.into_iter().enumerate() {
             if index > 0 {
                 self.word(",");
             }
+
             let name = self.opt_name(arg, argument, "name")?;
+
             if name.is_some() {
                 self.word("=");
             }
+
             let value = self.ptr(arg, argument, "expression")?;
             let spread =
                 value != 0 && self.has(value, node, "node_flags", "EXPRESSION_IS_SPREAD")?;
+
             if spread {
                 self.word("..");
             }
+
             result.push(ast::Arg {
                 name,
                 target: None,
@@ -539,6 +596,7 @@ impl<'a, 'b> Convert<'a, 'b> {
                 value: self.expr(value)?,
             });
         }
+
         Ok(result)
     }
 }

@@ -37,12 +37,14 @@ add :: (a: V.Vec2, b: V.Vec2) -> V.Vec2 { return a + b; }";
 
 fn compile(main: &str) -> (Result<(), Box<Diagnostic>>, Vec<Diagnostic>, Compiler) {
     let mut fs = VirtualFs::default();
+
     fs.insert("/modules/Vec/module.jai", VEC.as_bytes());
     fs.insert("/modules/Other/module.jai", OTHER.as_bytes());
     fs.insert("/modules/Ops/module.jai", OPS.as_bytes());
     fs.insert("/modules/Calc/module.jai", CALC.as_bytes());
     fs.insert("/main.jai", main.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.import_paths = vec![PathBuf::from("/modules")];
     // The modules above are also the standard library that imports are suggested from.
@@ -50,14 +52,17 @@ fn compile(main: &str) -> (Result<(), Box<Diagnostic>>, Vec<Diagnostic>, Compile
     let mut compiler = Compiler::new(options, Rc::new(fs));
     let result = compiler.compile_program(Path::new("/main.jai"));
     let warnings = compiler.diag.warnings.clone();
+
     (result, warnings, compiler)
 }
 
 fn warnings_of(main: &str) -> Vec<Diagnostic> {
     let (result, warnings, compiler) = compile(main);
+
     if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
+
     warnings
         .into_iter()
         .filter(|w| w.message.contains("is not in scope"))
@@ -68,6 +73,7 @@ fn replacement(d: &Diagnostic) -> (&str, Applicability, bool) {
     let s = &d.suggestions()[0];
     let text = s.replacements().next().expect("a replacement").1;
     let imports = s.edits.iter().any(|e| matches!(e, Edit::Import(_)));
+
     (text, s.applicability, imports)
 }
 
@@ -85,6 +91,7 @@ fn a_namespaced_import_finds_the_operator_of_the_operand_type() {
         }",
     );
     let messages: Vec<&str> = warnings.iter().map(|w| w.message.as_str()).collect();
+
     assert_eq!(
         messages,
         [
@@ -109,6 +116,7 @@ fn the_warning_suggests_the_portable_spelling() {
             f := a != b;
         }",
     );
+
     assert_eq!(
         replacement(&warnings[0]),
         (
@@ -158,6 +166,7 @@ fn imports_that_bring_the_operator_into_scope_do_not_warn() {
             "{header}
             main :: () {{ a, b: Vec2; c := a + b; d := -a; e := a[0]; f := a == b; }}"
         ));
+
         assert!(warnings.is_empty(), "{header}: {warnings:?}");
     }
 }
@@ -169,6 +178,7 @@ fn an_overload_in_scope_wins_over_the_type_module() {
         operator + :: (a: V.Vec2, b: V.Vec2) -> V.Vec2 { return a; }
         main :: () { a, b: V.Vec2; c := a + b; }",
     );
+
     assert!(warnings.is_empty(), "{warnings:?}");
 }
 
@@ -180,6 +190,7 @@ fn a_namespaced_alias_that_has_the_operator_is_suggested_when_the_type_module_la
     );
     let error = result.expect_err("the operator is in Ops, not with the type");
     let text = error.render(&compiler.src.sources);
+
     assert!(
         text.contains("`P` declares `operator +`: call `P.operator +(..)` or add `using P;`"),
         "{text}"
@@ -198,6 +209,7 @@ fn an_operator_no_import_has_still_fails_without_a_guess() {
     );
     let error = result.expect_err("no overload anywhere in reach");
     let text = error.render(&compiler.src.sources);
+
     assert!(
         text.contains("no `operator +` for `Thing` and `Thing`"),
         "{text}"
@@ -214,6 +226,7 @@ fn a_unary_operator_nothing_reaches_still_fails() {
     let text = result
         .expect_err("no overload")
         .render(&compiler.src.sources);
+
     assert!(text.contains("cannot negate Thing"), "{text}");
 }
 
@@ -228,6 +241,7 @@ fn a_mismatch_names_the_operands_and_lists_the_overloads_as_notes() {
     let text = result
         .expect_err("no overload takes both")
         .render(&compiler.src.sources);
+
     assert!(
         text.contains("no `operator +` for `Vec2` and `Thing`"),
         "{text}"
@@ -252,8 +266,10 @@ fn an_unrelated_struct_gets_no_import_suggestion() {
         main :: () { a, b: Mine; c := a + b; }",
     );
     let error = result.expect_err("no overload");
+
     assert!(import_suggestions(&error).is_empty(), "{error:?}");
     let text = error.render(&compiler.src.sources);
+
     assert!(!text.contains("is declared in the"), "{text}");
 }
 
@@ -264,9 +280,11 @@ fn a_module_with_an_overload_for_the_operands_is_suggested() {
         main :: () { a, b: T.Thing; c := a + b; }",
     );
     let error = result.expect_err("Ops is not imported");
+
     // `Ops` takes `Thing`; `Vec` declares `operator +` for another type.
     assert_eq!(import_suggestions(&error), ["Ops"]);
     let text = error.render(&compiler.src.sources);
+
     assert!(
         text.contains("`operator +` is declared in the `Ops` module"),
         "{text}"
@@ -280,6 +298,7 @@ fn a_unary_operator_no_module_overloads_gets_no_import_suggestion() {
         main :: () { a: T.Thing; c := -a; }",
     );
     let error = result.expect_err("no `operator -` for Thing");
+
     assert!(import_suggestions(&error).is_empty(), "{error:?}");
 }
 
@@ -294,6 +313,7 @@ fn a_literal_operand_takes_its_type_from_the_overload_of_the_type_module() {
             d := a * V.Scale.{4};
         }",
     );
+
     // `.{3}` is a `Scale` (as in scope), not the `Vec2` of the other operand.
     assert_eq!(warnings.len(), 3, "{warnings:?}");
     assert_eq!(
@@ -327,7 +347,9 @@ fn the_pointer_index_operator_is_found_through_the_type_module() {
             q[3] += 1;
         }",
     );
+
     assert_eq!(warnings.len(), 4, "{warnings:?}");
+
     for w in &warnings {
         assert_eq!(
             w.message,
@@ -344,6 +366,7 @@ fn the_pointer_index_operator_in_scope_is_not_a_warning() {
         "V :: #import \"Vec\"; using V;
         main :: () { g: Grid; g[1] = 5; x := g[1]; }",
     );
+
     assert!(warnings.is_empty(), "{warnings:?}");
 }
 
@@ -353,8 +376,10 @@ fn the_warning_says_the_official_compiler_rejects_it() {
         "V :: #import \"Vec\";
         main :: () { a, b: V.Vec2; c := a + b; }",
     );
+
     result.expect("the operator of the type module is accepted");
     let text = compiler.render(&warnings[0]);
+
     assert!(
         text.contains(
             "the official Jai compiler rejects this; Jacket accepts it but may stop in a future release"
@@ -369,6 +394,7 @@ fn the_same_use_inside_an_imported_module_is_silent() {
         "C :: #import \"Calc\"; V :: #import \"Vec\";
         main :: () { a, b: V.Vec2; c := C.add(a, b); }",
     );
+
     result.expect("the module checks");
     assert!(
         warnings

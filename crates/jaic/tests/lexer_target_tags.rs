@@ -12,6 +12,7 @@ fn target_members_are_known_tags() {
     ] {
         assert!(OS_TAGS.contains(&os_member(os)));
     }
+
     for cpu in [TargetCpu::X64, TargetCpu::Arm64, TargetCpu::Wasm] {
         assert!(CPU_TAGS.contains(&cpu_member(cpu)));
     }

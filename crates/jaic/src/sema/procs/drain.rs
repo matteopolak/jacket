@@ -21,7 +21,9 @@ impl Compiler {
         if self.proc(id).body_state != BodyState::Queued {
             return;
         }
+
         let traps = self.ct.traps;
+
         match self.lower_body(id) {
             Ok(()) => pass.progress |= (id.0 as usize) < pass.existing,
             Err(e) if self.ct.traps != traps => pass.final_failures.push((id, e)),
@@ -40,6 +42,7 @@ impl Compiler {
         // Bodies whose compile-time code ran and failed: a retry would run it again on top of
         // what the failed run left behind, so they are final.
         let mut final_failures = Vec::new();
+
         loop {
             let mut pass = DrainPass {
                 existing: self.pr.procs.len(),
@@ -47,6 +50,7 @@ impl Compiler {
                 final_failures: std::mem::take(&mut final_failures),
                 progress: false,
             };
+
             if crate::sema::speculative::enabled() {
                 self.drain_speculatively(&mut pass);
             } else {
@@ -54,22 +58,28 @@ impl Compiler {
                     self.drain_one(id, &mut pass);
                 }
             }
+
             let DrainPass {
                 mut failed,
                 final_failures: finals,
                 progress,
                 ..
             } = pass;
+
             final_failures = finals;
+
             if failed.is_empty() && final_failures.is_empty() {
                 return Ok(());
             }
+
             if failed.is_empty() || !progress {
                 // Only the first is reported; an editor wants the others too.
                 failed.splice(0..0, final_failures);
                 self.ed.errors(failed.iter().map(|(_, e)| &**e));
+
                 return Err(failed.into_iter().next().unwrap().1);
             }
+
             self.pr
                 .body_queue
                 .extend(failed.into_iter().rev().map(|(id, _)| id));
@@ -86,6 +96,7 @@ impl Compiler {
         // Failed after their compile-time code ran: not tried again within this call.
         let mut finished = Vec::new();
         let mut finished_error = None;
+
         if self.lower_epoch() != self.pr.parked_epoch
             || self
                 .pr
@@ -95,39 +106,49 @@ impl Compiler {
         {
             self.pr.unpark_bodies();
         }
+
         // A body that fails is tried again while others still lower: one lowered later may
         // declare what it needs (`#insert,scope(...)` into a file), as `drain_bodies` does.
         loop {
             let existing = self.pr.procs.len();
             let mut progress = false;
+
             first = None;
+
             while let Some(id) = self.pr.body_queue.pop() {
                 if self.proc(id).body_state != BodyState::Queued {
                     continue;
                 }
+
                 // A body that failed is only worth another attempt once something it could be
                 // waiting for happened (code added, a compile-time run finished). Otherwise every
                 // compile-time call redoes the failing work, which compounds when that work itself
                 // runs compile-time code (a body using a module that did not load). Such bodies are
                 // parked, so later calls in the same epoch skip them without looking.
                 let epoch = self.lower_epoch();
+
                 if let Some((at, err)) = self.pr.lenient_failures.get(&id)
                     && *at == epoch
                     && self.failure_reusable(id, epoch)
                 {
                     first.get_or_insert_with(|| err.clone());
+
                     if epoch != self.pr.parked_epoch {
                         retry.append(&mut self.pr.parked_bodies);
                         self.pr.parked_epoch = epoch;
                     }
+
                     self.pr.parked_bodies.push(id);
+
                     continue;
                 }
+
                 let misses = (
                     self.epochs.placeholder_misses,
                     self.epochs.in_progress_misses,
                 );
                 let traps = self.ct.traps;
+
                 match self.lower_body(id) {
                     Ok(()) => {
                         progress |= (id.0 as usize) < existing;
@@ -142,35 +163,44 @@ impl Compiler {
                         ) == misses
                         {
                             let epoch = self.lower_epoch();
+
                             self.pr.lenient_failures.insert(id, (epoch, e.clone()));
                         }
+
                         if self.ct.traps != traps {
                             // Running it again would repeat compile-time code on top of what the
                             // failed run left behind: not within this call, and in a later one
                             // only once something changed (the failure above is reused until then).
                             finished_error.get_or_insert(e);
                             finished.push(id);
+
                             continue;
                         }
+
                         first.get_or_insert(e);
                         retry.push(id);
                     }
                 }
             }
+
             if retry.is_empty() || !progress {
                 break;
             }
+
             self.pr.body_queue.append(&mut retry);
         }
+
         self.pr.body_queue.extend(retry);
         self.pr.body_queue.extend(finished);
         first = first.or(finished_error);
+
         if first.is_none()
             && let Some(id) = self.pr.parked_bodies.last()
             && let Some((_, err)) = self.pr.lenient_failures.get(id)
         {
             first = Some(err.clone());
         }
+
         first
     }
 
@@ -189,6 +219,7 @@ impl Compiler {
         } else {
             0
         };
+
         base as u64 + namespaces
     }
 
@@ -199,11 +230,13 @@ impl Compiler {
         // is read once per queued body: the first calls are all checked, later ones every 64th.
         let (last_total, last_generation, calls) = self.namespace_check.get();
         let calls = calls.saturating_add(1);
+
         if calls > 256 && calls % 64 != 0 {
             self.namespace_check
                 .set((last_total, last_generation, calls));
             return;
         }
+
         let total = self
             .ns
             .scopes
@@ -221,6 +254,7 @@ impl Compiler {
                     + scope.pending_done
             })
             .sum::<usize>();
+
         debug_assert!(
             total == last_total || self.epochs.namespace_generation != last_generation,
             "a scope changed without `namespace_changed`"
@@ -256,6 +290,7 @@ impl Compiler {
     /// is checked where it was asked for).
     pub(in crate::sema) fn defers_body(&self, id: ProcId) -> bool {
         let p = self.proc(id);
+
         self.options.defer_library_bodies
             && !p.is_poly
             && !p.is_macro
@@ -271,13 +306,16 @@ impl Compiler {
             .map(|i| ProcId(i as u32))
             .filter(|&id| self.proc(id).body_state == BodyState::Deferred)
             .collect();
+
         for id in pending {
             self.pr.procs[id.0 as usize].body_state = BodyState::Queued;
             self.pr.promoted_bodies += 1;
             self.pr.deferred_bodies -= 1;
             self.pr.body_queue.push(id);
         }
+
         let _ = self.drain_bodies_lenient();
+
         self.options.defer_library_bodies = was;
     }
 
@@ -300,12 +338,15 @@ impl Compiler {
         use crate::fxhash::HashSet;
         let mut first = None;
         let (mut funcs, mut globals) = (HashSet::default(), HashSet::default());
+
         loop {
             while let Some(g) = global_work.pop() {
                 if !globals.insert(g) {
                     continue;
                 }
+
                 let global: &ir::Global = &self.out.program.globals[g as usize];
+
                 for r in &global.relocs {
                     match r.target {
                         ir::RelocTarget::Func(f) => work.push(f),
@@ -314,12 +355,15 @@ impl Compiler {
                     }
                 }
             }
+
             let Some(f) = work.pop() else {
                 break;
             };
+
             if !funcs.insert(f) {
                 continue;
             }
+
             if self
                 .out
                 .program
@@ -332,9 +376,11 @@ impl Compiler {
             {
                 first.get_or_insert(e);
             }
+
             let Some(Some(func)) = self.out.program.funcs.get(f.0 as usize) else {
                 continue;
             };
+
             for block in &func.blocks {
                 for inst in &block.insts {
                     match inst {
@@ -354,6 +400,7 @@ impl Compiler {
                 }
             }
         }
+
         first
     }
 
@@ -361,21 +408,27 @@ impl Compiler {
     /// nothing queued before. Returns the first error.
     pub fn lower_with_callees(&mut self, id: ProcId) -> Option<Box<Diagnostic>> {
         let mark = self.pr.body_queue.len();
+
         if let Err(e) = self.lower_body(id) {
             return Some(e);
         }
+
         let mut first = None;
         let mut failed = Vec::new();
+
         while self.pr.body_queue.len() > mark {
             let q = self.pr.body_queue.pop().unwrap();
+
             if self.proc(q).body_state != BodyState::Queued {
                 continue;
             }
+
             if let Err(e) = self.lower_body(q) {
                 first.get_or_insert(e);
                 failed.push(q);
             }
         }
+
         self.pr.body_queue.extend(failed);
         first
     }
@@ -393,12 +446,14 @@ impl ProcState {
     /// Put the parked bodies back in the queue.
     fn unpark_bodies(&mut self) {
         let parked = std::mem::take(&mut self.parked_bodies);
+
         self.body_queue.extend(parked);
     }
 
     /// Undoes `set_proc_target(id, ProcTarget::Func(func))`.
     pub(in crate::sema) fn clear_proc_target(&mut self, id: ProcId, func: ir::FuncId) {
         self.procs[id.0 as usize].target = None;
+
         if let Some(procs) = self.func_targets.get_mut(&func) {
             procs.retain(|&p| p != id);
         }
@@ -406,8 +461,10 @@ impl ProcState {
 
     pub(in crate::sema) fn set_proc_target(&mut self, id: ProcId, target: ProcTarget) {
         self.procs[id.0 as usize].target = Some(target);
+
         if let ProcTarget::Func(func) = target {
             let procs = self.func_targets.entry(func).or_default();
+
             if let Err(at) = procs.binary_search(&id) {
                 procs.insert(at, id);
             }

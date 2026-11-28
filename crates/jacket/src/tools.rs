@@ -53,6 +53,7 @@ pub fn exec(program: &OsStr, args: &[OsString]) -> ExitCode {
 /// `exec` with `env` added to the environment.
 pub fn exec_with_env(program: &OsStr, args: &[OsString], env: &[(&str, OsString)]) -> ExitCode {
     let mut command = Command::new(program);
+
     command.args(args).envs(env.iter().map(|(k, v)| (k, v)));
     #[cfg(unix)]
     {
@@ -87,8 +88,10 @@ pub fn status(program: &OsStr, args: &[OsString], env: &[(&str, OsString)]) -> s
 /// Starts `jacket-<name>` from `PATH`, like `cargo foo` starts `cargo-foo`.
 pub fn external(name: &OsStr, args: &[OsString]) -> ExitCode {
     let mut program = OsString::from("jacket-");
+
     program.push(name);
     program.push(std::env::consts::EXE_SUFFIX);
+
     if jacket_config::tools::on_path(Path::new(&program)).is_none() {
         eprintln!(
             "jacket: no such command: `{}`\nhelp: `jacket --help` lists the commands; other commands are programs called `jacket-<name>` on PATH",
@@ -96,5 +99,6 @@ pub fn external(name: &OsStr, args: &[OsString]) -> ExitCode {
         );
         return ExitCode::from(2);
     }
+
     exec(&program, args)
 }

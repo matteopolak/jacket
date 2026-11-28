@@ -99,32 +99,41 @@ fn number(tag: &str) -> u32 {
 
 fn module_text(name: &str, version: &Version) -> String {
     let mut text = String::new();
+
     if !version.head.is_empty() {
         text.push_str(version.head);
         text.push('\n');
     }
+
     for need in &version.needs {
         text.push_str(&format!("#import \"{}\"{};\n", need.dep, version.arguments));
     }
+
     let n = number(version.tag);
+
     text.push_str(&format!("{name}_id :: () -> s64 {{ return {n}; }}\n"));
+
     if name == "qlib" {
         text.push_str("Handle :: struct { n: s64; }\n");
         text.push_str(&format!(
             "make_handle :: () -> Handle {{ h: Handle; h.n = {n}; return h; }}\n"
         ));
     }
+
     for need in &version.needs {
         let dep = need.dep;
+
         text.push_str(&format!(
             "{name}_via_{dep} :: () -> s64 {{ return {dep}_id(); }}\n"
         ));
+
         if dep == "qlib" {
             text.push_str(&format!(
                 "{name}_handle :: () -> Handle {{ return make_handle(); }}\n{name}_take :: (h: Handle) -> s64 {{ return h.n; }}\n"
             ));
         }
     }
+
     text.push_str(version.body);
     text
 }
@@ -136,6 +145,7 @@ impl World {
         } else {
             "[resolver]\ndedupe = false\n"
         };
+
         Self {
             project: Project::waived(&format!("[project]\nentry = [\"main.jai\"]\n{resolver}")),
             libs: BTreeMap::new(),
@@ -150,12 +160,14 @@ impl World {
                 ("module.jai".to_string(), module_text(name, version)),
                 ("jacket.toml".to_string(), self.manifest(name, version)),
             ];
+
             files.extend(
                 version
                     .files
                     .iter()
                     .map(|(p, t)| (p.to_string(), t.to_string())),
             );
+
             if !self.libs.contains_key(name) {
                 let origin = Origin::new(
                     &self.project.root,
@@ -165,29 +177,37 @@ impl World {
                         .map(|(p, t)| (p.as_str(), t.as_str()))
                         .collect::<Vec<_>>(),
                 );
+
                 self.libs.insert(name.to_string(), origin);
             }
+
             let origin = &self.libs[name];
+
             for need in version.needs.iter().filter(|n| !n.vendored) {
                 origin.nest(&self.libs[need.dep], need.dep, need.pinned);
             }
+
             let files: Vec<(&str, &str)> = files
                 .iter()
                 .map(|(p, t)| (p.as_str(), t.as_str()))
                 .collect();
+
             origin.release(version.tag, &files);
         }
     }
 
     fn manifest(&self, name: &str, version: &Version) -> String {
         let mut text = format!("[package]\nname = \"{name}\"\n");
+
         if !version.needs.is_empty() {
             text.push_str("[dependencies]\n");
         }
+
         for need in &version.needs {
             let scheme = need
                 .scheme
                 .map_or(String::new(), |s| format!(", scheme = \"{s}\""));
+
             text.push_str(&format!(
                 "{} = {{ git = \"{}\", version = \"{}\"{scheme} }}\n",
                 need.dep,
@@ -195,6 +215,7 @@ impl World {
                 need.range
             ));
         }
+
         text
     }
 
@@ -211,11 +232,13 @@ impl World {
     pub fn check(&self) -> Run {
         let jacket = Path::new(env!("CARGO_BIN_EXE_jacket"));
         let bin = jacket.parent().unwrap();
+
         assert!(
             bin.join("jaic").exists(),
             "build the compiler first: cargo build -p jaic-cli"
         );
         let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+
         self.project.jacket_env(
             &["check", "main.jai"],
             &[("JAIC_STDLIB", stdlib.to_str().unwrap())],
@@ -228,19 +251,25 @@ impl World {
             let Ok(entries) = std::fs::read_dir(dir) else {
                 return;
             };
+
             for entry in entries.flatten() {
                 let path = entry.path();
+
                 if entry.file_name() == ".git" || !path.is_dir() {
                     continue;
                 }
+
                 if path.file_name().is_some_and(|n| n == name) && path.join("module.jai").is_file()
                 {
                     out.push(path.strip_prefix(root).unwrap().display().to_string());
                 }
+
                 walk(&path, root, name, out);
             }
         }
+
         let mut out = Vec::new();
+
         walk(&self.project.dir, &self.project.dir, name, &mut out);
         out.sort();
         out
@@ -256,6 +285,7 @@ fn qlib() -> Vec<Version> {
 /// `jacket dep add` of `name` at `range` succeeds; a failure shows what it printed.
 fn added(world: &World, name: &str, range: &str) {
     let run = world.add(name, range);
+
     assert_eq!(run.code, 0, "add {name}: {}{}", run.out, run.err);
 }
 
@@ -285,31 +315,40 @@ fn observe(
     main: &str,
 ) -> (Observed, Observed) {
     let mut seen = Vec::new();
+
     for dedupe in [false, true] {
         let mut world = World::new(dedupe);
+
         build(&mut world);
         world.main(main);
         let mut result = String::from("ok");
+
         for (name, range) in roots {
             let run = world.add(name, range);
+
             if run.code != 0 {
                 result = format!("add {name}: {}", first_error(&run));
                 break;
             }
         }
+
         if result == "ok" {
             let run = world.check();
+
             if run.code != 0 {
                 result = format!("check: {}", first_error(&run));
             }
         }
+
         seen.push(Observed {
             result,
             copies: world.copies("qlib"),
         });
     }
+
     let on = seen.pop().unwrap();
     let off = seen.pop().unwrap();
+
     eprintln!("STRESS {shape}\n  off: {off:?}\n  on:  {on:?}");
     (off, on)
 }
@@ -338,6 +377,7 @@ fn a_diamond_with_a_type_in_a_public_api_compiles_only_when_shared() {
         &[("alpha", "^1"), ("beta", "^1")],
         HANDLES,
     );
+
     assert!(off.result.starts_with("check:"), "{off:?}");
     assert_eq!(off.copies.len(), 2, "{off:?}");
     assert_eq!(on.result, "ok", "{on:?}");
@@ -347,13 +387,18 @@ fn a_diamond_with_a_type_in_a_public_api_compiles_only_when_shared() {
 #[test]
 fn the_shared_copy_is_the_newest_version_every_requirer_admits() {
     let mut world = World::new(true);
+
     diamond(&mut world);
     world.main(HANDLES);
+
     for name in ["alpha", "beta"] {
         let run = world.add(name, "^1");
+
         assert_eq!(run.code, 0, "{name}: {}{}", run.out, run.err);
     }
+
     let toml = world.project.toml();
+
     assert!(
         toml.contains("qlib = {")
             && toml.contains("tag = \"v1.4.0\"")
@@ -361,8 +406,10 @@ fn the_shared_copy_is_the_newest_version_every_requirer_admits() {
         "{toml}"
     );
     let list = world.project.jacket(&["dep", "list", "--offline"]);
+
     assert!(list.out.contains("(shared)"), "{}", list.out);
     let check = world.project.jacket(&["dep", "check", "--offline"]);
+
     assert_eq!(check.code, 0, "{}{}", check.out, check.err);
     assert_eq!(
         git(
@@ -384,12 +431,16 @@ fn the_shared_copy_is_the_newest_version_every_requirer_admits() {
 #[test]
 fn removing_the_last_package_that_needs_a_shared_copy_removes_it() {
     let mut world = World::new(true);
+
     diamond(&mut world);
     world.main(HANDLES);
+
     for name in ["alpha", "beta"] {
         added(&world, name, "^1");
     }
+
     let run = world.project.jacket(&["dep", "remove", "alpha"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert_eq!(
         world.copies("qlib"),
@@ -397,6 +448,7 @@ fn removing_the_last_package_that_needs_a_shared_copy_removes_it() {
         "beta still needs it"
     );
     let run = world.project.jacket(&["dep", "remove", "beta"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(
         world.copies("qlib").is_empty(),
@@ -413,10 +465,13 @@ fn removing_the_last_package_that_needs_a_shared_copy_removes_it() {
 #[test]
 fn a_shared_entry_cannot_be_removed_or_updated_by_name() {
     let mut world = World::new(true);
+
     diamond(&mut world);
     added(&world, "alpha", "^1");
+
     for command in [["dep", "remove", "qlib"], ["dep", "update", "qlib"]] {
         let run = world.project.jacket(&command);
+
         assert_ne!(run.code, 0, "{}{}", run.out, run.err);
         assert!(run.err.contains("is shared"), "{}", run.err);
     }
@@ -426,6 +481,7 @@ fn a_shared_entry_cannot_be_removed_or_updated_by_name() {
 /// `only_in_two`, which `gamma` calls.
 fn groups(world: &mut World) {
     let mut versions = qlib();
+
     versions[3] = version("v2.0.0").body("only_in_two :: () -> s64 { return 2; }\n");
     world.package("qlib", &versions);
     world.package(
@@ -449,6 +505,7 @@ const GROUPS: &str = "#import \"Basic\";\n#import \"alpha\";\n#import \"beta\";\
 fn add_all(world: &World, names: &[&str]) {
     for name in names {
         let run = world.add(name, "^1");
+
         assert_eq!(run.code, 0, "{name}: {}{}", run.out, run.err);
     }
 }
@@ -456,6 +513,7 @@ fn add_all(world: &World, names: &[&str]) {
 #[test]
 fn incompatible_ranges_get_one_copy_per_group_and_each_package_finds_its_own() {
     let mut world = World::new(true);
+
     groups(&mut world);
     world.main(GROUPS);
     add_all(&world, &["alpha", "beta", "gamma"]);
@@ -465,20 +523,25 @@ fn incompatible_ranges_get_one_copy_per_group_and_each_package_finds_its_own() {
         ["modules/.versions/qlib@2/qlib", "modules/qlib"]
     );
     let toml = world.project.toml();
+
     assert!(toml.contains("tag = \"v1.4.0\""), "{toml}");
     assert!(toml.contains("tag = \"v2.0.0\""), "{toml}");
     let run = world.check();
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let check = world.project.jacket(&["dep", "check", "--offline"]);
+
     assert_eq!(check.code, 0, "{}{}", check.out, check.err);
 }
 
 #[test]
 fn the_projects_own_group_is_the_shared_copy() {
     let mut world = World::new(true);
+
     groups(&mut world);
     world.main(GROUPS);
     let run = world.add("qlib", "^2");
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     add_all(&world, &["alpha", "beta", "gamma"]);
     assert_eq!(
@@ -493,16 +556,19 @@ fn the_projects_own_group_is_the_shared_copy() {
         "v2.0.0"
     );
     let run = world.check();
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
 }
 
 #[test]
 fn a_group_nobody_needs_any_more_is_removed() {
     let mut world = World::new(true);
+
     groups(&mut world);
     world.main(GROUPS);
     add_all(&world, &["alpha", "beta", "gamma"]);
     let run = world.project.jacket(&["dep", "remove", "gamma"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert_eq!(world.copies("qlib"), ["modules/qlib"]);
     assert!(!world.project.toml().contains("qlib@2"));
@@ -524,6 +590,7 @@ fn a_chain_shares_every_level() {
         );
     };
     let (off, on) = observe("chain", build, &[("alpha", "^1")], PLAIN);
+
     assert_eq!(off.result, "ok", "{off:?}");
     assert_eq!(off.copies, ["modules/alpha/modules/beta/modules/qlib"]);
     assert_eq!(on.result, "ok", "{on:?}");
@@ -549,6 +616,7 @@ fn a_cycle_of_packages_settles() {
         );
     };
     let (off, on) = observe("cycle", build, &[("alpha", "^1.1")], PLAIN);
+
     assert_eq!(on.result, "ok", "{on:?}");
     assert_eq!(on.copies, ["modules/qlib"]);
     assert_eq!(off.result, "ok", "{off:?}");
@@ -571,6 +639,7 @@ fn files_in_a_subfolder_skip_the_packages_own_modules_folder() {
     };
     let main = "#import \"Basic\";\n#import \"alpha\";\nmain :: () {\n    print(\"%\\n\", alpha_deep());\n}\n";
     let (off, on) = observe("subfolder", build, &[("alpha", "^1")], main);
+
     assert!(off.result.contains("module `qlib` not found"), "{off:?}");
     assert_eq!(on.result, "ok", "{on:?}");
 }
@@ -579,6 +648,7 @@ fn files_in_a_subfolder_skip_the_packages_own_modules_folder() {
 fn each_requirer_keeps_its_own_module_parameters() {
     let build = |world: &mut World| {
         let mut shared = qlib();
+
         shared[2] = version("v1.4.0").head("#module_parameters(N := 1);");
         world.package("qlib", &shared);
         world.package(
@@ -600,6 +670,7 @@ fn each_requirer_keeps_its_own_module_parameters() {
         &[("alpha", "^1"), ("beta", "^1")],
         HANDLES,
     );
+
     // Different parameters make different instances, and so different types, shared or not.
     assert!(off.result.starts_with("check:"), "{off:?}");
     assert_eq!(off.result, on.result, "{off:?} {on:?}");
@@ -609,16 +680,19 @@ fn each_requirer_keeps_its_own_module_parameters() {
 #[test]
 fn requirers_that_read_tags_differently_conflict() {
     let mut world = World::new(true);
+
     world.package("qlib", &qlib());
     world.package(
         "alpha",
         &[version("v1.0.0").needs(&[need("qlib", "^1.0", "v1.2.0")])],
     );
     let mut calendar = need("qlib", ">=1", "v1.2.0");
+
     calendar.scheme = Some("calendar");
     world.package("beta", &[version("v1.0.0").needs(&[calendar])]);
     added(&world, "alpha", "^1");
     let run = world.add("beta", "^1");
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.err.contains("read its tags differently"), "{}", run.err);
 }
@@ -626,8 +700,10 @@ fn requirers_that_read_tags_differently_conflict() {
 #[test]
 fn a_vendored_copy_cannot_be_shared_and_is_reported() {
     let mut world = World::new(true);
+
     world.package("qlib", &qlib());
     let mut vendored = need("qlib", "^1.0", "v1.2.0");
+
     vendored.vendored = true;
     world.package(
         "alpha",
@@ -637,6 +713,7 @@ fn a_vendored_copy_cannot_be_shared_and_is_reported() {
         )],
     );
     let run = world.add("alpha", "^1");
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert_eq!(
         world.copies("qlib"),
@@ -652,15 +729,20 @@ fn a_vendored_copy_cannot_be_shared_and_is_reported() {
 #[test]
 fn a_moved_shared_tag_fails_check() {
     let mut world = World::new(true);
+
     diamond(&mut world);
+
     for name in ["alpha", "beta"] {
         added(&world, name, "^1");
     }
+
     let qlib = &world.libs["qlib"];
+
     qlib.write(&[("module.jai", "qlib_id :: () -> s64 { return 0; }\n")]);
     qlib.commit("rewrite");
     qlib.tag("v1.4.0");
     let check = world.project.jacket(&["dep", "check"]);
+
     assert_ne!(check.code, 0, "{}{}", check.out, check.err);
     assert!(
         check.err.contains("v1.4.0") && check.err.contains("moved"),
@@ -697,6 +779,7 @@ fn a_deep_chain_with_a_diamond_in_the_middle_shares_each_name_once() {
         );
     };
     let (_, on) = observe("deep diamond", build, &[("alpha", "^1")], PLAIN);
+
     assert_eq!(on.result, "ok", "{on:?}");
     assert_eq!(on.copies, ["modules/qlib"]);
 }
@@ -704,14 +787,19 @@ fn a_deep_chain_with_a_diamond_in_the_middle_shares_each_name_once() {
 #[test]
 fn update_moves_every_shared_copy_to_the_newest_version_its_requirers_admit() {
     let mut world = World::new(true);
+
     diamond(&mut world);
+
     for name in ["alpha", "beta"] {
         added(&world, name, "^1");
     }
+
     let qlib = &world.libs["qlib"];
+
     qlib.release("v1.5.0", &[]);
     qlib.release("v2.1.0", &[]);
     let run = world.project.jacket(&["dep", "update"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(
         world.project.toml().contains("tag = \"v1.5.0\""),
@@ -719,21 +807,27 @@ fn update_moves_every_shared_copy_to_the_newest_version_its_requirers_admit() {
         world.project.toml()
     );
     let check = world.project.jacket(&["dep", "check", "--offline"]);
+
     assert_eq!(check.code, 0, "{}{}", check.out, check.err);
 }
 
 #[test]
 fn a_fresh_clone_syncs_the_shared_copy_and_leaves_the_nested_ones_empty() {
     let mut world = World::new(true);
+
     diamond(&mut world);
     world.main(HANDLES);
+
     for name in ["alpha", "beta"] {
         added(&world, name, "^1");
     }
+
     let project = &world.project;
+
     git(&project.dir, &["add", "-A"]);
     git(&project.dir, &["commit", "-q", "-m", "deps"]);
     let clone = project.root.join("clone");
+
     git(
         &project.root,
         &[
@@ -744,6 +838,7 @@ fn a_fresh_clone_syncs_the_shared_copy_and_leaves_the_nested_ones_empty() {
         ],
     );
     let run = dep_support::run_in(&clone, &project.root, &["dep", "sync"], &[]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let copies = |dir: &Path| {
         ["alpha", "beta"]
@@ -755,21 +850,26 @@ fn a_fresh_clone_syncs_the_shared_copy_and_leaves_the_nested_ones_empty() {
             .count()
             + usize::from(dir.join("modules/qlib/module.jai").exists())
     };
+
     assert_eq!(copies(&clone), 1);
     let check = dep_support::run_in(&clone, &project.root, &["dep", "check", "--offline"], &[]);
+
     assert_eq!(check.code, 0, "{}{}", check.out, check.err);
 }
 
 #[test]
 fn a_version_the_project_pinned_itself_must_satisfy_every_requirer() {
     let mut world = World::new(true);
+
     diamond(&mut world);
     let url = world.libs["qlib"].url();
     let run = world
         .project
         .jacket(&["dep", "add", &format!("{url}@v1.0.0")]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let run = world.add("beta", "^1");
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(
         run.err.contains("qlib is pinned at v1.0.0") && run.err.contains("beta needs ^1.1"),
@@ -790,11 +890,14 @@ fn recorded(world: &World) -> (String, String) {
 #[test]
 fn an_update_that_fails_while_sharing_puts_back_the_shared_copies_too() {
     let mut world = World::new(true);
+
     diamond(&mut world);
     world.package("zlib", &[version("v2.0.0")]);
+
     for name in ["alpha", "beta"] {
         added(&world, name, "^1");
     }
+
     // qlib moves to its newest version first, then alpha's new release asks for a zlib no
     // version of which fits.
     world.libs["qlib"].release("v1.5.0", &[]);
@@ -807,11 +910,13 @@ fn an_update_that_fails_while_sharing_puts_back_the_shared_copies_too() {
     );
     let (toml, state) = (world.project.toml(), recorded(&world));
     let run = world.project.jacket(&["dep", "update"]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(!run.out.contains("updated"), "{}", run.out);
     assert_eq!(world.project.toml(), toml);
     assert_eq!(recorded(&world), state, "{}", run.err);
     let check = world.project.jacket(&["dep", "check", "--offline"]);
+
     assert_eq!(check.code, 0, "{}{}", check.out, check.err);
 }
 
@@ -819,6 +924,7 @@ fn an_update_that_fails_while_sharing_puts_back_the_shared_copies_too() {
 #[test]
 fn a_shared_copy_that_cannot_be_cloned_leaves_the_add_undone() {
     let mut world = World::new(true);
+
     diamond(&mut world);
     let path = dep_support::git_shim(
         world.project.root.path(),
@@ -829,6 +935,7 @@ fn a_shared_copy_that_cannot_be_cloned_leaves_the_add_undone() {
     let run = world
         .project
         .jacket_env(&["dep", "add", &spec], &[("PATH", &path)]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(!run.out.contains("added"), "{}", run.out);
     assert_eq!(
@@ -844,6 +951,7 @@ fn a_shared_copy_that_cannot_be_cloned_leaves_the_add_undone() {
 #[test]
 fn a_shared_copy_that_cannot_be_recorded_is_not_left_behind() {
     let mut world = World::new(true);
+
     diamond(&mut world);
     // Once qlib is cloned, jacket.toml is read-only until a submodule is removed, so the save
     // that records the copy fails and the undo can still restore the file.
@@ -858,6 +966,7 @@ fn a_shared_copy_that_cannot_be_recorded_is_not_left_behind() {
     let run = world
         .project
         .jacket_env(&["dep", "add", &spec], &[("PATH", &path)]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert_eq!(
         (world.project.toml(), recorded(&world)),
@@ -872,6 +981,7 @@ fn a_shared_copy_that_cannot_be_recorded_is_not_left_behind() {
 #[test]
 fn a_nested_checkout_that_fails_leaves_an_add_and_an_update_undone() {
     let mut world = World::new(false);
+
     diamond(&mut world);
     let path = dep_support::git_shim(
         world.project.root.path(),
@@ -882,6 +992,7 @@ fn a_nested_checkout_that_fails_leaves_an_add_and_an_update_undone() {
     let run = world
         .project
         .jacket_env(&["dep", "add", &spec], &[("PATH", &path)]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.err.contains("injected"), "{}", run.err);
     assert!(!run.out.contains("added"), "{}", run.out);
@@ -902,6 +1013,7 @@ fn a_nested_checkout_that_fails_leaves_an_add_and_an_update_undone() {
     let run = world
         .project
         .jacket_env(&["dep", "update"], &[("PATH", &path)]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.err.contains("injected"), "{}", run.err);
     assert!(!run.out.contains("updated"), "{}", run.out);
@@ -917,6 +1029,7 @@ fn a_nested_checkout_that_fails_leaves_an_add_and_an_update_undone() {
 /// name from another.
 fn moved_repository() -> World {
     let mut world = World::new(true);
+
     world.package("qlib", &qlib());
     world.package("qlib2", &qlib());
     world.package(
@@ -928,6 +1041,7 @@ fn moved_repository() -> World {
         "[package]\nname = \"alpha\"\n[dependencies]\nqlib = {{ git = \"{}\", version = \"^1.0\" }}\n",
         world.libs["qlib2"].url()
     );
+
     world.libs["alpha"].release("v1.1.0", &[("jacket.toml", manifest.as_str())]);
     world
 }
@@ -944,6 +1058,7 @@ fn a_shared_copy_replaced_by_another_repository_comes_back_when_the_new_one_fail
     let run = world
         .project
         .jacket_env(&["dep", "update"], &[("PATH", &path)]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.err.contains("injected"), "{}", run.err);
     assert_eq!(
@@ -953,6 +1068,7 @@ fn a_shared_copy_replaced_by_another_repository_comes_back_when_the_new_one_fail
         run.err
     );
     let check = world.project.jacket(&["dep", "check", "--offline"]);
+
     assert_eq!(check.code, 0, "{}{}", check.out, check.err);
 }
 
@@ -971,6 +1087,7 @@ fn a_shared_copy_from_another_repository_is_replaced_by_the_old_one_on_a_later_f
     let run = world
         .project
         .jacket_env(&["dep", "update"], &[("PATH", &path)]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert_eq!(
         (world.project.toml(), recorded(&world)),
@@ -983,14 +1100,18 @@ fn a_shared_copy_from_another_repository_is_replaced_by_the_old_one_on_a_later_f
 #[test]
 fn a_shared_copy_needed_by_an_unchecked_out_package_is_not_removed() {
     let mut world = World::new(true);
+
     diamond(&mut world);
+
     for name in ["alpha", "beta"] {
         added(&world, name, "^1");
     }
+
     git(&world.project.dir, &["add", "-A"]);
     git(&world.project.dir, &["commit", "-q", "-m", "deps"]);
     // A fresh clone has no submodule checked out, so nothing can be read about what they need.
     let clone = world.project.root.join("clone");
+
     git(
         &world.project.root,
         &[
@@ -1003,6 +1124,7 @@ fn a_shared_copy_needed_by_an_unchecked_out_package_is_not_removed() {
     let before = std::fs::read_to_string(clone.join("jacket.toml")).unwrap();
     let run = dep_support::run_in(&clone, world.project.root.path(), &["dep", "update"], &[]);
     let after = std::fs::read_to_string(clone.join("jacket.toml")).unwrap();
+
     assert_eq!(after, before, "{}{}", run.out, run.err);
     assert!(!run.out.contains("removed shared"), "{}", run.out);
 }
@@ -1011,6 +1133,7 @@ fn a_shared_copy_needed_by_an_unchecked_out_package_is_not_removed() {
 #[test]
 fn an_undo_that_cannot_read_the_submodules_says_so_and_changes_nothing_more() {
     let mut world = World::new(false);
+
     diamond(&mut world);
     // The nested checkout fails, and afterwards git can no longer list the index.
     let path = dep_support::git_shim(
@@ -1022,6 +1145,7 @@ fn an_undo_that_cannot_read_the_submodules_says_so_and_changes_nothing_more() {
     let run = world
         .project
         .jacket_env(&["dep", "add", &spec], &[("PATH", &path)]);
+
     assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.err.contains("injected nested"), "{}", run.err);
     assert!(

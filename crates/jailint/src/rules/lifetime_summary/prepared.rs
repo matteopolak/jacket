@@ -66,6 +66,7 @@ impl<'a> Prepared<'a> {
                 .collect(),
         };
         let live = returning_blocks(body, all, targets);
+
         for e in body
             .blocks
             .iter()
@@ -85,6 +86,7 @@ impl<'a> Prepared<'a> {
                 ) =>
                 {
                     let p = places.place(*v, *ty);
+
                     core.owned.insert(places.root_of(p));
                 }
                 Event::Parameter {
@@ -95,6 +97,7 @@ impl<'a> Prepared<'a> {
                     ..
                 } => {
                     let p = places.place(*place, *ty);
+
                     core.params.insert(p, (*formal, *ty));
                     core.owned.insert(p);
                     core.values
@@ -109,6 +112,7 @@ impl<'a> Prepared<'a> {
                     ..
                 } => {
                     let p = places.place(*place, *ty);
+
                     if value == place && compiler.ir_ty(*ty).is_none() {
                         // An aggregate rvalue is its address. Preserve plain aggregate
                         // copies, but do not add a self-reference to a call's SSA result.
@@ -118,8 +122,10 @@ impl<'a> Prepared<'a> {
                         }) {
                             core.values.entry(*value).or_default().push(Def::Address(p));
                         }
+
                         continue;
                     }
+
                     core.values
                         .entry(*value)
                         .or_default()
@@ -132,7 +138,9 @@ impl<'a> Prepared<'a> {
                     ..
                 } => {
                     let p = places.place(*place, *ty);
+
                     core.writes.entry(p).or_default().push(*value);
+
                     if compiler.ir_ty(*ty).is_none()
                         && place != value
                         && !core.values.contains_key(place)
@@ -162,9 +170,11 @@ impl<'a> Prepared<'a> {
                     // Every address taken of one place is the same definition; keeping each
                     // would make every query about the place's root scan all of them.
                     let defs = core.values.entry(*place).or_default();
+
                     if !defs.iter().any(|d| matches!(d, Def::Address(q) if *q == p)) {
                         defs.push(Def::Address(p));
                     }
+
                     core.exposed.insert(p);
                 }
                 Event::View {
@@ -184,6 +194,7 @@ impl<'a> Prepared<'a> {
                     } else {
                         let p = places.place(*source, *from);
                         let target = places.place(*value, *to);
+
                         if target != p {
                             core.values.entry(*value).or_default().push(Def::Borrow(p));
                         }
@@ -196,6 +207,7 @@ impl<'a> Prepared<'a> {
                     ..
                 } => {
                     let p = places.place(*region, *region_ty);
+
                     core.values.entry(*value).or_default().push(Def::Borrow(p));
                 }
                 Event::Index {
@@ -205,6 +217,7 @@ impl<'a> Prepared<'a> {
                     ..
                 } => {
                     let p = places.place(*base, *base_ty);
+
                     core.values.entry(*result).or_default().push(Def::Borrow(p));
                 }
                 Event::Call {
@@ -346,6 +359,7 @@ impl<'a> Resolver<'a> {
             body,
             targets,
         };
+
         this.rounded_address_base = this.rounded_address(all);
         this.refresh_context(all);
         this

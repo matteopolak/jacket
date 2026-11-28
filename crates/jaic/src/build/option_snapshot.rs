@@ -22,6 +22,7 @@ fn pair(interp: &Interp, address: u64) -> Result<(usize, u64), Trap> {
         .read_view(address)
         .ok_or_else(|| Trap::new("unreadable build option view"))?;
     let count = usize::try_from(count).map_err(|_| Trap::new("invalid build option count"))?;
+
     Ok((count, data))
 }
 
@@ -37,6 +38,7 @@ fn checked(
     {
         return Err(Trap::new("option view outside snapshot"));
     }
+
     Ok(offsets.iter().map(|&offset| offset as usize))
 }
 
@@ -55,22 +57,30 @@ impl Snapshot {
             strings: Vec::new(),
             arrays: Vec::new(),
         };
+
         for offset in checked(strings, size, view)? {
             let (count, data) = pair(interp, address + offset as u64)?;
+
             result.strings.push((offset, fetch(interp, data, count)?));
         }
+
         for offset in checked(arrays, size, view)? {
             let (count, data) = pair(interp, address + offset as u64)?;
+
             count
                 .checked_mul(view as usize)
                 .ok_or_else(|| Trap::new("invalid option array count"))?;
             let mut items = Vec::new();
+
             for i in 0..count {
                 let (len, ptr) = pair(interp, data + i as u64 * view)?;
+
                 items.push(fetch(interp, ptr, len)?);
             }
+
             result.arrays.push((offset, items));
         }
+
         Ok(result)
     }
 
@@ -83,25 +93,35 @@ impl Snapshot {
         if self.bytes.len() != size {
             return Err(Trap::new("build option schema size mismatch"));
         }
+
         let layout = *interp.data_layout();
         let view = layout.builtins().view;
         let mut bytes = self.bytes.clone();
+
         for (offset, string) in &self.strings {
             let ptr = interp.register_data_global(string, 1, false, 1)?;
+
             layout.write_view(&mut bytes[*offset..], string.len() as u64, ptr);
         }
+
         for (offset, strings) in &self.arrays {
             let mut items = vec![0; strings.len() * view.size as usize];
+
             for (item, string) in items.chunks_exact_mut(view.size as usize).zip(strings) {
                 let ptr = interp.register_data_global(string, 1, false, 1)?;
+
                 layout.write_view(item, string.len() as u64, ptr);
             }
+
             let ptr = interp.register_data_global(&items, view.align, false, 1)?;
+
             layout.write_view(&mut bytes[*offset..], strings.len() as u64, ptr);
         }
+
         if !interp.write(address, &bytes) {
             return Err(Trap::new("unwritable build options"));
         }
+
         Ok(())
     }
 }

@@ -31,8 +31,10 @@ fn golden_a_leak_is_reported_where_the_test_allocated() {
     if toolchain::jaic_beside(Path::new(env!("CARGO_BIN_EXE_jacket"))).is_none() {
         return;
     }
+
     let project = TempDir::new("jacket-leak-golden");
     let tests = project.join("tests");
+
     std::fs::create_dir_all(&tests).unwrap();
     std::fs::write(project.join("jacket.toml"), "[project]\n").unwrap();
     std::fs::write(tests.join("leaks.jai"), PROGRAM).unwrap();
@@ -50,8 +52,10 @@ fn golden_a_leak_is_reported_where_the_test_allocated() {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+
     assert!(!out.status.success(), "{text}");
     assert!(!text.contains("tracking.jai"), "{text}");
+
     for block in GOLDEN.split("\n\n").filter(|block| !block.is_empty()) {
         assert!(text.contains(block), "missing:\n{block}\n\nin:\n{text}");
     }

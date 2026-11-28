@@ -63,13 +63,16 @@ pub(super) fn proc_of(width: u8, value: u64) -> Option<Proc> {
     if width < 8 {
         let (func, foreign, mask) = narrow_bases(width);
         let id = (value & mask) as u32;
+
         return match value & !mask {
             v if v == func => Some(Proc::Func(FuncId(id))),
             v if v == foreign => Some(Proc::Foreign(ForeignId(id))),
             _ => None,
         };
     }
+
     let id = (value & !TAG_MASK) as u32;
+
     match value & TAG_MASK {
         FUNC_TAG => Some(Proc::Func(FuncId(id))),
         FOREIGN_TAG => Some(Proc::Foreign(ForeignId(id))),
@@ -100,8 +103,10 @@ mod tests {
                 70_000
             };
             let f = func_word(width, FuncId(id));
+
             assert!(matches!(proc_of(width, f), Some(Proc::Func(FuncId(n))) if n == id));
             let e = foreign_word(width, ForeignId(3));
+
             assert!(matches!(
                 proc_of(width, e),
                 Some(Proc::Foreign(ForeignId(3)))
@@ -109,6 +114,7 @@ mod tests {
             assert!(proc_of(width, 0x1234).is_none());
             assert!(f >= data_limit(width) && e >= data_limit(width));
         }
+
         assert!(u32::try_from(func_word(4, FuncId(0x0FFF_FFFF))).is_ok());
         assert!(u16::try_from(func_word(2, FuncId(0x1FFF))).is_ok());
     }

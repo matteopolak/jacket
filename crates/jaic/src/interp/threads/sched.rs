@@ -149,14 +149,17 @@ impl Sched {
     /// Put a thread in a free slot, or in a new one, and return its number.
     pub(super) fn add(&mut self, thread: GThread) -> usize {
         let id = self.slots.acquire();
+
         if id == self.threads.len() {
             self.threads.push(thread);
         } else {
             self.threads[id] = thread;
         }
+
         if !self.threads[id].finished {
             self.live.insert(id);
         }
+
         id
     }
 
@@ -166,6 +169,7 @@ impl Sched {
     pub(super) fn finish(&mut self, t: usize) {
         self.threads[t].finished = true;
         self.live.remove(&t);
+
         if self.threads[t].adopted || self.slots.is_released(t) {
             // Whoever runs this is the worker itself or a teardown that joins it: dropping the
             // handle only lets go of it.
@@ -180,15 +184,18 @@ impl Sched {
         if !self.slots.release(t, self.threads[t].finished) {
             return None;
         }
+
         self.recycle(t)
     }
 
     /// Free the finished slot `t` for `add`, and end every handle to it.
     fn recycle(&mut self, t: usize) -> Option<Worker> {
         let thread = &mut self.threads[t];
+
         debug_assert!(thread.finished);
         thread.start = None;
         let worker = thread.worker.take();
+
         // The thread's locks stay held, as they would for a thread that exited holding them,
         // but no thread that takes the slot can own them.
         self.mutexes.orphan(t);
@@ -237,6 +244,7 @@ impl Sched {
     /// Make runnable every thread whose sleep or timed wait is over.
     pub(super) fn expire_waits(&mut self) {
         let now = Instant::now();
+
         for &t in &self.live {
             match self.threads[t].block {
                 Block::Sleep(d) | Block::Object(Some(d)) if d <= now => {
@@ -256,6 +264,7 @@ impl Sched {
     pub(super) fn wake(&mut self, reason: Block) {
         for &t in &self.live {
             let thread = &mut self.threads[t];
+
             if thread.block == reason {
                 thread.block = Block::None;
                 self.woke = true;
@@ -267,6 +276,7 @@ impl Sched {
     pub(super) fn wake_object_waiters(&mut self) {
         for &t in &self.live {
             let thread = &mut self.threads[t];
+
             if matches!(thread.block, Block::Object(_)) {
                 thread.block = Block::None;
                 self.woke = true;
@@ -283,11 +293,13 @@ impl Sched {
             .chain(self.live.range(..=self.last))
             .copied()
             .find(|&t| self.runnable(t));
+
         if let Some(t) = next {
             self.current = Some(t);
             self.last = t;
             self.in_native = false;
         }
+
         next.is_some()
     }
 
@@ -308,9 +320,11 @@ impl Sched {
     pub(super) fn release(&mut self, report: Option<usize>) {
         self.current = None;
         self.in_native = false;
+
         if self.pick() || !self.stuck() || self.callbacks {
             return;
         }
+
         self.report_deadlock(report);
     }
 
@@ -318,6 +332,7 @@ impl Sched {
         let first = self
             .live_slots()
             .find(|&t| self.threads[t].suspend_count == 0);
+
         if let Some(t) = report.or(first) {
             self.threads[t].block = Block::None;
             self.threads[t].deadlocked = true;
@@ -346,9 +361,11 @@ mod tests {
 
     fn sched_with(count: usize) -> Arc<Shared> {
         let shared = Shared::new(0);
+
         for _ in 1..count {
             shared.lock().add(GThread::new(false, None));
         }
+
         shared
     }
 
@@ -356,6 +373,7 @@ mod tests {
     fn finished_slots_leave_the_scan_and_the_round_robin_skips_them() {
         let shared = sched_with(4);
         let mut s = shared.lock();
+
         s.finish(2);
         assert_eq!(s.live_slots().collect::<Vec<_>>(), [0, 1, 3]);
         s.last = 1;
@@ -374,12 +392,14 @@ mod tests {
     fn idle_and_adopted_queries_look_only_at_unfinished_slots() {
         let shared = sched_with(3);
         let mut s = shared.lock();
+
         assert!(!s.only_first_live());
         s.finish(1);
         s.finish(2);
         assert!(s.only_first_live());
         assert!(!s.adopted_live());
         let slot = s.adopt();
+
         assert!(!s.only_first_live());
         assert!(s.adopted_live());
         s.finish(slot);
@@ -392,6 +412,7 @@ mod tests {
         let shared = sched_with(1);
         let mut s = shared.lock();
         let slot = s.adopt();
+
         s.finish(slot);
         assert_eq!(s.live_slots().collect::<Vec<_>>(), [0]);
         assert_eq!(s.adopt(), slot);
@@ -403,6 +424,7 @@ mod tests {
         let shared = sched_with(1);
         let mut s = shared.lock();
         let mut done = GThread::new(false, None);
+
         done.finished = true;
         assert_eq!(s.add(done), 1);
         assert_eq!(s.live_slots().collect::<Vec<_>>(), [0]);
@@ -414,6 +436,7 @@ mod tests {
         let mut s = shared.lock();
         let slot = s.add(GThread::new(false, None));
         let handle = s.handle_of(slot);
+
         s.finish(slot);
         assert_eq!(s.resolve(handle), Some(slot), "a joiner can still read it");
         assert!(s.slots.spare().is_empty());
@@ -428,6 +451,7 @@ mod tests {
         let mut s = shared.lock();
         let slot = s.add(GThread::new(false, None));
         let handle = s.handle_of(slot);
+
         s.release_handle(slot);
         assert!(s.slots.spare().is_empty(), "still running");
         assert_eq!(s.resolve(handle), Some(slot));
@@ -441,6 +465,7 @@ mod tests {
         let shared = sched_with(1);
         let mut s = shared.lock();
         let slot = s.add(GThread::new(false, None));
+
         s.finish(slot);
         s.release_handle(slot);
         s.release_handle(slot);
@@ -453,11 +478,14 @@ mod tests {
         let mut s = shared.lock();
         let first = s.add(GThread::new(false, None));
         let old = s.handle_of(first);
+
         s.finish(first);
         s.release_handle(first);
         let second = s.add(GThread::new(false, None));
+
         assert_eq!(second, first, "the slot is reused");
         let new = s.handle_of(second);
+
         assert_ne!(old, new);
         assert_eq!(s.resolve(old), None);
         assert_eq!(s.resolve(new), Some(second));
@@ -469,6 +497,7 @@ mod tests {
     fn the_first_generation_keeps_the_plain_slot_plus_one_handle() {
         let shared = sched_with(3);
         let s = shared.lock();
+
         assert_eq!(s.handle_of(2), 3);
         assert_eq!(s.resolve(3), Some(2));
         assert_eq!(s.resolve(0), None);
@@ -480,11 +509,14 @@ mod tests {
         let shared = sched_with(1);
         let mut s = shared.lock();
         let started = s.add(GThread::new(false, None));
+
         s.finish(started);
         s.release_handle(started);
         let adopted = s.adopt();
+
         assert_eq!(adopted, started);
         let handle = s.handle_of(adopted);
+
         s.finish(adopted);
         assert_eq!(
             s.resolve(handle),
@@ -492,6 +524,7 @@ mod tests {
             "an adopted thread's id dies with its call"
         );
         let again = s.add(GThread::new(false, None));
+
         assert_eq!(again, started);
         assert!(!s.threads[again].adopted);
         assert_eq!(s.threads.len(), 2);
@@ -502,10 +535,12 @@ mod tests {
         let shared = sched_with(1);
         let mut s = shared.lock();
         let first = s.add(GThread::new(false, None));
+
         assert!(s.mutexes.try_lock(0x10, first, 1));
         s.finish(first);
         s.release_handle(first);
         let second = s.add(GThread::new(false, None));
+
         assert_eq!(second, first);
         assert!(!s.mutexes.try_lock(0x10, second, 1));
         assert!(s.mutexes.unlock(0x10, second).is_err());

@@ -11,6 +11,7 @@ fn run() {
     let mut args = std::env::args_os().skip(1);
     let root = PathBuf::from(args.next().expect("expected selected source"));
     let stdlib = PathBuf::from(args.next().expect("expected selected stdlib"));
+
     assert!(args.next().is_none(), "expected exactly source and stdlib");
     assert!(
         root.is_absolute() && root.is_file(),
@@ -21,6 +22,7 @@ fn run() {
         "invalid selected stdlib"
     );
     let enforce = jacket_config::env::ENFORCE_SCALE_BUDGET.get().as_deref() == Some("1");
+
     // Missing stdlib grants must fail the harness, not masquerade as expected diagnostics.
     assert!(
         !std::fs::read(stdlib.join("prelude/module.jai"))
@@ -34,8 +36,10 @@ fn run() {
     );
     let uri = DocumentUri::from_path(&root.canonicalize().unwrap()).unwrap();
     let started = Instant::now();
+
     s.open(uri.clone(), 1, text).unwrap();
     let diagnostics = s.diagnostics(&uri).unwrap();
+
     assert_ne!(diagnostics, [] as [jai_language_server::Diagnostic; 0]);
     let elapsed = started.elapsed();
     let checked = s.compile_counts();
@@ -43,6 +47,7 @@ fn run() {
         .semantic_coverage(&uri)
         .unwrap()
         .expect("checked Focus context");
+
     assert!(
         coverage.source_loaded,
         "the checked context must load the selected source"
@@ -62,6 +67,7 @@ fn run() {
             .map(|diagnostic| diagnostic.code)
             .collect::<Vec<_>>()
     );
+
     // The regression this guards took minutes; a normal run takes seconds, so the budget leaves
     // a shared CI runner plenty of room.
     if enforce {

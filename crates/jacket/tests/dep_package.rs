@@ -20,12 +20,14 @@ fn the_package_name_names_the_folder_when_no_name_is_given() {
         ],
     );
     let run = project.jacket(&["dep", "add", &origin.url()]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(project.dir.join("modules/Short/module.jai").is_file());
     assert!(!project.dir.join("modules/repo-with-a-long-name").exists());
     assert!(project.toml().contains("Short = {"), "{}", project.toml());
     assert!(run.out.contains("added Short"), "{}", run.out);
     let modules = std::fs::read_to_string(project.dir.join(".gitmodules")).unwrap();
+
     assert!(modules.contains("path = modules/Short"), "{modules}");
 }
 
@@ -41,6 +43,7 @@ fn an_explicit_name_is_kept() {
         ],
     );
     let run = project.jacket(&["dep", "add", &origin.url(), "--name", "Mine"]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(project.dir.join("modules/Mine/module.jai").is_file());
 }
@@ -54,6 +57,7 @@ fn a_module_in_a_subfolder_is_found_and_recorded() {
         &[("modules/Inner/module.jai", "answer :: 1;\n")],
     );
     let run = project.jacket(&["dep", "add", &origin.url()]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(
         project.toml().contains("module = \"modules/Inner\""),
@@ -74,6 +78,7 @@ fn several_modules_need_a_choice_and_leave_nothing_behind() {
         ],
     );
     let run = project.jacket(&["dep", "add", &origin.url()]);
+
     assert_ne!(run.code, 0);
     assert!(
         run.err.contains("modules/A") && run.err.contains("--module"),
@@ -83,6 +88,7 @@ fn several_modules_need_a_choice_and_leave_nothing_behind() {
     assert!(!project.dir.join("modules/many").exists());
     assert!(!project.toml().contains("many"));
     let chosen = project.jacket(&["dep", "add", &origin.url(), "--module", "modules/B"]);
+
     assert_eq!(chosen.code, 0, "{}{}", chosen.out, chosen.err);
     assert!(
         project.toml().contains("module = \"modules/B\""),
@@ -103,6 +109,7 @@ fn a_package_that_needs_a_newer_jacket_is_refused_and_removed() {
         ],
     );
     let run = project.jacket(&["dep", "add", &origin.url()]);
+
     assert_ne!(run.code, 0);
     assert!(run.err.contains("requires jacket >=99.0.0"), "{}", run.err);
     assert!(!project.dir.join("modules/future").exists());
@@ -115,12 +122,14 @@ fn update_keeps_the_old_commit_when_the_new_one_needs_a_newer_jacket() {
     let origin = Origin::new(&project.root, "lib", MODULE);
     let first = origin.release("v1.0.0", &[("module.jai", "answer :: 1;\n")]);
     let run = project.jacket(&["dep", "add", &origin.url()]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     origin.release(
         "v2.0.0",
         &[("jacket.toml", "[package]\njacket-version = \">=99.0.0\"\n")],
     );
     let run = project.jacket(&["dep", "update", "lib", "--to", "v2.0.0"]);
+
     assert_ne!(run.code, 0);
     assert!(run.err.contains("requires jacket"), "{}", run.err);
     assert_eq!(
@@ -142,6 +151,7 @@ fn a_package_name_that_differs_from_its_module_folder_is_refused() {
         ],
     );
     let run = project.jacket(&["dep", "add", &origin.url()]);
+
     assert_ne!(run.code, 0);
     assert!(
         run.err.contains("Fake") && run.err.contains("Real"),
@@ -155,6 +165,7 @@ fn a_package_name_that_differs_from_its_module_folder_is_refused() {
 fn platforms_and_version_mismatches_warn_without_failing() {
     let project = project();
     let origin = Origin::new(&project.root, "warn", MODULE);
+
     origin.release(
         "v1.0.0",
         &[(
@@ -163,6 +174,7 @@ fn platforms_and_version_mismatches_warn_without_failing() {
         )],
     );
     let run = project.jacket(&["dep", "add", &origin.url()]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.err.contains("plan9"), "{}", run.err);
     assert!(
@@ -175,10 +187,12 @@ fn platforms_and_version_mismatches_warn_without_failing() {
 #[test]
 fn an_existing_folder_is_not_replaced_without_a_name() {
     let project = project();
+
     std::fs::create_dir_all(project.dir.join("modules/lib")).unwrap();
     std::fs::write(project.dir.join("modules/lib/module.jai"), "mine :: 1;\n").unwrap();
     let origin = Origin::new(&project.root, "lib", MODULE);
     let run = project.jacket(&["dep", "add", &origin.url()]);
+
     assert_ne!(run.code, 0);
     assert!(run.err.contains("--name lib"), "{}", run.err);
     assert_eq!(
@@ -196,8 +210,10 @@ fn a_new_library_names_itself_in_its_package_table() {
         &["new", "--lib", "Shapes"],
         &[],
     );
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let toml = std::fs::read_to_string(project.dir.join("Shapes/jacket.toml")).unwrap();
+
     assert!(
         toml.contains("[package]\nname = \"Shapes\"\nversion = \"0.1.0\""),
         "{toml}"
@@ -210,9 +226,11 @@ fn list_reports_what_a_dependency_needs_against_its_nested_pin() {
     let project =
         Project::waived("[project]\nentry = [\"main.jai\"]\n[resolver]\ndedupe = false\n");
     let inner = Origin::new(&project.root, "inner", MODULE);
+
     inner.release("v1.0.0", &[]);
     inner.release("v2.0.0", &[]);
     let outer = Origin::new(&project.root, "outer", MODULE);
+
     dep_support::git(
         &outer.work,
         &[
@@ -240,8 +258,10 @@ fn list_reports_what_a_dependency_needs_against_its_nested_pin() {
         )],
     );
     let run = project.jacket(&["dep", "add", &outer.url()]);
+
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let list = project.jacket(&["dep", "list", "--offline"]);
+
     assert_eq!(list.code, 0, "{}{}", list.out, list.err);
     assert!(
         list.out

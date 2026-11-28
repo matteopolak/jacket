@@ -6,20 +6,24 @@ use crate::reflection_bootstrap as bootstrap;
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/lib/prelude/module.jai".into());
     let mut fs = VirtualFs::default();
+
     fs.insert(
         "/lib/prelude/module.jai",
         format!("{} {}", bootstrap::BOOTSTRAP, ENUM_RECORD).as_bytes(),
     );
     let mut c = Compiler::new(options, Rc::new(fs));
     let result = c.compile_sources(&[ProgramSource::String(source.into())]);
+
     (c, result)
 }
 
 fn check(source: &str) {
     let (c, r) = compile(source);
+
     if let Err(e) = r {
         panic!("{}", e.render(&c.src.sources));
     }
@@ -39,23 +43,30 @@ fn enum_values_execute_in_the_interpreter() {
 fn ide_forward_member_navigation_preserves_declaration_locations() {
     let source = "E :: enum {MASK::FIRST|E.LAST;FIRST::1;LAST::4;} main :: () { value:E=.MASK; }";
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut fs = VirtualFs::default();
+
     fs.insert("/app/main.jai", source.as_bytes());
     let mut c = Compiler::new(options, Rc::new(fs));
+
     c.ed.record(jaic::ide::IdeFacts::new(vec![jaic::ide::IdeRoot::under(
         "/app/",
     )]));
+
     if let Err(e) = c.compile_program(std::path::Path::new("/app/main.jai")) {
         panic!("{}", e.render(&c.src.sources));
     }
+
     assert!(c.ide_check_all().is_empty());
+
     for (usage, declaration) in [
         ("FIRST|", "FIRST::"),
         ("LAST;", "LAST::"),
         ("MASK;", "MASK::"),
     ] {
         let spans = c.ide_definition(jaic::source::FileId(0), source.find(usage).unwrap() as u32);
+
         assert_eq!(spans.len(), 1, "{usage}");
         assert_eq!(spans[0].start, source.find(declaration).unwrap() as u32);
     }
@@ -141,6 +152,7 @@ fn invalid_enums_retain_duplicate_cycle_unknown_and_range_diagnostics() {
     ] {
         let (c, r) = compile(&format!("{source} main :: () {{}}"));
         let e = r.expect_err("invalid enum must fail");
+
         assert!(e.message.contains(expected), "{}", e.render(&c.src.sources));
     }
 }

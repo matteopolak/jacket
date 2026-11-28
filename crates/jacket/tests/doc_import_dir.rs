@@ -5,6 +5,7 @@ use test_support::{TempDir, toolchain};
 
 fn tools() -> Option<PathBuf> {
     let jacket = PathBuf::from(env!("CARGO_BIN_EXE_jacket"));
+
     toolchain::jaic_beside(&jacket)?;
     Some(jacket)
 }
@@ -34,11 +35,14 @@ fn pages(jacket: &Path, temp: &TempDir, extra: &[&str]) -> String {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+
     assert!(output.status.success(), "{said}");
     let mut pages = String::new();
+
     for entry in std::fs::read_dir(temp.join("input/modules")).unwrap() {
         pages += &std::fs::read_to_string(entry.unwrap().path()).unwrap();
     }
+
     pages
 }
 
@@ -48,9 +52,11 @@ fn a_type_of_another_module_of_the_library_links() {
         return;
     };
     let temp = TempDir::new("doc-import-dir-sibling");
+
     temp.write("lib/Shapes/module.jai", SHAPES);
     temp.write("lib/Draw/module.jai", DRAW);
     let pages = pages(&jacket, &temp, &[]);
+
     assert!(
         pages.contains("/api/Shapes/Point"),
         "no link to Point in {pages}"
@@ -63,6 +69,7 @@ fn flags_after_the_dashes_add_import_directories() {
         return;
     };
     let temp = TempDir::new("doc-import-dir-flag");
+
     temp.write(
         "vendor/Shapes/module.jai",
         "/// Makes a point.\nmake :: () {}\n",
@@ -74,5 +81,6 @@ fn flags_after_the_dashes_add_import_directories() {
     // `Draw.make` takes the docs of the `Shapes` module that only the flag lets it find.
     assert!(!pages(&jacket, &temp, &[]).contains("Makes a point."));
     let pages = pages(&jacket, &temp, &["--", "-import_dir", "vendor"]);
+
     assert!(pages.contains("Makes a point."), "{pages}");
 }

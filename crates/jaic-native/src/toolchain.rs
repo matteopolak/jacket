@@ -23,6 +23,7 @@ pub(crate) fn lookup() -> Result<Lookup<'static>, String> {
 /// A command that starts `found` with the arguments and variables its lookup chose.
 pub(crate) fn command(found: &Found) -> Command {
     let mut command = Command::new(&found.program);
+
     command.args(&found.args).envs(found.env.iter().cloned());
     command
 }
@@ -35,7 +36,9 @@ pub(crate) fn command(found: &Found) -> Command {
 /// ```
 pub(crate) fn report(verb: &str, found: &Found, lookup: &Lookup, target: Option<Target>) {
     let cross = target.is_some_and(|target| target != host_target(lookup.host));
+
     jaic::progress::tool(verb, &found.describe(lookup), cross);
+
     if let Some(sysroot) = &found.sysroot {
         jaic::progress::tool("Sysroot", &sysroot.describe(lookup), cross);
     }

@@ -27,6 +27,7 @@ impl Compiler {
             op,
             ..
         } = *c;
+
         match op {
             VOp::FCmp(ty, scalar) => {
                 let (s, k) = self.simd_args(f, ops, 2, true, span)?;
@@ -36,21 +37,26 @@ impl Compiler {
                     width / ty.numeric_size()
                 };
                 let mut flags = Vec::new();
+
                 if scalar {
                     f.b.copy(tmp, s[0], 16);
                 }
+
                 for i in 0..lanes {
                     let a = load_lane(f, s[0], i, ty);
                     let b = load_lane(f, s[1], i, ty);
                     let c = Self::float_predicate(f, ty, a, b, k & 0xf);
+
                     if matches!(dst, VOpd::Mask(_)) {
                         flags.push(c);
                     } else {
                         let it = Ty::int(ty.numeric_size());
                         let v = all_ones_if(f, it, c);
+
                         store_lane(f, tmp, i, it, v);
                     }
                 }
+
                 if matches!(dst, VOpd::Mask(_)) {
                     self.simd_mask_out(f, dst, flags, wm, span)?;
                 } else {
@@ -74,6 +80,7 @@ impl Compiler {
                     None => self.simd_args(f, ops, 2, true, span)?,
                 };
                 let mut flags = Vec::new();
+
                 for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
                     let b = load_lane(f, s[1], i, ty);
@@ -98,8 +105,10 @@ impl Compiler {
                         }
                         _ => konst(f, Ty::I8, 1),
                     };
+
                     flags.push(c);
                 }
+
                 self.simd_mask_out(f, dst, flags, wm, span)?;
             }
             VOp::Comis(ty) => {
@@ -111,6 +120,7 @@ impl Compiler {
                         format!("`{name}` takes 2 operands"),
                     );
                 }
+
                 let pa = self.vec_ptr(f, ops[0], span)?;
                 let pb = self.vec_ptr(f, ops[1], span)?;
                 let a = load_lane(f, pa, 0, ty);
@@ -121,6 +131,7 @@ impl Compiler {
                 let eq = cmp(f, CmpOp::FEq, ty, a, b);
                 let lt = cmp(f, CmpOp::FLt, ty, a, b);
                 let zero = konst(f, Ty::I8, 0);
+
                 cx.flags = Flags {
                     zf: Some(flag_or(f, uno, eq)),
                     cf: Some(flag_or(f, uno, lt)),
@@ -141,21 +152,27 @@ impl Compiler {
                         format!("`{name}` takes 2 operands"),
                     );
                 }
+
                 let pa = self.vec_ptr(f, ops[0], span)?;
                 let pb = self.vec_ptr(f, ops[1], span)?;
                 let mut and = konst(f, Ty::I64, 0);
                 let mut andn = konst(f, Ty::I64, 0);
+
                 for i in 0..width / 8 {
                     let a = load_lane(f, pa, i, Ty::I64);
                     let b = load_lane(f, pb, i, Ty::I64);
                     let x = bin(f, BinOp::And, Ty::I64, a, b);
+
                     and = bin(f, BinOp::Or, Ty::I64, and, x);
                     let na = f.b.un(UnOp::Not, Ty::I64, a);
                     let y = bin(f, BinOp::And, Ty::I64, na, b);
+
                     andn = bin(f, BinOp::Or, Ty::I64, andn, y);
                 }
+
                 let zero = konst(f, Ty::I8, 0);
                 let odd = konst(f, Ty::I8, 1);
+
                 cx.flags = Flags {
                     zf: Some(is_zero(f, Ty::I64, and)),
                     cf: Some(is_zero(f, Ty::I64, andn)),
@@ -167,26 +184,32 @@ impl Compiler {
             VOp::Testm(ty, not) => {
                 let (s, _) = self.simd_args(f, ops, 2, false, span)?;
                 let mut flags = Vec::new();
+
                 for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
                     let b = load_lane(f, s[1], i, ty);
                     let x = bin(f, BinOp::And, ty, a, b);
                     let z = is_zero(f, ty, x);
+
                     flags.push(if not {
                         z
                     } else {
                         flag_not(f, z)
                     });
                 }
+
                 self.simd_mask_out(f, dst, flags, wm, span)?;
             }
             VOp::VecToMask(ty) => {
                 let (s, _) = self.simd_args(f, ops, 1, false, span)?;
                 let mut flags = Vec::new();
+
                 for i in 0..width / ty.numeric_size() {
                     let a = load_lane(f, s[0], i, ty);
+
                     flags.push(is_neg(f, ty, a));
                 }
+
                 self.simd_mask_out(f, dst, flags, wm, span)?;
             }
             VOp::MaskToVec(ty) | VOp::BroadcastMask(ty) => {
@@ -197,6 +220,7 @@ impl Compiler {
                         format!("`{name}` reads a mask register"),
                     );
                 };
+
                 if ops.len() != 2 {
                     return err(
                         Code::AsmOperandCount,
@@ -204,7 +228,9 @@ impl Compiler {
                         format!("`{name}` takes 2 operands"),
                     );
                 }
+
                 let m = f.b.load(Ty::I64, p);
+
                 for i in 0..width / ty.numeric_size() {
                     let v = if op == VOp::MaskToVec(ty) {
                         let b = mask_bit(f, m, i);
@@ -217,14 +243,18 @@ impl Compiler {
                         };
                         let low = konst(f, Ty::I64, low);
                         let v = bin(f, BinOp::And, Ty::I64, m, low);
+
                         resize(f, v, Ty::I64, ty, false)
                     };
+
                     store_lane(f, tmp, i, ty, v);
                 }
+
                 self.simd_out(f, cx, dst, tmp, width, span)?;
             }
             _ => unreachable!("routed by asm_simd"),
         }
+
         Ok(())
     }
 }

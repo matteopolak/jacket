@@ -69,31 +69,40 @@ pub struct Site {
 /// lowercase name is the one people type); the others add their kind, then a number if needed.
 fn case_folders(modules: &[Module]) -> BTreeMap<String, String> {
     let mut out = BTreeMap::new();
+
     for m in modules {
         let mut groups: BTreeMap<String, Vec<&Item>> = BTreeMap::new();
+
         for item in m.items.iter().chain(&m.private) {
             groups
                 .entry(Site::slug(&item.name).to_lowercase())
                 .or_default()
                 .push(item);
         }
+
         let private = |item: &Item| m.private.iter().any(|p| std::ptr::eq(p, item));
+
         for (_, mut group) in groups.into_iter().filter(|(_, g)| g.len() > 1) {
             // A page that is not exported gives way: it never changes where a documented one is.
             group.sort_by_key(|i| (private(i), i.name.chars().any(|c| c.is_ascii_uppercase())));
             let mut taken = jaic::fxhash::HashSet::default();
+
             taken.insert(Site::slug(&group[0].name).to_lowercase());
+
             for item in &group[1..] {
                 let mut folder = format!("{}-{}", Site::slug(&item.name), item.kind.label());
                 let mut n = 2;
+
                 while !taken.insert(folder.to_lowercase()) {
                     folder = format!("{}-{}-{n}", Site::slug(&item.name), item.kind.label());
                     n += 1;
                 }
+
                 out.insert(format!("{}/{}", m.id, item.name), folder);
             }
         }
     }
+
     out
 }
 
@@ -118,31 +127,38 @@ impl Site {
                 item.experimental = true;
             }
         }
+
         let by_id = modules
             .iter()
             .enumerate()
             .map(|(i, m)| (m.id.clone(), i))
             .collect();
         let mut by_key: BTreeMap<String, Option<usize>> = BTreeMap::new();
+
         for (i, m) in modules.iter().enumerate() {
             by_key
                 .entry(m.key().to_owned())
                 .and_modify(|seen| *seen = None)
                 .or_insert(Some(i));
         }
+
         // Where each documented item is declared, so a name the compiler resolved to a
         // declaration finds the page (or pages, when several modules re-export it).
         let mut decls: BTreeMap<(String, usize), Vec<(usize, String)>> = BTreeMap::new();
+
         for (m, module) in modules.iter().enumerate() {
             for item in module.items.iter().chain(&module.private) {
                 let here = std::iter::once((item.file.clone(), item.line))
                     .chain(item.also.iter().cloned());
+
                 for at in here {
                     decls.entry(at).or_default().push((m, item.name.clone()));
                 }
             }
         }
+
         let folders = case_folders(&modules);
+
         Site {
             modules,
             categories: Vec::new(),
@@ -218,6 +234,7 @@ impl Site {
     /// (`index.html`) at the base URL itself.
     pub fn page_href(&self, path: &str) -> String {
         let stem = path.strip_suffix(".html").unwrap_or(path);
+
         self.href(if stem == "index" {
             ""
         } else {
@@ -237,6 +254,7 @@ impl Site {
     /// name (`<` in `operator<`) written as `-` and its code in hex. `site.js` does the same.
     pub fn slug(name: &str) -> String {
         let mut out = String::new();
+
         for c in name.chars() {
             if c.is_ascii_alphanumeric() || c == '_' {
                 out.push(c);
@@ -244,6 +262,7 @@ impl Site {
                 out.push_str(&format!("-{:02x}", c as u32));
             }
         }
+
         out
     }
 
@@ -263,6 +282,7 @@ impl Site {
         if self.repo.is_empty() {
             return None;
         }
+
         // Generated text has no file; its link leads to the `#insert` that made it.
         let (file, line) = super::model::source_place(file, line);
         let at = match &self.commit {
@@ -270,6 +290,7 @@ impl Site {
             _ if !self.source_ref.is_empty() => &self.source_ref,
             _ => return None,
         };
+
         Some(format!(
             "{}/blob/{at}/{}{file}#L{line}",
             self.repo, self.source_prefix
@@ -316,6 +337,7 @@ impl Site {
             return None;
         };
         let href = self.item_href(module, &item.name);
+
         Some(match member {
             Some(member) if item.members.iter().any(|m| m.name == member) => {
                 // With the declaration shown, a field has an anchor on its line there, or a row
@@ -326,6 +348,7 @@ impl Site {
                         || item.members.iter().zip(&lines).any(|(m, line)| {
                             m.name == member && (line.is_some() || !m.doc.is_empty())
                         });
+
                 if described {
                     format!("{href}#m-{member}")
                 } else {
@@ -345,9 +368,11 @@ impl Site {
     /// Pages that would be written to the same file: an item named like a module below it.
     pub fn path_clashes(&self) -> Vec<String> {
         let mut found = Vec::new();
+
         for module in &self.modules {
             for item in module.items.iter().chain(&module.private) {
                 let id = format!("{}/{}", module.id, item.name);
+
                 if self.by_id.contains_key(&id) {
                     found.push(format!(
                         "`{}` is both an item and a module (api/{id}.html would hold both pages)",
@@ -356,11 +381,13 @@ impl Site {
                 }
             }
         }
+
         found
     }
 
     pub fn broken_links(&self) -> Vec<String> {
         let mut found = self.broken.borrow().clone();
+
         found.sort();
         found.dedup();
         found
@@ -377,6 +404,7 @@ impl Site {
     /// Keeps the parts of an example's program (`parts`, JSON) under the digest of `program`.
     pub fn add_example(&self, program: &str, parts: String) -> String {
         let id = super::example::program_id(program);
+
         self.examples.borrow_mut().insert(id.clone(), parts);
         id
     }
@@ -410,15 +438,20 @@ impl Site {
         let mut out = String::new();
         let chars: Vec<(usize, char)> = ty.char_indices().collect();
         let mut i = 0;
+
         while i < chars.len() {
             let (start, c) = chars[i];
+
             if c.is_ascii_digit() {
                 // A number: `[4] u8`, `1.5`.
                 let mut j = i;
+
                 while j < chars.len() && (chars[j].1.is_alphanumeric() || chars[j].1 == '_') {
                     j += 1;
                 }
+
                 let end = chars.get(j).map_or(ty.len(), |&(b, _)| b);
+
                 out.push_str(&if marked {
                     ty[start..end].to_owned()
                 } else {
@@ -428,19 +461,25 @@ impl Site {
             } else if c.is_alphabetic() || c == '_' {
                 // A name, with the `.name`s after it: `Hash.Table`.
                 let mut j = i;
+
                 loop {
                     while j < chars.len() && (chars[j].1.is_alphanumeric() || chars[j].1 == '_') {
                         j += 1;
                     }
+
                     let more = j + 1 < chars.len()
                         && chars[j].1 == '.'
                         && (chars[j + 1].1.is_alphabetic() || chars[j + 1].1 == '_');
+
                     if !more {
                         break;
                     }
+
                     j += 1;
                 }
+
                 let end = chars.get(j).map_or(ty.len(), |&(b, _)| b);
+
                 out.push_str(&self.path_out(&ty[start..end], refs, here, marked));
                 i = j;
             } else {
@@ -452,6 +491,7 @@ impl Site {
                 i += 1;
             }
         }
+
         out
     }
 
@@ -468,6 +508,7 @@ impl Site {
             .iter()
             .find(|(m, _)| *m == here)
             .or_else(|| targets.first())?;
+
         Some((*m, name.as_str()))
     }
 
@@ -488,15 +529,19 @@ impl Site {
                 .match_indices('.')
                 .map(|(i, _)| i)
                 .chain(std::iter::once(path.len()));
+
             for end in cuts.collect::<Vec<_>>().into_iter().rev() {
                 let Some((m, name)) = self.resolved(&path[..end], refs, here) else {
                     continue;
                 };
+
                 if m == here && name == own {
                     return None;
                 }
+
                 return Some((end, self.item_href(&self.modules[m].id, name)));
             }
+
             None
         })
     }
@@ -508,14 +553,18 @@ impl Site {
             .match_indices('.')
             .map(|(i, _)| i)
             .chain(std::iter::once(path.len()));
+
         for end in cuts.collect::<Vec<_>>().into_iter().rev() {
             let head = &path[..end];
+
             if let Some((m, name)) = self.resolved(head, refs, here) {
                 if marked {
                     let id = &self.modules[m].id;
                     let folder = self.folder(id, name);
+
                     return format!("\u{1}{id}/{folder}\u{2}{head}\u{3}{}", &path[end..]);
                 }
+
                 return format!(
                     "<a class=\"ty\" href=\"{}\">{}</a>{}",
                     escape(&self.item_href(&self.modules[m].id, name)),
@@ -524,12 +573,15 @@ impl Site {
                 );
             }
         }
+
         if marked {
             return path.to_owned();
         }
+
         if BUILTIN_TYPES.contains(&path) {
             return format!("<span class=\"ty\">{}</span>", escape(path));
         }
+
         escape(path)
     }
 }
@@ -546,6 +598,7 @@ pub fn param_text(p: &Param) -> String {
 
 fn param_marked(site: &Site, p: &Param, here: usize) -> String {
     let ty = site.type_out(&p.ty, &p.refs, here, true);
+
     match (p.name.is_empty(), p.ty.is_empty(), p.default.is_empty()) {
         (_, true, true) => p.name.clone(),
         (_, true, false) => format!("{} := {}", p.name, p.default),
@@ -564,6 +617,7 @@ pub fn signature_marked(site: &Site, o: &Overload, here: usize) -> String {
             .join(", ")
     };
     let params = list(&o.params);
+
     match o.returns.as_slice() {
         [] => format!("({params})"),
         [one] => format!("({params}) -> {}", param_marked(site, one, here)),
@@ -577,6 +631,7 @@ fn param_html(site: &Site, p: &Param, here: usize) -> String {
     } else {
         escape(&p.name)
     };
+
     match (p.ty.is_empty(), p.default.is_empty()) {
         (false, true) if p.name.is_empty() => site.type_html(&p.ty, &p.refs, here),
         (false, true) => format!("{name}: {}", site.type_html(&p.ty, &p.refs, here)),
@@ -613,6 +668,7 @@ pub fn signature_plain(o: &Overload) -> String {
         .collect::<Vec<_>>()
         .join(", ");
     let returns = returns_plain(&o.returns);
+
     if returns.is_empty() {
         format!("({params})")
     } else {
@@ -628,6 +684,7 @@ pub fn overload_labels(item: &super::model::Item) -> Vec<String> {
         if text.chars().count() <= 48 {
             return text;
         }
+
         let cut: String = text.chars().take(45).collect();
         format!("{cut}...")
     };
@@ -645,9 +702,11 @@ pub fn overload_labels(item: &super::model::Item) -> Vec<String> {
         })
         .collect();
     let full: Vec<String> = item.overloads.iter().map(signature_plain).collect();
+
     (0..params.len())
         .map(|i| {
             let count = |list: &[String]| list.iter().filter(|p| **p == list[i]).count();
+
             if count(&params) == 1 {
                 clip(params[i].clone())
             } else if count(&full) == 1 {
@@ -680,6 +739,7 @@ pub fn signature_line_html(site: &Site, o: &Overload, here: usize) -> String {
                 .join(", ")
         ),
     };
+
     format!("({params}){returns}")
 }
 
@@ -711,13 +771,17 @@ pub fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> Str
         .map(|p| param_html(site, p, here))
         .collect::<Vec<_>>()
         .join(", ");
+
     if plain.chars().count() <= 80 {
         return format!("{head}{params}){}{flags}", tail(&o.returns));
     }
+
     // Too wide for a line: one parameter to a line, the results after the closing parenthesis.
     let mut out = head;
+
     if !o.params.is_empty() {
         out.push('\n');
+
         for (i, p) in o.params.iter().enumerate() {
             out.push_str("    ");
             out.push_str(&param_html(site, p, here));
@@ -728,6 +792,7 @@ pub fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> Str
             });
         }
     }
+
     out.push(')');
     out.push_str(&tail(&o.returns));
     out.push_str(&flags);
@@ -797,6 +862,7 @@ mod tests {
                 ..Module::default()
             }
         }
+
         let site = Site::new(
             vec![module("A", "A/thing.jai"), module("B", "B/thing.jai")],
             Vec::new(),
@@ -812,6 +878,7 @@ mod tests {
             line: 3,
             private: false,
         }];
+
         // Written the same in module A, but resolved to the other module's type.
         assert_eq!(
             site.type_html("*Thing", &to_b, 0),
@@ -825,6 +892,7 @@ mod tests {
             line: 3,
             private: false,
         }];
+
         assert_eq!(
             site.type_html(":= Thing.ONE", &member, 1),
             ":= <a class=\"ty\" href=\"/api/A/Thing\">Thing</a>.ONE"
@@ -839,6 +907,7 @@ mod tests {
             }],
             ..Overload::default()
         };
+
         assert_eq!(
             signature_marked(&site, &o, 0),
             "(x: *\u{1}B/Thing\u{2}Thing\u{3})"
@@ -870,6 +939,7 @@ mod tests {
             String::new(),
             false,
         );
+
         assert_eq!(site.item_href("Http", "head"), "/api/Http/head");
         assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head-struct");
         assert_eq!(site.item_href("Http", "HEAD"), "/api/Http/HEAD-constant");
@@ -896,6 +966,7 @@ mod tests {
             String::new(),
             false,
         );
+
         assert_eq!(
             site.doc_link("jaidoc:Extensions/Json/parse", "here"),
             Some("/api/Json/parse".to_owned())
@@ -924,6 +995,7 @@ mod tests {
             String::new(),
             false,
         );
+
         assert_eq!(site.item_href("Http", "Head"), "/api/Http/Head");
         assert_eq!(site.item_href("Http", "head"), "/api/Http/head-struct");
     }
@@ -934,11 +1006,13 @@ mod tests {
             &[("s", "string", ""), ("n", "", "1")],
             &[("found", "bool"), ("rest", "string")],
         );
+
         assert_eq!(
             signature_plain(&o),
             "(s: string, n := 1) -> (found: bool, rest: string)"
         );
         let o = overload(&[("s", "string", "")], &[("", "bool")]);
+
         assert_eq!(signature_plain(&o), "(s: string) -> bool");
         assert_eq!(signature_plain(&overload(&[], &[])), "()");
     }

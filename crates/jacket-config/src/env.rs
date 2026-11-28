@@ -600,6 +600,7 @@ mod tests {
     #[test]
     fn names_are_unique() {
         let mut seen = BTreeSet::new();
+
         for var in ALL {
             assert!(seen.insert(var.name), "`{}` is declared twice", var.name);
         }
@@ -621,9 +622,11 @@ mod tests {
         let Ok(entries) = std::fs::read_dir(dir) else {
             return;
         };
+
         for entry in entries.flatten() {
             let path = entry.path();
             let name = entry.file_name();
+
             if path.is_dir() {
                 if name != "target" && name != ".git" && name != "node_modules" {
                     rust_files(&path, out);
@@ -638,6 +641,7 @@ mod tests {
     /// to an `env("…")` or `lookup("…")` call, which panics at run time when it is undeclared.
     fn quoted_names(text: &str) -> Vec<&str> {
         let mut found = Vec::new();
+
         for (start, _) in text.match_indices('"') {
             let rest = &text[start + 1..];
             let Some(end) = rest.find('"') else {
@@ -654,10 +658,12 @@ mod tests {
             let shaped = !word.is_empty()
                 && word.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
                 && (read || !word.bytes().any(|b| b.is_ascii_lowercase()));
+
             if shaped && (read || (ours && word.len() > 5)) {
                 found.push(word);
             }
         }
+
         found
     }
 
@@ -667,22 +673,28 @@ mod tests {
     fn every_name_in_the_sources_is_declared() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut files = Vec::new();
+
         for dir in ["crates", "fuzz"] {
             rust_files(&root.join(dir), &mut files);
         }
+
         assert!(files.len() > 100, "found only {} sources", files.len());
         let mut unknown = Vec::new();
+
         for file in files {
             if file.ends_with("jacket-config/src/env.rs") {
                 continue;
             }
+
             let text = std::fs::read_to_string(&file).unwrap_or_default();
+
             for name in quoted_names(&text) {
                 if find(name).is_none() {
                     unknown.push(format!("{}: {name}", file.display()));
                 }
             }
         }
+
         assert!(
             unknown.is_empty(),
             "not declared in env.rs:\n{}",

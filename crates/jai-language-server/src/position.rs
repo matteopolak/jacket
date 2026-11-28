@@ -41,6 +41,7 @@ impl LineIndex {
             .0
             .utf16_position(text, byte)
             .ok_or(Error::Position("byte position is outside a UTF-8 boundary"))?;
+
         Ok(Position {
             line,
             character,

@@ -20,6 +20,7 @@ const FORBIDDEN: &[&str] = &[
 fn sources(dir: &Path, out: &mut Vec<PathBuf>) {
     for entry in std::fs::read_dir(dir).unwrap().flatten() {
         let path = entry.path();
+
         if path.is_dir() {
             sources(&path, out);
         } else if path.extension().is_some_and(|ext| ext == "rs") {
@@ -34,23 +35,30 @@ fn only_the_toolchain_module_names_the_c_runtime() {
     let toolchain = Path::new(env!("CARGO_MANIFEST_DIR")).join("src/toolchain");
     let module = toolchain.with_extension("rs");
     let mut files = Vec::new();
+
     for krate in std::fs::read_dir(crates).unwrap().flatten() {
         let src = krate.path().join("src");
+
         if src.is_dir() {
             sources(&src, &mut files);
         }
     }
+
     assert!(files.len() > 100, "found only {} sources", files.len());
     let mut found = Vec::new();
+
     for file in files {
         if file == module || file.starts_with(&toolchain) {
             continue;
         }
+
         let text = std::fs::read_to_string(&file).unwrap();
+
         for (number, line) in text.lines().enumerate() {
             if line.trim_start().starts_with("//") {
                 continue;
             }
+
             if let Some(word) = FORBIDDEN.iter().find(|word| line.contains(**word)) {
                 found.push(format!(
                     "{}:{}: `{word}`",
@@ -60,6 +68,7 @@ fn only_the_toolchain_module_names_the_c_runtime() {
             }
         }
     }
+
     assert!(
         found.is_empty(),
         "these name the C runtime outside the toolchain module; add it to `Toolchain` and ask that:\n{}",

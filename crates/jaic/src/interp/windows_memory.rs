@@ -86,24 +86,30 @@ impl VirtualMemory {
         protection: u64,
     ) -> Result<u64, u64> {
         let access = access(protection)?;
+
         if size == 0 || kind & !(MEM_COMMIT | MEM_RESERVE) != 0 || kind == 0 {
             return Err(ERROR_INVALID_PARAMETER);
         }
+
         // Committing with no address reserves too, as on Windows.
         if kind & MEM_RESERVE != 0 || address == 0 {
             if address != 0 {
                 // Reserving at a chosen address is not offered.
                 return Err(ERROR_INVALID_ADDRESS);
             }
+
             return self.reserve(size, (kind & MEM_COMMIT != 0).then_some(access));
         }
+
         let (base, start, end) = self.pages(address, size)?;
         let reservation = self.reservations.get_mut(&base).expect("found");
         let from = base + start as u64 * page();
         let len = (end - start) as u64 * page();
+
         if !host_pages::commit(from as usize, len as usize, access) {
             return Err(ERROR_NOT_ENOUGH_MEMORY);
         }
+
         reservation.pages[start..end].fill(Some(protection as u32));
         Ok(from)
     }
@@ -120,17 +126,21 @@ impl VirtualMemory {
             len,
             pages: vec![None; (len / page()) as usize],
         };
+
         if let Some(access) = commit {
             if !host_pages::commit(base as usize, len as usize, access) {
                 return Err(ERROR_NOT_ENOUGH_MEMORY);
             }
+
             let protection = match access {
                 Access::None => PAGE_NOACCESS,
                 Access::Read => PAGE_READONLY,
                 Access::ReadWrite => PAGE_READWRITE,
             };
+
             reservation.pages.fill(Some(protection));
         }
+
         self.reserved_bytes += len;
         self.reservations.insert(base, reservation);
         Ok(base)
@@ -145,23 +155,29 @@ impl VirtualMemory {
         old: u64,
     ) -> Result<u64, u64> {
         let access = access(protection)?;
+
         if old == 0 {
             return Err(ERROR_NOACCESS);
         }
+
         let (base, start, end) = self.pages(address, size)?;
         let reservation = self.reservations.get_mut(&base).expect("found");
         let pages = &mut reservation.pages[start..end];
         let Some(Some(previous)) = pages.first().copied() else {
             return Err(ERROR_INVALID_ADDRESS);
         };
+
         if pages.contains(&None) {
             return Err(ERROR_INVALID_ADDRESS);
         }
+
         let from = base + start as u64 * page();
         let len = (end - start) as u64 * page();
+
         if !host_pages::protect(from as usize, len as usize, access) {
             return Err(ERROR_INVALID_ADDRESS);
         }
+
         pages.fill(Some(protection as u32));
         write_u32(old, previous);
         Ok(1)
@@ -172,10 +188,12 @@ impl VirtualMemory {
         if kind != MEM_RELEASE || size != 0 {
             return Err(ERROR_INVALID_PARAMETER);
         }
+
         let reservation = self
             .reservations
             .remove(&address)
             .ok_or(ERROR_INVALID_ADDRESS)?;
+
         self.reserved_bytes -= reservation.len;
         Ok(1)
     }
@@ -193,9 +211,11 @@ impl VirtualMemory {
             .range(..=start)
             .next_back()
             .ok_or(ERROR_INVALID_ADDRESS)?;
+
         if end > base + reservation.len {
             return Err(ERROR_INVALID_ADDRESS);
         }
+
         Ok((
             base,
             ((start - base) / page) as usize,

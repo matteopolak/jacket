@@ -29,9 +29,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let S::Expr(e) = &s.kind else {
                 return true;
             };
+
             if !pure(e) || chain.iter().any(|a| matches!(a, Node::Expr(_))) {
                 return true;
             }
+
             let b = e.span.end as usize;
             let edit = |start: usize, end: usize, text: String| Edit {
                 start,
@@ -87,6 +89,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 }
                 _ => {
                     let (start, end) = cx.statement_removal(s.span);
+
                     (
                         "remove it, or use its value".into(),
                         "remove the statement",
@@ -94,6 +97,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     )
                 }
             };
+
             out.push(suggesting(
                 s.span,
                 "this statement has no effect".into(),

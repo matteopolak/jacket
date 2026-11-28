@@ -27,6 +27,7 @@ Spot :: struct {
 
 fn hover(marker: &str) -> String {
     let s = open(PROGRAM);
+
     s.hover(&uri(), at(PROGRAM, marker))
         .unwrap()
         .expect("hover")
@@ -43,6 +44,7 @@ fn hover_shows_the_fields_under_their_docs() {
     /// users.email: text, not null
     email: string;
 }";
+
     assert!(text.contains(fields), "{text}");
     assert!(!text.contains("Row(\""), "{text}");
 }
@@ -50,6 +52,7 @@ fn hover_shows_the_fields_under_their_docs() {
 #[test]
 fn a_field_use_shows_the_docs_written_in_the_inserted_text() {
     let text = hover("id);");
+
     assert!(text.contains("id: s64"), "{text}");
     assert!(text.contains("users.id: bigint, not null"), "{text}");
 }
@@ -57,6 +60,7 @@ fn a_field_use_shows_the_docs_written_in_the_inserted_text() {
 #[test]
 fn an_ordinary_struct_value_lists_its_fields() {
     let text = hover("spot: Spot");
+
     assert!(
         text.contains("spot: Spot {\n    /// Across.\n    x: float32;\n    y: float32;\n}"),
         "{text}"
@@ -73,6 +77,7 @@ fn diagnostics_cut_the_argument_short() {
         .filter(|d| d.code == DiagnosticCode::Check)
         .map(|d| d.message)
         .collect();
+
     assert!(
         messages
             .iter()
@@ -98,5 +103,6 @@ fn an_inlay_hint_names_the_polymorphic_struct_alone() {
         .iter()
         .find(|h| h.position.line == copy.line)
         .map(|h| h.label.clone());
+
     assert_eq!(label.as_deref(), Some(": Row"), "{hints:?}");
 }

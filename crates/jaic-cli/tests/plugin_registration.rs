@@ -41,8 +41,10 @@ fn registrar_checks_order_epochs_lifetime_and_empty_requests_in_the_interpreter(
 #[test]
 fn source_addition_does_not_allow_an_undeclared_continuation() {
     let output = jaic("undeclared-continuation.jai", &["-check"]);
+
     assert!(!output.status.success());
     let diagnostic = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         diagnostic.contains("unknown identifier `continuation`"),
         "{diagnostic}"
@@ -55,7 +57,9 @@ fn staged_factories_and_registrar_execute_with_native_o0_and_o2() {
     let compiler = std::path::PathBuf::from(env!("CARGO_BIN_EXE_jaic"));
     let target = compiler.parent().unwrap();
     let scratch = target.join(format!("plugin-registration-{}", std::process::id()));
+
     std::fs::create_dir_all(&scratch).unwrap();
+
     for optimization in ["-O0", "-O2"] {
         for (name, compile_output, run_output) in [
             ("staged.jai", "registered and initialized\n", ""),
@@ -68,9 +72,11 @@ fn staged_factories_and_registrar_execute_with_native_o0_and_o2() {
                 .arg(&executable)
                 .output()
                 .unwrap();
+
             expect_success(output, compile_output);
             expect_success(Command::new(&executable).output().unwrap(), run_output);
         }
     }
+
     std::fs::remove_dir_all(scratch).unwrap();
 }

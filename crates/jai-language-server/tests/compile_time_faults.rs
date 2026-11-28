@@ -11,6 +11,7 @@ use jai_language_server::DiagnosticSeverity;
 #[test]
 fn a_wild_read_is_reported_at_the_run_and_the_session_survives() {
     let mut s = test_support::lsp::session();
+
     s.open(
         test_support::lsp::uri(),
         1,
@@ -23,6 +24,7 @@ fn a_wild_read_is_reported_at_the_run_and_the_session_survives() {
         .into_iter()
         .filter(|d| d.severity == DiagnosticSeverity::Error)
         .collect();
+
     assert_eq!(errors.len(), 1, "{errors:#?}");
     assert!(
         errors[0]
@@ -33,6 +35,7 @@ fn a_wild_read_is_reported_at_the_run_and_the_session_survives() {
     );
     // The process lives on: a fresh session checks fixed code.
     let mut fresh = test_support::lsp::session();
+
     fresh
         .open(
             test_support::lsp::uri(),
@@ -46,5 +49,6 @@ fn a_wild_read_is_reported_at_the_run_and_the_session_survives() {
         .into_iter()
         .filter(|d| d.severity == DiagnosticSeverity::Error)
         .count();
+
     assert_eq!(errors, 0);
 }

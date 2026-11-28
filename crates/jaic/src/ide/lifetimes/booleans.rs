@@ -9,6 +9,7 @@ pub(super) fn immutable_boolean_branches(
     let mut flags = private_byte_flags(func);
     // Keep the flags stored exactly once, counting every flag's stores in one pass.
     let mut stores: HashMap<Val, u32> = flags.iter().map(|&f| (f, 0)).collect();
+
     for inst in func.blocks.iter().flat_map(|b| &b.insts) {
         if let ir::Inst::Store {
             addr, ..
@@ -18,6 +19,7 @@ pub(super) fn immutable_boolean_branches(
             *n += 1;
         }
     }
+
     flags.retain(|flag| stores[flag] == 1);
     let slots: HashMap<_, _> = flags
         .iter()
@@ -26,8 +28,10 @@ pub(super) fn immutable_boolean_branches(
         .map(|(i, v)| (v, i))
         .collect();
     let mut out = Vec::new();
+
     for (block, ir) in blocks.iter().zip(&func.blocks) {
         let origins = boolean_load_origins(&ir.insts, &slots, constants);
+
         for event in &block.events {
             if let LifetimeEvent::Branch {
                 condition, ..
@@ -38,6 +42,7 @@ pub(super) fn immutable_boolean_branches(
             }
         }
     }
+
     out
 }
 
@@ -48,6 +53,7 @@ fn boolean_load_origins(
     constants: &HashMap<Val, u64>,
 ) -> HashMap<Val, (usize, bool)> {
     let mut origins = HashMap::default();
+
     for inst in insts {
         match inst {
             ir::Inst::Store {
@@ -80,6 +86,7 @@ fn boolean_load_origins(
                 } else {
                     None
                 };
+
                 if let Some(&(slot, inverted)) = input {
                     origins.insert(*dst, (slot, !inverted));
                 }
@@ -98,6 +105,7 @@ fn boolean_load_origins(
                 } else {
                     None
                 };
+
                 if let Some(&(slot, inverted)) = input {
                     let negated = matches!(
                         inst,
@@ -106,11 +114,13 @@ fn boolean_load_origins(
                             ..
                         }
                     );
+
                     origins.insert(*dst, (slot, inverted ^ negated));
                 }
             }
             _ => {}
         }
     }
+
     origins
 }

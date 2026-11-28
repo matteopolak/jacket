@@ -18,28 +18,34 @@ pub(super) struct Job {
 /// The jobs that run in parallel and those that run alone, `@slow` ones first.
 pub(super) fn jobs(plan: &Plan, to_run: &[usize]) -> (Vec<Job>, Vec<Job>) {
     let mut order = to_run.to_vec();
+
     order.sort_by_key(|&i| !plan.cases[i].options.slow);
     let batched = plan.toolchain.interp || !plan.settings.isolate;
     let mut parallel = Vec::new();
     let mut serial = Vec::new();
     // Per root: unit tests to batch, the parallel ones and the serial ones apart.
     let mut batches: BTreeMap<(usize, bool), Vec<usize>> = BTreeMap::new();
+
     for &i in &order {
         let case = &plan.cases[i];
         let alone = case.options.serial;
+
         if case.kind == Kind::Test && batched {
             batches.entry((case.root, alone)).or_default().push(i);
             continue;
         }
+
         let job = Job {
             cases: vec![i],
         };
+
         if alone {
             serial.push(job);
         } else {
             parallel.push(job);
         }
     }
+
     for ((_, alone), cases) in batches {
         if alone {
             serial.push(Job {
@@ -47,16 +53,20 @@ pub(super) fn jobs(plan: &Plan, to_run: &[usize]) -> (Vec<Job>, Vec<Job>) {
             });
             continue;
         }
+
         // One process per worker slot: each compiles the program again under `-interp`.
         let count = plan.settings.jobs.min(cases.len()).max(1);
         let mut split: Vec<Vec<usize>> = vec![Vec::new(); count];
+
         for (n, case) in cases.into_iter().enumerate() {
             split[n % count].push(case);
         }
+
         parallel.extend(split.into_iter().map(|cases| Job {
             cases,
         }));
     }
+
     (parallel, serial)
 }
 
@@ -70,25 +80,32 @@ pub(super) fn run_jobs(
     if jobs.is_empty() {
         return;
     }
+
     let queue = Mutex::new(VecDeque::from(jobs));
     let (tx, rx) = mpsc::channel();
+
     std::thread::scope(|scope| {
         for _ in 0..threads.max(1) {
             let tx = tx.clone();
             let queue = &queue;
+
             scope.spawn(move || {
                 loop {
                     if plan.stop.load(Ordering::Relaxed) {
                         break;
                     }
+
                     let Some(job) = queue.lock().expect("lock").pop_front() else {
                         break;
                     };
+
                     run_job(plan, &job, &tx);
                 }
             });
         }
+
         drop(tx);
+
         for message in rx {
             report(message);
         }
@@ -99,11 +116,13 @@ fn send_done(plan: &Plan, tx: &mpsc::Sender<Message>, outcome: Outcome) {
     if plan.settings.fail_fast && outcome.status.fails(plan.settings.flaky_fails) {
         plan.stop.store(true, Ordering::Relaxed);
     }
+
     let _ = tx.send(Message::Done(outcome));
 }
 
 fn run_job(plan: &Plan, job: &Job, tx: &mpsc::Sender<Message>) {
     let first = &plan.cases[job.cases[0]];
+
     if first.kind != Kind::Test {
         tx.send(Message::Started(job.cases[0])).ok();
         let outcome = with_retries(
@@ -112,19 +131,25 @@ fn run_job(plan: &Plan, job: &Job, tx: &mpsc::Sender<Message>) {
             run_file_case(plan, job.cases[0]),
             &|| run_file_case(plan, job.cases[0]),
         );
+
         send_done(plan, tx, outcome);
+
         return;
     }
+
     let mut live = |message: Live| live_message(plan, &job.cases, tx, message);
     let outcomes = run_unit(plan, &job.cases, &mut live);
+
     for outcome in outcomes {
         let case = outcome.case;
         let outcome = with_retries(plan, case, outcome, &|| {
             let mut quiet = |_: Live| {};
+
             run_unit(plan, &[case], &mut quiet)
                 .pop()
                 .expect("one outcome")
         });
+
         send_done(plan, tx, outcome);
     }
 }
@@ -136,6 +161,7 @@ fn live_message(plan: &Plan, cases: &[usize], tx: &mpsc::Sender<Message>, messag
             .copied()
             .find(|&i| plan.cases[i].local == exec::top_name(name))
     };
+
     match message {
         Live::Started(name) => {
             if let Some(case) = find(name) {
@@ -149,6 +175,7 @@ fn live_message(plan: &Plan, cases: &[usize], tx: &mpsc::Sender<Message>, messag
         }
         Live::Output(bytes, out) => {
             use std::io::Write;
+
             if out {
                 let _ = std::io::stdout().write_all(bytes);
             } else {
@@ -167,15 +194,19 @@ fn with_retries(plan: &Plan, case: usize, first: Outcome, again: &dyn Fn() -> Ou
         .unwrap_or(plan.settings.retries);
     let mut outcome = first;
     let mut attempts = 1;
+
     while matches!(outcome.status, Status::Fail | Status::Timeout) && attempts <= retries {
         attempts += 1;
         let retry = again();
+
         if retry.status == Status::Pass {
             outcome.status = Status::Flaky;
             break;
         }
+
         outcome = retry;
     }
+
     outcome.attempts = attempts;
     outcome
 }
@@ -189,9 +220,11 @@ fn timeout_of(plan: &Plan, options: &TestOptions) -> Option<Duration> {
 fn temp_base(plan: &Plan, count: usize) -> PathBuf {
     let n = plan.temp_counter.fetch_add(1, Ordering::Relaxed);
     let base = plan.work.join("temp").join(n.to_string());
+
     for i in 0..count {
         let _ = std::fs::create_dir_all(base.join(i.to_string()));
     }
+
     base
 }
 
@@ -202,6 +235,7 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
         .as_ref()
         .expect("a root with unit tests is built");
     let cwd = &plan.roots[root].dir;
+
     // `--check-only`: the root type-checked when it was built, and nothing runs.
     if plan.toolchain.check_only {
         return cases
@@ -209,8 +243,10 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             .map(|&case| Outcome::new(case, Status::Pass))
             .collect();
     }
+
     let mut outcomes = Vec::new();
     let mut remaining: Vec<usize> = cases.to_vec();
+
     while !remaining.is_empty() {
         let names: Vec<String> = remaining
             .iter()
@@ -230,12 +266,14 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             },
         );
         let run_dir = plan.coverage.as_ref().map(coverage::Coverage::run_dir);
+
         if let Some(dir) = &run_dir {
             invocation.env.push((
                 jacket_config::env::COVERAGE_DIR.name.into(),
                 dir.to_string_lossy().into_owned(),
             ));
         }
+
         let timeout = |name: &str| {
             remaining
                 .iter()
@@ -262,8 +300,10 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             Some(process) => exec::run_child(Ok(process), &invocation, &limits, live),
             None => exec::run(&invocation, &limits, live),
         };
+
         if let (Some(coverage), Some(dir)) = (&plan.coverage, &run_dir) {
             let found = coverage.collect(dir);
+
             // A process that ends by itself runs its exit handlers, so it wrote what it ran.
             if found.recorded == 0
                 && found.unreadable == 0
@@ -278,7 +318,9 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
                 ));
             }
         }
+
         let mut done = 0;
+
         for (n, raw) in run.tests.iter().enumerate() {
             let Some(position) = remaining
                 .iter()
@@ -291,17 +333,21 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
             let ending = (last && raw.end.is_none()).then_some(&run.ending);
             let mut outcome = resolve(&plan.cases[case], case, raw, ending);
             let folder = temp.join(position.to_string());
+
             if keep_folder(plan, outcome.status, &folder) {
                 outcome.kept_temp = Some(folder);
             } else {
                 let _ = std::fs::remove_dir_all(&folder);
             }
+
             outcomes.push(outcome);
             done = done.max(position + 1);
         }
+
         for name in &run.missing {
             if let Some(&case) = remaining.iter().find(|&&i| plan.cases[i].run_as == *name) {
                 let mut outcome = Outcome::new(case, Status::Fail);
+
                 outcome
                     .problems
                     .push(format!("the test program has no test `{name}`"));
@@ -309,6 +355,7 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
                 done = done.max(remaining.iter().position(|&i| i == case).unwrap_or(0) + 1);
             }
         }
+
         if done == 0 {
             // The process stopped before its first test: every one left fails with it.
             let why = match &run.ending {
@@ -318,19 +365,25 @@ fn run_unit(plan: &Plan, cases: &[usize], live: &mut dyn FnMut(Live)) -> Vec<Out
                     ending_text(ending)
                 ),
             };
+
             for &case in &remaining {
                 let mut outcome = Outcome::new(case, Status::Fail);
+
                 outcome.problems.push(why.clone());
                 outcome.stdout.clone_from(&run.preamble_stdout);
                 outcome.stderr.clone_from(&run.preamble);
                 outcomes.push(outcome);
             }
+
             break;
         }
+
         let _ = std::fs::remove_dir(&temp);
+
         remaining.drain(..done);
         remaining.retain(|i| !outcomes.iter().any(|o| o.case == *i));
     }
+
     outcomes
 }
 
@@ -368,6 +421,7 @@ fn signal_name(signal: i32) -> &'static str {
 /// how it ended.
 fn resolve(case: &Case, index: usize, raw: &exec::Raw, ending: Option<&Ending>) -> Outcome {
     let mut outcome = Outcome::new(index, Status::Pass);
+
     outcome.duration = raw.duration;
     outcome.failures.clone_from(&raw.failures);
     outcome.stdout.clone_from(&raw.stdout);
@@ -375,6 +429,7 @@ fn resolve(case: &Case, index: usize, raw: &exec::Raw, ending: Option<&Ending>) 
     outcome.subtests.clone_from(&raw.subtests);
     outcome.skip_reason.clone_from(&raw.skip_reason);
     let want_exit = case.options.exit;
+
     outcome.status = match (raw.end.as_deref(), ending) {
         (Some("skip"), _) => Status::Skip,
         (Some("fail"), _) => Status::Fail,
@@ -429,6 +484,7 @@ fn expectations(case: &Case, outcome: &mut Outcome, ran: bool) {
                             || outcome.problems.iter().any(|p| p.contains(text))
                             || stderr.contains(text)
                     });
+
                 if found {
                     Status::Pass
                 } else {
@@ -437,6 +493,7 @@ fn expectations(case: &Case, outcome: &mut Outcome, ran: bool) {
                         .map(|t| format!("`{t}`"))
                         .collect::<Vec<_>>()
                         .join(" or ");
+
                     outcome.problems.push(format!(
                         "it failed, but no failure message or standard error contains {wanted}"
                     ));
@@ -460,6 +517,7 @@ fn expectations(case: &Case, outcome: &mut Outcome, ran: bool) {
                 } else {
                     format!(" ({reason})")
                 };
+
                 outcome
                     .problems
                     .push(format!("it passed; remove its @xfail{why}"));
@@ -493,6 +551,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
         let work = plan.work.join(format!("doc-{index}"));
         let _ = std::fs::create_dir_all(&work);
         let mut quiet = |_: Live| {};
+
         doctest::check(
             &root.docs[doc],
             &root.module,
@@ -507,6 +566,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
         let work = plan.work.join(format!("golden-{index}"));
         let _ = std::fs::create_dir_all(&work);
         let mut quiet = |_: Live| {};
+
         golden::golden(
             &case.file,
             &case.options,
@@ -536,9 +596,11 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
             !jacket_config::env::CI.is_set(),
         )
     };
+
     if let (Some(coverage), Some(dir)) = (&plan.coverage, &run_dir) {
         coverage.collect_once(dir);
     }
+
     let status = if checked.timed_out {
         Status::Timeout
     } else if checked.passed {
@@ -546,6 +608,7 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
     } else {
         Status::Fail
     };
+
     // The program and its debug info are large: only a failure, or `--keep-temp`, leaves them on disk.
     if plan.coverage.is_some()
         || !(plan.settings.keep_temp || status.fails(plan.settings.flaky_fails))
@@ -554,7 +617,9 @@ fn run_file_case(plan: &Plan, index: usize) -> Outcome {
             let _ = std::fs::remove_dir_all(plan.work.join(format!("{kind}-{index}")));
         }
     }
+
     let mut outcome = Outcome::new(index, status);
+
     outcome.duration = started.elapsed();
     outcome.problems = checked.problems;
     outcome.failures = checked.failures;
@@ -587,11 +652,13 @@ mod tests {
     #[test]
     fn exits_crashes_and_expectations_decide_the_status() {
         let mut plain = case("t", Kind::Test);
+
         assert_eq!(
             resolve(&plain, 0, &raw(Some("pass")), None).status,
             Status::Pass
         );
         let crashed = resolve(&plain, 0, &raw(None), Some(&Ending::Signal(11)));
+
         assert!(crashed.crashed);
         assert_eq!(crashed.status, Status::Fail);
         assert!(crashed.problems[0].contains("SIGSEGV"));
@@ -615,8 +682,10 @@ mod tests {
         );
 
         let mut should = case("t", Kind::Test);
+
         should.options.should_fail = Some(vec!["bounds".into()]);
         let mut failing = raw(Some("fail"));
+
         failing.failures.push(Failure {
             test: "t".into(),
             file: "/t.jai".into(),
@@ -635,6 +704,7 @@ mod tests {
         assert_eq!(resolve(&should, 0, &failing, None).status, Status::Pass);
 
         let mut known = case("t", Kind::Test);
+
         known.options.xfail = Some(String::new());
         assert_eq!(resolve(&known, 0, &failing, None).status, Status::XFail);
         assert_eq!(
@@ -647,29 +717,37 @@ mod tests {
     fn a_type_checked_golden_test_holds_only_failures_to_its_expectations() {
         let outcome = |status: Status, problem: &str| {
             let mut outcome = Outcome::new(0, status);
+
             outcome.problems.push(problem.into());
             outcome
         };
         let mut should = case("t", Kind::Golden);
+
         should.options.should_fail = Some(vec!["invalid workspace".into()]);
         // Its `#run` trapped while type-checking, with the expected message.
         let mut trapped = outcome(Status::Fail, "error: invalid workspace 999");
+
         expectations(&should, &mut trapped, false);
         assert_eq!(trapped.status, Status::Pass);
         let mut other = outcome(Status::Fail, "error: something else");
+
         expectations(&should, &mut other, false);
         assert_eq!(other.status, Status::Fail);
         // It type-checked: the failure may come when it runs.
         let mut checked = Outcome::new(0, Status::Pass);
+
         expectations(&should, &mut checked, false);
         assert_eq!(checked.status, Status::Pass);
 
         let mut known = case("t", Kind::Golden);
+
         known.options.xfail = Some(String::new());
         let mut checked = Outcome::new(0, Status::Pass);
+
         expectations(&known, &mut checked, false);
         assert_eq!(checked.status, Status::Pass);
         let mut failed = outcome(Status::Fail, "error");
+
         expectations(&known, &mut failed, false);
         assert_eq!(failed.status, Status::XFail);
     }

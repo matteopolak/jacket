@@ -44,9 +44,11 @@ impl Session {
             self.workspace_folders.clone(),
         );
         let mut memo = self.entries.borrow_mut();
+
         if memo.key.as_ref() == Some(&key) {
             return memo.entries.clone();
         }
+
         let sources = self.sources(env);
         let open = self
             .documents
@@ -55,6 +57,7 @@ impl Session {
             .collect::<Vec<_>>();
         let entries =
             sources.workspace_entries(&mut self.index.borrow_mut(), &self.workspace_folders, &open);
+
         memo.scans += 1;
         memo.entries = Rc::new(entries);
         // Working them out reads `epoch`: take it again, as the walk can have recorded edits.
@@ -80,6 +83,7 @@ impl Session {
         } else {
             roots
         };
+
         (done + checked, total + roots)
     }
 
@@ -90,6 +94,7 @@ impl Session {
 
     pub(super) fn record_diagnostic_counts(&self, counts: (usize, usize)) {
         let mut all = self.index_counts.get();
+
         all.semantic.0 = all.semantic.1;
         all.diagnostics = counts;
         self.index_counts.set(all);
@@ -104,19 +109,24 @@ impl Session {
         let Some(env) = self.environment.as_ref() else {
             return false;
         };
+
         if !self.trusted() || self.workspace_folders.is_empty() && self.documents.is_empty() {
             return false;
         }
+
         let generation = self.generation.get();
         let state = self.workspace_index.borrow();
+
         if state.generation == Some(generation) && state.next == state.entries.len() {
             return false;
         }
+
         let done = if state.generation == Some(generation) {
             state.entries[..state.next].to_vec()
         } else {
             Vec::new()
         };
+
         drop(state);
         let entries = self.workspace_entry_set(env);
         let index = self.index.borrow();
@@ -125,6 +135,7 @@ impl Session {
                 && (!index.builds.contains_key(entry)
                     || index.stale_source_graphs.contains_key(entry))
         });
+
         if !pending {
             *self.workspace_index.borrow_mut() = WorkspaceIndex {
                 generation: Some(generation),
@@ -132,6 +143,7 @@ impl Session {
                 entries: entries.iter().cloned().collect(),
             };
         }
+
         pending
     }
 
@@ -142,8 +154,10 @@ impl Session {
         if !self.semantic_indexing_pending() {
             return self.index_workspace_diagnostics();
         }
+
         let counts = self.index_workspace_entry()?;
         let mut all = self.index_counts.get();
+
         all.semantic = counts;
         self.index_counts.set(all);
         Some(counts)
@@ -153,6 +167,7 @@ impl Session {
         let env = self.environment.as_ref()?;
         let generation = self.generation.get();
         let entries = self.workspace_entry_set(env);
+
         if self.workspace_index.borrow().generation != Some(generation) {
             *self.workspace_index.borrow_mut() = WorkspaceIndex {
                 generation: Some(generation),
@@ -160,18 +175,23 @@ impl Session {
                 next: 0,
             };
         }
+
         let root = self
             .workspace_index
             .borrow()
             .entries
             .get(self.workspace_index.borrow().next)
             .cloned();
+
         if let Some(root) = root {
             if !entries.contains(&root) {
                 let mut state = self.workspace_index.borrow_mut();
+
                 state.next += 1;
+
                 return Some((state.next, state.entries.len()));
             }
+
             let buffers = self
                 .documents
                 .iter()
@@ -184,16 +204,20 @@ impl Session {
                 .collect::<BTreeMap<_, _>>();
             let dirs = self.import_dirs(&root);
             let _background = self.background();
+
             jaic::interrupt::arm();
             {
                 let mut cache = self.semantic.borrow_mut();
+
                 cache.analyze(env, &root, &dirs, Rc::new(buffers));
                 self.sync_builds(&cache);
             }
+
             if !jaic::interrupt::disarm() {
                 self.workspace_index.borrow_mut().next += 1;
             }
         }
+
         let state = self.workspace_index.borrow();
         Some((state.next, state.entries.len()))
     }

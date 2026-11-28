@@ -23,6 +23,7 @@ fn top() -> Range {
         line: 0,
         character: 0,
     };
+
     Range {
         start,
         end: start,
@@ -37,6 +38,7 @@ fn fix_all_merges_every_safe_fix() {
         top(),
         serde_json::json!({"diagnostics": [], "only": ["source.fixAll"]}),
     );
+
     assert_eq!(all.len(), 1, "{all:?}");
     assert_eq!(all[0]["kind"], "source.fixAll.jailint");
     assert_eq!(all[0]["title"], "Fix 2 lint problems");
@@ -47,6 +49,7 @@ fn fix_all_merges_every_safe_fix() {
         .iter()
         .map(|e| e["newText"].as_str().unwrap())
         .collect();
+
     assert_eq!(texts, ["a", "!b"]);
     assert_eq!(all[0]["diagnostics"].as_array().unwrap().len(), 2);
     // `only: quickfix` leaves the source action out, and no lint touches the range.
@@ -55,6 +58,7 @@ fn fix_all_merges_every_safe_fix() {
         top(),
         serde_json::json!({"diagnostics": [], "only": ["quickfix"]}),
     );
+
     assert!(quick.is_empty(), "{quick:?}");
 }
 
@@ -72,8 +76,10 @@ fn quick_fixes_follow_the_diagnostics_they_are_asked_for() {
         top(),
         serde_json::json!({"diagnostics": [diagnostic], "only": ["quickfix"]}),
     );
+
     assert_eq!(found.len(), 1, "{found:?}");
     let fix = &found[0];
+
     assert_eq!(fix["kind"], "quickfix");
     assert_eq!(fix["title"], "Write `!b`");
     assert_eq!(fix["isPreferred"], true);
@@ -109,12 +115,14 @@ fn an_open_jailint_toml_configures_the_lints() {
         serde_json::json!({"textDocument": {"uri": settings, "languageId": "toml",
             "version": 1, "text": "[lint.rules]\nbool_comparison = \"allow\"\n"}}),
     );
+
     assert_eq!(lint_count(&published), 0);
     // The settings file is published with its own problems, which it has none of.
     let own: Vec<_> = published
         .iter()
         .filter(|m| m["params"]["uri"] == settings)
         .collect();
+
     assert_eq!(own.len(), 1, "{published:?}");
     assert!(
         own[0]["params"]["diagnostics"]
@@ -128,6 +136,7 @@ fn an_open_jailint_toml_configures_the_lints() {
         serde_json::json!({"textDocument": {"uri": settings, "version": 2},
             "contentChanges": [{"text": "[lint.rules]\nbool_comparison = \"deny\"\n"}]}),
     );
+
     assert!(
         published.iter().all(|m| m["params"]["uri"] == settings),
         "typing must not apply settings: {published:?}"
@@ -137,20 +146,24 @@ fn an_open_jailint_toml_configures_the_lints() {
         "textDocument/didSave",
         serde_json::json!({"textDocument":{"uri":settings}}),
     );
+
     assert_eq!(lint_count(&published), 2);
     let published = notify(
         &mut json,
         "textDocument/didClose",
         serde_json::json!({"textDocument": {"uri": settings}}),
     );
+
     assert_eq!(lint_count(&published), 2);
 }
 
 /// The `quickfix` actions at `marker` in `text` (open as `uri()`).
 fn quick_fixes_at(text: &str, marker: &str) -> Vec<jai_language_server::CodeAction> {
     let mut s = session();
+
     s.open(uri(), 1, text.into()).unwrap();
     let cursor = at_nth(text, marker, 0, 0);
+
     s.code_actions(
         &uri(),
         Range {
@@ -167,6 +180,7 @@ fn quick_fixes_at(text: &str, marker: &str) -> Vec<jai_language_server::CodeActi
 /// The single edit of `action` as (start, new text).
 fn single_edit(action: &jai_language_server::CodeAction) -> (Position, &str) {
     let (target, edits) = action.edit.as_ref().unwrap();
+
     assert_eq!(target, uri().as_str());
     assert_eq!(edits.len(), 1, "{edits:?}");
     assert_eq!(edits[0].range.start, edits[0].range.end);
@@ -177,6 +191,7 @@ fn single_edit(action: &jai_language_server::CodeAction) -> (Position, &str) {
 fn an_unknown_name_offers_the_import_that_declares_it() {
     let text = "// A program.\n\nmain :: () {\n    print(\"hi\\n\");\n}\n";
     let actions = quick_fixes_at(text, "print");
+
     assert_eq!(actions.len(), 1, "{actions:?}");
     assert_eq!(actions[0].title, "Add `#import \"Basic\";`");
     assert!(actions[0].is_preferred);
@@ -195,6 +210,7 @@ fn an_unknown_name_offers_the_import_that_declares_it() {
 fn an_unknown_extension_name_offers_its_extensions_import() {
     let text = "main :: () {\n    x: Long_Double;\n}\n";
     let actions = quick_fixes_at(text, "Long_Double");
+
     assert_eq!(actions.len(), 1, "{actions:?}");
     assert_eq!(
         actions[0].title,
@@ -207,6 +223,7 @@ fn an_import_goes_after_the_existing_imports() {
     let text = "#import \"Math\";\n#load \"other.jai\";\n\nmain :: () {\n    print(\"%\\n\", sqrt(2.0));\n}\n";
     let mut s = session();
     let other = file_uri("/lsp-test/other.jai");
+
     s.open(other, 1, "helper :: () {}\n".into()).unwrap();
     s.open(uri(), 1, text.into()).unwrap();
     let cursor = at_nth(text, "print", 0, 0);
@@ -219,6 +236,7 @@ fn an_import_goes_after_the_existing_imports() {
             },
         )
         .unwrap();
+
     assert_eq!(actions.len(), 1, "{actions:?}");
     assert_eq!(
         single_edit(&actions[0]),
@@ -231,6 +249,7 @@ fn a_name_several_modules_declare_offers_each_without_preferring_one() {
     let text = "main :: () {\n    x := log(2.0);\n}\n";
     let actions = quick_fixes_at(text, "log");
     let titles: Vec<&str> = actions.iter().map(|a| a.title.as_str()).collect();
+
     assert_eq!(
         titles,
         [
@@ -247,14 +266,17 @@ fn a_name_several_modules_declare_offers_each_without_preferring_one() {
 fn a_module_used_as_a_namespace_is_imported_under_its_name() {
     let text = "main :: () {\n    x := Math.sqrt(2.0);\n}\n";
     let actions = quick_fixes_at(text, "Math");
+
     // Codex also publicly reexports Math in the reviewed replacement library.
     assert_eq!(actions.len(), 2, "{actions:?}");
     assert_eq!(actions[0].title, "Add `Math :: #import \"Math\";`");
     assert_eq!(single_edit(&actions[0]).1, "Math :: #import \"Math\";\n\n");
     assert_eq!(actions[1].title, "Add `#import \"Codex\";`");
     assert_eq!(single_edit(&actions[1]).1, "#import \"Codex\";\n\n");
+
     for action in &actions {
         let (start, insertion) = single_edit(action);
+
         assert_eq!(
             start,
             Position {
@@ -263,10 +285,12 @@ fn a_module_used_as_a_namespace_is_imported_under_its_name() {
             }
         );
         let mut session = session();
+
         session
             .open(uri(), 1, format!("{insertion}{text}"))
             .unwrap();
         let diagnostics = session.diagnostics(&uri()).unwrap();
+
         assert!(
             !diagnostics
                 .iter()
@@ -282,6 +306,7 @@ fn a_loaded_file_gets_the_import_itself() {
     let helper_text = "// Helpers.\nhelper :: () {\n    print(\"x\\n\");\n}\n";
     let helper = file_uri("/lsp-test/helper.jai");
     let mut s = session();
+
     s.open(uri(), 1, main.into()).unwrap();
     s.open(helper.clone(), 1, helper_text.into()).unwrap();
     let cursor = at_nth(helper_text, "print", 0, 0);
@@ -294,13 +319,16 @@ fn a_loaded_file_gets_the_import_itself() {
             },
         )
         .unwrap();
+
     assert_eq!(actions.len(), 1, "{actions:?}");
     let (target, edits) = actions[0].edit.as_ref().unwrap();
+
     assert_eq!(target, helper.as_str());
     assert_eq!(edits[0].range.start, at_nth(helper_text, "helper ::", 0, 0));
     assert_eq!(edits[0].new_text, "#import \"Basic\";\n\n");
     // The file that loads it has no error of its own to fix.
     let top_actions = s.code_actions(&uri(), everything(main)).unwrap();
+
     assert!(top_actions.is_empty(), "{top_actions:?}");
 }
 
@@ -319,6 +347,7 @@ fn an_import_fix_follows_the_check_diagnostic_it_is_asked_for() {
         top(),
         serde_json::json!({"diagnostics": [diagnostic], "only": ["quickfix"]}),
     );
+
     assert_eq!(found.len(), 1, "{found:?}");
     assert_eq!(found[0]["kind"], "quickfix");
     assert_eq!(found[0]["title"], "Add `#import \"Basic\";`");
@@ -335,6 +364,7 @@ fn an_import_fix_follows_the_check_diagnostic_it_is_asked_for() {
         top(),
         serde_json::json!({"diagnostics": [], "only": ["source.fixAll"]}),
     );
+
     assert!(all.is_empty(), "{all:?}");
 }
 
@@ -361,6 +391,7 @@ fn lifetime_secondary_labels_are_related_locations_on_the_wire() {
         .find(|d| d["code"] == "pointer_lifetime")
         .unwrap();
     let related = diagnostic["relatedInformation"].as_array().unwrap();
+
     assert_eq!(related.len(), 3, "{diagnostic}");
     assert!(
         diagnostic["message"]
@@ -411,6 +442,7 @@ fn strict_lifetime_configuration_is_applied_to_open_documents() {
         .iter()
         .find(|d| d["code"] == "pointer_lifetime")
         .unwrap();
+
     assert!(
         lifetime["message"]
             .as_str()
@@ -435,6 +467,7 @@ fn strict_lifetime_configuration_is_applied_to_open_documents() {
         "uri": "file:///lsp-test/jacket.toml", "version": 2
     }, "contentChanges": [{"text": settings("must")}]}),
     );
+
     assert!(
         messages
             .iter()
@@ -452,6 +485,7 @@ fn strict_lifetime_configuration_is_applied_to_open_documents() {
         .unwrap()["params"]["diagnostics"]
         .as_array()
         .unwrap();
+
     assert!(
         diagnostics.iter().all(|d| d["code"] != "pointer_lifetime"),
         "{diagnostics:?}"

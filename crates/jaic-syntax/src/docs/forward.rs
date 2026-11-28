@@ -25,23 +25,30 @@ pub fn alias_target(text: &str, at: usize) -> Option<Vec<String>> {
     if !valid(text, at) {
         return None;
     }
+
     let t = trivia(text);
     let tokens: &[Token] = &t.tokens;
     let first = tokens.partition_point(|k| (k.span.start as usize) < at);
     let name = tokens.get(first)?;
+
     if name.span.start as usize != at || !matches!(name.tok, Tok::Ident(_)) {
         return None;
     }
+
     if tokens.get(first + 1)?.tok != Tok::Punct(P::ColonColon) {
         return None;
     }
+
     let mut path = Vec::new();
     let mut i = first + 2;
+
     loop {
         let Tok::Ident(part) = &tokens.get(i)?.tok else {
             return None;
         };
+
         path.push(part.as_str().to_owned());
+
         match &tokens.get(i + 1)?.tok {
             Tok::Punct(P::Dot) => i += 2,
             Tok::Punct(P::Semi) => return Some(path),
@@ -59,23 +66,29 @@ pub fn docs_site<F: Clone + PartialEq>(
 ) -> (F, usize) {
     let start = (file.clone(), at);
     let (mut file, mut at) = (file, at);
+
     for _ in 0..MAX_HOPS {
         let Some(text) = resolver.text(&file) else {
             break;
         };
+
         if super::declaration(&text, at).is_some() {
             return (file, at);
         }
+
         let Some(path) = alias_target(&text, at) else {
             break;
         };
         let Some(next) = resolver.resolve(&file, at, &path) else {
             break;
         };
+
         if next == (file.clone(), at) {
             break;
         }
+
         (file, at) = next;
     }
+
     start
 }

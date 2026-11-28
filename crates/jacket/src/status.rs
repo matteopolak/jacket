@@ -20,10 +20,12 @@ fn lines_with(
     let flags = argv.iter().take_while(|a| *a != "-" && *a != "--");
     let mut quiet = false;
     let mut no_color = false;
+
     for flag in flags {
         quiet |= flag == "-quiet" || flag == "--quiet";
         no_color |= flag == "-no_color" || flag == "-msvc_format";
     }
+
     let mode = jaic::progress::mode_with(terminal, quiet, no_color, env);
     (mode != jaic::progress::Mode::Off).then(|| mode.colored())
 }
@@ -49,6 +51,7 @@ mod tests {
     fn follows_jaic_rules() {
         let none = |_: &str| None;
         let term = |key: &str| (key == "TERM").then(|| "xterm".to_string());
+
         assert_eq!(lines_with(&argv(&["a.jai"]), false, none), None);
         assert_eq!(lines_with(&argv(&["a.jai"]), true, term), Some(true));
         assert_eq!(lines_with(&argv(&["a.jai", "-quiet"]), true, term), None);
@@ -61,6 +64,7 @@ mod tests {
             Some(false)
         );
         let plain = |key: &str| (key == "JAIC_PROGRESS").then(|| "plain".to_string());
+
         assert_eq!(lines_with(&argv(&["a.jai"]), false, plain), Some(false));
     }
 }

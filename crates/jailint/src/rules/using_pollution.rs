@@ -46,6 +46,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     let globals: Vec<Sym> = cx
         .stmts
         .iter()
@@ -55,25 +56,31 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         })
         .flat_map(|d| d.names.iter().map(|n| n.name))
         .collect();
+
     for p in &cx.procs {
         if p.is_macro || p.header.flags.expand() {
             continue;
         }
+
         let mut scan = Scan {
             cx,
             out,
             globals: &globals,
             scopes: vec![Vec::new(), Vec::new()],
         };
+
         for q in p.header.params.iter().filter_map(|q| q.name.as_ref()) {
             scan.bound(q);
         }
+
         for q in p.header.params.iter().filter(|q| q.using) {
             let Some(name) = &q.name else {
                 continue;
             };
+
             scan.pull_in(q.span, q.using_filter.as_ref(), name, q.span);
         }
+
         local_scopes::walk(&p.body.stmts, &mut scan);
     }
 }
@@ -109,6 +116,7 @@ impl Scan<'_, '_> {
         let Some(ty) = local_type(self.cx, key) else {
             return;
         };
+
         self.bring_members(ty, filter, name.name, site);
     }
 
@@ -120,13 +128,16 @@ impl Scan<'_, '_> {
         site: jaic::source::Span,
     ) {
         let mut names = Vec::new();
+
         members(self.cx, ty, DEPTH, &mut names);
+
         match filter {
             None | Some(UsingFilter::None) => {}
             Some(UsingFilter::Only(list)) => names.retain(|n| list.iter().any(|i| i.name == *n)),
             Some(UsingFilter::Except(list)) => names.retain(|n| !list.iter().any(|i| i.name == *n)),
             Some(_) => return,
         }
+
         names.dedup();
         let clashes: Vec<Sym> = names
             .iter()
@@ -135,6 +146,7 @@ impl Scan<'_, '_> {
                 self.globals.contains(n) || self.scopes.iter().flatten().any(|visible| visible == n)
             })
             .collect();
+
         if !clashes.is_empty() {
             let shown: Vec<String> = clashes
                 .iter()
@@ -142,6 +154,7 @@ impl Scan<'_, '_> {
                 .map(|n| format!("`{}`", n.as_str()))
                 .collect();
             let more = clashes.len().saturating_sub(4);
+
             self.out.push(super::finding(
                 site,
                 format!(
@@ -165,6 +178,7 @@ impl Scan<'_, '_> {
                 ),
             ));
         }
+
         if let Some(inner) = self.scopes.last_mut() {
             inner.extend(names);
         }
@@ -182,6 +196,7 @@ impl Scopes for Scan<'_, '_> {
 
     fn variable(&mut self, decl: &Decl, name: &Ident) {
         self.bound(name);
+
         if decl.using {
             self.pull_in(name.span, decl.using_filter(), name, name.span);
         }
@@ -206,6 +221,7 @@ impl Scopes for Scan<'_, '_> {
                     _ => None,
                 });
             let first = types.next()?;
+
             types.all(|t| t == first).then_some(first)
         }) else {
             return;
@@ -214,6 +230,7 @@ impl Scopes for Scan<'_, '_> {
             E::Ident(name) => *name,
             _ => Sym::intern("expression"),
         };
+
         self.bring_members(ty, Some(&using.filter), from, stmt.span);
     }
 }
@@ -222,9 +239,11 @@ impl Scopes for Scan<'_, '_> {
 fn local_type(cx: &Cx, key: jaic::source::Span) -> Option<TypeId> {
     let mut found = None;
     let declared = cx.locals(key);
+
     if declared.is_empty() {
         return None;
     }
+
     for &e in &*declared {
         let EntityKind::Local {
             ty, ..
@@ -232,12 +251,14 @@ fn local_type(cx: &Cx, key: jaic::source::Span) -> Option<TypeId> {
         else {
             return None;
         };
+
         match found {
             None => found = Some(ty),
             Some(other) if other == ty => {}
             Some(_) => return None,
         }
     }
+
     found
 }
 
@@ -253,12 +274,14 @@ fn members(cx: &Cx, ty: TypeId, depth: usize, out: &mut Vec<Sym>) {
         return;
     };
     let fields = types.struct_info(*id).fields.clone();
+
     for f in fields.iter() {
         if let Some(name) = f.name
             && name.as_str() != "_"
         {
             out.push(name);
         }
+
         if f.using && depth > 0 {
             members(cx, f.ty, depth - 1, out);
         }

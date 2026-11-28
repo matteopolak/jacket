@@ -75,6 +75,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     let Some(Some(reach)) = cx.run.reach.get() else {
         return;
     };
+
     for dead in reach.dead.iter().filter(|d| d.file == cx.file) {
         out.push(finding(
             dead.name,
@@ -91,6 +92,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// declares.
 fn runs_at_compile_time(stmt: &jaic::ast::Stmt) -> bool {
     let mut found = false;
+
     jaic::ast::walk::walk(std::slice::from_ref(stmt), &mut |node, _| {
         found |= matches!(node, Node::Expr(e) if matches!(e.kind, E::Run { .. }));
         !found
@@ -111,6 +113,7 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
     if !complete {
         return None;
     }
+
     let main = compiler.ns.main_module?;
     let program_files: Vec<FileId> = compiler
         .src
@@ -120,6 +123,7 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
         .map(|f| f.id)
         .collect();
     let mut items: HashMap<FileId, Vec<Item>> = HashMap::default();
+
     for &file in &program_files {
         let text = compiler.src.sources.get(file).text.clone();
         let Ok(ast) = jaic::parser::parse_file(file, &text) else {
@@ -146,17 +150,21 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
                     },
                     _ => None,
                 };
+
                 Item {
                     span: stmt.span,
                     judged,
                 }
             })
             .collect();
+
         items.insert(file, list);
     }
+
     // Each judged declaration is a node; everything else the program says is a root.
     let mut nodes: Vec<(FileId, usize)> = Vec::new();
     let mut node_of: HashMap<(FileId, usize), usize> = HashMap::default();
+
     for &file in &program_files {
         for (i, item) in items[&file].iter().enumerate() {
             if item.judged.is_some() {
@@ -165,25 +173,30 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
             }
         }
     }
+
     let item_at = |compiler: &Compiler, mut span: Span| -> Option<(FileId, usize)> {
         while let Some(site) = compiler.src.insert_sites.get(&span.file) {
             span = *site;
         }
+
         let list = items.get(&span.file)?;
         let at = list
             .partition_point(|i| i.span.start <= span.start)
             .checked_sub(1)?;
+
         (span.start < list[at].span.end).then_some((span.file, at))
     };
     // What each use names, and which top-level statement the use is in.
     let mut recorded: HashSet<(FileId, u32)> = HashSet::default();
     let mut uses: Vec<(Span, bool)> = Vec::new();
     let mut members: Vec<(Span, Span)> = Vec::new();
+
     if let Some(ide) = compiler.ed.facts() {
         uses.extend(ide.refs.iter().filter(|r| !r.decl).map(|r| (r.span, false)));
         recorded.extend(ide.refs.iter().map(|r| (r.span.file, r.span.start)));
         members.extend(ide.member_uses.iter().filter(|(u, d)| u != d).copied());
     }
+
     let mut edges: Vec<Vec<usize>> = vec![Vec::new(); nodes.len()];
     let mut reached: Vec<bool> = vec![false; nodes.len()];
     let mut seen: HashSet<(Span, Span)> = HashSet::default();
@@ -191,6 +204,7 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
         let Some(to) = to else {
             return;
         };
+
         match from {
             Some(from) if from == to => {}
             Some(from) => edges[from].push(to),
@@ -201,11 +215,13 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
     // notes and names that stand for a module record no use of the declaration, so a name
     // written there counts by its spelling.
     let mut named: HashMap<&str, Vec<usize>> = HashMap::default();
+
     for (n, &(file, i)) in nodes.iter().enumerate() {
         if let Some((_, text)) = &items[&file][i].judged {
             named.entry(text.as_str()).or_default().push(n);
         }
     }
+
     for (span, _) in uses {
         let Some(source) = item_at(compiler, span) else {
             // Written in a library, or outside any top-level statement: not the program's.
@@ -213,35 +229,44 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
         };
         let from = node_of.get(&source).copied();
         let mut resolved = false;
+
         for target in compiler.ide_definition(span.file, span.start) {
             if !seen.insert((span, target)) {
                 continue;
             }
+
             let to = item_at(compiler, target).and_then(|t| node_of.get(&t).copied());
+
             resolved |= to.is_some();
             link(from, to, &mut edges);
         }
+
         // `Alias.name` resolves to the module, not to the `Alias :: Module;` that spelled it.
         if !resolved {
             let spelled = compiler.src.sources.snippet(span).to_string();
+
             for &to in named.get(spelled.as_str()).into_iter().flatten() {
                 link(from, Some(to), &mut edges);
             }
         }
     }
+
     for (span, decl) in members {
         let Some(source) = item_at(compiler, span) else {
             continue;
         };
         let from = node_of.get(&source).copied();
         let to = item_at(compiler, decl).and_then(|t| node_of.get(&t).copied());
+
         link(from, to, &mut edges);
     }
+
     for &file in &program_files {
         let text = compiler.src.sources.get(file).text.clone();
         let Ok(tokens) = jaic::lexer::lex(file, &text) else {
             continue;
         };
+
         for token in &tokens {
             let words: Vec<&str> = match &token.tok {
                 Tok::Ident(name) if !recorded.contains(&(file, token.span.start)) => {
@@ -253,6 +278,7 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
                 _ => continue,
             };
             let from = item_at(compiler, token.span).and_then(|s| node_of.get(&s).copied());
+
             for word in words {
                 for &to in named.get(word).into_iter().flatten() {
                     link(from, Some(to), &mut edges);
@@ -260,7 +286,9 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
             }
         }
     }
+
     let mut stack: Vec<usize> = (0..nodes.len()).filter(|&n| reached[n]).collect();
+
     while let Some(n) = stack.pop() {
         for &next in &edges[n] {
             if !reached[next] {
@@ -269,12 +297,14 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
             }
         }
     }
+
     let dead = nodes
         .iter()
         .enumerate()
         .filter(|&(n, _)| !reached[n])
         .filter_map(|(_, &(file, i))| {
             let (name, text) = items[&file][i].judged.clone()?;
+
             Some(Dead {
                 file,
                 name,
@@ -282,6 +312,7 @@ pub(crate) fn analyze(compiler: &mut Compiler, complete: bool) -> Option<Reach> 
             })
         })
         .collect();
+
     Some(Reach {
         dead,
     })

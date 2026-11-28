@@ -62,9 +62,11 @@ pub fn run(options: &Options) -> ExitCode {
             net::REPO
         ));
     };
+
     if let Err(error) = net::require_tools(options.check) {
         return fail(error);
     }
+
     let source = net::Github::from_env();
     let interactive = std::io::stdin().is_terminal();
     let confirm = |question: &str| options.yes || !interactive || ask(question);
@@ -76,6 +78,7 @@ pub fn run(options: &Options) -> ExitCode {
         mode: swap::Mode::native(),
         confirm: &confirm,
     };
+
     match upgrade(&target, options) {
         Ok(_) => ExitCode::SUCCESS,
         Err(error) => fail(error),
@@ -91,6 +94,7 @@ fn ask(question: &str) -> bool {
     eprint!("{question} [y/N] ");
     let _ = std::io::stderr().flush();
     let mut line = String::new();
+
     std::io::stdin().read_line(&mut line).is_ok()
         && matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
 }
@@ -103,6 +107,7 @@ pub fn asset_name(os: &str, arch: &str) -> Option<String> {
         "aarch64" => "arm64",
         _ => return None,
     };
+
     match os {
         "macos" => Some(format!("jacket-macos-{arch}.tar.gz")),
         "linux" => Some(format!("jacket-linux-{arch}.tar.gz")),
@@ -141,6 +146,7 @@ impl Release {
             .map(|a| {
                 let name = a.get("name").and_then(|n| n.as_str());
                 let url = a.get("browser_download_url").and_then(|u| u.as_str());
+
                 match (name, url) {
                     (Some(name), Some(url)) => Ok((name.to_owned(), url.to_owned())),
                     _ => Err(format!(
@@ -149,6 +155,7 @@ impl Release {
                 }
             })
             .collect::<Result<_, _>>()?;
+
         Ok(Release {
             tag,
             assets,
@@ -167,6 +174,7 @@ impl Release {
 fn install_dir(exe: &Path) -> Result<&Path, String> {
     let dir = exe.parent().ok_or("the running jacket has no folder")?;
     let jaic = format!("jaic{}", std::env::consts::EXE_SUFFIX);
+
     if dir.join(jaic).is_file() && dir.join("stdlib").is_dir() {
         Ok(dir)
     } else {
@@ -180,11 +188,13 @@ fn install_dir(exe: &Path) -> Result<&Path, String> {
 pub fn upgrade(target: &Target, options: &Options) -> Result<Outcome, String> {
     let install = install_dir(target.exe)?;
     let managed = managed::managed_by(target.exe);
+
     if let Some(managed) = managed
         && !options.check
     {
         return Err(managed.advice().to_owned());
     }
+
     swap::clean_stale(install);
 
     let wanted = options.version.as_deref().map(Version::tag).transpose()?;
@@ -194,16 +204,20 @@ pub fn upgrade(target: &Target, options: &Options) -> Result<Outcome, String> {
     let version = release.tag.trim_start_matches('v').to_owned();
 
     let up_to_date = latest == current || (wanted.is_none() && latest < current);
+
     if up_to_date {
         println!("jacket {} is already up to date", target.current);
         return Ok(Outcome::UpToDate);
     }
+
     if options.check {
         println!("update available: jacket {} -> {version}", target.current);
+
         match managed {
             Some(managed) => println!("{}", managed.advice()),
             None => println!("run `jacket upgrade` to install it"),
         }
+
         return Ok(Outcome::Available {
             to: version,
         });
@@ -229,6 +243,7 @@ pub fn upgrade(target: &Target, options: &Options) -> Result<Outcome, String> {
         target.current,
         install.display()
     );
+
     if !(target.confirm)(&question) {
         println!("not upgrading");
         return Ok(Outcome::Declined);
@@ -243,6 +258,7 @@ pub fn upgrade(target: &Target, options: &Options) -> Result<Outcome, String> {
         (archive_url, sums_url),
     );
     let _ = std::fs::remove_dir_all(&staging);
+
     result?;
     println!(
         "upgraded jacket {} -> {version} in {}",
@@ -271,18 +287,22 @@ fn install_release(
     })?;
     let archive = staging.join(target.asset);
     let sums = staging.join("SHA256SUMS");
+
     println!("downloading {} ({tag})", target.asset);
     target.source.download(sums_url, &sums)?;
     target.source.download(archive_url, &archive)?;
     let sums = std::fs::read_to_string(&sums)
         .map_err(|e| format!("could not read the downloaded SHA256SUMS: {e}"))?;
+
     checksum::verify(&archive, target.asset, &sums)?;
 
     let unpacked = staging.join("unpacked");
+
     std::fs::create_dir_all(&unpacked)
         .map_err(|e| format!("could not create {}: {e}", unpacked.display()))?;
     target.source.extract(&archive, &unpacked)?;
     let fresh = unpacked.join(archive_root(target.asset));
+
     check_tree(&fresh, target.asset)?;
     swap::swap(install, &fresh, target.mode)
 }
@@ -299,6 +319,7 @@ fn check_tree(fresh: &Path, asset: &str) -> Result<(), String> {
     .map(|name| fresh.join(name))
     .filter(|path| !path.exists())
     .collect();
+
     if missing.is_empty() {
         Ok(())
     } else {
@@ -306,6 +327,7 @@ fn check_tree(fresh: &Path, asset: &str) -> Result<(), String> {
             .iter()
             .filter_map(|p| p.file_name()?.to_str())
             .collect();
+
         Err(format!(
             "{asset} does not hold a complete toolchain (missing {})",
             names.join(", ")

@@ -71,11 +71,14 @@ impl Interp {
                     None => return self.budget_trap(),
                 }
             }
+
             *left -= 1;
         }
+
         if self.host.stop_requested() {
             return self.trap_of(TrapKind::Stopped, "checking stopped");
         }
+
         Ok(())
     }
 
@@ -90,12 +93,14 @@ impl Interp {
         block: usize,
     ) -> Res<()> {
         let b = &code.blocks[block];
+
         if self.multi {
             if self.host.cooperative_threads() {
                 if let Err(trap) = self.inline_preempt(program) {
                     if trap.kind == Some(TrapKind::Suspended) {
                         self.suspend_at = Some(b.start as usize);
                     }
+
                     return Err(trap);
                 }
             } else {
@@ -103,15 +108,19 @@ impl Interp {
                 self.preempt()?;
             }
         }
+
         if let Some(lines) = self.lines.as_mut() {
             lines.hit(func, block);
         }
+
         if let Some(counts) = self.profile.as_mut() {
             let ir_block = &func.blocks[block];
+
             self.frame_blocks += 1;
             self.frame_insts += ir_block.insts.len() as u64;
             counts.block(ir_block, &code.ops[b.start as usize..b.end as usize]);
         }
+
         Ok(())
     }
 
@@ -132,14 +141,17 @@ impl Interp {
         if start.is_none() {
             self.tick()?;
         }
+
         let mut at = start;
         let mut watched = self.watches_blocks();
+
         loop {
             let flow = if watched {
                 self.run_ops::<true>(program, func, frame, stack_base, regs, at)?
             } else {
                 self.run_ops::<false>(program, func, frame, stack_base, regs, at)?
             };
+
             match flow {
                 Flow::Returned(n) => return Ok(n),
                 Flow::Switch(pc) => {
@@ -201,6 +213,7 @@ impl Interp {
             Some(pc) => (pc, true),
             None => (0, false),
         };
+
         // An op that fails reports where it ran, which only the failure path looks up.
         macro_rules! tri {
             ($e:expr) => {
@@ -210,26 +223,33 @@ impl Interp {
                 }
             };
         }
+
         loop {
             if WATCH {
                 let block = code.block_at[pc];
+
                 if block != 0 && !entered {
                     // Where the block starts is looked up only when it is needed: a thread
                     // switch saves it, and a trap (budget, suspension) reports it.
                     if self.multi {
                         self.sync_loc(code, pc);
                     }
+
                     if let Err(trap) = self.enter_block(program, func, code, block as usize - 1) {
                         return Err(self.located(trap, code, pc));
                     }
                 }
+
                 entered = false;
             }
+
             // SAFETY: every block ends with an op that leaves it (a jump, a return...), so
             // `pc` stays inside `code.ops`.
             let op = unsafe { &*ops.add(pc) };
             let here = pc;
+
             pc += 1;
+
             // Taking a jump: a backward one is a loop's back-edge, which the budget charges.
             macro_rules! goto {
                 ($target:expr) => {{
@@ -242,6 +262,7 @@ impl Interp {
                     pc = target;
                 }};
             }
+
             // A load or copy that may touch a watched note's text (`note_watch.rs`): only the
             // loop that watches blocks looks, so an unwatched run pays nothing.
             macro_rules! watch {
@@ -252,6 +273,7 @@ impl Interp {
                     }
                 };
             }
+
             match *op {
                 Op::Const {
                     dst,
@@ -339,6 +361,7 @@ impl Interp {
                     a,
                 } => {
                     let x = get(a);
+
                     set(
                         dst,
                         match op {
@@ -397,6 +420,7 @@ impl Interp {
                     off,
                 } => {
                     let addr = get(base).wrapping_add(off as i64 as u64);
+
                     watch!(addr, ty.size(self.data_layout()));
                     set(dst, tri!(self.load(ty, addr)));
                 }
@@ -437,6 +461,7 @@ impl Interp {
                     off,
                 } => {
                     let addr = get(base).wrapping_add(off as i64 as u64);
+
                     watch!(addr, 1);
                     set(dst, tri!(self.load(Ty::I8, addr)));
                 }
@@ -446,6 +471,7 @@ impl Interp {
                     off,
                 } => {
                     let addr = get(base).wrapping_add(off as i64 as u64);
+
                     watch!(addr, 4);
                     set(dst, tri!(self.load(Ty::I32, addr)));
                 }
@@ -455,6 +481,7 @@ impl Interp {
                     off,
                 } => {
                     let addr = get(base).wrapping_add(off as i64 as u64);
+
                     watch!(addr, 8);
                     set(dst, tri!(self.load(Ty::I64, addr)));
                 }
@@ -515,14 +542,17 @@ impl Interp {
                     size,
                 } => {
                     let (d, s) = (get(dst), get(src));
+
                     if d < 4096 || s < 4096 {
                         self.sync_loc(code, here);
                         return self.null_trap("memory copy through a null pointer");
                     }
+
                     if let Err(trap) = self.check_writable(d, size as usize) {
                         self.sync_loc(code, here);
                         return Err(trap.at(self.loc));
                     }
+
                     watch!(s, u64::from(size));
                     // SAFETY: both addresses are non-null (checked above) host addresses of program
                     // memory that the IR sized `size` bytes.
@@ -534,19 +564,23 @@ impl Interp {
                     len,
                 } => {
                     let (d, s, n) = (get(dst), get(src), get(len));
+
                     if n > 0 {
                         if d < 4096 || s < 4096 {
                             self.sync_loc(code, here);
                             return self.null_trap("memcpy through a null pointer");
                         }
+
                         let Ok(n) = usize::try_from(n) else {
                             self.sync_loc(code, here);
                             return self.trap("memcpy length exceeds the host address space");
                         };
+
                         if let Err(trap) = self.check_writable(d, n) {
                             self.sync_loc(code, here);
                             return Err(trap.at(self.loc));
                         }
+
                         watch!(s, n as u64);
                         // Like a load or store, a copy goes through the program's pointers
                         // directly, so a bad one faults as it would natively.
@@ -566,19 +600,23 @@ impl Interp {
                     len,
                 } => {
                     let (d, v, n) = (get(dst), get(value), get(len));
+
                     if n > 0 {
                         if d < 4096 {
                             self.sync_loc(code, here);
                             return self.null_trap("memset through a null pointer");
                         }
+
                         let Ok(n) = usize::try_from(n) else {
                             self.sync_loc(code, here);
                             return self.trap("memset length exceeds the host address space");
                         };
+
                         if let Err(trap) = self.check_writable(d, n) {
                             self.sync_loc(code, here);
                             return Err(trap.at(self.loc));
                         }
+
                         // SAFETY: the program's own memset, as for `MemCopy`.
                         unsafe { std::ptr::write_bytes(self.host_addr(d) as *mut u8, v as u8, n) };
                     }
@@ -588,14 +626,17 @@ impl Interp {
                     size,
                 } => {
                     let d = get(dst);
+
                     if d < 4096 {
                         self.sync_loc(code, here);
                         return self.null_trap("memory fill through a null pointer");
                     }
+
                     if let Err(trap) = self.check_writable(d, size as usize) {
                         self.sync_loc(code, here);
                         return Err(trap.at(self.loc));
                     }
+
                     // SAFETY: `d` is non-null (checked above) and addresses `size` writable bytes of
                     // program memory.
                     unsafe { zero_bytes(self.host_addr(d), size) };
@@ -610,9 +651,11 @@ impl Interp {
                     nrets,
                 } => {
                     let pool = &code.pool[at as usize..];
+
                     if pool[0] != NO_LOC {
                         self.loc = Some(code.locs[pool[0] as usize]);
                     }
+
                     let result = self.call_by_name(
                         program,
                         regs,
@@ -621,12 +664,15 @@ impl Interp {
                         nargs as usize,
                         nrets as usize,
                     );
+
                     if let Err(trap) = result {
                         if trap.suspends_frames() {
                             self.suspend_at = Some(here);
                         }
+
                         return Err(trap);
                     }
+
                     if self.watches_blocks() != WATCH {
                         return Ok(Flow::Switch(pc));
                     }
@@ -636,6 +682,7 @@ impl Interp {
                     count,
                 } => {
                     let (index, count) = (get(index), get(count));
+
                     if (index as i64) < 0 || (index as i64) >= count as i64 {
                         self.sync_loc(code, here);
                         return self.check_trap(ir::CheckReason::Bounds, index, count);
@@ -649,17 +696,21 @@ impl Interp {
                     if loc != NO_LOC {
                         self.loc = Some(code.locs[loc as usize]);
                     }
+
                     let inst = &func.blocks[block as usize].insts[inst as usize];
                     // SAFETY: the same registers, borrowed for this one step only.
                     let vals = unsafe { std::slice::from_raw_parts_mut(regs, code.regs) };
+
                     if let Err(trap) =
                         self.exec_ir(program, inst, vals, frame, stack_base, &func.vals)
                     {
                         if trap.suspends_frames() {
                             self.suspend_at = Some(here);
                         }
+
                         return Err(trap);
                     }
+
                     if self.watches_blocks() != WATCH {
                         return Ok(Flow::Switch(pc));
                     }
@@ -723,19 +774,23 @@ impl Interp {
                 } => {
                     let list = &code.pool[at as usize..(at + n) as usize];
                     let mut small = [0u64; 8];
+
                     if list.len() <= small.len() {
                         for (slot, &r) in small.iter_mut().zip(list) {
                             *slot = get(r);
                         }
+
                         for (i, &v) in small[..list.len()].iter().enumerate() {
                             set(i as u32, v);
                         }
                     } else {
                         let values: Vec<u64> = list.iter().map(|&r| get(r)).collect();
+
                         for (i, &v) in values.iter().enumerate() {
                             set(i as u32, v);
                         }
                     }
+
                     return Ok(Flow::Returned(n));
                 }
                 Op::Term {
@@ -752,6 +807,7 @@ impl Interp {
                             .iter()
                             .find(|(c, _)| mask(*ty, *c) == v)
                             .map_or(default.0, |(_, t)| t.0);
+
                         goto!(code.blocks[target as usize].start);
                     }
                     Term::Unreachable => {
@@ -769,6 +825,7 @@ impl Interp {
 #[inline(always)]
 pub(in crate::interp) unsafe fn load_raw(ty: Ty, addr: u64) -> u64 {
     let p = addr as *const u8;
+
     // SAFETY: the caller checked that `addr` is readable for `ty`'s size.
     unsafe {
         match ty {
@@ -785,6 +842,7 @@ pub(in crate::interp) unsafe fn load_raw(ty: Ty, addr: u64) -> u64 {
 #[inline(always)]
 pub(in crate::interp) unsafe fn store_raw(ty: Ty, addr: u64, v: u64) {
     let p = addr as *mut u8;
+
     // SAFETY: the caller checked that `addr` is writable for `ty`'s size.
     unsafe {
         match ty {
@@ -800,6 +858,7 @@ pub(in crate::interp) unsafe fn store_raw(ty: Ty, addr: u64, v: u64) {
 /// `memmove` without the library call for the small sizes most copies have.
 unsafe fn copy_bytes(dst: u64, src: u64, size: u32) {
     let (d, s) = (dst as *mut u8, src as *const u8);
+
     // SAFETY: the caller checked that both addresses cover `size` bytes; `ptr::copy` handles
     // overlap and the unaligned accesses need no alignment.
     unsafe {
@@ -812,6 +871,7 @@ unsafe fn copy_bytes(dst: u64, src: u64, size: u32) {
             }
             16 => {
                 let v = std::ptr::read_unaligned(s.cast::<[u64; 2]>());
+
                 std::ptr::write_unaligned(d.cast::<[u64; 2]>(), v);
             }
             4 => {
@@ -827,6 +887,7 @@ unsafe fn copy_bytes(dst: u64, src: u64, size: u32) {
 
 unsafe fn zero_bytes(dst: u64, size: u32) {
     let d = dst as *mut u8;
+
     // SAFETY: the caller checked that `dst` is writable for `size` bytes.
     unsafe {
         match size {

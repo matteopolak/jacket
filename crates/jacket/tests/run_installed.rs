@@ -12,9 +12,11 @@ fn run_starts_the_program_a_new_project_builds() {
         return;
     };
     let made = jacket(&exe, &root, &["new", "demo"]);
+
     assert!(made.status.success(), "{made:?}");
     let out = jacket(&exe, &root.join("demo"), &["run"]);
     let stderr = String::from_utf8_lossy(&out.stderr);
+
     assert!(out.status.success(), "{stderr}");
     assert!(
         String::from_utf8_lossy(&out.stdout).contains("Hello from demo!"),
@@ -28,12 +30,14 @@ fn run_starts_a_program_built_from_one_file() {
     let Some(exe) = archive(&root) else {
         return;
     };
+
     std::fs::write(
         root.join("hi.jai"),
         "#import \"Basic\";\nmain :: () { print(\"plain file\\n\"); }\n",
     )
     .expect("write the source");
     let out = jacket(&exe, &root, &["run", "hi.jai", "-exe", "named"]);
+
     assert!(out.status.success(), "{out:?}");
     assert!(String::from_utf8_lossy(&out.stdout).contains("plain file"));
 }
@@ -46,6 +50,7 @@ fn run_shows_the_build_status() {
         return;
     };
     let made = jacket(&exe, &root, &["new", "demo"]);
+
     assert!(made.status.success(), "{made:?}");
     let out = Command::new(&exe)
         .arg("run")
@@ -55,8 +60,10 @@ fn run_shows_the_build_status() {
         .output()
         .expect("start jacket");
     let stderr = String::from_utf8_lossy(&out.stderr);
+
     assert!(out.status.success(), "{stderr}");
     let lines: Vec<&str> = stderr.lines().collect();
+
     assert!(lines[0].starts_with("   Compiling demo ("), "{stderr}");
     assert!(
         lines

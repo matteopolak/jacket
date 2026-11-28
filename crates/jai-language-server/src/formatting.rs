@@ -37,14 +37,17 @@ fn run(
     timeout: Duration,
 ) -> Result<Run, String> {
     let mut command = Command::new(program);
+
     command
         .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
+
     if let Some(cwd) = cwd {
         command.current_dir(cwd);
     }
+
     let mut child = command
         .spawn()
         .map_err(|e| format!("could not start {}: {e}", program.display()))?;
@@ -53,6 +56,7 @@ fn run(
     else {
         let _ = child.kill();
         let _ = child.wait();
+
         return Err("could not open the standard streams".into());
     };
     // Each pipe has a thread of its own, so a full pipe never stalls the child while it is
@@ -65,17 +69,20 @@ fn run(
         spawn_thread(move || {
             let mut bytes = Vec::new();
             let _ = stdout.read_to_end(&mut bytes);
+
             bytes
         }),
         spawn_thread(move || {
             let mut bytes = Vec::new();
             let _ = stderr.read_to_end(&mut bytes);
+
             bytes
         }),
     );
     let (Ok(writer), Ok(out), Ok(err)) = threads else {
         let _ = child.kill();
         let _ = child.wait();
+
         return Err("could not start a thread".into());
     };
     let deadline = Instant::now() + timeout;
@@ -87,9 +94,11 @@ fn run(
             Err(e) => {
                 let _ = child.kill();
                 let _ = child.wait();
+
                 return Err(format!("could not wait for {}: {e}", program.display()));
             }
         }
+
         if Instant::now() >= deadline {
             let _ = child.kill();
             let _ = child.wait();
@@ -97,16 +106,19 @@ fn run(
             let _ = writer.join();
             let _ = out.join();
             let _ = err.join();
+
             return Err(format!(
                 "{} took longer than {} s and was stopped",
                 program.display(),
                 timeout.as_secs_f64()
             ));
         }
+
         std::thread::sleep(pause);
         pause = (pause * 2).min(Duration::from_millis(2));
     };
     let _ = writer.join();
+
     Ok(Run {
         success: status.success(),
         code: status.code(),
@@ -121,22 +133,28 @@ fn line_edit(before: &str, after: &str) -> Option<(usize, usize, String)> {
     if before == after {
         return None;
     }
+
     let old: Vec<&str> = before.split_inclusive('\n').collect();
     let new: Vec<&str> = after.split_inclusive('\n').collect();
     let limit = old.len().min(new.len());
     let mut head = 0;
+
     while head < limit && old[head] == new[head] {
         head += 1;
     }
+
     let mut tail = 0;
+
     while tail < limit - head && old[old.len() - 1 - tail] == new[new.len() - 1 - tail] {
         tail += 1;
     }
+
     let bytes = |lines: &[&str]| lines.iter().map(|l| l.len()).sum::<usize>();
     let start = bytes(&old[..head]);
     let old_end = start + bytes(&old[head..old.len() - tail]);
     let new_start = start;
     let new_end = new_start + bytes(&new[head..new.len() - tail]);
+
     Some((start, old_end, after[new_start..new_end].to_string()))
 }
 
@@ -154,6 +172,7 @@ impl Session {
                 ))
             };
         }
+
         jacket_config::tools::locate("jaifmt").ok_or_else(|| {
             "not found next to the language server or on PATH; install the toolchain or set jai.formatter.path".into()
         })
@@ -180,14 +199,17 @@ impl Session {
             .map(Path::to_path_buf)
             .or_else(|| self.workspace_folders.first().cloned());
         let mut args = vec!["--stdin".to_string()];
+
         if let Some(range) = range {
             let (a, b) = (
                 doc.index.byte(&doc.text, range.start),
                 doc.index.byte(&doc.text, range.end),
             );
+
             args.push("--range".into());
             args.push(format!("{}:{}", a.min(b), a.max(b)));
         }
+
         // A file the config's `ignore` list covers is left alone.
         let ignored = run(
             &program,
@@ -196,9 +218,11 @@ impl Session {
             b"",
             TIMEOUT,
         );
+
         if matches!(&ignored, Ok(r) if r.code == Some(0)) {
             return Ok(Vec::new());
         }
+
         let result = match run(
             &program,
             &args,
@@ -212,15 +236,19 @@ impl Session {
                 return Ok(Vec::new());
             }
         };
+
         if !result.success {
             let reason = result.stderr.trim().replace('\n', " ");
+
             log(if reason.is_empty() {
                 format!("exited with status {}", result.code.unwrap_or(-1))
             } else {
                 reason
             });
+
             return Ok(Vec::new());
         }
+
         let Ok(formatted) = String::from_utf8(result.stdout) else {
             log("printed text that is not UTF-8".into());
             return Ok(Vec::new());
@@ -228,6 +256,7 @@ impl Session {
         let Some((start, end, new_text)) = line_edit(&doc.text, &formatted) else {
             return Ok(Vec::new());
         };
+
         Ok(vec![TextEdit {
             range: Range {
                 start: doc.index.position(&doc.text, start)?,
@@ -246,6 +275,7 @@ mod tests {
     fn only_the_changed_lines_are_replaced() {
         let before = "a\nb :=1;\nc\n";
         let after = "a\nb := 1;\nc\n";
+
         assert_eq!(line_edit(before, after), Some((2, 9, "b := 1;\n".into())));
         assert_eq!(line_edit(before, before), None);
     }
@@ -275,6 +305,7 @@ mod tests {
             b"",
             Duration::from_millis(200),
         );
+
         assert!(result.err().is_some_and(|e| e.contains("stopped")));
         assert!(started.elapsed() < Duration::from_secs(5));
     }

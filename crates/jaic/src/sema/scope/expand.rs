@@ -35,6 +35,7 @@ pub(super) fn decl_is_proc(decl: &ast::Decl) -> bool {
 /// A condition made of names, literals and operators only.
 fn plain_condition(expr: &ast::Expr) -> bool {
     use ast::ExprKind as E;
+
     match &expr.kind {
         E::Ident(_) | E::Int(..) | E::Bool(_) | E::Str(_) | E::InferredMember(_) | E::Null => true,
         E::Member(base, _) => plain_condition(base),
@@ -52,9 +53,11 @@ impl Compiler {
         if self.epochs.lookup_without_expansion {
             return Ok(());
         }
+
         let s = self.scope(scope);
         let done = s.pending_done;
         let mut i = done;
+
         while s
             .pending
             .get(i)
@@ -62,10 +65,12 @@ impl Compiler {
         {
             i += 1;
         }
+
         if i != done {
             self.scope_mut(scope).pending_done = i;
             self.namespace_changed(scope);
         }
+
         while i < self.scope(scope).pending.len() {
             // Items expand in source order: a re-entrant expansion (from inside an
             // item's own condition or lookup) must not run later items early. A later plain
@@ -75,6 +80,7 @@ impl Compiler {
                 self.expand_plain_ifs(scope)?;
                 return self.expand_namespace_usings(scope);
             }
+
             if self.scope(scope).pending[i].state == PendingState::Waiting {
                 self.scope_mut(scope).pending[i].state = PendingState::Expanding;
                 let stmt = self.scope(scope).pending[i].stmt.clone();
@@ -99,6 +105,7 @@ impl Compiler {
                 // and failed is terminal, even while its enclosing body is lowering.
                 // Compile-time code that spent its whole budget fails the same way every time.
                 let spent = self.ct.interp.budget_traps != budget_traps;
+
                 if result.is_err()
                     && !spent
                     && self.ct.executions == executions
@@ -107,6 +114,7 @@ impl Compiler {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     return Ok(());
                 }
+
                 // A condition that reaches a constant still being resolved (the lookup that
                 // brought us here is part of resolving it) fails only because of that
                 // outer resolution; the item is retried once the constant is done.
@@ -124,6 +132,7 @@ impl Compiler {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     return Ok(());
                 }
+
                 // A `using,map` mapper that is still running leaves names undeclared that the item
                 // needs; it is tried again with the next lookup, once the mapper is done.
                 if self.epochs.mapping_imports > 0
@@ -134,6 +143,7 @@ impl Compiler {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     return Ok(());
                 }
+
                 if reentrant
                     && !spent
                     && self.ct.executions == executions
@@ -143,13 +153,17 @@ impl Compiler {
                     self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                     self.ns.deferred_pending.push(scope);
                     self.diag.deferred_errors.push(e);
+
                     return Ok(());
                 }
+
                 self.scope_mut(scope).pending[i].state = PendingState::Done;
                 result?;
             }
+
             i += 1;
         }
+
         Ok(())
     }
 
@@ -159,9 +173,11 @@ impl Compiler {
     fn expand_namespace_usings(&mut self, scope: ScopeId) -> Result<()> {
         for i in 0..self.scope(scope).pending.len() {
             let item = &self.scope(scope).pending[i];
+
             if item.state != PendingState::Waiting {
                 continue;
             }
+
             let ast::StmtKind::Using(using) = &item.stmt.kind else {
                 continue;
             };
@@ -171,23 +187,28 @@ impl Compiler {
             let (stmt, exported, file_scope) = (item.stmt.clone(), item.exported, item.file_scope);
             let saved = std::mem::replace(&mut self.epochs.lookup_without_expansion, true);
             let named = self.lookup(file_scope, name);
+
             self.epochs.lookup_without_expansion = saved;
             let names_import = named.is_ok_and(|ids| {
                 ids.first().is_some_and(|&id| {
                     matches!(self.ns.entities[id.0 as usize].kind, EntityKind::Import(_))
                 })
             });
+
             if !names_import {
                 continue;
             }
+
             self.scope_mut(scope).pending[i].state = PendingState::Expanding;
             let result = self.expand_pending_item(scope, file_scope, &stmt, exported);
+
             self.scope_mut(scope).pending[i].state = if result.is_ok() {
                 PendingState::Done
             } else {
                 PendingState::Waiting
             };
         }
+
         Ok(())
     }
 
@@ -201,11 +222,14 @@ impl Compiler {
         if self.epochs.lookup_without_expansion {
             return Ok(());
         }
+
         for i in 0..self.scope(scope).pending.len() {
             let item = &self.scope(scope).pending[i];
+
             if item.state != PendingState::Waiting {
                 continue;
             }
+
             // `#if OS == .MACOS` and `#if OS == { case .MACOS; ... }` alike.
             let plain = match &item.stmt.kind {
                 ast::StmtKind::StaticIf(boxed) => {
@@ -220,14 +244,17 @@ impl Compiler {
                         cases,
                         ..
                     } = &**boxed;
+
                     plain_condition(value)
                         && cases.iter().all(|c| c.values.iter().all(plain_condition))
                 }
                 _ => false,
             };
+
             if !plain {
                 continue;
             }
+
             self.scope_mut(scope).pending[i].state = PendingState::Expanding;
             let item = &self.scope(scope).pending[i];
             let (stmt, exported, file_scope) = (item.stmt.clone(), item.exported, item.file_scope);
@@ -236,6 +263,7 @@ impl Compiler {
             let saved = std::mem::replace(&mut self.epochs.lookup_without_expansion, true);
             let branch = self.select_plain_branch(scope, file_scope, &stmt);
             let ready = branch.is_some();
+
             self.epochs.lookup_without_expansion = saved;
             let misses = self.epochs.placeholder_misses;
             let result = if let Some(branch) = branch {
@@ -248,18 +276,22 @@ impl Compiler {
                 } else {
                     ast::ScopeKind::Module
                 };
+
                 self.declare_stmts(scope, file_scope, &branch, vis)
                     .map(|_| ())
             } else {
                 Ok(())
             };
+
             if !ready || (result.is_err() && self.epochs.waits_for_placeholder(misses)) {
                 self.scope_mut(scope).pending[i].state = PendingState::Waiting;
                 continue;
             }
+
             self.scope_mut(scope).pending[i].state = PendingState::Done;
             result?;
         }
+
         Ok(())
     }
 
@@ -272,6 +304,7 @@ impl Compiler {
         stmt: &ast::Stmt,
     ) -> Option<Vec<ast::Stmt>> {
         let eval_scope = crate::sema::modules::file_scope_for_eval(self, scope, file_scope);
+
         match &stmt.kind {
             ast::StmtKind::StaticIf(boxed) => {
                 let ast::StaticIfStmt {
@@ -286,6 +319,7 @@ impl Compiler {
                 } else {
                     else_branch
                 };
+
                 self.ide_note_branches(boxed, taken);
                 Some(branch.clone())
             }
@@ -295,6 +329,7 @@ impl Compiler {
                     cases,
                     ..
                 } = &**boxed;
+
                 Some(
                     self.static_switch_cases(eval_scope, value, cases)
                         .ok()?

@@ -72,11 +72,14 @@ impl Variant {
     #[must_use]
     pub fn options(&self) -> Options {
         let mut options = Options::host();
+
         options.runtime_support = false;
+
         if self.wasm {
             options.os = TargetOs::Wasm;
             options.cpu = TargetCpu::Wasm;
         }
+
         options
     }
 
@@ -85,6 +88,7 @@ impl Variant {
     #[must_use]
     pub fn compile(&self, source: &str) -> Compiler {
         let mut c = Compiler::new(self.options(), Rc::new(VirtualFs::default()));
+
         compile_into(&mut c, source);
         c
     }
@@ -120,21 +124,25 @@ pub fn tools_available() -> bool {
     let clang = toolchain::require("clang").is_some();
     let wasm_ld = toolchain::require("wasm-ld").is_some();
     let node = toolchain::require("node").is_some();
+
     clang && wasm_ld && node
 }
 
 /// Links `objects` into the wasm64 `module`, exporting `exports` and the memory.
 pub fn link_wasm(objects: &[&Path], module: &Path, exports: &[&str]) {
     let mut command = Command::new(toolchain::wasm_ld().expect("wasm-ld is installed"));
+
     command.args([
         "-mwasm64",
         "--no-entry",
         "--export-memory",
         "--allow-undefined",
     ]);
+
     for export in exports {
         command.arg(format!("--export={export}"));
     }
+
     process::run(command.args(objects).arg("-o").arg(module));
 }
 
@@ -162,12 +170,14 @@ for(const name of process.argv.slice(2)){
 /// Runs the wasm `module` under node and requires each of `exports` to return 0, in order.
 pub fn run_wasm(module: &Path, exports: &[&str]) {
     let mut node = toolchain::node().expect("node is installed");
+
     process::run(node.args(["-e", WASM_HOST]).arg(module).args(exports));
 }
 
 /// Runs the JavaScript `script` under node with `args` (`process.argv[1..]`).
 pub fn node_eval(script: &str, args: &[&Path]) {
     let mut node = toolchain::node().expect("node is installed");
+
     process::run(node.args(["-e", script]).args(args));
 }
 
@@ -176,13 +186,17 @@ pub fn node_eval(script: &str, args: &[&Path]) {
 #[must_use]
 pub fn c_driver(exports: &[&str]) -> String {
     let mut source = String::from("#include <stdint.h>\n");
+
     for export in exports {
         source += &format!("extern int32_t {export}(void);\n");
     }
+
     source += "int main(void){int32_t r;\n";
+
     for export in exports {
         source += &format!("r={export}();if(r)return r;\n");
     }
+
     source + "return 0;}\n"
 }
 
@@ -190,9 +204,11 @@ pub fn c_driver(exports: &[&str]) -> String {
 #[must_use]
 pub fn link_native(dir: &Path, driver: &str, inputs: &[&Path]) -> PathBuf {
     let source = dir.join("driver.c");
+
     std::fs::write(&source, driver).expect("the driver can be written");
     let exe = dir.join(format!("driver{}", std::env::consts::EXE_SUFFIX));
     let clang = toolchain::clang().expect("clang is installed");
+
     process::run(
         Command::new(clang)
             .args(["-std=c11", "-Wall", "-Wextra", "-Werror"])
@@ -220,14 +236,17 @@ pub fn check(
     if variant.wasm {
         let module = dir.join("program.wasm");
         let mut objects = vec![object];
+
         objects.extend_from_slice(wasm_inputs);
         link_wasm(&objects, &module, exports);
         run_wasm(&module, exports);
     } else {
         let default = c_driver(exports);
         let mut inputs = native_inputs.to_vec();
+
         inputs.push(object);
         let exe = link_native(dir, driver.unwrap_or(&default), &inputs);
+
         process::run(&mut Command::new(exe));
     }
 }
@@ -235,6 +254,7 @@ pub fn check(
 /// Compiles C `source` for wasm64 (freestanding) into the object `output`.
 pub fn compile_wasm_c(source: &Path, output: &Path) {
     let clang = toolchain::clang().expect("clang is installed");
+
     process::run(
         Command::new(clang)
             .args([
@@ -264,13 +284,17 @@ pub fn execute(
     if !tools_available() {
         return;
     }
+
     for variant in VARIANTS {
         let dir = crate::TempDir::new(&format!("{name}-{}", variant.label()));
         let mut options = variant.options();
+
         if let Some(size) = temporary_size {
             options.temporary_storage_size = size;
         }
+
         options.import_paths = vec!["/lib".into()];
+
         // A fixture may supply its own independent minimal bootstrap declarations.
         if files
             .iter()
@@ -278,13 +302,18 @@ pub fn execute(
         {
             options.preload = Some("/lib/prelude/module.jai".into());
         }
+
         let mut fs = VirtualFs::default();
+
         for &(path, text) in files {
             fs.insert(path, text.as_bytes());
         }
+
         let mut c = Compiler::new(options, Rc::new(fs));
+
         compile_into(&mut c, source);
         let object = dir.join("program.o");
+
         variant.emit(&c, &object, None);
         check(&variant, &dir, &object, &[entry], None, &[], &[]);
     }

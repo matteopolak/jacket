@@ -23,6 +23,7 @@ fn cpu_name(cpu: TargetCpu) -> &'static str {
 #[test]
 fn build_constants_identify_compiler_host_for_every_selected_target() {
     let host = Options::host();
+
     for os in [
         TargetOs::Windows,
         TargetOs::Linux,
@@ -32,11 +33,13 @@ fn build_constants_identify_compiler_host_for_every_selected_target() {
     ] {
         for cpu in [TargetCpu::X64, TargetCpu::Arm64, TargetCpu::Wasm] {
             let mut options = Options::host();
+
             options.os = os;
             options.cpu = cpu;
             options.runtime_support = false;
             options.preload = Some("/lib/prelude/module.jai".into());
             let mut fs = VirtualFs::default();
+
             fs.insert("/lib/prelude/module.jai", "Operating_System_Tag :: enum u32 { NONE; WINDOWS; LINUX; MACOS; WASM; } CPU_Tag :: enum u32 { X64; ARM64; CUSTOM; }".as_bytes());
             let mut c = Compiler::new(options, Rc::new(fs));
             let source = format!(
@@ -59,6 +62,7 @@ fn build_constants_identify_compiler_host_for_every_selected_target() {
                 host_cpu = cpu_name(host.cpu),
                 cross = os != host.os || cpu != host.cpu,
             );
+
             if let Err(error) = c.compile_sources(&[ProgramSource::String(source)]) {
                 panic!("{}", error.render(&c.src.sources));
             }

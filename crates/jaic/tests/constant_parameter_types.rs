@@ -7,6 +7,7 @@ const DECLS: &str = "S :: struct { a: s32; } f :: ($N: s32) -> s32 { return N * 
 fn rejected(argument: &str) -> String {
     let source = format!("{DECLS} main :: () {{ x := f({argument}); }}");
     let (c, result) = compile_source(&source);
+
     match result {
         Ok(()) => panic!("compiled: f({argument})"),
         Err(error) => error.render(&c.src.sources),
@@ -17,6 +18,7 @@ fn rejected(argument: &str) -> String {
 fn an_argument_of_another_type_is_rejected() {
     for argument in ["true", "S.{1}", ".[1, 2]", "null", "\"text\"", "2.5"] {
         let message = rejected(argument);
+
         assert!(message.contains("in call to `f`"), "{argument}: {message}");
     }
 }
@@ -27,6 +29,7 @@ fn a_matching_argument_is_accepted() {
         let source =
             format!("{DECLS} main :: () {{ x := f({argument}); #assert(type_of(x) == s32); }}");
         let (c, result) = compile_source(&source);
+
         if let Err(error) = result {
             panic!("f({argument}): {}", error.render(&c.src.sources));
         }

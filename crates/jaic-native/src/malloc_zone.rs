@@ -36,6 +36,7 @@ extern "C" fn no_reinit(_zone: *mut c_void) {
 pub fn fix_fork() {
     let mut zones: *const usize = std::ptr::null();
     let mut count = 0u32;
+
     // SAFETY: with a null task and reader, `malloc_get_all_zones` lists this process's live
     // zones; each is the frozen `malloc_zone_t` ABI, whose name is checked before the zone is
     // touched, and mimalloc's introspection table is a writable static.
@@ -45,14 +46,18 @@ pub fn fix_fork() {
         {
             return;
         }
+
         for i in 0..count as usize {
             let zone = *zones.add(i) as *mut *mut c_void;
             let name = *zone.add(ZONE_NAME) as *const c_char;
+
             if name.is_null() || CStr::from_ptr(name).to_bytes() != b"mimalloc" {
                 continue;
             }
+
             let version = *(zone.add(VERSION) as *const u32);
             let introspect = (*zone.add(INTROSPECT)).cast::<*mut c_void>();
+
             if version >= 9 && !introspect.is_null() && (*introspect.add(REINIT_LOCK)).is_null() {
                 *introspect.add(REINIT_LOCK) = no_reinit as *mut c_void;
             }

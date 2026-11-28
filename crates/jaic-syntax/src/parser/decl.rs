@@ -35,20 +35,26 @@ impl Parser<'_> {
     /// mixed list such as `a=, b := f()` / `a:, b = f()`.
     pub(super) fn decl_ahead(&self, n: usize) -> bool {
         let mut i = n;
+
         if matches!(self.tok_at(i), Tok::Punct(P::Backtick)) {
             i += 1;
         }
+
         if self.kw_at(i) == Some("operator") && self.operator_end(i + 1).is_some() {
             return true;
         }
+
         let (mut declared_marker, mut assigned_marker, mut place) = (false, false, false);
+
         loop {
             if i > n && matches!(self.tok_at(i), Tok::Punct(P::Backtick)) {
                 i += 1;
             }
+
             if !matches!(self.tok_at(i), Tok::Ident(_)) {
                 return false;
             }
+
             // A mixed list may assign to a place that is not a plain name (`ok:, t.str = f()`).
             match self.place_end(i) {
                 Some(end) if end > i + 1 => {
@@ -57,6 +63,7 @@ impl Parser<'_> {
                 }
                 _ => i += 1,
             }
+
             match (self.tok_at(i), self.tok_at(i + 1)) {
                 (Tok::Punct(P::Eq), Tok::Punct(P::Comma | P::ColonEq)) => {
                     assigned_marker = true;
@@ -68,6 +75,7 @@ impl Parser<'_> {
                 }
                 _ => {}
             }
+
             if !matches!(self.tok_at(i), Tok::Punct(P::Comma)) {
                 return match self.tok_at(i) {
                     // Only a mixed list assigns to places: `t.x, y := f()` is not a declaration.
@@ -78,6 +86,7 @@ impl Parser<'_> {
                     _ => false,
                 };
             }
+
             i += 1;
         }
     }
@@ -86,6 +95,7 @@ impl Parser<'_> {
     /// the offset after them.
     fn place_end(&self, n: usize) -> Option<usize> {
         let mut i = n + 1;
+
         loop {
             match self.tok_at(i) {
                 Tok::Punct(P::Dot) if matches!(self.tok_at(i + 1), Tok::Ident(_)) => i += 2,
@@ -99,6 +109,7 @@ impl Parser<'_> {
     /// Offset after leading `using[,filter]` / `#as` modifiers if a declaration follows them.
     pub(super) fn decl_modifiers_end(&self, n: usize) -> Option<usize> {
         let mut i = n;
+
         loop {
             if self.kw_at(i) == Some("using") {
                 i = self.using_filter_end(i + 1);
@@ -108,6 +119,7 @@ impl Parser<'_> {
                 break;
             }
         }
+
         (i > n && self.decl_ahead(i)).then_some(i)
     }
 
@@ -116,12 +128,15 @@ impl Parser<'_> {
         if !(self.at_n(n, P::Comma) && self.kw_at(n + 1).is_some_and(is_using_filter)) {
             return n;
         }
+
         if self.at_n(n + 2, P::DotBracket) {
             return self.bracket_end(n + 2).unwrap_or(n);
         }
+
         if !self.at_n(n + 2, P::LParen) {
             return self.computed_filter_end(n + 2).unwrap_or(n);
         }
+
         match self
             .at_n(n + 2, P::LParen)
             .then(|| self.matching_paren(n + 2))
@@ -135,6 +150,7 @@ impl Parser<'_> {
     /// For a filter written as a bare expression, the offset where the declaration after it begins.
     fn computed_filter_end(&self, from: usize) -> Option<usize> {
         let mut depth = 0usize;
+
         for i in from.. {
             match self.tok_at(i) {
                 Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBracket | P::DotBrace) => {
@@ -146,6 +162,7 @@ impl Parser<'_> {
                 _ => {}
             }
         }
+
         None
     }
 
@@ -153,6 +170,7 @@ impl Parser<'_> {
     pub(super) fn parse_modified_decl(&mut self) -> PResult<Stmt> {
         let (mut using, mut as_, mut filter) = (false, false, UsingFilter::None);
         let mut flags = Vec::new();
+
         loop {
             if self.at_kw("using") {
                 self.bump();
@@ -170,7 +188,9 @@ impl Parser<'_> {
                 break;
             }
         }
+
         let mut declaration = self.parse_decl(using, as_)?;
+
         if let StmtKind::Decl(decl) = &mut declaration.kind
             && let Some(decl) = Arc::get_mut(decl)
         {
@@ -178,6 +198,7 @@ impl Parser<'_> {
                 decl.rare_mut().flags.push(flag);
             }
         }
+
         match &mut declaration.kind {
             StmtKind::Decl(decl) if !matches!(filter, UsingFilter::None) => {
                 if let Some(decl) = Arc::get_mut(decl) {
@@ -192,12 +213,14 @@ impl Parser<'_> {
             }
             _ => {}
         }
+
         Ok(declaration)
     }
 
     /// For `operator <punct>... ::` starting at the first punctuation token, the offset of `::`.
     fn operator_end(&self, from: usize) -> Option<usize> {
         let mut i = from;
+
         while i < from + 4 {
             match self.tok_at(i) {
                 Tok::Punct(P::ColonColon) if i > from => return Some(i),
@@ -208,6 +231,7 @@ impl Parser<'_> {
                 _ => return None,
             }
         }
+
         None
     }
 
@@ -223,6 +247,7 @@ impl Parser<'_> {
         } = self.parse_decl_names(backtick)?;
         let backtick_names = if backticks.iter().any(|&b| b) {
             let mut all = backticks;
+
             all[0] = backtick;
             all
         } else {
@@ -241,19 +266,23 @@ impl Parser<'_> {
             span: start,
             rare: None,
         };
+
         decl.set_rare(DeclRare {
             existing,
             targets,
             backtick_names,
             ..DeclRare::default()
         });
+
         match self.tok() {
             Tok::Punct(P::ColonColon) => {
                 self.bump();
                 decl.kind = DeclKind::Const;
+
                 if self.at_directive("import") {
                     return self.parse_import(decl.names.first().copied(), start);
                 }
+
                 self.parse_decl_values(&mut decl)?;
             }
             Tok::Punct(P::ColonEq) => {
@@ -266,6 +295,7 @@ impl Parser<'_> {
             }
             _ => self.parse_typed_decl_rest(&mut decl)?,
         }
+
         self.parse_decl_suffix(&mut decl)?;
         decl.span = start.to(self.prev_span());
         decl.trim_rare();
@@ -279,17 +309,22 @@ impl Parser<'_> {
         if self.at_kw("operator") && self.operator_end(1).is_some() {
             let start = self.bump();
             let mut text = String::new();
+
             while !self.at(P::ColonColon) {
                 if let Tok::Punct(p) = self.tok() {
                     text.push_str(p.text());
                 }
+
                 self.bump();
             }
+
             let name = Ident {
                 name: Sym::intern(&format!("operator{text}")),
                 span: start.to(self.prev_span()),
             };
+
             self.pending_operator = Some(text.into());
+
             return Ok(DeclNames {
                 names: vec![name],
                 existing: Vec::new(),
@@ -297,12 +332,15 @@ impl Parser<'_> {
                 backticks: Vec::new(),
             });
         }
+
         let (mut names, mut existing, mut backticks) = (Vec::new(), Vec::new(), Vec::new());
         let mut targets: Vec<Option<Expr>> = Vec::new();
         let (mut any_assigned, mut any_declared_marker) = (false, false);
+
         loop {
             // `` status, `it := next() ``: a later name may go to the macro caller's scope.
             backticks.push(!names.is_empty() && self.eat(P::Backtick));
+
             if matches!(self.tok(), Tok::Ident(_))
                 && matches!(
                     self.tok_at(1),
@@ -312,12 +350,14 @@ impl Parser<'_> {
                 // `ok:, t.str = f()`: an existing place; its `names` entry is the root variable.
                 let place = self.parse_postfix(false)?;
                 let mut root = &place;
+
                 while let ExprKind::Member(base, _)
                 | ExprKind::Index(base, _)
                 | ExprKind::Unary(_, base) = &root.kind
                 {
                     root = base;
                 }
+
                 let ExprKind::Ident(name) = root.kind else {
                     return Err(Diagnostic::new(
                         Code::ParseExpectedNameVariables,
@@ -325,6 +365,7 @@ impl Parser<'_> {
                         "expected a name, or a variable's member, index or dereference",
                     ));
                 };
+
                 names.push(Ident {
                     name,
                     span: place.span,
@@ -334,21 +375,26 @@ impl Parser<'_> {
             } else {
                 names.push(self.ident("as declaration name")?);
             }
+
             let assigned = matches!(self.tok(), Tok::Punct(P::Eq))
                 && matches!(self.tok_at(1), Tok::Punct(P::Comma | P::ColonEq));
             let declared = matches!(self.tok(), Tok::Punct(P::Colon))
                 && matches!(self.tok_at(1), Tok::Punct(P::Comma));
+
             if assigned || declared {
                 self.bump();
             }
+
             any_assigned |= assigned;
             any_declared_marker |= declared;
             // In `a:, b = f()` the unmarked names are the existing variables.
             existing.push((assigned, declared));
+
             if !self.eat(P::Comma) {
                 break;
             }
         }
+
         // `a:` only matters in an assignment (`a:, b = f()`); in a declaration such as
         // `ok, shader:, time := f()` every name is declared anyway.
         let assignment = matches!(self.tok(), Tok::Punct(P::Eq));
@@ -362,20 +408,25 @@ impl Parser<'_> {
         } else {
             Vec::new()
         };
+
         for (i, name) in names.iter().enumerate() {
             let place = targets.get(i).is_some_and(Option::is_some);
+
             if !place && !existing.get(i).copied().unwrap_or(false) {
                 let backticked = if i == 0 {
                     first_backtick
                 } else {
                     backticks[i]
                 };
+
                 self.reject_keyword_name(*name, backticked)?;
             }
         }
+
         if !targets.is_empty() {
             targets.resize(names.len(), None);
             let assigned = |i: usize| existing.get(i).copied().unwrap_or(false);
+
             if let Some(place) = targets
                 .iter()
                 .enumerate()
@@ -390,6 +441,7 @@ impl Parser<'_> {
                 ));
             }
         }
+
         Ok(DeclNames {
             names,
             existing,
@@ -401,25 +453,32 @@ impl Parser<'_> {
     /// After the names: `: T`, `: T = v`, `: T : v`, `: = v`.
     fn parse_typed_decl_rest(&mut self, decl: &mut Decl) -> PResult<()> {
         self.expect(P::Colon, "after the declaration name")?;
+
         if !matches!(self.tok(), Tok::Punct(P::Eq | P::Colon)) {
             decl.ty = Some(self.parse_param_type()?);
         }
+
         self.parse_decl_suffix(decl)?;
+
         if self.eat(P::Eq) {
             self.parse_decl_values(decl)?;
         } else if self.eat(P::Colon) {
             decl.kind = DeclKind::Const;
             self.parse_decl_values(decl)?;
         }
+
         Ok(())
     }
 
     /// One value, or several for `a, b := 1, 2;`.
     fn parse_decl_values(&mut self, decl: &mut Decl) -> PResult<()> {
         decl.value = Some(self.parse_expr()?);
+
         while decl.names.len() > 1 && self.eat(P::Comma) {
             let comma = self.prev_span();
+
             decl.rare_mut().extra_values.push(self.parse_expr()?);
+
             if self.code_in_args && decl.rare_mut().extra_values.len() == 1 {
                 self.note_lenient(
                     crate::diagnostics::Code::MultiValueInCodeArgument,
@@ -427,6 +486,7 @@ impl Parser<'_> {
                 );
             }
         }
+
         Ok(())
     }
 
@@ -470,8 +530,10 @@ impl Parser<'_> {
         if !matches!(self.tok(), Tok::Ident(_)) || self.newline_before() {
             return Ok(None);
         }
+
         let library = Some(self.ident("after `#elsewhere`")?);
         let name = self.parse_foreign_symbol();
+
         Ok(Some(Foreign {
             library,
             name,
@@ -483,6 +545,7 @@ impl Parser<'_> {
         match self.tok() {
             Tok::Str(s) => {
                 let name = String::from_utf8_lossy(s).into_owned();
+
                 self.bump();
                 ForeignName::Named(name.into())
             }

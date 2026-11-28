@@ -22,9 +22,11 @@ pub use jacket_config::{EntryFiles, Project as ProjectConfig};
 /// normalised.
 pub fn entry_files(base: &Path, project: Option<&ProjectConfig>) -> EntryFiles {
     let mut found = jacket_config::entry_files(base, project);
+
     if found.declared {
         found.paths = found.paths.iter().map(|p| normalize(p)).collect();
     }
+
     found
 }
 
@@ -36,6 +38,7 @@ pub fn relative(from: &Path, target: &Path) -> String {
     let to: Vec<Component> = target.components().collect();
     let common = from.iter().zip(&to).take_while(|(a, b)| a == b).count();
     let mut parts: Vec<String> = vec!["..".into(); from.len() - common];
+
     parts.extend(
         to[common..]
             .iter()
@@ -72,6 +75,7 @@ mod tests {
         use jaic::project::{DiskFs, LoadCache, ProjectFs, RootOptions, resolve_root};
         let dir = std::env::temp_dir().join(format!("jailsp-root-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
+
         for (path, text) in [
             ("main.jai", "#load \"a.jai\";"),
             ("a.jai", "#load \"deep/b.jai\";"),
@@ -81,9 +85,11 @@ mod tests {
             ("Thing/part.jai", ""),
         ] {
             let path = dir.join(path);
+
             std::fs::create_dir_all(path.parent().unwrap()).unwrap();
             std::fs::write(path, text).unwrap();
         }
+
         let dir = DiskFs.key(&dir);
         let mut session = Session::with_environment(
             Limits::default(),
@@ -93,8 +99,10 @@ mod tests {
                 options: Box::new(|_| jaic::sema::Options::host()),
             },
         );
+
         session.set_workspace_folders(vec![dir.clone()]);
         let linter = RootOptions::linter(Vec::new());
+
         for name in [
             "deep/b.jai",
             "a.jai",
@@ -106,8 +114,10 @@ mod tests {
             let uri = crate::document::DocumentUri::from_path(&file).unwrap();
             let by_server = session.project_root(&uri).unwrap();
             let by_linter = resolve_root(&DiskFs, &file, &linter, &mut LoadCache::default());
+
             assert_eq!(by_server, by_linter.path(), "{name}");
         }
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -25,6 +25,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, chain| {
             let Some(e) = n.expr() else {
                 return true;
@@ -37,12 +38,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 (_, E::Bool(v)) => (*v, a),
                 _ => return true,
             };
+
             if matches!(other.kind, E::Bool(_))
                 || cx.ty(other) != Some(TypeId::BOOL)
                 || cx.constant(other)
             {
                 return true;
             }
+
             let negate = (*op == BinOp::Eq) != lit;
             // Spans leave grouping parentheses out: take them in on both sides.
             let text = cx.whole_src(other).trim();
@@ -60,6 +63,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let (start, end) = cx.whole(e);
             let written = cx.whole_src(e).trim();
             let help = format!("write `{replacement}`");
+
             out.push(Finding {
                 secondary: Vec::new(),
                 start: e.span.start as usize,

@@ -24,11 +24,13 @@ impl Workspaces {
 
     pub(super) fn create_workspace(&mut self, name: String) -> i64 {
         let mut workspace = Workspace::new(name);
+
         if self.list.len() as i64 == Self::FIRST_CREATED_WORKSPACE
             && let Some(settings) = self.first_created.take()
         {
             workspace.settings = settings;
         }
+
         self.list.push(workspace);
         self.list.len() as i64 - 1
     }
@@ -48,9 +50,11 @@ impl Workspaces {
         // metaprogram that answers every FAILED_IMPORT with it (a file the host cannot see,
         // say) would loop forever, each retry counting as a new offer.
         let provided = &mut self.workspace(id)?.provided;
+
         if !provided.contains(&offer) {
             provided.push(offer);
         }
+
         Ok(())
     }
 
@@ -62,6 +66,7 @@ impl Workspaces {
     /// `compiler_set_workspace_status`: 0 is OK, 1 failed.
     pub(super) fn set_status(&mut self, id: i64, status: u64) -> Result<(), Trap> {
         let ws = self.workspace(id)?;
+
         match status {
             0 if ws.failed => Err(trap("a failed workspace cannot be reset to OK".into())),
             0 => Ok(()),
@@ -103,7 +108,9 @@ impl Workspaces {
                     .into(),
             ));
         }
+
         let ws = self.workspace(id)?;
+
         ws.intercepted = true;
         ws.intercept_flags = flags;
         Ok(())
@@ -130,9 +137,11 @@ impl Workspaces {
             .unwrap_or_else(|_| root.to_path_buf())
             .display()
             .to_string();
+
         if !text.ends_with('/') && !text.ends_with('\\') {
             text.push('/');
         }
+
         text
     }
 
@@ -154,6 +163,7 @@ impl Workspaces {
             let Some(Item::Int(module)) = self.records.item(message, "__module", None) else {
                 return Err(trap("add_build_string: the message names no module".into()));
             };
+
             ProgramSource::ModuleString(value, module as u32)
         };
         self.workspace(id)?.queue_source(source).map_err(trap)
@@ -171,6 +181,7 @@ impl Workspaces {
                 "add_build_string: Code scope must belong to the running workspace".into(),
             ));
         }
+
         self.workspace(id)?
             .queue_source(ProgramSource::CodeString(source, code))
             .map_err(trap)
@@ -179,6 +190,7 @@ impl Workspaces {
     /// Fail unless `id` is the workspace whose compile-time code is running.
     fn running(&mut self, id: i64, what: &str) -> Result<(), Trap> {
         self.workspace(id)?;
+
         if id == self.current_id() {
             Ok(())
         } else {
@@ -206,12 +218,14 @@ pub(super) fn add_source(
 ) -> Result<(), Trap> {
     let mut reg = shared.borrow_mut();
     let ws = reg.workspace(id)?;
+
     if ws.stage == Stage::Done {
         return Err(trap(format!(
             "workspace `{}` has already been compiled; add its sources before it completes",
             ws.name
         )));
     }
+
     let source = if file {
         let fs = reg.env.fs.clone();
         // Resolved now: the metaprogram may change directory before it compiles.
@@ -220,6 +234,7 @@ pub(super) fn add_source(
             PathBuf::from,
         );
         let path = fs.canonical(&cwd.join(&value));
+
         if !fs.is_file(&path) {
             return Err(trap(if fs.is_dir(&path) {
                 format!("add_build_file: `{value}` is a directory, not a .jai file")
@@ -231,19 +246,24 @@ pub(super) fn add_source(
                 )
             }));
         }
+
         ProgramSource::File(path)
     } else {
         ProgramSource::String(value)
     };
+
     reg.workspace(id)?
         .queue_source(source.clone())
         .map_err(trap)?;
     let observer = reg.env.observer.take();
+
     drop(reg);
+
     if let Some(mut o) = observer {
         o.source_added(id, &source);
         shared.borrow_mut().env.observer = Some(o);
     }
+
     Ok(())
 }
 
@@ -267,18 +287,23 @@ pub(super) fn next_event(
     if id == shared.borrow().current_id() || id == TOP_LEVEL_WORKSPACE {
         return Ok(None);
     }
+
     loop {
         let mut reg = shared.borrow_mut();
         let ws = reg.workspace(id)?;
+
         if let Some(event) = ws.events.pop_front() {
             return Ok(Some(event));
         }
+
         if ws.stage == Stage::Done {
             return Ok(None);
         }
+
         drop(reg);
         let mut budget = interp.block_budget;
         let stepped = step(shared, id, &mut budget, true);
+
         interp.block_budget = budget;
         stepped.map_err(trap)?;
     }
@@ -293,11 +318,15 @@ pub(super) fn report(
     mode: u64,
 ) -> Result<(), Trap> {
     let message = message.trim_end();
+
     if mode == 0 {
         let mut t = trap(message.to_string());
+
         t.reported = Some(Box::new((file, line as u32, column as u32)));
+
         return Err(t);
     }
+
     let (severity, label) = match mode {
         1 => (ReportSeverity::Error, "error"),
         2 => (ReportSeverity::Warning, "warning"),
@@ -309,12 +338,16 @@ pub(super) fn report(
         format!("{file}:{line}:{column}: ")
     };
     let mut reg = shared.borrow_mut();
+
     (reg.env.report)(severity, &format!("{location}{label}: {message}"));
+
     if mode == 1 {
         // A continuable error: the metaprogram goes on, but the build has failed.
         let current = reg.current_id();
+
         reg.workspace(current)?.failed = true;
     }
+
     Ok(())
 }
 
@@ -336,20 +369,25 @@ pub(super) fn code_nodes(
     let Some(body) = interp.codes.get(code).cloned() else {
         return Err(trap("compiler_get_nodes: not a Code value".into()));
     };
+
     interp.nodes_codes.retain(|&c| c != code);
     interp.nodes_codes.push(code);
     let taken = interp.code_export_cursor.entry(code).or_default();
+
     if let Some((root, nodes)) = interp.code_exports.get(&code).and_then(|e| e.get(*taken)) {
         *taken += 1;
         return Ok((*root, nodes.clone()));
     }
+
     // Names and types need the compiler: while nothing observable happened in this
     // compile-time run, ask it to export the code and run again (`call_thunk`).
     if interp.run_effects == Some(interp.effects) {
         interp.export_request = Some(code);
         return Err(trap("compiler_get_nodes: typed export requested".into()));
     }
+
     let mut reg = shared.borrow_mut();
+
     Ok(crate::sema::code_export::export_code(
         &mut reg.records,
         &body,
@@ -367,16 +405,19 @@ pub(super) fn type_table(
     if id < 0 || id == shared.borrow().current_id() {
         return Ok(interp.ct_type_table);
     }
+
     let taken = shared.borrow_mut().workspace(id)?.compiler.take();
     let Some(mut compiler) = taken else {
         return Err(trap(
             "get_type_table: that workspace has nothing compiled yet".into(),
         ));
     };
+
     shared.borrow_mut().current.push(id);
     compiler.refresh_type_table();
     shared.borrow_mut().current.pop();
     let found = compiler.ct.interp.ct_type_table;
+
     shared.borrow_mut().workspace(id)?.compiler = Some(compiler);
     Ok(found)
 }
@@ -386,6 +427,7 @@ pub(super) fn set_type_info_flags(interp: &mut Interp, ty: u64, flags: u32) -> R
     let Some((global, 0)) = interp.global_at(ty) else {
         return Err(trap("compiler_set_type_info_flags: not a type".into()));
     };
+
     interp.pending_type_flags.push((global, flags));
     Ok(())
 }
@@ -421,22 +463,27 @@ pub(super) fn data_segment(
     workspace: i64,
 ) -> Result<u64, Trap> {
     let mut reg = shared.borrow_mut();
+
     reg.running(workspace, "add_data_segment: registration")?;
+
     if characteristics & !0xf != 0 || characteristics & 4 != 0 {
         return Err(trap(
             "add_data_segment: executable or unknown segment characteristics are unavailable"
                 .into(),
         ));
     }
+
     if alignment <= 0 || !(alignment as u64).is_power_of_two() {
         return Err(trap(
             "add_data_segment: alignment must be a positive power of two".into(),
         ));
     }
+
     // Opaque handles must survive #run freezing and relocation without being copied to an
     // unrelated address. The interpreter adopts this allocation as a real compiler-owned
     // global after the run.
     let handle = interp.register_data_global(&[0; 16], 16, true, 2)?;
+
     reg.data_segments.push(DataSegment {
         handle,
         _name: name,
@@ -458,6 +505,7 @@ pub(super) fn global_data(
     handle: u64,
 ) -> Result<u64, Trap> {
     let mut reg = shared.borrow_mut();
+
     reg.running(workspace, "add_global_data: registration")?;
     let (align, read_only, zeroed, tag) = match segment {
         0 => (16, false, false, 1),
@@ -471,6 +519,7 @@ pub(super) fn global_data(
                 .ok_or_else(|| {
                     trap("add_global_data: invalid user segment handle for this workspace".into())
                 })?;
+
             (
                 descriptor.alignment,
                 descriptor.characteristics & 2 == 0,
@@ -485,10 +534,12 @@ pub(super) fn global_data(
         }
         _ => return Err(trap("add_global_data: unknown segment index".into())),
     };
+
     if zeroed && bytes.iter().any(|&b| b != 0) {
         return Err(trap(
             "add_global_data: nonzero input for BSS or ZEROED is not supported".into(),
         ));
     }
+
     interp.register_data_global(bytes, align, read_only, tag)
 }

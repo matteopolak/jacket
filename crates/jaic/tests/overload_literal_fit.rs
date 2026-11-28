@@ -15,6 +15,7 @@ fn accepts(source: &str) {
 
 fn ambiguous(source: &str) {
     let message = outcome(source).expect_err(source);
+
     assert!(
         message.contains("Procedure call matches")
             && message.contains("is ambiguous for these arguments"),
@@ -147,6 +148,7 @@ fn polymorphic_overloads_that_fit_equally_are_ambiguous() {
         "null",
         "cast(u8) 3",
     ];
+
     for argument in arguments {
         ambiguous(&format!(
             "V :: struct {{ a: s32; b: s32; }}
@@ -155,6 +157,7 @@ fn polymorphic_overloads_that_fit_equally_are_ambiguous() {
             main :: () {{ f({argument}); }}"
         ));
     }
+
     // A header that pins down more of the type is not a tie.
     accepts(
         "f :: (x: *$T) -> s32 { return 1; }

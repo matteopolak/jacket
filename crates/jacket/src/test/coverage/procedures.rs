@@ -29,6 +29,7 @@ pub fn parse(text: &str) -> Vec<Procedure> {
 
 fn parse_record(line: &str) -> Option<Procedure> {
     let mut fields = line.split('\t');
+
     (fields.next()? == "procedure").then_some(())?;
     let file = PathBuf::from(fields.next()?);
     let name = fields.next()?.to_string();
@@ -39,6 +40,7 @@ fn parse_record(line: &str) -> Option<Procedure> {
         .split(',')
         .filter_map(|n| n.parse().ok())
         .collect();
+
     Some(Procedure {
         file,
         name,
@@ -63,6 +65,7 @@ pub fn list(
         .args(flags)
         .output()
         .map_err(|e| format!("could not start `{}`: {e}", jaic.display()))?;
+
     if !output.status.success() {
         return Err(format!(
             "`{} -procedures` failed: {}",
@@ -70,6 +73,7 @@ pub fn list(
             String::from_utf8_lossy(&output.stderr).trim()
         ));
     }
+
     Ok(parse(&String::from_utf8_lossy(&output.stdout)))
 }
 
@@ -81,6 +85,7 @@ pub fn unreferenced<'a>(files: &Files, procedures: &[&'a Procedure]) -> Vec<&'a 
         .copied()
         .filter(|p| {
             let seen = files.get(&p.file);
+
             !p.lines
                 .iter()
                 .any(|l| seen.is_some_and(|f| f.contains_key(l)))
@@ -92,6 +97,7 @@ pub fn unreferenced<'a>(files: &Files, procedures: &[&'a Procedure]) -> Vec<&'a 
 pub fn add_never_run(files: &mut Files, procedures: &[&Procedure]) {
     for p in procedures {
         let lines = files.entry(p.file.clone()).or_default();
+
         for line in &p.lines {
             lines.entry(*line).or_insert(0);
         }
@@ -105,28 +111,36 @@ pub fn add_never_run(files: &mut Files, procedures: &[&Procedure]) {
 /// apart by their line.
 pub fn functions(procedures: &[&Procedure], lines: &Files, entries: &Files) -> Functions {
     let mut by_file: BTreeMap<&Path, Vec<&Procedure>> = BTreeMap::new();
+
     for p in procedures {
         by_file.entry(p.file.as_path()).or_default().push(p);
     }
+
     let mut out = Functions::new();
+
     for (file, mut procs) in by_file {
         procs.sort_by_key(|p| (p.line, p.end));
         let mut called = vec![0u64; procs.len()];
+
         for (&line, &count) in entries.get(file).into_iter().flatten() {
             let inside = procs
                 .iter()
                 .enumerate()
                 .filter(|(_, p)| p.line <= line && line <= p.end)
                 .min_by_key(|(_, p)| p.end - p.line);
+
             if let Some((i, _)) = inside {
                 called[i] += count;
             }
         }
+
         let own = lines.get(file);
         let mut names: BTreeMap<&str, usize> = BTreeMap::new();
+
         for p in &procs {
             *names.entry(p.name.as_str()).or_default() += 1;
         }
+
         let list = procs
             .iter()
             .zip(called)
@@ -144,8 +158,10 @@ pub fn functions(procedures: &[&Procedure], lines: &Files, entries: &Files) -> F
                 },
             })
             .collect();
+
         out.insert(file.to_path_buf(), list);
     }
+
     out
 }
 
@@ -174,12 +190,14 @@ mod tests {
             end: 9,
             lines: vec![3, 4, 8],
         };
+
         assert_eq!(found, [expected]);
     }
 
     #[test]
     fn a_procedure_with_no_line_in_any_program_is_unreferenced() {
         let mut files = Files::new();
+
         files.insert(PathBuf::from("/m/a.jai"), [(3, 4), (4, 0), (20, 1)].into());
         let procedures = [
             procedure("/m/a.jai", "ran", &[3, 4]),
@@ -195,20 +213,24 @@ mod tests {
             .collect();
         let found = unreferenced(&files, &reported);
         let names: Vec<_> = found.iter().map(|p| p.name.as_str()).collect();
+
         assert_eq!(names, ["unused", "other_file"]);
     }
 
     #[test]
     fn unreferenced_procedures_add_lines_that_never_ran() {
         let mut files = Files::new();
+
         files.insert(PathBuf::from("/m/a.jai"), [(3, 4)].into());
         let a = procedure("/m/a.jai", "unused", &[10, 11, 3]);
         let b = procedure("/m/b.jai", "unused_too", &[1]);
+
         add_never_run(&mut files, &[&a, &b]);
         let a_lines: Vec<_> = files[Path::new("/m/a.jai")]
             .iter()
             .map(|(l, n)| (*l, *n))
             .collect();
+
         // A line that some program ran keeps its count.
         assert_eq!(a_lines, [(3, 4), (10, 0), (11, 0)]);
         assert_eq!(files[Path::new("/m/b.jai")][&1], 0);
@@ -218,12 +240,16 @@ mod tests {
     fn procedures_are_as_called_as_their_entries_say() {
         let a = "/m/a.jai";
         let mut lines = Files::new();
+
         lines.insert(PathBuf::from(a), [(1, 9), (2, 9), (5, 0), (8, 3)].into());
         let mut entries = Files::new();
+
         entries.insert(PathBuf::from(a), [(1, 4), (2, 5)].into());
         let mut outer = procedure(a, "outer", &[1, 2]);
+
         outer.end = 4;
         let mut inner = procedure(a, "inner", &[2]);
+
         inner.end = 3;
         let idle = procedure(a, "idle", &[5]);
         // Never entered natively, but its line ran (an interpreted program).
@@ -233,6 +259,7 @@ mod tests {
             .iter()
             .map(|f| (f.name.as_str(), f.line, f.hits))
             .collect();
+
         // The entry at line 2 is the inner procedure's, the one at line 1 the outer's.
         assert_eq!(
             list,
@@ -255,6 +282,7 @@ mod tests {
             .iter()
             .map(|f| f.name.as_str())
             .collect();
+
         assert_eq!(names, ["get:1", "get:7"]);
     }
 }

@@ -79,9 +79,11 @@ impl Schema {
     /// Check that `ty` has a field at `path` holding a `need`.
     pub fn require(&self, ty: TypeId, path: &str, need: Need) -> Result<(), Trap> {
         let mut field = ty;
+
         for name in path.split('.') {
             field = self.field(field, name)?.1;
         }
+
         let layout = self.get(field)?;
         let holds = match (need, &layout.kind) {
             (Need::Scalar, Kind::Scalar | Kind::Pointer(_)) => layout.size <= 8,
@@ -104,15 +106,18 @@ impl Schema {
             ) => true,
             _ => false,
         };
+
         if holds {
             return Ok(());
         }
+
         let what = match need {
             Need::Scalar => "a number",
             Need::Text => "a string",
             Need::Texts => "a [] string",
             Need::View => "an array view",
         };
+
         Err(Trap::new(format!(
             "field `{path}` of {} must be {what}",
             self.get(ty)?.name
@@ -127,14 +132,17 @@ impl Schema {
                 layout.name
             )));
         };
+
         if let Some(field) = fields.iter().find(|field| field.name == name) {
             return Ok((field.offset, field.ty));
         }
+
         for field in fields.iter().filter(|field| field.promoted) {
             if let Ok((offset, ty)) = self.field(field.ty, name) {
                 return Ok((field.offset + offset, ty));
             }
         }
+
         Err(Trap::new(format!(
             "compiler API record {} has no field `{name}`",
             layout.name
@@ -157,9 +165,11 @@ impl Schema {
 
     pub fn read_number(&self, interp: &Interp, ty: TypeId, address: u64) -> Result<u64, Trap> {
         let size = self.get(ty)?.size as usize;
+
         if size > 8 {
             return Err(Trap::new("compiler API expected a scalar"));
         }
+
         let bytes = interp
             .read(address, size)
             .ok_or_else(|| Trap::unreadable(address, size))?;
@@ -174,10 +184,13 @@ impl Schema {
         value: u64,
     ) -> Result<(), Trap> {
         let size = self.get(ty)?.size as usize;
+
         if size > 8 {
             return Err(Trap::new("compiler API expected a scalar"));
         }
+
         let mut bytes = [0; 8];
+
         interp.data_layout().write_uint(&mut bytes[..size], value);
         write(interp, address, &bytes[..size])
     }
@@ -205,6 +218,7 @@ pub(super) fn view(interp: &Interp, address: u64) -> Result<(u64, u64), Trap> {
 
 pub(super) fn string(interp: &Interp, address: u64) -> Result<String, Trap> {
     let (count, data) = view(interp, address)?;
+
     Ok(String::from_utf8_lossy(&bytes(
         interp,
         data,
@@ -221,6 +235,7 @@ pub(super) fn put_view(
 ) -> Result<(), Trap> {
     let layout = *interp.data_layout();
     let mut bytes = vec![0; layout.builtins().view.size as usize];
+
     layout.write_view(&mut bytes, count, data);
     write(interp, address, &bytes)
 }

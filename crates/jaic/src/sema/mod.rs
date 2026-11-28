@@ -164,6 +164,7 @@ pub fn check_not_interrupted(span: Span) -> Result<()> {
             "checking stopped for a newer request",
         );
     }
+
     Ok(())
 }
 
@@ -175,9 +176,11 @@ impl Compiler {
     #[inline]
     pub fn check_not_stopped(&mut self, span: Span) -> Result<()> {
         check_not_interrupted(span)?;
+
         if self.ct.interp.host.stop_requested() {
             return Err(Box::new(trap_report::stopped(span)));
         }
+
         Ok(())
     }
 }
@@ -225,6 +228,7 @@ pub fn compiler_host() -> (TargetOs, TargetCpu) {
     } else {
         TargetCpu::X64
     };
+
     (os, cpu)
 }
 
@@ -269,6 +273,7 @@ impl HostPlatform {
     /// The platform this compiler binary executes on.
     pub fn native() -> Self {
         let (os, cpu) = compiler_host();
+
         Self {
             os,
             cpu,
@@ -352,6 +357,7 @@ pub fn long_double_for(
     windows_gnu: bool,
 ) -> Option<crate::wide_float::WideFloat> {
     use crate::wide_float::WideFloat;
+
     match (os, cpu) {
         (TargetOs::Windows, TargetCpu::X64) if windows_gnu => Some(WideFloat::X87),
         (TargetOs::Windows, _) => None,
@@ -432,6 +438,7 @@ impl Options {
             .parent()
             .map(std::path::Path::to_path_buf)
             .unwrap_or_default();
+
         options.import_paths = crate::project::import_paths(
             &main_dir,
             &inputs.configured,
@@ -448,6 +455,7 @@ impl Options {
     pub fn use_program(&mut self, fs: &dyn FileSystem, program: &crate::project::Program) {
         self.import_paths.clone_from(&program.import_dirs);
         self.package_imports.clone_from(&program.packages);
+
         if self.preload.is_none() {
             self.set_stdlib(fs, &program.stdlib);
         }
@@ -461,6 +469,7 @@ impl Options {
     pub fn host() -> Self {
         let host = HostPlatform::native();
         let (os, cpu) = (host.os, host.cpu);
+
         Self {
             os,
             cpu,
@@ -573,17 +582,20 @@ fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> InstanceKeyVa
     let value = match value {
         Value::Bytes(agg) if view && !agg.relocs.is_empty() => {
             let mut bytes = agg.bytes.clone();
+
             for r in &agg.relocs {
                 let (kind, id) = match r.target {
                     ir::RelocTarget::Global(g) => (0u8, g.0),
                     ir::RelocTarget::Func(f) => (1, f.0),
                     ir::RelocTarget::Foreign(f) => (2, f.0),
                 };
+
                 bytes.extend_from_slice(&r.offset.to_le_bytes());
                 bytes.push(kind);
                 bytes.extend_from_slice(&id.to_le_bytes());
                 bytes.extend_from_slice(&r.addend.to_le_bytes());
             }
+
             Value::Bytes(Arc::new(value::Aggregate {
                 bytes,
                 relocs: Vec::new(),
@@ -591,6 +603,7 @@ fn instance_key_value(types: &Types, value: &Value, ty: TypeId) -> InstanceKeyVa
         }
         other => other.clone(),
     };
+
     InstanceKeyValue {
         ty,
         value,
@@ -661,6 +674,7 @@ impl Compiler {
     /// Give compile-time code access to the `Compiler` module's workspaces.
     pub fn attach_workspaces(&mut self, workspaces: crate::build::SharedWorkspaces) {
         let usage = workspaces.borrow().typechecked_use.clone();
+
         self.src.sources.share_typechecked_use(usage);
         self.ct.interp.workspaces = Some(workspaces);
     }
@@ -708,11 +722,14 @@ impl Compiler {
             namespace_check: std::cell::Cell::new((0, 0, 0)),
             ct: CompileTime::new(layout),
         };
+
         c.ct.interp.eval_steps = c.options.eval_step_limit;
+
         if c.ct.interp.eval_steps.is_none() && crate::interp::profile::run_costs() {
             // Blocks are counted when there is a budget; this one never runs out.
             c.ct.interp.block_budget = Some(u64::MAX);
         }
+
         c.ns.root_scope = c.new_scope(scope::ScopeKind::Root, None, ModuleId(u32::MAX), None);
         c.declare_builtins();
         c
@@ -726,13 +743,17 @@ impl Compiler {
         // locals. Quoted code belongs to the lexical scope where it was written,
         // so generated declarations can bind that scope's placeholders.
         let mut scope = scope;
+
         while let Some(parent) = self.scope(scope).parent {
             if self.ns.thunk_scopes.get(&parent) != Some(&scope) {
                 break;
             }
+
             scope = parent;
         }
+
         let id = value::CodeId(self.pr.codes.len() as u32);
+
         self.ct.interp.codes.push(body.clone());
         self.pr.codes.push(body);
         self.pr.code_scopes.push(scope);
@@ -750,25 +771,32 @@ impl Compiler {
             let unscoped = from.is_none_or(|f| {
                 matches!(&*self.pr.codes[f], ast::CodeBody::Expr(e) if matches!(e.kind, ast::ExprKind::Null))
             });
+
             if unscoped {
                 // Names the insertion site lacks come from where the nodes were written.
                 let fallbacks = (self.ct.interp.nodes_codes.iter().rev())
                     .filter_map(|&c| self.pr.code_scopes.get(c).copied())
                     .take(32)
                     .collect();
+
                 self.pr.unscoped_codes.insert(id, fallbacks);
             }
+
             let scope = from
                 .and_then(|f| self.pr.code_scopes.get(f).copied())
                 .unwrap_or(self.ns.root_scope);
+
             if let Some(source) = source {
                 let file = self.src.sources.add(
                     SourcePath::virtual_source(format!("compiler_get_code {id}")),
                     source,
                 );
+
                 ast::relocate::relocate_code(Arc::make_mut(&mut self.ct.interp.codes[id]), file);
             }
+
             let body = self.ct.interp.codes[id].clone();
+
             self.pr.codes.push(body);
             self.pr.code_scopes.push(scope);
         }
@@ -783,6 +811,7 @@ impl Compiler {
             Some(fallbacks) => {
                 let fallbacks = fallbacks.clone();
                 let scope = self.new_hidden_scope(site);
+
                 self.ns.scopes[scope.0 as usize].fallbacks = fallbacks;
                 scope
             }
@@ -843,21 +872,26 @@ mod state_groups {
     fn visit(dir: &Path, found: &mut Vec<String>) {
         for entry in std::fs::read_dir(dir).unwrap() {
             let path = entry.unwrap().path();
+
             if path.is_dir() {
                 visit(&path, found);
                 continue;
             }
+
             if path.extension().is_none_or(|e| e != "rs") {
                 continue;
             }
+
             let rel = path.strip_prefix(env!("CARGO_MANIFEST_DIR")).unwrap();
             let text = std::fs::read_to_string(&path).unwrap();
+
             for (group, own) in GROUPS {
                 if rel.ends_with("src/sema/mod.rs")
                     || rel.ends_with(Path::new("src/sema").join(own))
                 {
                     continue;
                 }
+
                 for (n, line) in text.lines().enumerate() {
                     let line = line.trim_start();
                     let builds = names(line, &format!("{group}::new("))
@@ -866,6 +900,7 @@ mod state_groups {
                             && !line.starts_with("impl")
                             && !line.contains("struct ")
                             && !line.contains("enum "));
+
                     if builds {
                         found.push(format!("{}:{}: {line}", rel.display(), n + 1));
                     }
@@ -879,6 +914,7 @@ mod state_groups {
     #[test]
     fn only_compiler_new_builds_state_groups() {
         let mut found = Vec::new();
+
         visit(
             &Path::new(env!("CARGO_MANIFEST_DIR")).join("src"),
             &mut found,

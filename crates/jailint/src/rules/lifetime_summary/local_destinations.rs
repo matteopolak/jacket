@@ -21,18 +21,23 @@ impl Resolver<'_> {
     ) -> Option<usize> {
         let (root, projections) = &self.places.paths[p];
         let slot = self.places.root_of(p);
+
         if self.exposed.contains(&slot) {
             return None;
         }
+
         let stable = if let Some([source]) = self.writes.get(&slot).map(Vec::as_slice) {
             self.private_pointer(*source, &mut HashSet::default())
         } else {
             self.private_pointer(root.0, &mut HashSet::default())
         };
+
         if projections.first() != Some(&Projection::Deref) || !stable {
             return None;
         }
+
         let path = self.location(p, all, &mut HashSet::default(), 0)?;
+
         if let Root::Local(owner) = path.root
             && self.local_fixed_array(owner)
             && path.steps.first() == Some(&Step::Storage)
@@ -44,6 +49,7 @@ impl Resolver<'_> {
             // the array's lifetime, rather than an unknown external pointer's.
             return Some(owner);
         }
+
         if !matches!(path.root, Root::Local(_))
             || path
                 .steps
@@ -52,6 +58,7 @@ impl Resolver<'_> {
         {
             return None;
         }
+
         self.materialize_storage(&path)
     }
 
@@ -72,6 +79,7 @@ impl Resolver<'_> {
         if seen.len() >= 24 || !seen.insert(value) {
             return false;
         }
+
         let Some(defs) = self.values.get(&value) else {
             return false;
         };
@@ -93,6 +101,7 @@ impl Resolver<'_> {
                 }
                 _ => false,
             });
+
         seen.remove(&value);
         valid
     }

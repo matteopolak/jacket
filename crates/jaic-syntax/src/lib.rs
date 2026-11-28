@@ -78,6 +78,7 @@ pub fn preload_path(
     stdlib: &std::path::Path,
 ) -> std::path::PathBuf {
     let explicit = prelude_override();
+
     find_preload_with(fs, stdlib, PRELUDE_ENTRIES, explicit.as_deref())
         .unwrap_or_else(|| prelude_paths(stdlib, PRELUDE_ENTRIES, explicit.as_deref()).remove(0))
 }
@@ -95,6 +96,7 @@ fn enclosing_stdlib_with(
             && find_preload_with(fs, configured, entries, explicit).is_some())
         .then(|| configured.to_path_buf());
     }
+
     path.ancestors()
         .skip(1)
         .find(|dir| find_preload_with(fs, dir, entries, explicit).is_some())
@@ -129,6 +131,7 @@ fn stdlib_root_with<'a>(
                 .nth(std::path::Path::new(entry).components().count());
         }
     }
+
     preload.parent()
 }
 
@@ -175,6 +178,7 @@ pub fn display_path_from(base: &std::path::Path, path: &std::path::Path) -> Stri
     if path == base {
         return ".".to_string();
     }
+
     for (up, dir) in base
         .ancestors()
         .take(3)
@@ -185,12 +189,15 @@ pub fn display_path_from(base: &std::path::Path, path: &std::path::Path) -> Stri
             && !relative.as_os_str().is_empty()
         {
             let mut shown = std::path::PathBuf::new();
+
             for _ in 0..up {
                 shown.push("..");
             }
+
             return shown.join(relative).display().to_string();
         }
     }
+
     path.display().to_string()
 }
 
@@ -199,6 +206,7 @@ pub fn io_reason(e: &std::io::Error) -> String {
     let text = e.to_string();
     let text = text.split(" (os error").next().unwrap_or(&text);
     let mut chars = text.chars();
+
     match chars.next() {
         Some(c) => c.to_lowercase().chain(chars).collect(),
         None => text.to_string(),
@@ -210,6 +218,7 @@ pub fn missing_stdlib(dir: &std::path::Path) -> Option<String> {
     if find_preload(&filesystem::NativeFs, dir).is_some() {
         return None;
     }
+
     Some(missing_stdlib_message(
         dir,
         PRELUDE_ENTRIES,
@@ -223,9 +232,11 @@ fn missing_stdlib_message(
     explicit: Option<&std::path::Path>,
 ) -> String {
     let mut paths = prelude_paths(dir, entries, None);
+
     if let Some(explicit) = explicit {
         paths.insert(0, dir.join(explicit));
     }
+
     format!(
         "cannot find the standard library (looked for prelude {})\n\
          note: keep the `stdlib` folder from the release archive next to the executable (a \
@@ -252,13 +263,16 @@ mod tests {
     #[test]
     fn candidate_order_and_both_layouts_share_root_detection() {
         let mut fs = VirtualFs::default();
+
         fs.insert("/lib/Base.jai", b"".as_slice());
         fs.insert("/lib/prelude/module.jai", b"".as_slice());
+
         for entries in [
             vec!["Base.jai", "prelude/module.jai"],
             vec!["prelude/module.jai", "Base.jai"],
         ] {
             let selected = find_preload_with(&fs, Path::new("/lib"), &entries, None).unwrap();
+
             assert_eq!(selected, Path::new("/lib").join(entries[0]));
             assert_eq!(
                 stdlib_root_with(&selected, &entries),
@@ -275,6 +289,7 @@ mod tests {
                 Some("/lib".into())
             );
         }
+
         assert_eq!(
             find_preload_with(&fs, Path::new("/lib"), &["absent.jai", "Base.jai"], None),
             Some("/lib/Base.jai".into())
@@ -293,8 +308,10 @@ mod tests {
     #[test]
     fn a_root_preload_file_is_detected_after_the_prelude_folder() {
         let mut fs = VirtualFs::default();
+
         fs.insert("/lib/Preload.jai", b"".as_slice());
         let selected = find_preload_with(&fs, Path::new("/lib"), PRELUDE_ENTRIES, None).unwrap();
+
         assert_eq!(selected, Path::new("/lib/Preload.jai"));
         assert_eq!(
             stdlib_root_with(&selected, PRELUDE_ENTRIES),
@@ -320,6 +337,7 @@ mod tests {
     #[test]
     fn relative_override_finds_an_enclosing_root_file() {
         let mut fs = VirtualFs::default();
+
         fs.insert("/lib/Base.jai", b"".as_slice());
         assert_eq!(
             enclosing_stdlib_with(
@@ -336,9 +354,11 @@ mod tests {
     #[test]
     fn external_prelude_keeps_the_configured_library_root() {
         let mut fs = VirtualFs::default();
+
         fs.insert("/external/Base.jai", b"".as_slice());
         let entries = ["prelude/module.jai"];
         let explicit = Some(Path::new("/external/Base.jai"));
+
         assert_eq!(
             enclosing_stdlib_with(
                 &fs,
@@ -375,6 +395,7 @@ mod tests {
     fn missing_message_is_an_error_line_and_a_note_with_the_next_step() {
         let message = missing_stdlib_message(Path::new("/lib"), &["Base.jai"], None);
         let (error, note) = message.split_once("\nnote: ").expect(&message);
+
         assert!(
             error.starts_with("cannot find the standard library"),
             "{message}"
@@ -390,6 +411,7 @@ mod tests {
             &["prelude/module.jai", "Base.jai"],
             Some(Path::new("missing.jai")),
         );
+
         for path in [
             "/lib/prelude/module.jai",
             "/lib/Base.jai",
@@ -410,8 +432,10 @@ mod tests {
             &crate::default_stdlib_dir(),
         )
         .unwrap();
+
         assert_eq!(found, stdlib);
         let outside = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/lib.rs");
+
         assert_eq!(
             enclosing_stdlib(
                 &crate::filesystem::NativeFs,

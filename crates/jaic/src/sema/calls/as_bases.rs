@@ -9,13 +9,17 @@ impl Compiler {
         if ty == want {
             return true;
         }
+
         let Some(s) = self.ty.types.as_struct(ty) else {
             return false;
         };
+
         if self.layout_struct(s, Span::NONE).is_err() {
             return false;
         }
+
         let fields = self.ty.types.struct_info(s).fields.clone();
+
         fields
             .iter()
             .filter(|f| f.as_)
@@ -38,6 +42,7 @@ impl Compiler {
             return Vec::new();
         };
         let mut bases = Vec::new();
+
         for stmt in &src.lit.body {
             if let ast::StmtKind::Decl(decl) = &stmt.kind
                 && decl.kind == ast::DeclKind::Const
@@ -55,6 +60,7 @@ impl Compiler {
                 bases.push(base);
             }
         }
+
         bases
     }
 
@@ -81,12 +87,14 @@ impl Compiler {
             Some(origin) => (origin, poly.baked.clone()),
             None => (ps, Vec::new()),
         };
+
         if self.ty.poly_structs[origin.0 as usize]
             .instances
             .values()
             .any(|&t| t == ty)
             && (baked.is_empty() || {
                 let bindings = self.poly_struct_bindings(self.ty.types.as_struct(ty)?);
+
                 baked.iter().all(|(name, value, _)| {
                     bindings.iter().any(|(n, v, _)| n == name && v == value)
                 })
@@ -94,9 +102,12 @@ impl Compiler {
         {
             return Some(ty);
         }
+
         let s = self.ty.types.as_struct(ty)?;
+
         self.layout_struct(s, Span::NONE).ok()?;
         let fields = self.ty.types.struct_info(s).fields.clone();
+
         if let Some(found) = fields
             .iter()
             .filter(|f| f.as_)
@@ -104,6 +115,7 @@ impl Compiler {
         {
             return Some(found);
         }
+
         self.using_constant_bases(s, true)
             .into_iter()
             .find_map(|base| self.instance_or_as_base(ps, base))

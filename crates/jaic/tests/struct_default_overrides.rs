@@ -5,9 +5,11 @@ use std::rc::Rc;
 fn check(source: &str) -> Result<(), String> {
     let mut options = Options::host();
     let stdlib = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+
     options.import_paths.push(stdlib.clone());
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
+
     c.compile_sources(&[ProgramSource::String(source.into())])
         .map_err(|e| e.render(&c.src.sources))
 }
@@ -65,6 +67,7 @@ fn invalid_default_assignments_are_not_silently_discarded() {
     ] {
         let source = format!("R :: struct {{ {body} }} main :: () {{ r:R; }}");
         let error = check(&source).expect_err(&source);
+
         assert!(error.contains(message), "{source}\n{error}");
     }
 }

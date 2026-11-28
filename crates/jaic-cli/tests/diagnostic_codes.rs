@@ -9,9 +9,11 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 /// Writes `files` (name and text) into a fresh folder and checks the first one with `args`.
 fn check(name: &str, files: &[(&str, &str)], args: &[&str]) -> Output {
     let dir = TempDir::new(name);
+
     for (file, text) in files {
         std::fs::write(Path::new(dir.path()).join(file), text).unwrap();
     }
+
     Command::new(JAIC)
         .current_dir(dir.path())
         .arg(files[0].0)
@@ -42,8 +44,10 @@ main :: () {
 #[test]
 fn a_shift_before_a_widening_cast_warns() {
     let output = check("cast-shift", &[("shift.jai", SHIFTS)], &[]);
+
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     let text = stderr(&output);
+
     assert_eq!(
         text.matches("warning[cast-shift-precedence]").count(),
         2,
@@ -70,6 +74,7 @@ fn a_warning_can_be_allowed_or_denied_by_code() {
         &[("shift.jai", SHIFTS)],
         &["-A", "cast-shift-precedence"],
     );
+
     assert_eq!(allowed.status.code(), Some(0));
     assert!(stderr(&allowed).is_empty(), "{}", stderr(&allowed));
 
@@ -78,6 +83,7 @@ fn a_warning_can_be_allowed_or_denied_by_code() {
         &[("shift.jai", SHIFTS)],
         &["-D", "cast-shift-precedence"],
     );
+
     assert_eq!(denied.status.code(), Some(1), "{}", stderr(&denied));
     assert!(
         stderr(&denied).contains("error[cast-shift-precedence]:"),
@@ -91,12 +97,14 @@ fn a_warning_can_be_allowed_or_denied_by_code() {
         &[("shift.jai", SHIFTS)],
         &["-Dwarnings", "-A", "cast-shift-precedence"],
     );
+
     assert_eq!(later.status.code(), Some(0), "{}", stderr(&later));
     let group = check(
         "cast-shift-group",
         &[("shift.jai", SHIFTS)],
         &["-D", "warnings"],
     );
+
     assert_eq!(group.status.code(), Some(1), "{}", stderr(&group));
 }
 
@@ -107,6 +115,7 @@ fn the_level_flags_check_their_codes() {
         &[("shift.jai", SHIFTS)],
         &["-A", "cast-shift-precedense"],
     );
+
     assert_eq!(typo.status.code(), Some(2), "{}", stderr(&typo));
     assert!(
         stderr(&typo).contains("error[cli-usage]: unknown warning `cast-shift-precedense`\nhelp: did you mean `cast-shift-precedence`?"),
@@ -119,6 +128,7 @@ fn the_level_flags_check_their_codes() {
         &[("shift.jai", SHIFTS)],
         &["-A", "type-mismatch"],
     );
+
     assert_eq!(error.status.code(), Some(2), "{}", stderr(&error));
     assert!(
         stderr(&error).contains("`type-mismatch` is an error"),
@@ -135,6 +145,7 @@ fn a_declaration_that_hides_an_import_points_at_the_import() {
         "#import \"Basic\";\n#import \"Math\";\nPI :: 3;\nmain :: () { print(\"%\\n\", PI); }\n";
     let output = check("hides-import", &[("hide.jai", source)], &[]);
     let text = stderr(&output);
+
     assert!(
         text.contains(
             "hide.jai:3:1: warning[declaration-hides-import]: `PI` is also exported by `Math`"
@@ -152,6 +163,7 @@ fn a_repeated_declaration_points_at_the_first() {
         "#import \"Basic\";\nM :: #import \"Math\";\nM :: 3;\nmain :: () { print(\"%\\n\", M); }\n";
     let output = check("declared-twice", &[("twice.jai", source)], &[]);
     let text = stderr(&output);
+
     assert_eq!(output.status.code(), Some(1), "{text}");
     assert!(
         text.contains(
@@ -176,6 +188,7 @@ fn a_scope_file_name_used_from_a_loading_file_suggests_scope_module() {
         &[],
     );
     let text = stderr(&output);
+
     assert_eq!(output.status.code(), Some(1), "{text}");
     assert!(
         text.contains("main.jai:3:27: error[scope-file-name]: unknown identifier `clamp_index`"),

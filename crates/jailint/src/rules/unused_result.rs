@@ -27,10 +27,12 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         if !p.clean {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, chain| {
             let Some(s) = n.stmt() else {
                 return false;
@@ -46,11 +48,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             else {
                 return true;
             };
+
             if chain.iter().any(|a| matches!(a, Node::Expr(_)))
                 || !calls_noted(cx, callee, "UseResult")
             {
                 return true;
             }
+
             let types = &cx.compiler.ty.types;
             let returns = cx
                 .ty(e)
@@ -58,9 +62,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let by_pointer = args
                 .iter()
                 .any(|a| a.spread || cx.ty(&a.value).is_none_or(|t| types.is_pointer(t)));
+
             if !returns || by_pointer {
                 return true;
             }
+
             let name = cx.whole_src(callee).trim();
             let call = cx.whole_src(e).trim();
             let mut edits = Vec::new();
@@ -72,6 +78,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                         && cx.ty(&first.value) == cx.ty(e) =>
                 {
                     let target = cx.whole_src(&first.value).trim();
+
                     edits.push(Edit {
                         start: e.span.start as usize,
                         end: e.span.start as usize,
@@ -83,6 +90,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             };
             let message =
                 format!("the result of `{name}` is discarded; it does not change its arguments");
+
             out.push(if edits.is_empty() {
                 finding(e.span, message, Some(help))
             } else {

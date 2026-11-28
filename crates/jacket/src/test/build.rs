@@ -56,10 +56,12 @@ impl Toolchain {
     /// A catalogue's compiler view, also used for that catalogue's dependency queries.
     pub fn for_discovery(&self, listing: Option<Listing>) -> Self {
         let mut toolchain = self.clone();
+
         if listing == Some(Listing::Host) {
             toolchain.flags = host_flags(&self.flags);
             toolchain.environment_flags = 0;
         }
+
         toolchain
     }
 
@@ -97,6 +99,7 @@ impl Toolchain {
         plugin: bool,
     ) -> Result<Vec<String>, String> {
         let entry = self.deps_entry(program, root_flags, plugin);
+
         self.deps.prepare(&entry)?;
         Ok(vec!["-deps_file".into(), path_text(&entry)])
     }
@@ -104,10 +107,13 @@ impl Toolchain {
     /// A command that runs this toolchain's jaic with its standard library.
     pub fn jaic_command(&self) -> Command {
         let mut command = Command::new(&self.jaic);
+
         command.env(jacket_config::env::STDLIB.name, &self.stdlib);
+
         if let Some(dir) = &self.coverage_dir {
             command.env(jacket_config::env::COVERAGE_DIR.name, dir);
         }
+
         command
     }
 }
@@ -187,6 +193,7 @@ fn manifest(records: &[Vec<String>]) -> Vec<Entry> {
         .filter(|fields| fields[0] == "manifest")
         .filter_map(|fields| {
             let line = fields.get(4)?.parse().ok()?;
+
             Some(Entry {
                 kind: fields.get(1)?.clone(),
                 name: fields.get(2)?.clone(),
@@ -225,6 +232,7 @@ fn discovered(records: &[Vec<String>]) -> bool {
 /// The output of a compile that failed, for the user.
 pub fn compile_output(output: &std::process::Output) -> String {
     let mut text = String::from_utf8_lossy(&output.stderr).into_owned();
+
     text.push_str(&String::from_utf8_lossy(&output.stdout));
     text
 }
@@ -252,14 +260,19 @@ pub fn unit(
 ) -> Result<Built, String> {
     std::fs::create_dir_all(work).map_err(|e| format!("cannot create {}: {e}", work.display()))?;
     let mut loads = String::from("// Written by `jacket test`: every unit test file of a root.\n");
+
     for file in files {
         loads.push_str(&format!("#load {};\n", literal(file)));
     }
+
     let root = work.join("tests.jai");
+
     write(&root, &loads)?;
+
     if listing.is_some() || toolchain.interp {
         return interpreted(&loads, &root, work, root_flags, toolchain, listing, warm);
     }
+
     let wasm = targets_wasm(toolchain);
     let exe = work.join(if wasm {
         "tests.wasm"
@@ -271,6 +284,7 @@ pub fn unit(
     // names (a board's) move behind everything else.
     let (plain, plugins) = split_plugins(&toolchain.flags);
     let mut command = toolchain.jaic_command();
+
     command
         .current_dir(work)
         .arg(&root)
@@ -281,15 +295,19 @@ pub fn unit(
         .arg("-exe")
         .arg(&exe)
         .env(jacket_config::env::REPORT_EXE.name, &report);
+
     if toolchain.coverage {
         command.arg("-coverage");
     }
+
     command.args(&plugins).arg(PLUGIN);
     let found = records(&run_jaic(&mut command, toolchain)?);
     let program = crate::compile::reported_executable(&report)?;
+
     if !wasm && toolchain.runner.is_empty() {
         stage_dlls(&program)?;
     }
+
     Ok(Built {
         entries: manifest(&found),
         program,
@@ -308,12 +326,16 @@ pub fn check_unit(
 ) -> Result<(), String> {
     std::fs::create_dir_all(work).map_err(|e| format!("cannot create {}: {e}", work.display()))?;
     let mut loads = String::from("// Written by `jacket test`: every unit test file of a root.\n");
+
     for file in files {
         loads.push_str(&format!("#load {};\n", literal(file)));
     }
+
     let root = work.join("tests.jai");
+
     write(&root, &loads)?;
     let mut command = toolchain.jaic_command();
+
     command
         .current_dir(work)
         .arg(&root)
@@ -346,20 +368,25 @@ fn interpreted(
     let waits = warm && !list && !targets_wasm(toolchain) && !toolchain.coverage;
     // The caller resolved one view for declarations and dependency queries together.
     let mut args = vec![path_text(root), "-interp".into(), "-quiet".into()];
+
     args.extend(toolchain.flags.iter().cloned());
     args.extend(root_flags.iter().cloned());
     args.extend(toolchain.deps_args(Program::Text(loads), root_flags, true)?);
     args.push(PLUGIN.into());
+
     if list {
         // Nothing runs afterwards, so the plugin leaves the `@compile_time` tests unrun too.
         args.push("list".into());
     }
+
     args.push("--".into());
+
     if waits {
         args.push("--args-from-stdin".into());
     } else {
         args.push("--list".into());
     }
+
     let mut process = exec::start(&Invocation {
         program: toolchain.jaic.clone(),
         args,
@@ -369,10 +396,12 @@ fn interpreted(
     })
     .map_err(|e| format!("could not start `{}`: {e}", toolchain.jaic.display()))?;
     let found = process.records(waits.then_some("discovered"));
+
     // A process that ends first did not compile.
     if !discovered(&found) {
         return Err(process.failure());
     }
+
     let mut result = Built {
         entries: manifest(&found),
         program: PathBuf::new(),
@@ -385,11 +414,14 @@ fn interpreted(
         process.finish()?;
         None
     };
+
     if list {
         result.cases = cases(&found);
         return Ok(result);
     }
+
     let registry = work.join("registry.jai");
+
     result.program = work.join("program.jai");
     write(&registry, &added_source(&found))?;
     write(
@@ -399,11 +431,13 @@ fn interpreted(
             literal(&registry)
         ),
     )?;
+
     if warm.is_some() {
         *result.warm.lock().expect("lock") = Some(Warm {
             process: warm,
         });
     }
+
     Ok(result)
 }
 
@@ -412,18 +446,21 @@ fn interpreted(
 pub(super) fn split_plugins(flags: &[String]) -> (Vec<String>, Vec<String>) {
     let (mut plain, mut plugins) = (Vec::new(), Vec::new());
     let mut in_plugin = false;
+
     for flag in flags {
         if flag.starts_with('+') {
             in_plugin = true;
         } else if flag.starts_with('-') {
             in_plugin = false;
         }
+
         if in_plugin {
             plugins.push(flag.clone());
         } else {
             plain.push(flag.clone());
         }
     }
+
     (plain, plugins)
 }
 
@@ -432,6 +469,7 @@ fn run_jaic(command: &mut Command, toolchain: &Toolchain) -> Result<Vec<u8>, Str
     let output = command
         .output()
         .map_err(|e| format!("could not start `{}`: {e}", toolchain.jaic.display()))?;
+
     if output.status.success() {
         Ok(output.stdout)
     } else {
@@ -449,11 +487,13 @@ fn failure_output(output: &std::process::Output) -> String {
 fn failure_text(stderr: &[u8], stdout: &[u8]) -> String {
     let mut demux = Demux::default();
     let mut text = String::from_utf8_lossy(stderr).into_owned();
+
     for piece in demux.feed(stdout) {
         if let Piece::Text(bytes) = piece {
             text.push_str(&String::from_utf8_lossy(&bytes));
         }
     }
+
     text.push_str(&String::from_utf8_lossy(&demux.finish()));
     text
 }
@@ -477,21 +517,26 @@ fn stage_dlls_from(exe: &Path, folders: &std::ffi::OsStr) -> Result<(), String> 
     let Some(target) = exe.parent() else {
         return Ok(());
     };
+
     for folder in std::env::split_paths(folders) {
         let entries = std::fs::read_dir(&folder)
             .map_err(|e| format!("{DLL_FOLDERS}: cannot read {}: {e}", folder.display()))?;
+
         for entry in entries.flatten() {
             let from = entry.path();
             let is_dll = from
                 .extension()
                 .is_some_and(|e| e.eq_ignore_ascii_case("dll"));
             let to = target.join(entry.file_name());
+
             if !is_dll || to.exists() {
                 continue;
             }
+
             // Another test building in the same folder may have put it there meanwhile.
             let placed =
                 std::fs::hard_link(&from, &to).or_else(|_| std::fs::copy(&from, &to).map(|_| ()));
+
             if let Err(error) = placed
                 && !to.exists()
             {
@@ -503,6 +548,7 @@ fn stage_dlls_from(exe: &Path, folders: &std::ffi::OsStr) -> Result<(), String> 
             }
         }
     }
+
     Ok(())
 }
 
@@ -537,9 +583,11 @@ fn targets_wasm(toolchain: &Toolchain) -> bool {
 /// each with its temporary folder under `temp` (`temp/0`, `temp/1`, ...).
 fn run_arguments(names: &[String], temp: &Path, run: &RunFlags) -> Vec<String> {
     let mut tail = vec!["--seed".to_string(), run.seed.to_string()];
+
     if run.accept {
         tail.push("--accept".to_string());
     }
+
     tail.push("--run".to_string());
     tail.extend(names.iter().cloned());
     tail.extend(["--temp".to_string(), path_text(temp)]);
@@ -558,9 +606,11 @@ pub fn invocation(
 ) -> Invocation {
     let (program, mut args) = if toolchain.interp {
         let mut args = vec![path_text(&built.program), "-interp".into(), "-quiet".into()];
+
         if toolchain.coverage {
             args.push("-coverage".into());
         }
+
         args.extend(toolchain.flags.iter().cloned());
         args.extend(root_flags.iter().cloned());
         args.push("--".into());
@@ -569,9 +619,11 @@ pub fn invocation(
         let extra = run_arguments(names, temp, run);
         program_and_args(&built.program, &toolchain.runner, &extra)
     };
+
     if toolchain.interp {
         args.append(&mut run_arguments(names, temp, run));
     }
+
     Invocation {
         program,
         args,
@@ -590,11 +642,14 @@ pub fn warm_start(built: &Built, names: &[String], temp: &Path, run: &RunFlags) 
     let mut process = warm.process.take()?;
     // One argument per line; the process reads to the end of its input.
     let mut text = run_arguments(names, temp, run).join("\n");
+
     text.push('\n');
+
     if process.hand_over(&text).is_err() {
         process.kill();
         return None;
     }
+
     Some(process)
 }
 
@@ -618,12 +673,15 @@ pub fn program_and_args(exe: &Path, runner: &[String], extra: &[String]) -> (Pat
             }
         })
         .collect();
+
     if !has("{exe}") {
         args.push(exe_text);
     }
+
     if !has("{args}") {
         args.extend(extra.iter().cloned());
     }
+
     (PathBuf::from(first.replace("{exe}", &path_text(exe))), args)
 }
 
@@ -651,6 +709,7 @@ mod tests {
             record(&["manifest", "bench", "b", "/a/t.jai", "9"]),
             record(&["manifest", "test", "short"]),
         ]);
+
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].notes, ["timeout(5)", "serial"]);
         assert_eq!((entries[1].kind.as_str(), entries[1].line), ("bench", 9));
@@ -660,6 +719,7 @@ mod tests {
     fn the_plugins_output_is_records_among_noise() {
         let output = b"noise\n\x02source\x1f#scope_file\x03\x02source\x1f\x03\x02source\x1fx :: 1;\x03more\x02manifest\x1ftest\x1fadds\x1f/a/t.jai\x1f4\x03\x02discovered\x03";
         let found = records(output);
+
         assert_eq!(manifest(&found).len(), 1);
         assert_eq!(added_source(&found), "#scope_file\n\nx :: 1;");
         assert!(discovered(&found));
@@ -670,6 +730,7 @@ mod tests {
     fn a_failed_compile_shows_the_diagnostics_without_the_plugins_records() {
         let stdout = b"printed\n\x02source\x1f#scope_file\x03\x02manifest\x1ftest\x1fadds\x03";
         let shown = failure_text(b"error: type mismatch\n", stdout);
+
         assert_eq!(shown, "error: type mismatch\nprinted\n");
     }
 
@@ -681,6 +742,7 @@ mod tests {
             record(&["start", "noise"]),
             record(&["case", "colors", "RED"]),
         ]);
+
         assert_eq!(
             named,
             [
@@ -695,14 +757,17 @@ mod tests {
     fn dlls_are_staged_next_to_the_executable_first_folder_first() {
         let root = std::env::temp_dir().join(format!("jacket-dlls-{}", std::process::id()));
         let (first, second, out) = (root.join("a"), root.join("b"), root.join("out"));
+
         for dir in [&first, &second, &out] {
             std::fs::create_dir_all(dir).unwrap();
         }
+
         std::fs::write(first.join("gl.dll"), "first").unwrap();
         std::fs::write(second.join("gl.dll"), "second").unwrap();
         std::fs::write(second.join("sdl.dll"), "sdl").unwrap();
         std::fs::write(second.join("notes.txt"), "no").unwrap();
         let folders = std::env::join_paths([&first, &second]).unwrap();
+
         stage_dlls_from(&out.join("tests"), &folders).unwrap();
         stage_dlls_from(&out.join("tests"), &folders).unwrap();
         assert_eq!(std::fs::read_to_string(out.join("sdl.dll")).unwrap(), "sdl");
@@ -756,6 +821,7 @@ mod tests {
             )
             .args
         };
+
         assert_eq!(run(false), ["--seed", "42", "--run", "a", "--temp", "/t"]);
         assert_eq!(
             run(true),
@@ -797,6 +863,7 @@ mod tests {
             Path::new("/r"),
             &run,
         );
+
         assert_eq!(
             invocation.env,
             [("JAIC_STDLIB".to_string(), "/stdlib".to_string())]
@@ -818,6 +885,7 @@ mod tests {
             deps: super::super::deps_store::Store::scratch(),
             environment_flags: 0,
         };
+
         assert!(targets_wasm(&toolchain("wasm", &[])));
         assert!(!targets_wasm(&toolchain("linux", &["-q", "-os", "wasm"])));
         assert!(!targets_wasm(&toolchain(
@@ -831,6 +899,7 @@ mod tests {
     #[test]
     fn the_waiting_process_gets_its_arguments_once() {
         let dir = std::env::temp_dir().join(format!("jacket-warm-start-{}", std::process::id()));
+
         std::fs::create_dir_all(&dir).unwrap();
         let received = dir.join("received.txt");
         let process = exec::start(&Invocation {
@@ -855,6 +924,7 @@ mod tests {
         };
         let names = ["a".to_string(), "b/c".to_string()];
         let process = warm_start(&built, &names, Path::new("/t"), &run).unwrap();
+
         // Closing its input is what lets the process go on: it ends once it has read them all.
         process.finish().unwrap();
         assert_eq!(
@@ -873,6 +943,7 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         std::fs::create_dir_all(dir).unwrap();
         let jaic = dir.join("jaic");
+
         std::fs::write(
             &jaic,
             "#!/bin/sh\nprintf '\\002discovered\\003'\ncase \"$*\" in *--args-from*) exec sleep 30;; esac\n",
@@ -912,6 +983,7 @@ mod tests {
         };
         let waiting = built("waiting", true);
         let cold = built("cold", false);
+
         assert!(waiting.warm.lock().unwrap().is_some());
         assert!(cold.warm.lock().unwrap().is_none());
         drop(waiting);
@@ -924,6 +996,7 @@ mod tests {
             .map(String::from)
             .to_vec();
         let (plain, plugins) = split_plugins(&flags);
+
         assert_eq!(plain, ["-O2", "-import_dir", "v", "-quiet"]);
         assert_eq!(plugins, ["+Board", "tests"]);
     }
@@ -936,6 +1009,7 @@ mod tests {
             &runner,
             &["--run".into(), "a".into()],
         );
+
         assert_eq!(program, PathBuf::from("node"));
         assert_eq!(args, ["wasi_run.ts", "/b/t.wasm", "--run", "a"]);
     }
@@ -950,9 +1024,11 @@ mod tests {
             &runner,
             &["--run".into(), "a/b".into()],
         );
+
         assert_eq!(program, PathBuf::from("qemu"));
         assert_eq!(args, ["-kernel", "/b/t.elf", "-append", "--run a/b"]);
         let (_, args) = program_and_args(Path::new("/b/t.elf"), &runner, &[]);
+
         assert_eq!(args, ["-kernel", "/b/t.elf", "-append", ""]);
     }
 }

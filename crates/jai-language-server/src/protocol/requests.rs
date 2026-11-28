@@ -21,9 +21,11 @@ use std::path::PathBuf;
 impl JsonSession {
     pub(super) fn request(&mut self, method: &str, params: Value) -> Result<Reply, Failure> {
         let request = Request::parse(method);
+
         if request != Some(Request::Initialize) {
             self.ensure_running()?;
         }
+
         let request = request
             .filter(|r| self.pull_diagnostics || !r.pulls_diagnostics())
             .ok_or_else(|| fail(ErrorCode::MethodNotFound, "Method not supported"))?;
@@ -40,6 +42,7 @@ impl JsonSession {
             Request::Hover => {
                 let (document, position) = at(params)?;
                 let hover = self.session.hover_as(&document, position, self.hover_kind);
+
                 hover
                     .map_err(domain)?
                     .as_ref()
@@ -48,11 +51,13 @@ impl JsonSession {
             Request::Completion => {
                 let (document, position) = at(params)?;
                 let list = self.session.completion(&document, position);
+
                 completion_wire(&list.map_err(domain)?)
             }
             Request::CompletionResolve => self.resolve_completion(params),
             Request::Definition => {
                 let (document, position) = at(params)?;
+
                 locations_wire(
                     &self
                         .session
@@ -63,6 +68,7 @@ impl JsonSession {
             Request::TypeDefinition => {
                 let (document, position) = at(params)?;
                 let found = self.session.type_definition(&document, position);
+
                 locations_wire(&found.map_err(domain)?)
             }
             Request::LinkedEditingRange => {
@@ -71,6 +77,7 @@ impl JsonSession {
                     .session
                     .linked_editing_ranges(&document, position)
                     .map_err(domain)?;
+
                 if ranges.is_empty() {
                     Value::Null
                 } else {
@@ -80,6 +87,7 @@ impl JsonSession {
             Request::PrepareTypeHierarchy => {
                 let (document, position) = at(params)?;
                 let items = self.session.prepare_type_hierarchy(&document, position);
+
                 match items.map_err(domain)? {
                     items if items.is_empty() => Value::Null,
                     items => array(&items, hierarchy_item_wire),
@@ -88,21 +96,25 @@ impl JsonSession {
             Request::Supertypes => {
                 let p: HierarchyParams = decode(params)?;
                 let items = self.session.supertypes(&p.item.into_type());
+
                 array(&items.map_err(domain)?, hierarchy_item_wire)
             }
             Request::Subtypes => {
                 let p: HierarchyParams = decode(params)?;
                 let items = self.session.subtypes(&p.item.into_type());
+
                 array(&items.map_err(domain)?, hierarchy_item_wire)
             }
             Request::Declaration => {
                 let (document, position) = at(params)?;
                 let found = self.session.declaration(&document, position);
+
                 locations_wire(&found.map_err(domain)?)
             }
             Request::Implementation => {
                 let (document, position) = at(params)?;
                 let found = self.session.implementation(&document, position);
+
                 locations_wire(&found.map_err(domain)?)
             }
             Request::Formatting => {
@@ -114,6 +126,7 @@ impl JsonSession {
                 let edits = self
                     .session
                     .format(&uri(&p.text_document.uri)?, Some(p.range));
+
                 array(&edits.map_err(domain)?, edit_wire)
             }
             Request::References => {
@@ -121,11 +134,13 @@ impl JsonSession {
                 let declaration = p.context.is_none_or(|c| c.include_declaration);
                 let document = uri(&p.text_document.uri)?;
                 let found = self.session.references(&document, p.position, declaration);
+
                 locations_wire(&found.map_err(domain)?)
             }
             Request::PrepareRename => {
                 let (document, position) = at(params)?;
                 let range = self.session.prepare_rename(&document, position);
+
                 range
                     .map_err(domain)?
                     .map_or(Value::Null, |range| json!(range))
@@ -134,6 +149,7 @@ impl JsonSession {
                 let p: RenameParams = decode(params)?;
                 let document = uri(&p.text_document.uri)?;
                 let edits = self.session.rename(&document, p.position, &p.new_name);
+
                 edits
                     .map_err(domain)?
                     .map_or(Value::Null, workspace_edit_wire)
@@ -141,6 +157,7 @@ impl JsonSession {
             Request::DocumentHighlight => {
                 let (document, position) = at(params)?;
                 let ranges = self.session.document_highlights(&document, position);
+
                 array(
                     ranges.map_err(domain)?,
                     |range| json!({ "range": range, "kind": 1 }),
@@ -148,6 +165,7 @@ impl JsonSession {
             }
             Request::WorkspaceSymbol => {
                 let p: WorkspaceSymbolParams = decode(params)?;
+
                 array(
                     &self.session.workspace_symbols(&p.query),
                     symbol_information_wire,
@@ -155,6 +173,7 @@ impl JsonSession {
             }
             Request::DocumentLink => {
                 let links = self.session.document_links(&document(params)?);
+
                 array(
                     links.map_err(domain)?,
                     |(range, target)| json!({ "range": range, "target": target }),
@@ -169,12 +188,14 @@ impl JsonSession {
                 let hints = self
                     .session
                     .inlay_hints(&uri(&p.text_document.uri)?, p.range);
+
                 array(&hints.map_err(domain)?, inlay_wire)
             }
             Request::SignatureHelp => {
                 let (document, position) = at(params)?;
                 let kind = self.signature_kind;
                 let help = self.session.signature_help_as(&document, position, kind);
+
                 help.map_err(domain)?
                     .as_ref()
                     .map_or(Value::Null, |help| signature_wire(help, kind))
@@ -183,6 +204,7 @@ impl JsonSession {
             Request::PrepareCallHierarchy => {
                 let (document, position) = at(params)?;
                 let items = self.session.prepare_call_hierarchy(&document, position);
+
                 match items.map_err(domain)? {
                     items if items.is_empty() => Value::Null,
                     items => array(&items, hierarchy_item_wire),
@@ -191,11 +213,13 @@ impl JsonSession {
             Request::IncomingCalls => {
                 let p: HierarchyParams = decode(params)?;
                 let calls = self.session.incoming_calls(&p.item.into_item());
+
                 array(&calls.map_err(domain)?, |c| hierarchy_call_wire(c, "from"))
             }
             Request::OutgoingCalls => {
                 let p: HierarchyParams = decode(params)?;
                 let calls = self.session.outgoing_calls(&p.item.into_item());
+
                 array(&calls.map_err(domain)?, |c| hierarchy_call_wire(c, "to"))
             }
             Request::SelectionRange => {
@@ -203,6 +227,7 @@ impl JsonSession {
                 let ranges = self
                     .session
                     .selection_ranges(&uri(&p.text_document.uri)?, &p.positions);
+
                 array(&ranges.map_err(domain)?, selection_wire)
             }
             Request::CodeLens => {
@@ -213,6 +238,7 @@ impl JsonSession {
             Request::Expansion => {
                 let (document, position) = at(params)?;
                 let expansion = self.session.expansion(&document, position);
+
                 expansion
                     .map_err(domain)?
                     .as_ref()
@@ -222,11 +248,13 @@ impl JsonSession {
                 let p: DiagnosticParams = decode(params)?;
                 let target = uri(&p.text_document.uri)?;
                 let (version, diagnostics) = self.pulled(&target)?;
+
                 document_report(None, version, &diagnostics, p.previous_result_id.as_deref())
             }
             Request::WorkspaceDiagnostic => self.workspace_diagnostics(params)?,
             Request::Source => self.source(params)?,
         };
+
         Ok(Reply::Value(result))
     }
 
@@ -237,12 +265,14 @@ impl JsonSession {
                 "Server is already initialized",
             ));
         }
+
         if !params.is_object() && !params.is_null() {
             return Err(fail(
                 ErrorCode::InvalidParams,
                 "Initialize parameters must be an object",
             ));
         }
+
         self.lifecycle = Lifecycle::Running;
         self.index_progress.supported = params
             .pointer("/capabilities/window/workDoneProgress")
@@ -268,6 +298,7 @@ impl JsonSession {
             == Some(true);
         let refreshes =
             |pointer: &str| params.pointer(pointer).and_then(Value::as_bool) == Some(true);
+
         self.refresh_inlay_hints = refreshes("/capabilities/workspace/inlayHint/refreshSupport");
         self.refresh_semantic_tokens =
             refreshes("/capabilities/workspace/semanticTokens/refreshSupport");
@@ -278,11 +309,13 @@ impl JsonSession {
                 == Some(true),
         );
         self.configure(&params["initializationOptions"]);
+
         // A server started untrusted (`--untrusted`) stays so unless the client grants
         // trust later; initialization options can only withhold it.
         if params["initializationOptions"]["trusted"].as_bool() == Some(false) {
             self.session.set_trusted(false);
         }
+
         let folders: Vec<PathBuf> = match params["workspaceFolders"].as_array() {
             Some(folders) => folders
                 .iter()
@@ -290,6 +323,7 @@ impl JsonSession {
                 .collect(),
             None => folder_path(&params["rootUri"]).into_iter().collect(),
         };
+
         self.session.set_workspace_folders(folders);
         Ok(json!({
             "capabilities": capabilities(self.pull_diagnostics),
@@ -305,9 +339,11 @@ impl JsonSession {
         let document = document(params)?;
         let tokens = self.session.semantic_tokens(&document).map_err(domain)?;
         let data = semantic_tokens_wire(&tokens);
+
         drop(tokens);
         let id = self.remember_tokens(&document, &data);
         let data = serde_json::to_string(&data).map_err(internal)?;
+
         Ok(Reply::Raw(format!(
             "{{\"resultId\":\"{id}\",\"data\":{data}}}"
         )))
@@ -322,6 +358,7 @@ impl JsonSession {
             .semantic_tokens_in(&document, p.range)
             .map_err(domain)?;
         let data = serde_json::to_string(&semantic_tokens_wire(&tokens)).map_err(internal)?;
+
         Ok(Reply::Raw(format!("{{\"data\":{data}}}")))
     }
 
@@ -332,6 +369,7 @@ impl JsonSession {
         let document = document(params)?;
         let tokens = self.session.semantic_tokens(&document).map_err(domain)?;
         let data = semantic_tokens_wire(&tokens);
+
         drop(tokens);
         let old = self.token_results.get(document.as_str()).cloned();
         let id = self.remember_tokens(&document, &data);
@@ -341,6 +379,7 @@ impl JsonSession {
             {
                 let (start, delete, insert) = token_edit(&old_data, &data);
                 let insert = serde_json::to_string(insert).map_err(internal)?;
+
                 format!(
                     "{{\"resultId\":\"{id}\",\"edits\":[{{\"start\":{start},\"deleteCount\":{delete},\"data\":{insert}}}]}}"
                 )
@@ -350,15 +389,18 @@ impl JsonSession {
                 format!("{{\"resultId\":\"{id}\",\"data\":{data}}}")
             }
         };
+
         Ok(Reply::Raw(text))
     }
 
     fn remember_tokens(&mut self, document: &DocumentUri, data: &[u32]) -> u64 {
         self.token_result_ids += 1;
+
         // Closed documents are not forgotten one by one; the table is just kept small.
         if self.token_results.len() > 64 {
             self.token_results.clear();
         }
+
         self.token_results.insert(
             document.as_str().to_owned(),
             (self.token_result_ids, data.to_vec()),
@@ -372,6 +414,7 @@ impl JsonSession {
             .document_symbols(&document(params)?)
             .map_err(domain)?;
         let text = serde_json::to_string(&SymbolsWire(&symbols)).map_err(internal)?;
+
         Ok(Reply::Raw(text))
     }
 
@@ -384,9 +427,11 @@ impl JsonSession {
                 offset: d.get("offset")?.as_u64()? as usize,
             })
         });
+
         if let Some(doc) = data.and_then(|d| self.session.completion_documentation(&d)) {
             item["documentation"] = json!({ "kind": "markdown", "value": doc });
         }
+
         item
     }
 
@@ -405,6 +450,7 @@ impl JsonSession {
         let actions = self
             .session
             .code_actions_in(&uri(&p.text_document.uri)?, p.range, &context);
+
         Ok(array(&actions.map_err(domain)?, code_action_wire))
     }
 
@@ -417,9 +463,11 @@ impl JsonSession {
             ));
         };
         let document = uri(&target.uri)?;
+
         match ServerCommand::parse(&p.command) {
             Some(ServerCommand::Expansion) => {
                 let expansion = self.session.expansion(&document, target.position);
+
                 Ok(expansion
                     .map_err(domain)?
                     .as_ref()
@@ -459,6 +507,7 @@ impl JsonSession {
                 document_report(Some(&target), version, &diagnostics, previous)
             })
             .collect();
+
         if !self.session.indexing_pending() {
             for previous in p.previous_result_ids {
                 if !items.iter().any(|item| item["uri"] == previous.uri)
@@ -473,6 +522,7 @@ impl JsonSession {
                 }
             }
         }
+
         Ok(json!({ "items": items }))
     }
 
@@ -485,6 +535,7 @@ impl JsonSession {
         } else {
             self.session.source(&uri(&p.uri)?)
         };
+
         Ok(text.map_or(Value::Null, Value::String))
     }
 }

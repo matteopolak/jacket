@@ -51,6 +51,7 @@ pub(crate) struct Parsed {
 /// search: `tokens` are in source order.
 pub(crate) fn tokens_at(tokens: &[Token], byte: usize) -> impl Iterator<Item = (usize, &Token)> {
     let first = tokens.partition_point(|t| t.span.end < byte);
+
     tokens[first..]
         .iter()
         .enumerate()
@@ -218,14 +219,17 @@ fn layout_line(layout: IdeLayout) -> String {
         ),
         None => format!("size {}, align {}", layout.size, layout.align),
     };
+
     if layout.padding > 0 {
         let before = if layout.offset.is_some() {
             " before"
         } else {
             ""
         };
+
         line.push_str(&format!(" ({} of padding{before})", bytes(layout.padding)));
     }
+
     line
 }
 
@@ -248,16 +252,20 @@ mod workspace_diagnostics;
 fn enclosing_declaration_start(text: &str, byte: usize) -> usize {
     let mut start = 0;
     let mut at = 0;
+
     for line in text[..byte].split_inclusive('\n') {
         let top = line
             .chars()
             .next()
             .is_some_and(|c| !c.is_whitespace() && c != '}')
             && !line.starts_with("//");
+
         if top {
             start = at;
         }
+
         at += line.len();
     }
+
     start
 }

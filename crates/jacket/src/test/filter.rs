@@ -113,10 +113,13 @@ impl FilterExpr {
             source,
         };
         let node = parser.or()?;
+
         parser.skip_space();
+
         if parser.at < parser.chars.len() {
             return Err(parser.error("expected `and`, `or` or the end of the expression"));
         }
+
         Ok(FilterExpr {
             node,
         })
@@ -132,6 +135,7 @@ impl FilterExpr {
                 _ => false,
             }
         }
+
         walk(&self.node)
     }
 
@@ -183,6 +187,7 @@ impl Parser<'_> {
     fn symbol(&mut self, symbol: char) -> bool {
         self.skip_space();
         let found = self.chars.get(self.at) == Some(&symbol);
+
         self.at += usize::from(found);
         found
     }
@@ -196,25 +201,31 @@ impl Parser<'_> {
             .get(self.at..end)
             .is_some_and(|found| found.iter().copied().eq(word.chars()))
             && !self.chars.get(end).is_some_and(|c| is_word(*c));
+
         if matches {
             self.at = end;
         }
+
         matches
     }
 
     fn or(&mut self) -> Result<Node, ParseError> {
         let mut node = self.and()?;
+
         while self.word("or") || self.symbol('|') {
             node = Node::Or(Box::new(node), Box::new(self.and()?));
         }
+
         Ok(node)
     }
 
     fn and(&mut self) -> Result<Node, ParseError> {
         let mut node = self.unary()?;
+
         while self.word("and") || self.symbol('&') {
             node = Node::And(Box::new(node), Box::new(self.unary()?));
         }
+
         Ok(node)
     }
 
@@ -222,32 +233,41 @@ impl Parser<'_> {
         if self.word("not") || self.symbol('!') {
             return Ok(Node::Not(Box::new(self.unary()?)));
         }
+
         if self.symbol('(') {
             let node = self.or()?;
+
             if !self.symbol(')') {
                 return Err(self.error("expected `)`"));
             }
+
             return Ok(node);
         }
+
         self.predicate()
     }
 
     fn predicate(&mut self) -> Result<Node, ParseError> {
         self.skip_space();
         let start = self.at;
+
         while self.chars.get(self.at).is_some_and(|c| is_word(*c)) {
             self.at += 1;
         }
+
         if self.at == start {
             return Err(self.error(match self.chars.get(self.at) {
                 Some(c) => format!("expected a predicate or `(`, found `{c}`"),
                 None => "expected a predicate, such as `test(name)`".to_string(),
             }));
         }
+
         let name: String = self.chars[start..self.at].iter().collect();
+
         if !self.symbol('(') {
             return Err(self.error(format!("expected `(` after `{name}`")));
         }
+
         let (argument, argument_at) = self.argument()?;
         let bad = |message: String| self.error_at(argument_at, message);
         let node = match name.as_str() {
@@ -255,6 +275,7 @@ impl Parser<'_> {
                 if !argument.is_empty() {
                     return Err(bad(format!("`{name}()` takes no argument")));
                 }
+
                 if name == "all" {
                     Node::All
                 } else {
@@ -282,6 +303,7 @@ impl Parser<'_> {
                 ));
             }
         };
+
         Ok(node)
     }
 
@@ -293,8 +315,10 @@ impl Parser<'_> {
         let mut regex = self.chars.get(self.at) == Some(&'/');
         let mut escaped = false;
         let mut end = None;
+
         for (offset, &c) in self.chars[start..].iter().enumerate() {
             let index = start + offset;
+
             if regex && index > start {
                 if escaped {
                     escaped = false;
@@ -303,13 +327,16 @@ impl Parser<'_> {
                 } else if c == '/' {
                     regex = false;
                 }
+
                 continue;
             }
+
             if c == ')' {
                 end = Some(index);
                 break;
             }
         }
+
         let Some(end) = end else {
             return Err(self.error_at(
                 start,
@@ -321,6 +348,7 @@ impl Parser<'_> {
             ));
         };
         let argument: String = self.chars[start..end].iter().collect();
+
         self.at = end + 1;
         Ok((argument.trim_end().to_string(), start))
     }
@@ -336,22 +364,27 @@ fn text(argument: &str) -> Result<Text, String> {
     if argument.is_empty() {
         return Err("expected a name, glob or /regex/".into());
     }
+
     if let Some(body) = argument.strip_prefix('/') {
         let Some(pattern) = body.strip_suffix('/') else {
             return Err("a regular expression ends with `/`".into());
         };
+
         return Regex::new(pattern)
             .map(Text::Regex)
             .map_err(|e| format!("invalid regular expression: {e}"));
     }
+
     if let Some(whole) = argument.strip_prefix('=') {
         return Ok(Text::Exact(whole.trim_start().to_string()));
     }
+
     if argument.contains(['*', '?', '[', '{']) {
         return PathPattern::new(argument)
             .map(Text::Glob)
             .map_err(|e| e.message);
     }
+
     Ok(Text::Contains(argument.to_string()))
 }
 
@@ -361,6 +394,7 @@ mod tests {
 
     fn run(expr: &str, name: &str, module: &str, file: &str, kinds: &[&'static str]) -> bool {
         let files = [file.to_string()];
+
         FilterExpr::parse(expr).unwrap().matches(&Subject {
             names: [name, name.rsplit("::").next().unwrap_or(name)],
             modules: [module, module],
@@ -471,8 +505,10 @@ mod tests {
             ("test(/a(/)", 5, "invalid regular expression"),
             ("tag(slow)", 0, "unknown predicate `tag`"),
         ];
+
         for (source, at, message) in cases {
             let found = error(source);
+
             assert_eq!(found.at, at, "{source}: {found}");
             assert!(found.message.contains(message), "{source}: {found}");
         }
@@ -482,6 +518,7 @@ mod tests {
     fn the_error_text_has_a_caret_under_the_position() {
         let text = error("test(a) and (").to_string();
         let lines: Vec<&str> = text.lines().collect();
+
         assert_eq!(lines[1], "  test(a) and (");
         assert_eq!(lines[2], format!("  {}^", " ".repeat(13)));
     }
@@ -489,6 +526,7 @@ mod tests {
     #[test]
     fn only_a_snapshot_kind_needs_the_source() {
         let uses = |expr| FilterExpr::parse(expr).unwrap().uses_snapshot_kind();
+
         assert!(uses("module(A) and not kind(snapshot)"));
         assert!(!uses("kind(unit) or test(snapshot)"));
     }

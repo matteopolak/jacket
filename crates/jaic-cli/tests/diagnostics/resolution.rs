@@ -12,6 +12,7 @@ fn unknown_identifier_suggests_a_visible_name() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -27,6 +28,7 @@ fn unknown_identifier_suggests_a_visible_name() {
         "-check",
         &[],
     );
+
     assert_in_order(&stderr(&output), &["help: a similar name exists: `print`"]);
     let output = jaic_on(
         &dir,
@@ -35,6 +37,7 @@ fn unknown_identifier_suggests_a_visible_name() {
         "-check",
         &[],
     );
+
     assert!(!stderr(&output).contains("help:"), "{}", stderr(&output));
 }
 
@@ -49,6 +52,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -69,6 +73,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -84,6 +89,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -104,6 +110,7 @@ fn unknown_identifier_names_the_module_or_metaprogram_that_declares_it() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -196,8 +203,10 @@ fn mismatches_point_at_the_value_and_say_what_was_expected() {
             &["error[static-assert]: #assert failed: `size_of(int) == 4` is false"],
         ),
     ];
+
     for (source, expected) in cases {
         let output = jaic_on(&dir, "m.jai", source, "-check", &[]);
+
         assert_eq!(output.status.code(), Some(1), "{source}");
         assert_in_order(&stderr(&output), expected);
     }
@@ -233,10 +242,13 @@ fn modify_without_polymorph_variables_is_reported_at_the_block() {
             ],
         ),
     ];
+
     for (source, expected) in cases {
         let output = jaic_on(&dir, "m.jai", source, "-check", &[]);
+
         assert_eq!(output.status.code(), Some(1), "{source}");
         let text = stderr(&output);
+
         assert_in_order(&text, expected);
         assert!(!text.contains("in call to"), "{text}");
     }
@@ -263,6 +275,7 @@ fn an_extension_module_without_its_path_names_the_extensions_import() {
             "help: `Extensions` is the folder of jaic's extension modules, not a module: import one of them by its path: `Extensions/Archive`, `Extensions/Args`, ",
         ),
     ];
+
     for (i, (name, help)) in cases.iter().enumerate() {
         let file = format!("e{i}.jai");
         let output = jaic_on(
@@ -272,8 +285,10 @@ fn an_extension_module_without_its_path_names_the_extensions_import() {
             "-check",
             &[],
         );
+
         assert_eq!(output.status.code(), Some(1), "{name}");
         let text = stderr(&output);
+
         assert_in_order(
             &text,
             &[
@@ -283,6 +298,7 @@ fn an_extension_module_without_its_path_names_the_extensions_import() {
         );
         assert!(!text.contains("looked for"), "{text}");
     }
+
     // With the path it resolves.
     let output = jaic_on(
         &dir,
@@ -291,6 +307,7 @@ fn an_extension_module_without_its_path_names_the_extensions_import() {
         "-check",
         &[],
     );
+
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
 }
 
@@ -304,8 +321,10 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
         "-check",
         &[],
     );
+
     assert_eq!(output.status.code(), Some(1));
     let text = stderr(&output);
+
     assert_in_order(
         &text,
         &[
@@ -325,6 +344,7 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &["help: a module of your own goes in a `modules` folder"],
@@ -339,6 +359,7 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -350,7 +371,9 @@ fn missing_module_lists_where_it_looked_and_a_close_name() {
 #[test]
 fn missing_import_folder_names_its_path() {
     let dir = TempDir::new("missing-import-dir");
+
     std::fs::create_dir_all(dir.join("empty")).unwrap();
+
     for (source, expected) in [
         (
             "#import,dir \"gone\";",
@@ -381,6 +404,7 @@ fn missing_import_folder_names_its_path() {
             "-check",
             &[],
         );
+
         assert_eq!(output.status.code(), Some(1));
         assert_in_order(
             &stderr(&output),
@@ -395,6 +419,7 @@ fn missing_import_folder_names_its_path() {
 #[test]
 fn missing_load_file_says_where_it_looked() {
     let dir = TempDir::new("missing-load");
+
     std::fs::write(dir.join("helper.jai"), "helper :: () {}\n").unwrap();
     let output = jaic_on(
         &dir,
@@ -403,6 +428,7 @@ fn missing_load_file_says_where_it_looked() {
         "-check",
         &[],
     );
+
     assert_eq!(output.status.code(), Some(1));
     assert_in_order(
         &stderr(&output),
@@ -426,6 +452,7 @@ fn static_assert_shows_a_condition_that_starts_with_a_parenthesis() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &["#assert failed: `(FLAGS & 1) == 0` is false"],
@@ -442,6 +469,7 @@ fn error_in_a_macro_body_is_reported_at_the_call() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -462,6 +490,7 @@ fn require_in_a_procedure_that_returns_a_value_points_at_the_call() {
         "-check",
         &[],
     );
+
     assert_in_order(
         &stderr(&output),
         &[
@@ -499,27 +528,32 @@ fn a_main_that_cannot_be_the_entry_point_is_an_error_in_every_mode() {
             "pair.jai:1:9: error[proc-must]: `main` must return nothing or one integer",
         ),
     ];
+
     for (file, source, want) in cases {
         for mode in ["-check", "-interp"] {
             let dir = TempDir::new("bad-main");
             let output = jaic_on(&dir, file, source, mode, &[]);
             let text = stderr(&output);
+
             assert_ne!(output.status.code(), Some(0), "{mode} {file}: {text}");
             assert!(text.contains(want), "{mode} {file}: {text}");
             assert!(!text.contains("never lowered"), "{mode} {file}: {text}");
         }
     }
+
     // A build has no program to write without `main`; under `-interp` the file's work is its
     // compile-time code, which already ran, so it succeeds.
     let dir = TempDir::new("no-main");
     let output = jaic_on(&dir, "none.jai", "X :: #run 1;\n", "", &[]);
     let text = stderr(&output);
+
     assert_eq!(output.status.code(), Some(3), "{text}");
     assert!(
         text.contains("has no `main` procedure, so there is no program to write"),
         "{text}"
     );
     let output = jaic_on(&dir, "none.jai", "X :: #run 1;\n", "-interp", &[]);
+
     assert_eq!(
         output.status.code(),
         Some(0),
@@ -529,8 +563,10 @@ fn a_main_that_cannot_be_the_entry_point_is_an_error_in_every_mode() {
     // A build file turns its own output off, so it has nothing to run either way.
     let dir = TempDir::new("build-file");
     let source = "#import \"Compiler\";\n#run set_build_options_dc(.{do_output = false});\n";
+
     for mode in ["", "-interp"] {
         let output = jaic_on(&dir, "build.jai", source, mode, &[]);
+
         assert_eq!(output.status.code(), Some(0), "{mode}: {}", stderr(&output));
     }
 }
@@ -545,6 +581,7 @@ fn an_integer_from_main_is_the_exit_status() {
         "-interp",
         &[],
     );
+
     assert_eq!(output.status.code(), Some(7), "{}", stderr(&output));
 }
 
@@ -553,6 +590,7 @@ fn a_main_inserted_by_compile_time_code_is_the_entry_point() {
     let dir = TempDir::new("late-main");
     let source = "#import \"Basic\";\n#insert #run make();\nmake :: () -> string { return \"main :: () { print(\\\"late\\\\n\\\"); }\"; }\n";
     let output = jaic_on(&dir, "late.jai", source, "-interp", &[]);
+
     assert_eq!(output.status.code(), Some(0), "{}", stderr(&output));
     assert_eq!(String::from_utf8_lossy(&output.stdout), "late\n");
 }

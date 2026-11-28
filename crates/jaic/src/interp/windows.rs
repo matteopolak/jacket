@@ -107,13 +107,16 @@ fn counted(ptr: u64, count: i64, size: usize) -> Vec<u8> {
     if ptr == 0 {
         return Vec::new();
     }
+
     let units = if count >= 0 {
         count as usize
     } else {
         let mut n = 0;
+
         while (0..size as u64).any(|i| read_u8(ptr + (n * size) as u64 + i) != 0) {
             n += 1;
         }
+
         n + 1
     };
     read_bytes(ptr, units * size)
@@ -125,9 +128,11 @@ fn put_counted<T: Copy>(units: &[T], out: u64, room: i64) -> u64 {
     if room == 0 {
         return units.len() as u64;
     }
+
     if out == 0 || (room as usize) < units.len() {
         return 0;
     }
+
     write_units(out, units);
     units.len() as u64
 }
@@ -142,6 +147,7 @@ fn wide_string(ptr: u64) -> String {
         .map(|c| u16::from_le_bytes(*c))
         .take_while(|&u| u != 0)
         .collect();
+
     String::from_utf16_lossy(&units)
 }
 
@@ -152,10 +158,13 @@ fn put_wide_path(text: &str, out: u64, room: u64) -> u64 {
     let host = super::sandbox::host_path(text);
     let text = host.to_string_lossy();
     let mut wide: Vec<u16> = text.encode_utf16().collect();
+
     if out == 0 || room as usize <= wide.len() {
         return (wide.len() + 1) as u64;
     }
+
     let n = wide.len() as u64;
+
     wide.push(0);
     put_counted(&wide, out, room as i64);
     n
@@ -201,20 +210,27 @@ impl WindowsCalls {
         } else {
             FILE_ATTRIBUTE_NORMAL
         };
+
         write_u32(out, attributes);
+
         if let Some(details) = backend.details(&join(dir, name)) {
             write_u32(out, details.attributes);
+
             if details.attributes & 0x400 != 0 {
                 write_u32(out + 36, 0xa000_000c);
             }
+
             write_u64(out + 4, details.created);
             write_u64(out + 12, details.accessed);
             write_u64(out + 20, details.written);
             let size = details.size;
+
             write_u32(out + 28, (size >> 32) as u32);
             write_u32(out + 32, size as u32);
         }
+
         let mut wide: Vec<u16> = name.encode_utf16().take(259).collect();
+
         wide.push(0);
         put_counted(&wide, out + FIND_DATA_NAME, 260);
     }
@@ -243,6 +259,7 @@ impl WindowsCalls {
         } else {
             args
         };
+
         self.windows_text_and_time(backend, fun, args)
             .or_else(|| self.windows_paths(backend, fun, args))
             .or_else(|| self.windows_handles(backend, fun, args))
@@ -258,6 +275,7 @@ impl WindowsCalls {
         args: &[u64],
     ) -> Option<u64> {
         let arg = |i: usize| word_or_zero(args, i);
+
         Some(match fun {
             WinFn::GetLastError => self.last_error,
             WinFn::SetLastError => {
@@ -268,6 +286,7 @@ impl WindowsCalls {
             WinFn::MultiByteToWideChar => {
                 let text = counted(arg(2), arg(3) as i32 as i64, 1);
                 let wide: Vec<u16> = String::from_utf8_lossy(&text).encode_utf16().collect();
+
                 put_counted(&wide, arg(4), arg(5) as i32 as i64)
             }
             WinFn::WideCharToMultiByte => {
@@ -279,11 +298,13 @@ impl WindowsCalls {
                     .map(|c| u16::from_le_bytes(*c))
                     .collect();
                 let text = String::from_utf16_lossy(&units).into_bytes();
+
                 put_counted(&text, arg(4), arg(5) as i32 as i64)
             }
             WinFn::GetSystemTimeAsFileTime | WinFn::GetSystemTimePreciseAsFileTime => {
                 // FILETIME: 100 ns ticks since 1601.
                 let ns = backend.wall_ns();
+
                 write_u64(arg(0), ns / 100 + 116_444_736_000_000_000);
                 0
             }
@@ -307,27 +328,33 @@ impl WindowsCalls {
         args: &[u64],
     ) -> Option<u64> {
         let arg = |i: usize| word_or_zero(args, i);
+
         Some(match fun {
             WinFn::GetCurrentDirectoryW => {
                 put_wide_path(&backend.cwd(), arg(1), arg(0) as u32 as u64)
             }
             WinFn::SetCurrentDirectoryW => {
                 let path = self.wide_path(backend, arg(0));
+
                 if !backend.is_dir(&path) {
                     return Some(self.fail(ERROR_PATH_NOT_FOUND));
                 }
+
                 let result = backend.set_cwd(path);
                 self.win_result(result)
             }
             WinFn::GetFullPathNameW => {
                 let path = self.wide_path(backend, arg(0));
+
                 if arg(3) != 0 {
                     write_u64(arg(3), 0);
                 }
+
                 put_wide_path(&path, arg(2), arg(1) as u32 as u64)
             }
             WinFn::GetFileAttributesW => {
                 let path = self.wide_path(backend, arg(0));
+
                 if let Some(details) = backend.details(&path) {
                     details.attributes as u64
                 } else {
@@ -340,10 +367,13 @@ impl WindowsCalls {
                 let Some(details) = backend.details(&path) else {
                     return Some(self.fail(ERROR_FILE_NOT_FOUND));
                 };
+
                 if arg(1) != 0 || arg(2) == 0 {
                     return Some(self.fail(ERROR_INVALID_PARAMETER));
                 }
+
                 let out = arg(2);
+
                 write_u32(out, details.attributes);
                 write_u64(out + 4, details.created);
                 write_u64(out + 12, details.accessed);
@@ -359,17 +389,21 @@ impl WindowsCalls {
                     if arg(2) != 0 && backend.exists_file(&second) {
                         return Some(self.fail(ERROR_FILE_EXISTS));
                     }
+
                     backend.copy_file(&first, &second)
                 } else {
                     backend.hard_link(&second, &first)
                 };
+
                 self.win_result(result)
             }
             WinFn::CreateDirectoryW => {
                 let path = self.wide_path(backend, arg(0));
+
                 if backend.is_dir(&path) || backend.exists_file(&path) {
                     return Some(self.fail(ERROR_ALREADY_EXISTS));
                 }
+
                 let result = backend.create_dir(&path);
                 self.win_result(result)
             }
@@ -377,11 +411,13 @@ impl WindowsCalls {
             WinFn::RemoveDirectoryW => {
                 let path = self.wide_path(backend, arg(0));
                 let result = backend.remove_dir(&path);
+
                 self.win_result(result)
             }
             WinFn::DeleteFileW => {
                 let path = self.wide_path(backend, arg(0));
                 let result = backend.delete_file(&path);
+
                 self.win_result(result)
             }
 
@@ -390,10 +426,12 @@ impl WindowsCalls {
                     self.wide_path(backend, arg(0)),
                     self.wide_path(backend, arg(1)),
                 );
+
                 // Without MOVEFILE_REPLACE_EXISTING an existing target stays.
                 if (fun == WinFn::MoveFileW || arg(2) & 1 == 0) && backend.exists_file(&to) {
                     return Some(self.fail(ERROR_ALREADY_EXISTS));
                 }
+
                 let result = backend.rename_file(&from, &to);
                 self.win_result(result)
             }
@@ -409,12 +447,14 @@ impl WindowsCalls {
         args: &[u64],
     ) -> Option<u64> {
         let arg = |i: usize| word_or_zero(args, i);
+
         Some(match fun {
             WinFn::FlushFileBuffers => {
                 let Some(fd) = self.handle_fd(backend, arg(0)) else {
                     return Some(self.fail(ERROR_INVALID_HANDLE));
                 };
                 let result = backend.flush(fd);
+
                 self.win_result(result)
             }
             WinFn::GetFinalPathNameByHandleW => {
@@ -430,12 +470,14 @@ impl WindowsCalls {
                 if arg(1) != 18 || arg(3) < 24 {
                     return Some(self.fail(ERROR_INVALID_PARAMETER));
                 }
+
                 let Some(details) = self
                     .handle_fd(backend, arg(0))
                     .and_then(|fd| backend.fd_details(fd))
                 else {
                     return Some(self.fail(ERROR_INVALID_HANDLE));
                 };
+
                 write_units(arg(2), &details.identity);
                 1
             }
@@ -457,6 +499,7 @@ impl WindowsCalls {
                     truncate,
                     ..Open::default()
                 };
+
                 match backend.open_file(path, open) {
                     Ok(fd) => fd as u64 + HANDLE_BASE,
                     Err(errno) => {
@@ -475,9 +518,11 @@ impl WindowsCalls {
                 if self.mappings.remove(&arg(0)).is_some() {
                     return Some(1);
                 }
+
                 if self.finds.remove(&arg(0)).is_some() {
                     return Some(1);
                 }
+
                 match self.handle_fd(backend, arg(0)) {
                     Some(fd) if fd > 2 => {
                         backend.close_fd(fd);
@@ -494,9 +539,11 @@ impl WindowsCalls {
                 else {
                     return Some(self.fail(ERROR_INVALID_HANDLE));
                 };
+
                 if arg(3) != 0 {
                     write_u32(arg(3), n as u32);
                 }
+
                 1
             }
             WinFn::WriteFile => {
@@ -513,9 +560,11 @@ impl WindowsCalls {
                 let Some(n) = written else {
                     return Some(self.fail(ERROR_INVALID_HANDLE));
                 };
+
                 if arg(3) != 0 {
                     write_u32(arg(3), n as u32);
                 }
+
                 1
             }
             WinFn::GetFileSizeEx => {
@@ -525,6 +574,7 @@ impl WindowsCalls {
                 else {
                     return Some(self.fail(ERROR_INVALID_HANDLE));
                 };
+
                 write_u64(arg(1), len as u64);
                 1
             }
@@ -535,9 +585,11 @@ impl WindowsCalls {
                 else {
                     return Some(self.fail(ERROR_INVALID_PARAMETER));
                 };
+
                 if arg(2) != 0 {
                     write_u64(arg(2), pos as u64);
                 }
+
                 1
             }
             WinFn::FindFirstFileW | WinFn::FindFirstFileExW => {
@@ -556,10 +608,12 @@ impl WindowsCalls {
                 };
                 let mut entries: Vec<(String, bool)> = if name == "*" || name == "*.*" {
                     let mut all = vec![(".".to_string(), true), ("..".to_string(), true)];
+
                     all.extend(backend.list(dir));
                     all
                 } else {
                     let path = join(dir, name);
+
                     if backend.is_dir(&path) {
                         vec![(name.to_string(), true)]
                     } else if backend.exists_file(&path) {
@@ -568,11 +622,14 @@ impl WindowsCalls {
                         Vec::new()
                     }
                 };
+
                 if entries.is_empty() || !backend.is_dir(dir) {
                     self.last_error = ERROR_FILE_NOT_FOUND;
                     return Some(INVALID_HANDLE_VALUE);
                 }
+
                 let (first, is_dir) = entries.remove(0);
+
                 self.fill_find_data(backend, dir, &first, is_dir, out);
                 self.next_find += 1;
                 let handle = 0x1_0000_0000 + self.next_find;
@@ -581,6 +638,7 @@ impl WindowsCalls {
                     .rev()
                     .map(|(n, d)| (join(dir, &n), d))
                     .collect();
+
                 self.finds.insert(handle, rest);
                 handle
             }
@@ -597,6 +655,7 @@ impl WindowsCalls {
                 } else {
                     dir
                 };
+
                 self.fill_find_data(backend, dir, name, is_dir, arg(1));
                 1
             }
@@ -628,6 +687,7 @@ impl WindowsCalls {
         args: &[u64],
     ) -> Option<u64> {
         let arg = |i: usize| word_or_zero(args, i);
+
         Some(match fun {
             // Only unnamed, read-only file mappings are supported. Anonymous or shared
             // mappings retain the sandbox's refusal; views own a snapshot until unmapped.
@@ -635,14 +695,17 @@ impl WindowsCalls {
                 if arg(2) != 2 || arg(3) != 0 || arg(4) != 0 || arg(5) != 0 {
                     return Some(self.fail(ERROR_ACCESS_DENIED));
                 }
+
                 let Some(bytes) = self
                     .handle_fd(backend, arg(0))
                     .and_then(|fd| backend.contents(fd))
                 else {
                     return Some(self.fail(ERROR_ACCESS_DENIED));
                 };
+
                 self.next_find += 1;
                 let handle = 0x1_0000_0000 + self.next_find;
+
                 self.mappings.insert(handle, bytes);
                 handle
             }
@@ -650,9 +713,11 @@ impl WindowsCalls {
                 let Some(bytes) = self.mappings.get(&arg(0)) else {
                     return Some(self.fail(ERROR_INVALID_HANDLE));
                 };
+
                 if arg(1) != 4 {
                     return Some(self.fail(ERROR_ACCESS_DENIED));
                 }
+
                 let offset = ((arg(2) as u32 as u64) << 32) | arg(3) as u32 as u64;
                 let Some(rest) = usize::try_from(offset).ok().and_then(|n| bytes.get(n..)) else {
                     return Some(self.fail(ERROR_INVALID_PARAMETER));
@@ -669,6 +734,7 @@ impl WindowsCalls {
                     return Some(self.fail(ERROR_ACCESS_DENIED));
                 };
                 let address = block.addr();
+
                 super::sandbox::guest::write_bytes(address, bytes);
                 self.views.insert(address, block);
                 address
@@ -698,6 +764,7 @@ impl WindowsCalls {
             WinFn::VirtualFree => self.memory.free(arg(0), arg(1), dword(2)),
             _ => return None,
         };
+
         Some(result.unwrap_or_else(|error| self.fail(error)))
     }
 }

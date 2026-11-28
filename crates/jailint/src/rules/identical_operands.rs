@@ -30,6 +30,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() || p.header.operator.is_some() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, _| {
             let Some(e) = n.expr() else {
                 return true;
@@ -59,10 +60,13 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 BinOp::BitAnd | BinOp::BitOr | BinOp::And | BinOp::Or => "the operand itself",
                 _ => return true,
             };
+
             if !scalar || cx.constant(a) || !same_pure(cx, a, b) {
                 return true;
             }
+
             let side = cx.whole_src(a).trim();
+
             out.push(finding(
                 e.span,
                 format!("both sides of `{}` are `{side}`", op_text(*op)),

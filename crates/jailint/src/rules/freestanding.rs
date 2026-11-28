@@ -63,13 +63,16 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     let mut report = Report {
         out,
         seen: HashSet::default(),
     };
+
     imports(cx, &mut report);
     let graph = Graph::new(cx);
     let roots = graph.roots();
+
     // Handlers first: what is wrong inside one is told as that, not as an allocation.
     graph.reach(&roots.interrupts, Mode::Interrupt, &mut report);
     let entries: Vec<ProcId> = roots
@@ -78,6 +81,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         .chain(&roots.interrupts)
         .copied()
         .collect();
+
     graph.reach(&entries, Mode::Entry, &mut report);
     graph.cycles(&mut report);
     frames(cx, &mut report);
@@ -197,6 +201,7 @@ impl<'a, 'c> Graph<'a, 'c> {
 
     fn path(&self, id: ProcId) -> PathBuf {
         let file = self.cx.compiler.proc(id).span.file;
+
         self.cx
             .compiler
             .src
@@ -210,6 +215,7 @@ impl<'a, 'c> Graph<'a, 'c> {
     /// The procedure is part of the standard library.
     fn library(&self, id: ProcId) -> bool {
         let path = self.path(id);
+
         path.components().any(|c| c.as_os_str() == "internal")
             || self
                 .stdlib
@@ -221,6 +227,7 @@ impl<'a, 'c> Graph<'a, 'c> {
     fn kind(&self, id: ProcId) -> Option<Kind> {
         let path = self.path(id);
         let mut parts = path.components().map(|c| c.as_os_str().to_string_lossy());
+
         parts.find(|c| c == "internal")?;
         Kind::of(&parts.next()?, self.name(id))
     }
@@ -234,9 +241,12 @@ impl<'a, 'c> Graph<'a, 'c> {
         if let Some(found) = self.edges.borrow().get(&id) {
             return found.clone();
         }
+
         let mut out = Vec::new();
+
         if let Some(body) = &self.cx.compiler.proc(id).lit.body {
             let guards = self.guards(body);
+
             walk(&body.stmts, &mut |n, _| {
                 if let Node::Expr(e) = n
                     && let E::Call {
@@ -247,6 +257,7 @@ impl<'a, 'c> Graph<'a, 'c> {
                     let guarded = guards
                         .iter()
                         .any(|&(start, end)| start <= e.span.start && e.span.end <= end);
+
                     for callee in callees(self.cx, callee) {
                         out.push(Edge {
                             span: e.span,
@@ -255,10 +266,13 @@ impl<'a, 'c> Graph<'a, 'c> {
                         });
                     }
                 }
+
                 true
             });
         }
+
         let out: Rc<[Edge]> = out.into();
+
         self.edges.borrow_mut().insert(id, out.clone());
         out
     }
@@ -267,9 +281,11 @@ impl<'a, 'c> Graph<'a, 'c> {
     /// `push_allocator(...)` in its block, and the body of a `push_context` that names a context.
     fn guards(&self, body: &Block) -> Vec<(u32, u32)> {
         let mut out = Vec::new();
+
         statement_lists(&body.stmts, &mut |list| {
             if let Some(at) = list.iter().position(|s| self.pushes_allocator(s)) {
                 let end = list.last().map_or(0, |s| s.span.end);
+
                 out.push((list[at].span.end, end));
             }
         });
@@ -280,6 +296,7 @@ impl<'a, 'c> Graph<'a, 'c> {
             {
                 out.push((push.body.span.start, push.body.span.end));
             }
+
             true
         });
         out
@@ -295,6 +312,7 @@ impl<'a, 'c> Graph<'a, 'c> {
         else {
             return false;
         };
+
         callees(self.cx, callee)
             .iter()
             .any(|&p| self.name(p) == "push_allocator" && self.library(p))
@@ -306,6 +324,7 @@ impl<'a, 'c> Graph<'a, 'c> {
             entries: Vec::new(),
             interrupts: Vec::new(),
         };
+
         for site in self.cx.procs.iter().filter(|p| !p.is_macro) {
             let is_main = site.decl.is_some_and(|d| {
                 d.names.first().is_some_and(|n| n.name.as_str() == "main")
@@ -313,6 +332,7 @@ impl<'a, 'c> Graph<'a, 'c> {
                         |s| matches!(&s.kind, S::Decl(top) if std::ptr::eq(&raw const **top, d)),
                     )
             });
+
             for &id in &*self.cx.procs_with_header(site.header.span) {
                 if has_note(self.cx, id, "Interrupt") {
                     roots.interrupts.push(id);
@@ -321,6 +341,7 @@ impl<'a, 'c> Graph<'a, 'c> {
                 }
             }
         }
+
         roots
     }
 
@@ -332,26 +353,33 @@ impl<'a, 'c> Graph<'a, 'c> {
         // The procedure, and the call in this file the walk came through (its span and callee).
         let mut stack: Vec<(ProcId, Option<(Span, ProcId)>)> =
             roots.iter().map(|&r| (r, None)).collect();
+
         while let Some((id, via)) = stack.pop() {
             if !seen.insert(id) {
                 continue;
             }
+
             let here = self.in_file(id);
+
             for edge in self.edges(id).iter() {
                 if let Some(kind) = self.kind(edge.callee) {
                     if mode.wants(kind, edge.guarded) {
                         self.say(report, mode, kind, edge, here.then_some(id), via);
                     }
+
                     continue;
                 }
+
                 if self.library(edge.callee) {
                     continue;
                 }
+
                 let next = if here {
                     Some((edge.span, edge.callee))
                 } else {
                     via
                 };
+
                 stack.push((edge.callee, next));
             }
         }
@@ -398,6 +426,7 @@ impl<'a, 'c> Graph<'a, 'c> {
                 },
             ),
         };
+
         report.add(span, message, help);
     }
 
@@ -428,10 +457,13 @@ impl<'a, 'c> Graph<'a, 'c> {
             groups: Vec::new(),
         };
         let mut starts: Vec<ProcId> = sites.keys().copied().collect();
+
         starts.sort_by_key(|id| id.0);
+
         for id in starts {
             tarjan.visit(id);
         }
+
         for group in tarjan.groups {
             let own = group
                 .iter()
@@ -448,12 +480,14 @@ impl<'a, 'c> Graph<'a, 'c> {
                 format!("{label} calls itself, so its stack use has no bound")
             } else {
                 let names: Vec<&str> = path.iter().map(|&id| self.name(id)).collect();
+
                 format!(
                     "{label} is part of a call cycle ({} -> {}), so its stack use has no bound",
                     names.join(" -> "),
                     names[0]
                 )
             };
+
             report.add(
                 span,
                 message,
@@ -466,26 +500,34 @@ impl<'a, 'c> Graph<'a, 'c> {
     fn cycle_through(&self, start: ProcId, group: &[ProcId]) -> Option<Vec<ProcId>> {
         let mut came: HashMap<ProcId, ProcId> = HashMap::default();
         let mut queue = std::collections::VecDeque::from([start]);
+
         while let Some(id) = queue.pop_front() {
             for edge in self.edges(id).iter() {
                 let next = edge.callee;
+
                 if !group.contains(&next) {
                     continue;
                 }
+
                 if next == start {
                     let mut path = vec![id];
+
                     while path.last() != Some(&start) {
                         path.push(came[path.last()?]);
                     }
+
                     path.reverse();
+
                     return Some(path);
                 }
+
                 if let std::collections::hash_map::Entry::Vacant(slot) = came.entry(next) {
                     slot.insert(id);
                     queue.push_back(next);
                 }
             }
         }
+
         None
     }
 }
@@ -507,36 +549,47 @@ impl Tarjan<'_, '_, '_> {
         if self.index.contains_key(&id) {
             return;
         }
+
         self.index.insert(id, self.next);
         self.low.insert(id, self.next);
         self.next += 1;
         self.open.push(id);
         self.on_open.insert(id);
         let mut calls_itself = false;
+
         for edge in self.graph.edges(id).iter() {
             let next = edge.callee;
+
             if self.graph.library(next) || self.graph.cx.compiler.proc(next).lit.body.is_none() {
                 continue;
             }
+
             calls_itself |= next == id;
+
             if !self.index.contains_key(&next) {
                 self.visit(next);
                 let low = self.low[&id].min(self.low[&next]);
+
                 self.low.insert(id, low);
             } else if self.on_open.contains(&next) {
                 let low = self.low[&id].min(self.index[&next]);
+
                 self.low.insert(id, low);
             }
         }
+
         if self.low[&id] == self.index[&id] {
             let mut group = Vec::new();
+
             while let Some(top) = self.open.pop() {
                 self.on_open.remove(&top);
                 group.push(top);
+
                 if top == id {
                     break;
                 }
             }
+
             if group.len() > 1 || calls_itself {
                 self.groups.push(group);
             }
@@ -551,6 +604,7 @@ fn callees(cx: &Cx, callee: &jaic::ast::Expr) -> Vec<ProcId> {
         E::Member(_, name) => name.span,
         _ => callee.span,
     };
+
     match cx.compiler.ide_resolved_overload(span, &procs) {
         Some(chosen) => vec![chosen],
         None => procs.to_vec(),
@@ -571,6 +625,7 @@ fn imports(cx: &Cx, report: &mut Report) {
         .parent()
         .map(std::path::Path::to_path_buf)
         .unwrap_or_default();
+
     for stmt in cx.stmts {
         let S::Import(import) = &stmt.kind else {
             continue;
@@ -578,16 +633,20 @@ fn imports(cx: &Cx, report: &mut Report) {
         let ImportSource::Module(name) = &import.source else {
             continue;
         };
+
         if import.is_expression() {
             continue;
         }
+
         let Some(entry) = cx.compiler.find_module(name, &dir) else {
             continue;
         };
         let systems = jaic::doc_comments::module_platforms(&entry);
+
         if systems.is_empty() || systems.iter().any(|s| s == "NONE") {
             continue;
         }
+
         report.add(
             stmt.span,
             format!(
@@ -611,15 +670,20 @@ fn words(items: &[String]) -> String {
 /// Procedures whose locals add up to more than `max-frame-bytes`.
 fn frames(cx: &Cx, report: &mut Report) {
     let types = &cx.compiler.ty.types;
+
     for site in cx.procs.iter().filter(|p| p.typed()) {
         let mut bytes = 0u64;
+
         large_stack_array::locals(cx, &site.body.stmts, &mut |_, ty| {
             bytes += types.size_of(ty);
         });
+
         if bytes as usize <= cx.max_frame_bytes {
             continue;
         }
+
         let (span, label) = proc_label(site);
+
         report.add(
             span,
             format!(
@@ -651,6 +715,7 @@ fn cpu_gaps(options: &jaic::sema::Options) -> CpuGaps {
     if options.os != TargetOs::None {
         return CpuGaps::default();
     }
+
     match options.cpu {
         TargetCpu::Arm | TargetCpu::Avr => CpuGaps {
             double_float: true,
@@ -670,6 +735,7 @@ fn cpu_work(cx: &Cx, gaps: CpuGaps, report: &mut Report) {
     if !gaps.double_float && !gaps.wide_divide {
         return;
     }
+
     for site in cx.procs.iter().filter(|p| p.typed()) {
         walk(&site.body.stmts, &mut |n, up| {
             let in_loop = up
@@ -689,6 +755,7 @@ fn cpu_work(cx: &Cx, gaps: CpuGaps, report: &mut Report) {
                     _ => return true,
                 },
             };
+
             if gaps.double_float
                 && ty == Some(TypeId::F64)
                 && matches!(op, BinOp::Add | BinOp::Sub | BinOp::Mul | BinOp::Div)
@@ -699,6 +766,7 @@ fn cpu_work(cx: &Cx, gaps: CpuGaps, report: &mut Report) {
                     "use `float32`, or fixed-point integers",
                 );
             }
+
             if gaps.wide_divide
                 && in_loop
                 && matches!(ty, Some(TypeId::S64 | TypeId::U64))
@@ -710,6 +778,7 @@ fn cpu_work(cx: &Cx, gaps: CpuGaps, report: &mut Report) {
                     "use a 32-bit type, or shift when the divisor is a power of two",
                 );
             }
+
             true
         });
     }

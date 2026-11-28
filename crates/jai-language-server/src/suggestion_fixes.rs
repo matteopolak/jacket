@@ -33,21 +33,26 @@ impl Session {
         if !context.wants("quickfix") {
             return Vec::new();
         }
+
         let Ok(doc) = self.document(uri) else {
             return Vec::new();
         };
         let mut actions = Vec::new();
+
         for finding in self.check_findings(uri) {
             if finding.suggestions.is_empty() {
                 continue;
             }
+
             let named = context
                 .diagnostics
                 .iter()
                 .any(|(code, range)| code == CHECK_CODE && *range == finding.diagnostic.range);
+
             if !named && (finding.start > end || start > finding.end) {
                 continue;
             }
+
             actions.extend(self.actions_of(
                 uri,
                 &doc.text,
@@ -55,21 +60,26 @@ impl Session {
                 &finding.suggestions,
             ));
         }
+
         // Lexical and syntax errors carry suggestions too (a missing `;`).
         if let Some(analysis) = self.analysis_for(uri) {
             for fix in &analysis.syntax_fixes {
                 let named = context.diagnostics.iter().any(|(code, range)| {
                     code == fix.diagnostic.code.wire().0 && *range == fix.diagnostic.range
                 });
+
                 if !named && (fix.span.start > end || start > fix.span.end) {
                     continue;
                 }
+
                 if !analysis.diagnostics.contains(&fix.diagnostic) {
                     continue;
                 }
+
                 actions.extend(self.actions_of(uri, &doc.text, &fix.diagnostic, &fix.suggestions));
             }
         }
+
         actions
     }
 }
@@ -84,9 +94,11 @@ impl Session {
         suggestions: &[jaic::source::Suggestion],
     ) -> Vec<CodeAction> {
         let mut actions = Vec::new();
+
         for suggestion in suggestions {
             let mut edits = Vec::new();
             let mut applies = true;
+
             for edit in &suggestion.edits {
                 let (at, new_text) = match edit {
                     Edit::Replace {
@@ -103,6 +115,7 @@ impl Session {
                             applies = false;
                             break;
                         };
+
                         (Span::new(offset, offset), new_text)
                     }
                 };
@@ -110,14 +123,17 @@ impl Session {
                     applies = false;
                     break;
                 };
+
                 edits.push(TextEdit {
                     range,
                     new_text,
                 });
             }
+
             if !applies || edits.is_empty() {
                 continue;
             }
+
             actions.push(CodeAction {
                 title: suggestion.action_title(),
                 kind: Some("quickfix"),
@@ -127,6 +143,7 @@ impl Session {
                 ..CodeAction::default()
             });
         }
+
         actions
     }
 }
@@ -137,6 +154,7 @@ fn planned(text: &str, imports: &[ImportSuggestion]) -> Vec<(String, usize, Stri
     let scan = crate::exports::scan(text);
     let existing: Vec<_> = scan.imports.iter().filter(|i| !i.nested).collect();
     let after_imports = existing.iter().map(|i| i.end).max();
+
     imports
         .iter()
         .filter(|i| {
@@ -147,6 +165,7 @@ fn planned(text: &str, imports: &[ImportSuggestion]) -> Vec<(String, usize, Stri
         .map(|i| {
             let statement = i.statement();
             let (offset, new_text) = insertion(text, after_imports, scan.first_code, &statement);
+
             (statement, offset, new_text)
         })
         .collect()
@@ -167,6 +186,7 @@ pub(crate) fn insertion(
             None => (text.len(), format!("\n{statement}")),
         };
     }
+
     match first_code {
         Some(code) => {
             let line = jaic::source::line_start(text, code);
@@ -203,6 +223,7 @@ mod tests {
                 import("String", None),
             ],
         );
+
         assert_eq!(
             planned,
             [
@@ -224,6 +245,7 @@ mod tests {
     fn goes_after_the_last_import() {
         let text = "#import \"Basic\";\n#import \"Math\";\n\nmain :: () {}\n";
         let end = text.find("\"Math\";").unwrap() + "\"Math\";".len();
+
         assert_eq!(
             insertion(text, Some(end), None, "#import \"File\";"),
             (
@@ -237,6 +259,7 @@ mod tests {
     fn goes_below_leading_comments() {
         let text = "// A program.\n/* more */\n\nmain :: () {}\n";
         let first = crate::exports::scan(text).first_code;
+
         assert_eq!(
             insertion(text, None, first, "#import \"Basic\";"),
             (text.find("main").unwrap(), "#import \"Basic\";\n\n".into())

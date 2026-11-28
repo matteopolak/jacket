@@ -13,6 +13,7 @@ main :: () {}
 
 fn hover(name: &str) -> String {
     let s = open(PROGRAM);
+
     s.hover(&uri(), at(PROGRAM, name))
         .unwrap()
         .expect("hover")
@@ -24,6 +25,7 @@ fn hover(name: &str) -> String {
 fn a_field_of_an_unused_generic_struct() {
     for name in ["count: int", "item: T", "label: string"] {
         let text = hover(name);
+
         assert!(
             !text.contains("Source syntax declaration"),
             "{name}: {text}"

@@ -56,6 +56,7 @@ fn project(dir: &TempDir, setup: &Setup, clang: Option<&Path>) {
     } else {
         r#"add_build_file("board.jai", w);"#
     };
+
     std::fs::write(
         dir.join("build.jai"),
         fixture("build.jai")
@@ -71,6 +72,7 @@ fn project(dir: &TempDir, setup: &Setup, clang: Option<&Path>) {
     std::fs::write(dir.join("board.jai"), fixture("board.jai")).unwrap();
     std::fs::write(dir.join("board.ld"), fixture(setup.script)).unwrap();
     std::fs::write(dir.join("start.S"), fixture("start.S")).unwrap();
+
     if let Some(clang) = clang {
         let status = Command::new(clang)
             .args([
@@ -83,6 +85,7 @@ fn project(dir: &TempDir, setup: &Setup, clang: Option<&Path>) {
             .current_dir(dir.path())
             .status()
             .unwrap();
+
         assert!(status.success(), "assembling start.S");
     }
 }
@@ -108,14 +111,17 @@ fn a_none_program_runs_on_qemu_and_exits_through_semihosting() {
     if !toolchain::buildable("aarch64-none-elf") {
         return;
     }
+
     let Some(clang) = toolchain::require("clang") else {
         return;
     };
     let Some(qemu) = toolchain::optional("qemu-system-aarch64") else {
         return;
     };
+
     for code in [0, 7] {
         let dir = TempDir::new(&format!("freestanding-exit-{code}-{}", std::process::id()));
+
         project(
             &dir,
             &Setup {
@@ -126,6 +132,7 @@ fn a_none_program_runs_on_qemu_and_exits_through_semihosting() {
         );
         let built = build(&dir);
         let stderr = String::from_utf8_lossy(&built.stderr);
+
         assert!(built.status.success(), "jaic build.jai failed:\n{stderr}");
         let run = Command::new(&qemu)
             .args([
@@ -142,6 +149,7 @@ fn a_none_program_runs_on_qemu_and_exits_through_semihosting() {
             .arg(dir.join("prog.elf"))
             .output()
             .unwrap();
+
         assert_eq!(run.status.code(), Some(i32::from(code)), "{run:?}");
     }
 }
@@ -153,15 +161,19 @@ fn the_output_is_a_static_aarch64_elf_executable() {
     if !toolchain::buildable("aarch64-none-elf") {
         return;
     }
+
     let Some(clang) = toolchain::require("clang") else {
         return;
     };
     let dir = TempDir::new(&format!("freestanding-elf-{}", std::process::id()));
+
     project(&dir, &Setup::default(), Some(&clang));
     let built = build(&dir);
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     assert!(built.status.success(), "{stderr}");
     let bytes = std::fs::read(dir.join("prog.elf")).unwrap();
+
     assert_eq!(&bytes[..4], b"\x7fELF");
     assert_eq!(bytes[4], 2, "ELF64");
     assert_eq!(bytes[5], 1, "little-endian");
@@ -172,12 +184,14 @@ fn the_output_is_a_static_aarch64_elf_executable() {
         "EM_AARCH64"
     );
     let entry = u64::from_le_bytes(bytes[24..32].try_into().unwrap());
+
     assert_eq!(entry, 0x4000_0000, "the script puts the reset code first");
 }
 
 #[test]
 fn a_freestanding_link_without_a_linker_script_says_how_to_add_one() {
     let dir = TempDir::new(&format!("freestanding-script-{}", std::process::id()));
+
     project(
         &dir,
         &Setup {
@@ -188,6 +202,7 @@ fn a_freestanding_link_without_a_linker_script_says_how_to_add_one() {
     );
     let built = build(&dir);
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     assert!(!built.status.success());
     assert!(stderr.contains("needs a linker script"), "{stderr}");
     assert!(stderr.contains("-T <script>"), "{stderr}");
@@ -196,6 +211,7 @@ fn a_freestanding_link_without_a_linker_script_says_how_to_add_one() {
 #[test]
 fn a_named_linker_that_is_missing_fails_and_no_other_linker_runs() {
     let dir = TempDir::new(&format!("freestanding-lld-{}", std::process::id()));
+
     project(&dir, &Setup::default(), None);
     std::fs::write(
         dir.join("prog.jai"),
@@ -212,6 +228,7 @@ fn a_named_linker_that_is_missing_fails_and_no_other_linker_runs() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     assert!(!built.status.success());
     assert!(stderr.contains("could not run the linker"), "{stderr}");
     assert!(stderr.contains("note: JAIC_LINKER names it"), "{stderr}");
@@ -221,6 +238,7 @@ fn a_named_linker_that_is_missing_fails_and_no_other_linker_runs() {
 #[test]
 fn a_library_that_needs_an_os_is_a_link_error_naming_it() {
     let dir = TempDir::new(&format!("freestanding-libc-{}", std::process::id()));
+
     project(&dir, &Setup::default(), None);
     std::fs::write(
         dir.join("prog.jai"),
@@ -230,6 +248,7 @@ fn a_library_that_needs_an_os_is_a_link_error_naming_it() {
     .unwrap();
     let built = build(&dir);
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     assert!(!built.status.success());
     assert!(stderr.contains("cannot call `puts`"), "{stderr}");
     assert!(stderr.contains("no operating system"), "{stderr}");
@@ -238,6 +257,7 @@ fn a_library_that_needs_an_os_is_a_link_error_naming_it() {
 #[test]
 fn a_system_entry_point_is_refused_on_a_target_with_no_system() {
     let dir = TempDir::new(&format!("freestanding-entry-{}", std::process::id()));
+
     project(
         &dir,
         &Setup {
@@ -248,6 +268,7 @@ fn a_system_entry_point_is_refused_on_a_target_with_no_system() {
     );
     let built = build(&dir);
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     assert!(!built.status.success());
     assert!(stderr.contains("has none"), "{stderr}");
     assert!(stderr.contains(".ONLY_INIT"), "{stderr}");
@@ -258,12 +279,15 @@ fn run(name: &str, setup: &Setup) -> Option<Output> {
     if !toolchain::buildable("aarch64-none-elf") {
         return None;
     }
+
     let clang = toolchain::require("clang")?;
     let qemu = toolchain::optional("qemu-system-aarch64")?;
     let dir = TempDir::new(&format!("freestanding-{name}-{}", std::process::id()));
+
     project(&dir, setup, Some(&clang));
     let built = build(&dir);
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     assert!(
         built.status.success(),
         "{name}: jaic build.jai failed:\n{stderr}"
@@ -301,13 +325,16 @@ fn qemu_run(qemu: &Path, elf: &Path) -> Output {
         .spawn()
         .unwrap();
     let started = std::time::Instant::now();
+
     while child.try_wait().unwrap().is_none() {
         if started.elapsed() > std::time::Duration::from_secs(30) {
             child.kill().unwrap();
             break;
         }
+
         std::thread::sleep(std::time::Duration::from_millis(20));
     }
+
     child.wait_with_output().unwrap()
 }
 
@@ -326,6 +353,7 @@ fn basic_print_and_temporary_storage_work_with_no_operating_system() {
         let Some(out) = run("print", &board("print.jai", optimization)) else {
             return;
         };
+
         assert_eq!(out.status.code(), Some(0), "{optimization}: {out:?}");
         assert_eq!(
             console(&out),
@@ -340,8 +368,10 @@ fn growing_an_array_with_no_heap_reaches_the_panic_hook() {
     let Some(out) = run("heap", &board("heap.jai", "DEBUG")) else {
         return;
     };
+
     assert_eq!(out.status.code(), Some(70), "{out:?}");
     let stdout = console(&out);
+
     assert!(stdout.starts_with("before\n"), "{stdout}");
     assert!(
         stdout.contains("panic: allocation with no heap"),
@@ -355,8 +385,10 @@ fn a_failed_assert_reports_and_panics() {
     let Some(out) = run("assert", &board("assertion.jai", "DEBUG")) else {
         return;
     };
+
     assert_eq!(out.status.code(), Some(70), "{out:?}");
     let stdout = console(&out);
+
     assert!(stdout.contains("assertion failed: value was 3"), "{stdout}");
     assert!(stdout.contains("panic: assertion failed"), "{stdout}");
 }
@@ -365,10 +397,12 @@ fn a_failed_assert_reports_and_panics() {
 fn the_runtime_memory_functions_are_correct_at_every_optimization_level() {
     let expected = "copy true\nmove up true\nmove down true\nset true true\n\
                     struct 2 4\ncmp true true\n";
+
     for optimization in ["DEBUG", "OPTIMIZED", "VERY_OPTIMIZED"] {
         let Some(out) = run("memory", &board("memory.jai", optimization)) else {
             return;
         };
+
         assert_eq!(out.status.code(), Some(0), "{optimization}: {out:?}");
         assert_eq!(console(&out), expected, "{optimization}");
     }
@@ -384,6 +418,7 @@ fn init_runtime_copies_data_to_ram_and_zeroes_bss() {
         let Some(out) = run("data", &setup) else {
             return;
         };
+
         assert_eq!(out.status.code(), Some(0), "{script}: {out:?}");
         assert_eq!(console(&out), "12648430 30 freestanding 0\n5\n", "{script}");
     }
@@ -400,6 +435,7 @@ fn link_for_writes_a_script_for_a_ram_map_and_a_flash_map() {
             let Some(out) = run(&format!("map-{name}-{program}"), &setup) else {
                 return;
             };
+
             assert_eq!(out.status.code(), Some(0), "{name} {program}: {out:?}");
         }
     }
@@ -415,6 +451,7 @@ fn volatile_barriers_and_sections_work_on_the_target() {
         let Some(out) = run("devices", &setup) else {
             return;
         };
+
         assert_eq!(out.status.code(), Some(0), "{optimization}: {out:?}");
         assert_eq!(console(&out), "42 8\n", "{optimization}");
     }
@@ -430,6 +467,7 @@ fn the_heap_allocator_serves_growing_arrays_from_the_linker_script_region() {
         let Some(out) = run("arena", &setup) else {
             return;
         };
+
         assert_eq!(out.status.code(), Some(0), "{optimization}: {out:?}");
         assert_eq!(console(&out), "200 20100\n1-2\n", "{optimization}");
     }
@@ -441,12 +479,14 @@ fn run_on_board(program: &str) -> Option<Output> {
     if !toolchain::buildable("aarch64-none-elf") {
         return None;
     }
+
     let qemu = toolchain::optional("qemu-system-aarch64")?;
     let dir = TempDir::new(&format!(
         "freestanding-board-{program}-{}",
         std::process::id()
     ));
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/freestanding/qemu_virt");
+
     for file in ["build.jai", program] {
         std::fs::copy(
             source.join(file),
@@ -454,8 +494,10 @@ fn run_on_board(program: &str) -> Option<Output> {
         )
         .unwrap();
     }
+
     let built = build(&dir);
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     assert!(
         built.status.success(),
         "{program}: jaic build.jai failed:\n{stderr}"
@@ -468,6 +510,7 @@ fn the_qemu_virt_board_runs_a_program_with_a_console_and_a_heap() {
     let Some(out) = run_on_board("hello.jai") else {
         return;
     };
+
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     assert_eq!(console(&out), "hello from 50 cells, last 2500\n");
 }
@@ -477,8 +520,10 @@ fn a_panic_on_the_qemu_virt_board_exits_with_status_1() {
     let Some(out) = run_on_board("panics.jai") else {
         return;
     };
+
     assert_eq!(out.status.code(), Some(1), "{out:?}");
     let text = console(&out);
+
     assert!(text.starts_with("before\n"), "{text}");
     assert!(text.contains("assertion failed: boom"), "{text}");
     assert!(text.contains("panic: assertion failed"), "{text}");
@@ -491,11 +536,13 @@ fn a_board_plugin_configures_the_build_without_a_build_file() {
     if !toolchain::buildable("aarch64-none-elf") {
         return;
     }
+
     let Some(qemu) = toolchain::optional("qemu-system-aarch64") else {
         return;
     };
     let dir = TempDir::new(&format!("freestanding-plugin-{}", std::process::id()));
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/freestanding/qemu_virt");
+
     std::fs::copy(source.join("hello.jai"), dir.join("prog.jai")).unwrap();
     let built = Command::new(JAIC)
         .args(["prog.jai", "-exe", "prog.elf"])
@@ -504,8 +551,10 @@ fn a_board_plugin_configures_the_build_without_a_build_file() {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&built.stderr);
+
     assert!(built.status.success(), "jaic failed:\n{stderr}");
     let out = qemu_run(&qemu, &dir.join("prog.elf"));
+
     assert_eq!(out.status.code(), Some(0), "{out:?}");
     assert_eq!(console(&out), "hello from 50 cells, last 2500\n");
 }
@@ -517,7 +566,9 @@ fn module_assembly_lands_in_one_object_of_a_split_build() {
     if !toolchain::buildable("aarch64-none-elf") {
         return;
     }
+
     let dir = TempDir::new(&format!("freestanding-split-{}", std::process::id()));
+
     std::fs::write(
         dir.join("app.jai"),
         r#"#import "Basic";
@@ -541,5 +592,6 @@ reset :: () #c_call #no_context {
         .output()
         .unwrap();
     let stderr = String::from_utf8_lossy(&output.stderr);
+
     assert!(output.status.success(), "{stderr}");
 }

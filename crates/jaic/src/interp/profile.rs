@@ -94,8 +94,10 @@ struct Kinds {
 impl Kinds {
     fn count<T: std::fmt::Debug>(&mut self, items: &[T]) {
         let key = (items.as_ptr() as usize, items.len());
+
         if !self.blocks.contains_key(&key) {
             let mut list = Vec::with_capacity(items.len());
+
             for item in items {
                 let text = format!("{item:?}");
                 let name = text
@@ -108,10 +110,13 @@ impl Kinds {
                     self.names.push((name.to_string(), 0));
                     self.names.len() - 1
                 };
+
                 list.push(index);
             }
+
             self.blocks.insert(key, list);
         }
+
         for &k in &self.blocks[&key] {
             self.names[k].1 += 1;
         }
@@ -132,7 +137,9 @@ impl Counts {
         if self.rows.len() <= func {
             self.rows.resize_with(func + 1, Default::default);
         }
+
         let (row, known) = &mut self.rows[func];
+
         known.get_or_insert_with(|| name.to_string());
         row.calls += 1;
         row.blocks += blocks;
@@ -146,22 +153,27 @@ impl Counts {
         self.ops.count(ops);
         let key = (ops.as_ptr() as usize, ops.len());
         let kinds = self.ops.blocks.get(&key).cloned().unwrap_or_default();
+
         for w in kinds.windows(2) {
             let name = format!("{} {}", self.ops.names[w[0]].0, self.ops.names[w[1]].0);
+
             *self.pairs.entry(name).or_default() += 1;
         }
     }
 
     pub(crate) fn flush(&mut self) {
         let mut totals = totals();
+
         self.ir.flush(&mut totals.ir_ops);
         self.ops.flush(&mut totals.code_ops);
         merge(&mut totals.code_pairs, self.pairs.drain());
+
         for (row, name) in self.rows.drain(..) {
             let Some(name) = name else {
                 continue;
             };
             let total = totals.rows.entry(name).or_default();
+
             total.calls += row.calls;
             total.blocks += row.blocks;
             total.insts += row.insts;
@@ -187,9 +199,11 @@ pub fn run_report(top: usize) -> Option<String> {
     if !run_costs() {
         return None;
     }
+
     let totals = totals();
     let (library, mut rows): (Vec<&RunCost>, Vec<&RunCost>) =
         totals.runs.iter().partition(|r| r.library);
+
     rows.sort_by_key(|r| std::cmp::Reverse((r.blocks, r.nanos)));
     let blocks = |rows: &[&RunCost]| rows.iter().map(|r| r.blocks).sum::<u64>();
     let nanos = |rows: &[&RunCost]| rows.iter().map(|r| r.nanos).sum::<u128>();
@@ -203,6 +217,7 @@ pub fn run_report(top: usize) -> Option<String> {
         "blocks",
         "time"
     );
+
     for r in rows.iter().take(top) {
         out.push_str(&format!(
             "{:>5.1}% {:>14} {:>10}  {}\n",
@@ -212,6 +227,7 @@ pub fn run_report(top: usize) -> Option<String> {
             r.place
         ));
     }
+
     if !library.is_empty() {
         out.push_str(&format!(
             "{:>5.1}% {:>14} {:>10}  standard library ({} runs)\n",
@@ -221,6 +237,7 @@ pub fn run_report(top: usize) -> Option<String> {
             library.len()
         ));
     }
+
     Some(out)
 }
 
@@ -233,14 +250,17 @@ pub fn report(top: usize) -> Option<String> {
     if !enabled() {
         return None;
     }
+
     let totals = totals();
     let mut rows: Vec<(&String, &Row)> = totals.rows.iter().collect();
+
     rows.sort_by_key(|a| std::cmp::Reverse(a.1.insts));
     let all: u64 = rows.iter().map(|(_, r)| r.insts).sum();
     let mut out = format!(
         "interpreter profile: {all} instructions\n{:>6} {:>14} {:>12} {:>10}  procedure\n",
         "%", "instructions", "blocks", "calls"
     );
+
     for (name, r) in rows.into_iter().take(top) {
         out.push_str(&format!(
             "{:>5.1}% {:>14} {:>12} {:>10}  {name}\n",
@@ -250,19 +270,24 @@ pub fn report(top: usize) -> Option<String> {
             r.calls
         ));
     }
+
     out.push_str(&kind_line("instructions by kind:", &totals.ir_ops, all));
     let ran: u64 = totals.code_ops.values().sum();
+
     out.push_str(&kind_line(
         &format!("{ran} interpreter ops by kind:"),
         &totals.code_ops,
         ran,
     ));
     let mut pairs: Vec<(&String, &u64)> = totals.code_pairs.iter().collect();
+
     pairs.sort_by_key(|a| std::cmp::Reverse(*a.1));
     out.push_str("op pairs within blocks:");
+
     for (name, n) in pairs.into_iter().take(24) {
         out.push_str(&format!(" [{name}] {n}"));
     }
+
     out.push('\n');
     Some(out)
 }
@@ -270,14 +295,17 @@ pub fn report(top: usize) -> Option<String> {
 /// One line of kind shares, as percentages of `all`.
 fn kind_line(title: &str, table: &HashMap<String, u64>, all: u64) -> String {
     let mut kinds: Vec<(&String, &u64)> = table.iter().collect();
+
     kinds.sort_by_key(|a| std::cmp::Reverse(*a.1));
     let mut out = title.to_string();
+
     for (name, n) in kinds.into_iter().take(40) {
         out.push_str(&format!(
             " {name} {:.1}%",
             100.0 * *n as f64 / all.max(1) as f64
         ));
     }
+
     out.push('\n');
     out
 }

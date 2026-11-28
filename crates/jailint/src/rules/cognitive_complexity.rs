@@ -29,12 +29,16 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
     if cx.generated() {
         return;
     }
+
     for p in &cx.procs {
         let score = score(&p.body.stmts);
+
         if score <= cx.max_complexity {
             continue;
         }
+
         let (span, name) = super::proc_label(p);
+
         out.push(Finding {
             secondary: Vec::new(),
             start: span.start as usize,
@@ -56,8 +60,10 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
 /// The cognitive complexity of a body.
 pub(crate) fn score(stmts: &[Stmt]) -> usize {
     let mut total = 0;
+
     walk(stmts, &mut |n, ancestors| {
         let parent = ancestors.last().copied();
+
         match n {
             Node::Stmt(s) => match &s.kind {
                 S::If {
@@ -68,6 +74,7 @@ pub(crate) fn score(stmts: &[Stmt]) -> usize {
                     } else {
                         1 + nesting(ancestors)
                     };
+
                     // A plain `else`; an `else if` counts itself.
                     if else_branch
                         .as_ref()
@@ -91,6 +98,7 @@ pub(crate) fn score(stmts: &[Stmt]) -> usize {
                         parent.and_then(Node::expr).map(|p| &p.kind),
                         Some(E::Binary(outer, ..)) if outer == op
                     );
+
                     if !same {
                         total += 1;
                     }
@@ -101,6 +109,7 @@ pub(crate) fn score(stmts: &[Stmt]) -> usize {
                 _ => {}
             },
         }
+
         true
     });
     total
@@ -118,8 +127,10 @@ fn else_if(s: &Stmt, parent: Option<Node>) -> bool {
 /// and `ifx`.
 fn nesting(ancestors: &[Node]) -> usize {
     let mut levels = 0;
+
     for (i, n) in ancestors.iter().enumerate() {
         let parent = i.checked_sub(1).map(|j| ancestors[j]);
+
         levels += match n {
             Node::Stmt(s) => match &s.kind {
                 S::If {
@@ -137,5 +148,6 @@ fn nesting(ancestors: &[Node]) -> usize {
             )),
         };
     }
+
     levels
 }

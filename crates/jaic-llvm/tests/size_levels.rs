@@ -8,16 +8,21 @@ use test_support::TempDir;
 #[test]
 fn the_size_levels_write_an_object() {
     let mut options = Options::host();
+
     options.runtime_support = false;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(e) = c.compile_sources(&[ProgramSource::String(
         "main :: () {}\n#program_export \"sum\"\nsum :: (a: s64, b: s64) -> s64 #c_call { return a + b; }\n".into(),
     )]) {
         panic!("{}", e.render(&c.src.sources));
     }
+
     let dir = TempDir::new("size-levels");
+
     for level in [OptLevel::Os, OptLevel::Oz] {
         let object = dir.join(format!("{level:?}.o"));
+
         emit_object(
             &c.out.program,
             &jaic_llvm::Options {

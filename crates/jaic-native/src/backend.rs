@@ -77,6 +77,7 @@ pub unsafe fn serve(
     static PANIC: Mutex<String> = Mutex::new(String::new());
     // SAFETY: the caller passes the driver's request, alive for this call.
     let request = unsafe { &mut *request.cast::<EmitRequest<'_>>() };
+
     std::panic::set_hook(Box::new(|info| {
         if let Ok(mut text) = PANIC.lock() {
             *text = info.to_string();
@@ -95,6 +96,7 @@ pub unsafe fn serve(
             for object in &objects {
                 (request.reply)(Reply::Object(object));
             }
+
             return true;
         }
         Ok(Err(message)) => message,
@@ -103,6 +105,7 @@ pub unsafe fn serve(
             format!("the code generation backend panicked: {text}")
         }
     };
+
     (request.reply)(Reply::Failed(&failure));
     false
 }
@@ -138,10 +141,12 @@ fn candidates() -> Vec<PathBuf> {
     if let Some(path) = jacket_config::env::BACKEND.non_empty() {
         return vec![PathBuf::from(path)];
     }
+
     let exe = std::env::current_exe().ok();
     let exe = exe
         .as_deref()
         .and_then(|e| e.canonicalize().ok().or(Some(e.to_path_buf())));
+
     exe.and_then(|e| e.parent().map(|d| d.join(library_name())))
         .into_iter()
         .collect()
@@ -154,12 +159,14 @@ fn open() -> Result<Backend, String> {
             .iter()
             .map(|p| format!("`{}`", p.display()))
             .collect();
+
         return Err(format!(
             "this jaic cannot write native code: the code generation library `{}` was not found (looked at {})\nhelp: reinstall jaic, or set JAIC_BACKEND to the library's path",
             library_name(),
             looked.join(", ")
         ));
     };
+
     load_from(path)
 }
 
@@ -189,11 +196,13 @@ pub fn load_from(path: &Path) -> Result<Backend, String> {
             std::mem::transmute(sys::symbol(library, EMIT_SYMBOL).map_err(not_ours)?);
         let mut len = 0;
         let bytes = stamp(&raw mut len);
+
         (
             String::from_utf8_lossy(std::slice::from_raw_parts(bytes, len)).into_owned(),
             emit,
         )
     };
+
     if theirs != stamp() {
         return Err(format!(
             "the code generation library `{}` was built for a different jaic\nhelp: it is `{theirs}`, this jaic is `{}`; install the library that came with this jaic",
@@ -201,6 +210,7 @@ pub fn load_from(path: &Path) -> Result<Backend, String> {
             stamp()
         ));
     }
+
     Ok(Backend {
         emit,
     })
@@ -230,6 +240,7 @@ impl Backend {
         };
         // SAFETY: the library passed the stamp check, so it reads the same request layout.
         let ok = unsafe { (self.emit)(std::ptr::from_mut(&mut request).cast()) };
+
         match (ok, failure) {
             (true, _) => Ok(objects),
             (false, Some(message)) => Err(message),
@@ -283,6 +294,7 @@ mod sys {
     fn last_error() -> String {
         // SAFETY: `dlerror` returns null or a C string valid until the next dl call.
         let text = unsafe { dlerror() };
+
         if text.is_null() {
             "unknown error".into()
         } else {
@@ -297,6 +309,7 @@ mod sys {
         let name = CString::new(path.as_os_str().as_encoded_bytes()).map_err(|e| e.to_string())?;
         // SAFETY: `name` is a NUL-terminated path.
         let handle = unsafe { dlopen(name.as_ptr(), RTLD_NOW) };
+
         if handle.is_null() {
             Err(last_error())
         } else {
@@ -308,6 +321,7 @@ mod sys {
         let name = CString::new(name).map_err(|e| e.to_string())?;
         // SAFETY: a live handle and a NUL-terminated name.
         let address = unsafe { dlsym(library.0, name.as_ptr()) };
+
         if address.is_null() {
             Err(last_error())
         } else {
@@ -343,6 +357,7 @@ mod sys {
                 LOAD_WITH_ALTERED_SEARCH_PATH,
             )
         };
+
         if handle.is_null() {
             Err(std::io::Error::last_os_error().to_string())
         } else {
@@ -352,9 +367,11 @@ mod sys {
 
     pub fn symbol(library: Library, name: &str) -> Result<*mut c_void, String> {
         let mut bytes = name.as_bytes().to_vec();
+
         bytes.push(0);
         // SAFETY: a live module and a NUL-terminated name.
         let address = unsafe { GetProcAddress(library.0, bytes.as_ptr()) };
+
         if address.is_null() {
             Err(std::io::Error::last_os_error().to_string())
         } else {

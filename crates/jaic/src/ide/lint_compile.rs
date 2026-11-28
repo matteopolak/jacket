@@ -81,6 +81,7 @@ impl CheckLimits {
     /// The notice for a check that hit its wall-clock limit, at `span`.
     pub fn stopped_notice(&self, span: crate::source::Span) -> crate::diagnostics::Diagnostic {
         let seconds = self.seconds.unwrap_or_default();
+
         crate::diagnostics::Diagnostic::new(
             crate::diagnostics::Code::CheckingTimeLimit,
             span,
@@ -135,14 +136,18 @@ impl LintCompile {
             report,
             limits,
         } = setup;
+
         host.borrow_mut().set_file_target(options.os);
         host.borrow_mut().set_cpu(options.cpu);
         let mut options = options;
+
         options.eval_step_limit = Some(limits.eval_steps);
+
         if let Some(seconds) = limits.seconds {
             host.borrow_mut()
                 .stop_after(std::time::Duration::from_secs_f64(seconds));
         }
+
         let workspace_host = host.clone();
         let workspaces = Workspaces::new(BuildEnv {
             unwritten_output_hint: None,
@@ -158,6 +163,7 @@ impl LintCompile {
             observer,
         });
         let mut compiler = Box::new(Compiler::new(options, fs));
+
         compiler
             .ct
             .interp

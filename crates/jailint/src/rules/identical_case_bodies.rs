@@ -39,6 +39,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         let S::Switch(sw) = &s.kind else {
             return;
         };
+
         for (i, later) in sw.cases.iter().enumerate() {
             let Some(body) = body_span(cx, later) else {
                 continue;
@@ -86,9 +87,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     },
                 ],
             );
+
             if cx.has_comment_between(earlier.span.start as usize, later.span.end as usize) {
                 finding.fix = None;
             }
+
             out.push(finding);
         }
     });
@@ -100,12 +103,14 @@ fn body_span(cx: &Cx, c: &Case) -> Option<Span> {
     if c.values.is_empty() || c.through {
         return None;
     }
+
     let stmts: Vec<&Stmt> = c
         .body
         .iter()
         .filter(|s| !matches!(s.kind, S::Empty))
         .collect();
     let (first, last) = (stmts.first()?, stmts.last()?);
+
     Some(Span::new(
         cx.file,
         first.span.start as usize,

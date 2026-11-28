@@ -34,6 +34,7 @@ impl<'a> Layout<'a> {
             .into_iter()
             .filter(|t| !matches!(t.tok, Tok::Eof))
             .collect();
+
         Some(Self {
             text,
             uri,
@@ -48,6 +49,7 @@ impl<'a> Layout<'a> {
         let i = self
             .tokens
             .partition_point(|t| t.span.start as usize <= byte);
+
         match i.checked_sub(1) {
             Some(j) if byte < self.tokens[j].span.end as usize => {
                 Place::In(j, byte - self.tokens[j].span.start as usize)
@@ -88,6 +90,7 @@ impl<'a> Layout<'a> {
             .map(|(i, _)| i)
             .collect();
         let step = all.len().div_ceil(cap.max(1)).max(1);
+
         all.into_iter().step_by(step).collect()
     }
 }
@@ -109,9 +112,11 @@ fn squeeze(s: &str, loose: bool) -> String {
     if !loose {
         return s.to_owned();
     }
+
     let text: Vec<char> = s.split_whitespace().flat_map(str::chars).collect();
     let mut out = String::with_capacity(text.len());
     let mut i = 0;
+
     while i < text.len() {
         let digits = |from: usize| {
             text[from..]
@@ -120,6 +125,7 @@ fn squeeze(s: &str, loose: bool) -> String {
                 .count()
         };
         let first = digits(i);
+
         if first > 0 && text.get(i + first) == Some(&':') && digits(i + first + 1) > 0 {
             out.push_str("#:#");
             i += first + 1 + digits(i + first + 1);
@@ -128,6 +134,7 @@ fn squeeze(s: &str, loose: bool) -> String {
             i += 1;
         }
     }
+
     out
 }
 
@@ -135,10 +142,12 @@ fn squeeze(s: &str, loose: bool) -> String {
 fn without_line_numbers(message: &str) -> String {
     let mut out = String::with_capacity(message.len());
     let mut rest = message;
+
     while let Some(i) = rest.find("line ") {
         out.push_str(&rest[..i + 5]);
         rest = rest[i + 5..].trim_start_matches(|c: char| c.is_ascii_digit());
     }
+
     out.push_str(rest);
     out
 }
@@ -160,6 +169,7 @@ fn view(session: &Session, layout: &Layout<'_>, probes: &[usize], loose: bool) -
             )
         })
         .collect();
+
     diagnostics.sort();
     let probes = probes
         .iter()
@@ -182,10 +192,12 @@ fn view(session: &Session, layout: &Layout<'_>, probes: &[usize], loose: bool) -
                 .iter()
                 .map(|l| layout.location(l))
                 .collect();
+
             definitions.sort();
             (i, hover, definitions)
         })
         .collect();
+
     View {
         diagnostics,
         probes,
@@ -203,6 +215,7 @@ fn difference(a: &View, b: &View, layout: &Layout<'_>) -> Option<(Position, Stri
             ));
         }
     }
+
     if a.diagnostics.len() != b.diagnostics.len() {
         let (long, short) = if a.diagnostics.len() > b.diagnostics.len() {
             (a, b)
@@ -210,6 +223,7 @@ fn difference(a: &View, b: &View, layout: &Layout<'_>) -> Option<(Position, Stri
             (b, a)
         };
         let extra = &long.diagnostics[short.diagnostics.len()];
+
         return Some((
             Position::default(),
             "diagnostic".into(),
@@ -220,6 +234,7 @@ fn difference(a: &View, b: &View, layout: &Layout<'_>) -> Option<(Position, Stri
             ),
         ));
     }
+
     for (x, y) in a.probes.iter().zip(&b.probes) {
         if x != y {
             let token = &layout.tokens[x.0];
@@ -230,9 +245,11 @@ fn difference(a: &View, b: &View, layout: &Layout<'_>) -> Option<(Position, Stri
             } else {
                 format!("hover {:?} / {:?}", x.1, y.1)
             };
+
             return Some((at, name, what));
         }
     }
+
     None
 }
 
@@ -244,16 +261,20 @@ pub fn with_blank_lines(text: &str) -> String {
         return text.to_owned();
     };
     let mut at: Vec<usize> = Vec::new();
+
     for t in tokens
         .iter()
         .filter(|t| t.newline_before && !matches!(t.tok, Tok::Eof))
     {
         let start = t.span.start as usize;
         let line = text[..start].rfind('\n').map_or(0, |i| i + 1);
+
         if !text[line..start].trim().is_empty() || line == 0 {
             continue;
         }
+
         let previous = text[..line - 1].rsplit('\n').next().unwrap_or("").trim();
+
         if previous.starts_with("//")
             || previous.ends_with("*/")
             || previous.contains("//")
@@ -261,10 +282,13 @@ pub fn with_blank_lines(text: &str) -> String {
         {
             continue;
         }
+
         at.push(line);
     }
+
     let mut out = String::with_capacity(text.len() + at.len());
     let mut last = 0;
+
     for (n, &line) in at.iter().enumerate() {
         if n % 3 == 0 {
             out.push_str(&text[last..line]);
@@ -272,6 +296,7 @@ pub fn with_blank_lines(text: &str) -> String {
             last = line;
         }
     }
+
     out.push_str(&text[last..]);
     out
 }
@@ -290,6 +315,7 @@ pub fn formatted(jaifmt: &std::path::Path, text: &str) -> Option<String> {
     let input = text.to_owned();
     let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
     let output = child.wait_with_output().ok()?;
+
     writer.join().ok()?.ok()?;
     output
         .status
@@ -302,6 +328,7 @@ pub fn formatted(jaifmt: &std::path::Path, text: &str) -> Option<String> {
 fn gap_edits(from: &Layout<'_>, to: &Layout<'_>) -> Vec<(usize, usize, String)> {
     let mut edits = Vec::new();
     let (mut a, mut b) = (0usize, 0usize);
+
     for (x, y) in from
         .tokens
         .iter()
@@ -312,15 +339,19 @@ fn gap_edits(from: &Layout<'_>, to: &Layout<'_>) -> Vec<(usize, usize, String)> 
             &from.text[a..x.start as usize],
             &to.text[b..y.start as usize],
         );
+
         if ga != gb {
             edits.push((a, x.start as usize, gb.to_owned()));
         }
+
         a = x.end as usize;
         b = y.end as usize;
     }
+
     if from.text[a..] != to.text[b..] {
         edits.push((a, from.text.len(), to.text[b..].to_owned()));
     }
+
     edits
 }
 
@@ -349,9 +380,11 @@ pub fn compare(
     else {
         return false;
     };
+
     if !original.same_tokens(&changed) || cx.text == variant {
         return false;
     }
+
     let probes = original.identifiers(cx.probes);
     let Some(fresh) = (cx.fresh)(variant) else {
         findings.push(Finding::new(
@@ -364,24 +397,30 @@ pub fn compare(
     };
     let before = view(session, &original, &probes, loose);
     let after = view(&fresh, &changed, &probes, loose);
+
     if let Some((at, name, what)) = difference(&before, &after, &original) {
         findings.push(Finding::new(check, at, &name, what));
     }
+
     // The same text reached by editing: a few versions, a request after each.
     let edits = gap_edits(&original, &changed);
     let mut current = cx.text.to_owned();
     let batches = 4usize;
     let per = edits.len().div_ceil(batches).max(1);
     let mut chunks: Vec<&[(usize, usize, String)]> = edits.chunks(per).collect();
+
     // Later gaps first, so earlier byte offsets stay valid.
     chunks.reverse();
+
     for chunk in chunks {
         let mut changes = Vec::new();
+
         for (start, end, new) in chunk.iter().rev() {
             let range = Range {
                 start: pos_of(&current, *start),
                 end: pos_of(&current, *end),
             };
+
             current.replace_range(*start..*end, new);
             changes.push(TextChange {
                 range: Some(range),
@@ -389,7 +428,9 @@ pub fn compare(
                 text: new.clone(),
             });
         }
+
         *version += 1;
+
         if let Err(e) = session.change(cx.uri, *version, &changes) {
             findings.push(Finding::new(
                 "c-edit",
@@ -399,12 +440,14 @@ pub fn compare(
             ));
             return false;
         }
+
         let _ = session.diagnostics(cx.uri);
         let _ = session.hover(
             cx.uri,
             pos_of(&current, current.floor_char_boundary(current.len() / 2)),
         );
     }
+
     if current != variant {
         findings.push(Finding::new(
             "c-edit",
@@ -414,8 +457,10 @@ pub fn compare(
         ));
         return false;
     }
+
     let edited = view(session, &changed, &probes, false);
     let reference = view(&fresh, &changed, &probes, false);
+
     if let Some((at, name, what)) = difference(&reference, &edited, &changed) {
         findings.push(Finding::new(
             "c-edit",
@@ -424,5 +469,6 @@ pub fn compare(
             format!("after {check}: {what}"),
         ));
     }
+
     true
 }

@@ -19,6 +19,7 @@ impl Compiler {
     /// Flags of a logical operation: CF = OF = 0.
     pub(super) fn set_logic_flags(f: &mut FnCtx, cx: &mut AsmCtx, sz: Ty, res: Val) {
         let zero = konst(f, Ty::I8, 0);
+
         cx.flags.cf = Some(zero);
         cx.flags.of = Some(zero);
         Self::set_zs(f, cx, sz, res);
@@ -29,6 +30,7 @@ impl Compiler {
         let zf = Self::flag(f, cx.flags.zf);
         let sf = Self::flag(f, cx.flags.sf);
         let of = Self::flag(f, cx.flags.of);
+
         match cond {
             Cond::E => zf,
             Cond::Ne => flag_not(f, zf),
@@ -55,6 +57,7 @@ impl Compiler {
             Cond::G => {
                 let l = flag_xor(f, sf, of);
                 let le = flag_or(f, zf, l);
+
                 flag_not(f, le)
             }
             Cond::P => Self::parity_flag(f, cx),
@@ -80,6 +83,7 @@ impl Compiler {
         let ones = bit_intrinsic(f, Intrinsic::Popcount, Ty::I8, byte);
         let one = konst(f, Ty::I8, 1);
         let odd = bin(f, BinOp::And, Ty::I8, ones, one);
+
         flag_not(f, odd)
     }
 

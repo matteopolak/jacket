@@ -11,6 +11,7 @@ use crate::types::{ArrayKind, TypeKind};
 
 pub(crate) fn filter_target(filter: &ast::UsingFilter, name: Sym) -> Option<Sym> {
     let public_name = public_filter_name(name);
+
     match filter {
         ast::UsingFilter::Only(names) => {
             names.iter().any(|n| n.name == public_name).then_some(name)
@@ -59,6 +60,7 @@ impl Compiler {
         else {
             return Ok(filter.clone());
         };
+
         if *kind == ast::UsingFilterKind::Map {
             return err(
                 Code::UsingMap,
@@ -66,6 +68,7 @@ impl Compiler {
                 "using,map requires an aggregate member target; module mapping is not supported",
             );
         }
+
         let (value, ty) = self.eval_const_typed(scope, expr)?;
         let names = self
             .filter_strings(&value, ty, expr.span)?
@@ -75,6 +78,7 @@ impl Compiler {
                 span: expr.span,
             })
             .collect();
+
         Ok(match kind {
             ast::UsingFilterKind::Only => ast::UsingFilter::Only(names),
             ast::UsingFilterKind::Except => ast::UsingFilter::Except(names),
@@ -95,6 +99,7 @@ impl Compiler {
                 "a computed using filter must be an array of strings",
             );
         };
+
         if elem != TypeId::STRING {
             return err(
                 Code::UsingFilterInvalid,
@@ -102,9 +107,11 @@ impl Compiler {
                 "a computed using filter must contain strings",
             );
         }
+
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
         let mut image = Aggregate::zeroed(size, span)?;
+
         self.write_value(&mut image, 0, value, ty, span)?;
         let g = self.out.program.add_global(ir::Global {
             name: "using.names".into(),
@@ -141,8 +148,10 @@ impl Compiler {
                     "unreadable using filter data",
                 );
             };
+
             (n, data)
         };
+
         if count > super::value::MAX_IMAGE / self.ty.types.builtins().view.size.max(1) {
             return err(
                 Code::UsingFilterInvalid,
@@ -150,7 +159,9 @@ impl Compiler {
                 "using filter array is too large",
             );
         }
+
         let mut names = Vec::new();
+
         for i in 0..count {
             let Some(at) = i
                 .checked_mul(self.ty.types.builtins().view.size)
@@ -176,8 +187,10 @@ impl Compiler {
                     "using member name is not UTF-8",
                 ))
             })?;
+
             names.push(Sym::intern(text));
         }
+
         Ok(names)
     }
 
@@ -191,11 +204,14 @@ impl Compiler {
         if matches!(filter, ast::UsingFilter::None) {
             return Ok(entry);
         }
+
         self.ide_note_filter_names(&entry, filter);
+
         if let UsingEntry::Module(m, _) = entry {
             let filter = self.resolve_module_filter(scope, m, filter, span)?;
             return Ok(UsingEntry::Module(m, Some(Arc::new(filter))));
         }
+
         let filter = if let ast::UsingFilter::Computed {
             kind: ast::UsingFilterKind::Map,
             expr,
@@ -215,9 +231,11 @@ impl Compiler {
                 }
             };
             let ty = self.ty.types.pointee(ty).unwrap_or(ty);
+
             self.ensure_complete(ty, span)?;
             let names = self.aggregate_using_names(ty)?;
             let mapper = self.eval_const_value(scope, expr)?;
+
             if !matches!(mapper, Value::Proc(_)) {
                 return err(
                     Code::UsingFilterInvalid,
@@ -225,6 +243,7 @@ impl Compiler {
                     "using mapper must be a single compile-time procedure",
                 );
             }
+
             self.map_member_names(scope, expr, mapper, &names, span)?
         } else {
             self.resolve_name_filter(scope, filter)?
@@ -252,11 +271,13 @@ impl Compiler {
         // can need the names this very mapper is about to rename.
         let saved = std::mem::replace(&mut self.epochs.lookup_without_expansion, true);
         let quick = self.eval_const_value(scope, expr);
+
         self.epochs.lookup_without_expansion = saved;
         let mapper = match quick {
             Ok(mapper) => mapper,
             Err(_) => self.eval_const_value(scope, expr)?,
         };
+
         if !matches!(mapper, Value::Proc(_)) {
             return err(
                 Code::UsingFilterInvalid,
@@ -264,7 +285,9 @@ impl Compiler {
                 "using mapper must be a single compile-time procedure",
             );
         }
+
         let mut names = Vec::new();
+
         self.module_exported_names(module, &mut Vec::new(), &mut names)?;
         names.sort_by_key(|name| name.as_str());
         self.map_member_names(scope, expr, mapper, &names, span)
@@ -280,8 +303,10 @@ impl Compiler {
         if seen.contains(&module) {
             return Ok(());
         }
+
         seen.push(module);
         let scope = self.ns.modules[module.0 as usize].scope;
+
         self.expand_pending(scope)?;
         let mut declared: Vec<Sym> = self
             .scope(scope)
@@ -295,7 +320,9 @@ impl Compiler {
             })
             .map(|(name, _)| *name)
             .collect();
+
         out.append(&mut declared);
+
         for index in self.ns.modules[module.0 as usize]
             .exported_using_imports
             .clone()
@@ -304,6 +331,7 @@ impl Compiler {
                 self.module_exported_names(inner, seen, out)?;
             }
         }
+
         Ok(())
     }
 
@@ -324,6 +352,7 @@ impl Compiler {
         } else {
             unreachable!()
         };
+
         self.add_entity(
             map_scope,
             Sym::intern("__using_mapper"),
@@ -357,6 +386,7 @@ impl Compiler {
         let result = decl.value.as_ref().unwrap();
         let (value, ty) = self.eval_const_typed(map_scope, result)?;
         let mapped = self.filter_strings(&value, ty, expr.span)?;
+
         if mapped.len() != names.len() {
             return err(
                 Code::UsingFilterInvalid,
@@ -364,6 +394,7 @@ impl Compiler {
                 "using mapper changed the number of member names",
             );
         }
+
         Ok(ast::UsingFilter::Map(
             mapped
                 .into_iter()
@@ -387,16 +418,19 @@ impl Compiler {
 
     fn aggregate_using_names(&mut self, ty: TypeId) -> Result<Vec<Sym>> {
         let mut names = Vec::new();
+
         if let TypeKind::Enum(e) = *self.ty.types.kind(ty) {
             names.extend(self.ty.types.enum_info(e).members.iter().map(|(n, _)| *n));
         } else if let Some(s) = self.ty.types.as_struct(self.ty.types.repr_struct(ty)) {
             for field in self.ty.types.struct_info(s).fields.clone().iter() {
                 names.extend(field.name);
+
                 if field.using {
                     names.extend(self.aggregate_using_names(field.ty)?);
                 }
             }
         }
+
         Ok(names)
     }
 
@@ -430,16 +464,19 @@ impl Compiler {
         entry: UsingEntry,
     ) -> Result<()> {
         let mut declared: Vec<(Sym, Span)> = Vec::new();
+
         for (id, name) in self.scope(scope).declared() {
             if matches!(self.entity(id).kind, scope::EntityKind::Decl { .. }) {
                 declared.push((name, self.entity(id).span));
             }
         }
+
         for (name, span) in declared {
             if name.as_str() != "_" && self.aggregate_using_member(&entry, name)?.is_some() {
                 return Err(self.using_member_clash(name, span, &entry));
             }
         }
+
         self.push_using(scope, entry);
         Ok(())
     }
@@ -456,14 +493,17 @@ impl Compiler {
         if name.as_str() == "_" {
             return Ok(());
         }
+
         for k in 0..self.scope(scope).usings.len() {
             let entry = self.scope(scope).usings[k].clone();
+
             if entry.place_entity().is_some()
                 && self.aggregate_using_member(&entry, name)?.is_some()
             {
                 return Err(self.using_member_clash(name, span, &entry));
             }
         }
+
         Ok(())
     }
 
@@ -480,12 +520,14 @@ impl Compiler {
             return Box::new(d);
         };
         let owner_name = owner.name;
+
         if owner.span != Span::NONE {
             d = d.with_note(
                 owner.span,
                 format!("`{name}` is a member of `{owner_name}`, which `using` brings into scope"),
             );
         }
+
         Box::new(d.with_help(format!(
             "use another name, or write `{owner_name}.{name}` for the member"
         )))
@@ -507,16 +549,20 @@ impl Compiler {
             ),
         );
         let mut spelled = Vec::new();
+
         for &id in providers {
             let owner = self.entity(id);
+
             if owner.span != Span::NONE {
                 d = d.with_note(
                     owner.span,
                     format!("`{}` has a member `{name}`", owner.name),
                 );
             }
+
             spelled.push(format!("`{}.{name}`", owner.name));
         }
+
         Box::new(d.with_help(format!("say which one you mean: {}", spelled.join(" or "))))
     }
 }

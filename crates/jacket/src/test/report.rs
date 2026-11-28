@@ -62,10 +62,13 @@ const CRASH_TAIL_LINES: usize = 64;
 /// The last `keep` lines of `text`, after a note of how many came before.
 fn tail(text: &str, keep: usize) -> String {
     let lines: Vec<&str> = text.lines().collect();
+
     if lines.len() <= keep {
         return text.to_string();
     }
+
     let skipped = lines.len() - keep;
+
     format!(
         "[{skipped} earlier lines omitted]\n{}",
         lines[skipped..].join("\n")
@@ -90,6 +93,7 @@ fn rerun_names(case: &Case, failed_subtests: &[&str]) -> String {
     if !(1..=3).contains(&failed_subtests.len()) {
         return quoted(&case.name);
     }
+
     failed_subtests
         .iter()
         .map(|sub| match sub.strip_prefix(case.local.as_str()) {
@@ -115,6 +119,7 @@ impl Reporter {
         quiet: bool,
     ) -> Reporter {
         let color = jaic::render::detect(jaic::render::ColorChoice::Auto).color;
+
         Reporter {
             format,
             junit,
@@ -146,6 +151,7 @@ impl Reporter {
 
     fn status_word(&self, status: Status) -> String {
         let word = format!("{:>12}", label(status));
+
         match status {
             Status::Pass | Status::XFail => self.paint("1;32", &word),
             Status::Skip => self.paint("1;33", &word),
@@ -167,6 +173,7 @@ impl Reporter {
                 })),
                 OutputFormat::Human => println!("{}: {}", case.name, case.kind.as_str()),
             }
+
             for sub in &case.cases {
                 match self.format {
                     OutputFormat::Json => self.json(&json!({
@@ -190,6 +197,7 @@ impl Reporter {
             }
             OutputFormat::Human => {
                 let word = self.paint("1;32", &format!("{:>12}", "Starting"));
+
                 eprintln!(
                     "{word} {tests} test{}",
                     if tests == 1 {
@@ -215,6 +223,7 @@ impl Reporter {
             })),
             OutputFormat::Human => {
                 let word = self.paint("1;33", &format!("{:>12}", "SLOW"));
+
                 eprintln!("{word} [>{:>7.3}s] {}", elapsed.as_secs_f64(), case.name);
             }
         }
@@ -234,20 +243,24 @@ impl Reporter {
                     self.created(outcome);
                     return;
                 }
+
                 let time = if outcome.status == Status::Skip {
                     " ".repeat(11)
                 } else {
                     format!("[{:>8.3}s]", outcome.duration.as_secs_f64())
                 };
                 let mut line = format!("{} {time} {}", self.status_word(outcome.status), case.name);
+
                 if let Some(reason) = &outcome.skip_reason
                     && !reason.is_empty()
                 {
                     line.push_str(&format!(" ({reason})"));
                 }
+
                 if outcome.status == Status::Flaky {
                     line.push_str(&format!(" (passed on try {})", outcome.attempts));
                 }
+
                 eprintln!("{line}");
                 self.created(outcome);
             }
@@ -258,6 +271,7 @@ impl Reporter {
     fn created(&self, outcome: &Outcome) {
         for file in &outcome.created {
             let word = self.paint("1;32", &format!("{:>12}", "CREATED"));
+
             eprintln!(
                 "{word} {} (new expected output; check it and commit it)",
                 self.shown(&file.to_string_lossy())
@@ -300,11 +314,13 @@ impl Reporter {
         let text = lines.get((line as usize).checked_sub(1)?)?.trim();
         // A doc example's line is a comment line: show the code.
         let text = text.strip_prefix("//").map_or(text, str::trim_start);
+
         (!text.is_empty()).then(|| text.to_string())
     }
 
     fn details(&mut self, case: &Case, outcome: &Outcome) -> String {
         let mut out = String::new();
+
         for failure in &outcome.failures {
             let place = format!("{}:{}", self.shown(&failure.file), failure.line);
             let within = if failure.test == case.local {
@@ -312,10 +328,12 @@ impl Reporter {
             } else {
                 format!(" (in {})", failure.test)
             };
+
             out.push_str(&format!(
                 "  {place}{within}:\n{}\n",
                 indent(&failure.message, "    ")
             ));
+
             if let Some(source) = self.source_line(&failure.file, failure.line) {
                 out.push_str(&format!(
                     "    {} {source}\n",
@@ -323,44 +341,54 @@ impl Reporter {
                 ));
             }
         }
+
         for problem in &outcome.problems {
             out.push_str(&format!("{}\n", indent(problem, "  ")));
         }
+
         let failed_subtests: Vec<&str> = outcome
             .subtests
             .iter()
             .filter(|s| s.status == "fail")
             .map(|s| s.name.as_str())
             .collect();
+
         if !failed_subtests.is_empty() {
             out.push_str(&format!(
                 "  failed subtests: {}\n",
                 failed_subtests.join(", ")
             ));
         }
+
         if self.capture {
             for (name, bytes) in [("stdout", &outcome.stdout), ("stderr", &outcome.stderr)] {
                 let text = text(bytes);
+
                 if text.trim().is_empty() {
                     continue;
                 }
+
                 let shown = if outcome.crashed {
                     tail(text.trim_end(), CRASH_TAIL_LINES)
                 } else {
                     text.trim_end().to_string()
                 };
+
                 out.push_str(&format!("  {name}:\n{}\n", indent(&shown, "    ")));
             }
         }
+
         if let Some(temp) = &outcome.kept_temp {
             out.push_str(&format!("  temporary folder kept: {}\n", temp.display()));
         }
+
         let interp = if self.interp {
             " --interp"
         } else {
             ""
         };
         let reruns = rerun_names(case, &failed_subtests);
+
         out.push_str(&format!("  rerun: jacket test{interp} --exact {reruns}\n"));
         out
     }
@@ -384,27 +412,35 @@ impl Reporter {
             ("skipped", count(Status::Skip)),
             ("not run", not_run),
         ];
+
         if let Some(path) = self.junit.clone()
             && let Err(error) = std::fs::write(&path, junit(cases, outcomes, elapsed))
         {
             eprintln!("jacket: warning: cannot write {}: {error}", path.display());
         }
+
         if self.format == OutputFormat::Json {
             let mut value =
                 json!({"type": "run", "event": "finished", "duration": elapsed.as_secs_f64()});
+
             for (name, n) in counts {
                 value[name.replace(' ', "_")] = json!(n);
             }
+
             self.json(&value);
+
             return;
         }
+
         let failing: Vec<&Outcome> = outcomes
             .iter()
             .filter(|o| o.status.fails(flaky_fails) || o.status == Status::Flaky)
             .collect();
         let missing = super::prerequisites::missing(&failing);
+
         if !failing.is_empty() {
             eprintln!("\nfailures:");
+
             for outcome in failing {
                 let case = &cases[outcome.case];
                 let title = self.paint(
@@ -412,22 +448,29 @@ impl Reporter {
                     &format!("--- {} ({}) ---", case.name, label(outcome.status)),
                 );
                 let details = self.details(case, outcome);
+
                 eprintln!("\n{title}\n{details}");
             }
         }
+
         if !missing.is_empty() {
             eprintln!("\nmissing build outputs (these explain failures above):");
+
             for line in missing {
                 eprintln!("  {line}");
             }
         }
+
         let mut slowest: Vec<&Outcome> = outcomes
             .iter()
             .filter(|o| o.duration >= Duration::from_secs(1))
             .collect();
+
         slowest.sort_by_key(|a| std::cmp::Reverse(a.duration));
+
         if !slowest.is_empty() {
             eprintln!("slowest:");
+
             for outcome in slowest.iter().take(5) {
                 eprintln!(
                     "  {:>8.3}s {}",
@@ -436,6 +479,7 @@ impl Reporter {
                 );
             }
         }
+
         let ran = outcomes.len() - count(Status::Skip);
         let parts: Vec<String> = counts
             .iter()
@@ -443,6 +487,7 @@ impl Reporter {
             .map(|(name, n)| format!("{n} {name}"))
             .collect();
         let word = self.paint("1;32", &format!("{:>12}", "Summary"));
+
         eprintln!(
             "{word} [{:>8.3}s] {ran} test{} run: {}",
             elapsed.as_secs_f64(),
@@ -469,24 +514,31 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
         elapsed.as_secs_f64()
     );
     let mut by_root: Vec<&Outcome> = outcomes.iter().collect();
+
     by_root.sort_by_key(|o| (cases[o.case].root, o.case));
     let mut current = None;
+
     for outcome in by_root {
         let case = &cases[outcome.case];
+
         if current != Some(case.root) {
             if current.is_some() {
                 out.push_str("  </testsuite>\n");
             }
+
             current = Some(case.root);
             let suite = case.name.split_once("::").map_or("tests", |(root, _)| root);
+
             out.push_str(&format!("  <testsuite name=\"{}\">\n", escape(suite)));
         }
+
         let class = match case.kind {
             Kind::Test | Kind::Bench => "test",
             Kind::Golden => "golden",
             Kind::CompileFail => "compile_fail",
             Kind::Doc => "doc",
         };
+
         out.push_str(&format!(
             "    <testcase name=\"{}\" classname=\"{class}\" file=\"{}\" line=\"{}\" time=\"{:.3}\"",
             escape(&case.name),
@@ -501,6 +553,7 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
             .map(|f| format!("{}:{}: {}", f.file, f.line, f.message))
             .chain(outcome.problems.iter().cloned())
             .collect();
+
         match outcome.status {
             Status::Fail | Status::XPass => body.push_str(&format!(
                 "      <failure message=\"{}\">{}</failure>\n",
@@ -514,6 +567,7 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
             )),
             _ => {}
         }
+
         for (tag, bytes) in [
             ("system-out", &outcome.stdout),
             ("system-err", &outcome.stderr),
@@ -522,15 +576,18 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
                 body.push_str(&format!("      <{tag}>{}</{tag}>\n", escape(&text(bytes))));
             }
         }
+
         if body.is_empty() {
             out.push_str("/>\n");
         } else {
             out.push_str(&format!(">\n{body}    </testcase>\n"));
         }
     }
+
     if current.is_some() {
         out.push_str("  </testsuite>\n");
     }
+
     out.push_str("</testsuites>\n");
     out
 }
@@ -547,6 +604,7 @@ mod tests {
             .collect::<Vec<_>>()
             .join("\n");
         let cut = tail(&text, 64);
+
         assert!(cut.starts_with("[36 earlier lines omitted]\n37\n"), "{cut}");
         assert!(cut.ends_with("\n100"));
         assert_eq!(tail("a\nb", 64), "a\nb");
@@ -569,10 +627,13 @@ mod tests {
         };
         let cases = [case("a"), case("b<c>")];
         let mut failed = Outcome::new(1, Status::Fail);
+
         failed.problems.push("bad & worse".into());
         let mut skipped = Outcome::new(0, Status::Skip);
+
         skipped.skip_reason = Some("only on linux".into());
         let xml = junit(&cases, &[skipped, failed], Duration::from_millis(5));
+
         assert!(
             xml.contains("tests=\"2\" failures=\"1\" skipped=\"1\""),
             "{xml}"
@@ -597,12 +658,14 @@ mod tests {
             doc: None,
             cases: Vec::new(),
         };
+
         assert_eq!(rerun_names(&case, &[]), "'Root::table'");
         assert_eq!(
             rerun_names(&case, &["table/a,1", "table/it's"]),
             "'Root::table/a,1' 'Root::table/it'\\''s'"
         );
         let many = ["table/a", "table/b", "table/c", "table/d"];
+
         assert_eq!(rerun_names(&case, &many), "'Root::table'");
     }
 }

@@ -4,8 +4,10 @@ use super::*;
 fn a_block_is_commands_each_followed_by_its_output() {
     let md = "# Title\n\n```console cwd=../examples/x\n$ jacket test\n  PASS one\n\n$ cat a.txt\nhi\n```\n";
     let blocks = blocks(md).unwrap();
+
     assert_eq!(blocks.len(), 1);
     let b = &blocks[0];
+
     assert_eq!((b.line, b.cwd.as_deref()), (3, Some("../examples/x")));
     assert_eq!(
         b.runs,
@@ -38,12 +40,14 @@ fn other_fences_are_not_console_blocks() {
 #[test]
 fn a_block_must_start_with_a_command_and_take_only_cwd_and_cache() {
     let err = blocks("\n```console\noutput first\n```\n").unwrap_err();
+
     assert!(
         err.starts_with("line 2: a console block starts with a command"),
         "{err}"
     );
     assert!(blocks("```console cwd=x cache\n$ x\n```\n").unwrap()[0].cache);
     let err = blocks("```console,shell=bash\n$ x\n```\n").unwrap_err();
+
     assert!(
         err.contains("unknown console setting `shell=bash`"),
         "{err}"
@@ -53,6 +57,7 @@ fn a_block_must_start_with_a_command_and_take_only_cwd_and_cache() {
 #[test]
 fn the_text_of_a_block_round_trips() {
     let text = "$ jacket test\n  PASS one\n$ cat a\n";
+
     assert_eq!(body(&runs(text).unwrap()), text);
 }
 
@@ -114,6 +119,7 @@ fn guide(dir: &Path, shown: &str) -> PathBuf {
     std::fs::create_dir_all(dir.join("ex")).unwrap();
     std::fs::write(dir.join("ex/a.txt"), "\x1b[31mred\x1b[0m\n").unwrap();
     let path = dir.join("guide.md");
+
     std::fs::write(
         &path,
         format!("Intro\n\n```console cwd=ex\n$ cat a.txt\n{shown}\n```\n"),
@@ -135,6 +141,7 @@ fn a_changed_output_fails_with_a_diff_and_accept_writes_it_and_its_colours() {
     let dir = test_support::TempDir::new("doc-console");
     let path = guide(&dir, "blue");
     let problems = check(&path, "guide.md", &tools(), false).unwrap();
+
     assert_eq!(problems.len(), 1, "{problems:?}");
     assert!(
         problems[0].starts_with("guide.md:3: `cat a.txt` printed something else:"),
@@ -145,8 +152,10 @@ fn a_changed_output_fails_with_a_diff_and_accept_writes_it_and_its_colours() {
 
     assert!(check(&path, "guide.md", &tools(), true).unwrap().is_empty());
     let md = std::fs::read_to_string(&path).unwrap();
+
     assert_eq!(md, "Intro\n\n```console cwd=ex\n$ cat a.txt\nred\n```\n");
     let capture = std::fs::read_to_string(capture_path(&path)).unwrap();
+
     assert!(capture.contains(r"\u001b[31mred\u001b[0m"), "{capture}");
     assert!(
         check(&path, "guide.md", &tools(), false)
@@ -155,6 +164,7 @@ fn a_changed_output_fails_with_a_diff_and_accept_writes_it_and_its_colours() {
     );
 
     let html = rendered(&path, &md);
+
     assert_eq!(
         html.get("$ cat a.txt\nred\n").map(String::as_str),
         Some("<span class=\"prompt\">$ </span>cat a.txt\n<span class=\"ansi-red\">red</span>")
@@ -165,6 +175,7 @@ fn a_changed_output_fails_with_a_diff_and_accept_writes_it_and_its_colours() {
 fn a_cached_block_is_not_run_while_its_capture_matches() {
     let dir = test_support::TempDir::new("doc-console");
     let path = dir.join("guide.md");
+
     std::fs::create_dir_all(dir.join("ex")).unwrap();
     std::fs::write(dir.join("ex/a.txt"), "\x1b[31mred\x1b[0m\n").unwrap();
     std::fs::write(&path, "```console cwd=ex cache\n$ cat a.txt\nred\n```\n").unwrap();
@@ -187,6 +198,7 @@ fn a_cached_block_is_not_run_while_its_capture_matches() {
     // Edited text has no capture, so the command runs again.
     std::fs::write(&path, "```console cwd=ex cache\n$ cat a.txt\nred!\n```\n").unwrap();
     let problems = check(&path, "guide.md", &tools(), false).unwrap();
+
     assert!(problems[0].contains("-red!\n+blue\n"), "{problems:?}");
 }
 
@@ -195,6 +207,7 @@ fn matching_text_without_its_colours_fails_until_accepted() {
     let dir = test_support::TempDir::new("doc-console");
     let path = guide(&dir, "red");
     let problems = check(&path, "guide.md", &tools(), false).unwrap();
+
     assert_eq!(problems.len(), 1);
     assert!(problems[0].contains("colours in"), "{}", problems[0]);
     assert!(rendered(&path, &std::fs::read_to_string(&path).unwrap()).is_empty());
@@ -204,6 +217,7 @@ fn matching_text_without_its_colours_fails_until_accepted() {
 fn a_capture_without_blocks_is_stale_and_accept_removes_it() {
     let dir = test_support::TempDir::new("doc-console");
     let path = dir.join("guide.md");
+
     std::fs::write(&path, "No blocks.\n").unwrap();
     std::fs::write(capture_path(&path), "{\"blocks\": []}\n").unwrap();
     assert_eq!(check(&path, "guide.md", &tools(), false).unwrap().len(), 1);
@@ -230,6 +244,7 @@ fn shell_block(script: &str) -> Block {
 #[test]
 fn files_a_block_makes_are_removed_and_changing_one_is_an_error() {
     let dir = test_support::TempDir::new("doc-console");
+
     std::fs::write(dir.join("keep.txt"), "x").unwrap();
     let sh = Tools {
         jacket: Path::new("/bin/sh"),
@@ -239,11 +254,13 @@ fn files_a_block_makes_are_removed_and_changing_one_is_an_error() {
         "mkdir -p made/inner && echo y > made/inner/new.txt && echo out && echo err >&2",
     );
     let runs = run_block(&block, &dir, &sh).unwrap();
+
     assert_eq!(runs[0].output, "out\nerr");
     assert!(!dir.join("made").exists());
     assert!(dir.join("keep.txt").exists());
 
     let err = run_block(&shell_block("echo more >> keep.txt"), &dir, &sh).unwrap_err();
+
     assert!(
         err.contains("keep.txt; a console block must leave its folder as it found it"),
         "{err}"
@@ -254,6 +271,7 @@ fn files_a_block_makes_are_removed_and_changing_one_is_an_error() {
 fn only_jacket_jaic_and_cat_run() {
     let dir = test_support::TempDir::new("doc-console");
     let err = run_command("rm -rf x", &dir, &tools()).unwrap_err();
+
     assert!(
         err.contains("console blocks run `jacket`, `jaic` and `cat`"),
         "{err}"

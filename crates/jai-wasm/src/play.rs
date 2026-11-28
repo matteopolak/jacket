@@ -20,6 +20,7 @@ fn stdlib_sources() -> Vec<(&'static str, &'static [u8])> {
     let text = TEXT.get_or_init(|| {
         miniz_oxide::inflate::decompress_to_vec(COMPRESSED).expect("bundled stdlib is valid")
     });
+
     INDEX
         .iter()
         .map(|&(name, start, len)| (name, &text[start..start + len]))
@@ -77,10 +78,12 @@ impl PlayResult {
                     "column": d.column,
                     "message": d.message,
                 });
+
                 object["code"] = d.code.into();
                 object
             })
             .collect();
+
         json!({
             "exitCode": self.exit_code,
             "failurePhase": self.failure_phase,
@@ -100,17 +103,20 @@ pub(crate) fn virtual_fs(files: &BTreeMap<String, Vec<u8>>) -> VirtualFs {
 
 fn workspace_fs(files: &BTreeMap<String, Vec<u8>>, bundled: bool) -> VirtualFs {
     let mut fs = VirtualFs::default();
+
     if bundled {
         for (name, bytes) in stdlib_sources() {
             fs.insert(format!("/{name}"), bytes.to_vec());
         }
     }
+
     for (name, bytes) in files {
         fs.insert(
             format!("{WORKSPACE_ROOT}/{}", name.trim_start_matches('/')),
             bytes.clone(),
         );
     }
+
     fs
 }
 
@@ -120,6 +126,7 @@ fn workspace_fs(files: &BTreeMap<String, Vec<u8>>, bundled: bool) -> VirtualFs {
 pub(crate) fn program_options(fs: &dyn FileSystem, main: &Path, stdlib: &Path) -> Options {
     let inputs = ProgramInputs::for_file(fs, main, stdlib);
     let mut options = Options::for_program(fs, main, &inputs);
+
     jaic::target::select_os_cpu(&mut options, Some(TargetOs::Wasm), None);
     options
 }
@@ -131,6 +138,7 @@ fn workspace_main(main: &str) -> PathBuf {
 
 fn workspace_name(path: &str) -> String {
     let prefix = format!("{WORKSPACE_ROOT}/");
+
     path.strip_prefix(&prefix)
         .map_or_else(|| path.to_string(), str::to_string)
 }
@@ -141,10 +149,12 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
         Severity::Warning => "warning",
         Severity::Note => "note",
     };
+
     if (d.span.file.0 as usize) < compiler.src.sources.len() {
         let file = compiler.src.sources.get(d.span.file);
         // Characters, as the command line counts them.
         let (line, column) = file.lines().line_col(&file.text, d.span.start as usize);
+
         return PlayDiagnostic {
             severity,
             file: workspace_name(&file.path.to_string()),
@@ -154,6 +164,7 @@ fn convert(compiler: &Compiler, d: &Diagnostic) -> PlayDiagnostic {
             code: d.code.name(),
         };
     }
+
     PlayDiagnostic {
         severity,
         file: String::new(),
@@ -237,6 +248,7 @@ fn run_styled(
     library_root: Option<&str>,
 ) -> PlayResult {
     let mut result = PlayResult::default();
+
     if !files.contains_key(main) {
         result.failure_phase = Some("input");
         result.diagnostics.push(PlayDiagnostic {
@@ -247,8 +259,10 @@ fn run_styled(
             message: format!("main file '{main}' was not supplied"),
             code: Code::PlaygroundInput.name(),
         });
+
         return result;
     }
+
     let fs: Rc<dyn FileSystem> = Rc::new(workspace_fs(files, library_root.is_none()));
     let stdlib = if let Some(root) = library_root {
         let valid = !root.contains(['\\', ':', '\0'])
@@ -256,14 +270,17 @@ fn run_styled(
                 .split('/')
                 .all(|part| !part.is_empty() && part != "." && part != "..");
         let path = Path::new(WORKSPACE_ROOT).join(root);
+
         if !valid || jaic::find_preload(&*fs, &path).is_none() {
             result.failure_phase = Some("input");
             result.diagnostics.push(PlayDiagnostic {
                 severity: "error", file: String::new(), line: 0, column: 0,
                 message: "supplied library root must be a relative workspace directory containing its prelude".into(), code: Code::PlaygroundInput.name(),
             });
+
             return result;
         }
+
         path
     } else {
         PathBuf::from(STDLIB_ROOT)
@@ -275,9 +292,11 @@ fn run_styled(
     // Metaprogram workspaces are checked (no output backend in the browser).
     let workspace_host = host.clone();
     let reports = host.clone();
+
     if let Some(input) = &io.stdin {
         host.borrow_mut().set_stdin(input);
     }
+
     let workspaces = Workspaces::new(BuildEnv {
         unwritten_output_hint: None,
         fs: fs.clone(),
@@ -293,6 +312,7 @@ fn run_styled(
         observer: None,
     });
     let mut compiler = Compiler::new(program_options(&*fs, &workspace_main(main), &stdlib), fs);
+
     compiler
         .ct
         .interp
@@ -326,6 +346,7 @@ fn run_styled(
         }
         Err(d) => Err(d),
     };
+
     match outcome {
         Ok(code) => result.exit_code = code,
         Err(d) => {
@@ -338,13 +359,17 @@ fn run_styled(
             result.diagnostics.push(convert(&compiler, &d));
         }
     }
+
     for warning in &compiler.diag.warnings {
         result.diagnostics.push(convert(&compiler, warning));
     }
+
     let host = host.borrow();
+
     result.stdout = String::from_utf8_lossy(&host.stdout).into_owned();
     result.stderr = String::from_utf8_lossy(&host.stderr).into_owned();
     let (mut out, mut err) = (0, 0);
+
     for &(to_stderr, len) in &host.order {
         let (stream, bytes, at) = if to_stderr {
             ("stderr", &host.stderr, &mut err)
@@ -352,9 +377,11 @@ fn run_styled(
             ("stdout", &host.stdout, &mut out)
         };
         let text = String::from_utf8_lossy(&bytes[*at..*at + len]).into_owned();
+
         *at += len;
         result.output.push((stream, text));
     }
+
     result
 }
 
@@ -370,6 +397,7 @@ mod tests {
                 )
             })
             .collect();
+
         for (name, text) in [
             (
                 "library/internal/browser-fixture/module.jai",
@@ -394,6 +422,7 @@ mod tests {
         ] {
             files.insert(name.into(), text.as_bytes().to_vec());
         }
+
         files
     }
 
@@ -404,14 +433,17 @@ mod tests {
             compile_only: true,
             ..PlayOptions::default()
         };
+
         for main in ["library/tests/entry.jai", "external/main.jai"] {
             let result =
                 run_with_library(&files, main, limits, &PlayIo::default(), Some("library"));
+
             assert!(
                 result.diagnostics.iter().all(|d| d.severity != "error"),
                 "{result:?}"
             );
         }
+
         let result = run_with_library(
             &files,
             "external/private.jai",
@@ -419,6 +451,7 @@ mod tests {
             &PlayIo::default(),
             Some("library"),
         );
+
         assert!(
             result.diagnostics.iter().any(|d| d
                 .message
@@ -432,6 +465,7 @@ mod tests {
     #[test]
     fn supplied_library_rejects_escape_missing_and_invalid_roots() {
         let files = BTreeMap::from([("main.jai".into(), b"main :: () {}".to_vec())]);
+
         for root in [
             "",
             "../stdlib",
@@ -452,6 +486,7 @@ mod tests {
                 &PlayIo::default(),
                 Some(root),
             );
+
             assert!(
                 result
                     .diagnostics
@@ -466,6 +501,7 @@ mod tests {
 
     fn single(source: &str) -> PlayResult {
         let mut files = BTreeMap::new();
+
         files.insert("main.jai".to_string(), source.as_bytes().to_vec());
         run(&files, "main.jai")
     }
@@ -484,6 +520,7 @@ mod tests {
             main :: () -> int { return 42; }
         "##;
         let files = BTreeMap::from([("main.jai".into(), source.as_bytes().to_vec())]);
+
         for compile_only in [false, true] {
             let result = run_with(
                 &files,
@@ -493,6 +530,7 @@ mod tests {
                     ..PlayOptions::default()
                 },
             );
+
             assert_eq!(result.exit_code, None);
             assert!(
                 result
@@ -515,6 +553,7 @@ mod tests {
     #[test]
     fn styled_errors_are_coloured() {
         let mut files = BTreeMap::new();
+
         files.insert(
             "main.jai".to_string(),
             b"main :: () { x: int = \"no\"; }\n".to_vec(),
@@ -524,12 +563,14 @@ mod tests {
             ..PlayOptions::default()
         };
         let r = run_with(&files, "main.jai", styled);
+
         assert!(
             r.rendered.contains("\x1b[") && r.rendered.contains('│'),
             "{}",
             r.rendered
         );
         let r = run(&files, "main.jai");
+
         assert!(
             !r.rendered.contains('\x1b') && !r.rendered.is_empty(),
             "{}",
@@ -539,6 +580,7 @@ mod tests {
 
     fn with_input(source: &str, args: &[&str], stdin: &str) -> PlayResult {
         let mut files = BTreeMap::new();
+
         files.insert("main.jai".to_string(), source.as_bytes().to_vec());
         let io = PlayIo {
             args: args.iter().map(std::string::ToString::to_string).collect(),
@@ -581,6 +623,7 @@ mod tests {
             &[],
             "one\ntwo words\nxyz",
         );
+
         assert_eq!(r.exit_code, Some(0), "{}\n{:?}", r.rendered, r.stderr);
         assert_eq!(
             r.stdout,
@@ -595,6 +638,7 @@ mod tests {
             &["prog", "a b", ""],
             "",
         );
+
         assert_eq!(
             r.stdout, "<prog><a b><>",
             "{:?}\n{}",
@@ -605,6 +649,7 @@ mod tests {
     #[test]
     fn hello_world_prints_through_bundled_basic() {
         let r = single("#import \"Basic\";\nmain :: () { print(\"Hello, %!\\n\", 42); }\n");
+
         assert!(
             r.diagnostics.is_empty(),
             "{:?}\n{}",
@@ -636,6 +681,7 @@ mod tests {
             }
         "#,
         );
+
         assert!(
             r.diagnostics.is_empty(),
             "{:?}\n{}",
@@ -652,6 +698,7 @@ mod tests {
             "#import \"Basic\";\n",
             "main :: () { print(\"a\"); print(\"b\\n\"); log_error(\"bad\\n\"); print(\"c\\n\"); }\n",
         ));
+
         assert_eq!(r.stdout, "ab\nc\n", "{}", r.rendered);
         assert_eq!(r.stderr, "bad\n");
         assert_eq!(
@@ -670,6 +717,7 @@ mod tests {
     #[test]
     fn budget_stops_a_runaway_program() {
         let mut files = BTreeMap::new();
+
         files.insert(
             "main.jai".to_string(),
             b"#import \"Basic\";\nmain :: () { print(\"start\\n\"); while true {} }\n".to_vec(),
@@ -682,9 +730,11 @@ mod tests {
                 ..PlayOptions::default()
             },
         );
+
         assert_eq!(r.stdout, "start\n");
         assert!(r.exit_code.is_none() || r.exit_code != Some(0));
         let text = format!("{:?}{}", r.diagnostics, r.rendered);
+
         assert!(text.contains("execution budget exhausted"), "{text}");
     }
 
@@ -711,6 +761,7 @@ mod tests {
             "main :: () {}\n",
         );
         let mut files = BTreeMap::new();
+
         files.insert("main.jai".to_string(), source.as_bytes().to_vec());
         let r = run_with(
             &files,
@@ -722,6 +773,7 @@ mod tests {
             },
         );
         let text = format!("{:?}{}{}", r.diagnostics, r.rendered, r.stderr);
+
         assert!(text.contains("execution budget exhausted"), "{text}");
     }
 
@@ -733,6 +785,7 @@ mod tests {
         // number; a string whose data cannot be read is an error.
         let run = |source: &str| {
             let mut files = BTreeMap::new();
+
             files.insert("main.jai".to_string(), source.as_bytes().to_vec());
             run_with(&files, "main.jai", PlayOptions::default())
         };
@@ -743,6 +796,7 @@ mod tests {
             "P :: #run cast(*int) 80000000;\n",
             "main :: () { assert(cast(u64) H == 80000000 && cast(u64) P == 80000000); }\n",
         ));
+
         assert!(
             r.diagnostics.is_empty() && r.exit_code == Some(0),
             "{}{}",
@@ -753,6 +807,7 @@ mod tests {
             "S :: #run () -> string { s: string; s.count = 5; s.data = cast(*u8) 80000000; return s; }();\n",
             "main :: () {}\n",
         ));
+
         assert!(
             r.rendered.contains("cannot be read"),
             "{}{}",
@@ -800,6 +855,7 @@ mod tests {
             "main :: () {}\n",
         );
         let mut files = BTreeMap::new();
+
         files.insert("main.jai".to_string(), source.as_bytes().to_vec());
         let r = run_with(
             &files,
@@ -810,6 +866,7 @@ mod tests {
             },
         );
         let text = format!("{:?}{}{}", r.diagnostics, r.rendered, r.stderr);
+
         assert!(r.diagnostics.is_empty(), "{text}");
     }
 
@@ -818,8 +875,10 @@ mod tests {
         // Found by the `check` fuzz target: the invalid byte reads as U+FFFD (three bytes), and
         // the error's span ended inside it, so rendering the error panicked.
         let mut files = BTreeMap::new();
+
         files.insert("main.jai".to_string(), b"x := \"\\\x8b\";\n".to_vec());
         let r = run(&files, "main.jai");
+
         assert!(
             r.rendered.contains("unknown escape sequence"),
             "{}",
@@ -840,18 +899,21 @@ mod tests {
             "    BIG[1] = 1;\n",
             "}\n",
         ));
+
         assert_eq!(
             r.stdout, "true true\n",
             "{:?}\n{}",
             r.diagnostics, r.rendered
         );
         let text = format!("{:?}", r.diagnostics);
+
         assert!(text.contains("cannot allocate"), "{text}");
     }
 
     #[test]
     fn negative_basic_allocation_reports_its_assertion_without_aborting_the_host() {
         let r = single("#import \"Basic\"; main :: () { alloc(-1); }\n");
+
         assert_eq!(r.exit_code, None);
         assert_eq!(r.diagnostics.len(), 1, "{}", r.rendered);
         assert_eq!(r.diagnostics[0].code, "runtime-error");
@@ -868,6 +930,7 @@ mod tests {
     #[test]
     fn compile_only_skips_main() {
         let mut files = BTreeMap::new();
+
         files.insert(
             "main.jai".to_string(),
             b"#import \"Basic\";\n#run print(\"compile\\n\");\nmain :: () { print(\"run\\n\"); }\n"
@@ -878,6 +941,7 @@ mod tests {
             ..PlayOptions::default()
         };
         let r = run_with(&files, "main.jai", options);
+
         assert_eq!(r.stdout, "compile\n", "{:?}\n{}", r.diagnostics, r.rendered);
         assert_eq!(r.exit_code, None);
     }
@@ -885,6 +949,7 @@ mod tests {
     #[test]
     fn loads_sibling_workspace_files() {
         let mut files = BTreeMap::new();
+
         files.insert(
             "main.jai".to_string(),
             concat!(
@@ -900,14 +965,17 @@ mod tests {
             b"twice :: (x: int) -> int { return x * 2; }\n".to_vec(),
         );
         let r = run(&files, "main.jai");
+
         assert_eq!(r.stdout, "42\n", "{}", r.rendered);
     }
 
     #[test]
     fn reports_diagnostics_with_positions() {
         let r = single("main :: () {\n    x := missing;\n}\n");
+
         assert_eq!(r.exit_code, None);
         let d = &r.diagnostics[0];
+
         assert_eq!(
             (d.file.as_str(), d.line),
             ("main.jai", 2),
@@ -947,6 +1015,7 @@ mod tests {
             &[],
             "one\r\n\ntwo words\nlast",
         );
+
         assert_eq!(r.exit_code, Some(0), "{}\n{:?}", r.rendered, r.stderr);
         assert_eq!(r.stdout, "[one][][two words][last]\n");
     }
@@ -958,6 +1027,7 @@ mod tests {
         let r = single(
             "#import \"Basic\";\nlibc :: #system_library \"libc\";\nc_exit :: (status: s32) #foreign libc \"exit\";\nmain :: () {\n    print(\"before\\n\");\n    c_exit(7);\n    print(\"after\\n\");\n}\n",
         );
+
         assert_eq!(r.stdout, "before\n", "{:?}\n{}", r.diagnostics, r.rendered);
         assert_eq!(r.exit_code, Some(7), "{}", r.rendered);
         assert!(r.diagnostics.is_empty(), "{:?}", r.diagnostics);
@@ -969,6 +1039,7 @@ mod tests {
             "lib :: #library \"libnothere\";\nnothere :: () #foreign lib;\nmain :: () { nothere(); }\n",
         );
         let codes: Vec<_> = r.diagnostics.iter().map(|d| d.code).collect();
+
         assert_eq!(codes, ["unavailable"], "{:?}", r.diagnostics);
     }
 
@@ -977,14 +1048,17 @@ mod tests {
         let r = single(
             "#import \"Basic\";\nmain :: () {\n    print(\"before\\n\");\n    a: [2] int;\n    i := 5;\n    a[i] = 1;\n}\n",
         );
+
         assert_eq!(r.stdout, "before\n");
         let codes: Vec<_> = r.diagnostics.iter().map(|d| d.code).collect();
+
         assert_eq!(codes, ["runtime-error"], "{:?}", r.diagnostics);
     }
 
     #[test]
     fn public_thread_module_rejects_browser_target() {
         let r = single("#import \"Thread\"; main :: () {}");
+
         assert_eq!(r.exit_code, None);
         assert!(
             r.diagnostics.iter().any(|d| d.code == "static-assert"),
@@ -998,6 +1072,7 @@ mod tests {
     fn sandbox_threads_run_cooperatively_and_join_actual_results() {
         for _ in 0..3 {
             let r = single(include_str!("../tests/fixtures/cooperative-runtime.jai"));
+
             assert_eq!(r.stdout, "ok\n", "{:?}\n{}", r.diagnostics, r.rendered);
             assert_eq!(r.exit_code, Some(0));
         }
@@ -1010,6 +1085,7 @@ mod tests {
             include_str!("../../../examples/threads/cooperative.jai")
         );
         let result = single(&source);
+
         assert_eq!(result.exit_code, Some(0), "{}", result.rendered);
         assert!(
             result.stdout.contains(
@@ -1030,11 +1106,13 @@ mod tests {
     #[test]
     fn sandbox_files_live_in_memory_and_include_workspace_sources() {
         let r = single(include_str!("../tests/fixtures/sandbox-files.jai"));
+
         assert_eq!(r.stdout, "ok\n", "{:?}\n{}", r.diagnostics, r.rendered);
         assert_eq!(r.exit_code, Some(0));
         let isolated = single(
             "fopen :: (path:*u8,mode:*u8)->*void #foreign; main :: () -> int { if fopen(\"/tmp/x.txt\\0\".data,\"rb\\0\".data)!=null return 1; return 0; }",
         );
+
         assert_eq!(isolated.exit_code, Some(0), "{}", isolated.rendered);
     }
 
@@ -1043,6 +1121,7 @@ mod tests {
         let invalid = single(
             "pthread_join :: (handle:u64,result:**void)->s32 #foreign; main :: ()->int {if pthread_join(0,null)==0 return 1;return 0;}",
         );
+
         assert_eq!(invalid.exit_code, Some(0), "{}", invalid.rendered);
         let deadlocked = single(
             r"
@@ -1061,6 +1140,7 @@ mod tests {
             }
         ",
         );
+
         assert_eq!(deadlocked.exit_code, None);
         assert!(
             deadlocked
@@ -1075,6 +1155,7 @@ mod tests {
     #[test]
     fn modules_folder_next_to_main_is_searched() {
         let mut files = BTreeMap::new();
+
         files.insert(
             "main.jai".to_string(),
             concat!(
@@ -1090,6 +1171,7 @@ mod tests {
             b"from_local :: () -> int { return 7; }\n".to_vec(),
         );
         let r = run(&files, "main.jai");
+
         assert_eq!(r.stdout, "7\n", "{:?}\n{}", r.diagnostics, r.rendered);
     }
 }

@@ -39,9 +39,11 @@ impl Bridge {
         let Ok(byte) = u8::try_from(byte) else {
             return self.fail("language input is not a byte");
         };
+
         if self.input.len() >= INPUT_LIMIT {
             return self.fail("language message byte limit exceeded");
         }
+
         self.input.push(byte);
         0
     }
@@ -65,13 +67,17 @@ impl Bridge {
             return self.fail("language response byte limit exceeded");
         };
         let mut output = Vec::with_capacity(length);
+
         output.push(b'[');
+
         for (index, message) in messages.iter().enumerate() {
             if index != 0 {
                 output.push(b',');
             }
+
             output.extend_from_slice(message.as_bytes());
         }
+
         output.push(b']');
         self.output = output;
         self.diagnostic.clear();
@@ -83,6 +89,7 @@ impl Bridge {
 pub fn lsp_environment() -> Environment {
     let fs = Rc::new(virtual_fs(&BTreeMap::new()));
     let option_fs = fs.clone();
+
     Environment {
         services: None,
         fs,
@@ -171,11 +178,14 @@ mod tests {
         let mut bridge = Bridge::default();
         let request =
             r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#;
+
         for byte in request.bytes() {
             assert_eq!(bridge.push(u32::from(byte)), 0);
         }
+
         assert_eq!(bridge.dispatch(), 0);
         let output = std::str::from_utf8(&bridge.output).unwrap();
+
         assert!(output.contains("capabilities"));
         assert!(output.contains("\"id\":1"));
         assert_eq!(bridge.push(256), 1);
@@ -196,6 +206,7 @@ mod tests {
         for byte in message.bytes() {
             assert_eq!(bridge.push(u32::from(byte)), 0);
         }
+
         assert_eq!(bridge.dispatch(), 0);
         String::from_utf8(bridge.output.clone()).unwrap()
     }
@@ -203,6 +214,7 @@ mod tests {
     #[test]
     fn hover_and_completion_use_the_bundled_stdlib() {
         let mut bridge = Bridge::default();
+
         send(
             &mut bridge,
             r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -231,6 +243,7 @@ mod tests {
             }},
         })
         .to_string();
+
         send(&mut bridge, &open);
         let hover = send(
             &mut bridge,
@@ -240,6 +253,7 @@ mod tests {
                 r#""position":{"line":3,"character":18}}}"#,
             ),
         );
+
         assert!(hover.contains("count: s64"), "{hover}");
         let layout = send(
             &mut bridge,
@@ -249,6 +263,7 @@ mod tests {
                 r#""position":{"line":6,"character":1}}}"#,
             ),
         );
+
         assert!(
             layout.contains("size 8, align 4 (3 bytes of padding)"),
             "{layout}"
@@ -261,6 +276,7 @@ mod tests {
                 r#""position":{"line":4,"character":4}}}"#,
             ),
         );
+
         assert!(completion.contains("\"label\":\"count\""), "{completion}");
         assert!(completion.contains("\"label\":\"print\""), "{completion}");
     }
@@ -268,6 +284,7 @@ mod tests {
     #[test]
     fn expansions_inlay_hints_and_format_strings_work_in_the_bridge() {
         let mut bridge = Bridge::default();
+
         send(
             &mut bridge,
             concat!(
@@ -295,10 +312,12 @@ mod tests {
             }},
         })
         .to_string();
+
         send(&mut bridge, &open);
         // A format string with too few arguments is the compiler's warning.
         let bad = r##"{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"textDocument":{"uri":"file:///jai-script/bad.jai","languageId":"jai","version":1,"text":"#import \"Basic\";\nmain :: () { print(\"% %\\n\", 1); }\n"}}}"##;
         let published = send(&mut bridge, bad);
+
         assert!(
             published.contains("incorrect number of arguments"),
             "{published}"
@@ -311,6 +330,7 @@ mod tests {
                 r#""range":{"start":{"line":0,"character":0},"end":{"line":7,"character":0}}}}"#,
             ),
         );
+
         assert!(hints.contains("\"label\":\": s64\""), "{hints}");
         let expansion = send(
             &mut bridge,
@@ -320,6 +340,7 @@ mod tests {
                 r#""position":{"line":4,"character":6}}}"#,
             ),
         );
+
         assert!(expansion.contains("twice := count * 2;"), "{expansion}");
         let hover = send(
             &mut bridge,
@@ -329,6 +350,7 @@ mod tests {
                 r#""position":{"line":5,"character":12}}}"#,
             ),
         );
+
         // The client asked for Markdown: the argument and its type are a code span.
         assert!(hover.contains(r#""kind":"markdown""#), "{hover}");
         assert!(hover.contains("`count: s64`"), "{hover}");
@@ -342,6 +364,7 @@ mod tests {
                 r#""position":{"line":0,"character":10}}}"#,
             ),
         );
+
         assert!(
             definition.contains(r#""uri":"file:///stdlib/Basic/module.jai""#),
             "{definition}"
@@ -353,6 +376,7 @@ mod tests {
                 r#""textDocument":{"uri":"file:///jai-script/main.jai"}}}"#,
             ),
         );
+
         assert!(
             links.contains(r#""target":"file:///stdlib/Basic/module.jai""#),
             "{links}"
@@ -363,6 +387,7 @@ mod tests {
         );
         let messages: Vec<serde_json::Value> = serde_json::from_str(&source).unwrap();
         let response = messages.iter().find(|message| message["id"] == 7).unwrap();
+
         assert_eq!(
             response["result"].as_str().unwrap(),
             include_str!("../../../stdlib/Basic/module.jai"),
@@ -373,6 +398,7 @@ mod tests {
     #[test]
     fn asm_blocks_get_instruction_completion_and_hover_in_the_bridge() {
         let mut bridge = Bridge::default();
+
         send(
             &mut bridge,
             r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"capabilities":{}}}"#,
@@ -383,6 +409,7 @@ mod tests {
             r#""uri":"file:///jai-script/main.jai","languageId":"jai","version":1,"#,
             r#""text":"main :: () {\n    total := 1;\n    #asm AVX2 {\n        vpaddd v:, v, v;\n        vpad\n}\n"}}}"#,
         );
+
         send(&mut bridge, open);
         let completion = send(
             &mut bridge,
@@ -392,6 +419,7 @@ mod tests {
                 r#""position":{"line":4,"character":12}}}"#,
             ),
         );
+
         assert!(
             completion.contains(r#""label":"vpaddd""#)
                 && completion.contains("vpaddd dst: vec, a: vec, b: vec/mem (AVX2)")
@@ -406,6 +434,7 @@ mod tests {
                 r#""position":{"line":3,"character":10}}}"#,
             ),
         );
+
         assert!(
             hover.contains("Requires AVX2") && hover.contains(r#""id":3"#),
             "{hover}"

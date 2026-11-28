@@ -36,6 +36,7 @@ fn markdown(s: &Session, position: Position) -> String {
         .hover_as(&uri(), position, MarkupKind::Markdown)
         .unwrap()
         .expect("hover");
+
     assert_eq!(hover.contents.kind, MarkupKind::Markdown);
     hover.contents.value
 }
@@ -68,8 +69,10 @@ main :: () {
 #[test]
 fn hovers_show_what_metaprograms_produced() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let macro_hover = hover(&s, at_nth(PROGRAM, "square(total", 0, 2));
+
     assert!(
         macro_hover.starts_with("square :: (x: int) -> int #expand"),
         "{macro_hover}"
@@ -81,10 +84,13 @@ fn hovers_show_what_metaprograms_produced() {
         "{macro_hover}"
     );
     let insert = hover(&s, at_nth(PROGRAM, "#insert", 0, 2));
+
     assert_eq!(insert, "#insert\n─── expands to ───\ninserted := 40 + 2;");
     let run = hover(&s, at_nth(PROGRAM, "#run compute", 0, 2));
+
     assert_eq!(run, "#run = 30: s64\n─── prints ───\ncomputing");
     let condition = hover(&s, at_nth(PROGRAM, "#if SIZE", 0, 1));
+
     assert_eq!(
         condition,
         "#if: the condition is true, the first branch is compiled"
@@ -94,21 +100,26 @@ fn hovers_show_what_metaprograms_produced() {
 #[test]
 fn format_string_hover_lists_each_directive() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let summary = hover(&s, at_nth(PROGRAM, "\"% and", 0, 4));
+
     assert_eq!(
         summary,
         "\"% and %2 of %1\\n\"\n  %  → total: s64\n  %2 → s: s64\n  %1 → total: s64"
     );
     let marked = hover(&s, at_nth(PROGRAM, "%2 of", 0, 0));
+
     assert!(marked.contains("▸ %2 → s: s64"), "{marked}");
 }
 
 #[test]
 fn markdown_hovers_fence_code_and_break_sections() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let macro_hover = markdown(&s, at_nth(PROGRAM, "square(total", 0, 2));
+
     assert!(
         macro_hover.starts_with("```jai\nsquare :: (x: int) -> int #expand"),
         "{macro_hover}"
@@ -143,6 +154,7 @@ fn markdown_hovers_fence_code_and_break_sections() {
     // An overload set: one declaration per overload, the documented ones followed by
     // their docs.
     let overloads = markdown(&s, at_nth(PROGRAM, "print(\"% and", 0, 1));
+
     assert!(overloads.starts_with("```jai\nprint :: ("), "{overloads}");
     assert!(
         overloads.contains("Writes the formatted text to standard output"),
@@ -154,6 +166,7 @@ fn markdown_hovers_fence_code_and_break_sections() {
 #[test]
 fn markdown_format_hover_is_a_list_with_the_hovered_row_bold() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     assert_eq!(
         markdown(&s, at_nth(PROGRAM, "%2 of", 0, 0)),
@@ -173,6 +186,7 @@ fn markdown_format_hover_is_a_list_with_the_hovered_row_bold() {
 #[test]
 fn inlay_hints_show_types_parameters_and_run_values() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let hints = s.inlay_hints(&uri(), everything(PROGRAM)).unwrap();
     let find = |label: &str| {
@@ -182,6 +196,7 @@ fn inlay_hints_show_types_parameters_and_run_values() {
             .unwrap_or_else(|| panic!("no hint {label}: {hints:?}"))
     };
     let total = find(": s64");
+
     assert_eq!(total.position, at_nth(PROGRAM, "total := 1", 0, 5));
     assert_eq!(total.kind, Some(InlayHintKind::Type));
     assert_eq!(
@@ -189,6 +204,7 @@ fn inlay_hints_show_types_parameters_and_run_values() {
         at_nth(PROGRAM, "b := identity", 0, 1)
     );
     let value = find("value:");
+
     assert_eq!(value.position, at_nth(PROGRAM, "5, factor", 0, 0));
     assert_eq!(value.kind, Some(InlayHintKind::Parameter));
     // A named argument needs no hint, and `kind := Kind.TWO` says its type.
@@ -217,7 +233,9 @@ fn inlay_hints_name_the_implicit_loop_variables() {
         \x20   for value: xs { x := it_index; }\n\
         \x20   for value, n: xs { }\n\
         }\n";
+
     let mut s = session();
+
     s.open(uri(), 1, LOOPS.into()).unwrap();
     let hints = s.inlay_hints(&uri(), everything(LOOPS)).unwrap();
     let find = |label: &str| {
@@ -226,6 +244,7 @@ fn inlay_hints_name_the_implicit_loop_variables() {
             .find(|h| h.label == label)
             .unwrap_or_else(|| panic!("no hint {label}: {hints:?}"))
     };
+
     assert_eq!(
         find("it: string, it_index: s64").position,
         at_nth(LOOPS, "xs {", 0, 0)
@@ -248,6 +267,7 @@ fn inlay_hints_name_the_implicit_loop_variables() {
 #[test]
 fn code_actions_show_and_inline_expansions() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let cursor = at_nth(PROGRAM, "#insert", 0, 1);
     let actions = s
@@ -260,12 +280,15 @@ fn code_actions_show_and_inline_expansions() {
         )
         .unwrap();
     let titles: Vec<&str> = actions.iter().map(|a| a.title.as_str()).collect();
+
     assert_eq!(titles, ["Show #insert expansion", "Inline #insert"]);
     let (_, edits) = actions[1].edit.as_ref().unwrap();
+
     assert_eq!(edits[0].new_text, "inserted := 40 + 2;");
     assert_eq!(edits[0].range.start, at_nth(PROGRAM, "#insert", 0, 0));
     assert_eq!(edits[0].range.end, at_nth(PROGRAM, "();\n    #if", 0, 3));
     let command = actions[0].command.as_ref().unwrap();
+
     assert_eq!(command.command, "jai.showExpansion");
     let target = command.arguments[0]["uri"].as_str().unwrap().to_owned();
     let position: Position =
@@ -274,6 +297,7 @@ fn code_actions_show_and_inline_expansions() {
         .expansion(&DocumentUri::parse(&target).unwrap(), position)
         .unwrap()
         .unwrap();
+
     assert_eq!(expansion.kind, "insert");
     assert!(
         expansion
@@ -295,6 +319,7 @@ fn code_actions_show_and_inline_expansions() {
             },
         )
         .unwrap();
+
     // It printed something: replacing it would drop the output.
     assert_eq!(actions.len(), 1, "{actions:?}");
 }
@@ -302,6 +327,7 @@ fn code_actions_show_and_inline_expansions() {
 #[test]
 fn semantic_tokens_distinguish_jai_constructs() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let tokens = s.semantic_tokens(&uri()).unwrap();
     let kind_at = |position: Position| {
@@ -311,6 +337,7 @@ fn semantic_tokens_distinguish_jai_constructs() {
             .unwrap_or_else(|| panic!("no token at {position:?}"))
     };
     let square = kind_at(at_nth(PROGRAM, "square(total", 0, 0));
+
     assert_eq!(square.kind, SemanticTokenKind::Function);
     assert!(square.expand);
     assert_eq!(
@@ -330,6 +357,7 @@ fn semantic_tokens_distinguish_jai_constructs() {
         SemanticTokenKind::EnumMember
     );
     let size = kind_at(at_nth(PROGRAM, "SIZE > 10", 0, 0));
+
     assert_eq!(size.kind, SemanticTokenKind::Variable);
     assert!(size.readonly);
     assert_eq!(
@@ -347,7 +375,9 @@ fn semantic_tokens_distinguish_jai_constructs() {
 fn semantic_tokens_leave_language_tagged_here_strings_to_the_editor() {
     const TEXT: &str =
         "SHADER :: #string,cr wgsl\n@vertex fn vs() {}\nwgsl;\nTEXT :: #string END\nplain\nEND;\n";
+
     let mut s = Session::new(Limits::default());
+
     s.open(uri(), 1, TEXT.into()).unwrap();
     let tokens = s.semantic_tokens(&uri()).unwrap();
     let strings: Vec<u32> = tokens
@@ -355,6 +385,7 @@ fn semantic_tokens_leave_language_tagged_here_strings_to_the_editor() {
         .filter(|t| t.kind == SemanticTokenKind::String)
         .map(|t| t.position.line)
         .collect();
+
     // Only the untagged here-string, one token per line.
     assert_eq!(strings, [3, 4, 5], "{tokens:?}");
     assert!(
@@ -367,11 +398,13 @@ fn semantic_tokens_leave_language_tagged_here_strings_to_the_editor() {
 #[test]
 fn references_type_definitions_and_signature_help() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let refs = s
         .references(&uri(), at_nth(PROGRAM, "total := 1", 0, 1), true)
         .unwrap();
     let starts: Vec<Position> = refs.iter().map(|r| r.range.start).collect();
+
     assert!(
         starts.contains(&at_nth(PROGRAM, "total := 1", 0, 0)),
         "{starts:?}"
@@ -387,17 +420,20 @@ fn references_type_definitions_and_signature_help() {
     let calls = s
         .references(&uri(), at_nth(PROGRAM, "scale ::", 0, 1), false)
         .unwrap();
+
     assert_eq!(calls.len(), 1, "{calls:?}");
     assert_eq!(calls[0].range.start, at_nth(PROGRAM, "scale(5", 0, 0));
     let types = s
         .type_definition(&uri(), at_nth(PROGRAM, "kind :=", 0, 1))
         .unwrap();
+
     assert_eq!(types.len(), 1, "{types:?}");
     assert_eq!(types[0].range.start, at_nth(PROGRAM, "Kind :: enum", 0, 0));
     let help = s
         .signature_help(&uri(), at_nth(PROGRAM, "factor = 2", 0, 0))
         .unwrap()
         .unwrap();
+
     assert_eq!(
         help.signatures[help.active_signature].label,
         "scale :: (value: int, factor: int) -> int"
@@ -406,11 +442,13 @@ fn references_type_definitions_and_signature_help() {
     // While typing: the call does not parse yet.
     let typing = PROGRAM.replace("    kind := Kind.TWO;\n", "    x := scale(1, \n");
     let mut s = session();
+
     s.open(uri(), 1, typing.clone()).unwrap();
     let help = s
         .signature_help(&uri(), at_nth(&typing, "scale(1, ", 0, 9))
         .unwrap()
         .unwrap();
+
     assert_eq!(help.signatures[0].parameters, ["value: int", "factor: int"]);
     assert_eq!(help.active_parameter, 1);
 }
@@ -418,14 +456,18 @@ fn references_type_definitions_and_signature_help() {
 #[test]
 fn outline_folding_lenses_and_workspace_symbols() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let symbols = s.workspace_symbols("SCA");
+
     assert_eq!(symbols.len(), 1);
     assert_eq!(symbols[0].name, "scale");
     let folds = s.folding_ranges(&uri()).unwrap();
     let main = at_nth(PROGRAM, "main ::", 0, 0).line;
+
     assert!(folds.iter().any(|f| f.start_line == main), "{folds:?}");
     let lenses = s.code_lenses(&uri()).unwrap();
+
     assert_eq!(lenses.len(), 1, "{lenses:?}");
     assert_eq!(lenses[0].range.start, at_nth(PROGRAM, "identity ::", 0, 0));
     assert_eq!(lenses[0].command.title, "2 polymorphs: T = s64; T = string");
@@ -440,6 +482,7 @@ fn protocol_exposes_the_new_requests() {
     let mut json = JsonSession::with_environment(Limits::default(), environment());
     let send = |json: &mut JsonSession, message: serde_json::Value| -> serde_json::Value {
         let out = json.handle_json(&message.to_string()).unwrap();
+
         out.last().map_or(serde_json::Value::Null, |m| {
             serde_json::from_str(m).unwrap()
         })
@@ -449,6 +492,7 @@ fn protocol_exposes_the_new_requests() {
         serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}}),
     );
     let caps = &init["result"]["capabilities"];
+
     for key in [
         "inlayHintProvider",
         "codeActionProvider",
@@ -464,6 +508,7 @@ fn protocol_exposes_the_new_requests() {
     ] {
         assert!(!caps[key].is_null(), "{key}");
     }
+
     assert!(
         caps["semanticTokensProvider"]["legend"]["tokenTypes"]
             .as_array()
@@ -481,6 +526,7 @@ fn protocol_exposes_the_new_requests() {
         serde_json::json!({"jsonrpc": "2.0", "id": 2, "method": "textDocument/inlayHint", "params": {
             "textDocument": document, "range": everything(PROGRAM)}}),
     );
+
     assert!(
         hints["result"]
             .as_array()
@@ -496,8 +542,10 @@ fn protocol_exposes_the_new_requests() {
             "textDocument": document, "range": {"start": position, "end": position}, "context": {"diagnostics": []}}}),
     );
     let show = &actions["result"][0]["command"];
+
     assert_eq!(show["command"], "jai.showExpansion");
     let inline = &actions["result"][1]["edit"]["changes"][uri().as_str()][0];
+
     assert_eq!(inline["newText"], "inserted := 40 + 2;");
     let executed = send(
         &mut json,
@@ -505,18 +553,22 @@ fn protocol_exposes_the_new_requests() {
             "command": "jai.showExpansion", "arguments": show["arguments"]}}),
     );
     let expansion_uri = executed["result"]["uri"].as_str().unwrap().to_string();
+
     assert!(expansion_uri.starts_with("jai-expansion:"));
     let direct = send(
         &mut json,
         serde_json::json!({"jsonrpc": "2.0", "id": 5, "method": "jai/expansion", "params": {
             "textDocument": document, "position": position}}),
     );
+
     assert_eq!(direct["result"], executed["result"]);
     let source = send(
         &mut json,
         serde_json::json!({"jsonrpc": "2.0", "id": 6, "method": "jai/source", "params": {"uri": expansion_uri}}),
     );
+
     assert_eq!(source["result"], executed["result"]["text"]);
+
     for (id, method) in [
         (7, "textDocument/references"),
         (8, "textDocument/signatureHelp"),
@@ -529,8 +581,10 @@ fn protocol_exposes_the_new_requests() {
                 "textDocument": document, "position": at_nth(PROGRAM, "total := 1", 0, 1),
                 "context": {"includeDeclaration": true}}}),
         );
+
         assert!(reply.get("error").is_none(), "{method}: {reply}");
     }
+
     for (id, method) in [
         (11, "textDocument/foldingRange"),
         (12, "textDocument/codeLens"),
@@ -539,28 +593,35 @@ fn protocol_exposes_the_new_requests() {
             &mut json,
             serde_json::json!({"jsonrpc": "2.0", "id": id, "method": method, "params": {"textDocument": document}}),
         );
+
         assert!(
             reply["result"].as_array().is_some_and(|a| !a.is_empty()),
             "{method}: {reply}"
         );
     }
+
     let symbols = send(
         &mut json,
         serde_json::json!({"jsonrpc": "2.0", "id": 13, "method": "workspace/symbol", "params": {"query": "identity"}}),
     );
+
     assert_eq!(symbols["result"][0]["name"], "identity");
 }
 
 #[test]
 fn rename_edits_every_reference() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     let position = at_nth(PROGRAM, "scale(5", 0, 2);
     let range = s.prepare_rename(&uri(), position).unwrap().unwrap();
+
     assert_eq!(range.start, at_nth(PROGRAM, "scale(5", 0, 0));
     let edits = s.rename(&uri(), position, "resize").unwrap().unwrap();
+
     assert_eq!(edits.len(), 1);
     let starts: Vec<Position> = edits[0].1.iter().map(|e| e.range.start).collect();
+
     assert_eq!(
         starts,
         [
@@ -574,6 +635,7 @@ fn rename_edits_every_reference() {
         .rename(&uri(), at_nth(PROGRAM, "total := 1", 0, 1), "sum")
         .unwrap()
         .unwrap();
+
     // The declaration, two uses, and `` `total `` in the macro body (the caller's local).
     assert_eq!(local[0].1.len(), 4, "{local:?}");
     assert_eq!(
@@ -591,6 +653,7 @@ fn rename_edits_every_reference() {
 #[test]
 fn keywords_are_described_without_the_language_name() {
     let mut s = session();
+
     s.open(uri(), 1, PROGRAM.into()).unwrap();
     assert_eq!(
         hover(&s, at_nth(PROGRAM, "return x * x", 0, 1)),
@@ -601,6 +664,7 @@ fn keywords_are_described_without_the_language_name() {
         .unwrap()
         .items;
     let keyword = items.iter().find(|i| i.label == "return").unwrap();
+
     assert_eq!(keyword.detail, "keyword");
 }
 
@@ -623,8 +687,10 @@ main :: () {
 #[test]
 fn code_arguments_instances_and_untaken_branches() {
     let mut s = session();
+
     s.open(uri(), 1, CODE_MACRO.into()).unwrap();
     let twice = hover(&s, at_nth(CODE_MACRO, "twice(#code", 0, 1));
+
     assert!(
         twice.ends_with("\n─── expands to ───\nprint(\"hi\\n\");\nprint(\"hi\\n\");"),
         "{twice}"
@@ -650,6 +716,7 @@ main :: () {
 #[test]
 fn lints_are_diagnostics_with_quick_fixes() {
     let mut s = session();
+
     s.open(uri(), 1, LINTED.into()).unwrap();
     let lints: Vec<_> = s
         .diagnostics(&uri())
@@ -657,6 +724,7 @@ fn lints_are_diagnostics_with_quick_fixes() {
         .into_iter()
         .filter(|d| matches!(d.code, DiagnosticCode::Lint(_)))
         .collect();
+
     assert_eq!(lints.len(), 1, "{lints:?}");
     assert_eq!(lints[0].code, DiagnosticCode::Lint("bool_comparison"));
     assert_eq!(lints[0].severity, DiagnosticSeverity::Warning);
@@ -671,6 +739,7 @@ fn lints_are_diagnostics_with_quick_fixes() {
             },
         )
         .unwrap();
+
     // The quick fix, then the action that applies every safe fix.
     assert_eq!(actions.len(), 2, "{actions:?}");
     assert_eq!(actions[0].kind, Some("quickfix"));
@@ -679,11 +748,13 @@ fn lints_are_diagnostics_with_quick_fixes() {
     assert!(actions[0].is_preferred);
     assert_eq!(actions[0].diagnostics, lints);
     let (_, edits) = actions[0].edit.as_ref().unwrap();
+
     assert_eq!(edits[0].new_text, "ready");
     assert_eq!(actions[1].kind, Some("source.fixAll.jailint"));
     // Over the wire: the rule is the code and jailint the source.
     let mut json = JsonSession::with_environment(Limits::default(), environment());
     let init = serde_json::json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
+
     json.handle_json(&init.to_string()).unwrap();
     let open = serde_json::json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {
         "textDocument": {"uri": uri().as_str(), "languageId": "jai", "version": 1, "text": LINTED}}});
@@ -695,6 +766,7 @@ fn lints_are_diagnostics_with_quick_fixes() {
         .find(|m| m["method"] == "textDocument/publishDiagnostics")
         .unwrap();
     let diagnostic = &published["params"]["diagnostics"][0];
+
     assert_eq!(diagnostic["code"], "bool_comparison");
     assert_eq!(diagnostic["source"], "jailint");
     assert_eq!(
@@ -708,6 +780,7 @@ fn request(json: &mut JsonSession, method: &str, params: serde_json::Value) -> s
     let message =
         serde_json::json!({"jsonrpc": "2.0", "id": 7, "method": method, "params": params});
     let replies = json.handle_json(&message.to_string()).unwrap();
+
     replies
         .iter()
         .map(|m| serde_json::from_str::<serde_json::Value>(m).unwrap())
@@ -723,6 +796,7 @@ fn notify(
     params: serde_json::Value,
 ) -> Vec<serde_json::Value> {
     let message = serde_json::json!({"jsonrpc": "2.0", "method": method, "params": params});
+
     json.handle_json(&message.to_string())
         .unwrap()
         .iter()
@@ -745,6 +819,7 @@ fn opened(text: &str) -> JsonSession {
     let mut json = JsonSession::with_environment(Limits::default(), environment());
     let init = request(&mut json, "initialize", serde_json::json!({}));
     let kinds = &init["capabilities"]["codeActionProvider"]["codeActionKinds"];
+
     assert!(
         kinds
             .as_array()
@@ -771,6 +846,7 @@ fn basic_temp_and_exit_resolve_after_incremental_member_edits() {
         for (needle, offset, expected) in [("Basic.temp", 6, "Allocator"), ("exit(1)", 0, "s32")] {
             let position = at_nth(text, needle, 0, offset);
             let found = request(json, "textDocument/hover", params(position));
+
             assert!(
                 found["contents"]["value"]
                     .as_str()
@@ -778,6 +854,7 @@ fn basic_temp_and_exit_resolve_after_incremental_member_edits() {
                 "{needle}: {found}"
             );
             let found = request(json, "textDocument/definition", params(position));
+
             assert!(
                 found
                     .as_array()
@@ -785,12 +862,16 @@ fn basic_temp_and_exit_resolve_after_incremental_member_edits() {
                 "{needle}: {found}"
             );
         }
+
         let position = at_nth(text, "Basic.exit", 0, 6);
+
         assert!(!request(json, "textDocument/hover", params(position)).is_null());
     };
+
     check(&mut json);
     let start = at_nth(text, "Basic.temp", 0, 6);
     let end = at_nth(text, "Basic.temp", 0, 10);
+
     notify(
         &mut json,
         "textDocument/didChange",
@@ -807,6 +888,7 @@ fn basic_temp_and_exit_resolve_after_incremental_member_edits() {
             character: start.character + 2,
         }),
     );
+
     assert!(
         completion["items"]
             .as_array()
@@ -823,6 +905,7 @@ fn basic_temp_and_exit_resolve_after_incremental_member_edits() {
             }}, "text": "temp"}]
         }),
     );
+
     for message in messages {
         if message["method"] == "textDocument/publishDiagnostics" {
             for diagnostic in message["params"]["diagnostics"].as_array().unwrap() {
@@ -830,5 +913,6 @@ fn basic_temp_and_exit_resolve_after_incremental_member_edits() {
             }
         }
     }
+
     check(&mut json);
 }

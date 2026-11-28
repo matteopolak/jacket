@@ -32,6 +32,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, chain| {
             let Some(e) = n.expr() else {
                 return true;
@@ -41,20 +42,25 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             };
             let types = &cx.compiler.ty.types;
             let int = |x: &Expr| cx.ty(x).is_some_and(|t| types.is_integer(t));
+
             if !int(e) || !int(a) || !int(b) {
                 return true;
             }
+
             let Some(Node::Expr(parent)) = chain.last() else {
                 return true;
             };
             let float = cx.ty(parent).is_some_and(|t| types.is_float(t));
+
             if !float {
                 return true;
             }
+
             // Halving a variable (`w / 2`, centring on whole pixels) is usually meant.
             if !cx.constant(a) && int_literal(b).is_some_and(|d| d > 0 && (d & (d - 1)) == 0) {
                 return true;
             }
+
             let how = match &parent.kind {
                 E::Cast {
                     ..
@@ -79,6 +85,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 _ => format!("cast(float) ({a_text})"),
             };
             let b_text = cx.whole_src(b).trim();
+
             out.push(suggesting(
                 e.span,
                 format!(

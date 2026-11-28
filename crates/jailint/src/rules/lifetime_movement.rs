@@ -64,9 +64,11 @@ pub(super) fn notes(compiler: &Compiler, proc: ProcId) -> impl Iterator<Item = &
 
 pub(super) fn parameters<'a>(text: &'a str, name: &str) -> Option<Vec<&'a str>> {
     let text = text.trim();
+
     if text == name {
         return Some(Vec::new());
     }
+
     let args = text
         .strip_prefix(name)?
         .strip_prefix('(')?
@@ -77,16 +79,19 @@ pub(super) fn parameters<'a>(text: &'a str, name: &str) -> Option<Vec<&'a str>> 
 /// Result positions named by an ownership contract; an unindexed note means result zero.
 pub(super) fn result_indices(compiler: &Compiler, proc: ProcId, name: &str) -> Vec<usize> {
     let mut indices = Vec::new();
+
     for note in notes(compiler, proc) {
         let Some(args) = parameters(&note.text, name) else {
             continue;
         };
+
         if args.is_empty() {
             indices.push(0);
         } else {
             indices.extend(args.iter().filter_map(|a| a.parse::<usize>().ok()));
         }
     }
+
     indices.sort_unstable();
     indices.dedup();
     indices
@@ -109,8 +114,10 @@ fn noted_formal(compiler: &Compiler, proc: ProcId, names: &[&str]) -> Option<usi
     if compiler.pr.procs[proc.0 as usize].lit.body.is_some() {
         return None;
     }
+
     notes(compiler, proc).find_map(|n| {
         let args = names.iter().find_map(|name| parameters(&n.text, name))?;
+
         if args.is_empty() {
             Some(0)
         } else {
@@ -133,14 +140,17 @@ pub(super) fn contracts(compiler: &Compiler, proc: ProcId) -> Vec<(usize, Mutati
                     .get(1)
                     .and_then(|s| s.parse().ok())
                     .map_or(Selector::Unknown, Selector::Formal);
+
                 return Some((0, Mutation::new(action, first)));
             }
+
             if let Some(args) = parameters(&n.text, "ResetsElements") {
                 return Some((
                     args.first().and_then(|s| s.parse().ok()).unwrap_or(0),
                     Mutation::new(Action::Reset, Selector::Unknown),
                 ));
             }
+
             if let Some(args) = parameters(&n.text, "RemovesElement") {
                 return Some((
                     0,
@@ -150,6 +160,7 @@ pub(super) fn contracts(compiler: &Compiler, proc: ProcId) -> Vec<(usize, Mutati
                     ),
                 ));
             }
+
             let args = parameters(&n.text, "MovesElements")?;
             let action = match *args.first()? {
                 "insert" => Action::Insert,
@@ -158,6 +169,7 @@ pub(super) fn contracts(compiler: &Compiler, proc: ProcId) -> Vec<(usize, Mutati
                 "sort" => Action::Sort,
                 _ => return None,
             };
+
             Some((
                 0,
                 Mutation {
@@ -179,6 +191,7 @@ pub(super) fn contracts(compiler: &Compiler, proc: ProcId) -> Vec<(usize, Mutati
 /// A must fact about logical identity, independent of physical allocation validity.
 pub(super) fn invalidates(m: Mutation, index: Selector, length: Option<i128>) -> bool {
     use Selector::{Constant as C, Last, Unknown};
+
     match (m.action, index, m.first) {
         (Action::Reset, _, _) => true,
         (Action::Count, _, C(0)) => true,
@@ -215,6 +228,7 @@ pub(super) fn borrowed(compiler: &Compiler, proc: ProcId) -> Vec<(usize, Selecto
             let container = args.first()?.parse().ok()?;
             let key = args.get(1)?.parse().ok();
             let pointer = args.get(2)?.parse().ok()?;
+
             Some((
                 container,
                 key.map_or(Selector::Unknown, |key| {
@@ -233,9 +247,11 @@ pub(super) fn borrowed(compiler: &Compiler, proc: ProcId) -> Vec<(usize, Selecto
 /// Possible logical invalidation. Exact negative facts remain useful in strict mode.
 pub(super) fn possibly_invalidates(m: Mutation, index: Selector, length: Option<i128>) -> bool {
     use Selector::{Constant as C, CountDelta, Last};
+
     if invalidates(m, index, length) {
         return true;
     }
+
     match (m.action, index, m.first) {
         (Action::Count, C(i), C(n)) => i >= n,
         (Action::Count, _, CountDelta(n)) if n >= 0 => false,

@@ -19,6 +19,7 @@ fn procedure(blocks: usize) -> String {
          \x20   s: State;\n\
          \x20   defer { for *it: s.items { array_free(it.data); free(it.label); } array_free(s.items); free(s.name); }\n",
     );
+
     for i in 0..blocks {
         text.push_str(&format!(
             "    {{\n\
@@ -29,6 +30,7 @@ fn procedure(blocks: usize) -> String {
              \x20   }}\n"
         ));
     }
+
     text.push_str("}\nmain :: () { big_check(); }\n");
     text
 }
@@ -36,6 +38,7 @@ fn procedure(blocks: usize) -> String {
 /// The statistics lines jailint prints for `blocks` scopes.
 fn stats(blocks: usize) -> String {
     let dir = TempDir::new("lifetime-scaling");
+
     std::fs::write(dir.join("main.jai"), procedure(blocks)).unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_jailint"))
         .arg("main.jai")
@@ -49,6 +52,7 @@ fn stats(blocks: usize) -> String {
 
 fn field(line: &str, name: &str) -> usize {
     let at = line.find(&format!("{name}=")).unwrap() + name.len() + 1;
+
     line[at..]
         .split(|c: char| !c.is_ascii_digit())
         .next()
@@ -68,6 +72,7 @@ fn swept(text: &str) -> usize {
 #[test]
 fn a_procedure_four_times_longer_costs_about_four_times_the_dataflow() {
     let (small, large) = (swept(&stats(30)), swept(&stats(120)));
+
     assert!(small > 0, "no dataflow ran");
     // Linear growth is 4x; a sweep of the whole CFG per candidate is 16x.
     assert!(
@@ -84,8 +89,10 @@ fn each_procedure_is_lowered_once_for_all_the_lifetime_rules() {
         .filter(|l| l.starts_with("lifetime-cfg-build"))
         .map(|l| field(l, "proc"))
         .collect();
+
     assert!(!built.is_empty(), "no CFG was built");
     let all = built.len();
+
     built.sort_unstable();
     built.dedup();
     assert_eq!(built.len(), all, "{text}");

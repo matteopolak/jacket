@@ -31,6 +31,7 @@ impl Compiler {
         };
         let mut out: Vec<(Span, String)> = Vec::new();
         let mut conflicting = Vec::new();
+
         for r in ide.refs.iter().filter(|r| r.decl && r.span.file == file) {
             let IdeWhat::Entity(e) = r.what else {
                 continue;
@@ -42,18 +43,21 @@ impl Compiler {
                 continue;
             };
             let name = spell(&self.ty.types, ty);
+
             match out.iter().find(|(s, _)| *s == r.span) {
                 Some((_, n)) if *n != name => conflicting.push(r.span),
                 Some(_) => {}
                 None => out.push((r.span, name)),
             }
         }
+
         out.retain(|(s, _)| !conflicting.contains(s));
         out
     }
 
     fn ide_class_of_entity(&self, id: EntityId) -> Option<IdeClass> {
         let e = self.entity(id);
+
         Some(match &e.kind {
             EntityKind::Local {
                 ..
@@ -108,6 +112,7 @@ impl Compiler {
                 EntityState::Done(Resolved::Module(_) | Resolved::Library(_)) => IdeClass::Module,
                 _ => {
                     use crate::ast::ExprKind as E;
+
                     match (decl.kind, decl.value.as_ref().map(|v| &v.kind)) {
                         (_, Some(E::Proc(lit))) if lit.header.flags.expand() => IdeClass::Macro,
                         (_, Some(E::Proc(_))) => IdeClass::Function,
@@ -140,13 +145,16 @@ impl Compiler {
                 .collect(),
             None => return Vec::new(),
         };
+
         for id in pending {
             let _ = self.resolve_entity(id);
         }
+
         let Some(ide) = self.ed.facts() else {
             return Vec::new();
         };
         let mut out = Vec::new();
+
         for r in ide.refs.iter().filter(|r| r.span.file == file) {
             let class = match &r.what {
                 IdeWhat::Entity(e) => match self.ide_class_of_entity(*e) {
@@ -177,8 +185,10 @@ impl Compiler {
                     _ => IdeClass::Field,
                 },
             };
+
             out.push((r.span, class));
         }
+
         out
     }
 
@@ -216,10 +226,13 @@ impl Compiler {
         if self.ide_entity_name_span(e).is_none() {
             return true;
         }
+
         if self.ed.facts().is_some_and(|i| i.stand_ins.contains(&t)) {
             return false;
         }
+
         let name = self.entity(e).name;
+
         match self.ty.types.kind(t) {
             TypeKind::Struct(s) => self.ty.types.struct_info(*s).name == name,
             TypeKind::Enum(en) => self.ty.types.enum_info(*en).name == name,
@@ -235,6 +248,7 @@ impl Compiler {
             )]
         };
         let e = &e;
+
         match &self.entity(*e).state {
             EntityState::Done(
                 Resolved::Proc(p)

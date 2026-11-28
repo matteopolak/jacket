@@ -41,6 +41,7 @@ impl Interval {
         if bits == 0 || bits > 64 {
             return None;
         }
+
         Some(if signed {
             Interval {
                 lo: -(1i128 << (bits - 1)),
@@ -137,6 +138,7 @@ fn smear(v: i128) -> i128 {
         0
     } else {
         let bits = 128 - v.leading_zeros();
+
         if bits >= 126 {
             i128::MAX
         } else {
@@ -148,13 +150,16 @@ fn smear(v: i128) -> i128 {
 fn corners(a: Interval, b: Interval, f: impl Fn(i128, i128) -> Option<i128>) -> Option<Interval> {
     let mut lo = i128::MAX;
     let mut hi = i128::MIN;
+
     for x in [a.lo, a.hi] {
         for y in [b.lo, b.hi] {
             let v = f(x, y)?;
+
             lo = lo.min(v);
             hi = hi.max(v);
         }
     }
+
     Interval::new(lo, hi)
 }
 
@@ -165,6 +170,7 @@ fn scalar(op: IntOp, x: i128, y: i128) -> Option<i128> {
     if op == IntOp::Div && x == i128::MIN && y == -1 {
         return None;
     }
+
     int_binop(op, x, y, 128, true).ok()
 }
 
@@ -175,6 +181,7 @@ pub fn binary(op: BinOp, a: Interval, b: Interval) -> Option<Interval> {
     if is_comparison(op) {
         return Some(Interval::from_truth(compare(op, a, b)));
     }
+
     match op {
         BinOp::And => Some(Interval::from_truth(match (a.truth(), b.truth()) {
             (Some(false), _) | (_, Some(false)) => Some(false),
@@ -193,14 +200,18 @@ pub fn binary(op: BinOp, a: Interval, b: Interval) -> Option<Interval> {
             if b.lo <= 0 && b.hi >= 0 {
                 return None;
             }
+
             corners(a, b, |x, y| scalar(IntOp::Div, x, y))
         }
         BinOp::Rem => {
             let m = b.lo.checked_abs()?.max(b.hi.checked_abs()?);
+
             if m == 0 {
                 return None;
             }
+
             let bound = m - 1;
+
             if a.lo >= 0 {
                 Interval::new(0, a.hi.min(bound))
             } else if a.hi <= 0 {
@@ -233,6 +244,7 @@ pub fn binary(op: BinOp, a: Interval, b: Interval) -> Option<Interval> {
             if a.lo < 0 || b.lo < 0 || b.hi > 62 {
                 return None;
             }
+
             Interval::new(
                 a.lo.checked_mul(1i128 << b.lo)?,
                 a.hi.checked_mul(1i128 << b.hi)?,
@@ -242,6 +254,7 @@ pub fn binary(op: BinOp, a: Interval, b: Interval) -> Option<Interval> {
             if b.lo < 0 || b.hi > 126 {
                 return None;
             }
+
             corners(a, b, |x, k| scalar(IntOp::Shr, x, k))
         }
         _ => None,
@@ -334,6 +347,7 @@ mod tests {
     #[test]
     fn a_binary_result_holds_every_pair_and_is_exact_where_the_corners_decide_it() {
         use BinOp::*;
+
         for op in [
             Add, Sub, Mul, Div, Rem, BitAnd, BitOr, BitXor, Shl, Shr, Eq, Ne, Lt, Le, Gt, Ge, And,
             Or,
@@ -346,6 +360,7 @@ mod tests {
                     let Some(result) = binary(op, a, b) else {
                         continue;
                     };
+
                     // A division by zero or a negative shift is left to the program.
                     for v in &pairs {
                         assert!(
@@ -353,8 +368,10 @@ mod tests {
                             "{op:?} {a:?} {b:?} = {result:?} misses {v}"
                         );
                     }
+
                     if matches!(op, Add | Sub | Mul | Div | Shr) && !pairs.is_empty() {
                         let (lo, hi) = (pairs.iter().min().unwrap(), pairs.iter().max().unwrap());
+
                         assert_eq!(
                             (result.lo, result.hi),
                             (*lo, *hi),
@@ -369,6 +386,7 @@ mod tests {
     #[test]
     fn comparisons_are_decided_only_when_every_pair_agrees_everywhere() {
         use BinOp::*;
+
         for op in [Eq, Ne, Lt, Le, Gt, Ge] {
             for a in small() {
                 for b in small() {
@@ -376,24 +394,30 @@ mod tests {
                         .flat_map(|x| values(b).map(move |y| concrete(op, x, y).unwrap() == 1))
                         .collect();
                     let all = |t: bool| outcomes.iter().all(|&o| o == t);
+
                     if let Some(t) = compare(op, a, b) {
                         assert!(all(t), "{op:?} {a:?} {b:?} said {t}");
                     }
+
                     // Ordering is decided whenever the intervals do not overlap or touch.
                     if matches!(op, Lt | Le | Gt | Ge) && (all(true) || all(false)) {
                         let overlap = a.meet(b).is_some();
+
                         if !overlap {
                             assert_eq!(compare(op, a, b), Some(all(true)), "{op:?} {a:?} {b:?}");
                         }
                     }
+
                     assert!(is_comparison(op));
                 }
             }
         }
+
         for op in [Add, Sub, And, Or, BitAnd, Shl] {
             assert!(!is_comparison(op));
             assert_eq!(compare(op, iv(0, 1), iv(0, 1)), None);
         }
+
         // The boundaries: touching intervals decide `<=` and `>=` but not `<` and `>`.
         assert_eq!(compare(Lt, iv(1, 2), iv(2, 3)), None);
         assert_eq!(compare(Le, iv(1, 2), iv(2, 3)), Some(true));
@@ -409,6 +433,7 @@ mod tests {
         use BinOp::{And, Or};
         let (zero, one, either) = (iv(0, 0), iv(1, 3), iv(0, 3));
         let truth = |r: Option<Interval>| r.and_then(Interval::singleton);
+
         assert_eq!(truth(binary(And, zero, either)), Some(0));
         assert_eq!(truth(binary(And, either, zero)), Some(0));
         assert_eq!(truth(binary(And, one, one)), Some(1));
@@ -426,22 +451,30 @@ mod tests {
     fn unary_results_hold_every_value() {
         let signed = Interval::of_type(8, true).unwrap();
         let unsigned = Interval::of_type(8, false).unwrap();
+
         for a in small() {
             assert_eq!(unary(UnOp::Plus, a, signed), Some(a));
             let neg = unary(UnOp::Neg, a, signed).unwrap();
+
             assert_eq!((neg.lo, neg.hi), (-a.hi, -a.lo));
             let flipped = unary(UnOp::BitNot, a, signed).unwrap();
+
             assert_eq!((flipped.lo, flipped.hi), (-a.hi - 1, -a.lo - 1));
+
             if a.lo >= 0 {
                 let flipped = unary(UnOp::BitNot, a, unsigned).unwrap();
+
                 assert_eq!((flipped.lo, flipped.hi), (255 - a.hi, 255 - a.lo));
             }
+
             let not = unary(UnOp::Not, a, signed).unwrap();
+
             match a.truth() {
                 Some(t) => assert_eq!(not, Interval::point(i128::from(!t))),
                 None => assert_eq!(not, Interval::BOOL),
             }
         }
+
         assert_eq!(unary(UnOp::Deref, signed, signed), None);
         assert_eq!(unary(UnOp::Star, signed, signed), None);
     }
@@ -451,10 +484,13 @@ mod tests {
         for a in small() {
             for b in small() {
                 let inside = values(a).all(|x| b.lo <= x && x <= b.hi);
+
                 assert_eq!(a.within(b), inside, "{a:?} within {b:?}");
             }
+
             assert_eq!(a.singleton(), (a.lo == a.hi).then_some(a.lo));
         }
+
         assert!(iv(1, 2).within(iv(1, 2)));
         assert!(!iv(0, 2).within(iv(1, 2)));
         assert!(!iv(1, 3).within(iv(1, 2)));
@@ -463,6 +499,7 @@ mod tests {
     #[test]
     fn comparisons_are_decided_only_when_every_pair_agrees() {
         let byte = Interval::of_type(8, false).unwrap();
+
         assert_eq!(compare(BinOp::Gt, byte, Interval::point(255)), Some(false));
         assert_eq!(compare(BinOp::Ge, byte, Interval::point(0)), Some(true));
         assert_eq!(compare(BinOp::Lt, byte, Interval::point(0)), Some(false));
@@ -477,6 +514,7 @@ mod tests {
     #[test]
     fn arithmetic_follows_the_operands() {
         let masked = binary(BinOp::BitAnd, iv(0, 1000), Interval::point(0xF)).unwrap();
+
         assert_eq!(masked, iv(0, 15));
         assert_eq!(binary(BinOp::Add, iv(1, 2), iv(10, 20)), Some(iv(11, 22)));
         assert_eq!(binary(BinOp::Sub, iv(1, 2), iv(10, 20)), Some(iv(-19, -8)));
@@ -498,6 +536,7 @@ mod tests {
         let unknown = Interval::BOOL;
         let no = Interval::point(0);
         let yes = Interval::point(1);
+
         assert_eq!(binary(BinOp::And, unknown, no), Some(no));
         assert_eq!(binary(BinOp::Or, unknown, yes), Some(yes));
         assert_eq!(binary(BinOp::And, unknown, yes), Some(unknown));

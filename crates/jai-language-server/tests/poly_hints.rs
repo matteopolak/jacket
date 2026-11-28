@@ -46,6 +46,7 @@ fn everything() -> Range {
 fn uninstantiated_polymorphic_body_hints_use_the_generic_signature() {
     let s = open(PROGRAM);
     let hints = s.inlay_hints(&uri(), everything()).unwrap();
+
     assert!(
         !hints.iter().any(|h| h.label.contains('?')),
         "no hint may be `?`: {hints:?}"
@@ -57,6 +58,7 @@ fn uninstantiated_polymorphic_body_hints_use_the_generic_signature() {
             .find(|h| h.position == p)
             .map(|h| h.label.clone())
     };
+
     assert_eq!(label_at(at("found,", 5)).as_deref(), Some(": bool"));
     assert_eq!(label_at(at("index :=", 5)).as_deref(), Some(": s64"));
     assert_eq!(label_at(at("ok,", 2)).as_deref(), Some(": bool"));
@@ -69,6 +71,7 @@ fn uninstantiated_polymorphic_body_hints_use_the_generic_signature() {
         Some(": (T, T) -> bool")
     );
     assert_eq!(label_at(at("renamed :=", 7)).as_deref(), Some(": R"));
+
     for (marker, want) in [("found,", "bool"), ("index :=", "s64"), ("id :=", "T")] {
         let hover = s
             .hover(&uri(), at_nth(PROGRAM, marker, 0, 0))
@@ -76,6 +79,7 @@ fn uninstantiated_polymorphic_body_hints_use_the_generic_signature() {
             .expect("hover")
             .contents
             .value;
+
         assert!(hover.contains(want) && !hover.contains('?'), "{hover}");
     }
 }
@@ -88,6 +92,7 @@ main :: () {
     f := pick();
 }
 ";
+
     let s = open(TEXT);
     let all = Range {
         start: Position {
@@ -105,9 +110,11 @@ main :: () {
         .iter()
         .find(|h| h.position == at)
         .map(|h| h.label.clone());
+
     assert_eq!(label.as_deref(), Some(": (s64, s64) -> bool"), "{hints:?}");
     // The compiler rejects the form; the editor still says so.
     let diagnostics = s.diagnostics(&uri()).unwrap();
+
     assert!(
         diagnostics
             .iter()

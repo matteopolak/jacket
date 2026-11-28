@@ -25,10 +25,12 @@ main :: () {
 #[test]
 fn a_self_expanding_for_expansion_stops_at_the_depth_limit() {
     let (tx, rx) = mpsc::channel();
+
     std::thread::Builder::new()
         .stack_size(256 << 20)
         .spawn(move || {
             let mut s = session();
+
             s.open(uri(), 1, PROGRAM.into()).unwrap();
             let diagnostics = s.diagnostics(&uri()).unwrap();
             let _ = tx.send(
@@ -41,5 +43,6 @@ fn a_self_expanding_for_expansion_stops_at_the_depth_limit() {
     let reported = rx
         .recv_timeout(Duration::from_secs(20))
         .expect("the full check returns");
+
     assert!(reported, "the depth limit is reported");
 }

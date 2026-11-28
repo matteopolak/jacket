@@ -56,12 +56,14 @@ impl Source for Live {
             .as_ref()
             .is_none_or(|(at, _)| at.elapsed() > REFRESH);
         let answer = entry.found.as_ref().map(|(_, standing)| standing.clone());
+
         if stale && !entry.running && running < THREADS {
             entry.running = true;
             shared.running += 1;
             drop(shared);
             self.start(key, request.clone());
         }
+
         answer
     }
 
@@ -80,6 +82,7 @@ impl Live {
         let work = {
             let shared = Arc::clone(&shared);
             let key = key.clone();
+
             move || {
                 let found = jacket_dep::dep::standing::lookup(
                     &request.dir,
@@ -87,9 +90,11 @@ impl Live {
                     &request.entry,
                     &request.resolver,
                 );
+
                 finish(&shared, &key, standing_of(found));
             }
         };
+
         if let Err(error) = std::thread::Builder::new()
             .name("jailsp-dependencies".into())
             .spawn(work)
@@ -125,8 +130,10 @@ fn standing_of(found: Result<jacket_dep::dep::standing::Standing, String>) -> St
 
 fn finish(shared: &Mutex<Shared>, key: &str, standing: Standing) {
     let mut shared = locked(shared);
+
     shared.running = shared.running.saturating_sub(1);
     shared.arrived = true;
+
     if let Some(entry) = shared.entries.get_mut(key) {
         entry.running = false;
         entry.found = Some((Instant::now(), standing));

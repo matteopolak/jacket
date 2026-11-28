@@ -57,6 +57,7 @@ fn foreign_library(source: &Source) -> Vec<Answer> {
                 "foreign_system_library" => "#system_library",
                 _ => return None,
             };
+
             Some(Answer::Edit {
                 start: t.span.start as usize,
                 end: t.span.end as usize,
@@ -87,6 +88,7 @@ fn vector_constructor(e: &CompileError, source: &Source) -> Option<Answer> {
             let Tok::Ident(name) = &source.tokens[call.callee].tok else {
                 return None;
             };
+
             match name.as_str() {
                 "make_vector2" => Some((call, "Vector2", 2)),
                 "make_vector3" => Some((call, "Vector3", 3)),
@@ -94,12 +96,15 @@ fn vector_constructor(e: &CompileError, source: &Source) -> Option<Answer> {
                 _ => None,
             }
         })?;
+
     if call.arguments(source.tokens) != components {
         return None;
     }
+
     let open = &source.tokens[call.open];
     let close = &source.tokens[call.close];
     let inner = source.slice(open.span.end as usize, close.span.start as usize);
+
     Some(Answer::Edit {
         start: source.tokens[call.callee].span.start as usize,
         end: close.span.end as usize,
@@ -140,6 +145,7 @@ const RENAMED_IDENTIFIERS: Migration = Migration {
 fn renamed_identifier(e: &CompileError, source: &Source) -> Option<Answer> {
     let old = source.slice(e.start, e.end);
     let (_, new) = RENAMED_IDENTIFIER_TABLE.iter().find(|(o, _)| *o == old)?;
+
     Some(Answer::Edit {
         start: e.start,
         end: e.end,
@@ -167,6 +173,7 @@ fn renamed_member(e: &CompileError, source: &Source) -> Option<Answer> {
     let name = at.strip_prefix('.').unwrap_or(at);
     let (_, new) = RENAMED_MEMBER_TABLE.iter().find(|(o, _)| *o == name)?;
     let start = e.end - name.len();
+
     Some(Answer::Edit {
         start,
         end: e.end,
@@ -201,12 +208,15 @@ fn renamed_argument(e: &CompileError, source: &Source) -> Option<Answer> {
     let Tok::Ident(old) = &name.tok else {
         return None;
     };
+
     if eq.tok != Tok::Punct(P::Eq) {
         return None;
     }
+
     let (_, new) = RENAMED_ARGUMENT_TABLE
         .iter()
         .find(|(o, _)| *o == old.as_str())?;
+
     Some(Answer::Edit {
         start: name.span.start as usize,
         end: name.span.end as usize,
@@ -232,12 +242,15 @@ fn assert_message(e: &CompileError, source: &Source) -> Option<Answer> {
     let at = tokens
         .iter()
         .position(|t| t.span.start as usize == e.start)?;
+
     if tokens[at].tok.directive() != Some("assert")
         || tokens.get(at + 1)?.tok != Tok::Punct(P::LParen)
     {
         return None;
     }
+
     let mut depth = 0usize;
+
     for i in at + 1..tokens.len() {
         match tokens[i].tok {
             Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
@@ -245,6 +258,7 @@ fn assert_message(e: &CompileError, source: &Source) -> Option<Answer> {
             }
             Tok::Punct(P::RParen | P::RBracket | P::RBrace) => {
                 depth -= 1;
+
                 if depth == 0 {
                     return None;
                 }
@@ -264,6 +278,7 @@ fn assert_message(e: &CompileError, source: &Source) -> Option<Answer> {
             _ => {}
         }
     }
+
     None
 }
 
@@ -294,12 +309,14 @@ fn allocator_argument(e: &CompileError, source: &Source) -> Option<Answer> {
     let is = |t: &Token, p: P| t.tok == Tok::Punct(p);
     // The argument follows a comma, or the call's `(` when it is the first one.
     let first = is(before, P::LParen);
+
     if !is(eq, P::Eq)
         || !matches!(&name.tok, Tok::Ident(n) if n.as_str() == "allocator")
         || !(first || is(before, P::Comma))
     {
         return None;
     }
+
     let comma = before;
     let call = calls_containing(tokens, e.start).into_iter().next()?;
     // Already after `,,`: the error is about something else.
@@ -308,12 +325,15 @@ fn allocator_argument(e: &CompileError, source: &Source) -> Option<Answer> {
             .windows(2)
             .any(|w| is(&w[0], P::Comma) && is(&w[1], P::Comma))
     };
+
     if double_comma(&tokens[call.open..value]) {
         return None;
     }
+
     // The argument ends at the next comma at the call's own depth, or at its `)`.
     let mut depth = 0usize;
     let mut end = call.close;
+
     for (i, t) in tokens.iter().enumerate().take(call.close).skip(value) {
         match t.tok {
             Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
@@ -327,23 +347,29 @@ fn allocator_argument(e: &CompileError, source: &Source) -> Option<Answer> {
             _ => {}
         }
     }
+
     if double_comma(&tokens[end..call.close]) {
         return None;
     }
+
     let argument_end = tokens[end].span.start as usize;
     let list_end = tokens[call.close].span.start as usize;
     let rest = source.slice(argument_end, list_end);
+
     if first {
         // Nothing before it: the rest of the list, then `,,` and the argument.
         let rest = rest.strip_prefix(',').unwrap_or(rest).trim_start();
         let argument = source.slice(name.span.start as usize, argument_end);
+
         return Some(Answer::Edit {
             start: comma.span.end as usize,
             end: list_end,
             text: format!("{rest},, {argument}"),
         });
     }
+
     let argument = source.slice(comma.span.end as usize, argument_end);
+
     Some(Answer::Edit {
         start: comma.span.start as usize,
         end: list_end,
@@ -373,9 +399,11 @@ fn versioned_import(e: &CompileError, source: &Source) -> Option<Answer> {
         && version
             .split('.')
             .all(|part| !part.is_empty() && part.bytes().all(|b| b.is_ascii_digit()));
+
     if !is_version || base.is_empty() || !source.module_exists(base) {
         return None;
     }
+
     Some(Answer::Edit {
         start: e.start + open + 1,
         end: e.start + close,
@@ -403,6 +431,7 @@ fn removed_module(e: &CompileError, source: &Source) -> Option<Answer> {
     } else {
         return None;
     };
+
     Some(Answer::Manual {
         start: e.start,
         end: e.end,
@@ -423,8 +452,10 @@ impl Call {
         if self.close == self.open + 1 {
             return 0;
         }
+
         let mut depth = 0usize;
         let mut count = 1;
+
         for t in &tokens[self.open + 1..self.close] {
             match t.tok {
                 Tok::Punct(P::LParen | P::LBracket | P::LBrace | P::DotBrace | P::DotBracket) => {
@@ -435,6 +466,7 @@ impl Call {
                 _ => {}
             }
         }
+
         count
     }
 }
@@ -445,6 +477,7 @@ impl Call {
 fn calls_containing(tokens: &[Token], offset: usize) -> Vec<Call> {
     let mut open_parens: Vec<usize> = Vec::new();
     let mut calls = Vec::new();
+
     for (i, t) in tokens.iter().enumerate() {
         match t.tok {
             Tok::Punct(P::LParen) => open_parens.push(i),
@@ -455,17 +488,21 @@ fn calls_containing(tokens: &[Token], offset: usize) -> Vec<Call> {
                 let Some(callee) = open.checked_sub(1) else {
                     continue;
                 };
+
                 if !matches!(tokens[callee].tok, Tok::Ident(_)) {
                     continue;
                 }
+
                 // A qualified callee (`Math.make_vector3(`) starts at its first name.
                 let mut head = callee;
+
                 while head >= 2
                     && tokens[head - 1].tok == Tok::Punct(P::Dot)
                     && matches!(tokens[head - 2].tok, Tok::Ident(_))
                 {
                     head -= 2;
                 }
+
                 if (tokens[head].span.start as usize) <= offset && offset < t.span.end as usize {
                     calls.push(Call {
                         callee,
@@ -477,6 +514,7 @@ fn calls_containing(tokens: &[Token], offset: usize) -> Vec<Call> {
             _ => {}
         }
     }
+
     calls.sort_by_key(|c| c.close - c.open);
     calls
 }

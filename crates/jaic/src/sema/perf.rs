@@ -70,9 +70,11 @@ impl PerfStats {
     pub fn finish_run(&mut self, since: Stopwatch) -> Duration {
         self.run_depth -= 1;
         let elapsed = since.elapsed();
+
         if self.run_depth == 0 {
             self.run_time += elapsed;
         }
+
         elapsed
     }
 
@@ -85,6 +87,7 @@ impl PerfStats {
     /// compile-time code it ran, which counts as running.
     pub fn finish_lowering(&mut self, mark: (Stopwatch, Duration)) {
         let ran = self.run_time.saturating_sub(mark.1);
+
         self.lowering += mark.0.elapsed().saturating_sub(ran);
     }
 
@@ -94,10 +97,13 @@ impl PerfStats {
             self.poly_order.push(source);
             PolyStat::default()
         });
+
         if !stat.sites.insert(span) {
             return;
         }
+
         stat.call_sites += 1;
+
         if existing {
             stat.by_constants += 1;
         }
@@ -106,6 +112,7 @@ impl PerfStats {
     /// The request made `instance`.
     pub fn poly_instance(&mut self, source: ProcId, instance: ProcId, span: Span) {
         self.solves_used += 1;
+
         if let Some(stat) = self.polys.get_mut(&source) {
             stat.instances.push((instance, span));
         }
@@ -122,6 +129,7 @@ impl Compiler {
     /// compiler made the procedures. Each is a heading and the listing of the procedure's IR.
     pub fn debug_dumps(&self) -> Vec<String> {
         let mut dumps = Vec::new();
+
         for info in &self.pr.procs {
             let dump = info
                 .lit
@@ -130,9 +138,11 @@ impl Compiler {
                 .other
                 .iter()
                 .any(|flag| flag.name.as_str() == "dump");
+
             if !dump || info.is_poly || info.is_macro || info.body_state != BodyState::Done {
                 continue;
             }
+
             let Some(ProcTarget::Func(func)) = info.target else {
                 continue;
             };
@@ -149,12 +159,14 @@ impl Compiler {
                 .sources
                 .try_get(info.span.file)
                 .map_or_else(String::new, |f| f.path.to_string());
+
             dumps.push(format!(
                 "Dump of {} ({path}:{line}), jaic IR:\n{}",
                 info.name.as_str(),
                 body.listing()
             ));
         }
+
         dumps
     }
 }
@@ -163,6 +175,7 @@ impl Output {
     /// The instructions and direct calls in the program lowered so far, for `Bytecode_Report`.
     pub fn instruction_counts(&self) -> (u64, u64) {
         let (mut calls, mut instructions) = (0, 0);
+
         for func in self.program.funcs.iter().flatten() {
             for block in &func.blocks {
                 instructions += block.insts.len() as u64 + 1;
@@ -173,6 +186,7 @@ impl Output {
                     .count() as u64;
             }
         }
+
         (calls, instructions)
     }
 }

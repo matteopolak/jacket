@@ -10,6 +10,7 @@ fn stdlib() -> PathBuf {
 fn model(tag: &str, source: &str) -> (TempDir, serde_json::Value) {
     let dir = TempDir::new(tag);
     let module = dir.path().join("Gen");
+
     std::fs::create_dir_all(&module).unwrap();
     std::fs::write(module.join("module.jai"), source).unwrap();
     let output = Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -20,6 +21,7 @@ fn model(tag: &str, source: &str) -> (TempDir, serde_json::Value) {
         .arg(&module)
         .output()
         .unwrap();
+
     assert!(
         output.status.success(),
         "{}",
@@ -45,12 +47,14 @@ fn generated_declarations_are_items_marked_generated_with_the_insert_as_origin()
     let items = json["items"].as_array().unwrap();
     let find = |name: &str| items.iter().find(|i| i["name"] == name).unwrap();
     let point = find("Point");
+
     assert_eq!(point["generated"], true);
     assert_eq!(point["docs"], "A point the generator made.");
     assert_eq!(find("move")["generated"], true);
     assert!(find("Local").get("generated").is_none());
     let file = point["file"].as_str().unwrap();
     let origin = dir.path().join("Gen/module.jai");
+
     assert_eq!(
         file,
         format!("{}#insert:8", origin.to_str().unwrap()),
@@ -66,6 +70,7 @@ fn an_insert_that_expands_to_nothing_is_silent() {
         "make :: () -> string { return \"\"; }\n\n#insert #run make();\n\nkept :: () {}\n",
     );
     let items = json["items"].as_array().unwrap();
+
     assert!(items.iter().any(|i| i["name"] == "kept"));
     assert!(items.iter().all(|i| i.get("generated").is_none()));
     assert_eq!(json["unexpanded"].as_array().unwrap().len(), 0, "{json}");
@@ -78,9 +83,11 @@ fn an_insert_that_fails_to_expand_is_reported_with_the_reason() {
         "make :: () -> string { return missing_name; }\n\n#insert #run make();\n",
     );
     let failed = json["unexpanded"].as_array().unwrap();
+
     assert_eq!(failed.len(), 1, "{json}");
     assert_eq!(failed[0]["line"], 3);
     let reason = failed[0]["reason"].as_str().unwrap();
+
     assert!(reason.contains("missing_name"), "{reason}");
 }
 
@@ -92,6 +99,7 @@ fn a_long_expansion_is_not_cut() {
         "#import \"Basic\";\n\nmake :: () -> string {\n    b: String_Builder;\n    for 0..2999 print(*b, \"/// Number %.\\nnumber_% :: () {}\\n\", it, it);\n    return builder_to_string(*b);\n}\n\n#insert #run make();\n",
     );
     let items = json["items"].as_array().unwrap();
+
     assert!(
         items.iter().any(|i| i["name"] == "number_2999"),
         "{} items, {}",
@@ -109,9 +117,11 @@ fn an_insert_in_generated_text_is_followed_with_the_outer_insert_as_origin() {
     );
     let items = json["items"].as_array().unwrap();
     let inner = items.iter().find(|i| i["name"] == "Inner").unwrap();
+
     assert_eq!(inner["generated"], true);
     assert_eq!(inner["docs"], "Inner.");
     let origin = dir.path().join("Gen/module.jai");
+
     assert!(
         inner["file"]
             .as_str()
@@ -129,6 +139,7 @@ fn an_insert_that_inserts_itself_is_a_warning_not_a_silent_stop() {
         "make :: () -> string { return \"#insert #run make();\\n\"; }\n\n#insert #run make();\n",
     );
     let failed = json["unexpanded"].as_array().unwrap();
+
     assert!(!failed.is_empty(), "{json}");
     assert!(
         failed[0]["reason"].as_str().unwrap().contains("nested"),

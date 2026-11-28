@@ -44,6 +44,7 @@ pub fn set_flags(linker: Option<&OsStr>, sysroot: Option<&Path>, compiler_rt: Op
             from: "-compiler_rt",
         }),
     });
+
     assert!(set.is_ok(), "the command line's tool flags are set once");
 }
 
@@ -52,11 +53,13 @@ impl Overrides {
     /// `JAIC_COMPILER_RT`.
     pub fn from_env() -> Overrides {
         let mut overrides = Overrides::from_variables();
+
         if let Some(flags) = FLAGS.get() {
             overrides.linker = flags.linker.clone().or(overrides.linker);
             overrides.sysroot = flags.sysroot.clone().or(overrides.sysroot);
             overrides.compiler_rt = flags.compiler_rt.clone().or(overrides.compiler_rt);
         }
+
         overrides
     }
 
@@ -74,6 +77,7 @@ impl Overrides {
                 from: g.from,
             })
         };
+
         Overrides {
             linker: given(&env::LINKER),
             archiver: given(&env::AR),

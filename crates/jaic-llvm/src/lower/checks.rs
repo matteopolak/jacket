@@ -44,12 +44,15 @@ impl<'ctx> Backend<'ctx, '_> {
         self.declare_named(name);
         let f = self.module.get_function(name).unwrap_or_else(|| {
             let f = self.module.add_function(name, ty, Some(Linkage::External));
+
             if self.arch.is_wasm() {
                 self.wasm_import(f, name, None);
             }
+
             f
         });
         let ptr = self.callee(self.code_addr(f))?;
+
         Ok(self.builder.build_indirect_call(ty, ptr, args, "")?)
     }
 
@@ -65,6 +68,7 @@ impl<'ctx> Backend<'ctx, '_> {
         if let Some(&p) = self.check_files.borrow().get(&file) {
             return p;
         }
+
         let name = format!("__jaic_check_file.{file}");
         let pointer = if let Some(g) = self.module.get_global(&name) {
             g.as_pointer_value()
@@ -77,11 +81,13 @@ impl<'ctx> Backend<'ctx, '_> {
                 .unwrap_or_default();
             let text = self.ctx.const_string(path.as_bytes(), true);
             let g = self.module.add_global(text.get_type(), None, &name);
+
             g.set_initializer(&text);
             g.set_constant(true);
             g.set_linkage(Linkage::Private);
             g.as_pointer_value()
         };
+
         self.check_files.borrow_mut().insert(file, pointer);
         pointer
     }
@@ -94,6 +100,7 @@ impl<'ctx> Backend<'ctx, '_> {
         if let Some(&f) = self.null_fail.get() {
             return Ok(f);
         }
+
         let i64t = self.ctx.i64_type();
         let ty = self
             .ctx
@@ -102,23 +109,31 @@ impl<'ctx> Backend<'ctx, '_> {
         let f = self
             .module
             .add_function("jaic.null_fail", ty, Some(Linkage::Internal));
+
         for attr in ["noreturn", "noinline", "cold", "nounwind"] {
             let kind = Attribute::get_named_enum_kind_id(attr);
+
             f.add_attribute(
                 AttributeLoc::Function,
                 self.ctx.create_enum_attribute(kind, 0),
             );
         }
+
         let b = self.ctx.create_builder();
+
         b.position_at_end(self.ctx.append_basic_block(f, "entry"));
+
         if self.program.check_failed.is_none() {
             // Disabling runtime support removes diagnostics, not memory checks.
             let trap = self.intrinsic_fn("llvm.trap", &[])?;
+
             b.build_call(trap, &[], "")?;
             b.build_unreachable()?;
             let _ = self.null_fail.set(f);
+
             return Ok(f);
         }
+
         let handler = self
             .program
             .check_failed
@@ -128,10 +143,13 @@ impl<'ctx> Backend<'ctx, '_> {
             .func(handler)
             .map(|f| &f.sig)
             .ok_or("private native check reporter has no body")?;
+
         if sig.params.len() != 6 || sig.params[5] != Ty::Ptr {
             return Err("private native check reporter must take (reason: s64, a: s64, b: s64, fatal: bool, line: s64, filename: *u8)".into());
         }
+
         let lowered = self.lower_sig(sig);
+
         if !lowered
             .params
             .iter()
@@ -139,6 +157,7 @@ impl<'ctx> Backend<'ctx, '_> {
         {
             return Err("Runtime_Support's check handler takes only scalars".into());
         }
+
         let param = |i: u32| -> R<BasicValueEnum<'ctx>> {
             f.get_nth_param(i)
                 .ok_or_else(|| "jaic.null_fail parameter".into())
@@ -155,6 +174,7 @@ impl<'ctx> Backend<'ctx, '_> {
             line,
         ];
         let mut args: Vec<BasicMetadataValueEnum<'ctx>> = Vec::new();
+
         for (v, &want) in ints.iter().zip(&sig.params) {
             let want = self.ll(want).into_int_type();
             let v = if v.get_type().get_bit_width() > want.get_bit_width() {
@@ -162,12 +182,16 @@ impl<'ctx> Backend<'ctx, '_> {
             } else {
                 b.build_int_z_extend_or_bit_cast(*v, want, "")?
             };
+
             args.push(v.into());
         }
+
         args.push(param(2)?.into());
         let target = self.callee(self.func_ptr(handler)?)?;
+
         b.build_indirect_call(lowered.fn_ty, target, &args, "")?;
         let trap = self.intrinsic_fn("llvm.trap", &[])?;
+
         b.build_call(trap, &[], "")?;
         b.build_unreachable()?;
         let _ = self.null_fail.set(f);
@@ -190,9 +214,11 @@ impl<'ctx> Backend<'ctx, '_> {
         let Some(sig) = self.program.func(handler).map(|f| &f.sig) else {
             return Err("private native check reporter has no body".into());
         };
+
         if sig.params.len() != 6 || sig.params[5] != Ty::Ptr {
             return Err("private native check reporter must take (reason: s64, a: s64, b: s64, fatal: bool, line: s64, filename: *u8)".into());
         }
+
         let (file, line) = st.loc;
         let filename = self.check_file(file);
         let i64t = self.ctx.i64_type();
@@ -204,6 +230,7 @@ impl<'ctx> Backend<'ctx, '_> {
             i64t.const_int(u64::from(line), false),
         ];
         let mut args: Vec<BasicValueEnum<'ctx>> = Vec::new();
+
         for (v, &ty) in ints.iter().zip(&sig.params) {
             let want = self.ll(ty).into_int_type();
             let v = if v.get_type().get_bit_width() > want.get_bit_width() {
@@ -211,8 +238,10 @@ impl<'ctx> Backend<'ctx, '_> {
             } else {
                 self.builder.build_int_z_extend_or_bit_cast(*v, want, "")?
             };
+
             args.push(v.into());
         }
+
         args.push(filename.into());
         self.call(st, self.func_ptr(handler)?, sig, &args)?;
         Ok(())
@@ -225,6 +254,7 @@ impl<'ctx> Backend<'ctx, '_> {
     fn check_blocks(&self, st: &FnState<'ctx>) -> (BasicBlock<'ctx>, BasicBlock<'ctx>) {
         let trap = self.ctx.append_basic_block(st.function, "trap");
         let here = self.builder.get_insert_block().expect("positioned");
+
         (trap, self.ctx.insert_basic_block_after(here, "cont"))
     }
 
@@ -234,15 +264,18 @@ impl<'ctx> Backend<'ctx, '_> {
         if !st.null_checks || st.known_nonnull(addr) {
             return Ok(());
         }
+
         // Past this point `addr` is a real address; so is what the slot it came from holds,
         // until the next store to that slot.
         st.facts.mark(addr);
         let (from, version) = st.facts.loaded_from[addr.0 as usize];
+
         if let Some(slot) = from.checked_sub(1)
             && st.facts.slot_version[slot as usize] == version
         {
             st.facts.slot_checked[slot as usize] = st.facts.epoch;
         }
+
         let i64t = self.ctx.i64_type();
         let value = self.get_int(st, addr)?;
         let low = self.builder.build_int_compare(
@@ -253,11 +286,13 @@ impl<'ctx> Backend<'ctx, '_> {
         )?;
         let fail = self.null_fail_fn()?;
         let (fail_block, cont) = self.check_blocks(st);
+
         self.builder
             .build_conditional_branch(low, fail_block, cont)?;
         self.builder.position_at_end(fail_block);
         let (file, line) = st.loc;
         let desc = i64t.const_int(kind | (u64::from(line) << 8), false);
+
         self.builder.build_call(
             fail,
             &[desc.into(), value.into(), self.check_file(file).into()],
@@ -279,9 +314,11 @@ impl<'ctx> Backend<'ctx, '_> {
         b: IntValue<'ctx>,
     ) -> R<()> {
         let (trap, cont) = self.check_blocks(st);
+
         self.builder.build_conditional_branch(cond, trap, cont)?;
         self.builder.position_at_end(trap);
         let fatal = self.ctx.i8_type().const_int(1, false);
+
         self.report_check(st, reason as u64, a, b, fatal)?;
         self.call_intrinsic("llvm.trap", &[], &[])?;
         self.builder.build_unreachable()?;

@@ -17,6 +17,7 @@ pub fn ago(seconds: i64) -> String {
         s if s < 129_600 => ((s + 1800) / 3600, "hour"),
         s => ((s + 43_200) / 86_400, "day"),
     };
+
     format!(
         "{n} {unit}{} ago",
         if n == 1 {
@@ -35,11 +36,13 @@ pub fn span(seconds: i64) -> String {
         seconds % 3600 / 60,
     );
     let mut parts = Vec::new();
+
     for (n, unit) in [(d, 'd'), (h, 'h'), (m, 'm')] {
         if n > 0 {
             parts.push(format!("{n}{unit}"));
         }
     }
+
     if parts.is_empty() {
         format!("{seconds}s")
     } else {
@@ -57,9 +60,11 @@ pub fn parse_time(text: &str) -> Option<i64> {
         d.next()?.parse().ok()?,
         d.next()?.parse().ok()?,
     );
+
     if d.next().is_some() || !(1..=12).contains(&m) || !(1..=31).contains(&day) {
         return None;
     }
+
     let split = rest.find(['Z', 'z', '+', '-']).unwrap_or(rest.len());
     let (clock, zone) = rest.split_at(split);
     let mut c = clock.split(':');
@@ -72,6 +77,7 @@ pub fn parse_time(text: &str) -> Option<i64> {
         Some(sign) => {
             let (zh, zm) = zone[1..].split_once(':').unwrap_or((&zone[1..], "0"));
             let seconds = zh.parse::<i64>().ok()? * 3600 + zm.parse::<i64>().ok()? * 60;
+
             if sign == '-' {
                 -seconds
             } else {
@@ -79,6 +85,7 @@ pub fn parse_time(text: &str) -> Option<i64> {
             }
         }
     };
+
     Some(days_from_civil(y, m, day) * 86_400 + h * 3600 + mi * 60 + sec - offset)
 }
 
@@ -101,6 +108,7 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
             + d
             - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+
     era * 146_097 + doe - 719_468
 }
 
@@ -140,12 +148,15 @@ impl Policy {
             jitter,
             seed: resolver.seed.clone(),
         };
+
         if let Some(own) = age(&entry.min_release_age)? {
             policy.min_age = Some(own);
+
             if own == Age::ZERO {
                 policy.jitter = None;
             }
         }
+
         Ok(policy)
     }
 
@@ -158,6 +169,7 @@ impl Policy {
     /// The age `tag` of `package` must have reached.
     pub fn required(&self, package: &str, tag: &str) -> i64 {
         let floor = self.min_age.map_or(0, Age::seconds);
+
         match self.jitter {
             Some(jitter) if jitter > Age::ZERO => {
                 let seed = self.seed.as_deref().unwrap_or("");
@@ -171,12 +183,15 @@ impl Policy {
 /// A repeatable offset in `[0, max]` from the seed, package and version.
 pub fn offset(seed: &str, package: &str, version: &str, max: i64) -> i64 {
     let mut hash = Sha256::new();
+
     for part in [seed, package, version] {
         hash.update(part.as_bytes());
         hash.update([0]);
     }
+
     let digest = hash.finalize();
     let n = u64::from_be_bytes(digest[..8].try_into().unwrap_or([0; 8]));
+
     (n % (max as u64 + 1)) as i64
 }
 
@@ -207,9 +222,11 @@ mod tests {
     #[test]
     fn jitter_is_stable_bounded_and_per_project() {
         let a = offset("seed-a", "jaison", "v1.0.0", 172_800);
+
         assert_eq!(a, offset("seed-a", "jaison", "v1.0.0", 172_800));
         assert!((0..=172_800).contains(&a));
         let differs = (0..8).any(|i| offset(&format!("s{i}"), "jaison", "v1.0.0", 172_800) != a);
+
         assert!(differs, "another seed gives another offset");
         assert_ne!(offset("seed-a", "jaison", "v1.0.1", 172_800), a);
         assert_eq!(offset("s", "p", "v", 0), 0);
@@ -220,10 +237,12 @@ mod tests {
         let resolver = jacket_config::Resolver::default();
         let entry = jacket_config::Dependency::default();
         let policy = Policy::from_config(&resolver, &entry).unwrap();
+
         assert!(policy.active());
         assert_eq!(policy.min_age, Some(Age::parse("2w").unwrap()));
         assert_eq!(policy.jitter, Some(Age::parse("3d").unwrap()));
         let need = policy.required("jaison", "v1.0.0");
+
         assert!((1_209_600..=1_209_600 + 259_200).contains(&need));
         // No seed: the offset comes from the package and version, the same on every run.
         assert_eq!(need, policy.required("jaison", "v1.0.0"));
@@ -236,6 +255,7 @@ mod tests {
             seed: Some("k".into()),
             ..policy.clone()
         };
+
         assert_ne!(seeded.required("jaison", "v1.0.0"), need);
     }
 
@@ -247,6 +267,7 @@ mod tests {
             ..Default::default()
         };
         let policy = Policy::from_config(&off, &entry).unwrap();
+
         assert!(!policy.active());
         assert_eq!(policy.required("p", "v1"), 0);
         let jittered = jacket_config::Resolver {
@@ -254,6 +275,7 @@ mod tests {
             ..off
         };
         let policy = Policy::from_config(&jittered, &entry).unwrap();
+
         assert_eq!(policy.jitter, Some(Age::parse("1d").unwrap()));
     }
 
@@ -268,12 +290,14 @@ mod tests {
         let plain = jacket_config::Dependency::default();
         let policy = Policy::from_config(&resolver, &plain).unwrap();
         let need = policy.required("p", "v1");
+
         assert!((259_200..=259_200 + 172_800).contains(&need));
         let waived = jacket_config::Dependency {
             min_release_age: Some("0".into()),
             ..plain.clone()
         };
         let policy = Policy::from_config(&resolver, &waived).unwrap();
+
         assert!(!policy.active());
         assert_eq!(policy.required("p", "v1"), 0);
         let own = jacket_config::Dependency {
@@ -281,6 +305,7 @@ mod tests {
             ..plain
         };
         let policy = Policy::from_config(&resolver, &own).unwrap();
+
         assert!(policy.required("p", "v1") >= 3600);
         assert!(
             Policy::from_config(

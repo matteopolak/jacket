@@ -7,6 +7,7 @@ use std::rc::Rc;
 #[test]
 fn a_computed_filter_reads_strings_at_the_targets_stride() {
     let mut options = Options::host();
+
     options.layout = Target::parse("i686-unknown-linux-gnu")
         .unwrap()
         .data_layout();
@@ -21,6 +22,7 @@ fn a_computed_filter_reads_strings_at_the_targets_stride() {
         }
     "#;
     let mut c = Compiler::new(options, Rc::new(VirtualFs::default()));
+
     if let Err(e) = c.compile_sources(&[ProgramSource::String(source.into())]) {
         panic!("{}", e.render(&c.src.sources));
     }

@@ -53,6 +53,7 @@ fn readers(
         .filter(|l| l.uri.as_str().ends_with("first.jai"))
         .map(|l| l.range.start.line)
         .collect();
+
     lines.sort_unstable();
     lines
 }
@@ -66,6 +67,7 @@ fn line_of(marker: &str) -> u32 {
 fn a_note_leads_to_the_code_that_read_it() {
     let dir = project("note-readers", &[("first.jai", FIRST), ("main.jai", MAIN)]);
     let (s, uri, text) = open_file(&dir, "main.jai");
+
     // Two `==` compared `@Traced` equal: both are listed. The byte load read `@Sized`.
     assert_eq!(
         readers(&s, &uri, &text, "@Traced"),
@@ -113,6 +115,7 @@ fn readers_here(
         .map(|l| l.range.start.line)
         .filter(|&line| line != text[..at].matches('\n').count() as u32)
         .collect();
+
     lines.sort_unstable();
     lines.dedup();
     lines
@@ -127,6 +130,7 @@ fn notes_read_through_type_info_lead_to_their_readers() {
             .matches('\n')
             .count() as u32
     };
+
     assert_eq!(
         readers_here(&s, &uri, &text, "@json"),
         vec![line("for note: member.notes")]
@@ -163,6 +167,7 @@ fn a_note_with_arguments_is_read_by_a_test_of_its_name() {
             .matches('\n')
             .count() as u32
     };
+
     assert_eq!(
         readers_here(&s, &uri, &text, "@json"),
         vec![line("for note: member.notes")]

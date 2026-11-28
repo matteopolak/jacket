@@ -27,10 +27,12 @@ impl Mode {
             return Err(CliError::new("`-check` and `-interp` cannot be combined")
                 .help("`-check` only compiles the program; `-interp` runs it in the interpreter"));
         }
+
         if deps && interp {
             return Err(CliError::new("`-deps` and `-interp` cannot be combined")
                 .help("`-deps` only compiles the program and lists the files it read"));
         }
+
         Ok(match (check || deps, interp) {
             (true, _) => Self::Check,
             (_, true) => Self::Interp,
@@ -109,6 +111,7 @@ impl Plugin {
             Some((module, rest)) => (module, Some(rest.strip_suffix(')').unwrap_or(rest))),
             None => (spec, None),
         };
+
         Plugin {
             module: module.to_string(),
             parameters: parameters.map(str::to_string),
@@ -126,8 +129,10 @@ impl Plugin {
                     .is_some_and(|k| k.trim() == name)
             })
         });
+
         if !set {
             let assignment = format!("{name}={value}");
+
             match &mut self.parameters {
                 Some(parameters) if !parameters.is_empty() => {
                     parameters.push(',');
@@ -160,6 +165,7 @@ impl Cli {
             })
             .collect();
         let added: Vec<String> = self.added.iter().map(Added::source).collect();
+
         jaic::build::plugin_metaprogram(&jaic::build::PluginProgram {
             plugins: &plugins,
             main_file: path,
@@ -464,14 +470,17 @@ impl Cli {
             } else {
                 CliError::new(format!("unexpected argument `{word}`"))
             };
+
             if self.mode == Mode::Interp {
                 error = error.help(format!(
                     "arguments for the program go after `--`: `jaic {} -interp -- {word}`",
                     self.file
                 ));
             }
+
             return Err(error);
         }
+
         if self.no_workspace_output && self.mode != Mode::Interp {
             return Err(
                 CliError::new("`-no_workspace_output` only applies to `-interp`").help(
@@ -483,17 +492,20 @@ impl Cli {
                 ),
             );
         }
+
         if self.opt_level.is_some() && self.flavor.is_some() {
             return Err(CliError::new(
                 "`-O0`..`-O3` and `-o`, `-od` or `-very_debug` both set the optimization",
             )
             .help("use one of them"));
         }
+
         if self.quiet && self.verbose {
             return Err(CliError::new(
                 "`-quiet` and `-verbose` contradict each other",
             ));
         }
+
         self.build_for =
             self.build_target()
                 .map_err(|message| match message.split_once("\nhelp: ") {

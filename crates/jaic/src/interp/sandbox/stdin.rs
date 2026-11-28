@@ -27,16 +27,21 @@ impl Stdin {
     /// Up to `max` bytes, ending after the first `delimiter` when there is one.
     fn take(&mut self, max: usize, delimiter: Option<u8>) -> Vec<u8> {
         let mut len = self.data.len().min(max);
+
         if let Some(delimiter) = delimiter
             && let Some(at) = self.data.iter().take(len).position(|&b| b == delimiter)
         {
             len = at + 1;
         }
+
         let bytes: Vec<u8> = self.data.drain(..len).collect();
+
         self.at_end = bytes.is_empty();
+
         if bytes.is_empty() {
             self.end_pending = false;
         }
+
         bytes
     }
 
@@ -74,14 +79,17 @@ impl SandboxHost {
     /// embedder that can wait should feed more (or end the input) before the call.
     pub fn stdin_wants_data(&self, symbol: &str, args: &[u64]) -> bool {
         let stdin = &self.stdin;
+
         if stdin.closed || stdin.end_pending {
             return false;
         }
+
         let Some(fun) = LibcFn::from_name(symbol) else {
             return false;
         };
         let arg = |i: usize| word_or_zero(args, i);
         let on = |handle: u64| stdin.stream != 0 && handle == stdin.stream;
+
         match fun {
             LibcFn::Read if arg(0) as i32 == 0 => arg(2) > 0 && !stdin.holds(1, None),
             LibcFn::Fread if on(arg(3)) => {
@@ -110,12 +118,16 @@ impl SandboxHost {
         if symbol != "stdin" && symbol != "__stdinp" {
             return None;
         }
+
         if self.stdin.stream == 0 {
             let stream = self.alloc(256);
+
             self.streams.insert(stream, 0);
             self.stdin.stream = stream;
         }
+
         let cell = self.alloc(8);
+
         write_word(cell, self.stdin.stream);
         Some(cell)
     }
@@ -126,32 +138,41 @@ impl SandboxHost {
         let stream = self.stdin.stream;
         let on = |handle: u64| stream != 0 && handle == stream;
         let copy = write_bytes;
+
         Some(match fun {
             LibcFn::Read if arg(0) as i32 == 0 => {
                 let bytes = self.stdin.take(arg(2) as usize, None);
+
                 copy(arg(1), &bytes);
                 bytes.len() as u64
             }
             LibcFn::Fread if on(arg(3)) => {
                 let size = arg(1) as usize;
                 let want = size.saturating_mul(arg(2) as usize);
+
                 if size == 0 || want == 0 {
                     return Some(0);
                 }
+
                 let bytes = self.stdin.take(want, None);
+
                 copy(arg(0), &bytes);
                 self.stdin.at_end = bytes.len() < want;
                 (bytes.len() / size) as u64
             }
             LibcFn::Fgets if on(arg(2)) => {
                 let room = (arg(1) as i32).saturating_sub(1).max(0) as usize;
+
                 if room == 0 {
                     return Some(0);
                 }
+
                 let mut bytes = self.stdin.take(room, Some(b'\n'));
+
                 if bytes.is_empty() {
                     return Some(0);
                 }
+
                 bytes.push(0);
                 copy(arg(0), &bytes);
                 arg(0)
@@ -162,14 +183,19 @@ impl SandboxHost {
                 } else {
                     (arg(3), arg(2) as u8)
                 };
+
                 if !on(handle) {
                     return None;
                 }
+
                 let mut bytes = self.stdin.take(usize::MAX, Some(delimiter));
+
                 if bytes.is_empty() {
                     return Some(FAILED);
                 }
+
                 let length = bytes.len() as u64;
+
                 bytes.push(0);
                 let (line, size) = (arg(0), arg(1));
                 let (old, capacity) = (read_word(line), read_size(size));
@@ -177,14 +203,17 @@ impl SandboxHost {
                     old
                 } else {
                     let new = self.alloc(bytes.len().max(120));
+
                     if new == 0 {
                         return Some(FAILED);
                     }
+
                     self.allocations.remove(&old);
                     write_word(line, new);
                     write_size(size, bytes.len().max(120) as u64);
                     new
                 };
+
                 copy(target, &bytes);
                 length
             }
@@ -203,9 +232,11 @@ impl SandboxHost {
             }
             LibcFn::Ungetc if on(arg(1)) => {
                 let byte = arg(0) as i32;
+
                 if byte < 0 {
                     return Some(FAILED);
                 }
+
                 self.stdin.data.push_front(byte as u8);
                 self.stdin.at_end = false;
                 byte as u64

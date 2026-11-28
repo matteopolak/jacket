@@ -8,6 +8,7 @@ const JAIC: &str = env!("CARGO_BIN_EXE_jaic");
 #[test]
 fn a_missing_standard_library_names_the_variable_that_fixes_it() {
     let dir = TempDir::new("missing-stdlib");
+
     std::fs::write(dir.join("hello.jai"), "main :: () {}\n").unwrap();
     let output = Command::new(JAIC)
         .args(["-check", "hello.jai"])
@@ -15,8 +16,10 @@ fn a_missing_standard_library_names_the_variable_that_fixes_it() {
         .env("JAIC_STDLIB", dir.join("nowhere"))
         .output()
         .unwrap();
+
     assert!(!output.status.success());
     let text = String::from_utf8_lossy(&output.stderr);
+
     assert!(
         text.contains("error[cli-failure]: cannot find the standard library"),
         "{text}"
@@ -31,6 +34,7 @@ fn a_missing_standard_library_names_the_variable_that_fixes_it() {
 #[test]
 fn an_executable_report_that_cannot_be_written_fails_the_build() {
     let dir = TempDir::new("report-exe");
+
     std::fs::write(dir.join("hello.jai"), "main :: () {}\n").unwrap();
     // A folder cannot be appended to.
     std::fs::create_dir_all(dir.join("report")).unwrap();
@@ -41,6 +45,7 @@ fn an_executable_report_that_cannot_be_written_fails_the_build() {
         .output()
         .unwrap();
     let text = String::from_utf8_lossy(&output.stderr);
+
     assert!(!output.status.success(), "{text}");
     assert!(
         text.contains("cannot record the executable in") && text.contains("JAIC_REPORT_EXE"),

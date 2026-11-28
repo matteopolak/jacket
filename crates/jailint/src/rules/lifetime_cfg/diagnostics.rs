@@ -24,6 +24,7 @@ pub(super) fn emit(
         _ => return Vec::new(),
     };
     let mut reports: Vec<Finding> = Vec::new();
+
     for i in states.swept() {
         let block = &blocks[i];
         let (id, at) = match block.op {
@@ -47,9 +48,11 @@ pub(super) fn emit(
         let Some(&cell) = relevant.get(&id) else {
             continue;
         };
+
         if states.get(i).is_none_or(|s| !dead(cx, s[cell])) {
             continue;
         }
+
         let growths = invalidation_cut(
             model,
             states,
@@ -63,20 +66,24 @@ pub(super) fn emit(
                 element
             },
         );
+
         if growths.is_empty() {
             continue;
         }
+
         let logical = !resizable_only
             && growths.iter().any(|at| {
                 blocks
                     .iter()
                     .any(|b| logical_invalidation(cx, &b.op, *at, element))
             });
+
         // Physical access and logical element identity are distinct: an address alone
         // remains usable for comparisons and ownership queries after storage moves.
         if matches!(block.op, Op::ObserveValue(..)) && !logical {
             continue;
         }
+
         let explanation = if cx.lifetime_mode == jacket_config::LifetimeMode::Strict
             && states.get(i).is_some_and(|s| s[cell] != super::DEAD)
         {
@@ -122,6 +129,7 @@ pub(super) fn emit(
                 .into(),
             ),
         );
+
         report.label = Some(
             if logical {
                 "pointer used here after its element was moved or removed"
@@ -130,27 +138,33 @@ pub(super) fn emit(
             }
             .into(),
         );
+
         if source != at {
             report
                 .secondary
                 .push((source, "expanded code uses the pointer here".into()));
         }
+
         report
             .secondary
             .push((origin, "pointer derived here".into()));
         super::witness::targets(cx, model, &growths, &mut report);
+
         if cx.lifetime_mode == jacket_config::LifetimeMode::Strict {
             let (decisions, count) =
                 super::witness::strict_path(model, states, relevant, candidate, i, cell, &growths);
+
             report
                 .message
                 .push_str(&format!("; shortest bad path shown ({count})"));
+
             for (site, taken) in decisions {
                 report.secondary.push((
                     site,
                     format!("shortest bad path takes this condition as {taken}"),
                 ));
             }
+
             if growths.iter().any(|s| {
                 blocks
                     .iter()
@@ -161,6 +175,7 @@ pub(super) fn emit(
                 );
             }
         }
+
         for growth in growths {
             if let Some(chain) = chains.get(&(growth, region)) {
                 for &site in chain {
@@ -181,6 +196,7 @@ pub(super) fn emit(
                     }
                 }
             }
+
             report.secondary.push((
                 growth,
                 if logical {
@@ -190,6 +206,7 @@ pub(super) fn emit(
                 },
             ));
         }
+
         if !reports.iter().any(|f| {
             f.start >= at.start as usize
                 && f.end <= at.end as usize
@@ -198,6 +215,7 @@ pub(super) fn emit(
             reports.push(report);
         }
     }
+
     // The caller merges all candidates for this rule.
     reports
 }
@@ -211,6 +229,7 @@ fn logical_invalidation(
     let Some((index, length)) = element else {
         return false;
     };
+
     match *op {
         Op::Mutate(_, mutation, span) if span == at => {
             crate::rules::lifetime_movement::invalidates(mutation, index, length)

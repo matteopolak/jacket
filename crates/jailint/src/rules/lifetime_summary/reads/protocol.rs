@@ -15,6 +15,7 @@ pub(in crate::rules) fn address_query(
     if args.iter().find(|a| a.formal == 0).and_then(|a| a.constant) != Some(9) {
         return false;
     }
+
     let Some(signature) = compiler.pr.procs[proc.0 as usize].sig.as_ref() else {
         return false;
     };
@@ -22,6 +23,7 @@ pub(in crate::rules) fn address_query(
         return false;
     };
     let scope = compiler.ns.modules[preload.0 as usize].scope;
+
     compiler
         .scope(scope)
         .names
@@ -36,6 +38,7 @@ pub(in crate::rules) fn address_query(
             else {
                 return false;
             };
+
             compiler.ty.types.as_struct(*ty).is_some_and(|st| {
                 compiler
                     .ty
@@ -61,12 +64,16 @@ pub(in crate::rules::lifetime_summary) fn solve<'a>(
 ) {
     use super::super::{Event, Resolver, Root, acyclic, sccs};
     let mut ids: Vec<_> = valid.keys().copied().collect();
+
     ids.sort_unstable_by_key(|p| p.0);
+
     for component in sccs(&ids, graph) {
         let once = acyclic(&component, graph);
         let mut resolvers = super::HashMap::default();
+
         loop {
             let mut changed = false;
+
             for id in &component {
                 let calls: Vec<_> = valid[id]
                     .blocks
@@ -83,6 +90,7 @@ pub(in crate::rules::lifetime_summary) fn solve<'a>(
                             return None;
                         };
                         let direct = address_query(compiler, *callee, args);
+
                         (direct
                             || all
                                 .procs
@@ -91,9 +99,11 @@ pub(in crate::rules::lifetime_summary) fn solve<'a>(
                         .then_some((callee, args, direct))
                     })
                     .collect();
+
                 if calls.is_empty() {
                     continue;
                 }
+
                 let resolver = resolvers.entry(*id).or_insert_with(|| {
                     Resolver::cached(
                         cache,
@@ -106,6 +116,7 @@ pub(in crate::rules::lifetime_summary) fn solve<'a>(
                     )
                 });
                 let mut queries = super::HashSet::default();
+
                 for (callee, args, direct) in calls {
                     for arg in args {
                         if !(direct && arg.formal == 3
@@ -116,6 +127,7 @@ pub(in crate::rules::lifetime_summary) fn solve<'a>(
                         {
                             continue;
                         }
+
                         if let Some(path) = resolver.argument_trace(
                             arg,
                             &all.procs,
@@ -128,7 +140,9 @@ pub(in crate::rules::lifetime_summary) fn solve<'a>(
                         }
                     }
                 }
+
                 let summary = all.procs.get_mut(id).unwrap();
+
                 queries.retain(|n| {
                     !summary.may_read_formals.contains(n)
                         && !summary.unknown_write.contains(n)
@@ -143,9 +157,11 @@ pub(in crate::rules::lifetime_summary) fn solve<'a>(
                             .any(|(p, _)| p.root == Root::Parameter(*n))
                 });
                 let before = summary.address_queries.len();
+
                 summary.address_queries.extend(queries);
                 changed |= before != summary.address_queries.len();
             }
+
             if !changed || once {
                 break;
             }

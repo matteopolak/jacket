@@ -69,7 +69,9 @@ fn double_math(symbol: &str) -> Option<&str> {
         erfc exp exp2 expm1 fabs fdim floor fma fmax fmin fmod frexp hypot ilogb ldexp lgamma \
         llrint llround log log10 log1p log2 logb lrint lround modf nearbyint nextafter pow \
         remainder remquo rint round scalbln scalbn sin sinh sqrt tan tanh tgamma trunc";
+
     let stem = symbol.strip_suffix('l')?;
+
     MATH.split_whitespace()
         .any(|name| name == stem)
         .then_some(stem)

@@ -17,39 +17,50 @@ impl Compiler {
         // An editor that wants this check to stop (see `interrupt`) gets every body failed at
         // once; what the check produces is thrown away.
         self.check_not_stopped(self.proc(id).span)?;
+
         // IDE-final checks can enter through a compile-time dependency preflight,
         // not just the lenient queue. Share its failure memo at this common entry.
         if let Some(error) = self.ide_cached_body_failure(id, self.lower_epoch()) {
             return Err(error);
         }
+
         let misses = (
             self.epochs.placeholder_misses,
             self.epochs.in_progress_misses,
         );
         let result = self.lower_body_uncached(id);
+
         self.ide_record_body_result(id, self.lower_epoch(), misses, &result);
         result
     }
 
     fn lower_body_uncached(&mut self, id: ProcId) -> Result<()> {
         let probing = crate::sema::body_probe::enabled();
+
         if probing {
             crate::sema::body_probe::begin(self, id.0);
         }
+
         let error_mark = self.ed.error_count();
         let executions = self.ct.executions;
+
         self.diag.dependencies.begin_body(id);
         self.meta.export.expression_types.remove(&id);
+
         if self.proc(id).body_state == BodyState::Deferred {
             self.pr.promoted_bodies += 1;
         }
+
         self.pr.procs[id.0 as usize].body_state = BodyState::Lowering;
         let outermost = (self.pr.lowering_depth == 0).then(|| self.meta.perf.start_lowering());
         let checking = crate::progress::enter(crate::progress::Phase::Checking);
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::PrLoweringDepth);
         self.pr.lowering_depth += 1;
         let result = self.lower_body_inner(id);
+
         self.diag.dependencies.end_body(id, result.is_err());
+
         if result.is_err()
             && !self.epochs.placeholders_final
             && self.ct.executions == executions
@@ -59,23 +70,29 @@ impl Compiler {
             // retry owns the final diagnostics, including independent errors.
             self.ed.forget_errors(error_mark);
         }
+
         crate::sema::body_probe::write(crate::sema::body_probe::W::PrLoweringDepth);
         self.pr.lowering_depth -= 1;
+
         if result.is_err() {
             self.meta.export.expression_types.remove(&id);
         }
+
         if self.ed.is_live() {
             if result.is_err() {
                 let recorded = self.ed.errors_since(error_mark);
+
                 self.pr.provisional_errors.insert(id, recorded);
             } else if let Some(earlier) = self.pr.provisional_errors.remove(&id) {
                 // The body had failed before, waiting for a declaration made since.
                 self.ed.forget_matching(&earlier);
             }
         }
+
         if let Some(mark) = outermost {
             self.meta.perf.finish_lowering(mark);
         }
+
         drop(checking);
         self.pr.procs[id.0 as usize].body_state = if result.is_ok() {
             crate::progress::procedure_checked();
@@ -85,9 +102,11 @@ impl Compiler {
         } else {
             BodyState::Queued
         };
+
         if probing {
             crate::sema::body_probe::end(self);
         }
+
         result
     }
 
@@ -109,6 +128,7 @@ impl Compiler {
         // must not leak into a surrounding callback/global initializer.
         let captures = std::mem::take(&mut self.out.runtime_storage_dependencies.captures);
         let result = self.lower_body_code_with_runtime_dependencies(id, func_id);
+
         self.out.runtime_storage_dependencies.captures = captures;
         result
     }
@@ -129,14 +149,18 @@ impl Compiler {
             None => "typecheck".into(),
         };
         let mut f = FnCtx::new(name, ir_sig, file);
+
         if !crate::sema::speculative::active() {
             self.lifetime_begin_body(&mut f, id);
         }
+
         f.proc = Some(id);
         f.checks_off = header.flags.checks_off();
+
         if !self.options.array_bounds_check {
             f.checks_off = f.checks_off.with(ast::CheckBits::NO_ABC);
         }
+
         f.b.func.inline = match header.flags.inline {
             ast::CallHintFlag::Inline => ir::InlineHint::Always,
             ast::CallHintFlag::NoInline => ir::InlineHint::Never,
@@ -146,23 +170,28 @@ impl Compiler {
         f.b.func.section = self.proc_note_string(id, SECTION_NOTE);
         self.check_interrupt_handler(id, span)?;
         f.b.func.target_features = header.flags.target_features.as_deref().map(str::to_string);
+
         if func_id.is_some() && self.options.null_pointer_check && !header.flags.no_abc() {
             f.b.func.null_checks = true;
             self.note_check_handler(span)?;
         }
+
         if let Some(name) = &self.proc(id).export {
             f.b.func.linkage = ir::Linkage::Export(name.clone());
         }
+
         if func_id.is_some() {
             f.b.func.debug_hidden = header.flags.no_debug();
             self.begin_func_debug(&mut f, id, span);
         }
+
         if sig.has_context
             && func_id.is_some()
             && header.flags.inline != ast::CallHintFlag::Inline
             && !header.flags.no_debug()
         {
             let (line, col) = self.src.sources.get(span.file).line_col(span.start);
+
             f.b.func.trace = Some(ir::TraceInfo {
                 name: self.proc(id).name.to_string(),
                 file: span.file.0,
@@ -170,8 +199,10 @@ impl Compiler {
                 col,
             });
         }
+
         let module = self.scope(sig.scope).module;
         let scope = self.new_scope(ScopeKind::Proc, Some(sig.scope), module, None);
+
         self.scope_mut(scope).proc = Some(id);
         let Some(body) = &lit.body else {
             // Intrinsic or #compiler without a body: synthesize a forwarding body.
@@ -181,25 +212,33 @@ impl Compiler {
             return self.lower_intrinsic_wrapper(id, func_id, f, &sig, &header);
         };
         let mut next = 0usize;
+
         if sig.has_context {
             f.set_context(Some(f.b.param(0)));
             f.b.func.trusted.push(f.b.param(0));
             next = 1;
         }
+
         for param in &sig.params {
             let incoming = f.b.param(next);
+
             next += 1;
+
             // An aggregate arrives as the address of the caller's copy, never null.
             if self.is_memory_type(param.ty) {
                 f.b.func.trusted.push(incoming);
             }
+
             if param.discard {
                 if let Some(name) = param.name {
                     let e = self.add_const(scope, name, param.span, Value::Int(0), TypeId::S64);
+
                     self.set_discard_param(e);
                 }
+
                 continue;
             }
+
             // An aggregate arrives as the address of the caller's value, which the procedure
             // reads in place unless it takes an address inside it (see `Builder::param_copy`).
             // `#compile_time` procedures may assign to their parameters, so they always copy.
@@ -209,6 +248,7 @@ impl Compiler {
                 .iter()
                 .any(|flag| flag.name.as_str() == "compile_time");
             let addr = self.param_storage(&mut f, compile_time, param.ty, incoming, param.span)?;
+
             if !f.type_only
                 && let Some(record) = &mut f.lifetimes
             {
@@ -217,6 +257,7 @@ impl Compiler {
                     .iter()
                     .position(|p| p.span == param.span)
                     .expect("runtime formal");
+
                 record.push(
                     f.b.current,
                     crate::ide::lifetimes::LifetimeEvent::Parameter {
@@ -228,6 +269,7 @@ impl Compiler {
                     },
                 );
             }
+
             if let Some(name) = param.name {
                 self.debug_var(
                     &mut f,
@@ -249,27 +291,34 @@ impl Compiler {
                     },
                     false,
                 );
+
                 // `#compile_time` procedures run in the compiler, whose arguments are plain
                 // locals.
                 if self.is_memory_type(param.ty) && !compile_time {
                     f.immutable.push((addr, Immutable::Argument));
                 }
+
                 if let Some(info) = &param.callable {
                     self.set_callable_entity(e, info.clone());
                 }
+
                 if param.using {
                     let mut entry = UsingEntry::Place {
                         ty: param.ty,
                         entity: e,
                     };
+
                     if let Some(filter) = &param.using_filter {
                         entry = self.filter_using_entry(scope, entry, filter, param.span)?;
                     }
+
                     self.push_using(scope, entry);
                 }
             }
         }
+
         f.return_types.clone_from(&sig.returns);
+
         for (i, &rt) in sig.returns.iter().enumerate() {
             if self.is_memory_type(rt) {
                 // The caller's result slot, never null.
@@ -279,6 +328,7 @@ impl Compiler {
             } else {
                 f.return_outs.push(None);
             }
+
             // Named results get a slot initialized to their default.
             if let Some(name) = sig.return_names[i] {
                 let addr = if let Some(out) = f.return_outs[i] {
@@ -286,6 +336,7 @@ impl Compiler {
                 } else {
                     let size = self.size_of(rt, span)?;
                     let align = self.align_of(rt, span)?;
+
                     f.b.alloca(size, align)
                 };
                 let default = header
@@ -293,19 +344,23 @@ impl Compiler {
                     .iter()
                     .filter(|r| r.name.map(|n| n.name) == Some(name))
                     .find_map(|r| r.default.clone());
+
                 match default {
                     Some(d) => {
                         let op = self.check_expr(&mut f, scope, &d, Some(rt))?;
                         let op = self.convert(&mut f, op, rt, &d)?;
                         let (_, v) = self.rvalue(&mut f, op, d.span)?;
+
                         self.store_value(&mut f, rt, addr, v, d.span)?;
                     }
                     None => self.init_default(&mut f, rt, addr, span)?,
                 }
+
                 // A result named like a parameter is only reachable through `return`.
                 if !self.scope(scope).names.contains_key(&name) {
                     self.debug_var(&mut f, scope, name, span, (rt, addr), 0);
                     let depth = self.scope(scope).proc_depth;
+
                     self.add_entity(
                         scope,
                         name,
@@ -318,13 +373,16 @@ impl Compiler {
                         false,
                     );
                 }
+
                 f.named_results.push(Some(addr));
             } else {
                 f.named_results.push(None);
             }
         }
+
         // Parameters and named results live in an outer scope; the body may shadow them.
         let body_scope = self.new_block_scope(scope, body.span);
+
         self.check_block_stmts(&mut f, body_scope, &body.stmts)?;
         self.ide_require_parsed_body(body.span)?;
         // The body is read for what Jai warns about: a result still owed at its end, and
@@ -332,9 +390,11 @@ impl Compiler {
         // Named results are returned at the end (a feature newer than the warning), so a body
         // that names them all is never short of a `return`.
         let reaches_end = self.warn_unreachable(&f, body);
+
         if f.macro_returned {
             self.ed.macro_returned(id);
         }
+
         // An editor analysis also drops the warning where the walk shows the end is never
         // reached (`if x >= 0 { return 1; } else if x < 0 { return 2; }` on an unsigned `x`
         // cannot, but the reference compiler would warn, so the batch compiler keeps its rule).
@@ -343,12 +403,15 @@ impl Compiler {
             && !f.macro_returned
             && !self.stmts_return(&f, &body.stmts)
             && (!self.ed.trusts_reachability() || reaches_end);
+
         if !f.b.is_terminated() {
             self.emit_fallthrough_return(&mut f, body.span)?;
         }
+
         self.lifetime_finish_body(&mut f, id, &lit);
         let storage_constants = f.runtime_storage_constants;
         let func = f.b.finish();
+
         if owes_result {
             let mut warning = Diagnostic::new(
                 Code::ProcNotAllControl,
@@ -365,23 +428,28 @@ impl Compiler {
                 (body.span.end as usize).saturating_sub(1),
                 body.span.end as usize,
             );
+
             if self.src.sources.snippet(brace) == "}" {
                 warning = warning.with_note(brace, "the body ends here without a `return`");
             }
+
             self.warn(warning);
         }
+
         if let Some(func_id) = func_id {
             // A speculative body keeps its function until it is committed.
             if crate::sema::speculative::active() {
                 crate::sema::speculative::deposit(func_id, func, storage_constants, span);
                 return Ok(());
             }
+
             self.out
                 .runtime_storage_dependencies
                 .functions
                 .insert(func_id, (storage_constants, span));
             self.out.program.funcs[func_id.0 as usize] = Some(func);
         }
+
         Ok(())
     }
 
@@ -399,9 +467,11 @@ impl Compiler {
         if !self.is_memory_type(ty) || compile_time {
             return self.spill(f, ty, incoming, span);
         }
+
         let size = self.size_of(ty, span)?;
         let align = self.align_of(ty, span)?;
         let addr = f.b.param_copy(incoming, size, align);
+
         // The lifetime record sees the copy `spill` would make, elided or not.
         f.lifetime_store(addr, incoming, ty, span);
         Ok(addr)
@@ -409,16 +479,20 @@ impl Compiler {
 
     pub fn emit_fallthrough_return(&mut self, f: &mut FnCtx, span: Span) -> Result<()> {
         self.emit_defers(f, 0, span)?;
+
         if f.return_types.is_empty() {
             f.b.ret(Vec::new());
             return Ok(());
         }
+
         if f.named_results.iter().all(Option::is_some) {
             let mut values = Vec::new();
+
             for (i, &rt) in f.return_types.clone().iter().enumerate() {
                 let addr = f.named_results[i].unwrap();
                 let v = if let Some(t) = self.ir_ty(rt) {
                     let v = f.b.load(t, addr);
+
                     if !f.type_only
                         && let Some(record) = &mut f.lifetimes
                     {
@@ -432,10 +506,12 @@ impl Compiler {
                             },
                         );
                     }
+
                     v
                 } else {
                     addr
                 };
+
                 if !f.type_only
                     && let Some(record) = &mut f.lifetimes
                 {
@@ -450,13 +526,17 @@ impl Compiler {
                         },
                     );
                 }
+
                 if f.return_outs[i].is_none() {
                     values.push(v);
                 }
             }
+
             f.b.ret(values);
+
             return Ok(());
         }
+
         // Missing return: trap at runtime (Jai reports this only for reachable ends).
         self.emit_trap(f, ir::CheckReason::MissingReturn, span)?;
         Ok(())
@@ -472,6 +552,7 @@ impl Compiler {
         _header: &ast::ProcHeader,
     ) -> Result<()> {
         let name = self.proc(id).name;
+
         if name.as_str() == crate::sema::private_names::RUNTIME_TEMPORARY_STORAGE_SIZE {
             let Operand::Value {
                 val, ..
@@ -479,10 +560,13 @@ impl Compiler {
             else {
                 unreachable!();
             };
+
             f.b.ret(vec![val]);
             self.out.program.funcs[func_id.0 as usize] = Some(f.b.finish());
+
             return Ok(());
         }
+
         let start = usize::from(sig.has_context);
         let args: Vec<ir::Val> = (start..f.b.func.sig.params.len())
             .map(|i| f.b.param(i))
@@ -495,6 +579,7 @@ impl Compiler {
             "debug_break" | "compile_time_debug_break" => ir::Intrinsic::DebugBreak,
             _ => ir::Intrinsic::Trap,
         };
+
         if op == ir::Intrinsic::Trap {
             // Compile-time-only primitives (`#compiler` hooks) have no runtime body. The
             // interpreter calls the hook itself, so only compiled code reaches this stub: say
@@ -508,6 +593,7 @@ impl Compiler {
             let data = f.b.global_addr(data);
             let count = f.b.iconst(Ty::I64, text.len() as u64);
             let to_stderr = f.b.iconst(Ty::I8, 1);
+
             f.b.intrinsic(
                 ir::Intrinsic::CompilerWrite,
                 vec![data, count, to_stderr],
@@ -517,8 +603,10 @@ impl Compiler {
             f.b.terminate(ir::Term::Unreachable);
         } else {
             let results = f.b.intrinsic(op, args, &returns);
+
             f.b.ret(results);
         }
+
         self.out.program.funcs[func_id.0 as usize] = Some(f.b.finish());
         Ok(())
     }
@@ -536,20 +624,25 @@ impl Compiler {
             .map(|(_, v, t)| crate::sema::instance_key_value(&self.ty.types, v, *t))
             .collect();
         let existing = self.proc(id).instances.get(&key).copied();
+
         crate::sema::body_probe::lookup(
             crate::sema::body_probe::Lookup::Instances,
             existing.is_some(),
         );
+
         if let Some(inst) = existing {
             if !crate::sema::speculative::defer(move |c, _| {
                 c.meta.perf.poly_request(id, true, span);
             }) {
                 self.meta.perf.poly_request(id, true, span);
             }
+
             return Ok(inst);
         }
+
         self.meta.perf.poly_request(id, false, span);
         let signature_only = self.ide_sketch_refuses(&bindings);
+
         if self.proc(id).instances.len() >= crate::sema::MAX_INSTANCES {
             return err(
                 Code::TooManyInstances,
@@ -557,11 +650,13 @@ impl Compiler {
                 crate::sema::too_many_instances(self.proc(id).name),
             );
         }
+
         let parent = self.proc(id).scope;
         let scope = self.new_hidden_scope(parent);
         let header = self.proc(id).lit.header.clone();
         let binders = self.poly_binders(&header);
         let mut bound = Vec::new();
+
         for (name, value, ty) in &bindings {
             // Declared at its `$T`, so go to definition from the body lands there.
             let binder = binders.iter().find(|(n, _)| n == name).map(|&(_, s)| s);
@@ -587,20 +682,25 @@ impl Compiler {
             // the argument's own type: `type_of` sees a `cast(u32)` argument as `u32`.
             let declared =
                 param.is_none_or(|p| p.ty.as_ref().is_some_and(|t| !super::model::has_poly(t)));
+
             if declared
                 && matches!(value, Value::Int(_))
                 && matches!(self.ty.types.kind(*ty), crate::types::TypeKind::Int { .. })
             {
                 self.entity_mut(id).untyped_const = true;
             }
+
             bound.push((*name, id));
         }
+
         if self.ed.is_live() {
             self.ide_note_poly_header(&header, &bound, parent);
         }
+
         let p = self.proc(id);
         let (name, lit, pspan, is_macro) = (p.name, p.lit.clone(), p.span, p.is_macro);
         let inst = ProcId(self.pr.procs.len() as u32);
+
         self.pr.procs.push(ProcInfo {
             name,
             lit,
@@ -618,13 +718,17 @@ impl Compiler {
             export: None,
         });
         self.pr.procs[id.0 as usize].instances.insert(key, inst);
+
         if signature_only {
             self.ed.signature_only(inst);
         }
+
         self.meta.perf.poly_instance(id, inst, span);
+
         if let Some(notes) = self.pr.proc_decl_notes.get(&id).cloned() {
             self.pr.proc_decl_notes.insert(inst, notes);
         }
+
         Ok(inst)
     }
 }
@@ -637,7 +741,9 @@ impl Compiler {
         if !self.proc_has_note(id, INTERRUPT_NOTE) {
             return Ok(());
         }
+
         let header = &self.proc(id).lit.header;
+
         if header.flags.c_call()
             && header.flags.no_context()
             && header.params.is_empty()
@@ -645,6 +751,7 @@ impl Compiler {
         {
             return Ok(());
         }
+
         err(
             Code::InterruptSignature,
             span,

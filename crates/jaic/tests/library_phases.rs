@@ -28,6 +28,7 @@ impl Host for Observer {
         if symbol != "independent_embedding_data_603" {
             return None;
         }
+
         self.calls.set(self.calls.get() + 1);
         Some((&raw const *self.value) as u64)
     }
@@ -35,7 +36,9 @@ impl Host for Observer {
 
 fn compiler(cross_os: bool, cross_cpu: bool) -> (Compiler, Rc<Cell<usize>>) {
     let mut options = Options::host();
+
     options.runtime_support = false;
+
     if cross_os {
         options.os = if options.os == TargetOs::Windows {
             TargetOs::Linux
@@ -43,6 +46,7 @@ fn compiler(cross_os: bool, cross_cpu: bool) -> (Compiler, Rc<Cell<usize>>) {
             TargetOs::Windows
         };
     }
+
     if cross_cpu {
         options.cpu = if options.cpu == TargetCpu::X64 {
             TargetCpu::Arm64
@@ -50,8 +54,10 @@ fn compiler(cross_os: bool, cross_cpu: bool) -> (Compiler, Rc<Cell<usize>>) {
             TargetCpu::X64
         };
     }
+
     let mut compiler = Compiler::new(options, Rc::new(VirtualFs::default()));
     let calls = Rc::new(Cell::new(0));
+
     compiler.ct.interp = Interp::new(
         Box::new(Observer {
             calls: calls.clone(),
@@ -73,9 +79,11 @@ fn cross_target_host_service_does_not_load_unrelated_target_requirements() {
     for (os, cpu) in [(true, false), (false, true), (true, true)] {
         let (mut c, calls) = compiler(os, cpu);
         let source = format!("{REQUIREMENT}{HOST_CALL}");
+
         if let Err(error) = c.compile_sources(&[ProgramSource::String(source)]) {
             panic!("{}", error.render(&c.src.sources));
         }
+
         assert_eq!(calls.get(), 1);
         assert!(c.out.program.cross_target);
         assert_eq!(c.out.program.libraries.len(), 1);
@@ -89,6 +97,7 @@ fn same_target_host_service_still_initializes_required_libraries() {
     let error = c
         .compile_sources(&[ProgramSource::String(format!("{REQUIREMENT}{HOST_CALL}"))])
         .expect_err("missing required library must fail");
+
     assert!(
         error.message.contains("required native library"),
         "{}",
@@ -100,6 +109,7 @@ fn same_target_host_service_still_initializes_required_libraries() {
 #[test]
 fn runtime_requirement_is_not_removed_from_cross_target_program() {
     let (mut c, _) = compiler(true, true);
+
     c.compile_sources(&[ProgramSource::String(format!(
         "{REQUIREMENT}main :: () {{}}"
     ))])
@@ -109,6 +119,7 @@ fn runtime_requirement_is_not_removed_from_cross_target_program() {
         c.ct.interp
             .call(&c.out.program, ir::FuncId(0), &[])
             .expect_err("runtime required library remains mandatory");
+
     assert!(
         error.message.contains("required native library"),
         "{}",
@@ -125,6 +136,7 @@ fn explicit_unavailable_target_foreign_is_still_rejected() {
     let error = c
         .compile_sources(&[ProgramSource::String(source)])
         .expect_err("an actual unavailable target call must fail");
+
     assert!(
         error.message.contains("foreign procedure") && error.message.contains("not available"),
         "{}",
@@ -139,11 +151,13 @@ const STATIC_REQUIREMENT: &str =
 #[test]
 fn static_only_requirement_is_not_loaded_at_compile_time() {
     let (mut c, calls) = compiler(false, false);
+
     if let Err(error) = c.compile_sources(&[ProgramSource::String(format!(
         "{STATIC_REQUIREMENT}{HOST_CALL}"
     ))]) {
         panic!("{}", error.render(&c.src.sources));
     }
+
     assert_eq!(calls.get(), 1);
     assert!(c.out.program.libraries[0].no_dll);
 }
@@ -157,6 +171,7 @@ fn compile_time_call_into_static_only_library_names_the_library() {
     let error = c
         .compile_sources(&[ProgramSource::String(source)])
         .expect_err("a static-only library cannot be called while compiling");
+
     assert!(
         error.message.contains("has no dynamic library (`,no_dll`)"),
         "{}",

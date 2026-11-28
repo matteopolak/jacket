@@ -41,8 +41,10 @@ pub fn wrap(v: i128, bits: u8, signed: bool) -> i128 {
     if bits >= 128 {
         return v;
     }
+
     let mask = (1i128 << bits) - 1;
     let x = v & mask;
+
     if signed && bits > 0 && (x >> (bits - 1)) & 1 == 1 {
         x - (1i128 << bits)
     } else {
@@ -92,6 +94,7 @@ pub fn int_binop(
             } else {
                 a as u128 & ((1u128 << bits) - 1)
             };
+
             if by == 0 {
                 a
             } else {
@@ -99,6 +102,7 @@ pub fn int_binop(
             }
         }
     };
+
     Ok(wrap(r, bits, signed))
 }
 

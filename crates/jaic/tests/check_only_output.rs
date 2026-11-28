@@ -23,6 +23,7 @@ impl WorkspaceObserver for Retain {
 fn checked_child(backend: Option<Box<dyn OutputBackend>>) -> Rc<RefCell<Vec<Compiler>>> {
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
     let fs = Rc::new(NativeFs);
@@ -38,6 +39,7 @@ fn checked_child(backend: Option<Box<dyn OutputBackend>>) -> Rc<RefCell<Vec<Comp
         observer: Some(Box::new(Retain(captured.clone()))),
     });
     let mut compiler = Compiler::new(options, fs);
+
     compiler
         .ct
         .interp
@@ -63,6 +65,7 @@ fn checked_child(backend: Option<Box<dyn OutputBackend>>) -> Rc<RefCell<Vec<Comp
 fn check_only_child_keeps_unreferenced_checked_bodies_for_later_analysis() {
     let captured = checked_child(None);
     let children = captured.borrow();
+
     assert_eq!(children.len(), 1);
     let child = &children[0];
     let procedure = child
@@ -74,6 +77,7 @@ fn check_only_child_keeps_unreferenced_checked_bodies_for_later_analysis() {
     let Some(ProcTarget::Func(function)) = procedure.target else {
         panic!("predicate was not checked");
     };
+
     assert!(
         child.out.program.funcs[function.0 as usize]
             .as_ref()
@@ -97,6 +101,7 @@ impl OutputBackend for InspectEmission {
             .iter()
             .position(|name| name == "predicate")
             .unwrap();
+
         self.0.borrow_mut().push(program.funcs[predicate].is_none());
         Ok(())
     }
@@ -106,6 +111,7 @@ impl OutputBackend for InspectEmission {
 fn an_output_backend_still_receives_pruned_emission_ir() {
     let observations = Rc::new(RefCell::new(Vec::new()));
     let captured = checked_child(Some(Box::new(InspectEmission(observations.clone()))));
+
     assert_eq!(
         &*observations.borrow(),
         &[true],

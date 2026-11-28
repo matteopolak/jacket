@@ -43,6 +43,7 @@ pub fn call(
         Some(FieldRef::Ref(child)) => (0, None, child),
         _ => (0, None, 0),
     };
+
     match op {
         MetaOp::SyntaxInt => Ok(Rets::one(int as u64)),
         MetaOp::SyntaxString => {
@@ -53,6 +54,7 @@ pub fn call(
                 Some(data) => data,
                 None => value.as_ptr() as u64,
             };
+
             layout.write_view(&mut view, value.len() as u64, data);
             store(interp, arg(2), &view)?;
             reg.kept.push(value);
@@ -68,6 +70,7 @@ pub fn call(
                 builders,
                 ..
             } = &mut *reg;
+
             Ok(Rets::one(builders[index].build(
                 records,
                 kept,

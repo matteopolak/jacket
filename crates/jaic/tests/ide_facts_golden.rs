@@ -27,19 +27,23 @@ fn repo() -> PathBuf {
 fn facts(entry: &Path, root: &Path) -> String {
     let stdlib = repo().join("stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&jaic::sema::NativeFs, &stdlib);
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
     let mut ide = IdeFacts::new(vec![IdeRoot::under(root)]);
+
     ide.lint = true;
     compiler.ed.record(ide);
     let mut errors: Vec<String> = Vec::new();
+
     if let Err(e) = compiler
         .begin_sources(&[ProgramSource::File(entry.to_path_buf())])
         .and_then(|()| compiler.finish_program())
     {
         errors.push(e.message.clone());
     }
+
     errors.extend(compiler.ide_check_all().into_iter().map(|e| e.message));
     compiler.ide_sketch_polymorphs();
     dump(&compiler, errors)
@@ -50,8 +54,10 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
     const IDS: [&str; 6] = [
         "FileId", "EntityId", "ProcId", "TypeId", "ScopeId", "StructId",
     ];
+
     let mut out = String::new();
     let mut rest = line;
+
     while let Some((at, kind)) = IDS
         .iter()
         .filter_map(|kind| {
@@ -65,17 +71,22 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
         let len = digits
             .find(|ch: char| !ch.is_ascii_digit())
             .unwrap_or(digits.len());
+
         if len == 0 || !digits[len..].starts_with(')') {
             out.push_str(&rest[..=at + kind.len()]);
             rest = digits;
+
             continue;
         }
+
         let n: u32 = digits[..len].parse().unwrap();
+
         out.push_str(&rest[..at]);
         out.push_str(&match kind {
             "FileId" => file(c, FileId(n)),
             "EntityId" => {
                 let e = c.entity(EntityId(n));
+
                 format!(
                     "E({}@{})",
                     e.name.to_string().escape_debug(),
@@ -84,6 +95,7 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
             }
             "ProcId" => {
                 let p = c.proc(ProcId(n));
+
                 format!(
                     "P({}@{})",
                     p.name.to_string().escape_debug(),
@@ -97,6 +109,7 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
             ),
             _ => {
                 let s = c.ty.types.struct_info(StructId(n));
+
                 format!(
                     "St({}@{})",
                     s.name.to_string().escape_debug(),
@@ -106,6 +119,7 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
         });
         rest = &digits[len + 1..];
     }
+
     out.push_str(rest);
     out
 }
@@ -113,6 +127,7 @@ fn symbolic(c: &Compiler, scopes: &HashMap<ScopeId, Span>, line: &str) -> String
 /// A file as its path under the repository.
 fn file(c: &Compiler, f: FileId) -> String {
     let repo = repo();
+
     match c.src.sources.get(f).path.as_file() {
         Some(path) => path
             .strip_prefix(&repo)
@@ -139,20 +154,25 @@ fn is_library(c: &Compiler, f: FileId) -> bool {
 /// distinguishable (and in a stable order) without pinning any offset.
 fn proc_at(c: &Compiler, id: ProcId) -> String {
     let p = c.proc(id);
+
     if p.span == Span::NONE || !is_library(c, p.span.file) {
         return at_span(c, p.span);
     }
+
     let mut starts: Vec<u32> = (0..c.pr.procs.len() as u32)
         .map(|i| c.proc(ProcId(i)))
         .filter(|q| q.name == p.name && q.span.file == p.span.file)
         .map(|q| q.span.start)
         .collect();
+
     starts.sort_unstable();
     starts.dedup();
     let file = file(c, p.span.file);
+
     if starts.len() < 2 {
         return file;
     }
+
     let rank = starts.iter().position(|&s| s == p.span.start).unwrap() + 1;
     format!("{file}#{rank}")
 }
@@ -161,9 +181,11 @@ fn span(c: &Compiler, s: Span) -> String {
     if s == Span::NONE {
         return "-".into();
     }
+
     if is_library(c, s.file) {
         return file(c, s.file);
     }
+
     format!("{}:{}..{}", file(c, s.file), s.start, s.end)
 }
 
@@ -171,9 +193,11 @@ fn at_span(c: &Compiler, s: Span) -> String {
     if s == Span::NONE {
         return "-".into();
     }
+
     if is_library(c, s.file) {
         return file(c, s.file);
     }
+
     format!("{}:{}", file(c, s.file), s.start)
 }
 
@@ -307,23 +331,28 @@ fn dump(c: &Compiler, errors: Vec<String>) -> String {
         ("refused", ide.refused.iter().map(span).collect()),
     ];
     let mut out = String::new();
+
     for (name, lines) in &mut sections {
         for line in lines.iter_mut() {
             *line = symbolic(c, &scopes, line);
         }
+
         lines.sort_unstable();
         lines.dedup();
         writeln!(out, "## {name} ({})", lines.len()).unwrap();
+
         for line in lines.iter() {
             writeln!(out, "{line}").unwrap();
         }
     }
+
     out
 }
 
 fn check(name: &str, entry: &str, root: &str) {
     let repo = repo();
     let actual = facts(&repo.join(entry), &repo.join(root));
+
     test_support::assert_snapshot!(name, actual);
 }
 
@@ -360,6 +389,7 @@ fn polymorphs_and_static_branches() {
             "backtick-defer-names",
         ] {
             let path = format!("tests/compiler/regressions/{name}.jai");
+
             check(name, &path, &path);
         }
     });

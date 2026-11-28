@@ -53,13 +53,16 @@ pub fn user_cache_dir() -> Result<PathBuf, String> {
             .map(PathBuf::from)
             .ok_or_else(|| "LOCALAPPDATA is not set".into());
     }
+
     if let Some(root) = env::XDG_CACHE_HOME.os().filter(|v| !v.is_empty()) {
         return Ok(PathBuf::from(root));
     }
+
     let home = env::HOME
         .os()
         .filter(|v| !v.is_empty())
         .ok_or("HOME is not set")?;
+
     Ok(PathBuf::from(home).join(if cfg!(target_os = "macos") {
         "Library/Caches"
     } else {
@@ -217,6 +220,7 @@ pub fn load_at_checked(
         .iter()
         .filter_map(|check| check(&config, &location.dir).err())
         .collect();
+
     Ok(Loaded {
         config,
         location,
@@ -237,17 +241,21 @@ pub fn load_at_checked(
 /// ```
 pub fn parse(text: &str) -> Result<Config, String> {
     let (config, unknown) = parse_lenient(text)?;
+
     match unknown.first() {
         None => Ok(config),
         Some(first) => {
             let key = first.rsplit('.').next().unwrap_or(first);
             let mut message = unknown_note(first);
+
             if let Some(line) = line_of(text, key) {
                 let (error, help) = message.split_once('\n').unwrap_or((&message, ""));
+
                 message = format!("{error} (line {line})\n{help}")
                     .trim_end()
                     .to_string();
             }
+
             if unknown.len() > 1 {
                 message.push_str(&format!(
                     "\nnote: and {} more: {}",
@@ -259,6 +267,7 @@ pub fn parse(text: &str) -> Result<Config, String> {
                         .join(", ")
                 ));
             }
+
             Err(message)
         }
     }
@@ -279,6 +288,7 @@ pub fn parse_lenient(text: &str) -> Result<(Config, Vec<String>), String> {
     let mut unknown = Vec::new();
     let config = serde_ignored::deserialize(deserializer, |path| unknown.push(path.to_string()))
         .map_err(invalid)?;
+
     Ok((config, unknown))
 }
 
@@ -287,6 +297,7 @@ pub fn parse_lenient(text: &str) -> Result<(Config, Vec<String>), String> {
 pub fn unknown_note(path: &str) -> String {
     let mut note = format!("unknown setting `{path}` in {FILE_NAME}");
     let (table, key) = path.rsplit_once('.').unwrap_or(("", path));
+
     if table.is_empty()
         && let Some((home, meant)) = schema::misplaced_home(key)
     {
@@ -295,8 +306,10 @@ pub fn unknown_note(path: &str) -> String {
         } else {
             note.push_str(&format!("\nhelp: use `{meant}` under `[{home}]`"));
         }
+
         return note;
     }
+
     if let Some((_, _, new)) = schema::RENAMED
         .iter()
         .find(|(t, old, _)| *t == table && *old == key)
@@ -304,14 +317,17 @@ pub fn unknown_note(path: &str) -> String {
         note.push_str(&format!("\nhelp: `{key}` is now `{table}.{new}`"));
         return note;
     }
+
     if let Some(near) = schema::closest(key, schema::known_keys(table)) {
         let near = if table.is_empty() {
             near.to_string()
         } else {
             format!("{table}.{near}")
         };
+
         note.push_str(&format!("\nhelp: did you mean `{near}`?"));
     }
+
     note
 }
 
@@ -320,6 +336,7 @@ pub fn line_of(text: &str, key: &str) -> Option<usize> {
     text.lines()
         .position(|l| {
             let l = l.trim_start().trim_start_matches('"');
+
             l.strip_prefix(key).is_some_and(|rest| {
                 let rest = rest.trim_start_matches('"').trim_start();
                 rest.starts_with('=')

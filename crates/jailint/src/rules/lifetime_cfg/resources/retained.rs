@@ -30,19 +30,23 @@ pub(super) fn transfer(
             ..
         } => {
             let mut active = UNKNOWN;
+
             for &cell in cells {
                 if let Some(cell) = index(cell) {
                     let value = state[cell];
+
                     if value == LIVE && !possible {
                         active = LIVE;
                         break;
                     }
+
                     if value & LIVE != 0 && cx.lifetime_mode == jacket_config::LifetimeMode::Strict
                     {
                         active |= LIVE;
                     }
                 }
             }
+
             state[tokens[token]] = active;
         }
     }
@@ -52,9 +56,11 @@ pub(super) fn emit(proof: Proof<'_>, tokens: &HashMap<Token, usize>, out: &mut R
     let strict = proof.cx.lifetime_mode == jacket_config::LifetimeMode::Strict;
     let width = proof.relevant.len();
     let index = |c| proof.relevant.get(&c).copied();
+
     for i in proof.states.swept() {
         let block = &proof.model.blocks[i];
         let state = proof.states.visited(i).unwrap();
+
         // The worker first reads already-released memory when it is started.
         if let CfgOp::Task(Task::Start {
             cells,
@@ -73,16 +79,20 @@ pub(super) fn emit(proof: Proof<'_>, tokens: &HashMap<Token, usize>, out: &mut R
                     "this starts a borrower with storage whose lifetime has already ended".into(),
                     Some("start and finish the borrower before releasing its storage".into()),
                 );
+
                 f.secondary
                     .push((proof.origin, "borrowed storage originated here".into()));
                 out.use_after_free.push(f);
             }
+
             continue;
         }
+
         let CfgOp::Resource(op) = &block.op else {
             continue;
         };
         let implicit_exit = matches!(op, Op::Exit) && matches!(proof.kind, Origin::Stack(_));
+
         if !implicit_exit
             && !kills(
                 proof.cx,
@@ -95,6 +105,7 @@ pub(super) fn emit(proof: Proof<'_>, tokens: &HashMap<Token, usize>, out: &mut R
         {
             continue;
         }
+
         let at = match op {
             Op::Free {
                 span, ..
@@ -119,6 +130,7 @@ pub(super) fn emit(proof: Proof<'_>, tokens: &HashMap<Token, usize>, out: &mut R
             Op::Exit => proof.body.syntax.header.span,
             _ => continue,
         };
+
         for (&token, &slot) in tokens {
             if if strict {
                 state[slot] & LIVE == 0
@@ -127,6 +139,7 @@ pub(super) fn emit(proof: Proof<'_>, tokens: &HashMap<Token, usize>, out: &mut R
             } {
                 continue;
             }
+
             let start = proof
                 .model
                 .blocks
@@ -174,28 +187,34 @@ pub(super) fn emit(proof: Proof<'_>, tokens: &HashMap<Token, usize>, out: &mut R
                     .into(),
                 ),
             );
+
             f.secondary
                 .push((proof.origin, "borrowed storage originated here".into()));
+
             if let Some((start, (decisions, count, _))) = start {
                 f.secondary.push((
                     start,
                     "borrower started here; no completion on this path".into(),
                 ));
+
                 if strict {
                     f.message.push_str(&format!(
                         "; shortest retained-borrow path shown ({count} from this start)"
                     ));
+
                     for (span, taken) in decisions {
                         f.secondary
                             .push((span, format!("bad path takes this condition as {taken}")));
                     }
                 }
             }
+
             match proof.kind {
                 Origin::Stack(_) | Origin::Statement(_) => out.returned_local_address.push(f),
                 Origin::Temporary => out.temp_storage_escape.push(f),
                 _ => out.use_after_free.push(f),
             }
+
             break;
         }
     }
@@ -206,6 +225,7 @@ pub(super) fn new_generation(state: &mut [u8], width: usize) {
     for value in &mut state[..width] {
         *value = (*value & super::DEAD) | UNKNOWN;
     }
+
     state[width..width * 2].fill(super::DEAD);
     state[width * 2 + 1..].fill(UNKNOWN);
 }

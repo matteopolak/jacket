@@ -35,6 +35,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         walk(&p.body.stmts, &mut |n, chain| {
             match n {
                 Node::Expr(e) => ifx(cx, e, chain, out),
@@ -42,9 +43,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     if let S::Block(b) = &s.kind {
                         sequence(cx, &b.stmts, out);
                     }
+
                     branches(cx, s, chain, out);
                 }
             }
+
             true
         });
         sequence(cx, &p.body.stmts, out);
@@ -63,6 +66,7 @@ fn literal(e: &Expr) -> Option<bool> {
 /// floats keep the `!`, since NaN fails both.
 pub(super) fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> String {
     let text = cx.whole_src(cond).trim();
+
     if negate
         && let E::Binary(op, a, b) = &cond.kind
         && let Some(opposite) = opposite(*op)
@@ -76,13 +80,16 @@ pub(super) fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> Str
             op_text(opposite),
             cx.whole_src(b).trim()
         );
+
         return if inside {
             format!("({flipped})")
         } else {
             flipped
         };
     }
+
     let grouped = is_atom(cond) || cond.parenthesized();
+
     match (negate, grouped) {
         (false, true) => text.to_string(),
         (false, false) if inside => format!("({text})"),
@@ -97,6 +104,7 @@ pub(super) fn condition(cx: &Cx, cond: &Expr, negate: bool, inside: bool) -> Str
 /// the `!` because NaN fails both.
 fn builtin_compare(cx: &Cx, ty: TypeId, op: BinOp) -> bool {
     let types = &cx.compiler.ty.types;
+
     match types.kind(ty) {
         TypeKind::Bool
         | TypeKind::Int {
@@ -138,11 +146,14 @@ fn ifx(cx: &Cx, e: &Expr, chain: &[Node<'_>], out: &mut Vec<Finding>) {
     let (Some(a), Some(b)) = (literal(a), literal(b)) else {
         return;
     };
+
     if a == b || !is_bool(cx, cond) {
         return;
     }
+
     let inside = matches!(chain.last(), Some(Node::Expr(_)));
     let replacement = condition(cx, cond, !a, inside);
+
     out.push(replacing(
         e.span,
         "this `ifx` turns a condition into the same `bool`".into(),
@@ -206,22 +217,28 @@ fn branches(cx: &Cx, s: &Stmt, chain: &[Node<'_>], out: &mut Vec<Finding>) {
     else {
         return;
     };
+
     // An `else if` link: rewriting it would need the `else` kept.
     if matches!(chain.last(), Some(Node::Stmt(p)) if matches!(&p.kind, S::If { else_branch: Some(e), .. } if e.span == s.span))
     {
         return;
     }
+
     if !is_bool(cx, cond) {
         return;
     }
+
     let (start, end) = statement_range(cx, s.span);
+
     if !no_comments(cx, start, end) {
         return;
     }
+
     if let (Some(a), Some(b)) = (returned(then_branch), returned(other))
         && a != b
     {
         let replacement = format!("return {};", condition(cx, cond, !a, false));
+
         out.push(replacing(
             s.span,
             "this `if` returns its own condition as a `bool`".into(),
@@ -230,8 +247,10 @@ fn branches(cx: &Cx, s: &Stmt, chain: &[Node<'_>], out: &mut Vec<Finding>) {
             replacement,
             true,
         ));
+
         return;
     }
+
     if let (Some((x, a)), Some((y, b))) = (assigned(then_branch), assigned(other))
         && a != b
         && cx.same_tokens(x, y)
@@ -242,6 +261,7 @@ fn branches(cx: &Cx, s: &Stmt, chain: &[Node<'_>], out: &mut Vec<Finding>) {
             cx.whole_src(x).trim(),
             condition(cx, cond, !a, false)
         );
+
         out.push(replacing(
             s.span,
             "this `if` assigns its own condition as a `bool`".into(),
@@ -259,6 +279,7 @@ fn sequence(cx: &Cx, stmts: &[Stmt], out: &mut Vec<Finding>) {
         let [first, second] = pair else {
             continue;
         };
+
         // The last of a series of guards (`if a return false; x := f(); if b return false;
         // return true;`) reads better kept like the others.
         if stmts[..i].iter().any(|s| {
@@ -267,6 +288,7 @@ fn sequence(cx: &Cx, stmts: &[Stmt], out: &mut Vec<Finding>) {
         }) {
             continue;
         }
+
         let S::If {
             cond,
             then_branch,
@@ -278,15 +300,20 @@ fn sequence(cx: &Cx, stmts: &[Stmt], out: &mut Vec<Finding>) {
         let (Some(a), Some(b)) = (returned(then_branch), returned(second)) else {
             continue;
         };
+
         if a == b || !is_bool(cx, cond) {
             continue;
         }
+
         let (start, _) = statement_range(cx, first.span);
         let (_, end) = statement_range(cx, second.span);
+
         if !no_comments(cx, start, end) {
             continue;
         }
+
         let replacement = format!("return {};", condition(cx, cond, !a, false));
+
         out.push(replacing(
             first.span.to(second.span),
             "this `if` returns its own condition as a `bool`".into(),

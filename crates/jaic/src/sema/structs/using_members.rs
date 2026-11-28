@@ -46,6 +46,7 @@ impl Compiler {
                         {
                             return Ok(op);
                         }
+
                         self.entity_operand(f, scope, entity, span)?
                     }
                     _ => match self.resolve_entity(entity)? {
@@ -90,6 +91,7 @@ impl Compiler {
                 entity: id,
             });
         }
+
         match self.eval_const_or_run(scope, value, None)? {
             Operand::Module(m) => Ok(UsingEntry::Module(m, None)),
             Operand::Type(t) => Ok(UsingEntry::Type(t)),
@@ -97,6 +99,7 @@ impl Compiler {
                 // `using global_var;`
                 if let E::Ident(name) = &value.kind {
                     let ids = self.lookup(scope, *name)?;
+
                     if let Some(&id) = ids.first()
                         && let Resolved::Global {
                             ty, ..
@@ -109,6 +112,7 @@ impl Compiler {
                         });
                     }
                 }
+
                 // `using module.global_var;`
                 if let E::Member(base, member) = &value.kind
                     && let Operand::Module(m) = self.eval_const(scope, base, None)?
@@ -124,6 +128,7 @@ impl Compiler {
                         entity: id,
                     });
                 }
+
                 err(
                     Code::CannotUseUsing,
                     value.span,
@@ -150,6 +155,7 @@ impl Compiler {
         let Some(s) = self.ty.types.as_struct(ty) else {
             return Ok(false);
         };
+
         Ok(self.struct_member_behind_pointer(s, name, false, &mut Vec::new())? == Some(true))
     }
 
@@ -165,18 +171,22 @@ impl Compiler {
         if searched.contains(&s) {
             return Ok(None);
         }
+
         searched.push(s);
         self.layout_struct(s, Span::NONE)?;
         let fields = self.ty.types.struct_info(s).fields.clone();
+
         if fields.iter().any(|f| f.name == Some(name)) {
             return Ok(Some(behind));
         }
+
         for field in fields.iter().filter(|f| f.using) {
             let (inner, through) = match self.ty.types.pointee(field.ty) {
                 Some(p) => (p, true),
                 None => (field.ty, behind),
             };
             let inner = self.ty.types.repr_struct(inner);
+
             if let Some(inner) = self.ty.types.as_struct(inner)
                 && let Some(found) =
                     self.struct_member_behind_pointer(inner, name, through || behind, searched)?
@@ -184,6 +194,7 @@ impl Compiler {
                 return Ok(Some(found));
             }
         }
+
         Ok(None)
     }
 
@@ -200,6 +211,7 @@ impl Compiler {
             E::Member(base, name) => {
                 let (offset, ty) = self.override_target(root, scope, base)?;
                 let (inner, ty) = self.override_member(ty, name.name, name.span)?;
+
                 Ok((offset + inner, ty))
             }
             E::Index(base, index) => {
@@ -220,6 +232,7 @@ impl Compiler {
                 else {
                     unreachable!("an s64 constant is an integer");
                 };
+
                 if index_value < 0 || index_value >= i128::from(count) {
                     return err(
                         Code::ArrayIndex,
@@ -229,6 +242,7 @@ impl Compiler {
                         ),
                     );
                 }
+
                 let size = self.size_of(elem, expr.span)?;
                 Ok((offset + index_value as u64 * size, elem))
             }
@@ -250,6 +264,7 @@ impl Compiler {
             );
         };
         let mut offset = 0;
+
         for step in path {
             match step {
                 super::model::PathStep::Offset(bytes) => offset += bytes,
@@ -262,10 +277,13 @@ impl Compiler {
                 }
             }
         }
+
         if let Some((s, index)) = origin {
             let field = &self.ty.types.struct_info(s).fields[index];
+
             self.ide_note_named_field(span, name, field.span, ty);
         }
+
         Ok((offset, ty))
     }
 }

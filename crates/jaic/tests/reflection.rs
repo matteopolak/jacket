@@ -40,6 +40,7 @@ fn forward_overlay_reflection_preserves_declaration_order_offsets_and_flags() {
 
 fn check(source: &str) {
     let (c, result) = compile(source);
+
     if let Err(e) = result {
         panic!("{}", e.render(&c.src.sources));
     }
@@ -47,27 +48,33 @@ fn check(source: &str) {
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
     let mut fs = VirtualFs::default();
+
     fs.insert("/lib/prelude/module.jai", BOOTSTRAP.as_bytes());
     fs.insert("/app/main.jai", source.as_bytes());
     let mut options = Options::host();
+
     options.runtime_support = false;
     options.preload = Some("/lib/prelude/module.jai".into());
     let mut c = Compiler::new(options, Rc::new(fs));
     let result = c.compile_program(Path::new("/app/main.jai"));
+
     (c, result)
 }
 
 #[test]
 fn adding_context_after_layout_appends_the_member() {
     let (mut compiler, result) = compile("#run size_of(#Context);");
+
     result.unwrap();
     let before = context_fields(&compiler);
+
     compiler
         .add_source(&jaic::sema::ProgramSource::String(
             "#add_context late_field:bool;".into(),
         ))
         .expect("a late #add_context goes after the existing members");
     let after = context_fields(&compiler);
+
     assert_eq!(&after[..before.len()], &before[..], "earlier offsets hold");
     assert_eq!(after.len(), before.len() + 1);
     assert_eq!(after.last().unwrap().0, "late_field");
@@ -76,12 +83,14 @@ fn adding_context_after_layout_appends_the_member() {
 #[test]
 fn a_late_context_member_past_the_size_limit_is_rejected() {
     let (mut compiler, result) = compile("#run { p := *context; };");
+
     result.unwrap();
     let error = compiler
         .add_source(&jaic::sema::ProgramSource::String(
             "#add_context huge: [8192] u8;".into(),
         ))
         .expect_err("the compile-time context has no room for the member");
+
     assert!(
         error
             .message
@@ -95,6 +104,7 @@ fn context_fields(compiler: &Compiler) -> Vec<(String, u64)> {
     let ty = compiler.ty.context_type.expect("the Context was made");
     let types = &compiler.ty.types;
     let info = types.struct_info(types.as_struct(ty).unwrap());
+
     info.fields
         .iter()
         .map(|field| {
@@ -204,6 +214,7 @@ fn invalid_defaults_are_errors_even_when_explicit_arguments_bypass_them() {
         r"Box :: struct(T: Type = u8, amount: int = missing_default_symbol) { item: T; } info :: type_info(Box(u8, 4));",
     );
     let error = result.expect_err("reflection cannot discard invalid defaults");
+
     assert!(
         error.message.contains("missing_default_symbol"),
         "{}",

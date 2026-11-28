@@ -12,10 +12,12 @@ main :: () { unused_b := 2; helper(3); }
 fn compile() -> (Compiler, jaic::source::FileId) {
     let stdlib = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut c = Compiler::new(options, Rc::new(NativeFs));
     let mut facts = IdeFacts::new(vec![IdeRoot::Virtual]);
+
     facts.lint = true;
     c.ed.record(facts);
     c.begin_sources(&[ProgramSource::String(SOURCE.into())])
@@ -29,6 +31,7 @@ fn compile() -> (Compiler, jaic::source::FileId) {
         .map(|f| f.id)
         .find(|&id| c.src.sources.get(id).text.as_ref() == SOURCE)
         .expect("the program's own file");
+
     (c, file)
 }
 
@@ -37,6 +40,7 @@ fn each_file_is_handed_over_when_done_and_a_stop_hands_over_nothing_partial() {
     let (mut c, file) = compile();
     let configs = jailint::config::Configs::new(&jailint::config::Config::default());
     let all = jailint::lint_files(&mut c, &[file], &configs, true);
+
     assert!(
         all.iter().any(|l| l.rule == "unused_variable"),
         "the program has findings: {all:?}"
@@ -53,6 +57,7 @@ fn each_file_is_handed_over_when_done_and_a_stop_hands_over_nothing_partial() {
         &|_| true,
         &mut |f, found| seen.push((f, found)),
     );
+
     assert!(done);
     assert_eq!(seen, [(file, all.clone())]);
 
@@ -67,11 +72,13 @@ fn each_file_is_handed_over_when_done_and_a_stop_hands_over_nothing_partial() {
         &|_| false,
         &mut |f, found| seen.push((f, found)),
     );
+
     assert!(done && seen.is_empty());
 
     // A stop in the middle of the file reports it unfinished and hands over none of its lints.
     for polls in [1, 2, 5, 20, 80] {
         let mut seen = Vec::new();
+
         jaic::interrupt::request(false);
         jaic::interrupt::arm();
         jaic::interrupt::stop_after(polls);
@@ -85,8 +92,10 @@ fn each_file_is_handed_over_when_done_and_a_stop_hands_over_nothing_partial() {
             &mut |f, found| seen.push((f, found)),
         );
         let interrupted = jaic::interrupt::disarm();
+
         jaic::interrupt::stop_after(0);
         assert_eq!(done, !interrupted, "{polls} polls");
+
         if done {
             assert_eq!(seen, [(file, all.clone())], "{polls} polls");
         } else {

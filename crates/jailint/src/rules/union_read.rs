@@ -48,7 +48,9 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
         if !p.typed() {
             continue;
         }
+
         let body = &p.body.stmts;
+
         walk(body, &mut |n, chain| {
             let Some(e) = n.expr() else {
                 return true;
@@ -56,9 +58,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             let E::Member(base, member) = &e.kind else {
                 return true;
             };
+
             if super::place_use(e, chain) != super::PlaceUse::Read || !super::pure(base) {
                 return true;
             }
+
             let Some(read) = union_member(cx, base, member.name) else {
                 return true;
             };
@@ -69,12 +73,15 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 })) if of.span == e.span => Some(field.name),
                 _ => None,
             };
+
             if in_common_sequence(&cx.compiler.ty.types, &read, member.name, then) {
                 return true;
             }
+
             if guarded(cx, &read, e, chain, body) || written_before(cx, &read, e, body) {
                 return true;
             }
+
             let shown = cx.src(e.span).trim();
             let help = match tag_of(cx, &read) {
                 Some(tag) => format!(
@@ -85,6 +92,7 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                     "keep the union in a struct beside a tag and check it, or write `{shown}` here before reading it"
                 ),
             };
+
             out.push(super::finding(
                 e.span,
                 format!("`{shown}` reads a union member, but nothing here says it is the live one"),
@@ -125,6 +133,7 @@ fn union_member<'a>(cx: &Cx, base: &'a Expr, name: Sym) -> Option<Read<'a>> {
         }
         _ => None,
     };
+
     Some(Read {
         base,
         name,
@@ -148,20 +157,25 @@ fn common_tag(types: &Types, read: &Read) -> Option<String> {
     if common_prefix(types, read.union, read.name) == 0 {
         return None;
     }
+
     let info = types.struct_info(read.union);
     let member = info.fields.iter().find(|f| f.name == Some(read.name))?;
     let (lead, _) = leading_fields(types, member.ty)?;
     let first = lead.first()?;
     let plain = info.fields.iter().find_map(|f| {
         let (other, is_struct) = leading_fields(types, f.ty)?;
+
         if is_struct || other.first() != Some(first) {
             return None;
         }
+
         f.name
     });
+
     if let Some(plain) = plain {
         return Some(plain.as_str().to_string());
     }
+
     let s = types.as_struct(types.repr_struct(member.ty))?;
     let field = types
         .struct_info(s)
@@ -169,6 +183,7 @@ fn common_tag(types: &Types, read: &Read) -> Option<String> {
         .iter()
         .find(|f| !f.overlay)?
         .name?;
+
     Some(format!("{}.{}", read.name.as_str(), field.as_str()))
 }
 
@@ -176,9 +191,11 @@ fn common_tag(types: &Types, read: &Read) -> Option<String> {
 fn beside_tag(cx: &Cx, read: &Read) -> Option<Sym> {
     let types = &cx.compiler.ty.types;
     let info = types.struct_info(read.holder);
+
     if info.is_union {
         return None;
     }
+
     info.fields
         .iter()
         .filter(|f| !f.overlay)
@@ -215,12 +232,15 @@ fn find(
     } else {
         inside
     };
+
     if info.fields.iter().any(|f| f.name == Some(name)) {
         return Some(here);
     }
+
     if depth > 8 {
         return None;
     }
+
     info.fields
         .iter()
         .filter(|f| f.name.is_none() || f.using)
@@ -231,6 +251,7 @@ fn find(
 /// The read is inside, or after, a check of a tag beside the union.
 fn guarded(cx: &Cx, read: &Read, e: &Expr, chain: &[Node], body: &[Stmt]) -> bool {
     let mut child = Node::Expr(e);
+
     for &parent in chain.iter().rev() {
         let start = child_start(child);
         let checked = match parent {
@@ -255,11 +276,14 @@ fn guarded(cx: &Cx, read: &Read, e: &Expr, chain: &[Node], body: &[Stmt]) -> boo
                 }) || case_checked_before(cx, read, s, start)
             }
         };
+
         if checked {
             return true;
         }
+
         child = parent;
     }
+
     checked_before(cx, read, body, child_start(child))
 }
 
@@ -279,6 +303,7 @@ fn case_checked_before(cx: &Cx, read: &Read, s: &Stmt, at: u32) -> bool {
     let S::Switch(sw) = &s.kind else {
         return false;
     };
+
     sw.cases
         .iter()
         .find(|c| c.span.start <= at && at < c.span.end)
@@ -308,6 +333,7 @@ fn checked_before(cx: &Cx, read: &Read, list: &[Stmt], at: u32) -> bool {
                     E::Member(_, n) => Some(n.name),
                     _ => None,
                 };
+
                 name.is_some_and(|n| n.as_str() == "assert")
                     && args
                         .first()
@@ -330,12 +356,15 @@ fn mentions_tag(cx: &Cx, read: &Read, e: &Expr) -> bool {
         }
         _ => {}
     }
+
     let types = &cx.compiler.ty.types;
     let mut found = false;
+
     jaic::ast::walk::walk_node(Node::Expr(e), &mut Vec::new(), &mut |n, _| {
         if found {
             return false;
         }
+
         if let Some(Expr {
             kind: E::Call {
                 args, ..
@@ -351,6 +380,7 @@ fn mentions_tag(cx: &Cx, read: &Read, e: &Expr) -> bool {
                 cx.same_tokens(value, read.base)
             });
         }
+
         if let Some(Expr {
             kind: E::Member(q, f),
             ..
@@ -362,6 +392,7 @@ fn mentions_tag(cx: &Cx, read: &Read, e: &Expr) -> bool {
                 name != read.name
                     && (!read.in_union(types, name) || in_common_sequence(types, read, name, then))
             };
+
             found = (cx.same_tokens(q, read.base) && tag(f.name, None))
                 || matches!(&q.kind, E::Member(inner, m)
                     if cx.same_tokens(inner, read.base) && tag(m.name, Some(f.name)))
@@ -369,6 +400,7 @@ fn mentions_tag(cx: &Cx, read: &Read, e: &Expr) -> bool {
                     .outer
                     .is_some_and(|(outer, field)| f.name != field && cx.same_tokens(q, outer));
         }
+
         !found
     });
     found
@@ -389,15 +421,18 @@ fn checks_another_member(cx: &Cx, read: &Read, a: &Expr, b: &Expr) -> bool {
     let E::Member(q, f) = &tag.kind else {
         return false;
     };
+
     if !cx.same_tokens(q, read.base) || read.in_union(types, f.name) {
         return false;
     }
+
     let Some(ty) = cx.ty(tag) else {
         return false;
     };
     let TypeKind::Enum(id) = types.kind(types.repr_struct(ty)) else {
         return false;
     };
+
     if !types
         .enum_info(*id)
         .members
@@ -406,6 +441,7 @@ fn checks_another_member(cx: &Cx, read: &Read, a: &Expr, b: &Expr) -> bool {
     {
         return false;
     }
+
     let members: Vec<Sym> = types
         .struct_info(read.union)
         .fields
@@ -419,6 +455,7 @@ fn checks_another_member(cx: &Cx, read: &Read, a: &Expr, b: &Expr) -> bool {
             .flat_map(char::to_lowercase)
             .collect::<String>()
     };
+
     members
         .iter()
         .find(|m| plain(**m) == plain(value))
@@ -431,10 +468,12 @@ fn checks_another_member(cx: &Cx, read: &Read, a: &Expr, b: &Expr) -> bool {
 fn written_before(cx: &Cx, read: &Read, e: &Expr, body: &[Stmt]) -> bool {
     let at = e.span.start;
     let mut found = false;
+
     walk(body, &mut |n, _| {
         if found {
             return false;
         }
+
         match n {
             Node::Stmt(s) if s.span.start >= at => return false,
             Node::Stmt(s) if s.span.end <= at => match &s.kind {
@@ -454,6 +493,7 @@ fn written_before(cx: &Cx, read: &Read, e: &Expr, body: &[Stmt]) -> bool {
             }
             _ => {}
         }
+
         !found
     });
     found
@@ -462,15 +502,18 @@ fn written_before(cx: &Cx, read: &Read, e: &Expr, body: &[Stmt]) -> bool {
 /// The place `l` is the read's value, or lies inside one of its union members.
 fn writes_into(cx: &Cx, read: &Read, mut l: &Expr) -> bool {
     let types = &cx.compiler.ty.types;
+
     loop {
         if cx.same_tokens(l, read.base) {
             return true;
         }
+
         match &l.kind {
             E::Member(q, f) => {
                 if cx.same_tokens(q, read.base) {
                     return read.in_union(types, f.name);
                 }
+
                 l = q;
             }
             E::Index(q, _) => l = q,
@@ -493,27 +536,34 @@ fn common_prefix(types: &Types, union: StructId, name: Sym) -> usize {
         return 0;
     };
     let mut shared = lead.len();
+
     for other in info.fields.iter().filter(|f| f.name != Some(name)) {
         let Some((other_lead, other_struct)) = leading_fields(types, other.ty) else {
             continue;
         };
+
         if !is_struct && !other_struct {
             return 0;
         }
+
         // A plain member covers only the first field's bytes.
         if !other_struct {
             if lead.first() != other_lead.first() {
                 return 0;
             }
+
             continue;
         }
+
         let same = lead
             .iter()
             .zip(&other_lead)
             .take_while(|(a, b)| a == b)
             .count();
+
         shared = shared.min(same);
     }
+
     shared
 }
 
@@ -521,6 +571,7 @@ fn common_prefix(types: &Types, union: StructId, name: Sym) -> usize {
 /// for a fixed array. The flag says whether it was a struct.
 fn leading_fields(types: &Types, ty: TypeId) -> Option<(Vec<(u64, TypeId)>, bool)> {
     let ty = types.repr_struct(ty);
+
     match types.kind(ty) {
         TypeKind::Array {
             kind: ArrayKind::Fixed(_),
@@ -550,12 +601,14 @@ fn in_common_sequence(types: &Types, read: &Read, member: Sym, then: Option<Sym>
     let Some((lead, _)) = leading_fields(types, field.ty) else {
         return false;
     };
+
     match then {
         None => shared > 0 && shared == lead.len(),
         Some(then) => {
             let Some(s) = types.as_struct(types.repr_struct(field.ty)) else {
                 return false;
             };
+
             types
                 .struct_info(s)
                 .fields

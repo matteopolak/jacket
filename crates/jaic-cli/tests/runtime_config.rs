@@ -8,6 +8,7 @@ fn needs_native_output() -> bool {
     if cfg!(feature = "llvm") {
         return false;
     }
+
     eprintln!(
         "skipping: this jaic was built without the `llvm` feature, so it cannot write native programs; build with `--features llvm`"
     );
@@ -19,6 +20,7 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
     if needs_native_output() {
         return;
     }
+
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
@@ -29,6 +31,7 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
         root.join("stdlib")
     } else {
         let library = dir.join("stdlib");
+
         checked(
             Command::new("python3")
                 .arg(root.join("tests/compiler/semantics/runtime-configuration/stage-candidate.py"))
@@ -44,12 +47,15 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
             .arg(&source)
             .arg("-interp"),
     );
+
     assert_eq!(interpreted.stdout, b"ok\n");
+
     for optimization in ["-O0", "-O2"] {
         let executable = dir.join(format!(
             "allocation{optimization}{}",
             std::env::consts::EXE_SUFFIX
         ));
+
         checked(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
                 .env("JAIC_STDLIB", &library)
@@ -62,6 +68,7 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
     }
 
     let mut build = String::from("C :: #import \"Compiler\"; #run {\n");
+
     for (name, size) in [("zero", 0), ("large", 131_072)] {
         let child = format!(
             r#"
@@ -76,6 +83,7 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
         "#
         );
         let path = jacket_config::slashed(&dir);
+
         build.push_str(&format!(
             r#"
             {{
@@ -91,8 +99,10 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
         "#
         ));
     }
+
     build.push_str("} main :: () {}\n");
     let builder = dir.join("build.jai");
+
     std::fs::write(&builder, build).unwrap();
     checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -100,8 +110,10 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
             .arg(builder)
             .arg("-interp"),
     );
+
     for name in ["zero", "large"] {
         let executable = dir.join(format!("{name}{}", std::env::consts::EXE_SUFFIX));
+
         assert_eq!(checked(&mut Command::new(executable)).stdout, b"ok\n");
     }
 
@@ -128,6 +140,7 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
         body = body.replace("65536", "131072").replace("65535", "131071")
     );
     let late_file = dir.join("late-root.jai");
+
     std::fs::write(&late_file, late).unwrap();
     let interpreted = checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -135,8 +148,10 @@ fn finalized_workspace_sizes_allocate_real_runtime_storage() {
             .arg(&late_file)
             .arg("-interp"),
     );
+
     assert_eq!(interpreted.stdout, b"ok\n");
     let executable = dir.join(format!("late-root{}", std::env::consts::EXE_SUFFIX));
+
     checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))
             .env("JAIC_STDLIB", &library)
@@ -153,11 +168,13 @@ fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
     if needs_native_output() {
         return;
     }
+
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let library = jacket_config::env::STDLIB
         .os()
         .map_or_else(|| root.join("stdlib"), PathBuf::from);
     let source = root.join("tests/compiler/semantics/runtime-configuration/one-megabyte.jai");
+
     for mode in ["-check", "-interp"] {
         let out = checked(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
@@ -165,6 +182,7 @@ fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
                 .arg(&source)
                 .arg(mode),
         );
+
         assert_eq!(
             out.stdout,
             if mode == "-interp" {
@@ -174,9 +192,12 @@ fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
             }
         );
     }
+
     let dir = TempDir::new("one-megabyte-startup");
+
     for opt in ["-O0", "-O2"] {
         let executable = dir.join(format!("root{opt}{}", std::env::consts::EXE_SUFFIX));
+
         checked(
             Command::new(env!("CARGO_BIN_EXE_jaic"))
                 .env("JAIC_STDLIB", &library)
@@ -186,6 +207,7 @@ fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
         );
         assert_eq!(checked(&mut Command::new(executable)).stdout, b"ok\n");
     }
+
     let (_, body) =
         include_str!("../../../tests/compiler/semantics/runtime-configuration/one-megabyte.jai")
             .split_once("main ::")
@@ -208,6 +230,7 @@ fn one_megabyte_private_startup_allocates_for_root_and_child_workspaces() {
         }}
     "#
     );
+
     std::fs::write(&builder, build).unwrap();
     checked(
         Command::new(env!("CARGO_BIN_EXE_jaic"))

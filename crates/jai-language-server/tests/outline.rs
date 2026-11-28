@@ -28,6 +28,7 @@ main :: () {}
 fn symbols() -> Vec<DocumentSymbol> {
     let mut session = lean_session();
     let uri = file_uri("/outline/main.jai");
+
     session.open(uri.clone(), 1, SOURCE.into()).unwrap();
     session.document_symbols(&uri).unwrap()
 }
@@ -53,6 +54,7 @@ fn check_ranges(list: &[DocumentSymbol], parent: Option<Range>) {
             "{}: selection inside range",
             symbol.name
         );
+
         if let Some(parent) = parent {
             assert!(
                 within(symbol.range, parent),
@@ -60,6 +62,7 @@ fn check_ranges(list: &[DocumentSymbol], parent: Option<Range>) {
                 symbol.name
             );
         }
+
         check_ranges(&symbol.children, Some(symbol.range));
     }
 }
@@ -80,13 +83,16 @@ fn the_top_level_lists_declarations_and_directives_in_order() {
         "#scope_export",
     ];
     let mut at = 0;
+
     for expected in order {
         let found = names[at..]
             .iter()
             .position(|n| n.starts_with(expected))
             .unwrap_or_else(|| panic!("{expected} after {at} in {names:?}"));
+
         at += found + 1;
     }
+
     assert!(!names.contains(&"helper"), "{names:?}");
 }
 
@@ -94,6 +100,7 @@ fn the_top_level_lists_declarations_and_directives_in_order() {
 fn types_hold_their_fields_and_members() {
     let top = symbols();
     let point = find(&top, "Point");
+
     assert_eq!(point.kind, SymbolKind::Struct);
     assert_eq!(names(&point.children), ["x", "y"]);
     assert_eq!(find(&top, "Mode").children.len(), 2);
@@ -103,15 +110,18 @@ fn types_hold_their_fields_and_members() {
 fn an_if_holds_its_branches_and_their_declarations() {
     let top = symbols();
     let branch = find(&top, "#if OS == .MACOS");
+
     assert_eq!(branch.kind, SymbolKind::Boolean);
     assert_eq!(names(&branch.children), ["on_mac", "#else"]);
     let other = find(&branch.children, "#else");
+
     assert_eq!(names(&other.children), ["elsewhere"]);
 }
 
 #[test]
 fn scope_sections_hold_what_they_cover() {
     let top = symbols();
+
     assert_eq!(names(&find(&top, "#scope_file").children), ["helper"]);
     assert_eq!(names(&find(&top, "#scope_module").children), ["shared"]);
     assert_eq!(names(&find(&top, "#scope_export").children), ["main"]);
@@ -120,6 +130,7 @@ fn scope_sections_hold_what_they_cover() {
 #[test]
 fn kinds_suit_the_directives() {
     let top = symbols();
+
     assert_eq!(find(&top, "#load").kind, SymbolKind::File);
     assert_eq!(find(&top, "#run").kind, SymbolKind::Event);
     assert_eq!(find(&top, "#scope_file").kind, SymbolKind::Namespace);

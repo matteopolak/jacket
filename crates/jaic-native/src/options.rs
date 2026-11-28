@@ -135,6 +135,7 @@ impl Sanitize {
     /// Parse a `-sanitize` value: a comma-separated list of `address`, `undefined` and `fuzzer`.
     pub fn parse(list: &str) -> Result<Sanitize, String> {
         let mut sanitize = Sanitize::default();
+
         for name in list.split(',') {
             match name.trim() {
                 "address" => sanitize.address = true,
@@ -148,6 +149,7 @@ impl Sanitize {
                 }
             }
         }
+
         Ok(sanitize)
     }
 
@@ -170,6 +172,7 @@ impl Sanitize {
     /// The bounds checks come first so that `ASan` does not instrument them.
     pub fn passes(self, opt_level: OptLevel) -> Vec<&'static str> {
         let mut passes = Vec::new();
+
         if self.undefined {
             // `rt-abort`: report through the UBSan runtime, then stop the program. The check
             // needs to see which object a pointer came from; unoptimized code keeps every
@@ -180,14 +183,17 @@ impl Sanitize {
                 "function(bounds-checking<rt-abort>)"
             });
         }
+
         if self.address {
             passes.push("asan");
         }
+
         if self.coverage || self.fuzzer {
             // Last, as Clang does: the pass numbers the blocks that are left (and, for the
             // fuzzer, after the other sanitizers so their checks are not instrumented).
             passes.push(SANCOV_PASS);
         }
+
         passes
     }
 }

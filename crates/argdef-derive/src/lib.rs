@@ -10,6 +10,7 @@ use syn::{
 #[proc_macro_derive(Args, attributes(args, arg))]
 pub fn derive_args(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
+
     expand(&input)
         .unwrap_or_else(|error| error.to_compile_error())
         .into()
@@ -18,6 +19,7 @@ pub fn derive_args(input: TokenStream) -> TokenStream {
 /// The lines of the `///` comments in `attrs`, each without its leading space.
 fn doc_lines(attrs: &[Attribute]) -> Vec<String> {
     let mut lines = Vec::new();
+
     for attr in attrs {
         if let Meta::NameValue(pair) = &attr.meta
             && pair.path.is_ident("doc")
@@ -27,6 +29,7 @@ fn doc_lines(attrs: &[Attribute]) -> Vec<String> {
             }) = &pair.value
         {
             let line = text.value();
+
             lines.push(
                 line.strip_prefix(' ')
                     .unwrap_or(&line)
@@ -35,6 +38,7 @@ fn doc_lines(attrs: &[Attribute]) -> Vec<String> {
             );
         }
     }
+
     lines
 }
 
@@ -53,6 +57,7 @@ fn shape(ty: &Type) -> Shape {
         if last.ident == "bool" {
             return Shape::Bool;
         }
+
         if (last.ident == "Option" || last.ident == "Vec")
             && let syn::PathArguments::AngleBracketed(args) = &last.arguments
             && let Some(syn::GenericArgument::Type(inner)) = args.args.first()
@@ -64,6 +69,7 @@ fn shape(ty: &Type) -> Shape {
             };
         }
     }
+
     Shape::Plain
 }
 
@@ -97,12 +103,14 @@ struct Arg {
 
 fn parse_arg(attr: &Attribute) -> syn::Result<Arg> {
     let mut arg = Arg::default();
+
     attr.parse_nested_meta(|meta| {
         let key = meta
             .path
             .get_ident()
             .map(ToString::to_string)
             .unwrap_or_default();
+
         match key.as_str() {
             "positional" => arg.positional = true,
             "flatten" => arg.flatten = true,
@@ -129,6 +137,7 @@ fn parse_arg(attr: &Attribute) -> syn::Result<Arg> {
             "set" => arg.set = Some(meta.value()?.parse()?),
             _ => return Err(meta.error(format!("unknown `arg` key `{key}`"))),
         }
+
         Ok(())
     })?;
     Ok(arg)
@@ -223,8 +232,10 @@ fn option(
             let parse = arg.parse.as_ref().map_or(default, |path| quote!(#path));
             let call = quote!(#parse(name, v)?);
             let typed = quote!({ let parsed: #inner = #call; parsed });
+
             wrap(&typed, ident)
         };
+
         if arg.os {
             (quote!(Value), quote!(::argdef::Input::Os(v) => { #store }))
         } else {
@@ -280,6 +291,7 @@ fn option(
         prefix: #prefix,
     });
     let arm = quote!(#id => match input { #arm _ => {} },);
+
     Ok((literal, arm))
 }
 
@@ -297,23 +309,29 @@ fn check(
     seen: &mut std::collections::BTreeSet<String>,
 ) -> syn::Result<()> {
     let wrong = |message: &str| Err(syn::Error::new_spanned(attr, message));
+
     if arg.flatten || arg.skip {
         return Ok(());
     }
+
     if arg.positional {
         if !is_string_vec(&field.ty) || !arg.names.is_empty() {
             return wrong("a `positional` field is a `Vec<String>` with no `name`");
         }
+
         return Ok(());
     }
+
     if arg.rest.is_some() {
         let ok = matches!(shape(&field.ty), Shape::Option(inner) if is_string_vec(&inner));
+
         return if ok {
             Ok(())
         } else {
             wrong("a `rest` field is an `Option<Vec<String>>`")
         };
     }
+
     if arg.group.is_some() {
         return if matches!(shape(&field.ty), Shape::Vec(_)) {
             Ok(())
@@ -321,14 +339,17 @@ fn check(
             wrong("a `group` field is a `Vec` of a type that implements `argdef::Group`")
         };
     }
+
     if arg.names.is_empty() {
         return wrong("an option needs a `name = \"...\"`");
     }
+
     if arg.conflict.is_some()
         && !(arg.set.is_some() && matches!(shape(&field.ty), Shape::Option(_)))
     {
         return wrong("`conflict` only applies to a `set` option on an `Option` field");
     }
+
     for spelling in arg.names.iter().chain(&arg.aliases) {
         if !seen.insert(spelling.value()) {
             return Err(syn::Error::new_spanned(
@@ -337,17 +358,20 @@ fn check(
             ));
         }
     }
+
     Ok(())
 }
 
 fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
     let name = &input.ident;
+
     if !input.generics.params.is_empty() {
         return Err(syn::Error::new_spanned(
             &input.generics,
             "Args does not derive on generic structs",
         ));
     }
+
     let syn::Data::Struct(data) = &input.data else {
         return Err(syn::Error::new_spanned(input, "Args derives on structs"));
     };
@@ -359,6 +383,7 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
     let mut version: Option<Expr> = None;
     let mut usage = None;
     let mut sections: Vec<LitStr> = Vec::new();
+
     for attr in input.attrs.iter().filter(|a| a.path().is_ident("args")) {
         attr.parse_nested_meta(|meta| {
             if meta.path.is_ident("name") {
@@ -370,9 +395,11 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
             } else if meta.path.is_ident("sections") {
                 let content;
                 let value = meta.value()?;
+
                 syn::bracketed!(content in value);
                 let list = content
                     .parse_terminated(<LitStr as syn::parse::Parse>::parse, syn::Token![,])?;
+
                 sections.extend(list);
             } else {
                 let key = meta
@@ -380,13 +407,16 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
                     .get_ident()
                     .map(ToString::to_string)
                     .unwrap_or_default();
+
                 return Err(meta.error(format!(
                     "unknown `args` key `{key}` (the keys are name, version, usage and sections)"
                 )));
             }
+
             Ok(())
         })?;
     }
+
     let docs = doc_lines(&input.attrs);
     let about = docs.first().cloned().unwrap_or_default();
     let description = docs
@@ -404,21 +434,27 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
     let mut flattened: Vec<(&syn::Ident, &Type)> = Vec::new();
     let mut last_section: Option<LitStr> = None;
     let mut seen = std::collections::BTreeSet::new();
+
     for field in &fields.named {
         let ident = field.ident.as_ref().expect("named");
         let mut args = Vec::new();
+
         for attr in field.attrs.iter().filter(|a| a.path().is_ident("arg")) {
             let arg = parse_arg(attr)?;
+
             check(attr, &arg, field, &mut seen)?;
             args.push(arg);
         }
+
         if args.iter().any(|a| a.flatten) {
             flattened.push((ident, &field.ty));
             continue;
         }
+
         if args.iter().any(|a| a.skip) {
             continue;
         }
+
         let doc = doc_lines(&field.attrs).join("\n");
         let Some(first) = args.first() else {
             return Err(syn::Error::new_spanned(
@@ -428,18 +464,23 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
         };
         // A field without a section is listed under the one before it.
         let field_section = first.section.clone().or_else(|| last_section.clone());
+
         last_section.clone_from(&field_section);
+
         for (index, arg) in args.iter().enumerate() {
             let id = options.len();
             let (literal, arm) = option(field, arg, field_section.as_ref(), index == 0, &doc, id)?;
+
             options.push(literal);
             arms.push(arm);
         }
     }
+
     let own = options.len();
     let child_types: Vec<&Type> = flattened.iter().map(|(_, ty)| *ty).collect();
     let mut child_options = Vec::new();
     let mut child_dispatch = Vec::new();
+
     for (ident, ty) in &flattened {
         child_options.push(quote!(
             <#ty as ::argdef::Args>::options(offset + base, out);
@@ -452,6 +493,7 @@ fn expand(input: &DeriveInput) -> syn::Result<Tokens> {
             rel -= <#ty as ::argdef::Args>::COUNT;
         ));
     }
+
     Ok(quote!(
         impl ::argdef::Args for #name {
             const COUNT: usize = #own #(+ <#child_types as ::argdef::Args>::COUNT)*;
@@ -509,6 +551,7 @@ mod tests {
             #[arg(rest = "-", until = "--")] rest: Option<Vec<String>>,
             #[arg(name = "-o", set = 1, conflict = "x")] o: Option<u8>,
         }"#;
+
         assert_eq!(refused(source), None);
     }
 
@@ -551,8 +594,10 @@ mod tests {
             ),
             ("struct A { a: bool }", "a field needs"),
         ];
+
         for (source, expected) in cases {
             let message = refused(source).unwrap_or_else(|| panic!("accepted: {source}"));
+
             assert!(message.contains(expected), "{source}: {message}");
         }
     }

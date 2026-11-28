@@ -46,11 +46,13 @@ impl EditorServices {
     /// Drops what `service` answered before its sources (or `jaic`) changed.
     fn check_sources(&self, state: &mut State, service: &Path) {
         let now = Instant::now();
+
         if let Some((_, at)) = state.sources.get(service)
             && now.duration_since(*at) < Duration::from_secs(1)
         {
             return;
         }
+
         let jaic = self
             .services
             .config()
@@ -59,6 +61,7 @@ impl EditorServices {
             .or_else(|| jacket_config::tools::locate("jaic"));
         let current = jaic::service::fingerprint(service, jaic.as_deref());
         let previous = state.sources.insert(service.to_path_buf(), (current, now));
+
         if previous.is_some_and(|(before, _)| before != current) {
             state.answers.retain(|(path, _), _| path != service);
         }
@@ -68,8 +71,10 @@ impl EditorServices {
 impl ServiceProvider for EditorServices {
     fn ask(&self, service: &Path, request: &[u8]) -> ServiceReply {
         let mut state = self.state.borrow_mut();
+
         self.check_sources(&mut state, service);
         let key = (service.to_path_buf(), request.to_vec());
+
         match state.answers.get(&key) {
             Some(Answer::Done(reply, at))
                 if reply.status == ServiceStatus::Ok || at.elapsed() < FAILURE_KEPT =>
@@ -89,10 +94,13 @@ impl ServiceProvider for EditorServices {
             }
             _ => {}
         }
+
         if state.answers.len() >= MEMO_LIMIT {
             state.answers.clear();
         }
+
         let ticket = self.services.submit(service, request.to_vec());
+
         if let Some(reply) = ticket.wait(FIRST_WAIT) {
             state
                 .answers
@@ -114,6 +122,7 @@ impl ServiceProvider for EditorServices {
 
     fn take_arrivals(&self) -> bool {
         let mut arrived = false;
+
         for answer in self.state.borrow_mut().answers.values_mut() {
             if let Answer::Waiting(ticket) = answer
                 && let Some(reply) = ticket.poll()
@@ -122,6 +131,7 @@ impl ServiceProvider for EditorServices {
                 arrived = true;
             }
         }
+
         arrived
     }
 }

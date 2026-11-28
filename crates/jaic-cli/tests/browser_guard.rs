@@ -11,6 +11,7 @@ fn public_thread_rejects_wasm_in_cli_source_checking() {
         .output()
         .unwrap();
     let stderr = String::from_utf8(output.stderr).unwrap();
+
     assert_eq!(output.status.code(), Some(1), "{stderr}");
     assert!(
         stderr.contains("OS") && stderr.contains("#assert failed"),

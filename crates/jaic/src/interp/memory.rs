@@ -25,12 +25,14 @@ impl Interp {
     pub(super) unsafe fn peek(&self, addr: u64, size: usize) -> u64 {
         let host = self.host_addr(addr) as *const u8;
         let big = self.layout.endian == crate::layout::Endian::Big;
+
         // SAFETY: the caller checked that the bytes are readable; the reads are unaligned.
         unsafe {
             match size {
                 1 => u64::from(host.read()),
                 2 => {
                     let v = host.cast::<u16>().read_unaligned();
+
                     u64::from(if big {
                         u16::from_be(v)
                     } else {
@@ -39,6 +41,7 @@ impl Interp {
                 }
                 4 => {
                     let v = host.cast::<u32>().read_unaligned();
+
                     u64::from(if big {
                         u32::from_be(v)
                     } else {
@@ -47,6 +50,7 @@ impl Interp {
                 }
                 8 => {
                     let v = host.cast::<u64>().read_unaligned();
+
                     if big {
                         u64::from_be(v)
                     } else {
@@ -55,6 +59,7 @@ impl Interp {
                 }
                 _ => {
                     let mut bytes = [0; 8];
+
                     std::ptr::copy_nonoverlapping(host, bytes.as_mut_ptr(), size);
                     self.layout.read_uint(&bytes[..size])
                 }
@@ -69,6 +74,7 @@ impl Interp {
     pub(super) unsafe fn poke(&self, addr: u64, size: usize, value: u64) {
         let host = self.host_addr(addr) as *mut u8;
         let big = self.layout.endian == crate::layout::Endian::Big;
+
         // SAFETY: the caller checked that the bytes are writable; the writes are unaligned.
         unsafe {
             match size {
@@ -90,6 +96,7 @@ impl Interp {
                 }),
                 _ => {
                     let mut bytes = [0; 8];
+
                     self.layout.write_uint(&mut bytes[..size], value);
                     std::ptr::copy_nonoverlapping(bytes.as_ptr(), host, size);
                 }
@@ -121,6 +128,7 @@ impl Interp {
     /// The `s64`/`u64` at `addr` in program memory, or `None` when it cannot be read.
     pub fn read_u64(&self, addr: u64) -> Option<u64> {
         let mut out = [0; 8];
+
         self.probe
             .read(self.host_addr(addr), &mut out)
             .then(|| self.layout.read_u64(&out))
@@ -130,6 +138,7 @@ impl Interp {
     pub fn read_ptr(&self, addr: u64) -> Option<u64> {
         let mut out = [0; 8];
         let out = &mut out[..self.layout.pointer_size as usize];
+
         self.probe
             .read(self.host_addr(addr), out)
             .then(|| self.layout.read_ptr(out))
@@ -139,6 +148,7 @@ impl Interp {
     /// cannot be read.
     pub fn read_view(&self, addr: u64) -> Option<(u64, u64)> {
         let view = self.layout.builtins().view;
+
         Some((
             self.read_u64(addr + view.count)?,
             self.read_ptr(addr + view.data)?,
@@ -167,6 +177,7 @@ impl Interp {
         let secs = self.fetch_u64(addr)?;
         let long = usize::from(self.layout.c.time_long);
         let nanos = self.layout.read_uint(&self.fetch(addr + 8, long)?);
+
         Ok((secs, nanos))
     }
 
@@ -181,6 +192,7 @@ impl Interp {
     /// `read_view` for a `string` or view an intrinsic or emulated library call was given.
     pub(super) fn fetch_view(&self, addr: u64) -> Res<(usize, u64)> {
         let size = self.layout.builtins().view.size as usize;
+
         match self.read_view(addr) {
             Some((count, data)) => Ok((count as usize, data)),
             None => self.unreadable(addr, size),
@@ -191,6 +203,7 @@ impl Interp {
     pub(super) fn put_ptr(&mut self, addr: u64, value: u64) -> Res<()> {
         let size = self.layout.pointer_size as usize;
         let mut bytes = [0; 8];
+
         self.layout.write_ptr(&mut bytes, value);
         self.put(addr, &bytes[..size])
     }
@@ -199,12 +212,15 @@ impl Interp {
     /// memory cannot be written.
     pub(super) fn put(&mut self, addr: u64, bytes: &[u8]) -> Res<()> {
         self.check_writable(addr, bytes.len())?;
+
         if self.write(addr, bytes) {
             return Ok(());
         }
+
         if addr < 4096 {
             return self.null_trap(null_access("write", addr));
         }
+
         Err(Trap::unwritable(addr, bytes.len()).at(self.loc))
     }
 
@@ -212,6 +228,7 @@ impl Interp {
         if addr < 4096 {
             return self.null_trap(null_access("read", addr));
         }
+
         Err(Trap::unreadable(addr, len).at(self.loc))
     }
 
@@ -220,9 +237,11 @@ impl Interp {
     #[inline(always)]
     pub(super) fn load(&self, ty: Ty, addr: u64) -> Res<u64> {
         let ty = self.addresses.int_ty(ty);
+
         if !plain_address(addr, self.addresses.data_limit()) {
             return self.load_unusual(ty, addr);
         }
+
         // SAFETY: the address is the program's own, as for native code.
         Ok(self.in_register_order(ty, unsafe { code::load_raw(ty, self.host_addr(addr)) }))
     }
@@ -243,12 +262,15 @@ impl Interp {
         if addr < 4096 {
             return self.null_trap(null_access("read", addr));
         }
+
         if proc_of(self.proc_width(), addr).is_some() {
             return self.trap("read through a procedure address");
         }
+
         if addr >= self.addresses.data_limit() {
             return self.trap(format!("read through an address no memory has ({addr:#x})"));
         }
+
         // SAFETY: the address is the program's own, as for native code.
         Ok(self.in_register_order(ty, unsafe { code::load_raw(ty, self.host_addr(addr)) }))
     }
@@ -257,11 +279,13 @@ impl Interp {
     pub(super) fn store(&self, ty: Ty, addr: u64, v: u64) -> Res<()> {
         let ty = self.addresses.int_ty(ty);
         let host = self.host_addr(addr);
+
         if addr.wrapping_sub(4096) >= self.addresses.data_limit() - 4096
             || self.read_only.contains(host)
         {
             return self.refused_store(addr);
         }
+
         // SAFETY: the address is the program's own, as for native code.
         unsafe { code::store_raw(ty, host, self.in_register_order(ty, v)) };
         Ok(())
@@ -273,6 +297,7 @@ impl Interp {
         if self.read_only.overlaps(self.host_addr(addr), len) {
             return self.refused_store(addr);
         }
+
         Ok(())
     }
 
@@ -281,11 +306,13 @@ impl Interp {
         if addr < 4096 {
             return self.null_trap(null_access("write", addr));
         }
+
         if addr >= self.addresses.data_limit() {
             return self.trap(format!(
                 "write through an address no memory has ({addr:#x})"
             ));
         }
+
         self.trap(format!(
             "cannot write to a string literal or other constant (read-only memory at {addr:#x}); copy it first, for example with `copy_string`"
         ))

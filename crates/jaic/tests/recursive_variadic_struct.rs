@@ -6,9 +6,11 @@ use std::{path::PathBuf, rc::Rc};
 fn check(source: &str) -> Result<(), String> {
     let stdlib = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
     let mut options = Options::host();
+
     options.import_paths = vec![stdlib.clone()];
     options.set_stdlib(&NativeFs, &stdlib);
     let mut compiler = Compiler::new(options, Rc::new(NativeFs));
+
     compiler
         .compile_sources(&[ProgramSource::String(source.into())])
         .map_err(|error| error.render(&compiler.src.sources))
@@ -42,6 +44,7 @@ fn a_case_may_point_back_at_the_struct() {
          #assert size_of(Branch) == 40;\n\
          main :: () {{ tree: Tree; branch: Branch; array_add(*branch.children, *tree); }}"
     );
+
     check(&source).unwrap_or_else(|error| panic!("{source}\n{error}"));
 }
 
@@ -55,6 +58,7 @@ fn the_case_order_does_not_matter() {
          #assert size_of(Tree) == 40;\n\
          main :: () {{ tree: Tree; }}"
     );
+
     check(&source).unwrap_or_else(|error| panic!("{source}\n{error}"));
 }
 
@@ -74,6 +78,7 @@ fn a_variant_may_hold_pointers_to_itself() {
              array_add(*branch.children, child);\n\
              set(*root, branch);\n\
          }";
+
     check(source).unwrap_or_else(|error| panic!("{source}\n{error}"));
 }
 
@@ -87,6 +92,7 @@ fn a_case_holding_the_struct_by_value_is_a_cycle() {
          main :: () {{ tree: Tree; }}"
     );
     let error = check(&source).unwrap_err();
+
     assert!(
         error.contains("contains itself") || error.contains("circular dependency"),
         "{error}"
@@ -101,6 +107,7 @@ fn a_variant_holding_itself_by_value_is_a_cycle() {
          Branch :: struct { inner: Tree; }\n\
          main :: () { tree: Tree; }";
     let error = check(source).unwrap_err();
+
     assert!(
         error.contains("contains itself") || error.contains("circular dependency"),
         "{error}"

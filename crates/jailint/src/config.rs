@@ -181,6 +181,7 @@ impl Configs {
         if !self.base.discover {
             return self.base.clone();
         }
+
         let dir = if path.is_dir() {
             Some(path)
         } else {
@@ -190,10 +191,13 @@ impl Configs {
             return self.base.clone();
         };
         let mut found = self.found.lock().expect("configs lock");
+
         if let Some(config) = found.get(dir) {
             return config.clone();
         }
+
         let config = self.load_near(dir, &mut found);
+
         found.insert(dir.to_path_buf(), config.clone());
         config
     }
@@ -202,12 +206,15 @@ impl Configs {
         let Some(location) = jacket_config::locate(&Disk, dir) else {
             return self.base.clone();
         };
+
         if location.dir == self.base.root {
             return self.base.clone();
         }
+
         if let Some(config) = found.get(&location.dir) {
             return config.clone();
         }
+
         let loaded = jacket_config::load_at_checked(&Disk, location.clone(), CHECKS)
             .map_err(|e| e.to_string())
             .and_then(Config::from_loaded);
@@ -218,6 +225,7 @@ impl Configs {
                 self.base.clone()
             }
         };
+
         found.insert(location.dir, config.clone());
         config
     }
@@ -273,9 +281,11 @@ impl Portability {
 pub fn file_platforms(text: &str) -> Option<Vec<TargetOs>> {
     for line in text.lines() {
         let line = line.trim();
+
         if line.is_empty() {
             continue;
         }
+
         let comment = line.strip_prefix("//")?;
         let Some(rest) = comment.trim().strip_prefix("jailint:") else {
             continue;
@@ -285,6 +295,7 @@ pub fn file_platforms(text: &str) -> Option<Vec<TargetOs>> {
         };
         let inner = list.trim().strip_prefix('(')?;
         let inner = &inner[..inner.find(')')?];
+
         return Some(
             inner
                 .split(',')
@@ -292,6 +303,7 @@ pub fn file_platforms(text: &str) -> Option<Vec<TargetOs>> {
                 .collect(),
         );
     }
+
     None
 }
 
@@ -382,6 +394,7 @@ impl Config {
         } else {
             COMPILER
         };
+
         self.level_of(
             &[code.name(), leniencies, COMPILER],
             Some(path),
@@ -402,6 +415,7 @@ impl Config {
             |levels: &HashMap<String, Level>| names.iter().find_map(|n| levels.get(*n)).copied();
         let overridden = path.and_then(|path| {
             let text = self.relative(path);
+
             self.overrides
                 .iter()
                 .rev()
@@ -415,6 +429,7 @@ impl Config {
             .or(overridden)
             .or_else(|| named(&self.levels))
             .unwrap_or(default);
+
         if self.deny_warnings && level == Level::Warn {
             Level::Deny
         } else {
@@ -434,6 +449,7 @@ impl Config {
                 i + 1
             ));
         }
+
         let mut config = Config {
             root: root.to_path_buf(),
             exclude: lint.exclude.clone(),
@@ -449,17 +465,21 @@ impl Config {
             lifetime_mode: lint.lifetimes.as_ref().map(|l| l.mode),
             ..Config::default()
         };
+
         config.levels = levels(&lint.rules)?;
         config.portability = portability(&lint.portability)?;
+
         for o in &lint.overrides {
             if o.paths.is_empty() {
                 return Err("a `[[lint.overrides]]` entry has no `paths`".into());
             }
+
             config.overrides.push(Override {
                 paths: o.paths.clone(),
                 levels: levels(&o.rules)?,
             });
         }
+
         Ok(config)
     }
 
@@ -482,6 +502,7 @@ impl Config {
                 .filter(|(pattern, _)| pattern.is_match(&text))
         };
         let best = matching().map(|(pattern, _)| pattern.specificity()).max();
+
         matching()
             .filter(|(pattern, _)| Some(pattern.specificity()) == best)
             .all(|(_, systems)| systems.contains(&os))
@@ -516,6 +537,7 @@ impl Config {
             jacket_config::parse(&text).map_err(|e| format!("in `{}`, {e}", path.display()))?;
         let mut config = Self::from_lint(&parsed.lint, dir)
             .map_err(|e| format!("in `{}`, {e}", path.display()))?;
+
         config.source = Some(path.to_path_buf());
         Ok(config)
     }
@@ -525,24 +547,30 @@ impl Config {
         config.flags.clone_from(&self.flags);
         config.deny_warnings = self.deny_warnings;
         config.discover = true;
+
         if self.flag_lifetime_mode.is_some() {
             config.flag_lifetime_mode = self.flag_lifetime_mode;
             config.lifetime_mode = self.flag_lifetime_mode;
         }
+
         if self.flag_max_nesting.is_some() {
             config.max_nesting = self.flag_max_nesting;
             config.flag_max_nesting = self.flag_max_nesting;
         }
+
         Arc::new(config)
     }
 
     fn from_loaded(loaded: jacket_config::Loaded) -> Result<Config, String> {
         let source = loaded.file();
+
         if let Some(problem) = loaded.problems.first() {
             return Err(format!("in `{}`, {problem}", source.display()));
         }
+
         let mut config = Config::from_lint(&loaded.config.lint, loaded.dir())
             .map_err(|e| format!("in `{}`, {e}", source.display()))?;
+
         config.source = Some(source);
         config.import_dirs = loaded.config.project.import_dirs(loaded.dir());
         let roots = jacket_config::packages::dependency_roots(
@@ -551,6 +579,7 @@ impl Config {
             &loaded.config,
         )
         .map_err(|e| e.to_string())?;
+
         config.import_dirs.extend(roots.modules);
         config.package_imports = roots.packages;
         Ok(config)
@@ -601,12 +630,14 @@ fn portability(settings: &jacket_config::Portability) -> Result<Portability, Str
         portable: settings.portable.clone(),
         platforms: Vec::new(),
     };
+
     for (pattern, names) in &settings.platforms {
         out.platforms.push((
             pattern.clone(),
             systems(names, &format!("lint.portability.platforms.\"{pattern}\""))?,
         ));
     }
+
     Ok(out)
 }
 
@@ -638,6 +669,7 @@ fn levels(
     rules: &std::collections::BTreeMap<String, String>,
 ) -> Result<HashMap<String, Level>, String> {
     let mut out = HashMap::default();
+
     for (rule, level) in rules {
         check_rule(rule, level)?;
         out.insert(
@@ -645,6 +677,7 @@ fn levels(
             Level::parse(level).expect("`check_rule` accepts a level"),
         );
     }
+
     Ok(out)
 }
 
@@ -659,6 +692,7 @@ fn check_rule(rule: &str, value: &str) -> Result<(), String> {
         };
         return Err(format!("unknown rule `{rule}`\nhelp: {help}"));
     }
+
     Level::parse(value).map(drop).ok_or_else(|| {
         format!("unknown level \"{value}\" for `{rule}`\nhelp: use \"allow\", \"warn\" or \"deny\"")
     })
@@ -677,6 +711,7 @@ mod tests {
     fn parses_rules_and_excludes() {
         let text = "[lint]\n# settings\nexclude = [\n  \"tests/**\", # fixtures\n  \"a.jai\",\n]\n\n[lint.rules]\nfloat_equality = \"deny\" # strict\n";
         let config = parse(text).unwrap();
+
         assert_eq!(
             config
                 .exclude
@@ -698,11 +733,13 @@ mod tests {
         let text =
             "[lint.rules]\npedantic = \"warn\"\nlossy_xx = \"allow\"\ncorrectness = \"warn\"\n";
         let config = parse(text).unwrap();
+
         assert_eq!(config.level(rule("float_equality")), Level::Warn);
         assert_eq!(config.level(rule("lossy_xx")), Level::Allow);
         assert_eq!(config.level(rule("double_free")), Level::Warn);
         assert_eq!(config.level(rule("unused_variable")), Level::Warn);
         let defaults = parse("").unwrap();
+
         assert_eq!(defaults.level(rule("double_free")), Level::Deny);
         assert!(parse("[lint.rules]\npedantc = \"warn\"").is_err_and(|e| e.contains("pedantic")));
     }
@@ -713,6 +750,7 @@ mod tests {
         let mut config = parse(text).unwrap();
         let at = |c: &Config, code: Code, p: &str| c.compiler_level(code, Path::new(p));
         let lenient = Code::ArrayFromStructLiteral;
+
         assert!(lenient.is_leniency());
         assert_eq!(at(&config, lenient, "/r/src/a.jai"), Level::Deny);
         assert_eq!(at(&config, lenient, "/r/tests/a.jai"), Level::Allow);
@@ -742,6 +780,7 @@ mod tests {
         let text = "[lint.rules]\nfloat_equality = \"warn\"\n\n[[lint.overrides]]\npaths = [\"tests/**\"]\nrules = { float_equality = \"allow\", pedantic = \"warn\" }\n\n[[lint.overrides]]\npaths = [\"tests/strict\"]\nrules = { float_equality = \"deny\" }\n";
         let mut config = parse(text).unwrap();
         let at = |c: &Config, r: &str, p: &str| c.level_at(rule(r), Path::new(p));
+
         assert_eq!(
             at(&config, "float_equality", "/r/stdlib/a.jai"),
             Level::Warn
@@ -768,6 +807,7 @@ mod tests {
     #[test]
     fn lifetime_mode_survives_discovery_with_flag_precedence() {
         let strict = parse("[lint.lifetimes]\nmode = \"strict\"\n").unwrap();
+
         assert_eq!(
             strict.lifetime_mode,
             Some(jacket_config::LifetimeMode::Strict)
@@ -778,6 +818,7 @@ mod tests {
             ..Config::default()
         };
         let merged = base.invocation_over(strict);
+
         assert_eq!(
             merged.lifetime_mode,
             Some(jacket_config::LifetimeMode::Must)
@@ -792,10 +833,12 @@ mod tests {
     fn portability_settings() {
         let text = "[lint.portability]\nportable = [\"lib/**\"]\n[lint.portability.platforms]\n\"lib/posix/**\" = [\"linux\", \"macos\"]\n\"lib/posix/mac/**\" = [\"macos\"]\n\"lib/posix/win*.jai\" = [\"windows\"]\n";
         let config = parse(text).unwrap();
+
         assert_eq!(config.portability.targets(), DEFAULT_PORTABILITY_TARGETS);
         assert!(config.is_portable(Path::new("/r/lib/a.jai")));
         assert!(!config.is_portable(Path::new("/r/app/a.jai")));
         let on = |p: &str, os| config.builds_on(Path::new(p), os);
+
         assert!(on("/r/lib/a.jai", TargetOs::Windows));
         assert!(on("/r/lib/posix/a.jai", TargetOs::Linux));
         assert!(!on("/r/lib/posix/a.jai", TargetOs::Windows));
@@ -842,6 +885,7 @@ mod tests {
     #[test]
     fn rejects_invalid_patterns_with_their_line() {
         let error = parse("[lint]\nmax-nesting = 3\nexclude = [\"a[\"]\n").unwrap_err();
+
         assert!(
             error.contains("line 3") && error.contains("`a[`"),
             "{error}"
@@ -852,6 +896,7 @@ mod tests {
         )
         .unwrap();
         let at = |p: &str| config.level_at(rule("lossy_xx"), Path::new(p));
+
         assert_eq!(at("/r/src/a.c"), Level::Deny);
         assert_eq!(at("/r/src/a.h"), Level::Allow);
     }

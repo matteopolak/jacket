@@ -20,8 +20,10 @@ fn edited(name: &str) -> (Session, DocumentUri, String) {
 
 fn edited_to(name: &str, text: &str) -> (Session, DocumentUri, String) {
     let mut session = lean_session();
+
     session.defer_compiles(true);
     let uri = file_uri(&format!("/no-compile/{name}.jai"));
+
     session.open(uri.clone(), 1, SOURCE.into()).unwrap();
     session.publications();
     let edit = TextChange {
@@ -29,6 +31,7 @@ fn edited_to(name: &str, text: &str) -> (Session, DocumentUri, String) {
         range_length: None,
         text: text.into(),
     };
+
     session.change(&uri, 2, &[edit]).unwrap();
     (session, uri, text.into())
 }
@@ -52,6 +55,7 @@ fn completion_after_enter_and_a_key_answers_from_the_last_compile() {
     let (session, uri, _) = edited("completion");
     let compiles = session.compile_counts().0;
     let list = session.completion(&uri, at(4, 7)).unwrap();
+
     assert_eq!(session.compile_counts().0, compiles, "no compile");
     assert!(list.items.iter().any(|i| i.label == "total"), "{list:?}");
     assert!(list.is_incomplete, "the names may be out of date");
@@ -64,6 +68,7 @@ fn hover_moves_to_where_the_word_is_now() {
     let compiles = session.compile_counts().0;
     // `helper` in `total := helper(1, 2);`, one line lower than compiled.
     let hover = session.hover(&uri, at(3, 15)).unwrap().expect("a hover");
+
     assert_eq!(session.compile_counts().0, compiles, "no compile");
     assert_eq!(hover.range.start, at(3, 13));
     assert_eq!(hover.range.end, at(3, 19));
@@ -77,6 +82,7 @@ fn hover_between_two_separate_edits_answers_from_the_last_compile() {
     let (session, uri, _) = edited_to("between", &format!("\n{SOURCE}x\n"));
     let compiles = session.compile_counts().0;
     let hover = session.hover(&uri, at(3, 15)).unwrap().expect("a hover");
+
     assert_eq!(session.compile_counts().0, compiles, "no compile");
     assert_eq!(hover.range.start, at(3, 13));
     assert!(hover.contents.value.contains("helper"), "{hover:?}");
@@ -87,6 +93,7 @@ fn definition_moves_to_where_the_declaration_is_now() {
     let (session, uri, _) = edited("definition");
     let compiles = session.compile_counts().0;
     let found = session.definition(&uri, at(3, 15)).unwrap();
+
     assert_eq!(session.compile_counts().0, compiles, "no compile");
     assert_eq!(found.len(), 1);
     assert_eq!(
@@ -105,6 +112,7 @@ fn signature_help_while_typing_a_call_uses_the_last_compile() {
         .signature_help(&uri, at(2, 22))
         .unwrap()
         .expect("signature help");
+
     assert_eq!(session.compile_counts().0, compiles, "no compile");
     assert!(help.signatures[0].label.contains("helper"), "{help:?}");
     assert_eq!(help.active_parameter, 1);
@@ -127,20 +135,24 @@ fn every_other_request_answers_without_a_compile() {
     let _ = session.selection_ranges(&uri, &[at(3, 15)]).unwrap();
     let _ = session.folding_ranges(&uri).unwrap();
     let _ = session.workspace_symbols("help");
+
     assert_eq!(session.compile_counts().0, compiles, "no compile");
 }
 
 #[test]
 fn the_compile_is_made_once_input_is_quiet_and_requests_then_use_it() {
     let (session, uri, _) = edited("warm");
+
     session.hover(&uri, at(3, 15)).unwrap();
     session.inlay_hints(&uri, whole(SOURCE)).unwrap();
     assert!(session.compile_pending());
     let compiles = session.compile_counts().0;
+
     assert_eq!(session.warm_pending(), Some(true));
     assert_eq!(session.compile_counts().0, compiles + 1);
     assert!(!session.compile_pending());
     let list = session.completion(&uri, at(4, 7)).unwrap();
+
     assert_eq!(session.compile_counts().0, compiles + 1, "from the cache");
     assert!(list.items.iter().any(|i| i.label == "total"));
 }
@@ -150,6 +162,7 @@ fn a_rename_compiles_because_its_edits_must_be_exact() {
     let (session, uri, _) = edited("rename");
     let compiles = session.compile_counts().0;
     let edits = session.rename(&uri, at(3, 15), "assist").unwrap();
+
     assert!(edits.is_some());
     assert!(session.compile_counts().0 > compiles);
 }
@@ -158,6 +171,7 @@ fn a_rename_compiles_because_its_edits_must_be_exact() {
 fn without_deferring_requests_compile_as_before() {
     let mut session = lean_session();
     let uri = file_uri("/no-compile/plain.jai");
+
     session.open(uri.clone(), 1, SOURCE.into()).unwrap();
     session.publications();
     let compiles = session.compile_counts().0;
@@ -166,8 +180,10 @@ fn without_deferring_requests_compile_as_before() {
         range_length: None,
         text: format!("\n{SOURCE}"),
     };
+
     session.change(&uri, 2, &[edit]).unwrap();
     let list = session.completion(&uri, at(4, 7)).unwrap();
+
     assert!(session.compile_counts().0 > compiles);
     assert!(!list.is_incomplete);
 }
