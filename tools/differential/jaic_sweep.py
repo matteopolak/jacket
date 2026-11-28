@@ -79,6 +79,18 @@ def make_workdir(c):
     return root
 
 
+def setup_command(command, jaic, env):
+    """The setup `command` and environment to run: `{jacket}` is the `jacket` built beside `jaic`,
+    which then ignores the user's git configuration (a sandbox cannot read it)."""
+    if "{jacket}" not in command:
+        return command, env
+    jacket = Path(jaic).with_name(Path(jaic).name.replace("jaic", "jacket", 1))
+    if not jacket.is_file():
+        sys.exit(f"jaic_sweep: {jacket} is missing; build jacket beside jaic (cargo build -p jacket)")
+    env = {**env, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull}
+    return [str(jacket) if part == "{jacket}" else part for part in command], env
+
+
 def case_box(cid):
     """(sandbox, scratch) confining the commands of upstream case `cid`, or None."""
     if not SANDBOX or cid not in UPSTREAM_IDS:
@@ -583,9 +595,9 @@ def main():
                     WORKDIRS[c["id"]] = make_workdir(c)
                 for command in c.get("setup", []):
                     box = case_box(c["id"])
-                    env = None
+                    command, env = setup_command(command, a.jaic, dict(os.environ))
                     if box:
-                        command, env = usb.confine(box[0], box[1], command, dict(os.environ))
+                        command, env = usb.confine(box[0], box[1], command, env)
                     subprocess.run(
                         command,
                         cwd=(upstream_root(c) / c["path"]).parent,

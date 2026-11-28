@@ -52,5 +52,24 @@ class NativeLibsTests(unittest.TestCase):
                 self.assertEqual(os.environ["JAIC_NATIVE_LIBS"], "libs-windows-x64")
 
 
+class SetupCommandTests(unittest.TestCase):
+    def test_jacket_in_a_setup_command_is_the_binary_next_to_jaic_and_ignores_the_users_git_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            jaic = Path(tmp) / "jaic"
+            jacket = Path(tmp) / "jacket"
+            jaic.write_text("")
+            jacket.write_text("")
+            command, env = jaic_sweep.setup_command(["{jacket}", "migrate", "--apply", "."], str(jaic), {"A": "1"})
+            self.assertEqual(command, [str(jacket), "migrate", "--apply", "."])
+            self.assertEqual(env["A"], "1")
+            self.assertEqual(env["GIT_CONFIG_GLOBAL"], os.devnull)
+            self.assertEqual(env["GIT_CONFIG_SYSTEM"], os.devnull)
+            # Any other command is left as written.
+            self.assertEqual(jaic_sweep.setup_command(["make"], str(jaic), {"A": "1"}), (["make"], {"A": "1"}))
+            jacket.unlink()
+            with self.assertRaisesRegex(SystemExit, "build jacket"):
+                jaic_sweep.setup_command(["{jacket}"], str(jaic), {})
+
+
 if __name__ == "__main__":
     unittest.main()

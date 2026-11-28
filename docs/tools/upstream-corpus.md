@@ -27,6 +27,7 @@ Working entry points are cases in `tools/upstream-cases.json`, run by the sweep 
 
 - `expect` values must come from the project (docs, tests, golden outputs), never from jaic's output, which only freezes current behaviour.
 - `only` (platform names) and `only_reason`: reported as unavailable elsewhere instead of failing. `tools/corpus/select_upstream_cases.py --platform linux-x64|windows-x64` selects them for CI, so a new platform-only case needs no workflow edit.
+- `setup` runs once in the case's scratch copy before the sweep. `{jacket}` is the `jacket` built beside `--jaic`, run with the user's git configuration ignored: `["{jacket}", "migrate", "--apply", "--allow-no-vcs", "."]` rewrites a project written for an older Jai ([migrate](jacket-migrate.md)), so the case tests the migrated code.
 - `disabled` with a reason: the case's own source has a genuine error. It is skipped and counted separately.
 - `why_check`: one line on why a `check` case isn't promoted to `run`.
 - `JAIC_UPSTREAM_CASES=<file>` reads cases from another file, for triage.
