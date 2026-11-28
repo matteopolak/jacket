@@ -117,3 +117,23 @@ main :: () {
     free(other);
     report(other);
 }
+
+Slot :: struct {
+    p: *int;
+}
+
+swap_in :: (h: *Slot) {
+    free(h.p);
+    h.p = New(int);
+}
+
+// A call that frees a field and stores a new value in it freed what the old pointer names.
+swapped_old_pointer :: () {
+    h: Slot;
+    h.p = New(int);
+    old := h.p;
+
+    swap_in(*h);
+    print("%\n", old.*);
+    free(h.p);
+}

@@ -118,3 +118,18 @@ error[use_after_free]: `other` is used after the call above freed it
     = help: free it after its last use, or give it a new value before using it again
     = note: `use_after_free` is `deny` by default
     = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+
+error[use_after_free]: `old` is used after the call above freed it
+   --> tests/lint/use_after_free/bad.jai:137:18
+    |
+133 |     h.p = New(int);
+    |           -------- storage derived here
+    ...
+136 |     swap_in(*h);
+    |     ----------- storage invalidated here
+137 |     print("%\n", old.*);
+    |                  ^^^
+    |
+    = help: free it after its last use, or give it a new value before using it again
+    = note: `use_after_free` is `deny` by default
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free

@@ -45,6 +45,10 @@ impl Resolver<'_> {
         let live = returning_blocks(body, all, self.targets);
         let mut block_writes: Vec<Vec<(Effect, Vec<jaic::source::Span>)>> =
             vec![Vec::new(); body.blocks.len()];
+        // What each block writes and frees of its parameters, in the order it does it. One event's
+        // own writes come before its frees: a call's effects carry no order of their own, and
+        // freeing last never claims a free that precedes the write.
+        let mut ordered: Vec<Vec<super::order::Item>> = vec![Vec::new(); body.blocks.len()];
 
         for (at, event) in body
             .blocks
@@ -57,6 +61,29 @@ impl Resolver<'_> {
 
             self.write_event(event, all, &mut writes, &mut unknown_write, &mut escapes);
             block_writes[at].extend(writes[before..].iter().cloned());
+            ordered[at].extend(
+                writes[before..]
+                    .iter()
+                    .filter_map(|(e, _)| super::order::Item::of(e)),
+            );
+
+            if matches!(
+                event,
+                Event::Call {
+                    expands: false,
+                    ..
+                } | Event::IndirectCall {
+                    allocator: false,
+                    ..
+                }
+            ) {
+                ordered[at].extend(
+                    self.call_effects(event, all, true)
+                        .iter()
+                        .filter(|(e, _)| e.kind == Kind::Free)
+                        .filter_map(|(e, _)| super::order::Item::of(e)),
+                );
+            }
         }
 
         let overwrites = writes
@@ -67,6 +94,14 @@ impl Resolver<'_> {
             .map(|effect| effect.target.clone())
             .collect();
         let retains = self.infer_retains(all, &writes, &unknown_write);
+        let free_then_write = if writes
+            .iter()
+            .any(|(e, _)| e.kind == Kind::Write && e.exported())
+        {
+            super::order::frees_before_writes(body, &live, &ordered)
+        } else {
+            HashSet::default()
+        };
 
         Writes {
             effects: writes,
@@ -74,6 +109,7 @@ impl Resolver<'_> {
             escapes,
             retains,
             overwrites,
+            free_then_write,
         }
     }
 
@@ -271,6 +307,7 @@ impl super::Summaries {
                         escapes,
                         retains,
                         overwrites,
+                        free_then_write,
                     } = resolver.infer_writes(&self.procs);
                     let summary = self.procs.get_mut(id).unwrap();
                     let previous = summary.unknown_write.len() + summary.escapes.len();
@@ -286,6 +323,8 @@ impl super::Summaries {
                     summary.retains = retains;
                     changed |= summary.overwrites != overwrites;
                     summary.overwrites = overwrites;
+                    changed |= summary.free_then_write != free_then_write;
+                    summary.free_then_write = free_then_write;
 
                     for (effect, witness) in writes {
                         if matches!(effect.target.root, Root::Parameter(p) if effect.kind == Kind::Write && summary.unknown_write.contains(&p))

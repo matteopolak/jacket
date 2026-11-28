@@ -205,3 +205,35 @@ main :: () {
     defer free(fifth);
     report(fifth);
 }
+
+Slot :: struct {
+    p: *int;
+}
+
+swap_in :: (h: *Slot) {
+    free(h.p);
+    h.p = New(int);
+}
+
+// The field holds the new allocation after the call, and the old one is not used again.
+swapped_in_value :: () {
+    h: Slot;
+    h.p = New(int);
+
+    swap_in(*h);
+    h.p.* = 1;
+    free(h.p);
+}
+
+// A call that stores first and frees afterwards frees what it stored, not what the field held.
+reset_then_free :: (h: *Slot) {
+    h.* = .{};
+    free(h);
+}
+
+clear_holder :: () {
+    h := New(Slot);
+
+    h.p = New(int);
+    reset_then_free(h);
+}

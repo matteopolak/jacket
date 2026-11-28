@@ -286,6 +286,9 @@ impl Builder<'_> {
             .resources
             .operations(event, self.places, self.cells, &mut self.resolver);
 
+        let frees_then_replaces = matches!(event, Event::Call { callee, expands: false, .. }
+            if self.summaries.procs.get(callee).is_some_and(|s| !s.free_then_write.is_empty()));
+
         if matches!(event, Event::Store { .. }) {
             ops.splice(0..0, extra.into_iter().map(Op::Resource));
         } else {
@@ -303,7 +306,23 @@ impl Builder<'_> {
                     ops.push(Op::PointerLoad(cell, cell, region, span));
                 }
 
-                ops.push(Op::Resource(op));
+                // A callee that frees a place and then stores a new value in it frees what the
+                // place held at entry: the release precedes the replacement. One that replaces
+                // first leaves the order as it is.
+                let before = match &op {
+                    resources::Op::FreeRegion {
+                        region, ..
+                    } if frees_then_replaces => ops.iter().position(|o| {
+                        matches!(o, Op::Replace(p) if self.places.contains(*p, *region)
+                            || self.places.contains(*region, *p))
+                    }),
+                    _ => None,
+                };
+
+                match before {
+                    Some(at) => ops.insert(at, Op::Resource(op)),
+                    None => ops.push(Op::Resource(op)),
+                }
             }
         }
 

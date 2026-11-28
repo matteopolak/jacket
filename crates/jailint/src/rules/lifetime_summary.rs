@@ -30,6 +30,7 @@ mod interfaces;
 mod local_destinations;
 mod nullable;
 mod observable;
+mod order;
 mod ordering;
 mod origins;
 mod possible;
@@ -153,6 +154,9 @@ pub(super) struct Summary {
     pub retains: HashMap<Path, usize>,
     /// Places of parameters this body writes on every path that returns normally.
     pub overwrites: HashSet<Path>,
+    /// `(freed, written)` places of parameters where every write of `written` follows a free of
+    /// `freed`: the call releases what the place held and then replaces it.
+    pub free_then_write: HashSet<(Path, Path)>,
 }
 
 impl Summary {
@@ -815,6 +819,8 @@ struct Writes {
     retains: HashMap<Path, usize>,
     /// Places written on every path that returns normally.
     overwrites: HashSet<Path>,
+    /// See [`Summary::free_then_write`].
+    free_then_write: HashSet<(Path, Path)>,
 }
 
 fn insert(map: &mut HashMap<Effect, Vec<Span>>, effect: Effect, chain: Vec<Span>) -> bool {

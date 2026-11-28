@@ -58,6 +58,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - A ZIP written with ZIP64 records marks its classic end record, so readers find them. `Archive_Limits.zip64_from` lowers the ZIP64 cut-off.
 - `Toml`'s `range=`, `message=`, `as_number` and `rename_all=` on a `Table(string, V)` field apply to its values.
 - The Jai lexer parses a `#string` here-string that `peek_token` reaches ahead of the next token, instead of asserting.
+- `jailint` reports a pointer used after a call freed and replaced its field (`free(h.p); h.p = New(int)`).
 - `jailint` and `jailsp` finish a failing module import in seconds and stop its audit at the time limit.
 - `jaic -help` is in capitalised sections (`Usage:`, `Modes:`, `Exit status:`), bold when colour is on.
 - The VS Code extension debugs a Jai file under CodeLLDB; the Neovim README has an nvim-dap setup.
