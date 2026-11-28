@@ -24,6 +24,17 @@ fn args(found: &Found) -> Vec<String> {
 const ARMHF: &str = "armv7-unknown-linux-gnueabihf";
 
 #[test]
+fn the_host_target_is_the_machine_s_os_and_cpu() {
+    for (os, arch, triple) in [
+        (Os::MacOs, "aarch64", "aarch64-apple-darwin"),
+        (Os::Linux, "s390x", "s390x-unknown-linux-gnu"),
+        (Os::Windows, "aarch64", "aarch64-pc-windows-msvc"),
+    ] {
+        assert_eq!(host_target(&FakeHost::new(os, arch)), target(triple));
+    }
+}
+
+#[test]
 fn the_host_links_with_its_c_driver() {
     let host = FakeHost::mac();
     let found = find(&host, "aarch64-apple-darwin").unwrap();

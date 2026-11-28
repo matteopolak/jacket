@@ -266,8 +266,6 @@ catalog! {
             "the process hit the memory limit set for it";
         LintFinding = "lint-finding", Warning,
             "a finding of a `jailint` rule; the rule's own name is shown in place of this code";
-        LintConfig = "lint-config", Warning,
-            "something `jailint` noticed in the configuration it read, such as an unknown setting";
         LintTestNote = "lint-test-note", Warning,
             "a `// test:` note that says where a file runs and that `jailint` could not read, so it was ignored";
         LintIncomplete = "lint-incomplete", Warning,

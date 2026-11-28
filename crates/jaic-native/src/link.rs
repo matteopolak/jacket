@@ -132,7 +132,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
     }
     order_link_groups(&mut seen);
     let overrides = Overrides::from_env();
-    let lookup = lookup();
+    let lookup = lookup()?;
     let (linker_found, mut cmd) = if sanitize.any() {
         let found = find_sanitizer_driver(&lookup, &overrides).map_err(|m| m.to_string())?;
         let mut cmd = command(&found);
@@ -158,7 +158,7 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         link_options::driver_for_command(&linker_found.program.to_string_lossy(), extra_args);
     let apple = target.unwrap_or_else(BuildTarget::host).is_apple();
     let extra_args = link_options::render(
-        &link_options::translate(extra_args, linker, driver, apple),
+        &link_options::translate(extra_args, linker, driver, apple)?,
         linker,
         driver,
     )?;
@@ -229,17 +229,19 @@ pub fn link(request: &LinkRequest) -> Result<(), String> {
         && coverage_source.is_none()
     {
         let args: Vec<std::ffi::OsString> = cmd.get_args().map(ToOwned::to_owned).collect();
-        // The linker alone, without the driver; on any failure `cc` runs the same link, so
-        // its message and its rules decide what is an error.
-        match crate::apple_ld::direct_command(&args) {
-            Ok(mut direct) => {
-                if let Ok(out) = crate::linker::run_captured(&mut direct)
-                    && out.status.success()
-                {
-                    return Ok(());
-                }
-            }
-            Err(reason) => jaic::progress::tool("Linking", &format!("through cc: {reason}"), false),
+        // The linker alone, without the driver (`apple_ld`).
+        if let Some(mut direct) = crate::apple_ld::direct_command(&args)? {
+            let ld = jaic_toolchain::Found::new(
+                PathBuf::from(direct.get_program()),
+                jaic_toolchain::Origin::System,
+            );
+            let out =
+                crate::linker::run_captured(&mut direct).map_err(|e| linker_not_run(&ld, &e))?;
+            return if out.status.success() {
+                Ok(())
+            } else {
+                Err(link_failure(&ld.program, &out))
+            };
         }
     }
     let out = crate::linker::run_captured(&mut cmd);

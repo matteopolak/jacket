@@ -217,7 +217,7 @@ fn run() -> Result<(), String> {
         let output = toml::to_string(&untag(&value)?).map_err(|e| e.to_string())?;
         print!("{output}");
     } else if mode == "settings" {
-        let (config, unknown) = jacket_config::parse_noting(input)?;
+        let (config, unknown) = jacket_config::parse_lenient(input)?;
         config.format.validate()?;
         config.doc.format.validate_doc()?;
         let resolved: serde_json::Map<String, Json> = config

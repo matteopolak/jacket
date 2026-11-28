@@ -109,7 +109,7 @@ fn missing_dsymutil_message(lookup: &jaic_toolchain::Lookup) -> String {
 /// `dsymutil`, or the error for it missing. Checked before compiling, so a build that will write
 /// a dSYM does not fail after the compile and link.
 pub fn require_dsymutil() -> Result<PathBuf, String> {
-    let lookup = lookup();
+    let lookup = lookup()?;
     lookup
         .llvm_tool("dsymutil")
         .ok_or_else(|| missing_dsymutil_message(&lookup))
@@ -149,7 +149,7 @@ pub fn archive(
     output: &Path,
     target: Option<BuildTarget>,
 ) -> Result<(), String> {
-    let found = jaic_toolchain::linker::find_archiver(&lookup(), target, &Overrides::from_env())
+    let found = jaic_toolchain::linker::find_archiver(&lookup()?, target, &Overrides::from_env())
         .map_err(|missing| missing.to_string())?;
     let program = found.program.display().to_string();
     let mut cmd = command(&found);
@@ -332,8 +332,12 @@ pub(super) fn library_args(
                         .join(", ")
                 )
             };
+            // The driver knows why a library it supplies is missing (an unwritable cache).
+            let why = jaic::interp::missing_library(name)
+                .map(|note| format!("\n{note}"))
+                .unwrap_or_default();
             return Err(format!(
-                "library '{name}' not found: looked for {} in {}{elsewhere}",
+                "library '{name}' not found: looked for {} in {}{elsewhere}{why}",
                 candidates.join(", "),
                 dir.display()
             ));

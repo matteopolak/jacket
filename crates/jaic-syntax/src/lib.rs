@@ -21,7 +21,7 @@ pub mod paths;
 pub mod render;
 pub mod source;
 pub mod suggest;
-pub use paths::{canonicalize, default_stdlib_dir, stdlib_dir, strip_verbatim};
+pub use paths::{canonicalize, default_stdlib_dir, strip_verbatim};
 
 /// The folder of the standard library that holds the modules only jaic has (`Long_Double`,
 /// `Jai_Format`, `WebGPU`, `Wasi_Runtime`, ...). It is not searched on its own: a program imports them by

@@ -155,10 +155,9 @@ if [ "$RUNNER_OS" = "Linux" ]; then
     if ldd "$image" | grep -i llvm; then echo "$image links a shared LLVM"; exit 1; fi
   done
 fi
-# Installed the usual way: unpacked elsewhere, linked from a bin folder, with no
-# checkout to fall back on (the build's own stdlib path is baked in as the fallback).
+# Installed the usual way: unpacked elsewhere and linked from a bin folder. The stdlib is
+# found beside the real executable, never in a checkout.
 if [ "$RUNNER_OS" != "Windows" ]; then
-  mv "$GITHUB_WORKSPACE/stdlib" "$GITHUB_WORKSPACE/stdlib.hidden"
   cp -R "$GITHUB_WORKSPACE/$PACKAGE_DIR" "$RUNNER_TEMP/opt-jaic"
   mkdir -p "$RUNNER_TEMP/bin"
   ln -s "$RUNNER_TEMP/opt-jaic/jaic" "$RUNNER_TEMP/bin/jaic"
@@ -179,7 +178,6 @@ if [ "$RUNNER_OS" != "Windows" ]; then
   linked_fmt="$(printf 'main::(){x:=1;}' | "$RUNNER_TEMP/bin/jaifmt" --stdin)"
   fmt_status=$?
   set -e
-  mv "$GITHUB_WORKSPACE/stdlib.hidden" "$GITHUB_WORKSPACE/stdlib"
   test "$status" = 42
   test "$simp_status" = 0
   test "$link_build_status" = 0

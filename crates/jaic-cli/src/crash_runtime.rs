@@ -11,36 +11,42 @@ mod embedded {
     include!(concat!(env!("OUT_DIR"), "/crash_runtime.rs"));
 }
 
-/// Where unpacked helpers live: `JAIC_CACHE_DIR`, else the platform's user cache.
-fn cache_root() -> Option<PathBuf> {
-    if let Some(dir) = jacket_config::env::CACHE_DIR.os().filter(|d| !d.is_empty()) {
-        return Some(PathBuf::from(dir));
+/// The library name the interpreter and the linker know the runtime by.
+pub const LIBRARY: &str = "portable_crash";
+
+/// What to do when the runtime cannot be unpacked.
+const FIX: &str = "note: set JAIC_CACHE_DIR to a writable folder";
+
+/// Where unpacked helpers live: `JAIC_CACHE_DIR`, else `jaic` in the user cache.
+fn cache_root() -> Result<PathBuf, String> {
+    if let Some(dir) = jacket_config::env::CACHE_DIR.non_empty() {
+        return Ok(PathBuf::from(dir));
     }
-    if let Some(dir) = jacket_config::env::XDG_CACHE_HOME
-        .os()
-        .filter(|d| !d.is_empty())
-    {
-        return Some(PathBuf::from(dir).join("jaic"));
-    }
-    let home = PathBuf::from(jacket_config::env::HOME.os().filter(|d| !d.is_empty())?);
-    Some(if cfg!(target_os = "macos") {
-        home.join("Library/Caches/jaic")
-    } else {
-        home.join(".cache/jaic")
-    })
+    jacket_config::user_cache_dir()
+        .map(|root| root.join("jaic"))
+        .map_err(|why| format!("cannot find a cache folder for the crash runtime: {why}\n{FIX}"))
 }
 
-/// The directory holding the embedded crash runtime, unpacking it if needed. `None` when this
-/// build embeds none or no writable cache exists (programs then fail to load it, as before).
-pub fn dir() -> Option<PathBuf> {
+/// The directory holding the embedded crash runtime, unpacking it if needed. `Ok(None)` when this
+/// build embeds none; an error naming the folder when it cannot be written.
+pub fn dir() -> Result<Option<PathBuf>, String> {
     if embedded::FILES.is_empty() {
-        return None;
+        return Ok(None);
     }
-    [cache_root(), Some(std::env::temp_dir().join("jaic-cache"))]
-        .into_iter()
-        .flatten()
-        .map(|root| root.join("crash-runtime").join(embedded::DIGEST))
-        .find(|dir| unpack(dir).is_ok())
+    unpack_under(&cache_root()?).map(Some)
+}
+
+/// Unpacks the runtime into its folder under `root` and returns that folder.
+fn unpack_under(root: &Path) -> Result<PathBuf, String> {
+    let dir = root.join("crash-runtime").join(embedded::DIGEST);
+    unpack(&dir).map_err(|e| {
+        format!(
+            "cannot unpack the crash runtime into {}: {}\n{FIX}",
+            dir.display(),
+            jaic::io_reason(&e)
+        )
+    })?;
+    Ok(dir)
 }
 
 fn unpack(dir: &Path) -> std::io::Result<()> {
@@ -58,4 +64,35 @@ fn unpack(dir: &Path) -> std::io::Result<()> {
         fs::rename(&temporary, dir.join(name))?;
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_unwritable_cache_names_the_variable_that_fixes_it() {
+        if embedded::FILES.is_empty() {
+            return;
+        }
+        let root = test_support::TempDir::new("unwritable-cache");
+        // A file where the cache folder should be cannot hold one.
+        let cache = root.join("cache");
+        fs::write(&cache, "").unwrap();
+        let error = unpack_under(&cache).unwrap_err();
+        assert!(
+            error.starts_with("cannot unpack the crash runtime into"),
+            "{error}"
+        );
+        assert!(
+            error.ends_with("\nnote: set JAIC_CACHE_DIR to a writable folder"),
+            "{error}"
+        );
+        assert!(
+            unpack_under(&root)
+                .unwrap()
+                .join("libportable_crash.a")
+                .is_file()
+        );
+    }
 }

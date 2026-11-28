@@ -297,6 +297,9 @@ pub struct Cli {
         tag = "target"
     )]
     pub target: Option<String>,
+    /// What `-os`, `-cpu` and `-target` select, checked by [`Cli::finish`]; `None`: the host.
+    #[arg(skip)]
+    pub build_for: Option<Target>,
     /// run the metaprogram plugin module Name. Every argument after it, up
     /// to the next +Name, `-` or `--`, is that plugin's own option.
     /// Module parameters go in the name: '+Check(CHECK_BINDINGS=false)'
@@ -491,6 +494,12 @@ impl Cli {
                 "`-quiet` and `-verbose` contradict each other",
             ));
         }
+        self.build_for =
+            self.build_target()
+                .map_err(|message| match message.split_once("\nhelp: ") {
+                    Some((message, help)) => CliError::new(message).help(help),
+                    None => CliError::new(message),
+                })?;
         Ok(())
     }
 

@@ -84,13 +84,14 @@ pub(super) struct ExtraArgs {
 /// | `--entry=SYM` | `/ENTRY:SYM` | `-Wl,-e,SYM` | `-Wl,--entry=SYM` |
 /// | `-z stack-size=N` | `/STACK:N` | `-Wl,-stack_size,0xN` | `-Wl,--stack,N` |
 ///
-/// Other Unix linkers get the `ld.lld` spelling behind `-Wl,`.
+/// Other Unix linkers get the `ld.lld` spelling behind `-Wl,`. A stack size that is not a
+/// number of bytes is an error.
 pub(super) fn translate(
     args: &[OsString],
     linker: Linker,
     driver: Driver,
     apple: bool,
-) -> Vec<OsString> {
+) -> Result<Vec<OsString>, String> {
     let msvc = matches!(driver, Driver::MsvcLink | Driver::ClangCl) || linker == Linker::Msvc;
     // The linker is started directly (`ld.lld`, `link.exe`, `wasm-ld`) or through a C driver.
     let through_driver = driver == Driver::C && !msvc;
@@ -118,15 +119,17 @@ pub(super) fn translate(
             .flatten();
         if let Some(size) = stack {
             args.next();
-            let size_number = size.parse::<u64>().ok();
+            let bytes = size.parse::<u64>().map_err(|_| {
+                format!("`-z stack-size={size}` is not a stack size\nhelp: give it in bytes, such as `-z stack-size=8388608`")
+            })?;
             out.push(if msvc {
-                format!("/STACK:{size}").into()
+                format!("/STACK:{bytes}").into()
             } else if apple {
-                format!("-Wl,-stack_size,{:#x}", size_number.unwrap_or_default()).into()
+                format!("-Wl,-stack_size,{bytes:#x}").into()
             } else if linker == Linker::MinGw {
-                wl(&format!("--stack,{size}"))
+                wl(&format!("--stack,{bytes}"))
             } else {
-                wl(&format!("-z,stack-size={size}"))
+                wl(&format!("-z,stack-size={bytes}"))
             });
             continue;
         }
@@ -144,7 +147,7 @@ pub(super) fn translate(
             },
         }
     }
-    out
+    Ok(out)
 }
 
 /// The operand of `option`, the next argument.
@@ -338,7 +341,7 @@ mod tests {
             "-o".into(),
             bytes(b"out\xfe"),
         ];
-        let translated = translate(&input, Linker::Unix, Driver::C, false);
+        let translated = translate(&input, Linker::Unix, Driver::C, false).unwrap();
         assert_eq!(translated[0].as_bytes(), b"/lib/\xff.a");
         assert_eq!(translated[1], "-Wl,--gc-sections");
         let rendered = render(&translated, Linker::Unix, Driver::C).unwrap();
@@ -359,7 +362,7 @@ mod tests {
         let settings = args(&["--gc-sections", "--entry=start", "-z", "stack-size=65536"]);
         let wl = |list: &[&str]| args(list);
         assert_eq!(
-            translate(&settings, Linker::Unix, Driver::C, false),
+            translate(&settings, Linker::Unix, Driver::C, false).unwrap(),
             wl(&[
                 "-Wl,--gc-sections",
                 "-Wl,--entry=start",
@@ -367,11 +370,11 @@ mod tests {
             ])
         );
         assert_eq!(
-            translate(&settings, Linker::Unix, Driver::C, true),
+            translate(&settings, Linker::Unix, Driver::C, true).unwrap(),
             wl(&["-Wl,-dead_strip", "-Wl,-e,start", "-Wl,-stack_size,0x10000"])
         );
         assert_eq!(
-            translate(&settings, Linker::MinGw, Driver::C, false),
+            translate(&settings, Linker::MinGw, Driver::C, false).unwrap(),
             wl(&[
                 "-Wl,--gc-sections",
                 "-Wl,--entry=start",
@@ -379,13 +382,29 @@ mod tests {
             ])
         );
         assert_eq!(
-            translate(&settings, Linker::Msvc, Driver::MsvcLink, false),
+            translate(&settings, Linker::Msvc, Driver::MsvcLink, false).unwrap(),
             wl(&["/OPT:REF", "/ENTRY:start", "/STACK:65536"])
         );
         assert_eq!(
-            translate(&settings, Linker::Msvc, Driver::C, false),
+            translate(&settings, Linker::Msvc, Driver::C, false).unwrap(),
             wl(&["/OPT:REF", "/ENTRY:start", "/STACK:65536"])
         );
+    }
+
+    #[test]
+    fn a_stack_size_that_is_not_a_number_is_an_error() {
+        let error = translate(
+            &args(&["-z", "stack-size=8M"]),
+            Linker::Unix,
+            Driver::C,
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            error.starts_with("`-z stack-size=8M` is not a stack size"),
+            "{error}"
+        );
+        assert!(error.contains("\nhelp: "), "{error}");
     }
 
     #[test]
@@ -397,7 +416,7 @@ mod tests {
             "--no-gc-sections",
         ]);
         assert_eq!(
-            translate(&input, Linker::Unix, Driver::C, false),
+            translate(&input, Linker::Unix, Driver::C, false).unwrap(),
             args(&[
                 "-flto",
                 "-Wl,--gc-sections",
@@ -406,7 +425,11 @@ mod tests {
             ])
         );
         // The default on macOS: nothing to say.
-        assert!(translate(&args(&["--no-gc-sections"]), Linker::Unix, Driver::C, true).is_empty());
+        assert!(
+            translate(&args(&["--no-gc-sections"]), Linker::Unix, Driver::C, true)
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

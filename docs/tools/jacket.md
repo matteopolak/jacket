@@ -131,12 +131,12 @@ parse_threads = 4
 codegen_units = 4
 ```
 
-Precedence: command-line flags, then `jacket.toml`, then defaults. Unknown keys are never fatal and never read; every tool warns the same way, with a did-you-mean (`unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?`). `jailint` still rejects unknown rule names and levels. A file that isn't valid TOML, or has a wrongly typed value, is an error naming file and line. `jacket config show` prints the effective settings and where each came from.
+Precedence: command-line flags, then `jacket.toml`, then defaults. An unknown key is an error in every tool, as an unknown `jailint` rule is: it names the file, the line and the nearest known key (`unknown setting `lint.max_nestng` in jacket.toml (line 2)`, then `help: did you mean `lint.max_nesting`?`). A file that isn't valid TOML, or has a wrongly typed value, is an error naming file and line. `jacket config show` prints the effective settings and where each came from.
 
 ## How to change it
 
 - **A jaic-flag-backed setting:** add the field to `Experimental` in `crates/jacket-config/src/schema.rs`, forward it in `defaults` in `crates/jacket/src/compile.rs`, add a test case there, and rerun `editors/vscode/scripts/build.ts` for the schema.
-- **A new section:** add a typed struct in `schema.rs` (no catch-all map; `parse_noting` collects unknown keys and `known_keys` feeds the did-you-mean, which a test keeps in step) and read it from `Loaded`. A tool that validates its own values passes a `Check` to `load_checked`.
+- **A new section:** add a typed struct in `schema.rs` (no catch-all map; `parse` rejects unknown keys and `known_keys` feeds the did-you-mean, which a test keeps in step) and read it from `Loaded`. A tool that validates its own values passes a `Check` to `load_checked`.
 - **Entry inference:** `jacket_config::first_entry` and `INFERRED_ENTRIES`. `jaic-cli` and `jailsp` share them, so keep one order.
 - **`[format]`:** `FORMAT_SETTINGS` in `schema.rs` is the authority. `jacket fmt` (`crates/jacket/src/fmt.rs`) resolves them and passes each to `jaifmt` as `--no-config --set key=value`. Standalone `jaifmt` and the browser use the Jai TOML reader in `stdlib/Extensions/Jai_Format`, and `jai_format_sync.rs` fails when the two drift. To add a key: the table, `Format` in `schema.rs`, then `Format_Config`, `apply_key` and `FORMAT_KEYS` in `Jai_Format`.
 - `crates/jaic` never reads `jacket.toml`; `jaic` takes settings as flags from `jacket`, including `-package_import_dir` for each dependency's own `import_path`.

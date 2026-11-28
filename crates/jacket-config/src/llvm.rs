@@ -12,12 +12,42 @@ mod version;
 
 pub use version::{MAJOR, SYS_PREFIX_VAR};
 
+/// The variables that name an install, best first.
+const CONFIGURED: [&crate::env::Var; 2] = [&crate::env::LLVM_SYS_PREFIX, &crate::env::LLVM_PREFIX];
+
 /// The install named by the environment: the `llvm-sys` variable, else `LLVM_PREFIX`.
 pub fn configured_prefix() -> Option<PathBuf> {
-    [&crate::env::LLVM_SYS_PREFIX, &crate::env::LLVM_PREFIX]
+    CONFIGURED
         .into_iter()
         .find_map(crate::env::Var::non_empty)
         .map(PathBuf::from)
+}
+
+/// An error for each variable of [`configured_prefix`] that is set to a folder with no `bin/`,
+/// which would otherwise leave the lookup to find another LLVM.
+///
+/// ```
+/// // With neither variable set, or both naming an install, there is nothing to report.
+/// let _ = jacket_config::llvm::check_configured();
+/// ```
+pub fn check_configured() -> Result<(), String> {
+    for var in CONFIGURED {
+        if let Some(value) = var.non_empty() {
+            check_prefix(var.name, &PathBuf::from(value))?;
+        }
+    }
+    Ok(())
+}
+
+fn check_prefix(name: &str, prefix: &std::path::Path) -> Result<(), String> {
+    if prefix.join("bin").is_dir() {
+        return Ok(());
+    }
+    Err(format!(
+        "{name} is set to {}, which has no `bin` folder\n\
+         note: point {name} at an LLVM install (the folder that holds `bin/clang`), or unset it",
+        prefix.display()
+    ))
 }
 
 /// What `llvm-config <flag>` prints (a path), trying the versioned program first.
@@ -85,6 +115,21 @@ mod tests {
                 "{manifest} must name the `{feature}` inkwell feature, as pins.json does"
             );
         }
+    }
+
+    #[test]
+    fn a_prefix_without_bin_is_an_error_naming_the_variable() {
+        let dir = std::env::temp_dir().join(format!("llvm-prefix-{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("bin")).unwrap();
+        assert!(check_prefix("LLVM_PREFIX", &dir).is_ok());
+        let error = check_prefix("LLVM_PREFIX", &dir.join("nowhere")).unwrap_err();
+        assert!(
+            error.starts_with("LLVM_PREFIX is set to ")
+                && error.contains("which has no `bin` folder"),
+            "{error}"
+        );
+        assert!(error.contains("\nnote: point LLVM_PREFIX at"), "{error}");
+        std::fs::remove_dir_all(dir).unwrap();
     }
 
     #[test]

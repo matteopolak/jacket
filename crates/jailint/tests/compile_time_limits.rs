@@ -70,13 +70,15 @@ fn the_budget_comes_from_the_flag() {
 
 #[test]
 fn a_project_cannot_raise_the_limits() {
-    // A `[check]` table is not a setting: it is reported like any unknown key, and the default
-    // budget stays.
+    // A `[check]` table is not a setting: it is an unknown key, so nothing is checked under it.
     let text = lint(
         &project("raised", Some("[check]\nmax_blocks = 0\nmax_seconds = 0\n")),
         &["--check-time-limit", "0.3"],
     );
-    assert!(text.contains("checking stopped after 0.3 s"), "{text}");
+    assert!(
+        text.contains("unknown setting `check` in jacket.toml"),
+        "{text}"
+    );
 }
 
 #[test]

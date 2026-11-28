@@ -109,7 +109,7 @@ fn experimental_and_toolchain_parse() {
 
 #[test]
 fn unknown_keys_are_dropped_and_named_by_path() {
-    let (config, unknown) = parse_noting(
+    let (config, unknown) = parse_lenient(
         "[project]\nentry = \"a.jai\"\nflavour = 1\n[toolchain]\nversionn = \"1\"\n\
          [lint]\nmax_nestng = 3\nexclude = [\"x\"]\n[format]\nindent = 2\n\
          [experimental]\nturbo = true\n[extras]\nx = 1\n",
@@ -134,13 +134,13 @@ fn unknown_keys_are_dropped_and_named_by_path() {
 #[test]
 fn a_nested_unknown_table_is_named_at_its_first_unknown_key() {
     let (_, unknown) =
-        parse_noting("[lint.extra.deep]\nx = 1\n[lint.rules]\nfoo = \"warn\"\n").unwrap();
+        parse_lenient("[lint.extra.deep]\nx = 1\n[lint.rules]\nfoo = \"warn\"\n").unwrap();
     assert_eq!(unknown, ["lint.extra"]);
 }
 
 #[test]
 fn known_settings_load_without_warnings() {
-    let (config, unknown) = parse_noting(
+    let (config, unknown) = parse_lenient(
         "[project]\nentry = [\"a.jai\"]\nimport_path = \"v\"\n[toolchain]\nversion = \"1.2.3\"\n\
          [lint]\nmax_nesting = 3\n[lint.rules]\nfloat_equality = \"deny\"\n\
          [format]\nindent_width = 2\n[experimental]\nparse_threads = 4\n",
@@ -159,11 +159,11 @@ fn known_settings_load_without_warnings() {
 fn the_warning_suggests_the_near_key() {
     assert_eq!(
         unknown_note("lint.max_nestng"),
-        "warning: unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?"
+        "unknown setting `lint.max_nestng` in jacket.toml\nhelp: did you mean `lint.max_nesting`?"
     );
     assert_eq!(
         unknown_note("lint.colour"),
-        "warning: unknown setting `lint.colour` in jacket.toml (ignored)"
+        "unknown setting `lint.colour` in jacket.toml"
     );
     assert!(unknown_note("lnt").ends_with("did you mean `lint`?"));
 }
@@ -172,12 +172,12 @@ fn the_warning_suggests_the_near_key() {
 fn a_top_level_key_of_a_section_points_at_it() {
     assert_eq!(
         unknown_note("import_path"),
-        "warning: unknown setting `import_path` in jacket.toml (ignored); it belongs under `[project]`"
+        "unknown setting `import_path` in jacket.toml\nhelp: it belongs under `[project]`"
     );
     assert!(unknown_note("max_nesting").ends_with("it belongs under `[lint]`"));
     assert_eq!(
         unknown_note("build_files"),
-        "warning: unknown setting `build_files` in jacket.toml (ignored); use `entry` under `[project]`"
+        "unknown setting `build_files` in jacket.toml\nhelp: use `entry` under `[project]`"
     );
     // Only the top level is misplaced; a section's own typo keeps the did-you-mean.
     assert!(!unknown_note("lint.entry").contains("belongs"));
@@ -191,10 +191,17 @@ fn aliases_name_real_keys() {
 }
 
 #[test]
-fn load_reports_unknown_keys_as_notes() {
+fn an_unknown_key_is_an_error_naming_the_file_line_and_nearest_key() {
     let fs = Mem(vec![("/p/jacket.toml", "[lint]\nmax_nestng = 3\n")]);
-    let loaded = load(&fs, Path::new("/p")).unwrap().unwrap();
-    assert_eq!(loaded.notes, [unknown_note("lint.max_nestng")]);
+    let error = load(&fs, Path::new("/p")).unwrap_err();
+    assert_eq!(error.path, Path::new("/p/jacket.toml"));
+    assert_eq!(
+        error.message,
+        "unknown setting `lint.max_nestng` in jacket.toml (line 2)\nhelp: did you mean `lint.max_nesting`?"
+    );
+    let several = parse("[lint]\nmax_nestng = 3\n[format]\nindent = 2\ntyop = 1\n").unwrap_err();
+    assert!(several.contains("\nnote: and 2 more: `"), "{several}");
+    assert!(parse("[lint]\nmax_nesting = 3\n").is_ok());
 }
 
 #[test]
@@ -301,13 +308,13 @@ fn known_keys_match_the_structs() {
 
 #[test]
 fn test_profiles_lay_over_the_test_section() {
-    let (config, unknown) = parse_noting(
+    let (config, unknown) = parse_lenient(
         "[test]\njobs = 4\nretries = 1\n[test.profile.ci]\nretries = 3\nfail_fast = true\njbos = 2\n",
     )
     .unwrap();
     assert_eq!(unknown, ["test.profile.ci.jbos"]);
     assert!(unknown_note(&unknown[0]).contains("did you mean `test.profile.ci.jobs`?"));
-    let (_, unknown) = parse_noting("[test]\njbos = 2\n").unwrap();
+    let (_, unknown) = parse_lenient("[test]\njbos = 2\n").unwrap();
     assert_eq!(unknown, ["test.jbos"]);
     let ci = config.test.run().overlaid(&config.test.profile["ci"]);
     assert_eq!(
@@ -366,7 +373,7 @@ fn only_jacket_toml_is_a_settings_file() {
 
 #[test]
 fn doc_format_overrides_only_what_it_sets() {
-    let (config, unknown) = parse_noting(
+    let (config, unknown) = parse_lenient(
         "[format]\nblank_line_after_declarations = true\nindent_width = 2\n\
          [doc.format]\nblank_line_after_declarations = false\nbrace_style = \"preserve\"\n",
     )
@@ -408,11 +415,11 @@ fn doc_format_is_checked_like_format() {
         examples.doc.format.validate_doc().unwrap_err(),
         "doc.format cannot set format_doc_examples"
     );
-    let (_, unknown) = parse_noting("[doc.format]\nindent_widht = 2\n").unwrap();
+    let (_, unknown) = parse_lenient("[doc.format]\nindent_widht = 2\n").unwrap();
     assert_eq!(unknown, ["doc.format.indent_widht"]);
     assert_eq!(
         unknown_note("doc.format.indent_widht"),
-        "warning: unknown setting `doc.format.indent_widht` in jacket.toml (ignored); did you mean `doc.format.indent_width`?"
+        "unknown setting `doc.format.indent_widht` in jacket.toml\nhelp: did you mean `doc.format.indent_width`?"
     );
 }
 
@@ -429,7 +436,7 @@ ar = "llvm-ar"
 sysroot = "/opt/sysroot"
 compiler_rt = "/opt/rt.a"
 "#;
-    let (config, unknown) = parse_noting(text).unwrap();
+    let (config, unknown) = parse_lenient(text).unwrap();
     assert_eq!(
         unknown,
         [
@@ -475,7 +482,7 @@ fn a_target_table_accepts_only_portable_settings() {
 
 #[test]
 fn dependencies_read_inline_tables_and_the_resolver_policy() {
-    let (config, unknown) = parse_noting(
+    let (config, unknown) = parse_lenient(
         "[dependencies]\njaison = { git = \"github.com/someone/jaison\", version = \"^1.2\" }\n\
          utf8 = { git = \"x/utf8\", tag = \"v0.4.1\", min_release_age = \"0\", tag_prefix = \"v\" }\n\
          [resolver]\nmin_release_age = \"3d\"\nseed = \"k3v9q2xh\"\nddedupe = true\n",

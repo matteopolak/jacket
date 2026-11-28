@@ -145,8 +145,6 @@ pub struct Config {
     pub portability: Portability,
     /// The file the settings came from, if any.
     pub source: Option<PathBuf>,
-    /// One-line notes about the configuration (unknown keys).
-    pub notes: Vec<String>,
     /// `[project] import_path` of the file the settings came from, as absolute folders.
     pub import_dirs: Vec<PathBuf>,
     /// The folders each dependency's own files search: its package folder and `import_path`.
@@ -160,8 +158,7 @@ pub struct Configs {
     base: Arc<Config>,
     /// Settings by the directory they were asked for.
     found: Mutex<HashMap<PathBuf, Arc<Config>>>,
-    /// Notes and errors of the nested files, for the caller to report.
-    notes: Mutex<Vec<String>>,
+    /// Errors of the nested files, for the caller to report.
     errors: Mutex<Vec<String>>,
 }
 
@@ -170,7 +167,6 @@ impl Configs {
         Configs {
             base: Arc::new(base.clone()),
             found: Mutex::default(),
-            notes: Mutex::default(),
             errors: Mutex::default(),
         }
     }
@@ -216,13 +212,7 @@ impl Configs {
             .map_err(|e| e.to_string())
             .and_then(Config::from_loaded);
         let config = match loaded {
-            Ok(mut config) => {
-                self.notes
-                    .lock()
-                    .expect("configs lock")
-                    .append(&mut config.notes);
-                self.base.invocation_over(config)
-            }
+            Ok(config) => self.base.invocation_over(config),
             Err(e) => {
                 self.errors.lock().expect("configs lock").push(e);
                 self.base.clone()
@@ -235,11 +225,6 @@ impl Configs {
     /// Whether `path` is excluded by the run's settings or those nearest to it.
     pub fn excluded(&self, path: &Path) -> bool {
         self.base.excluded(path) || self.at(path).excluded(path)
-    }
-
-    /// Notes about the nested configuration files read so far.
-    pub fn take_notes(&self) -> Vec<String> {
-        std::mem::take(&mut self.notes.lock().expect("configs lock"))
     }
 
     /// Nested configuration files that could not be read; their files used the base settings.
@@ -527,14 +512,10 @@ impl Config {
                 jaic::io_reason(&e)
             )
         })?;
-        let (parsed, unknown) = jacket_config::parse_noting(&text)
-            .map_err(|e| format!("in `{}`, {e}", path.display()))?;
+        let parsed =
+            jacket_config::parse(&text).map_err(|e| format!("in `{}`, {e}", path.display()))?;
         let mut config = Self::from_lint(&parsed.lint, dir)
             .map_err(|e| format!("in `{}`, {e}", path.display()))?;
-        config.notes = unknown
-            .iter()
-            .map(|key| jacket_config::unknown_note(key))
-            .collect();
         config.source = Some(path.to_path_buf());
         Ok(config)
     }
@@ -571,7 +552,6 @@ impl Config {
         );
         config.import_dirs.extend(roots.modules);
         config.package_imports = roots.packages;
-        config.notes = loaded.notes;
         Ok(config)
     }
 
@@ -847,7 +827,7 @@ mod tests {
     fn rejects_unknown_rules_and_levels() {
         assert!(parse("[lint.rules]\nno_such_rule = \"warn\"").is_err());
         assert!(parse("[lint.rules]\nlossy_xx = \"loud\"").is_err());
-        assert!(parse("[lint]\nverbose = true\n").is_ok());
+        assert!(parse("[lint]\nverbose = true\n").is_err_and(|e| e.contains("`lint.verbose`")));
     }
 
     #[test]

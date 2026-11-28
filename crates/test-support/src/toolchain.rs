@@ -49,8 +49,8 @@ fn lookup() -> Lookup<'static> {
 
 /// Whether `jaic` can link a program for `triple` on this host. When it cannot, the test skips
 /// after printing the note that says how to get the missing tool, or on a [`strict`] host
-/// fails with it. A freestanding program that needs no compiler builtins links without them:
-/// use [`buildable_with_builtins`] for one that does.
+/// fails with it. A freestanding target also needs its compiler builtins (`jacket toolchain
+/// add` builds them).
 ///
 /// ```ignore
 /// if !toolchain::buildable("aarch64-none-elf") { return; }
@@ -60,33 +60,15 @@ fn lookup() -> Lookup<'static> {
 /// On a [`strict`] host when something is missing, and when `triple` does not parse.
 #[must_use]
 pub fn buildable(triple: &str) -> bool {
-    can_build(triple, false)
-}
-
-/// [`buildable`] for a program that needs the compiler builtins of a freestanding `triple`
-/// (64-bit division and soft float on a 32-bit core, `jacket toolchain add` builds them).
-///
-/// ```ignore
-/// if !toolchain::buildable_with_builtins("avr-none-elf") { return; }
-/// ```
-///
-/// # Panics
-/// As [`buildable`].
-#[must_use]
-pub fn buildable_with_builtins(triple: &str) -> bool {
-    can_build(triple, true)
-}
-
-fn can_build(triple: &str, builtins: bool) -> bool {
     let target = jaic::target::Target::parse(triple).unwrap_or_else(|e| panic!("{e}"));
+
     let lookup = lookup();
     let overrides = Overrides::from_env();
     let mut problems = Vec::new();
     if let Err(missing) = find_linker(&lookup, Some(target), &overrides) {
         problems.push(missing);
     }
-    if builtins
-        && target.is_freestanding()
+    if target.is_freestanding()
         && !target.is_wasm()
         && let Err(missing) = find_builtins(&lookup, target, &overrides)
     {
@@ -103,6 +85,13 @@ fn can_build(triple: &str, builtins: bool) -> bool {
     assert!(!strict(), "cannot build for {triple} on this host:\n{text}");
     skip(&format!("cannot build for {triple}:\n{text}"));
     false
+}
+
+/// [`buildable`], under the name callers that need the builtins used when other freestanding
+/// links did not.
+#[must_use]
+pub fn buildable_with_builtins(triple: &str) -> bool {
+    buildable(triple)
 }
 
 /// A command that starts the tool `name` as [`find`] resolves it (or by its bare name, for the

@@ -53,7 +53,7 @@ The Windows crash provider (`tools/stdlib/build_platform_io_runtime.py`) writes 
 
 ## Configuration
 
-`JAIC_NATIVE_LIBS` replaces the default directory.
+`JAIC_NATIVE_LIBS` replaces the default directory. Each folder it lists must exist: one that does not is an error before the program runs.
 
 ## Dependencies
 

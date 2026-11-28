@@ -179,7 +179,12 @@ fn main() -> ExitCode {
             return ExitCode::SUCCESS;
         }
         Ok(Request::Stdlib) => {
-            println!("{}", jaic::paths::default_stdlib_dir().display());
+            let stdlib = jaic::paths::default_stdlib_dir();
+            if let Some(message) = jaic::missing_stdlib(&stdlib) {
+                parse::print_error(&message);
+                return ExitCode::from(1);
+            }
+            println!("{}", stdlib.display());
             return ExitCode::SUCCESS;
         }
         Ok(Request::DocComments(dir, import_dirs)) => {
@@ -230,6 +235,11 @@ fn main() -> ExitCode {
             color: false,
         });
     }
+    jaic_toolchain::overrides::set_flags(
+        cli.linker.as_deref(),
+        cli.sysroot.as_deref(),
+        cli.compiler_rt.as_deref(),
+    );
 
     // Deeply recursive programs and checking need a large stack.
     // On macOS the main thread stays free to run the program's foreign calls (AppKit only
@@ -287,6 +297,7 @@ mod tests {
     #[cfg(feature = "llvm")]
     use crate::backend::native_backend;
     use crate::run::disable_check_bindings;
+    use argdef::Args;
     #[cfg(feature = "llvm")]
     use jaic::build::BuildSettings;
     #[cfg(feature = "llvm")]
@@ -302,9 +313,8 @@ mod tests {
     fn triple(args: &[&str], host_os: TargetOs, host_cpu: TargetCpu) -> Option<String> {
         let mut argv = vec![OsString::from("main.jai")];
         argv.extend(args.iter().map(OsString::from));
-        let Ok(Request::Compile(cli)) = parse(&argv) else {
-            panic!("invalid command line {argv:?}");
-        };
+        // Unfinished: `finish` checks the target against the real host, not this one.
+        let cli = Cli::parse(&argv).unwrap_or_else(|_| panic!("invalid command line {argv:?}"));
         cli.build_target_from(host_os, host_cpu)
             .expect("a target")
             .map(|target| target.to_string())
@@ -521,6 +531,20 @@ mod tests {
             Some("aarch64-pc-windows-gnu")
         );
         assert_eq!(triple(&[], mac.0, mac.1), None);
+    }
+
+    /// A `-target` that names no target ends the command line, so no step builds for the host
+    /// in its place.
+    #[test]
+    fn a_target_that_does_not_parse_is_a_command_line_mistake() {
+        let reason = Target::parse("nonsense-cpu-os").unwrap_err();
+        let mistake = error(&["main.jai", "-target", "nonsense-cpu-os"]);
+        assert!(reason.starts_with(&mistake.message), "{}", mistake.message);
+        assert_eq!(
+            cli(&["main.jai", "-target", "aarch64-unknown-linux-gnu"]).build_for,
+            Some(Target::parse("aarch64-unknown-linux-gnu").unwrap())
+        );
+        assert_eq!(cli(&["main.jai"]).build_for, None);
     }
 
     #[cfg(feature = "llvm")]

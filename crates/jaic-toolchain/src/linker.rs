@@ -19,15 +19,15 @@ use jaic::toolchain::{Linker, discover};
 use std::ffi::OsString;
 use std::path::PathBuf;
 
-/// The target the programs of `host` run as (`aarch64-apple-darwin`).
+/// The target the programs of `host` run as (`aarch64-apple-darwin`): the MSVC environment on
+/// Windows, glibc on Linux.
 pub fn host_target(host: &dyn Host) -> Target {
-    let arch = host.arch();
-    let triple = match host.os() {
-        Os::MacOs => format!("{arch}-apple-darwin"),
-        Os::Linux => format!("{arch}-unknown-linux-gnu"),
-        Os::Windows => format!("{arch}-pc-windows-msvc"),
+    let os = match host.os() {
+        Os::MacOs => TargetOs::MacOS,
+        Os::Linux => TargetOs::Linux,
+        Os::Windows => TargetOs::Windows,
     };
-    Target::parse(&triple).unwrap_or_else(|_| Target::host())
+    Target::new(os, host.cpu())
 }
 
 fn missing(lookup: &Lookup, what: String, needs: &[Need]) -> Missing {

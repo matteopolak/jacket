@@ -63,7 +63,8 @@ impl ServiceReply {
 /// Limits and the `jaic` to run workers with.
 #[derive(Clone, Debug)]
 pub struct ServiceConfig {
-    /// The `jaic` executable; `None` finds one ([`find_jaic`]).
+    /// The `jaic` executable; `None` finds the one next to this executable, through symlinks,
+    /// else the first on `PATH` (`jacket_config::tools::locate`).
     pub jaic: Option<PathBuf>,
     /// How long one request may take before the worker is stopped.
     pub timeout: Duration,
@@ -88,27 +89,6 @@ impl Default for ServiceConfig {
             backoff_max: Duration::from_secs(60),
         }
     }
-}
-
-/// Finds the `jaic` to run workers with: this process when it is `jaic`, else one next to this
-/// executable (the language server ships beside it), else the first on `PATH`.
-#[must_use]
-pub fn find_jaic() -> Option<PathBuf> {
-    let name = format!("jaic{}", std::env::consts::EXE_SUFFIX);
-    let exe = std::env::current_exe().ok();
-    if let Some(exe) = &exe {
-        if exe.file_name().is_some_and(|n| n == name.as_str()) {
-            return Some(exe.clone());
-        }
-        if let Some(sibling) = exe.parent().map(|dir| dir.join(&name))
-            && sibling.is_file()
-        {
-            return Some(sibling);
-        }
-    }
-    std::env::split_paths(&jacket_config::env::PATH.os()?)
-        .map(|dir| dir.join(&name))
-        .find(|candidate| candidate.is_file())
 }
 
 /// Resolves a service path the way the hook does: relative paths start at `base`.
@@ -146,7 +126,7 @@ pub use native::{Services, Ticket, fingerprint};
 
 #[cfg(not(target_arch = "wasm32"))]
 mod native {
-    use super::{ServiceConfig, ServiceReply, ServiceStatus, find_jaic};
+    use super::{ServiceConfig, ServiceReply, ServiceStatus};
     use crate::fxhash::HashMap;
     use std::io::{Read, Write};
     use std::path::{Path, PathBuf};
@@ -418,7 +398,10 @@ mod native {
         }
 
         fn jaic(&self) -> Option<PathBuf> {
-            self.config.jaic.clone().or_else(find_jaic)
+            self.config
+                .jaic
+                .clone()
+                .or_else(|| jacket_config::tools::locate("jaic"))
         }
 
         fn spawn(&self) -> Result<Worker, ServiceReply> {

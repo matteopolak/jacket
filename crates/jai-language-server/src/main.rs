@@ -12,11 +12,11 @@ const DIAGNOSTICS_DEBOUNCE: std::ops::RangeInclusive<std::time::Duration> =
 const SERVICE_POLL: std::time::Duration = std::time::Duration::from_millis(25);
 
 #[cfg(not(target_arch = "wasm32"))]
-fn serve(untrusted: bool) -> Result<u8, Box<dyn std::error::Error>> {
+fn serve(untrusted: bool, stdlib: std::path::PathBuf) -> Result<u8, Box<dyn std::error::Error>> {
     use std::io::{Read, Write};
     let limits = jai_language_server::Limits::default();
     let mut session =
-        jai_language_server::JsonSession::with_environment(limits, native_environment());
+        jai_language_server::JsonSession::with_environment(limits, native_environment(stdlib));
     session.defer_publications(true);
     session.defer_compiles(true);
     if untrusted {
@@ -289,12 +289,18 @@ fn main() -> std::process::ExitCode {
         Err(code) => return code,
         Ok(untrusted) => untrusted,
     };
+    let stdlib = jaic::default_stdlib_dir();
+    if let Some(message) = jaic::missing_stdlib(&stdlib) {
+        let report = jaic::render::Report::from_text(jaic::diagnostics::Code::CliFailure, &message);
+        eprint!("{}", report.render());
+        return std::process::ExitCode::FAILURE;
+    }
     // Type checking recurses on the syntax tree: give it the compiler's stack (as `jaic` does),
     // not the main thread's 8 MiB.
     let worker = std::thread::Builder::new()
         .name("jailsp".into())
         .stack_size(1 << 30)
-        .spawn(move || serve(untrusted).map_err(|error| error.to_string()));
+        .spawn(move || serve(untrusted, stdlib).map_err(|error| error.to_string()));
     match worker.map(std::thread::JoinHandle::join) {
         Ok(Ok(Ok(code))) => std::process::ExitCode::from(code),
         Ok(Ok(Err(error))) => {
@@ -376,15 +382,11 @@ static ALLOCATOR: jai_language_server::large_alloc::LargeBlocksToOs =
 #[global_allocator]
 static ALLOCATOR: jai_language_server::windows_alloc::Allocator = mimalloc::MiMalloc;
 
-/// Modules come from disk: the `modules` folder next to the main file, then the stdlib
-/// (`JAIC_STDLIB`, else `stdlib/` next to the executable, else the repository's). Compile-time
-/// services run with the `jaic` next to this executable, else the first on `PATH`.
+/// Modules come from disk: the `modules` folder next to the main file, then `stdlib`
+/// (`JAIC_STDLIB`, else `stdlib/` next to the executable). Compile-time services run with the
+/// `jaic` next to this executable, else the first on `PATH`.
 #[cfg(not(target_arch = "wasm32"))]
-fn native_environment() -> jai_language_server::Environment {
-    let stdlib = jaic::default_stdlib_dir();
-    if let Some(message) = jaic::missing_stdlib(&stdlib) {
-        eprintln!("warning: {message}");
-    }
+fn native_environment(stdlib: std::path::PathBuf) -> jai_language_server::Environment {
     // Compile-time services run as separate `jaic` processes; only trusted compiles ask them.
     let services = jaic::service::Services::new(jaic::service::ServiceConfig::default());
     jai_language_server::Environment {

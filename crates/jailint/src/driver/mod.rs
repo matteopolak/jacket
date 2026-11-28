@@ -92,8 +92,6 @@ pub struct Outcome {
     /// Every `#assert` that failed in a compile, with the imports that led to its file. A normal
     /// compile stops at its first; the `platform_leak` compiles keep going.
     pub failed_asserts: Vec<AssertFailure>,
-    /// Notes about the `jacket.toml` files nested below the first root.
-    pub config_notes: Vec<String>,
     /// Nested `jacket.toml` files that could not be read; their files used the first root's settings.
     pub config_errors: Vec<String>,
     /// `// test:` notes about where a file runs that did not parse, each with its file's path;
@@ -293,7 +291,6 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
         contexts,
         unvisited_files,
         failed_asserts,
-        config_notes: configs.take_notes(),
         config_errors: configs.take_errors(),
         test_note_problems,
     }

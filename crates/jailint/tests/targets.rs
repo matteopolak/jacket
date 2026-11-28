@@ -263,7 +263,7 @@ fn target_manifest_retains_config_source_and_required_parameter_failure() {
     .unwrap();
     std::fs::write(
         root.join("custom.toml"),
-        "[rules]\nunused_variable = \"deny\"\n",
+        "[lint.rules]\nunused_variable = \"deny\"\n",
     )
     .unwrap();
     let (_, stderr) = expect(

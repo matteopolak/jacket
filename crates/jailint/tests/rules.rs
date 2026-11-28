@@ -78,7 +78,7 @@ fn lint_target(
         source: None,
         paths: vec![file.to_path_buf()],
         import_dirs: Vec::new(),
-        stdlib: jaic::stdlib_dir(repo().join("stdlib")),
+        stdlib: repo().join("stdlib"),
         config,
         jobs: 1,
         verbose: false,

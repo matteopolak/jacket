@@ -202,9 +202,12 @@ fn a_named_linker_that_is_missing_fails_and_no_other_linker_runs() {
         "#program_export \"jai_start\"\njai_start :: () #c_call #no_context {}\n",
     )
     .unwrap();
+    // The builtins are found before the linker starts; this archive is never read.
+    std::fs::write(dir.join("rt.a"), "").unwrap();
     let built = Command::new(JAIC)
         .arg("build.jai")
         .env("JAIC_LINKER", dir.join("no-such-lld"))
+        .env("JAIC_COMPILER_RT", dir.join("rt.a"))
         .current_dir(dir.path())
         .output()
         .unwrap();

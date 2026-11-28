@@ -56,7 +56,7 @@ impl EditorServices {
             .config()
             .jaic
             .clone()
-            .or_else(jaic::service::find_jaic);
+            .or_else(|| jacket_config::tools::locate("jaic"));
         let current = jaic::service::fingerprint(service, jaic.as_deref());
         let previous = state.sources.insert(service.to_path_buf(), (current, now));
         if previous.is_some_and(|(before, _)| before != current) {

@@ -15,8 +15,8 @@ pub enum Os {
 pub trait Host {
     fn os(&self) -> Os;
 
-    /// The CPU as Rust names it (`aarch64`, `x86_64`).
-    fn arch(&self) -> &str;
+    /// The CPU the machine's programs run on.
+    fn cpu(&self) -> jaic::target::TargetCpu;
 
     /// The folders of `PATH`, in order.
     fn path_dirs(&self) -> Vec<PathBuf>;
@@ -75,8 +75,8 @@ impl Host for System {
         }
     }
 
-    fn arch(&self) -> &str {
-        std::env::consts::ARCH
+    fn cpu(&self) -> jaic::target::TargetCpu {
+        jaic::target::Target::host().cpu
     }
 
     fn path_dirs(&self) -> Vec<PathBuf> {

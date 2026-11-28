@@ -301,13 +301,13 @@ jobs:
         with:
           path: ${{ runner.temp }}/cache/jacket
           key: toolchain-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('crates/jaic-toolchain/data/*.txt') }}
-      - name: Build compiler-rt for the Cortex-M and AVR boards
-        # The builtins a board program links (64-bit division, double-precision floats); the
+      - name: Build compiler-rt for the freestanding targets
+        # The builtins every freestanding link needs (64-bit division, soft float); the
         # compiler finds them in the cache. macOS has no QEMU for the boards, but the AVR image
         # size test still links the Uno program. Only the legs that run the Rust tests or the
         # board tests need them.
         if: ${{ (matrix.runner == 'ubuntu-24.04' && (contains(matrix.parts, ',rust,') || contains(matrix.parts, ',targets,'))) || startsWith(matrix.runner, 'macos') }}
-        run: cargo run --locked -q -p jacket -- toolchain add thumbv7em-none-eabihf thumbv8m.main-none-eabihf avr-none-elf
+        run: cargo run --locked -q -p jacket -- toolchain add aarch64-none-elf thumbv7em-none-eabihf thumbv8m.main-none-eabihf avr-none-elf
       # The format and lint steps below run the Justfile's recipes (docs/tools/development.md).
       - uses: ./.github/actions/install-tool
         with: {tool: just}

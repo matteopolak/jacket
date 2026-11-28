@@ -101,13 +101,26 @@ pub struct Xcode {
 }
 
 impl Xcode {
-    /// The selected developer folder's tools, or what it lacks.
+    /// The selected developer folder's tools, or what it lacks. `SDKROOT` names the SDK in place
+    /// of the folder's own, as it does for `cc`.
     pub fn find(host: &dyn Host) -> Result<Xcode, Missing> {
         let developer = developer_dir(host);
         let layout = Layout::of(host, &developer);
         let usr = layout.usr(&developer);
         let ld = usr.join("bin/ld");
-        let sdk = layout.sdk(&developer);
+        let sdk = match host.var(&env::SDKROOT).filter(|v| !v.is_empty()) {
+            Some(root) => {
+                let root = PathBuf::from(root);
+                if !host.is_dir(&root) {
+                    return Err(Missing::new(
+                        format!("SDKROOT names {}, which is not a folder", root.display()),
+                        vec!["point SDKROOT at a MacOSX.sdk folder, or unset SDKROOT".into()],
+                    ));
+                }
+                root
+            }
+            None => layout.sdk(&developer),
+        };
         let lacking = [(host.is_file(&ld), &ld), (host.is_dir(&sdk), &sdk)]
             .into_iter()
             .filter(|(present, _)| !present)
@@ -176,6 +189,28 @@ pub fn macos_version(host: &dyn Host) -> Option<String> {
         .0
         .trim();
     three_numbers(version)
+}
+
+/// The macOS version a program is linked for, as `cc` passes it to `ld`:
+/// `MACOSX_DEPLOYMENT_TARGET`, else the running macOS.
+pub fn deployment_target(host: &dyn Host) -> Result<String, Missing> {
+    match host.var(&env::MACOSX_DEPLOYMENT_TARGET).filter(|v| !v.is_empty()) {
+        Some(value) => {
+            let text = value.to_string_lossy();
+            three_numbers(&text).ok_or_else(|| {
+                Missing::new(
+                    format!("MACOSX_DEPLOYMENT_TARGET is `{text}`, which is not a macOS version"),
+                    vec!["set it to a version such as `13.0`, or unset it".into()],
+                )
+            })
+        }
+        None => macos_version(host).ok_or_else(|| {
+            Missing::new(
+                "cannot read the macOS version from /System/Library/CoreServices/SystemVersion.plist",
+                vec!["set MACOSX_DEPLOYMENT_TARGET to the version to link for".into()],
+            )
+        }),
+    }
 }
 
 /// `27.0` as `27.0.0`; a version with two or three numbers.
@@ -302,6 +337,44 @@ mod tests {
         assert_eq!(
             libclang_dir(&host).unwrap(),
             PathBuf::from(format!("{TOOLCHAIN}/lib"))
+        );
+    }
+
+    #[test]
+    fn sdkroot_names_the_sdk_cc_would_use() {
+        let mut host = FakeHost::mac();
+        host.file(&format!("{COMMAND_LINE_TOOLS}/usr/bin/ld"));
+        host.dir(&format!("{COMMAND_LINE_TOOLS}/SDKs/MacOSX.sdk"));
+        host.dir("/sdks/MacOSX14.sdk");
+        host.set(&env::SDKROOT, "/sdks/MacOSX14.sdk");
+        assert_eq!(
+            Xcode::find(&host).unwrap().sdk,
+            PathBuf::from("/sdks/MacOSX14.sdk")
+        );
+        host.set(&env::SDKROOT, "/sdks/gone.sdk");
+        let missing = Xcode::find(&host).unwrap_err().to_string();
+        assert!(
+            missing.starts_with("SDKROOT names /sdks/gone.sdk, which is not a folder"),
+            "{missing}"
+        );
+        assert!(missing.contains("unset SDKROOT"), "{missing}");
+    }
+
+    #[test]
+    fn the_deployment_target_is_the_variable_else_the_running_macos() {
+        let mut host = FakeHost::mac();
+        host.text(
+            "/System/Library/CoreServices/SystemVersion.plist",
+            "<key>ProductVersion</key>\n\t<string>26.1</string>",
+        );
+        assert_eq!(deployment_target(&host).unwrap(), "26.1.0");
+        host.set(&env::MACOSX_DEPLOYMENT_TARGET, "13.3");
+        assert_eq!(deployment_target(&host).unwrap(), "13.3.0");
+        host.set(&env::MACOSX_DEPLOYMENT_TARGET, "thirteen");
+        let missing = deployment_target(&host).unwrap_err().to_string();
+        assert!(
+            missing.starts_with("MACOSX_DEPLOYMENT_TARGET is `thirteen`"),
+            "{missing}"
         );
     }
 

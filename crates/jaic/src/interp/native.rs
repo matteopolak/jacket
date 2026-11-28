@@ -48,8 +48,20 @@ pub struct Library {
 /// (the third-party libraries `tools/native/build_native_libs.py` builds; see docs/tools/native-libs.md).
 static LIBRARY_DIRS: std::sync::OnceLock<Vec<std::path::PathBuf>> = std::sync::OnceLock::new();
 
+/// Records the driver's library folders.
+///
+/// ```
+/// jaic::interp::set_library_dirs(vec!["/opt/libs".into()]);
+/// assert!(jaic::interp::library_dirs().contains(&"/opt/libs".into()));
+/// ```
+///
+/// # Panics
+/// When called a second time: the first folders are the ones every lookup has used.
 pub fn set_library_dirs(dirs: Vec<std::path::PathBuf>) {
-    let _ = LIBRARY_DIRS.set(dirs);
+    assert!(
+        LIBRARY_DIRS.set(dirs).is_ok(),
+        "the library folders are set once"
+    );
 }
 
 /// Why the driver found no folder for a library it looks for on the interpreter's behalf, by the
@@ -64,8 +76,14 @@ static MISSING_LIBRARIES: std::sync::OnceLock<Vec<(String, String)>> = std::sync
 /// assert_eq!(jaic::interp::missing_library("libclang"), Some("no libclang here"));
 /// assert_eq!(jaic::interp::missing_library("z"), None);
 /// ```
+///
+/// # Panics
+/// When called a second time.
 pub fn set_missing_libraries(notes: Vec<(String, String)>) {
-    let _ = MISSING_LIBRARIES.set(notes);
+    assert!(
+        MISSING_LIBRARIES.set(notes).is_ok(),
+        "the missing libraries are set once"
+    );
 }
 
 /// The driver's note for the library `name` (as a `#library` names it), when it has one.

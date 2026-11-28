@@ -12,9 +12,12 @@ pub(crate) fn system() -> &'static System {
     &SYSTEM
 }
 
-/// The lookup over this machine. The LLVM installs are searched only when an LLVM program is.
-pub(crate) fn lookup() -> Lookup<'static> {
-    Lookup::new(&SYSTEM).with_llvm_bins(|| jacket_config::llvm::bin_dirs(crate::BAKED_LLVM_PREFIX))
+/// The lookup over this machine. The LLVM installs are searched only when an LLVM program is;
+/// an `LLVM_PREFIX` (or `llvm-sys` variable) that names no install is an error first.
+pub(crate) fn lookup() -> Result<Lookup<'static>, String> {
+    jacket_config::llvm::check_configured()?;
+    Ok(Lookup::new(&SYSTEM)
+        .with_llvm_bins(|| jacket_config::llvm::bin_dirs(crate::BAKED_LLVM_PREFIX)))
 }
 
 /// A command that starts `found` with the arguments and variables its lookup chose.

@@ -8,7 +8,7 @@ JAIC_STDLIB=/path/to/stdlib JAIC_PRELUDE=Base.jai jaic hello.jai
 
 ## How it works
 
-- The stdlib folder comes from `JAIC_STDLIB`, then `stdlib/` beside the executable (following symlinks), then the build-time repository fallback.
+- The stdlib folder comes from `JAIC_STDLIB`, then `stdlib/` beside the executable (following symlinks). There is no third place: development and test runs set `JAIC_STDLIB`, and without either `jaic`, `jailint` and `jailsp` stop with the missing-stdlib error.
 - `jaic::PRELUDE_ENTRIES` (`crates/jaic/src/lib.rs`) lists candidates relative to that folder in priority order: `prelude/module.jai`, then `Preload.jai`. Detection uses the compiler's `FileSystem`, so browser files follow the same rules.
 - `JAIC_PRELUDE` overrides detection. Absolute paths may be outside the stdlib; relative ones resolve from it; empty means detect. A missing explicit file is an error, never a fallback.
 - The stdlib folder stays the module root wherever the prelude file lives. Relative `#load` paths still resolve from the file containing the directive.

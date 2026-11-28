@@ -26,6 +26,8 @@ Programs used at run time (the sanitizer link driver, `wasm-ld`, `llvm-dwarfdump
 4. Homebrew's `llvm@<major>` and Debian's `/usr/lib/llvm-<major>`;
 5. `<tool>-<major>` or `<tool>` on `PATH`.
 
+A variable of step 1 that is set to a folder with no `bin/` is an error in `jaic` before any tool is looked up (`jacket_config::llvm::check_configured`), so a wrong prefix never leaves the search to find another LLVM.
+
 A Python script that needs one tool calls `toolkit.llvm.require(name)`, which exits naming the tool and `LLVM_PREFIX` when none of these has it. Scripts do not fall back to a look-alike such as `ar` for `llvm-ar`.
 
 The Rust side takes the version from `crates/jacket-config/src/llvm/version.rs`; a test fails when it disagrees with the pin.

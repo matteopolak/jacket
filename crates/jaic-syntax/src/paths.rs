@@ -227,32 +227,34 @@ impl CanonCache {
 }
 
 /// The standard library directory for a native `jaic`, `jailsp` or `jailint`: `JAIC_STDLIB`,
-/// else `stdlib/` next to the executable (release archives), else the repository's (for
-/// development).
-pub fn default_stdlib_dir() -> PathBuf {
-    stdlib_dir(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../stdlib"))
-}
-
-/// [`default_stdlib_dir`] with `fallback` as the last resort. "Next to the executable" is checked
+/// else `stdlib/` next to the executable (release archives). "Next to the executable" is checked
 /// both where it was started from and, through symlinks, where it really is: an archive unpacked
 /// into `/opt` and linked from `~/bin` finds `/opt/.../stdlib` (macOS reports the symlink's path as
-/// the executable).
-pub fn stdlib_dir(fallback: PathBuf) -> PathBuf {
+/// the executable). When neither has one, the answer is the folder next to the executable, which
+/// [`crate::missing_stdlib`] then reports. Development and test builds set `JAIC_STDLIB`.
+///
+/// ```
+/// let dir = jaic_syntax::default_stdlib_dir();
+/// assert!(dir.ends_with("stdlib"));
+/// ```
+pub fn default_stdlib_dir() -> PathBuf {
     if let Some(dir) = jacket_config::env::STDLIB.os() {
         return dir.into();
     }
     let Ok(exe) = std::env::current_exe() else {
-        return fallback;
+        return PathBuf::from("stdlib");
     };
     let real = std::fs::canonicalize(&exe).ok();
+    let beside = |exe: &Path| exe.parent().map(|dir| dir.join("stdlib"));
+    let expected = beside(&exe).unwrap_or_else(|| PathBuf::from("stdlib"));
     [Some(exe), real]
         .into_iter()
         .flatten()
-        .filter_map(|exe| Some(exe.parent()?.join("stdlib")))
+        .filter_map(|exe| beside(&exe))
         .find(|dir| {
             dir.is_dir() && crate::find_preload(&crate::filesystem::NativeFs, dir).is_some()
         })
-        .unwrap_or(fallback)
+        .unwrap_or(expected)
 }
 
 /// Whether the last component of `path` starts with a dot.
@@ -407,14 +409,10 @@ mod tests {
     }
 
     #[test]
-    fn the_stdlib_comes_from_the_environment_or_the_repository() {
-        // `JAIC_STDLIB` is set by the tools' own tests; the fallback is what is checked here.
-        if jacket_config::env::STDLIB.os().is_none() {
-            let fallback = PathBuf::from("/nowhere/stdlib");
-            assert_eq!(stdlib_dir(fallback.clone()), fallback);
-            assert!(
-                crate::find_preload(&crate::filesystem::NativeFs, &default_stdlib_dir()).is_some()
-            );
+    fn a_set_jaic_stdlib_is_the_stdlib() {
+        // The tools' tests always set `JAIC_STDLIB`; nothing of the build checkout stands in.
+        if let Some(set) = jacket_config::env::STDLIB.os() {
+            assert_eq!(default_stdlib_dir(), PathBuf::from(set));
         }
     }
 }

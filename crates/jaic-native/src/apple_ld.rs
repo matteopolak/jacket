@@ -2,41 +2,19 @@
 //!
 //! `cc` is a shim that finds Xcode, starts `clang`, and `clang` starts `ld` with the SDK, the
 //! platform version and the runtime library filled in: about 8 ms for a small program, a sixth of
-//! its whole build. For the usual case this module writes that `ld` command itself. Anything it does
-//! not recognise returns the reason (shown under `-verbose`), or fails in the linker, and
-//! [`super::link`] runs `cc` as before, whose message and rules then decide what is an error.
+//! its whole build. For a plain executable link this module writes that `ld` command itself and
+//! [`super::link`] runs it; when `ld` fails, its own message is the error.
 use jacket_config::os_text;
-use jaic_toolchain::Host;
 use jaic_toolchain::apple::{self, Xcode};
 use std::ffi::OsString;
 use std::process::Command;
 
-/// The arguments `cc` would pass `ld` for `args`, or why it cannot: `args` hold something other
-/// than the forms a native link uses (`-o`, `-l`, `-L`, `-framework`, `-Wl,`), the environment
-/// asks `cc` for a different SDK, or the selected developer folder lacks a piece.
-pub(super) fn direct_command(args: &[OsString]) -> Result<Command, String> {
-    let host = crate::toolchain::system();
-    for var in [
-        &jacket_config::env::SDKROOT,
-        &jacket_config::env::MACOSX_DEPLOYMENT_TARGET,
-    ] {
-        if host.var(var).is_some() {
-            return Err(format!("{} is set", var.name));
-        }
-    }
-    let xcode = Xcode::find(host).map_err(|missing| missing.to_string())?;
-    let unreadable = |what: &str| format!("cannot read {what}");
-    let mut cmd = Command::new(&xcode.ld);
-    cmd.args(["-dynamic", "-arch", arch()?, "-platform_version", "macos"])
-        .arg(apple::macos_version(host).ok_or_else(|| unreadable("the macOS version"))?)
-        .arg(
-            xcode
-                .sdk_version(host)
-                .ok_or_else(|| unreadable(&format!("the version of {}", xcode.sdk.display())))?,
-        )
-        .arg("-syslibroot")
-        .arg(&xcode.sdk)
-        .arg("-L/usr/local/lib");
+/// The arguments `cc` would pass `ld` for `args`. `Ok(None)` when `args` hold something other
+/// than the forms a native link uses (`-o`, `-l`, `-L`, `-framework`, `-Wl,`): only the driver
+/// understands those, so that link goes through `cc`. An error when the selected developer
+/// folder lacks a piece, or `SDKROOT` or `MACOSX_DEPLOYMENT_TARGET` is wrong.
+pub(super) fn direct_command(args: &[OsString]) -> Result<Option<Command>, String> {
+    let mut linker_args: Vec<OsString> = Vec::new();
     let mut rest = args.iter();
     while let Some(arg) = rest.next() {
         let text = arg.to_str();
@@ -44,24 +22,42 @@ pub(super) fn direct_command(args: &[OsString]) -> Result<Command, String> {
             let operand = rest
                 .next()
                 .ok_or_else(|| format!("`{}` has no operand", arg.display()))?;
-            cmd.arg(arg).arg(operand);
-        } else if let Some(linker_args) = os_text::strip_prefix(arg, "-Wl,") {
-            cmd.args(os_text::split(&linker_args, b','));
+            linker_args.push(arg.clone());
+            linker_args.push(operand.clone());
+        } else if let Some(wl) = os_text::strip_prefix(arg, "-Wl,") {
+            linker_args.extend(os_text::split(&wl, b','));
         } else if os_text::strip_prefix(arg, "-l").is_some()
             || os_text::strip_prefix(arg, "-L").is_some()
         {
-            cmd.arg(arg);
+            linker_args.push(arg.clone());
         } else if os_text::strip_prefix(arg, "-").is_some() {
-            return Err(format!("`{}` is a driver option", arg.display()));
+            return Ok(None);
         } else {
-            cmd.arg(arg);
+            linker_args.push(arg.clone());
         }
     }
+    let host = crate::toolchain::system();
+    let xcode = Xcode::find(host).map_err(|missing| missing.to_string())?;
+    let sdk_version = xcode.sdk_version(host).ok_or_else(|| {
+        format!(
+            "cannot read the SDK version from {}",
+            xcode.sdk.join("SDKSettings.json").display()
+        )
+    })?;
     let runtime = xcode
         .compiler_rt(host)
         .ok_or_else(|| format!("no libclang_rt.osx.a for {}", xcode.ld.display()))?;
-    cmd.arg("-lSystem").arg(runtime);
-    Ok(cmd)
+    let mut cmd = Command::new(&xcode.ld);
+    cmd.args(["-dynamic", "-arch", arch()?, "-platform_version", "macos"])
+        .arg(apple::deployment_target(host).map_err(|missing| missing.to_string())?)
+        .arg(sdk_version)
+        .arg("-syslibroot")
+        .arg(&xcode.sdk)
+        .arg("-L/usr/local/lib")
+        .args(linker_args)
+        .arg("-lSystem")
+        .arg(runtime);
+    Ok(Some(cmd))
 }
 
 fn arch() -> Result<&'static str, String> {
@@ -77,7 +73,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rewrites_the_driver_forms_and_refuses_the_rest() {
+    fn rewrites_the_driver_forms_and_leaves_the_rest_to_cc() {
         let ok = [
             "a.o",
             "-o",
@@ -89,16 +85,18 @@ mod tests {
             "-L/y",
         ]
         .map(OsString::from);
-        if let Ok(cmd) = direct_command(&ok) {
-            let args: Vec<String> = cmd
-                .get_args()
-                .map(|a| a.to_string_lossy().into_owned())
-                .collect();
-            let tail = args.join(" ");
-            assert!(tail.contains("-rpath /x"), "{tail}");
-            assert!(tail.contains("-framework AppKit"), "{tail}");
-            assert!(tail.contains("-lSystem"), "{tail}");
-        }
-        assert!(direct_command(&["a.o".into(), "-shared".into()]).is_err());
+        let cmd = direct_command(&ok).unwrap().unwrap();
+        let args: Vec<String> = cmd
+            .get_args()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        let tail = args.join(" ");
+        assert!(tail.contains("-rpath /x"), "{tail}");
+        assert!(tail.contains("-framework AppKit"), "{tail}");
+        assert!(tail.ends_with(".a") && tail.contains("-lSystem"), "{tail}");
+        assert!(matches!(
+            direct_command(&["a.o".into(), "-shared".into()]),
+            Ok(None)
+        ));
     }
 }

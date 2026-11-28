@@ -13,7 +13,7 @@
 - Apple framework: `-framework <name>`.
 - Otherwise `lib<name>.a` in the native-libs directories, else `-l<name>`.
 
-On a Mac, a plain executable link for the host skips the `cc` driver and runs the selected Xcode's `ld` itself (`crates/jaic-native/src/apple_ld.rs`, with the Xcode found by `crates/jaic-toolchain/src/apple.rs` in `xcode-select`'s order): `cc` is a shim that starts `clang`, which starts `ld` with the SDK, the platform versions (the running macOS and the SDK's `SDKSettings.json`), `-lSystem` and `libclang_rt.osx.a` filled in, and that is about 8 ms of a 50 ms hello world. The command is `cc`'s own, argument for argument. It is not used when `JAIC_LINKER`, `SDKROOT` or `MACOSX_DEPLOYMENT_TARGET` is set, for a shared library, a sanitized or cross build, or when the link has any argument other than `-o`, `-l`, `-L`, `-framework` and `-Wl,`. When the direct `ld` cannot be used or fails, the link is run again through `cc`, so errors read as they always did; `-verbose` prints why it was not used (`Linking through cc: SDKROOT is set`).
+On a Mac, a plain executable link for the host skips the `cc` driver and runs the selected Xcode's `ld` itself (`crates/jaic-native/src/apple_ld.rs`, with the Xcode found by `crates/jaic-toolchain/src/apple.rs` in `xcode-select`'s order): `cc` is a shim that starts `clang`, which starts `ld` with the SDK, the platform versions (the running macOS and the SDK's `SDKSettings.json`), `-lSystem` and `libclang_rt.osx.a` filled in, and that is about 8 ms of a 50 ms hello world. The command is `cc`'s own, argument for argument: `SDKROOT` names the SDK and `MACOSX_DEPLOYMENT_TARGET` the minimum macOS, as they do for `cc`. `cc` links instead when `JAIC_LINKER` is set, for a shared library, a sanitized, coverage or cross build, and when the link has an argument other than `-o`, `-l`, `-L`, `-framework` and `-Wl,` (a driver option). There is no second attempt: when `ld` fails, its message is the error, and an Xcode that lacks `ld`, the SDK or `libclang_rt.osx.a` is an error that says how to select another.
 
 `#library,no_dll` marks a library with no dynamic form, such as Windows' `uuid.lib`. It links like any other, but the interpreter never loads it: a `link_always` one is skipped while compiling, and a compile-time call into one is an error naming the library.
 
@@ -30,7 +30,7 @@ A missing library fails at link time with a hint (`link_failure`, `linker_not_ru
 - `JAIC_STDLIB`: stdlib directory.
 - `JAIC_NATIVE_LIBS`: where third-party static archives are searched; default `native-libs/<os>-<arch>` (release) or `target/native-libs/<os>-<arch>` ([native libraries](../tools/native-libs.md)).
 - `JAIC_LINKER`, `JAIC_AR`: override the linker or archiver.
-- `DEVELOPER_DIR`, `SDKROOT`, `MACOSX_DEPLOYMENT_TARGET`: Xcode selection for the direct `ld` (the last two turn it off).
+- `DEVELOPER_DIR`, `SDKROOT`, `MACOSX_DEPLOYMENT_TARGET`: the Xcode, SDK and minimum macOS of the direct `ld`.
 - Flags: [command line](../reference/tools.md#compiling).
 
 ## Dependencies

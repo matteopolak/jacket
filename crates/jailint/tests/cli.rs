@@ -89,14 +89,6 @@ fn config_mistakes_name_the_line_and_the_fix() {
         );
         assert!(text.contains(expected), "{config:?}: {text}");
     }
-    // An unknown setting is a warning, with the near key named, and the run goes on.
-    std::fs::write(dir.join("jacket.toml"), "[lint]\nmax_nestng = 3\n").unwrap();
-    let (text, code) = jailint(&dir, &["game.jai"]);
-    assert_ne!(code, Some(2), "{text}");
-    assert!(
-        text.contains("unknown setting `lint.max_nestng` in jacket.toml (ignored); did you mean `lint.max_nesting`?"),
-        "{text}"
-    );
     std::fs::remove_file(dir.join("jacket.toml")).unwrap();
     let (text, code) = jailint(&dir, &["--config", "missing.toml", "game.jai"]);
     assert_eq!(code, Some(2));
@@ -282,15 +274,19 @@ fn exclude_applies_with_a_relative_config_path() {
 }
 
 #[test]
-fn configuration_notes_are_styled_diagnostics() {
+fn an_unknown_setting_is_a_configuration_error() {
     let dir = scratch("config-note");
-    std::fs::write(dir.join("jacket.toml"), "bogus_setting = 1\n").unwrap();
+    std::fs::write(dir.join("jacket.toml"), "[lint]\nmax_nestng = 3\n").unwrap();
     let (err, code) = jailint(&dir, &["game.jai"]);
     assert!(
-        err.contains("warning[lint-config]: unknown setting `bogus_setting`"),
+        err.contains("unknown setting `lint.max_nestng` in jacket.toml (line 2)"),
         "{err}"
     );
-    assert_eq!(code, Some(0), "{err}");
+    assert!(
+        err.contains("help: did you mean `lint.max_nesting`?"),
+        "{err}"
+    );
+    assert_eq!(code, Some(2), "{err}");
 }
 
 #[test]

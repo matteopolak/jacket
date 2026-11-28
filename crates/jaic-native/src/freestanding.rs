@@ -7,7 +7,6 @@ use crate::toolchain::{command, lookup, report};
 use jacket_config::os_text;
 use jaic::ir::Library;
 use jaic::target::{Target, TargetCpu};
-use jaic::toolchain::freestanding;
 use jaic_toolchain::builtins::find_builtins;
 use jaic_toolchain::linker::find_linker;
 use jaic_toolchain::{Found, Overrides};
@@ -55,18 +54,18 @@ fn emulation(cpu: TargetCpu) -> Result<Option<&'static str>, String> {
     }
 }
 
-/// The `ld.lld` command for `link`, with the compiler-rt `builtins` archive when there is one.
-fn lld_command(
-    lld: &Found,
-    link: &FreestandingLink,
-    builtins: Option<&Path>,
-) -> Result<Command, String> {
-    if script_file(link.extra_args).is_none() {
-        return Err("a freestanding program needs a linker script\n\
-             help: call `Embedded.link_for(*options, memory_map)` from the metaprogram, or add \
-             `-T <script>` to `additional_linker_arguments`"
-            .into());
-    }
+/// The linker script `link` names, or how to add one.
+fn required_script(link: &FreestandingLink) -> Result<OsString, String> {
+    script_file(link.extra_args).ok_or_else(|| {
+        "a freestanding program needs a linker script\n\
+         help: call `Embedded.link_for(*options, memory_map)` from the metaprogram, or add \
+         `-T <script>` to `additional_linker_arguments`"
+            .into()
+    })
+}
+
+/// The `ld.lld` command for `link`, with the compiler-rt `builtins` archive.
+fn lld_command(lld: &Found, link: &FreestandingLink, builtins: &Path) -> Result<Command, String> {
     let mut cmd = command(lld);
     if let Some(emulation) = emulation(link.target.cpu)? {
         cmd.args(["-m", emulation]);
@@ -96,51 +95,32 @@ fn lld_command(
             ));
         }
     }
-    cmd.args(builtins);
+    cmd.arg(builtins);
     cmd.args(link.extra_args);
     Ok(cmd)
 }
 
-/// Link freestanding objects into an ELF executable with `ld.lld`.
+/// Link freestanding objects into an ELF executable with `ld.lld`. The linker script and the
+/// compiler builtins are required before the linker starts: every freestanding program links
+/// against the builtins, so a missing archive is an error with the command that builds it.
 pub fn link_freestanding(link: &FreestandingLink) -> Result<(), String> {
+    let script = required_script(link)?;
     let overrides = Overrides::from_env();
-    let lookup = lookup();
+    let lookup = lookup()?;
     let lld = find_linker(&lookup, Some(link.target), &overrides)
         .map_err(|missing| missing.to_string())?;
-    // Programs that need no builtins link without them: the lookup's error is kept for a link
-    // that fails on one. A builtins archive that was named and is not there is an error now.
-    let builtins = find_builtins(&lookup, link.target, &overrides);
-    if let (Err(missing), Some(_)) = (&builtins, &overrides.compiler_rt) {
-        return Err(missing.to_string());
-    }
+    let builtins =
+        find_builtins(&lookup, link.target, &overrides).map_err(|missing| missing.to_string())?;
     report("Linker", &lld, &lookup, Some(link.target));
-    if let Ok(found) = &builtins {
-        report("Builtins", found, &lookup, Some(link.target));
-    }
-    if let Some(script) = script_file(link.extra_args) {
-        jaic::progress::tool("Script", &jaic::display_path(Path::new(&script)), true);
-    }
-    let mut cmd = lld_command(
-        &lld,
-        link,
-        builtins.as_ref().ok().map(|b| b.program.as_path()),
-    )?;
+    report("Builtins", &builtins, &lookup, Some(link.target));
+    jaic::progress::tool("Script", &jaic::display_path(Path::new(&script)), true);
+    let mut cmd = lld_command(&lld, link, &builtins.program)?;
     let out = crate::linker::run_captured(&mut cmd).map_err(|e| crate::linker_not_run(&lld, &e))?;
     if out.status.success() {
-        return Ok(());
+        Ok(())
+    } else {
+        Err(crate::link_failure(&lld.program, &out))
     }
-    let mut message = crate::link_failure(&lld.program, &out);
-    let log = format!(
-        "{}{}",
-        String::from_utf8_lossy(&out.stdout),
-        String::from_utf8_lossy(&out.stderr)
-    );
-    if let Err(missing) = &builtins
-        && freestanding::undefined_builtin(&log)
-    {
-        message += &format!("\nnote: the program needs compiler builtins: {missing}");
-    }
-    Err(message)
 }
 
 #[cfg(test)]
@@ -186,7 +166,7 @@ mod tests {
 
     #[test]
     fn a_link_without_a_script_says_how_to_add_one() {
-        let error = lld_command(&lld(), &link(&[], &[]), None).unwrap_err();
+        let error = required_script(&link(&[], &[])).unwrap_err();
         assert!(error.contains("linker script"), "{error}");
         assert!(error.contains("link_for"), "{error}");
     }
@@ -196,7 +176,7 @@ mod tests {
         let objects = [PathBuf::from("a.o")];
         let extra = words(&["-T", "board.ld"]);
         let builtins = Path::new("rt.a");
-        let cmd = lld_command(&lld(), &link(&objects, &extra), Some(builtins)).unwrap();
+        let cmd = lld_command(&lld(), &link(&objects, &extra), builtins).unwrap();
         assert_eq!(
             args(&cmd),
             [
@@ -223,7 +203,7 @@ mod tests {
             target: Target::parse("avr-none-elf").unwrap(),
             ..link(&[], &extra)
         };
-        let cmd = lld_command(&lld(), &request, None).unwrap();
+        let cmd = lld_command(&lld(), &request, Path::new("rt.a")).unwrap();
         assert!(!args(&cmd).contains(&"-m".to_string()), "{:?}", args(&cmd));
     }
 
@@ -241,7 +221,7 @@ mod tests {
             libraries: &libraries,
             ..link(&[], &extra)
         };
-        let error = lld_command(&lld(), &request, None).unwrap_err();
+        let error = lld_command(&lld(), &request, Path::new("rt.a")).unwrap_err();
         assert!(error.contains("`#library \"libc\"`"), "{error}");
         assert!(error.contains("no libc"), "{error}");
     }

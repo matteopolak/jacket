@@ -24,9 +24,12 @@ pub struct Overrides {
 /// What the command line named, which wins over the environment.
 static FLAGS: OnceLock<Overrides> = OnceLock::new();
 
-/// Records `-linker`, `-sysroot` and `-compiler_rt`. Called once, when the command line is read.
+/// Records `-linker`, `-sysroot` and `-compiler_rt`, once, when the command line is read.
+///
+/// # Panics
+/// When called a second time: the first flags are the ones every lookup has used.
 pub fn set_flags(linker: Option<&OsStr>, sysroot: Option<&Path>, compiler_rt: Option<&Path>) {
-    let _ = FLAGS.set(Overrides {
+    let set = FLAGS.set(Overrides {
         linker: linker.map(|value| Given {
             value: value.into(),
             from: "-linker",
@@ -41,6 +44,7 @@ pub fn set_flags(linker: Option<&OsStr>, sysroot: Option<&Path>, compiler_rt: Op
             from: "-compiler_rt",
         }),
     });
+    assert!(set.is_ok(), "the command line's tool flags are set once");
 }
 
 impl Overrides {

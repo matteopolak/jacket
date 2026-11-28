@@ -47,7 +47,7 @@ Each platform job:
 
 `publish` downloads an allowlist of platform archives, the VSIX and compressed docs bundle. It excludes the Pages `artifact.tar` and `pgo-training-*` diagnostic artifacts, writes `toolchain-manifest.json` and `SHA256SUMS`, and creates or updates the release; the store (Marketplace and Open VSX), Neovim mirror, Homebrew and Zulip announcement ([community chat](community-chat.md)) jobs follow. `release-meta` computes the version, tag, dry-run and publishing gates once, and every job's `if:` reads those outputs (a new publishing rule belongs there).
 
-A packaged binary finds its stdlib through `jaic::stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` beside the executable (also behind symlinks), else the build-time repository path ([prelude selection](../compiler/prelude-selection.md)).
+A packaged binary finds its stdlib through `jaic::default_stdlib_dir`: `JAIC_STDLIB`, else `stdlib/` beside the executable (also behind symlinks). Nothing of the build machine is built in; without either, `jaic`, `jailint` and `jailsp` stop with the missing-stdlib error ([prelude selection](../compiler/prelude-selection.md)).
 
 ### Bindings_Generator
 

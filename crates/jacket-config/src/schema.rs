@@ -1,5 +1,5 @@
 //! The `jacket.toml` schema. Every section is optional and every key in it too. Keys the schema
-//! does not know are dropped while parsing (see [`crate::parse_noting`]), never kept.
+//! does not know are errors (see [`crate::parse`]), never kept.
 use crate::pattern::PathPattern;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;

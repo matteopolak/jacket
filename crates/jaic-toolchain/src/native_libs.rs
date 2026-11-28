@@ -33,16 +33,29 @@ pub fn cross_lib_dirs(host: &dyn Host, stdlib: &Path, target: Target) -> Vec<Pat
 }
 
 /// The library folders for the target this `jaic` was built for: the `JAIC_NATIVE_LIBS` path
-/// list when set, else the first built folder that exists.
-pub fn host_lib_dirs(host: &dyn Host, stdlib: &Path) -> Vec<PathBuf> {
-    if let Some(dirs) = host.var(&jacket_config::env::NATIVE_LIBS) {
-        return std::env::split_paths(&dirs).collect();
+/// list when set (an error when one of its folders is not there), else the first built folder
+/// that exists.
+pub fn host_lib_dirs(host: &dyn Host, stdlib: &Path) -> Result<Vec<PathBuf>, String> {
+    if let Some(list) = host
+        .var(&jacket_config::env::NATIVE_LIBS)
+        .filter(|v| !v.is_empty())
+    {
+        let dirs: Vec<PathBuf> = std::env::split_paths(&list).collect();
+        if let Some(gone) = dirs.iter().find(|dir| !host.is_dir(dir)) {
+            return Err(format!(
+                "JAIC_NATIVE_LIBS names {}, which is not a folder\n\
+                 note: build the libraries with `tools/native/build_native_libs.py`, or correct \
+                 or unset JAIC_NATIVE_LIBS",
+                gone.display()
+            ));
+        }
+        return Ok(dirs);
     }
     let target = Target::host();
     if target.is_wasm() {
-        return Vec::new();
+        return Ok(Vec::new());
     }
-    built_lib_dirs(host, stdlib, &platform_name(target))
+    Ok(built_lib_dirs(host, stdlib, &platform_name(target)))
 }
 
 /// The first of the places a build puts `platform`'s libraries that exists.
@@ -119,7 +132,7 @@ mod tests {
     fn the_configured_list_wins_over_every_built_folder() {
         let mut host = FakeHost::mac();
         host.dir(&format!("/jacket/native-libs/{}", host_platform()));
-        let built = host_lib_dirs(&host, Path::new(STDLIB));
+        let built = host_lib_dirs(&host, Path::new(STDLIB)).unwrap();
         assert_eq!(
             built,
             [PathBuf::from(format!(
@@ -127,12 +140,28 @@ mod tests {
                 host_platform()
             ))]
         );
+        host.dir("/a").dir("/b");
         let list = std::env::join_paths(["/a", "/b"]).unwrap();
         host.set(&env::NATIVE_LIBS, list.to_str().unwrap());
         assert_eq!(
-            host_lib_dirs(&host, Path::new(STDLIB)),
+            host_lib_dirs(&host, Path::new(STDLIB)).unwrap(),
             [PathBuf::from("/a"), PathBuf::from("/b")]
         );
+    }
+
+    #[test]
+    fn a_configured_folder_that_is_not_there_is_an_error() {
+        let mut host = FakeHost::mac();
+        host.dir("/a");
+        host.dir(&format!("/jacket/native-libs/{}", host_platform()));
+        let list = std::env::join_paths(["/a", "/gone"]).unwrap();
+        host.set(&env::NATIVE_LIBS, list.to_str().unwrap());
+        let error = host_lib_dirs(&host, Path::new(STDLIB)).unwrap_err();
+        assert!(
+            error.starts_with("JAIC_NATIVE_LIBS names /gone, which is not a folder"),
+            "{error}"
+        );
+        assert!(error.contains("\nnote: "), "{error}");
     }
 
     #[test]
@@ -145,7 +174,7 @@ mod tests {
             "gitdir: /main/.git/worktrees/w\n",
         );
         host.text("/main/.git/worktrees/w/commondir", "../..\n");
-        let found = |host: &FakeHost| host_lib_dirs(host, Path::new(worktree_stdlib));
+        let found = |host: &FakeHost| host_lib_dirs(host, Path::new(worktree_stdlib)).unwrap();
         host.dir(&format!("/main/target/native-libs/{platform}"));
         assert_eq!(
             found(&host),

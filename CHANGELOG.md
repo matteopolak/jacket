@@ -25,9 +25,22 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket toolchain check` refuses an unknown target name and lists the known ones.
 - `jacket test` with no cache folder fails and says to set `JACKET_TEST_DEPS_DIR`.
 - `jacket test` refuses a standard library folder without a prelude and says where the folder came from.
+- `jaic`, `jailint` and `jailsp` no longer use the build machine's stdlib; set `JAIC_STDLIB` or keep `stdlib/` beside them.
+- `jailsp` without a standard library exits with the error `jaic` gives, instead of starting without one.
+- An unknown `jacket.toml` key is an error naming its line and the nearest known key, in every tool.
+- A freestanding build without compiler builtins stops before linking; `jacket toolchain add TRIPLE` builds them.
+- A set `JAIC_NATIVE_LIBS` that names a missing folder is an error.
+- A set `LLVM_PREFIX` or `llvm-sys` prefix without `bin/` is an error, not a search elsewhere.
+- An unwritable cache stops programs that need the crash runtime; set `JAIC_CACHE_DIR` to a writable folder.
+- A `JAIC_REPORT_EXE` file that cannot be written fails the build.
+- `-z stack-size=N` in linker arguments must be a number of bytes.
 
 ### Fixes
 
+- On macOS a failed `ld` link reports `ld`'s error, with no retry through `cc`; `SDKROOT` and `MACOSX_DEPLOYMENT_TARGET` apply.
+- `jaic -print_stdlib` fails when there is no standard library.
+- An invalid `-target` is a command-line error, read once, so no step builds for the host instead.
+- `jailsp` runs compile-time services with the `jaic` beside its real path, through symlinks.
 - `jacket toolchain add` and jaic's progress lines follow the diagnostics' colour rule, so `FORCE_COLOR` colours them.
 - `jaic -interp` no longer stops a long-running program with "execution budget exhausted": `-run_budget` bounds compile-time runs only.
 - `Module.operator *[]` parses as the name of that operator, like `Module.operator []`.

@@ -108,3 +108,23 @@ fn command_line_mistakes_explain_what_jailsp_is() {
     assert_eq!(code, Some(1));
     assert!(stderr.contains("expected `Content-Length: N`"), "{stderr}");
 }
+
+/// Without a standard library jailsp stops before serving, with the error jaic and jailint give.
+#[test]
+fn a_missing_stdlib_stops_jailsp_with_the_fix() {
+    let empty = std::env::temp_dir().join(format!("jailsp-no-stdlib-{}", std::process::id()));
+    let output = Command::new(env!("CARGO_BIN_EXE_jailsp"))
+        .env("JAIC_STDLIB", &empty)
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    assert!(output.stdout.is_empty());
+    assert!(
+        stderr.starts_with("error[cli-failure]: cannot find the standard library"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("\nnote: "), "{stderr}");
+    assert!(stderr.contains("JAIC_STDLIB"), "{stderr}");
+}

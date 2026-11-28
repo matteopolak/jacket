@@ -148,7 +148,8 @@ impl std::error::Error for ConfigError {
 pub struct Loaded {
     pub config: Config,
     pub location: Location,
-    /// One-line notes for the user: keys the schema does not know.
+    /// Always empty: a key the schema does not know is an error. Read by `jacket`'s callers
+    /// until they drop it.
     pub notes: Vec<String>,
     /// What the [`Check`]s run at load found wrong, one message each.
     pub problems: Vec<String>,
@@ -204,7 +205,7 @@ pub fn load_at_checked(
 ) -> Result<Loaded, ConfigError> {
     let path = location.file();
     let text = read(fs, &path)?;
-    let (config, unknown) = parse_noting(&text).map_err(|message| ConfigError {
+    let config = parse(&text).map_err(|message| ConfigError {
         path,
         message,
     })?;
@@ -215,20 +216,60 @@ pub fn load_at_checked(
     Ok(Loaded {
         config,
         location,
-        notes: unknown.iter().map(|key| unknown_note(key)).collect(),
+        notes: Vec::new(),
         problems,
     })
 }
 
-/// The settings in the text of a `jacket.toml`, or why it is invalid (with its line).
+/// The settings in the text of a `jacket.toml`, or why it is invalid (with its line). A key the
+/// schema does not know is an error that names the nearest known one, as `[lint]` does for a rule.
+///
+/// ```
+/// let error = jacket_config::parse("[lint]\nmax_nestng = 3\n").unwrap_err();
+/// assert_eq!(
+///     error,
+///     "unknown setting `lint.max_nestng` in jacket.toml (line 2)\nhelp: did you mean `lint.max_nesting`?"
+/// );
+/// ```
 pub fn parse(text: &str) -> Result<Config, String> {
-    parse_noting(text).map(|(config, _)| config)
+    let (config, unknown) = parse_lenient(text)?;
+    match unknown.first() {
+        None => Ok(config),
+        Some(first) => {
+            let key = first.rsplit('.').next().unwrap_or(first);
+            let mut message = unknown_note(first);
+            if let Some(line) = line_of(text, key) {
+                let (error, help) = message.split_once('\n').unwrap_or((&message, ""));
+                message = format!("{error} (line {line})\n{help}")
+                    .trim_end()
+                    .to_string();
+            }
+            if unknown.len() > 1 {
+                message.push_str(&format!(
+                    "\nnote: and {} more: {}",
+                    unknown.len() - 1,
+                    unknown[1..]
+                        .iter()
+                        .map(|key| format!("`{key}`"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+            }
+            Err(message)
+        }
+    }
 }
 
-/// Like [`parse`], also giving the dotted path of every key the schema does not know
-/// (`lint.max_nestng`). Those keys are dropped from the settings; [`unknown_note`] words the
-/// warning every tool prints for one.
+/// [`parse`], with an empty list: an unknown key is an error. `jacket`'s callers still take the
+/// list.
 pub fn parse_noting(text: &str) -> Result<(Config, Vec<String>), String> {
+    parse(text).map(|config| (config, Vec::new()))
+}
+
+/// The settings, and the dotted path of every key the schema does not know
+/// (`lint.max_nestng`), which is dropped from them. Only the schema oracle
+/// (`examples/toml-oracle.rs`) and tests read a file this way; every tool uses [`parse`].
+pub fn parse_lenient(text: &str) -> Result<(Config, Vec<String>), String> {
     let invalid = |e: toml::de::Error| e.to_string().trim_end().to_string();
     let deserializer = toml::de::Deserializer::parse(text).map_err(invalid)?;
     let mut unknown = Vec::new();
@@ -237,17 +278,18 @@ pub fn parse_noting(text: &str) -> Result<(Config, Vec<String>), String> {
     Ok((config, unknown))
 }
 
-/// The warning for an unknown setting at `path`, naming the nearest known one when there is one.
+/// The error for an unknown setting at `path`, with a `help:` line naming the nearest known one
+/// when there is one.
 pub fn unknown_note(path: &str) -> String {
-    let mut note = format!("warning: unknown setting `{path}` in {FILE_NAME} (ignored)");
+    let mut note = format!("unknown setting `{path}` in {FILE_NAME}");
     let (table, key) = path.rsplit_once('.').unwrap_or(("", path));
     if table.is_empty()
         && let Some((home, meant)) = schema::misplaced_home(key)
     {
         if meant == key {
-            note.push_str(&format!("; it belongs under `[{home}]`"));
+            note.push_str(&format!("\nhelp: it belongs under `[{home}]`"));
         } else {
-            note.push_str(&format!("; use `{meant}` under `[{home}]`"));
+            note.push_str(&format!("\nhelp: use `{meant}` under `[{home}]`"));
         }
         return note;
     }
@@ -257,7 +299,7 @@ pub fn unknown_note(path: &str) -> String {
         } else {
             format!("{table}.{near}")
         };
-        note.push_str(&format!("; did you mean `{near}`?"));
+        note.push_str(&format!("\nhelp: did you mean `{near}`?"));
     }
     note
 }

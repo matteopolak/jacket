@@ -140,7 +140,7 @@ vars! {
     }
     STDLIB {
         name: "JAIC_STDLIB", group: Settings, readers: [Jaic, Jacket, Jailint, Jailsp, Tests],
-        default: "the `stdlib/` next to the executable, else the checkout's",
+        default: "the `stdlib/` next to the executable (through symlinks)",
         summary: "The standard library directory; a relative path is taken from the working directory. `jacket test` also hands it, made absolute, to every `jaic` it starts.",
     }
     PRELUDE {
@@ -151,7 +151,7 @@ vars! {
     NATIVE_LIBS {
         name: "JAIC_NATIVE_LIBS", group: Settings, readers: [Jaic],
         default: "`native-libs/<os>-<cpu>` beside the library, else under `target/`",
-        summary: "A path list of directories holding the prebuilt third-party native libraries (SDL3, FreeType, ...), replacing the default search.",
+        summary: "A path list of directories holding the prebuilt third-party native libraries (SDL3, FreeType, ...), replacing the default search. A folder that does not exist is an error.",
     }
     LINKER {
         name: "JAIC_LINKER", group: Settings, readers: [Jaic],
@@ -196,7 +196,7 @@ vars! {
     CACHE_DIR {
         name: "JAIC_CACHE_DIR", group: Settings, readers: [Jaic],
         default: "`$XDG_CACHE_HOME/jaic`, else the platform's user cache (`~/Library/Caches/jaic`, `~/.cache/jaic`)",
-        summary: "Where `jaic` unpacks the helpers it embeds (the crash runtime).",
+        summary: "Where `jaic` unpacks the helpers it embeds (the crash runtime). It must be writable; there is no other place.",
     }
     BACKEND {
         name: "JAIC_BACKEND", group: Settings, readers: [Jaic],
@@ -261,7 +261,7 @@ vars! {
     REPORT_EXE {
         name: "JAIC_REPORT_EXE", group: Handoff, readers: [Jaic],
         default: "unset",
-        summary: "A file `jaic` appends the absolute path of each executable it writes to. `jacket run` and `jacket test` set it, because a metaprogram picks the name.",
+        summary: "A file `jaic` appends the absolute path of each executable it writes to. `jacket run` and `jacket test` set it, because a metaprogram picks the name. A file that cannot be written fails the build.",
     }
     PROJECT {
         name: "JACKET_PROJECT", group: Handoff, readers: [Jaic],
@@ -507,22 +507,22 @@ vars! {
     LLVM_SYS_PREFIX {
         name: crate::llvm::SYS_PREFIX_VAR, group: Standard, readers: [Jaic, Jacket],
         default: "unset",
-        summary: "The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools. The name carries the LLVM version (`LLVM_SYS_<major><minor>_PREFIX`).",
+        summary: "The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools. The name carries the LLVM version (`LLVM_SYS_<major><minor>_PREFIX`). A folder with no `bin/` is an error.",
     }
     LLVM_PREFIX {
         name: "LLVM_PREFIX", group: Standard, readers: [Jaic, Jacket],
         default: "`llvm-config --prefix`, then Homebrew's `llvm@<major>` or `/usr/lib/llvm-<major>`",
-        summary: "The LLVM install to use when the `llvm-sys` variable above is unset. CI sets both.",
+        summary: "The LLVM install to use when the `llvm-sys` variable above is unset. CI sets both. A folder with no `bin/` is an error.",
     }
     MACOSX_DEPLOYMENT_TARGET {
         name: "MACOSX_DEPLOYMENT_TARGET", group: Standard, readers: [Jaic],
         default: "the SDK's",
-        summary: "The macOS version native output targets. When it is set, jaic links through `cc` instead of calling `ld` itself.",
+        summary: "The macOS version native output targets, and the minimum version jaic passes `ld`.",
     }
     SDKROOT {
         name: "SDKROOT", group: Standard, readers: [Jaic],
         default: "unset",
-        summary: "The macOS SDK `cc` links against. When it is set, jaic links through `cc` instead of calling `ld` itself.",
+        summary: "The macOS SDK native output links against, in place of the selected Xcode's.",
     }
     DEVELOPER_DIR {
         name: "DEVELOPER_DIR", group: Standard, readers: [Jaic],

@@ -13,24 +13,35 @@ use std::path::PathBuf;
 
 /// Append `output`, the path the backend finally wrote (with the platform's extension), to the
 /// file `JAIC_REPORT_EXE` names, one absolute path per line, if it is set. `jacket run` reads
-/// it because a metaprogram picks the name. Best effort: a program that
-/// is built is not a failure because its location could not be reported.
-pub fn report_executable(settings: &BuildSettings, output: &std::path::Path) {
+/// it because a metaprogram picks the name, so a file that cannot be written is an error: the
+/// caller would otherwise run nothing, or an older program.
+///
+/// ```no_run
+/// # let settings = jaic::build::BuildSettings::default();
+/// jaic::build::report_executable(&settings, std::path::Path::new("game"))?;
+/// # Ok::<(), String>(())
+/// ```
+pub fn report_executable(settings: &BuildSettings, output: &std::path::Path) -> Result<(), String> {
     use std::io::Write;
     if settings.output_type != OutputType::Executable {
-        return;
+        return Ok(());
     }
     let Some(file) = jacket_config::env::REPORT_EXE.non_empty() else {
-        return;
+        return Ok(());
     };
     let path = std::path::absolute(output).unwrap_or_else(|_| output.to_path_buf());
-    if let Ok(mut file) = std::fs::OpenOptions::new()
+    std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(file)
-    {
-        let _ = writeln!(file, "{}", path.display());
-    }
+        .open(&file)
+        .and_then(|mut report| writeln!(report, "{}", path.display()))
+        .map_err(|e| {
+            format!(
+                "cannot record the executable in {} (JAIC_REPORT_EXE): {}",
+                std::path::Path::new(&file).display(),
+                crate::io_reason(&e)
+            )
+        })
 }
 
 /// What [`write_output`] did.

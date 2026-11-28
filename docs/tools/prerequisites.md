@@ -27,7 +27,7 @@ The note is the install command for the detected package manager (`brew`, `apt`,
 | `clang`, `llvm-ar` | `jacket toolchain add` for a freestanding target | `Missing` with the `clang` package note |
 | `dsymutil` | `jaic` builds with debug information on macOS (not an unoptimized build, which keeps its objects) | error before compiling, with the Xcode tools note and `-no_debug_info`; Homebrew's `llvm` is keg-only, so it is not suggested |
 | `jaic`, `jaifmt`, `jailint`, `jailsp` | `jacket` commands that start them | next to `jacket`, then `PATH`; error names the command and points at the installers |
-| standard library folder | every compile (`JAIC_STDLIB`, else `stdlib/` beside the executable) | `error[cli-failure]: cannot find the standard library` and a note naming `JAIC_STDLIB` |
+| standard library folder | every compile, `jailint`, `jailsp` and `jaic -print_stdlib` (`JAIC_STDLIB`, else `stdlib/` beside the executable) | `error[cli-failure]: cannot find the standard library` and a note naming `JAIC_STDLIB` |
 | `git` | `jacket migrate --apply` in a repository | error and install note. `jacket dep` also needs it: see [dependencies](dependencies.md) |
 | `curl`, `tar` | `jacket upgrade`, `jacket toolchain add` | error and install note, before any download or prompt; `toolchain add` also checks the cache folder first |
 | user cache folder (`XDG_CACHE_HOME`, `LOCALAPPDATA`) | `jacket toolchain add`, `jacket test` | error naming the folder and the variable that moves it |

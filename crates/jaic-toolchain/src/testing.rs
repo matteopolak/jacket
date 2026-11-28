@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 /// A host built from the files it has, the folders of its `PATH` and what its tools print.
 pub struct FakeHost {
     pub os: Os,
-    pub arch: String,
+    pub cpu: jaic::target::TargetCpu,
     pub path: Vec<PathBuf>,
     pub program_files: Vec<PathBuf>,
     pub cache: Option<PathBuf>,
@@ -22,10 +22,11 @@ pub struct FakeHost {
 }
 
 impl FakeHost {
+    /// A machine running `os` on the CPU Rust names `arch` (`aarch64`, `x86_64`).
     pub fn new(os: Os, arch: &str) -> FakeHost {
         FakeHost {
             os,
-            arch: arch.to_string(),
+            cpu: jaic::target::parse_cpu(arch).unwrap_or_else(|| panic!("no CPU is named {arch}")),
             path: Vec::new(),
             program_files: Vec::new(),
             cache: Some(PathBuf::from("/cache")),
@@ -130,8 +131,8 @@ impl Host for FakeHost {
         self.os
     }
 
-    fn arch(&self) -> &str {
-        &self.arch
+    fn cpu(&self) -> jaic::target::TargetCpu {
+        self.cpu
     }
 
     fn path_dirs(&self) -> Vec<PathBuf> {

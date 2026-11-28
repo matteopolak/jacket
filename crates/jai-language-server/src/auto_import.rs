@@ -133,11 +133,10 @@ pub(crate) struct Index {
     reported: BTreeMap<PathBuf, String>,
     /// Messages for the client not sent yet.
     pending: Vec<String>,
-    /// Log lines for the client not sent yet, and the ones sent (each goes out once).
+    /// Log lines for the client not sent yet.
     logs: Vec<String>,
     /// The settings read for each config directory, with a hash of the text they were read from.
     pub(crate) configs: BTreeMap<PathBuf, (u64, jacket_config::Loaded)>,
-    logged: BTreeSet<String>,
 }
 
 impl Index {
@@ -161,13 +160,6 @@ impl Index {
     /// The settings file `path` parses (again): a later problem is news.
     pub(crate) fn good_config(&mut self, path: &Path) {
         self.reported.remove(path);
-    }
-
-    /// A log line for the client (`window/logMessage`), sent once however often it is found.
-    pub(crate) fn log_once(&mut self, line: &str) {
-        if self.logged.insert(line.to_string()) {
-            self.logs.push(line.to_string());
-        }
     }
 
     /// A log line for the client, sent every time.

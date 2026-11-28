@@ -611,7 +611,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JACKET_TEST_DLLS` | A path list of directories whose `.dll` files `jacket test` links next to each Windows test executable. | unset | jacket |
 | `JAIC_AR` | The program that archives object files into a static library. | the system `ar`, or `llvm-ar`, a MinGW `ar` or `lib.exe` where that is needed | jaic |
 | `JAIC_BACKEND` | The code generation library (`libjaic_backend`) a release `jaic` opens when a build writes native code. | the code generation library next to the `jaic` executable | jaic |
-| `JAIC_CACHE_DIR` | Where `jaic` unpacks the helpers it embeds (the crash runtime). | `$XDG_CACHE_HOME/jaic`, else the platform's user cache (`~/Library/Caches/jaic`, `~/.cache/jaic`) | jaic |
+| `JAIC_CACHE_DIR` | Where `jaic` unpacks the helpers it embeds (the crash runtime). It must be writable; there is no other place. | `$XDG_CACHE_HOME/jaic`, else the platform's user cache (`~/Library/Caches/jaic`, `~/.cache/jaic`) | jaic |
 | `JAIC_COMPILER_RT` | The compiler-rt builtins a freestanding build links: one archive. Also the `-compiler_rt` flag. | `lib/clang/<version>/lib/<triple>/libclang_rt.builtins.a` in the build's LLVM | jaic |
 | `JAIC_DIAGNOSTICS` | The diagnostic layout: `plain`, `ascii` or `unicode`. | by terminal: `unicode` or `ascii` on one, `plain` otherwise | jaic, jailint |
 | `JAIC_DSYM` | When set, a macOS debug build writes a `.dSYM` bundle instead of keeping its object files. | unset: macOS debug builds keep their object files for the debugger | jaic |
@@ -619,11 +619,11 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JAIC_ID_SCRAMBLE` | The same as `JAIC_SYM_SCRAMBLE`, for AST ids. | unset | jaic |
 | `JAIC_LINKER` | The program that links executables and libraries. Empty counts as unset. Also the `-linker` flag. | the linker found for the target | jaic |
 | `JAIC_MEMORY_LIMIT` | Stop with exit status 120 once this much memory is allocated: bytes, or a number with a `K`, `M` or `G` suffix. Child processes inherit it. | no limit | jaic |
-| `JAIC_NATIVE_LIBS` | A path list of directories holding the prebuilt third-party native libraries (SDL3, FreeType, ...), replacing the default search. | `native-libs/<os>-<cpu>` beside the library, else under `target/` | jaic |
+| `JAIC_NATIVE_LIBS` | A path list of directories holding the prebuilt third-party native libraries (SDL3, FreeType, ...), replacing the default search. A folder that does not exist is an error. | `native-libs/<os>-<cpu>` beside the library, else under `target/` | jaic |
 | `JAIC_NO_HOST_TWIN` | Any value but `0` turns the host twin off, which makes compile-time code with foreign calls fail the way it would without one. | unset: compile-time code that needs the host's types gets a host twin | jaic |
 | `JAIC_PRELUDE` | The prelude file to load instead of the library's own, as a path (relative paths are taken from the library root). | the library's `prelude/module.jai`, else `Preload.jai` | jaic, jailint, jailsp |
 | `JAIC_PROGRESS` | The build status lines: `off`, `plain` or `live`, whatever stderr is (`-quiet` still wins). | by terminal: a live status line on one, nothing otherwise | jaic, jacket |
-| `JAIC_STDLIB` | The standard library directory; a relative path is taken from the working directory. `jacket test` also hands it, made absolute, to every `jaic` it starts. | the `stdlib/` next to the executable, else the checkout's | jaic, jacket, jailint, jailsp, tests |
+| `JAIC_STDLIB` | The standard library directory; a relative path is taken from the working directory. `jacket test` also hands it, made absolute, to every `jaic` it starts. | the `stdlib/` next to the executable (through symlinks) | jaic, jacket, jailint, jailsp, tests |
 | `JAIC_SYM_SCRAMBLE` | A seed that spreads the interner's symbol numbers apart, so output that depends on them rather than spellings changes (`tools/differential/determinism.py`). | unset | jaic |
 | `JAIC_SYSROOT` | The Linux sysroot a cross build links against, and a runner's `{sysroot}` stands for. Also the `-sysroot` flag. | the system's cross packages, else the one `jacket toolchain add` fetched | jaic |
 | `JAIC_TCPLISTEN` | Comma-separated `host:port` addresses a `-interp -os wasm` run listens on. Each becomes a pre-opened socket the program accepts connections from, numbered 3, 4, ... in order, and `LISTEN_FDS` holds how many there are (the convention of wasmtime's `--tcplisten`). | unset: a `-interp -os wasm` run has no sockets | jaic |
@@ -637,7 +637,7 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `JACKET_PROJECT` | The project name `jaic` shows in its `Compiling` line; `jacket` sets it. | the main file's name | jaic |
 | `JAIC_COVERAGE_DIR` | The directory a `-interp` run writes its line coverage to, one file per program. `jacket test --coverage` sets it. | the working directory | jaic |
 | `JAIC_COVERAGE_FILE` | The file a `-interp` run writes its line coverage to. | unset: the file is named for the program, in `JAIC_COVERAGE_DIR` | jaic |
-| `JAIC_REPORT_EXE` | A file `jaic` appends the absolute path of each executable it writes to. `jacket run` and `jacket test` set it, because a metaprogram picks the name. | unset | jaic |
+| `JAIC_REPORT_EXE` | A file `jaic` appends the absolute path of each executable it writes to. `jacket run` and `jacket test` set it, because a metaprogram picks the name. A file that cannot be written fails the build. | unset | jaic |
 
 #### Tests and fuzzing
 
@@ -693,17 +693,17 @@ Path lists use the platform separator (`:` on Linux and macOS, `;` on Windows). 
 | `LC_CTYPE` | See `LC_ALL`. | unset | jaic, jailint |
 | `LIB` | On Windows, the library directories the MSVC linker searches; set by a developer prompt. | found from the Visual Studio and Windows SDK installs | jaic |
 | `LIBRARY_PATH` | Extra library directories compile-time code may load native libraries from on Windows. | unset | jaic |
-| `LLVM_PREFIX` | The LLVM install to use when the `llvm-sys` variable above is unset. CI sets both. | `llvm-config --prefix`, then Homebrew's `llvm@<major>` or `/usr/lib/llvm-<major>` | jaic, jacket |
-| `LLVM_SYS_231_PREFIX` | The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools. The name carries the LLVM version (`LLVM_SYS_<major><minor>_PREFIX`). | unset | jaic, jacket |
+| `LLVM_PREFIX` | The LLVM install to use when the `llvm-sys` variable above is unset. CI sets both. A folder with no `bin/` is an error. | `llvm-config --prefix`, then Homebrew's `llvm@<major>` or `/usr/lib/llvm-<major>` | jaic, jacket |
+| `LLVM_SYS_231_PREFIX` | The LLVM install jaic is built against; its `bin/` supplies `clang`, `wasm-ld` and the LLVM tools. The name carries the LLVM version (`LLVM_SYS_<major><minor>_PREFIX`). A folder with no `bin/` is an error. | unset | jaic, jacket |
 | `LOCALAPPDATA` | The Windows user cache root; jacket caches its compiled documentation theme here. | unset | jacket |
-| `MACOSX_DEPLOYMENT_TARGET` | The macOS version native output targets. When it is set, jaic links through `cc` instead of calling `ld` itself. | the SDK's | jaic |
+| `MACOSX_DEPLOYMENT_TARGET` | The macOS version native output targets, and the minimum version jaic passes `ld`. | the SDK's | jaic |
 | `NO_COLOR` | Any value turns colour off. | unset | jaic, jacket, jailint |
 | `PATH` | Where tools such as the linker, `clang` and `wasm-ld` are searched for. | the process's | jaic, jacket, jailsp, tests |
 | `PATHEXT` | The executable extensions tried when a test looks a tool up on Windows. | the Windows default | tests |
 | `ProgramFiles` | Where Visual Studio and the Windows SDK are looked for. | `C:\Program Files` | jaic |
 | `ProgramFiles(x86)` | See `ProgramFiles`. | `C:\Program Files (x86)` | jaic |
 | `RUST_BACKTRACE` | When set, an internal compiler error shows the Rust backtrace. | unset | jaic |
-| `SDKROOT` | The macOS SDK `cc` links against. When it is set, jaic links through `cc` instead of calling `ld` itself. | unset | jaic |
+| `SDKROOT` | The macOS SDK native output links against, in place of the selected Xcode's. | unset | jaic |
 | `SystemRoot` | Locates the Windows system tools `jacket upgrade` uses. | `C:\Windows` | jacket |
 | `TERM` | `dumb` turns colour, layout characters and the live status line off. | unset | jaic, jacket, jailint |
 | `WT_SESSION` | Set by Windows Terminal; it gets the Unicode diagnostic layout. | unset | jaic, jailint |

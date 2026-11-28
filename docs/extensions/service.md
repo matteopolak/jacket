@@ -41,7 +41,7 @@ ANSWER :: #run -> string {
 - Wire format: frames of an 8-byte little-endian length plus bytes; an answer starts with a status byte. `Service.serve` moves answers to a copy of stdout and points stdout at stderr, so handler output can't corrupt a frame and lands in the stderr tail kept for crash messages.
 - A fingerprint of the `.jai` files up to two folders below the service (plus `jaic`) is checked at most once a second; a change restarts the worker.
 - Defaults: 30 s per request, `JAIC_MEMORY_LIMIT=1G` per worker (exit 120 reports as "used more than 1024 MiB"), idle workers stop after 10 minutes. After a crash or timeout the service isn't restarted for 1 s, doubling to 60 s; a good answer resets it. Failure messages include the last 4 KiB of stderr.
-- `jaic` is the current process if it is `jaic`, else one next to the executable, else on `PATH`.
+- `jaic` is the one next to the executable, through symlinks (`jacket_config::tools::locate`), else the first on `PATH`; with neither, the call answers that no `jaic` was found.
 - **Editor.** `EditorServices` (`crates/jai-language-server/src/services.rs`) answers only for trusted compiles. Answers are memoised by `(service, request)`; a new request waits 50 ms and otherwise answers `.PENDING`. Failed and unavailable answers are asked again after 10 s. While any ticket is pending the message loop polls every 25 ms; when an answer arrives all cached compiles are dropped and open files are re-published.
 - `unknown` traps with `TrapKind::Unknown`, which becomes the `unknown-result` diagnostic at the `#run`. The editor treats it like `Untrusted`: the rest of the file is still checked and `known()` drops the error.
 

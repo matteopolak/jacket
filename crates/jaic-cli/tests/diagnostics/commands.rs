@@ -343,6 +343,18 @@ fn plugin_arguments_help_version_and_colour() {
             .trim()
             .ends_with("stdlib")
     );
+    // A folder without the library is an error, not a path to use.
+    let missing = Command::new(JAIC)
+        .arg("-print_stdlib")
+        .env("JAIC_STDLIB", dir.join("no-stdlib"))
+        .output()
+        .unwrap();
+    assert_eq!(missing.status.code(), Some(1));
+    assert!(missing.stdout.is_empty());
+    assert!(
+        String::from_utf8_lossy(&missing.stderr).contains("cannot find the standard library"),
+        "{missing:?}"
+    );
     for flag in ["--version", "-version", "-V"] {
         let output = jaic(&dir, &[flag], &[]);
         assert_eq!(output.status.code(), Some(0), "{flag}");

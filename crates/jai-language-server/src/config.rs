@@ -48,9 +48,6 @@ fn read(files: &dyn Files, index: &mut Index, location: jacket_config::Location)
         }
         loaded.config.lint = jacket_config::Lint::default();
     }
-    for note in &loaded.notes {
-        index.log_once(note);
-    }
     Some(loaded)
 }
 

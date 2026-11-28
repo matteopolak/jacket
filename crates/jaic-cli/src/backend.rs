@@ -126,15 +126,10 @@ pub(super) fn build(
 
 #[cfg(feature = "llvm")]
 pub(super) fn native_backend(cli: &Cli) -> LlvmBackend {
-    jaic_toolchain::overrides::set_flags(
-        cli.linker.as_deref(),
-        cli.sysroot.as_deref(),
-        cli.compiler_rt.as_deref(),
-    );
     LlvmBackend {
         emit_ir: cli.emit_ir.clone(),
         debug_info: !cli.no_debug_info,
-        target: cli.build_target().ok().flatten(),
+        target: cli.build_for,
         explicit_target: cli.target.is_some() || cli.os.is_some() || cli.cpu.is_some(),
         link_args: cli.link_args.clone(),
         sanitize: cli
@@ -603,9 +598,7 @@ impl OutputBackend for LlvmBackend {
             }
             OutputType::StaticLibrary => jaic_native::archive(&objects, output, target),
         });
-        if linked.is_ok() {
-            jaic::build::report_executable(settings, output);
-        }
+        let linked = linked.and_then(|()| jaic::build::report_executable(settings, output));
         // macOS linkers leave DWARF in the objects and record where they are. An unoptimized
         // build keeps its objects for the debugger to read (the `dsymutil` pass would be a
         // tenth of the build); any other collects the DWARF into `output.dSYM` first.
@@ -643,7 +636,7 @@ impl OutputBackend for LlvmBackend {
             prepared.target,
             &cross_library_dirs(prepared.target),
         )?;
-        jaic::build::report_executable(settings, &prepared.output);
+        jaic::build::report_executable(settings, &prepared.output)?;
         Ok(jaic::build::LinkObjects {
             objects: objects.iter().map(|o| o.display().to_string()).collect(),
             system_libraries: inputs.system_libraries,
