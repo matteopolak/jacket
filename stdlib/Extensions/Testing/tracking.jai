@@ -14,6 +14,24 @@ Tracker :: struct {
     live: [] Live_Allocation; // Open addressing; `memory == null` is an empty slot.
     live_count: s64;
     bad_free: bool; // Set once, so a test fails at its first bad free only.
+    files: [FILE_CACHE_SLOTS] File_Class; // Direct-mapped by file name address; used under `lock`.
+}
+
+FILE_CACHE_SLOTS :: 64;
+
+// Which part of the program a source file belongs to, remembered by the address of its name: the same few
+// files appear in every allocation's stack, and judging a path means scanning it.
+File_Class :: struct {
+    name: *u8;
+    count: s64;
+    kind: File_Kind;
+}
+
+File_Kind :: enum u8 {
+    UNKNOWN;
+    THIS_FILE;
+    STDLIB;
+    PROGRAM;
 }
 
 // Where an allocation was made, found when it was made: `site` is the first frame outside the standard library (the line
@@ -185,6 +203,21 @@ grow :: (tracker: *Tracker) {
     if old.data tracker.parent.proc(.FREE, 0, old.count * size_of(Live_Allocation), old.data, tracker.parent.data);
 }
 
+classify_file :: (tracker: *Tracker, file: string) -> File_Kind {
+    address := cast(u64) file.data;
+    slot := *tracker.files[cast(s64) ((address >> 4) % FILE_CACHE_SLOTS)];
+
+    if slot.name == file.data && slot.count == file.count return slot.kind;
+
+    kind := File_Kind.PROGRAM;
+    if file == #file kind = .THIS_FILE;
+    else if in_stdlib(file) kind = .STDLIB;
+
+    slot.* = .{ file.data, file.count, kind };
+
+    return kind;
+}
+
 remember :: (tracker: *Tracker, memory: *void, size: s64) {
     if (tracker.live_count + 1) * 2 > tracker.live.count grow(tracker);
 
@@ -197,12 +230,14 @@ remember :: (tracker: *Tracker, memory: *void, size: s64) {
     frame := context.stack_trace;
 
     while frame {
-        if frame.info && frame.info.location.fully_pathed_filename != #file {
+        kind := ifx frame.info then classify_file(tracker, frame.info.location.fully_pathed_filename) else .THIS_FILE;
+
+        if kind != .THIS_FILE {
             here := Frame.{ frame.info, frame.line_number };
 
             if !slot.fallback.info slot.fallback = here;
 
-            if !in_stdlib(frame.info.location.fully_pathed_filename) {
+            if kind == .PROGRAM {
                 slot.site = here;
                 break;
             }

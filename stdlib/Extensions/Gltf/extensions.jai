@@ -108,22 +108,56 @@ gltf_use_extension :: (asset: *Gltf_Asset, name: string) {
 gltf_remove_extension :: (asset: *Gltf_Asset, extensions: *Json_Value, name: string) -> bool {
     if !json_remove(extensions, name) return false;
 
+    forget_if_unused(asset, name);
+
+    return true;
+}
+
+// [gltf_remove_extension] for many objects: removes `name` from each of `extensions` that has it and
+// returns how many did. The document is searched once for the whole call, not once per object, so use
+// this to strip an extension from every material or node. Every item must belong to `asset`.
+//
+// ```jai
+// #import "Extensions/Json";
+// asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"extensionsUsed\":[\"KHR_materials_ior\"],\"materials\":[{\"extensions\":{\"KHR_materials_ior\":{\"ior\":1.33}}},{\"extensions\":{\"KHR_materials_ior\":{\"ior\":1.5}}}]}");
+// assert(error.kind == .NONE);
+// defer gltf_free(*asset);
+// materials := asset.document.materials;
+// removed := gltf_remove_extensions(*asset, (*Json_Value).[*materials[0].extensions, *materials[1].extensions], "KHR_materials_ior");
+// assert(removed == 2 && asset.document.extensions_used.count == 0);
+// ```
+gltf_remove_extensions :: (asset: *Gltf_Asset, extensions: [] *Json_Value, name: string) -> s64 {
+    removed: s64;
+
+    for extensions if json_remove(it, name) removed += 1;
+
+    if removed forget_if_unused(asset, name);
+
+    return removed;
+}
+
+#scope_file
+
+// Takes `name` out of `extensionsUsed` and `extensionsRequired` once no object of the asset has it.
+// The lists are only searched when they name it, so an extension the asset never declared costs nothing.
+forget_if_unused :: (asset: *Gltf_Asset, name: string) {
+    listed_used := array_find(asset.document.extensions_used, name);
+    listed_required := array_find(asset.document.extensions_required, name);
+
+    if !listed_used && !listed_required return;
+
     // The tree is a copy of the document's typed fields and extension payloads, so it holds every
     // `extensions` object without a walk over each Gltf type.
     tree := to_json_value(asset.document);
 
     defer free_json(*tree);
 
-    if has_extension(*tree, name) return true;
+    if has_extension(*tree, name) return;
 
     own_extension_lists(asset);
     drop_name(*asset.document.extensions_used, name);
     drop_name(*asset.document.extensions_required, name);
-
-    return true;
 }
-
-#scope_file
 
 // Whether any `extensions` object under `value` has a member `name`. Free-form `extras` are skipped.
 has_extension :: (value: *Json_Value, name: string) -> bool {

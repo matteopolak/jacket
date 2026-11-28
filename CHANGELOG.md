@@ -50,6 +50,8 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 - Go to definition and related notes open generated code (`add_build_string`) as read-only `jai-generated:` documents.
 - Go to definition on a note finds a reader that only a skipped library body's generic instance has.
+- `Gltf` adds `gltf_remove_extensions`, which strips an extension from many objects in one pass over the document.
+- `Testing`'s leak tracker caches which files are library code, which halves the cost of each tracked allocation.
 - `Simple_Package` adds `free_package`, which frees a `Load_Package`'s entries, lookup and file bytes.
 - `Image`'s JPEG decoder, `Postgres`'s wire, SCRAM, startup and managed-server code, and `Wasi_Runtime`'s thread scheduler are no longer public.
 - `Postgres` keeps its schema-database, describe, diff, cache and entry internals, and types no caller names, module-private.

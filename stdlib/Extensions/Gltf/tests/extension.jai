@@ -124,7 +124,7 @@ edited_extensions_are_written :: () {
     require(set.kind == .NONE, set.message);
     free_json(*lights);
 
-    for binary: .[false, true] {
+    for binary: bool.[false, true] {
         bytes, write_error := gltf_write(*asset, binary);
 
         require(write_error.kind == .NONE, write_error.message);
@@ -316,6 +316,27 @@ surface_extensions :: () {
     expect(read_volume.attenuation_distance.state == .MISSING && read_volume.thickness_factor == 0.5);
     expect(read_sheen.sheen_color_factor[1] == 0.5 && read_sheen.sheen_color_texture != null);
     expect(still_unlit);
+} @test
+
+// Removing one extension from many objects in a call walks the document once, however many there are.
+remove_extensions_drops_every_listed_object :: () {
+    asset, error := gltf_load("{\"asset\":{\"version\":\"2.0\"},\"extensionsUsed\":[\"KHR_materials_ior\",\"KHR_materials_unlit\"],\"materials\":[{\"extensions\":{\"KHR_materials_ior\":{\"ior\":1.8}}},{\"extensions\":{\"KHR_materials_ior\":{\"ior\":1.2}}},{\"extensions\":{\"KHR_materials_unlit\":{}}},{}]}");
+
+    require(error.kind == .NONE, error.message);
+    defer gltf_free(*asset);
+    materials := asset.document.materials;
+
+    // Two of the three listed objects have it: the third and the object left out are untouched.
+    first_two := (*Json_Value).[*materials[0].extensions, *materials[1].extensions, *materials[3].extensions];
+
+    expect_equal(gltf_remove_extensions(*asset, first_two, "KHR_materials_ior"), 2);
+    require(asset.document.extensions_used.count == 1);
+    expect_equal(asset.document.extensions_used[0], "KHR_materials_unlit");
+    expect_equal(gltf_remove_extensions(*asset, first_two, "KHR_materials_ior"), 0);
+
+    // Still used by another object: the lists keep it.
+    expect_equal(gltf_remove_extensions(*asset, (*Json_Value).[*materials[3].extensions], "KHR_materials_unlit"), 0);
+    expect_equal(asset.document.extensions_used.count, 1);
 } @test
 
 // The last object to drop an extension takes its name out of `extensionsUsed` and
