@@ -123,3 +123,54 @@ pub(super) fn frees_before_writes(
 
     pairs
 }
+
+/// The items of one call, in the order its effects are done. A call's effects carry no order of
+/// their own, so writes come before frees (a free is never claimed to precede a write) except for
+/// the places the callee itself frees before writing (`pairs`, its `free_then_write`): there the
+/// frees come first, so a wrapper of `swap_in` frees then writes too.
+pub(super) fn call_items(
+    writes: &[&Effect],
+    frees: &[&Effect],
+    pairs: Option<&HashSet<(Path, Path)>>,
+) -> Vec<Item> {
+    let tied = |effect: &Effect, free: bool| {
+        pairs.is_some_and(|pairs| {
+            pairs.iter().any(|(f, w)| {
+                let own = if free {
+                    f
+                } else {
+                    w
+                };
+
+                effect.target.steps.ends_with(&own.steps)
+            })
+        })
+    };
+    let mut items = Vec::new();
+
+    items.extend(
+        writes
+            .iter()
+            .filter(|e| !tied(e, false))
+            .filter_map(|e| Item::of(e)),
+    );
+    items.extend(
+        frees
+            .iter()
+            .filter(|e| tied(e, true))
+            .filter_map(|e| Item::of(e)),
+    );
+    items.extend(
+        writes
+            .iter()
+            .filter(|e| tied(e, false))
+            .filter_map(|e| Item::of(e)),
+    );
+    items.extend(
+        frees
+            .iter()
+            .filter(|e| !tied(e, true))
+            .filter_map(|e| Item::of(e)),
+    );
+    items
+}

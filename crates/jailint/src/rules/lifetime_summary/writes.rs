@@ -61,13 +61,8 @@ impl Resolver<'_> {
 
             self.write_event(event, all, &mut writes, &mut unknown_write, &mut escapes);
             block_writes[at].extend(writes[before..].iter().cloned());
-            ordered[at].extend(
-                writes[before..]
-                    .iter()
-                    .filter_map(|(e, _)| super::order::Item::of(e)),
-            );
-
-            if matches!(
+            let new_writes: Vec<&Effect> = writes[before..].iter().map(|(e, _)| e).collect();
+            let frees = if matches!(
                 event,
                 Event::Call {
                     expands: false,
@@ -77,13 +72,25 @@ impl Resolver<'_> {
                     ..
                 }
             ) {
-                ordered[at].extend(
-                    self.call_effects(event, all, true)
-                        .iter()
-                        .filter(|(e, _)| e.kind == Kind::Free)
-                        .filter_map(|(e, _)| super::order::Item::of(e)),
-                );
-            }
+                self.call_effects(event, all, true)
+            } else {
+                Vec::new()
+            };
+            let frees: Vec<&Effect> = frees
+                .iter()
+                .map(|(e, _)| e)
+                .filter(|e| e.kind == Kind::Free)
+                .collect();
+            let pairs = match event {
+                Event::Call {
+                    callee,
+                    expands: false,
+                    ..
+                } => all.get(callee).map(|s| &s.free_then_write),
+                _ => None,
+            };
+
+            ordered[at].extend(super::order::call_items(&new_writes, &frees, pairs));
         }
 
         let overwrites = writes

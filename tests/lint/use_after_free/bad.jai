@@ -137,3 +137,18 @@ swapped_old_pointer :: () {
     print("%\n", old.*);
     free(h.p);
 }
+
+refresh :: (h: *Slot) {
+    swap_in(h);
+}
+
+// The wrapper's free and replacement are the callee's, in the callee's order.
+refreshed_old_pointer :: () {
+    h: Slot;
+    h.p = New(int);
+    old := h.p;
+
+    refresh(*h);
+    print("%\n", old.*);
+    free(h.p);
+}
