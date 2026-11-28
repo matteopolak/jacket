@@ -63,10 +63,10 @@ test('arguments split on spaces, with quotes grouping', () => {
 test('format settings are written as a [format] table, and only known values are', () => {
   assert.equal(
     formatConfig({ ...DEFAULTS, indent: '2', braces: 'preserve' }),
-    '[format]\nindent_width = 2\nbrace_style = "preserve"\n',
+    '[format]\nindent-width = 2\nbrace-style = "preserve"\n',
   );
   assert.match(
     formatConfig({ ...DEFAULTS, indent: '99', braces: 'x"' }),
-    /= 4\nbrace_style = "same_line"/,
+    /= 4\nbrace-style = "same_line"/,
   );
 });

@@ -37,14 +37,14 @@ main :: () {
 
     assert(equivalent, why);
 
-    config, config_ok, config_error := parse_config("[format]\nindent_width = 2 # browser setting\n");
+    config, config_ok, config_error := parse_config("[format]\nindent-width = 2 # browser setting\n");
 
     assert(config_ok, config_error);
     two, two_ok := format_source(SOURCE, config);
 
     assert(two_ok && two == EXPECTED_TWO_SPACES, two);
 
-    _, bad_ok, bad_error := parse_config("[format]\nindent_width = wide\n");
+    _, bad_ok, bad_error := parse_config("[format]\nindent-width = wide\n");
 
     assert(!bad_ok && bad_error == "line 2: invalid number", bad_error);
 
@@ -71,8 +71,8 @@ main :: () {
 }
 
 memory_files :: (path: string) -> string, bool {
-    if path == "/proj/jacket.toml" return "[format]\nindent_width = 3\n", true;
-    if path == "/bad/jacket.toml" return "[format]\nindent_width = x\n", true;
+    if path == "/proj/jacket.toml" return "[format]\nindent-width = 3\n", true;
+    if path == "/bad/jacket.toml" return "[format]\nindent-width = x\n", true;
 
     return "", false;
 }

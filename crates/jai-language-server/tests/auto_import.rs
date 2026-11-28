@@ -611,7 +611,7 @@ fn jacket_toml_names_the_entry_and_import_path() {
         &[
             (
                 "jacket.toml",
-                "[project]\nentry = [\"app/entry.jai\"]\nimport_path = [\"vendor\"]\n",
+                "[project]\nentry = [\"app/entry.jai\"]\nimport-path = [\"vendor\"]\n",
             ),
             ("app/entry.jai", "#load \"part.jai\";\nmain :: () {}\n"),
             ("app/part.jai", ""),

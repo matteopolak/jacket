@@ -13,7 +13,7 @@
 <text x="38" y="119"><tspan fill="#6bd68f" font-weight="700">      Linker</tspan><tspan fill="#d5dae3"> /opt/homebrew/opt/lld/bin/ld.lld 23.1.6</tspan></text>
 <text x="38" y="135"><tspan fill="#6bd68f" font-weight="700">    Builtins</tspan><tspan fill="#d5dae3"> compiler-rt 21.1.8 (cached)</tspan></text>
 <text x="38" y="151"><tspan fill="#6bd68f" font-weight="700">      Script</tspan><tspan fill="#d5dae3"> hello.ld</tspan></text>
-<text x="38" y="167"><tspan fill="#6bd68f" font-weight="700">    Finished</tspan><tspan fill="#d5dae3"> debug [unoptimized] in 0.18s</tspan></text>
+<text x="38" y="167"><tspan fill="#6bd68f" font-weight="700">    Finished</tspan><tspan fill="#d5dae3"> debug [unoptimized] in 0.17s</tspan></text>
 <text x="38" y="183"><tspan fill="#6bd68f" font-weight="700">     Running</tspan><tspan fill="#d5dae3"> `hello`</tspan></text>
 <text x="38" y="199"><tspan fill="#d5dae3">Hello, world!</tspan></text>
 </g>

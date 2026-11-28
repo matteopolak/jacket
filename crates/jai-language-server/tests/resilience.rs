@@ -224,9 +224,9 @@ fn unfinished_config_edits_do_not_apply_or_warn_until_saved() {
     );
     open(&mut s, main, 1, "main :: () { x:=1; }\n");
     for (version, text) in [
-        (2, "import_path ="),
-        (3, "import_path = a"),
-        (4, "import_path = ab"),
+        (2, "import-path ="),
+        (3, "import-path = a"),
+        (4, "import-path = ab"),
     ] {
         let out = send(
             &mut s,

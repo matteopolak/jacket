@@ -585,7 +585,7 @@ mark_line_ends :: (f: *Formatter) {
 
 // Decides the line structure of the output: `f.breaks[i]` is the number of line breaks before
 // token i (0: same line). It starts as the source's and then:
-// - with brace_style = "same_line", a `{` that opens a block moves up to its header, and `else`
+// - with brace-style = "same_line", a `{` that opens a block moves up to its header, and `else`
 //   moves up to the `}` before it;
 // - every non-empty `{ ... }` block gets its body on lines of its own (`{}` stays, `{\n}`
 //   becomes `{}`), and a statement after its `}` on the same line moves down;

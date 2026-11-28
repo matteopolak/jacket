@@ -149,7 +149,7 @@ Use two fences in a row, ```` ```jai before ```` and ```` ```jai after ````, in 
 ```toml
 [project]
 entry = ["src/Slugs/module.jai"]
-import_path = ["src"]
+import-path = ["src"]
 
 [doc]
 path = "src"                             # a module, or a folder of modules
@@ -159,7 +159,7 @@ home = "notes/home.md"                   # the front page; default: name and des
 repo = "https://github.com/me/kit"       # turns on Source links
 url = "https://kit.example.com"          # canonical links, sitemap.xml, robots.txt
 logo = "assets/logo.svg"
-pages_title = "Guides"                   # sidebar heading for the pages below
+pages-title = "Guides"                   # sidebar heading for the pages below
 
 [[doc.category]]                         # headings in the sidebar and on the front page
 name = "Text"

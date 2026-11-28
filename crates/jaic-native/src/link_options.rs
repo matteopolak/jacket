@@ -74,7 +74,7 @@ pub(super) struct ExtraArgs {
 }
 
 /// Rewrites the `ld.lld` spellings of the link settings jacket writes from a project's
-/// `stack_size`, `entry` and `gc_sections` into what the linker in use takes. Anything else, and
+/// `stack-size`, `entry` and `gc-sections` into what the linker in use takes. Anything else, and
 /// arguments already in the linker's own spelling, pass through.
 ///
 /// | `ld.lld` | `link.exe` | macOS `ld` (through `cc`) | GNU `ld` (MinGW) |

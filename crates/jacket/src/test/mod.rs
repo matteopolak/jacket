@@ -425,11 +425,14 @@ fn run_once(
     // The project's import folders and `[experimental]` settings reach tests as they reach
     // `jacket build`, and the user's own flags come last.
     let user_flags: Vec<std::ffi::OsString> = args.jaic_args.iter().map(Into::into).collect();
-    flags.extend(
-        crate::compile::project_flags(&user_flags, loaded.as_ref())
-            .into_iter()
-            .map(|flag| flag.to_string_lossy().into_owned()),
-    );
+    match crate::compile::project_flags(&user_flags, loaded.as_ref()) {
+        Ok(project) => flags.extend(
+            project
+                .into_iter()
+                .map(|flag| flag.to_string_lossy().into_owned()),
+        ),
+        Err(error) => return fail(error),
+    }
     flags.extend(args.jaic_args.iter().cloned());
     let parsed = match jaic_cli_args::arguments::target_flags(&flags) {
         Ok(parsed) => parsed,

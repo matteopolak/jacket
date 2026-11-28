@@ -43,10 +43,10 @@ HELP :: Args.Help(Options).{
     is_ignored = "Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors)",
     range = "With --stdin: format only the top-level statements the byte range START:END touches and copy the rest unchanged",
     config = "Use this jacket.toml instead of the nearest one",
-    set = "Set one [format] key, written as in jacket.toml (--set indent_width=2); implies --no-config. `jacket fmt` passes every resolved setting this way",
+    set = "Set one [format] key, written as in jacket.toml (--set indent-width=2); implies --no-config. `jacket fmt` passes every resolved setting this way",
     no_config = "Read no jacket.toml: start from the defaults, then --config and --set. Nothing is ignored, since the caller chooses the files",
     jobs = "Format this many files at once [default: the number of cores]",
-    verbose = "Report every file, a summary, and lines over max_width",
+    verbose = "Report every file, a summary, and lines over max-width",
     color = "Colour errors; auto means on a terminal, unless NO_COLOR is set",
 };
 
@@ -144,7 +144,7 @@ main :: () {
     if options.verbose {
         verb := ifx options.check then "would change" else "reformatted";
         print_error("jaifmt: % files checked, % %, % ignored, % errors", totals.checked, totals.changed, verb, totals.ignored, totals.errors);
-        if totals.long_lines print_error(", % lines over max_width", totals.long_lines);
+        if totals.long_lines print_error(", % lines over max-width", totals.long_lines);
         print_error("\n");
     }
 
@@ -309,7 +309,7 @@ report_outcome :: (outcome: Outcome, options: Options, totals: *Totals) {
     totals.long_lines += outcome.long_lines;
 
     if options.verbose && outcome.long_lines {
-        print_error("jaifmt: %: % lines over % columns (%#max_width)\n", shown(path), outcome.long_lines, outcome.config.max_width, RULES_URL);
+        print_error("jaifmt: %: % lines over % columns (%#max-width)\n", shown(path), outcome.long_lines, outcome.config.max_width, RULES_URL);
     }
 
     if outcome.status == .UNCHANGED return;

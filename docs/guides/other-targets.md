@@ -45,7 +45,7 @@ runner = "wasmtime {exe}"
 $ jacket run hello.jai --target wasi
    Compiling hello (hello.jai)
       Linker /opt/homebrew/opt/lld/bin/wasm-ld 23.1.6
-    Finished debug [unoptimized] in 0.45s
+    Finished debug [unoptimized] in 0.21s
      Running `hello.wasm`
 Pointers are 32 bits
 ```
@@ -66,7 +66,7 @@ On macOS and Windows there is no such package, so fetch the C library into jacke
 
 ```console cwd=../examples/targets/linux/hello cache
 $ jacket toolchain add armv7-unknown-linux-gnueabihf
-     Sysroot ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot (jacket toolchain)
+     Sysroot ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot (cached)
 ```
 
 Then build, and run the program on a Raspberry Pi or under QEMU (`qemu-arm -L /usr/arm-linux-gnueabihf ./hello` on Linux):
@@ -76,7 +76,7 @@ $ jacket build hello.jai --target armv7-unknown-linux-gnueabihf
    Compiling hello (hello.jai)
       Linker /usr/bin/cc 21.0.0
      Sysroot ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot (jacket toolchain)
-    Finished debug [unoptimized] in 0.19s
+    Finished debug [unoptimized] in 0.17s
 ```
 
 For x86 on 64-bit x86 Linux, install `gcc-multilib`, build with `--target i686-unknown-linux-gnu`, and run the program directly.
@@ -95,7 +95,7 @@ You need:
 
 ```console cwd=../examples/targets/board/blink cache
 $ jacket toolchain add thumbv7em-none-eabihf
-    Builtins compiler-rt 21.1.8 (built in 1.7s)
+    Builtins compiler-rt 21.1.8 (cached)
 ```
 
 Then the program:
@@ -118,7 +118,7 @@ $ jacket run hello.jai --target Mps2_An386
       Linker /opt/homebrew/opt/lld/bin/ld.lld 23.1.6
     Builtins compiler-rt 21.1.8 (cached)
       Script hello.ld
-    Finished debug [unoptimized] in 0.18s
+    Finished debug [unoptimized] in 0.17s
      Running `hello`
 Hello, world!
 ```

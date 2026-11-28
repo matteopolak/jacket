@@ -400,7 +400,7 @@ fn target(
     for note in loaded.iter().flat_map(|l| &l.notes) {
         eprintln!("{note}");
     }
-    let mut project = crate::compile::project_flags(&user, loaded.as_ref());
+    let mut project = crate::compile::project_flags(&user, loaded.as_ref())?;
     project.extend(user);
     let found = loaded.filter(|l| !l.config.doc.is_empty()).map(|l| {
         let dir = l.dir().to_path_buf();

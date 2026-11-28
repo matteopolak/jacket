@@ -213,16 +213,14 @@ impl Gate {
     }
 
     /// Why a version `age` seconds old that must wait `required` is not accepted yet:
-    /// `was published 20 hours ago; min_release_age is 3d`, with the jitter when there is one.
+    /// `was published 20 hours ago; min-release-age is 3d`, with the jitter when there is one.
     fn too_new(&self, age: i64, required: i64) -> String {
         let mut said = format!(
-            "was published {}; min_release_age is {}",
+            "was published {}; min-release-age is {}",
             policy::ago(age),
             self.policy.min_age.unwrap_or(Age::ZERO)
         );
-        if let Some(jitter) = self.policy.jitter
-            && self.policy.seed.is_some()
-        {
+        if let Some(jitter) = self.policy.jitter.filter(|jitter| *jitter > Age::ZERO) {
             said.push_str(&format!(
                 ", plus up to {jitter} of jitter (this version waits {})",
                 policy::span(required)
@@ -247,7 +245,7 @@ impl Gate {
         let mut waived = waived.clone();
         waived.min_release_age = Some("0".into());
         let mut error = DepError::new(message).note(format!(
-            "to accept it, add `min_release_age = \"0\"` to its entry:\n{}",
+            "to accept it, add `min-release-age = \"0\"` to its entry:\n{}",
             manifest::line(&self.name, &waived)
         ));
         error.too_new = matches!(verdict, Verdict::TooNew { .. });
@@ -421,17 +419,6 @@ pub(super) fn accept_newest(
     Err(gate.refuse(&tag, &verdict, waived))
 }
 
-/// Jitter without a seed applies none; says so and how to get one.
-fn warn_without_seed(ctx: &mut Ctx, project: &Project) {
-    let resolver = &project.config.resolver;
-    if resolver.release_age_jitter.is_some() && resolver.seed.is_none() {
-        let _ = writeln!(
-            ctx.err,
-            "warning: release_age_jitter is set but [resolver] seed is not, so no jitter is applied\nnote: run `jacket dep init` to write a seed"
-        );
-    }
-}
-
 fn plural(n: usize, word: &str) -> String {
     format!(
         "{n} {word}{}",
@@ -508,7 +495,6 @@ fn add(
         ..Dependency::default()
     };
     let reading = Reading::of(&entry)?;
-    warn_without_seed(ctx, project);
     let gate = Gate::new(project, &name, &entry, &url)?;
     let tags = ctx.git.remote_tags(&url)?;
     let ask = resolve::classify(&reading, &tags, parsed.at.as_ref())?;
@@ -818,7 +804,7 @@ fn apply(ctx: &mut Ctx, project: &mut Project, plan: &Planned, keep_range: bool)
     } = plan;
     ctx.git.move_to(&project.dir, path, &next.commit)?;
     let manifest = package::read(&path.under(&project.dir)).unwrap_or_default();
-    package::requires_jacket(&manifest.package, env!("CARGO_PKG_VERSION"))
+    package::check_jacket_version(&manifest.package, env!("CARGO_PKG_VERSION"))
         .map_err(|why| DepError::new(format!("{name}: {why}")))?;
     let updated = Dependency {
         tag: next.tag.clone(),
@@ -865,7 +851,6 @@ fn update(ctx: &mut Ctx, project: &mut Project, only: Option<&str>, to: Option<A
         return Err(DepError::new("--to needs one dependency name"));
     }
     let known = ctx.git.submodules(&project.dir)?;
-    warn_without_seed(ctx, project);
     let mut gates = Vec::new();
     for name in &names {
         let entry = &project.config.dependencies[name];

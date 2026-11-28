@@ -608,7 +608,7 @@ fn words(items: &[String]) -> String {
     }
 }
 
-/// Procedures whose locals add up to more than `max_frame_bytes`.
+/// Procedures whose locals add up to more than `max-frame-bytes`.
 fn frames(cx: &Cx, report: &mut Report) {
     let types = &cx.compiler.ty.types;
     for site in cx.procs.iter().filter(|p| p.typed()) {

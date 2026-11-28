@@ -1,5 +1,5 @@
 [format]
-blank_line_after_declarations = true
-blank_lines_around_blocks = true
-blank_line_after_guards = true
-blank_line_before_return = true
+blank-line-after-declarations = true
+blank-lines-around-blocks = true
+blank-line-after-guards = true
+blank-line-before-return = true

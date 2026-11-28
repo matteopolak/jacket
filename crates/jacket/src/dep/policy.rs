@@ -1,8 +1,10 @@
 //! The release-age policy: how old a version must be before `jacket dep` accepts it.
 //!
-//! `min_release_age` is the floor. `release_age_jitter` adds an offset in `[0, jitter]` that is
-//! hashed from the seed, the package and the version, so everyone on one project agrees while
-//! different projects wait different times and a compromised release reaches them in stages.
+//! `min-release-age` is the floor (default 2 weeks). `release-age-jitter` adds an offset in
+//! `[0, jitter]` (default 3 days) that is hashed from the seed, the package and the version, so
+//! everyone on one project agrees while different projects wait different times and a
+//! compromised release reaches them in stages. A project without a seed hashes the package and
+//! version alone, so the offset is still the same on every machine.
 use super::types::Age;
 use sha2::{Digest, Sha256};
 
@@ -109,19 +111,33 @@ pub struct Policy {
     pub min_age: Option<Age>,
     /// The largest jitter.
     pub jitter: Option<Age>,
+    /// The project's `[resolver] seed`, if it has one.
     pub seed: Option<String>,
 }
 
 impl Policy {
-    /// `[resolver]`, overridden by the entry's own `min_release_age` (`"0"` waives everything).
+    /// `[resolver]` with the defaults filled in, overridden by the entry's own `min-release-age`
+    /// (`"0"` waives everything, the jitter too). A resolver `min-release-age` of `0` also drops
+    /// the default jitter; a jitter written beside it is kept.
     pub fn from_config(
         resolver: &jacket_config::Resolver,
         entry: &jacket_config::Dependency,
     ) -> Result<Self, String> {
         let age = |text: &Option<String>| text.as_deref().map(Age::parse).transpose();
+        let min_age = match age(&resolver.min_release_age)? {
+            Some(age) => age,
+            None => Age::parse(jacket_config::Resolver::DEFAULT_MIN_RELEASE_AGE)?,
+        };
+        let jitter = match age(&resolver.release_age_jitter)? {
+            Some(jitter) => Some(jitter),
+            None if min_age == Age::ZERO => None,
+            None => Some(Age::parse(
+                jacket_config::Resolver::DEFAULT_RELEASE_AGE_JITTER,
+            )?),
+        };
         let mut policy = Self {
-            min_age: age(&resolver.min_release_age)?,
-            jitter: age(&resolver.release_age_jitter)?,
+            min_age: Some(min_age),
+            jitter,
             seed: resolver.seed.clone(),
         };
         if let Some(own) = age(&entry.min_release_age)? {
@@ -142,8 +158,9 @@ impl Policy {
     /// The age `tag` of `package` must have reached.
     pub fn required(&self, package: &str, tag: &str) -> i64 {
         let floor = self.min_age.map_or(0, Age::seconds);
-        match (&self.seed, self.jitter) {
-            (Some(seed), Some(jitter)) if jitter > Age::ZERO => {
+        match self.jitter {
+            Some(jitter) if jitter > Age::ZERO => {
+                let seed = self.seed.as_deref().unwrap_or("");
                 floor + offset(seed, package, tag, jitter.seconds())
             }
             _ => floor,
@@ -196,6 +213,48 @@ mod tests {
         assert!(differs, "another seed gives another offset");
         assert_ne!(offset("seed-a", "jaison", "v1.0.1", 172_800), a);
         assert_eq!(offset("s", "p", "v", 0), 0);
+    }
+
+    #[test]
+    fn a_project_with_no_settings_waits_two_weeks_plus_up_to_three_days() {
+        let resolver = jacket_config::Resolver::default();
+        let entry = jacket_config::Dependency::default();
+        let policy = Policy::from_config(&resolver, &entry).unwrap();
+        assert!(policy.active());
+        assert_eq!(policy.min_age, Some(Age::parse("2w").unwrap()));
+        assert_eq!(policy.jitter, Some(Age::parse("3d").unwrap()));
+        let need = policy.required("jaison", "v1.0.0");
+        assert!((1_209_600..=1_209_600 + 259_200).contains(&need));
+        // No seed: the offset comes from the package and version, the same on every run.
+        assert_eq!(need, policy.required("jaison", "v1.0.0"));
+        assert_eq!(
+            need,
+            1_209_600 + offset("", "jaison", "v1.0.0", 259_200),
+            "the offset is hashed from the package and version"
+        );
+        let seeded = Policy {
+            seed: Some("k".into()),
+            ..policy.clone()
+        };
+        assert_ne!(seeded.required("jaison", "v1.0.0"), need);
+    }
+
+    #[test]
+    fn a_zero_resolver_age_turns_the_policy_off_and_a_written_jitter_is_kept() {
+        let entry = jacket_config::Dependency::default();
+        let off = jacket_config::Resolver {
+            min_release_age: Some("0".into()),
+            ..Default::default()
+        };
+        let policy = Policy::from_config(&off, &entry).unwrap();
+        assert!(!policy.active());
+        assert_eq!(policy.required("p", "v1"), 0);
+        let jittered = jacket_config::Resolver {
+            release_age_jitter: Some("1d".into()),
+            ..off
+        };
+        let policy = Policy::from_config(&jittered, &entry).unwrap();
+        assert_eq!(policy.jitter, Some(Age::parse("1d").unwrap()));
     }
 
     #[test]

@@ -7,7 +7,7 @@ const MODULE: &[(&str, &str)] = &[("module.jai", "answer :: 42;\n")];
 
 #[test]
 fn a_machine_without_git_stops_with_how_to_install_it() {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let nowhere = project.root.join("nowhere");
     std::fs::create_dir_all(&nowhere).unwrap();
     let before = project.toml();
@@ -33,7 +33,7 @@ fn a_machine_without_git_stops_with_how_to_install_it() {
 
 #[test]
 fn an_unreachable_remote_names_the_address_and_changes_nothing() {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let before = project.toml();
     let url = "http://127.0.0.1:1/someone/lib.git";
     let run = project.jacket(&["dep", "add", &format!("{url}@v1")]);
@@ -53,7 +53,7 @@ fn an_unreachable_remote_names_the_address_and_changes_nothing() {
 #[test]
 fn a_release_age_policy_without_curl_stops_with_how_to_install_it() {
     let project =
-        Project::new("[project]\nentry = [\"main.jai\"]\n\n[resolver]\nmin_release_age = \"3d\"\n");
+        Project::new("[project]\nentry = [\"main.jai\"]\n\n[resolver]\nmin-release-age = \"3d\"\n");
     let git = std::process::Command::new("sh")
         .args(["-c", "command -v git"])
         .output()
@@ -81,13 +81,13 @@ fn a_release_age_policy_without_curl_stops_with_how_to_install_it() {
     );
     assert_eq!(project.toml(), before);
     // Without a policy, curl is not needed to get as far as the remote.
-    let plain = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let plain = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let run = plain.jacket_env(&["dep", "sync"], &[("PATH", only_git.to_str().unwrap())]);
     assert!(!run.err.contains("curl"), "{}", run.err);
 }
 
 fn released() -> (Project, dep_support::Origin) {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let origin = dep_support::Origin::new(
         &project.root,
         "jaison",
@@ -106,7 +106,7 @@ fn added() -> (Project, dep_support::Origin) {
 
 #[test]
 fn a_replaced_copy_is_not_touched_when_the_remote_cannot_be_read() {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     std::fs::create_dir_all(project.dir.join("modules/lib")).unwrap();
     std::fs::write(project.dir.join("modules/lib/module.jai"), "old :: 1;\n").unwrap();
     dep_support::git(&project.dir, &["add", "-A"]);
@@ -151,7 +151,7 @@ fn an_add_that_fails_after_the_clone_leaves_no_submodule_behind() {
 
 #[test]
 fn a_repository_git_cannot_read_is_not_blamed_on_a_missing_init() {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     std::fs::remove_dir_all(project.dir.join(".git")).unwrap();
     std::fs::write(project.dir.join(".git"), "garbage\n").unwrap();
     let run = project.jacket(&["dep", "sync"]);
@@ -167,7 +167,7 @@ fn a_repository_git_cannot_read_is_not_blamed_on_a_missing_init() {
 
 #[test]
 fn a_path_outside_the_project_is_refused_before_anything_runs() {
-    let project = Project::new(
+    let project = Project::waived(
         "[project]\nentry = [\"main.jai\"]\n\n[dependencies]\nlib = { git = \"a/b\", tag = \"v1\", path = \"../outside\" }\n",
     );
     let run = project.jacket(&["dep", "sync"]);
@@ -181,7 +181,7 @@ fn a_path_outside_the_project_is_refused_before_anything_runs() {
 
 #[test]
 fn an_entry_with_two_choices_is_refused() {
-    let project = Project::new(
+    let project = Project::waived(
         "[project]\nentry = [\"main.jai\"]\n\n[dependencies]\nlib = { git = \"a/b\", tag = \"v1\", rev = \"3f9c2a1\" }\n",
     );
     let run = project.jacket(&["dep", "list", "--offline"]);
@@ -340,7 +340,7 @@ fn ssh_from_the_projects_git_config_runs_without_prompting() {
 
 #[test]
 fn update_changes_nothing_when_a_later_dependency_cannot_be_reached() {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let first = Origin::new(&project.root, "first", MODULE);
     first.release("v1.0.0", &[]);
     let second = Origin::new(&project.root, "second", MODULE);

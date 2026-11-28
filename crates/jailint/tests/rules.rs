@@ -8,7 +8,7 @@
 //! - `example.jai` is the short, realistic case the rule's documentation page shows: exactly one
 //!   finding of that rule, snapshotted as `example.snap` (which the page embeds). The optional
 //!   `example-fixed.jai` is the same code fixed, and must produce nothing. An `example.toml`
-//!   (a `jacket.toml`) sets what the example needs, such as a lower `max_complexity`; the page
+//!   (a `jacket.toml`) sets what the example needs, such as a lower `max-complexity`; the page
 //!   shows it.
 //!
 //! `tests/lint/suppressed/` holds code every rule would fire on, silenced in source: it must

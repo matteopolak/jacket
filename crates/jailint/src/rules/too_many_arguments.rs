@@ -17,7 +17,7 @@ use crate::syntax::Cx;
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "too_many_arguments",
     category: crate::config::Category::Restriction,
-    summary: "a procedure with more parameters than `max_arguments` (default 7)",
+    summary: "a procedure with more parameters than `max-arguments` (default 7)",
     check,
 };
 

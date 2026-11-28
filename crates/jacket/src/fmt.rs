@@ -491,7 +491,7 @@ mod tests {
         let root = scratch("ignore");
         write(
             &root.join("jacket.toml"),
-            "[format]\nindent_width = 2\nignore = [\"gen/**\", \"skip.jai\"]\n",
+            "[format]\nindent-width = 2\nignore = [\"gen/**\", \"skip.jai\"]\n",
         );
         for file in [
             "a.jai",
@@ -508,8 +508,8 @@ mod tests {
         assert_eq!(plan.runs.len(), 1);
         let run = texts(&plan.runs[0]);
         assert_eq!(run[0], "--no-config");
-        assert!(run.windows(2).any(|w| w == ["--set", "indent_width=2"]));
-        assert!(run.windows(2).any(|w| w == ["--set", "case_indent=2"]));
+        assert!(run.windows(2).any(|w| w == ["--set", "indent-width=2"]));
+        assert!(run.windows(2).any(|w| w == ["--set", "case-indent=2"]));
         assert!(run.contains(&"--check".to_string()));
         assert_eq!(files_of(&plan.runs[0], &root), ["a.jai", "src/c.jai"]);
     }
@@ -519,7 +519,7 @@ mod tests {
         let root = scratch("doc-format");
         write(
             &root.join("jacket.toml"),
-            "[format]\nblank_line_before_return = true\n[doc.format]\nblank_line_before_return = false\n",
+            "[format]\nblank-line-before-return = true\n[doc.format]\nblank-line-before-return = false\n",
         );
         write(&root.join("a.jai"), "");
         let plan = plan_in(&root, &["--check", "."]);
@@ -527,16 +527,16 @@ mod tests {
         let run = texts(&plan.runs[0]);
         assert!(
             run.windows(2)
-                .any(|w| w == ["--set", "blank_line_before_return=true"])
+                .any(|w| w == ["--set", "blank-line-before-return=true"])
         );
         assert!(
             run.windows(2)
-                .any(|w| w == ["--set", "doc.format.blank_line_before_return=false"])
+                .any(|w| w == ["--set", "doc.format.blank-line-before-return=false"])
         );
 
         write(
             &root.join("jacket.toml"),
-            "[doc.format]\nformat_doc_examples = false\n",
+            "[doc.format]\nformat-doc-examples = false\n",
         );
         assert!(plan_in(&root, &["--check", "."]).failed);
     }
@@ -544,10 +544,10 @@ mod tests {
     #[test]
     fn nested_configs_group_files_by_their_settings() {
         let root = scratch("nested");
-        write(&root.join("jacket.toml"), "[format]\nindent_width = 2\n");
+        write(&root.join("jacket.toml"), "[format]\nindent-width = 2\n");
         write(
             &root.join("sub/jacket.toml"),
-            "[format]\nindent_width = 8\n",
+            "[format]\nindent-width = 8\n",
         );
         write(&root.join("a.jai"), "");
         write(&root.join("sub/b.jai"), "");
@@ -560,7 +560,7 @@ mod tests {
             .map(|run| {
                 let indent = texts(run)
                     .into_iter()
-                    .find(|a| a.starts_with("indent_width="))
+                    .find(|a| a.starts_with("indent-width="))
                     .unwrap();
                 (indent, files_of(run, &root))
             })
@@ -568,12 +568,12 @@ mod tests {
         by_indent.sort();
         assert_eq!(
             by_indent[0],
-            ("indent_width=2".into(), vec!["a.jai".to_string()])
+            ("indent-width=2".into(), vec!["a.jai".to_string()])
         );
         assert_eq!(
             by_indent[1],
             (
-                "indent_width=8".into(),
+                "indent-width=8".into(),
                 vec!["sub/b.jai".to_string(), "sub/deep/c.jai".to_string()]
             )
         );
@@ -582,7 +582,7 @@ mod tests {
     #[test]
     fn a_bad_value_fails_the_run() {
         let root = scratch("bad");
-        write(&root.join("jacket.toml"), "[format]\nindent_width = 99\n");
+        write(&root.join("jacket.toml"), "[format]\nindent-width = 99\n");
         write(&root.join("a.jai"), "");
         let plan = plan_in(&root, &["."]);
         assert!(plan.failed);
@@ -609,13 +609,13 @@ mod tests {
         let root = scratch("stdin");
         write(
             &root.join("jacket.toml"),
-            "[format]\nbrace_style = \"preserve\"\n",
+            "[format]\nbrace-style = \"preserve\"\n",
         );
         let plan = plan_in(&root, &["--stdin"]);
         let run = texts(&plan.runs[0]);
         assert!(
             run.windows(2)
-                .any(|w| w == ["--set", "brace_style=\"preserve\""])
+                .any(|w| w == ["--set", "brace-style=\"preserve\""])
         );
         assert_eq!(run.last().unwrap(), "--stdin");
     }

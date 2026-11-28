@@ -13,7 +13,7 @@ target/jaifmt --stdin --range 120:240 < in.jai > out.jai   # only the statements
 
 In a project use `jacket fmt`. For each file it finds the nearest `jacket.toml`, drops files its `ignore` patterns match, groups files by resolved settings and runs `jaifmt --no-config --set key=value ...` once per group. Standalone `jaifmt` (editors, the browser) validates the complete file with [`Extensions/Toml`](../extensions/toml.md), then reads the `[format]` and `[doc.format]` schemas; `--no-config` skips that and `--set KEY=VALUE` overrides one key.
 
-Paths are files or directories (searched for `*.jai`, skipping dot-directories and symlinks). Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Args`](../extensions/args.md). Exit status: 0 success, 1 `--check` found files to change, 2 errors (usage, unreadable file, input that doesn't lex, failed token check). `--check` lists `path:line` on stdout and, when anything would change, a hint with the rules page (`RULES_URL` in `jaifmt/main.jai`) on stderr; `-v` links the `max_width` page next to long lines.
+Paths are files or directories (searched for `*.jai`, skipping dot-directories and symlinks). Flags are declared at the top of `jaifmt/main.jai` and parsed by [`Extensions/Args`](../extensions/args.md). Exit status: 0 success, 1 `--check` found files to change, 2 errors (usage, unreadable file, input that doesn't lex, failed token check). `--check` lists `path:line` on stdout and, when anything would change, a hint with the rules page (`RULES_URL` in `jaifmt/main.jai`) on stderr; `-v` links the `max-width` page next to long lines.
 
 Files are formatted in parallel, one worker per logical core, or `-j N` workers (`-j 1` stays on one thread). Each file is read, formatted and written independently by `format_batch` (`jaifmt/batch.jai`); the main thread then reports the results in sorted path order, so output, totals and exit status are the same for any `-j`. Config files are resolved before the workers start, because the config cache and its warnings are not thread-safe. `jaifmt/tests/batch-order.jai` checks that a parallel run gives the same results as a serial one. The wasm build formats one input from stdin and uses no threads.
 
@@ -33,12 +33,12 @@ Files are formatted in parallel, one worker per logical core, or `-j N` workers 
 
 Behaviour in short:
 
-- **Lines.** Non-empty `{ ... }` bodies go on their own lines; `brace_style = "same_line"` joins a lone `{` to its header. `;`-separated statements are split. Kept as written: `.{ }`/`.[ ]` literals, braceless bodies, continued expressions, trailing comments.
-- **Blank lines.** Trailing whitespace removed, runs capped at `max_blank_lines`, one final newline. Blank lines are only added where a break already exists, never removed. `blank_lines_between_items` (default on) separates file-level items; the `blank_line_*` options are opt-in.
+- **Lines.** Non-empty `{ ... }` bodies go on their own lines; `brace-style = "same_line"` joins a lone `{` to its header. `;`-separated statements are split. Kept as written: `.{ }`/`.[ ]` literals, braceless bodies, continued expressions, trailing comments.
+- **Blank lines.** Trailing whitespace removed, runs capped at `max-blank-lines`, one final newline. Blank lines are only added where a break already exists, never removed. `blank-lines-between-items` (default on) separates file-level items; the `blank_line_*` options are opt-in.
 - **Indentation** follows bracket nesting; continuation lines keep their offset from the bracket or statement start.
 - **Spacing** is none or one space, with no alignment, following the dominant style of `stdlib/`.
 - **Verbatim:** strings, here-strings, `#asm { }` bodies and everything between `// jaifmt: off` and `// jaifmt: on`.
-- **Doc examples** (`format_doc_examples`, `format_doc_examples_in`): after the main pass, the `jai` blocks in `//` comment runs are formatted as separate texts (a file if the block declares `main`, else a procedure body that is unwrapped again) and written back with the same prefix. `max_width` is reduced by the prefix width. A block is kept as written unless it formats, keeps its tokens (`check_equivalent`) and formats to itself; the file as a whole must keep its non-comment tokens (`same_code_tokens`), which catches fence-looking lines inside here-strings and block comments.
+- **Doc examples** (`format-doc-examples`, `format_doc_examples_in`): after the main pass, the `jai` blocks in `//` comment runs are formatted as separate texts (a file if the block declares `main`, else a procedure body that is unwrapped again) and written back with the same prefix. `max-width` is reduced by the prefix width. A block is kept as written unless it formats, keeps its tokens (`check_equivalent`) and formats to itself; the file as a whole must keep its non-comment tokens (`same_code_tokens`), which catches fence-looking lines inside here-strings and block comments.
 - **Doc example settings** (`[doc.format]`): `parse_config` checks each key like a `[format]` one and records it in `Format_Config.doc_format` (`key`, `value` as written); `doc_example_config` applies them in file order to a copy of the config, and `format_doc_examples_in` formats with that copy. Unknown keys are dropped and warned about as `doc.format.<key>`. `jacket fmt` passes them to `jaifmt` as `--set doc.format.<key>=<value>`, so the file parser, `--set`, the browser formatter and the language server all go through `parse_config` / `format_apply_setting`.
 - **Safety check** (`check_equivalent`): the output is re-lexed and must have the same tokens, comments and line breaks before the same tokens (the parser is line-sensitive in a few places). On mismatch the file is left unchanged, exit 2, naming the token.
 
@@ -48,22 +48,22 @@ The `[format]` table of the nearest `jacket.toml` ([jacket](jacket.md)). `--conf
 
 ```toml
 [format]
-indent_width = 4          # 1-16
-case_indent = 4           # default indent_width
-case_body_indent = 4      # default indent_width
-max_blank_lines = 2
-max_width = 100           # only reported by --verbose
-brace_style = "same_line" # or "preserve"
-blank_lines_between_items = true
-blank_line_after_declarations = false   # plus blank_lines_around_blocks, blank_line_between_cases,
+indent-width = 4          # 1-16
+case-indent = 4           # default indent_width
+case-body-indent = 4      # default indent_width
+max-blank-lines = 2
+max-width = 100           # only reported by --verbose
+brace-style = "same_line" # or "preserve"
+blank-lines-between-items = true
+blank-line-after-declarations = false   # plus blank_lines_around_blocks, blank_line_between_cases,
                                         # blank_line_before_comments, blank_line_after_guards, blank_line_before_return
-format_doc_examples = true              # format the jai blocks in // comments
+format-doc-examples = true              # format the jai blocks in // comments
 ignore = ["tests/corpus/**", "generated/*.jai"]   # globs relative to the file
 
 # Overrides for the examples in doc comments only; any [format] key but ignore and
 # format_doc_examples. A key left out is inherited from [format].
 [doc.format]
-blank_line_after_declarations = false
+blank-line-after-declarations = false
 ```
 
 Ignore globs follow the same rules as lint paths ([jailint](jailint.md#configuration)); `PathPattern` in `crates/jacket-config/src/pattern.rs` and `glob_path_match` in `Jai_Format/config.jai` both run `tests/glob/cases.txt`. Colour follows `NO_COLOR`, `FORCE_COLOR` and `CLICOLOR_FORCE`. CI runs `--check stdlib tests benchmarks tools jaifmt examples`.
@@ -103,4 +103,4 @@ formatted, ok, error := format_source(source, config);   // free `formatted`; on
 
 Standalone and browser configuration parsing now requires a complete valid TOML 1.1 document, including unrelated sections. Earlier releases ignored some malformed unrelated statements and repeated keys; these now produce line-specific errors. Dotted-key/table redefinitions rejected by TOML are also errors. Unknown valid settings are still ignored and warned about using the existing schema policy.
 
-Settings consume decoded values, so valid integer spellings such as `indent_width = 0x2`, escaped strings and TOML 1.1 syntax outside formatter tables work consistently. The same semantic conversion handles `--set`. `[doc.format]` values retain their original value spans and source order; decoded settings and copied raw overrides remain valid after the temporary TOML document is freed. File discovery and ignore-glob matching stay in the formatter adapter. The Rust `jacket-config` parser remains an independent implementation.
+Settings consume decoded values, so valid integer spellings such as `indent-width = 0x2`, escaped strings and TOML 1.1 syntax outside formatter tables work consistently. The same semantic conversion handles `--set`. `[doc.format]` values retain their original value spans and source order; decoded settings and copied raw overrides remain valid after the temporary TOML document is freed. File discovery and ignore-glob matching stay in the formatter adapter. The Rust `jacket-config` parser remains an independent implementation.

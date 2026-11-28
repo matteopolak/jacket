@@ -137,7 +137,7 @@ impl World {
             ""
         };
         Self {
-            project: Project::new(&format!("[project]\nentry = [\"main.jai\"]\n{resolver}")),
+            project: Project::waived(&format!("[project]\nentry = [\"main.jai\"]\n{resolver}")),
             libs: BTreeMap::new(),
         }
     }

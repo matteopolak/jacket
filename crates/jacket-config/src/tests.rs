@@ -48,7 +48,7 @@ fn an_unreadable_file_is_an_error_not_defaults() {
 fn the_nearest_directory_wins_and_old_file_names_mean_nothing() {
     let fs = Mem(vec![
         ("/p/jacket.toml", "[project]\nentry = [\"a.jai\"]\n"),
-        ("/p/sub/jacket.toml", "[lint]\nmax_nesting = 3\n"),
+        ("/p/sub/jacket.toml", "[lint]\nmax-nesting = 3\n"),
         ("/q/jai.toml", "build_files = [\"b.jai\"]\n"),
     ]);
     let here = load(&fs, Path::new("/p/deep")).unwrap().unwrap();
@@ -95,7 +95,7 @@ fn entries_follow_the_configured_then_the_inferred_order() {
 
 #[test]
 fn experimental_and_toolchain_parse() {
-    let config = parse("[toolchain]\nversion = \"0.20.0\"\n[experimental]\nparse_threads = 3\nserial_parse = true\ncodegen_units = 8\n").unwrap();
+    let config = parse("[toolchain]\nversion = \"0.20.0\"\n[experimental]\nparse-threads = 3\nserial-parse = true\ncodegen-units = 8\n").unwrap();
     assert_eq!(config.toolchain.version.as_deref(), Some("0.20.0"));
     assert_eq!(config.experimental.parse_threads, Some(3));
     assert_eq!(config.experimental.serial_parse, Some(true));
@@ -111,7 +111,7 @@ fn experimental_and_toolchain_parse() {
 fn unknown_keys_are_dropped_and_named_by_path() {
     let (config, unknown) = parse_lenient(
         "[project]\nentry = \"a.jai\"\nflavour = 1\n[toolchain]\nversionn = \"1\"\n\
-         [lint]\nmax_nestng = 3\nexclude = [\"x\"]\n[format]\nindent = 2\n\
+         [lint]\nmax-nestng = 3\nexclude = [\"x\"]\n[format]\nindent = 2\n\
          [experimental]\nturbo = true\n[extras]\nx = 1\n",
     )
     .unwrap();
@@ -121,7 +121,7 @@ fn unknown_keys_are_dropped_and_named_by_path() {
             "experimental.turbo",
             "extras",
             "format.indent",
-            "lint.max_nestng",
+            "lint.max-nestng",
             "project.flavour",
             "toolchain.versionn",
         ]
@@ -141,9 +141,9 @@ fn a_nested_unknown_table_is_named_at_its_first_unknown_key() {
 #[test]
 fn known_settings_load_without_warnings() {
     let (config, unknown) = parse_lenient(
-        "[project]\nentry = [\"a.jai\"]\nimport_path = \"v\"\n[toolchain]\nversion = \"1.2.3\"\n\
-         [lint]\nmax_nesting = 3\n[lint.rules]\nfloat_equality = \"deny\"\n\
-         [format]\nindent_width = 2\n[experimental]\nparse_threads = 4\n",
+        "[project]\nentry = [\"a.jai\"]\nimport-path = \"v\"\n[toolchain]\nversion = \"1.2.3\"\n\
+         [lint]\nmax-nesting = 3\n[lint.rules]\nfloat_equality = \"deny\"\n\
+         [format]\nindent-width = 2\n[experimental]\nparse-threads = 4\n",
     )
     .unwrap();
     assert!(unknown.is_empty(), "{unknown:?}");
@@ -158,8 +158,8 @@ fn known_settings_load_without_warnings() {
 #[test]
 fn the_warning_suggests_the_near_key() {
     assert_eq!(
-        unknown_note("lint.max_nestng"),
-        "unknown setting `lint.max_nestng` in jacket.toml\nhelp: did you mean `lint.max_nesting`?"
+        unknown_note("lint.max-nestng"),
+        "unknown setting `lint.max-nestng` in jacket.toml\nhelp: did you mean `lint.max-nesting`?"
     );
     assert_eq!(
         unknown_note("lint.colour"),
@@ -171,10 +171,20 @@ fn the_warning_suggests_the_near_key() {
 #[test]
 fn a_top_level_key_of_a_section_points_at_it() {
     assert_eq!(
-        unknown_note("import_path"),
-        "unknown setting `import_path` in jacket.toml\nhelp: it belongs under `[project]`"
+        unknown_note("import-path"),
+        "unknown setting `import-path` in jacket.toml\nhelp: it belongs under `[project]`"
     );
-    assert!(unknown_note("max_nesting").ends_with("it belongs under `[lint]`"));
+    assert!(unknown_note("max-nesting").ends_with("it belongs under `[lint]`"));
+    // The old snake_case spelling names the new one.
+    assert_eq!(
+        unknown_note("import_path"),
+        "unknown setting `import_path` in jacket.toml\nhelp: use `import-path` under `[project]`"
+    );
+    assert_eq!(
+        unknown_note("package.requires_jacket"),
+        "unknown setting `package.requires_jacket` in jacket.toml\nhelp: `requires_jacket` is now `package.jacket-version`"
+    );
+    assert!(unknown_note("lint.max_nesting").ends_with("did you mean `lint.max-nesting`?"));
     assert_eq!(
         unknown_note("build_files"),
         "unknown setting `build_files` in jacket.toml\nhelp: use `entry` under `[project]`"
@@ -192,16 +202,16 @@ fn aliases_name_real_keys() {
 
 #[test]
 fn an_unknown_key_is_an_error_naming_the_file_line_and_nearest_key() {
-    let fs = Mem(vec![("/p/jacket.toml", "[lint]\nmax_nestng = 3\n")]);
+    let fs = Mem(vec![("/p/jacket.toml", "[lint]\nmax-nestng = 3\n")]);
     let error = load(&fs, Path::new("/p")).unwrap_err();
     assert_eq!(error.path, Path::new("/p/jacket.toml"));
     assert_eq!(
         error.message,
-        "unknown setting `lint.max_nestng` in jacket.toml (line 2)\nhelp: did you mean `lint.max_nesting`?"
+        "unknown setting `lint.max-nestng` in jacket.toml (line 2)\nhelp: did you mean `lint.max-nesting`?"
     );
-    let several = parse("[lint]\nmax_nestng = 3\n[format]\nindent = 2\ntyop = 1\n").unwrap_err();
+    let several = parse("[lint]\nmax-nestng = 3\n[format]\nindent = 2\ntyop = 1\n").unwrap_err();
     assert!(several.contains("\nnote: and 2 more: `"), "{several}");
-    assert!(parse("[lint]\nmax_nesting = 3\n").is_ok());
+    assert!(parse("[lint]\nmax-nesting = 3\n").is_ok());
 }
 
 #[test]
@@ -209,52 +219,52 @@ fn known_keys_match_the_structs() {
     let full = toml::to_string(&toml::Value::try_from(Config::default()).unwrap()).unwrap();
     assert!(full.is_empty());
     let sections = [
-        ("project", "entry = [\"a\"]\nimport_path = [\"b\"]\n"),
+        ("project", "entry = [\"a\"]\nimport-path = [\"b\"]\n"),
         ("toolchain", "version = \"1\"\n"),
         (
             "lint",
-            "exclude = [\"a\"]\nmax_nesting = 1\nmax_complexity = 9\nmax_arguments = 5\nmax_bools = 2\nmax_stack_array_bytes = 4096\nmagic_number_allow = [60, 0.5]\n\
-             magic_number_min = 4\nmagic_number_in_tests = true\n[lint.rules]\na = \"b\"\n\
+            "exclude = [\"a\"]\nmax-nesting = 1\nmax-complexity = 9\nmax-arguments = 5\nmax-bools = 2\nmax-stack-array-bytes = 4096\nmagic-number-allow = [60, 0.5]\n\
+             magic-number-min = 4\nmagic-number-in-tests = true\n[lint.rules]\na = \"b\"\n\
              [[lint.overrides]]\npaths = [\"c\"]\n[lint.overrides.rules]\nd = \"e\"\n\
              [lint.lifetimes]\nmode = \"strict\"\n\
-             [lint.freestanding]\nmax_frame_bytes = 512\n\
+             [lint.freestanding]\nmax-frame-bytes = 512\n\
              [lint.portability]\ntargets = [\"linux\"]\nportable = [\"p/**\"]\n[lint.portability.platforms]\n\"q/**\" = [\"linux\"]\n",
         ),
         (
             "format",
-            "indent_width = 1\ncase_indent = 1\ncase_body_indent = 1\nmax_blank_lines = 1\nmax_width = 1\n\
-             brace_style = \"a\"\nblank_lines_between_items = true\nblank_line_after_declarations = true\n\
-             blank_lines_around_blocks = true\nblank_line_between_cases = true\n\
-             blank_line_before_comments = true\nblank_line_after_guards = true\n\
-             blank_line_before_return = true\nformat_doc_examples = true\nignore = [\"a\"]\n",
+            "indent-width = 1\ncase-indent = 1\ncase-body-indent = 1\nmax-blank-lines = 1\nmax-width = 1\n\
+             brace-style = \"a\"\nblank-lines-between-items = true\nblank-line-after-declarations = true\n\
+             blank-lines-around-blocks = true\nblank-line-between-cases = true\n\
+             blank-line-before-comments = true\nblank-line-after-guards = true\n\
+             blank-line-before-return = true\nformat-doc-examples = true\nignore = [\"a\"]\n",
         ),
         (
             "experimental",
-            "parse_threads = 1\nserial_parse = true\ncodegen_units = 1\n",
+            "parse-threads = 1\nserial-parse = true\ncodegen-units = 1\n",
         ),
         (
             "resolver",
-            "min_release_age = \"3d\"\nrelease_age_jitter = \"2d\"\nseed = \"k\"\ndedupe = true\n",
+            "min-release-age = \"3d\"\nrelease-age-jitter = \"2d\"\nseed = \"k\"\ndedupe = true\n",
         ),
         (
             "package",
-            "name = \"a\"\nversion = \"1\"\nmodule = \"src\"\nrequires_jacket = \">=0.40\"\n\
-             platforms = [\"macos\"]\nimport_path = [\"x\"]\n",
+            "name = \"a\"\nversion = \"1\"\nmodule = \"src\"\njacket-version = \">=0.40\"\n\
+             platforms = [\"macos\"]\nimport-path = [\"x\"]\n",
         ),
-        ("postgres", "managed = true\nmanaged_version = \"17.6.0\"\n"),
+        ("postgres", "managed = true\nmanaged-version = \"17.6.0\"\n"),
         (
             "test",
-            "paths = [\"a\"]\njobs = 2\ntimeout = 5\nslow = 1\nretries = 1\nfail_fast = true\n\
-             flaky_fails = true\nrunner = \"node\"\nneeds = [\"network\"]\n\
+            "paths = [\"a\"]\njobs = 2\ntimeout = 5\nslow = 1\nretries = 1\nfail-fast = true\n\
+             flaky-fails = true\nrunner = \"node\"\nneeds = [\"network\"]\n\
              [test.profile.ci]\njobs = 1\n",
         ),
         (
             "doc",
-            "url = \"n\"\nog_image = \"o\"\nsite_name = \"p\"\ncanonical_version = \"q\"\ntheme = \"r\"\n\
+            "url = \"n\"\nog-image = \"o\"\nsite-name = \"p\"\ncanonical-version = \"q\"\ntheme = \"r\"\n\
              path = \"a\"\nname = \"b\"\nbreadcrumb = \"m\"\ndescription = \"c\"\nlogo = \"d\"\nicon = \"v\"\nhome = \"w\"\nrepo = \"e\"\nplayground = \"f\"\n\
-             since = \"g\"\npages_title = \"h\"\nfiles = [\"u\"]\n[[doc.category]]\nname = \"i\"\n[[doc.group]]\nname = \"j\"\n\
+             since = \"g\"\npages-title = \"h\"\nfiles = [\"u\"]\n[[doc.category]]\nname = \"i\"\n[[doc.group]]\nname = \"j\"\n\
              [[doc.page]]\nfile = \"k\"\nname = \"l\"\n[[doc.section]]\nfile = \"s\"\nname = \"t\"\n\
-             [doc.format]\nindent_width = 2\n",
+             [doc.format]\nindent-width = 2\n",
         ),
     ];
     let mut tops: Vec<&str> = Vec::new();
@@ -285,7 +295,7 @@ fn known_keys_match_the_structs() {
     tops.push("target");
     let config = parse(
         "[dependencies.d]\ngit = \"a/b\"\nversion = \"^1\"\ntag = \"t\"\nrev = \"r\"\npath = \"p\"\n\
-         module = \"m\"\nscheme = \"semver\"\ntag_prefix = \"v\"\nmin_release_age = \"0\"\nshared = true\n",
+         module = \"m\"\nscheme = \"semver\"\ntag-prefix = \"v\"\nmin-release-age = \"0\"\nshared = true\n",
     )
     .unwrap();
     let value = toml::Value::try_from(&config).unwrap();
@@ -309,7 +319,7 @@ fn known_keys_match_the_structs() {
 #[test]
 fn test_profiles_lay_over_the_test_section() {
     let (config, unknown) = parse_lenient(
-        "[test]\njobs = 4\nretries = 1\n[test.profile.ci]\nretries = 3\nfail_fast = true\njbos = 2\n",
+        "[test]\njobs = 4\nretries = 1\n[test.profile.ci]\nretries = 3\nfail-fast = true\njbos = 2\n",
     )
     .unwrap();
     assert_eq!(unknown, ["test.profile.ci.jbos"]);
@@ -349,17 +359,17 @@ fn checks_run_at_load_and_their_problems_are_recorded_not_fatal() {
     fn max_nesting_is_small(config: &Config, dir: &Path) -> Result<(), String> {
         match config.lint.max_nesting {
             Some(n) if n > 3 => Err(format!(
-                "`max_nesting` {n} in {} is too deep",
+                "`max-nesting` {n} in {} is too deep",
                 dir.display()
             )),
             _ => Ok(()),
         }
     }
-    let files = Mem(vec![("/p/jacket.toml", "[lint]\nmax_nesting = 9\n")]);
+    let files = Mem(vec![("/p/jacket.toml", "[lint]\nmax-nesting = 9\n")]);
     let loaded = load_checked(&files, Path::new("/p"), &[max_nesting_is_small])
         .unwrap()
         .unwrap();
-    assert_eq!(loaded.problems, ["`max_nesting` 9 in /p is too deep"]);
+    assert_eq!(loaded.problems, ["`max-nesting` 9 in /p is too deep"]);
     assert_eq!(loaded.config.lint.max_nesting, Some(9));
     let unchecked = load(&files, Path::new("/p")).unwrap().unwrap();
     assert!(unchecked.problems.is_empty());
@@ -374,8 +384,8 @@ fn only_jacket_toml_is_a_settings_file() {
 #[test]
 fn doc_format_overrides_only_what_it_sets() {
     let (config, unknown) = parse_lenient(
-        "[format]\nblank_line_after_declarations = true\nindent_width = 2\n\
-         [doc.format]\nblank_line_after_declarations = false\nbrace_style = \"preserve\"\n",
+        "[format]\nblank-line-after-declarations = true\nindent-width = 2\n\
+         [doc.format]\nblank-line-after-declarations = false\nbrace-style = \"preserve\"\n",
     )
     .unwrap();
     assert!(unknown.is_empty(), "{unknown:?}");
@@ -383,13 +393,13 @@ fn doc_format_overrides_only_what_it_sets() {
     assert_eq!(
         config.doc.format.overrides(),
         [
-            ("brace_style", "\"preserve\"".to_string()),
-            ("blank_line_after_declarations", "false".to_string()),
+            ("brace-style", "\"preserve\"".to_string()),
+            ("blank-line-after-declarations", "false".to_string()),
         ]
     );
     assert_eq!(config.format.indent_width, Some(2));
     assert!(
-        parse("[format]\nindent_width = 2\n")
+        parse("[format]\nindent-width = 2\n")
             .unwrap()
             .doc
             .format
@@ -400,26 +410,26 @@ fn doc_format_overrides_only_what_it_sets() {
 
 #[test]
 fn doc_format_is_checked_like_format() {
-    let bad = parse("[doc.format]\nindent_width = 17\n").unwrap();
+    let bad = parse("[doc.format]\nindent-width = 17\n").unwrap();
     assert_eq!(
         bad.doc.format.validate_doc().unwrap_err(),
-        "indent_width must be an integer from 1 to 16"
+        "indent-width must be an integer from 1 to 16"
     );
     let ignore = parse("[doc.format]\nignore = [\"a\"]\n").unwrap();
     assert_eq!(
         ignore.doc.format.validate_doc().unwrap_err(),
         "doc.format cannot set ignore"
     );
-    let examples = parse("[doc.format]\nformat_doc_examples = false\n").unwrap();
+    let examples = parse("[doc.format]\nformat-doc-examples = false\n").unwrap();
     assert_eq!(
         examples.doc.format.validate_doc().unwrap_err(),
-        "doc.format cannot set format_doc_examples"
+        "doc.format cannot set format-doc-examples"
     );
-    let (_, unknown) = parse_lenient("[doc.format]\nindent_widht = 2\n").unwrap();
-    assert_eq!(unknown, ["doc.format.indent_widht"]);
+    let (_, unknown) = parse_lenient("[doc.format]\nindent-widht = 2\n").unwrap();
+    assert_eq!(unknown, ["doc.format.indent-widht"]);
     assert_eq!(
-        unknown_note("doc.format.indent_widht"),
-        "unknown setting `doc.format.indent_widht` in jacket.toml\nhelp: did you mean `doc.format.indent_width`?"
+        unknown_note("doc.format.indent-widht"),
+        "unknown setting `doc.format.indent-widht` in jacket.toml\nhelp: did you mean `doc.format.indent-width`?"
     );
 }
 
@@ -472,9 +482,9 @@ fn a_target_table_accepts_only_portable_settings() {
         [
             "board",
             "entry",
-            "gc_sections",
+            "gc-sections",
             "runner",
-            "stack_size",
+            "stack-size",
             "triple"
         ]
     );
@@ -484,8 +494,8 @@ fn a_target_table_accepts_only_portable_settings() {
 fn dependencies_read_inline_tables_and_the_resolver_policy() {
     let (config, unknown) = parse_lenient(
         "[dependencies]\njaison = { git = \"github.com/someone/jaison\", version = \"^1.2\" }\n\
-         utf8 = { git = \"x/utf8\", tag = \"v0.4.1\", min_release_age = \"0\", tag_prefix = \"v\" }\n\
-         [resolver]\nmin_release_age = \"3d\"\nseed = \"k3v9q2xh\"\nddedupe = true\n",
+         utf8 = { git = \"x/utf8\", tag = \"v0.4.1\", min-release-age = \"0\", tag-prefix = \"v\" }\n\
+         [resolver]\nmin-release-age = \"3d\"\nseed = \"k3v9q2xh\"\nddedupe = true\n",
     )
     .unwrap();
     assert_eq!(unknown, ["resolver.ddedupe"]);

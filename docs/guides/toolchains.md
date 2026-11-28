@@ -29,7 +29,7 @@ $ jacket build hello.jai --target Mps2_An386
       Linker /opt/homebrew/opt/lld/bin/ld.lld 23.1.6
     Builtins compiler-rt 21.1.8 (cached)
       Script hello.ld
-    Finished debug [unoptimized] in 0.19s
+    Finished debug [unoptimized] in 0.16s
 ```
 
 Builds for your own machine print these lines only with `-v`.
@@ -97,6 +97,7 @@ $ jacket toolchain list
 ~/Library/Caches/jacket/toolchains
 TARGET                         SYSROOT   BUILTINS
 armv7-unknown-linux-gnueabihf  yes       -
+i686-unknown-linux-gnu         yes       -
 thumbv7em-none-eabihf          -         compiler-rt 21.1.8
 ```
 
@@ -123,11 +124,11 @@ qemu-system-arm: /opt/homebrew/bin/qemu-system-arm
 [target.pi]
 triple = "armv7-unknown-linux-gnueabihf"
 runner = "qemu-arm -L {sysroot} {exe}"
-stack_size = 8192
-gc_sections = true
+stack-size = 8192
+gc-sections = true
 ```
 
-- `stack_size`, `entry` and `gc_sections` are written once, and jacket passes them in the form the chosen linker expects.
+- `stack-size`, `entry` and `gc-sections` are written once, and jacket passes them in the form the chosen linker expects.
 - `{sysroot}` in a runner is the sysroot jacket found, so the same line works with the system's cross packages or a cached sysroot.
 
 To use a specific tool for one build, use a flag or environment variable instead. These belong in scripts and CI, not in `jacket.toml`:

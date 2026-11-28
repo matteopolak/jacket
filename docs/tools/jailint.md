@@ -249,7 +249,7 @@ It reports:
 - **OS-only modules.** An `#import` of a module that asserts its systems and leaves out `NONE` (`Thread`, `Process`, `POSIX`). The systems are the ones `jacket doc` shows, read from the module's `#assert`, so there is no list to maintain. An import under `#if` is skipped.
 - **Allocation through the default allocator.** `alloc`, `New`, `NewArray`, `array_add` and `tprint` reached from `main`, a `#program_export` procedure or an `@Interrupt` procedure with no `push_allocator` or `push_context` (naming a context) around the call. Calls into other files are followed; the finding is at the call in the linted file that leads there. Calls into the standard library are not followed.
 - **Interrupt handlers that do too much.** In an `@Interrupt` procedure and what it calls: allocation (even with an allocator pushed), `print`, `write_string`, `log`, locks, and calls that block (`sleep_milliseconds`, `wait`, `wait_for`).
-- **Unbounded stack.** A procedure in a call cycle (once per cycle, at the first member in the file), and a procedure whose locals add up to more than `max_frame_bytes`.
+- **Unbounded stack.** A procedure in a call cycle (once per cycle, at the first member in the file), and a procedure whose locals add up to more than `max-frame-bytes`.
 - **Work the CPU cannot do.** `float64` arithmetic, or `s64` division in a loop, when the target is freestanding and its CPU has no double-precision float unit or 64-bit divide. AArch64 has both, so this is quiet until the 32-bit microcontroller CPUs are added.
 
 Turn it on with `-W freestanding` or `[lint.rules] freestanding = "warn"`. The frame limit is `[lint.freestanding] max_frame_bytes`, 1024 by default:
@@ -259,7 +259,7 @@ Turn it on with `-W freestanding` or `[lint.rules] freestanding = "warn"`. The f
 freestanding = "warn"
 
 [lint.freestanding]
-max_frame_bytes = 512
+max-frame-bytes = 512
 ```
 
 ### identical_branches
@@ -575,14 +575,14 @@ The `[lint]` table of `jacket.toml`, found by walking up from the first path (or
 ```toml
 [lint]
 exclude = ["tests/corpus/negative/**", "generated/**"]   # patterns relative to this file
-max_nesting = 6                                          # blocks `excessive_nesting` allows
-max_complexity = 25                                      # score `cognitive_complexity` allows
-max_arguments = 7                                        # parameters `too_many_arguments` allows
-max_bools = 3                                            # `bool` parameters `excessive_bools` allows
-max_stack_array_bytes = 65536                            # bytes a local array may take
-magic_number_allow = [60, 24]                            # numbers `magic_number` accepts
-magic_number_min = 3                                     # whole numbers below this are fine
-magic_number_in_tests = false                            # also check `tests`/`test` folders
+max-nesting = 6                                          # blocks `excessive_nesting` allows
+max-complexity = 25                                      # score `cognitive_complexity` allows
+max-arguments = 7                                        # parameters `too_many_arguments` allows
+max-bools = 3                                            # `bool` parameters `excessive_bools` allows
+max-stack-array-bytes = 65536                            # bytes a local array may take
+magic-number-allow = [60, 24]                            # numbers `magic_number` accepts
+magic-number-min = 3                                     # whole numbers below this are fine
+magic-number-in-tests = false                            # also check `tests`/`test` folders
 
 [lint.rules]
 excessive_nesting = "warn"
@@ -590,7 +590,7 @@ float_equality = "warn"
 unused_parameter = "allow"
 
 [lint.freestanding]
-max_frame_bytes = 1024                                   # bytes of locals `freestanding` allows a procedure
+max-frame-bytes = 1024                                   # bytes of locals `freestanding` allows a procedure
 
 [[lint.overrides]]                                       # levels for some paths only
 paths = ["tests/**"]
@@ -623,7 +623,7 @@ The repository's own `jacket.toml` excludes negative compiler cases, lint `bad` 
 1. Create `crates/jailint/src/rules/<name>.rs` with a doc comment (what, why, exactly when), `pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>)` and `pub(crate) const INFO: super::RuleInfo` (name, default level, summary).
 2. Add `<name>` to the `rules!` list in `rules/mod.rs`. The editor schema build reads the same list.
 3. Add `tests/lint/<name>/bad.jai` and `good.jai` (whole programs with `main`), then run `INSTA_UPDATE=always cargo test -p jailint` and read the output.
-   Also add `example.jai`, the 5 to 15 line program the rule's page shows: realistic code with exactly one finding of the rule (the test enforces it, and writes `example.snap`). `example-fixed.jai` is the same code fixed, and must produce nothing. An `example.toml` (a `jacket.toml`) holds settings the example needs, such as a lower `max_complexity`. The page embeds the code and `example.snap` when the reference is generated, so the diagnostic is never typed by hand; an off-by-default rule is linted with itself enabled.
+   Also add `example.jai`, the 5 to 15 line program the rule's page shows: realistic code with exactly one finding of the rule (the test enforces it, and writes `example.snap`). `example-fixed.jai` is the same code fixed, and must produce nothing. An `example.toml` (a `jacket.toml`) holds settings the example needs, such as a lower `max-complexity`. The page embeds the code and `example.snap` when the reference is generated, so the diagnostic is never typed by hand; an off-by-default rule is linted with itself enabled.
 4. Run it over the repository and the upstream corpus with `-W <name>` and check every hit. A rule that is sometimes wrong costs more trust than it earns.
 5. Add a `### <name>` section here, then regenerate the reference: `PYTHONPATH=tools python3 tools/generators/generate_reference_docs.py`.
 

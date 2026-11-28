@@ -3,7 +3,7 @@ use crate::dep_support;
 use dep_support::{Origin, Project, git};
 
 fn tagged(names: &[&str]) -> (Project, Origin) {
-    let project = Project::new("");
+    let project = Project::waived("");
     let origin = Origin::new(&project.root, "lib", &[("module.jai", "x :: 0;\n")]);
     for (i, name) in names.iter().enumerate() {
         origin.release(name, &[("module.jai", &format!("x :: {};\n", i + 1))]);
@@ -86,7 +86,7 @@ fn prefixes_and_other_schemes_read_their_own_tags() {
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert_eq!(head(&project, "lib"), "alpha-0.0.3");
     assert!(
-        project.toml().contains("tag_prefix = \"alpha-\""),
+        project.toml().contains("tag-prefix = \"alpha-\""),
         "{}",
         project.toml()
     );

@@ -77,14 +77,14 @@ The nearest directory above the working directory (or the open file, for `jailsp
 ```toml
 [project]
 entry = ["src/main.jai"]        # string or array; relative to this file
-import_path = ["vendor"]       # more module folders (-import_dir)
+import-path = ["vendor"]       # more module folders (-import_dir)
 
 [toolchain]
 version = "0.19.1"              # another jacket release refuses to build this project
 
 [lint]
 exclude = ["tests/negative/**"]
-max_nesting = 5
+max-nesting = 5
 
 [lint.rules]
 unused_variable = "deny"        # allow | warn | deny
@@ -94,7 +94,7 @@ paths = ["tests/**"]
 rules = { unused_variable = "warn", leniencies = "allow" }   # compiler warnings too: a code, `leniencies` or `compiler`
 
 [format]                        # every jaifmt key, see jaifmt.md
-indent_width = 4
+indent-width = 4
 ignore = ["gen/**"]
 
 [test]                          # see jacket-test.md
@@ -116,22 +116,22 @@ repo = "https://github.com/me/my_lib"
 library = { git = "someone/library", version = "^1.2" }
 
 [resolver]                      # how jacket dep picks versions
-min_release_age = "3d"
+min-release-age = "3d"
 seed = "k3v9q2xh"
 
 [package]                       # what this repository says when others depend on it
 name = "my_lib"
-requires_jacket = ">=0.40"
+jacket-version = ">=0.40"
 
 [postgres]                      # read by Extensions/Postgres
 managed = true
 
 [experimental]                  # may change between releases; each is a jaic flag
-parse_threads = 4
-codegen_units = 4
+parse-threads = 4
+codegen-units = 4
 ```
 
-Precedence: command-line flags, then `jacket.toml`, then defaults. An unknown key is an error in every tool, as an unknown `jailint` rule is: it names the file, the line and the nearest known key (`unknown setting `lint.max_nestng` in jacket.toml (line 2)`, then `help: did you mean `lint.max_nesting`?`). A file that isn't valid TOML, or has a wrongly typed value, is an error naming file and line. `jacket config show` prints the effective settings and where each came from.
+Precedence: command-line flags, then `jacket.toml`, then defaults. An unknown key is an error in every tool, as an unknown `jailint` rule is: it names the file, the line and the nearest known key (`unknown setting `lint.max-nestng` in jacket.toml (line 2)`, then `help: did you mean `lint.max-nesting`?`). A file that isn't valid TOML, or has a wrongly typed value, is an error naming file and line. `jacket config show` prints the effective settings and where each came from.
 
 ## How to change it
 
@@ -139,7 +139,7 @@ Precedence: command-line flags, then `jacket.toml`, then defaults. An unknown ke
 - **A new section:** add a typed struct in `schema.rs` (no catch-all map; `parse` rejects unknown keys and `known_keys` feeds the did-you-mean, which a test keeps in step) and read it from `Loaded`. A tool that validates its own values passes a `Check` to `load_checked`.
 - **Entry inference:** `jacket_config::first_entry` and `INFERRED_ENTRIES`. `jaic-cli` and `jailsp` share them, so keep one order.
 - **`[format]`:** `FORMAT_SETTINGS` in `schema.rs` is the authority. `jacket fmt` (`crates/jacket/src/fmt.rs`) resolves them and passes each to `jaifmt` as `--no-config --set key=value`. Standalone `jaifmt` and the browser use the Jai TOML reader in `stdlib/Extensions/Jai_Format`, and `jai_format_sync.rs` fails when the two drift. To add a key: the table, `Format` in `schema.rs`, then `Format_Config`, `apply_key` and `FORMAT_KEYS` in `Jai_Format`.
-- `crates/jaic` never reads `jacket.toml`; `jaic` takes settings as flags from `jacket`, including `-package_import_dir` for each dependency's own `import_path`.
+- `crates/jaic` never reads `jacket.toml`; `jaic` takes settings as flags from `jacket`, including `-package_import_dir` for each dependency's own `import-path`.
 - **Dependencies:** `crates/jacket/src/dep/` holds the commands (see [dependencies](dependencies.md)); `jacket_config::packages` reads what dependencies add to the module search and is shared by `jacket`, `jailint` and the compiler tests.
 
 ## Dependencies

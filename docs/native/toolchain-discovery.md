@@ -79,17 +79,17 @@ With no subcommand it lists the host, the project's `[target.NAME]` tables and t
 [target.pi]
 triple = "armv7-unknown-linux-gnueabihf"
 runner = "qemu-arm -L {sysroot} {exe}"
-stack_size = 8192
+stack-size = 8192
 entry = "main"
-gc_sections = true
+gc-sections = true
 ```
 
 - `runner` words may use `{exe}`, `{args}` and `{sysroot}`. `{sysroot}` is the system's cross sysroot, else the cached one; none found is an error with the `add` note. It is looked up only when running.
-- `stack_size`, `entry` and `gc_sections` are written by meaning. jaic renders them for the linker it uses:
+- `stack-size`, `entry` and `gc-sections` are written by meaning. jaic renders them for the linker it uses:
 
 | Meaning | `ld.lld` | MSVC / lld-link | Apple `ld` | GNU driver |
 | --- | --- | --- | --- | --- |
-| `gc_sections` | `--gc-sections` | `/OPT:REF` | `-Wl,-dead_strip` | `-Wl,--gc-sections` |
+| `gc-sections` | `--gc-sections` | `/OPT:REF` | `-Wl,-dead_strip` | `-Wl,--gc-sections` |
 | `entry = S` | `--entry=S` | `/ENTRY:S` | `-Wl,-e,S` | `-Wl,--entry=S` |
 | `stack_size = N` | `-z stack-size=N` | `/STACK:N` | `-Wl,-stack_size,0xN` | `-Wl,-z,stack-size=N` (MinGW: `-Wl,--stack,N`) |
 

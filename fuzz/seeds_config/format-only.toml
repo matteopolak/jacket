@@ -1,5 +1,5 @@
 # fmt
 [format]
-indent_width = 2
-brace_style = "same_line" # always
+indent-width = 2
+brace-style = "same_line" # always
 ignore = ["a/**"]

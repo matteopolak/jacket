@@ -6,7 +6,9 @@ use crate::schema::{FORMAT_SETTINGS, Fallback, Kind};
 const MODULE: &str = include_str!("../../../stdlib/Extensions/Jai_Format/module.jai");
 const CONFIG: &str = include_str!("../../../stdlib/Extensions/Jai_Format/config.jai");
 
-/// Each field of `Format_Config`: its name, its declaration (type or default, without the
+/// Each field of `Format_Config`: its key (the member name with `_` written `-`, as the
+/// struct's `rename_all=kebab-case` reads it; the skipped members keep their names), its
+/// declaration (type or default, without the
 /// trailing comment) and the text of its `@toml(...)` note.
 fn fields() -> Vec<(String, String, String)> {
     let body = MODULE
@@ -26,8 +28,14 @@ fn fields() -> Vec<(String, String, String)> {
                 .and_then(|n| n.rsplit_once(')'))
                 .map_or("", |(n, _)| n);
             let at = declaration.find([':', ' ']).unwrap();
+            let name = declaration[..at].to_string();
+            let key = if note == "skip" {
+                name
+            } else {
+                name.replace('_', "-")
+            };
             (
-                declaration[..at].to_string(),
+                key,
                 declaration[at..]
                     .trim_start_matches([':', ' ', '='])
                     .to_string(),
@@ -115,15 +123,15 @@ fn notes_are_the_schema_types() {
 
 #[test]
 fn validate_words_errors_like_the_jai_parser() {
-    let config = crate::parse("[format]\nindent_width = 17\n").unwrap();
+    let config = crate::parse("[format]\nindent-width = 17\n").unwrap();
     assert_eq!(
         config.format.validate().unwrap_err(),
-        "indent_width must be an integer from 1 to 16"
+        "indent-width must be an integer from 1 to 16"
     );
-    let config = crate::parse("[format]\nbrace_style = \"x\"\n").unwrap();
+    let config = crate::parse("[format]\nbrace-style = \"x\"\n").unwrap();
     assert_eq!(
         config.format.validate().unwrap_err(),
-        "brace_style must be \"same_line\" or \"preserve\""
+        "brace-style must be \"same_line\" or \"preserve\""
     );
     assert!(
         crate::parse("[format]\n")
@@ -136,11 +144,11 @@ fn validate_words_errors_like_the_jai_parser() {
 
 #[test]
 fn resolved_fills_in_defaults() {
-    let config = crate::parse("[format]\nindent_width = 2\nmax_width = 80\n").unwrap();
+    let config = crate::parse("[format]\nindent-width = 2\nmax-width = 80\n").unwrap();
     let got = config.format.resolved();
-    assert!(got.contains(&("case_indent", "2".to_string())));
-    assert!(got.contains(&("max_width", "80".to_string())));
-    assert!(got.contains(&("brace_style", "\"same_line\"".to_string())));
-    assert!(got.contains(&("blank_lines_between_items", "true".to_string())));
+    assert!(got.contains(&("case-indent", "2".to_string())));
+    assert!(got.contains(&("max-width", "80".to_string())));
+    assert!(got.contains(&("brace-style", "\"same_line\"".to_string())));
+    assert!(got.contains(&("blank-lines-between-items", "true".to_string())));
     assert_eq!(got.len(), FORMAT_SETTINGS.len() - 1);
 }

@@ -40,6 +40,7 @@ pub struct Config {
 /// One `[dependencies]` entry: where the module comes from and what was asked for. The
 /// submodule's commit is what builds; this records the request.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Dependency {
     /// `user/repo` (GitHub), `host/path` (HTTPS), or a full URL or `git@...` address.
     #[serde(default)]
@@ -77,15 +78,19 @@ pub struct Dependency {
 
 /// `[resolver]`: the release-age policy and the experimental shared-dependency mode.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Resolver {
-    /// How long ago a version must have been published (`3d`, `12h`, `0`).
+    /// How long ago a version must have been published (`3d`, `12h`, `0`). Default:
+    /// [`Resolver::DEFAULT_MIN_RELEASE_AGE`]; `0` turns the policy off.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_release_age: Option<String>,
     /// Adds a per-version offset in `[0, jitter]` to the age, so a bad release reaches projects
-    /// in stages.
+    /// in stages. Default: [`Resolver::DEFAULT_RELEASE_AGE_JITTER`], none when
+    /// `min-release-age` is `0`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub release_age_jitter: Option<String>,
-    /// Random text the jitter is hashed from; written by `jacket dep init`.
+    /// Random text the jitter is hashed from, written by `jacket dep init` and the first
+    /// `jacket dep add`. Without one the jitter is hashed from the package and version alone.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seed: Option<String>,
     /// Experimental: solve every package's ranges together and share one copy per name.
@@ -94,6 +99,12 @@ pub struct Resolver {
 }
 
 impl Resolver {
+    /// `min-release-age` when none is set.
+    pub const DEFAULT_MIN_RELEASE_AGE: &'static str = "2w";
+
+    /// `release-age-jitter` when none is set.
+    pub const DEFAULT_RELEASE_AGE_JITTER: &'static str = "3d";
+
     pub fn is_empty(&self) -> bool {
         *self == Self::default()
     }
@@ -101,6 +112,7 @@ impl Resolver {
 
 /// `[package]`: this project as a dependency of others.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Package {
     /// The import name. Default: the repository's name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -113,7 +125,7 @@ pub struct Package {
     pub module: Option<String>,
     /// The jacket versions this package builds with (`>=0.40`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requires_jacket: Option<String>,
+    pub jacket_version: Option<String>,
     /// The operating systems it supports.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub platforms: Vec<String>,
@@ -130,6 +142,7 @@ impl Package {
 
 /// One `[target.<name>]`: what `--target <name>` builds for and how it runs the result.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Target {
     /// The LLVM target triple (`aarch64-none-elf`). A board supplies it when this is left out.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -173,6 +186,7 @@ impl<'de> Deserialize<'de> for Strings {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Project {
     /// The files given to `jaic` (a metaprogram, or the program), relative to the file.
     #[serde(default, skip_serializing_if = "is_empty_strings")]
@@ -230,6 +244,7 @@ pub struct Lifetimes {
 
 /// Settings of the `freestanding` rule.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Freestanding {
     /// How many bytes of fixed-size locals a procedure's stack frame may hold before
     /// `freestanding` reports it.
@@ -238,6 +253,7 @@ pub struct Freestanding {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Lint {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lifetimes: Option<Lifetimes>,
@@ -311,6 +327,7 @@ pub struct LintOverride {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Format {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub indent_width: Option<i64>,
@@ -402,24 +419,24 @@ const fn flag(name: &'static str, default: bool) -> Setting {
 
 /// Every `[format]` key, in the order `jaifmt` lists them.
 pub const FORMAT_SETTINGS: &[Setting] = &[
-    int("indent_width", 1, 16, Fallback::Int(4)),
-    int("case_indent", 0, 16, Fallback::IndentWidth),
-    int("case_body_indent", 0, 16, Fallback::IndentWidth),
-    int("max_blank_lines", 0, 100, Fallback::Int(2)),
-    int("max_width", 10, 10000, Fallback::Int(100)),
+    int("indent-width", 1, 16, Fallback::Int(4)),
+    int("case-indent", 0, 16, Fallback::IndentWidth),
+    int("case-body-indent", 0, 16, Fallback::IndentWidth),
+    int("max-blank-lines", 0, 100, Fallback::Int(2)),
+    int("max-width", 10, 10000, Fallback::Int(100)),
     Setting {
-        name: "brace_style",
+        name: "brace-style",
         kind: Kind::Choice(&["same_line", "preserve"]),
         default: Fallback::Choice("same_line"),
     },
-    flag("blank_lines_between_items", true),
-    flag("blank_line_after_declarations", false),
-    flag("blank_lines_around_blocks", false),
-    flag("blank_line_between_cases", false),
-    flag("blank_line_before_comments", false),
-    flag("blank_line_after_guards", false),
-    flag("blank_line_before_return", false),
-    flag("format_doc_examples", true),
+    flag("blank-lines-between-items", true),
+    flag("blank-line-after-declarations", false),
+    flag("blank-lines-around-blocks", false),
+    flag("blank-line-between-cases", false),
+    flag("blank-line-before-comments", false),
+    flag("blank-line-after-guards", false),
+    flag("blank-line-before-return", false),
+    flag("format-doc-examples", true),
     Setting {
         name: "ignore",
         kind: Kind::Globs,
@@ -429,36 +446,36 @@ pub const FORMAT_SETTINGS: &[Setting] = &[
 
 /// The `[format]` keys that `[doc.format]` can override.
 pub(crate) const DOC_FORMAT_KEYS: &[&str] = &[
-    "indent_width",
-    "case_indent",
-    "case_body_indent",
-    "max_blank_lines",
-    "max_width",
-    "brace_style",
-    "blank_lines_between_items",
-    "blank_line_after_declarations",
-    "blank_lines_around_blocks",
-    "blank_line_between_cases",
-    "blank_line_before_comments",
-    "blank_line_after_guards",
-    "blank_line_before_return",
+    "indent-width",
+    "case-indent",
+    "case-body-indent",
+    "max-blank-lines",
+    "max-width",
+    "brace-style",
+    "blank-lines-between-items",
+    "blank-line-after-declarations",
+    "blank-lines-around-blocks",
+    "blank-line-between-cases",
+    "blank-line-before-comments",
+    "blank-line-after-guards",
+    "blank-line-before-return",
 ];
 
 const FORMAT_KEYS: &[&str] = &[
-    "indent_width",
-    "case_indent",
-    "case_body_indent",
-    "max_blank_lines",
-    "max_width",
-    "brace_style",
-    "blank_lines_between_items",
-    "blank_line_after_declarations",
-    "blank_lines_around_blocks",
-    "blank_line_between_cases",
-    "blank_line_before_comments",
-    "blank_line_after_guards",
-    "blank_line_before_return",
-    "format_doc_examples",
+    "indent-width",
+    "case-indent",
+    "case-body-indent",
+    "max-blank-lines",
+    "max-width",
+    "brace-style",
+    "blank-lines-between-items",
+    "blank-line-after-declarations",
+    "blank-lines-around-blocks",
+    "blank-line-between-cases",
+    "blank-line-before-comments",
+    "blank-line-after-guards",
+    "blank-line-before-return",
+    "format-doc-examples",
     "ignore",
 ];
 
@@ -496,7 +513,7 @@ impl Format {
             return Err("doc.format cannot set ignore".into());
         }
         if self.format_doc_examples.is_some() {
-            return Err("doc.format cannot set format_doc_examples".into());
+            return Err("doc.format cannot set format-doc-examples".into());
         }
         self.validate()
     }
@@ -545,20 +562,20 @@ impl Format {
 
     fn raw(&self, name: &str) -> Raw<'_> {
         match name {
-            "indent_width" => Raw::Int(self.indent_width),
-            "case_indent" => Raw::Int(self.case_indent),
-            "case_body_indent" => Raw::Int(self.case_body_indent),
-            "max_blank_lines" => Raw::Int(self.max_blank_lines),
-            "max_width" => Raw::Int(self.max_width),
-            "brace_style" => Raw::Text(self.brace_style.as_deref()),
-            "blank_lines_between_items" => Raw::Flag(self.blank_lines_between_items),
-            "blank_line_after_declarations" => Raw::Flag(self.blank_line_after_declarations),
-            "blank_lines_around_blocks" => Raw::Flag(self.blank_lines_around_blocks),
-            "blank_line_between_cases" => Raw::Flag(self.blank_line_between_cases),
-            "blank_line_before_comments" => Raw::Flag(self.blank_line_before_comments),
-            "blank_line_after_guards" => Raw::Flag(self.blank_line_after_guards),
-            "blank_line_before_return" => Raw::Flag(self.blank_line_before_return),
-            "format_doc_examples" => Raw::Flag(self.format_doc_examples),
+            "indent-width" => Raw::Int(self.indent_width),
+            "case-indent" => Raw::Int(self.case_indent),
+            "case-body-indent" => Raw::Int(self.case_body_indent),
+            "max-blank-lines" => Raw::Int(self.max_blank_lines),
+            "max-width" => Raw::Int(self.max_width),
+            "brace-style" => Raw::Text(self.brace_style.as_deref()),
+            "blank-lines-between-items" => Raw::Flag(self.blank_lines_between_items),
+            "blank-line-after-declarations" => Raw::Flag(self.blank_line_after_declarations),
+            "blank-lines-around-blocks" => Raw::Flag(self.blank_lines_around_blocks),
+            "blank-line-between-cases" => Raw::Flag(self.blank_line_between_cases),
+            "blank-line-before-comments" => Raw::Flag(self.blank_line_before_comments),
+            "blank-line-after-guards" => Raw::Flag(self.blank_line_after_guards),
+            "blank-line-before-return" => Raw::Flag(self.blank_line_before_return),
+            "format-doc-examples" => Raw::Flag(self.format_doc_examples),
             _ => Raw::None,
         }
     }
@@ -573,6 +590,7 @@ enum Raw<'a> {
 
 /// Performance and debugging knobs; none changes what a program means.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Experimental {
     /// Threads that parse files ahead of the checker (`-parse_threads`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -587,6 +605,7 @@ pub struct Experimental {
 
 /// The site `jacket doc` writes. Paths and patterns are relative to the file.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Doc {
     /// Canonical origin of the published site.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -657,13 +676,14 @@ pub struct Doc {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub files: Vec<String>,
     /// `[format]` settings that differ for the examples in doc comments; a key left out is the
-    /// file's `[format]` value. `ignore` and `format_doc_examples` are not allowed here.
+    /// file's `[format]` value. `ignore` and `format-doc-examples` are not allowed here.
     #[serde(default, skip_serializing_if = "Format::is_empty")]
     pub format: Format,
 }
 
 /// A heading of `[doc]`, with the badge its modules and their items carry.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct DocCategory {
     pub name: String,
     /// Patterns of module folders.
@@ -711,6 +731,7 @@ pub struct DocSection {
 /// Read by the Postgres module while it compiles typed queries, not by `jacket`; environment
 /// variables (`JACKET_PG_MANAGED`, `JACKET_PG_MANAGED_VERSION`) win over these.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
 pub struct Postgres {
     /// Describe queries in a managed server when no database URL is set.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -755,6 +776,7 @@ macro_rules! test_settings {
         /// Run-wide settings of `jacket test`. Options of a single test are notes on it, never
         /// here.
         #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+        #[serde(rename_all = "kebab-case")]
         pub struct Test {
             /// Where the tests are, relative to the file: folders, or path patterns that match
             /// every folder below them with a `tests/` folder or a `module.jai`. Default: this
@@ -773,6 +795,7 @@ macro_rules! test_settings {
 
         /// The settings `[test]` and each `[test.profile.<name>]` share; each matches a flag.
         #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
+        #[serde(rename_all = "kebab-case")]
         pub struct TestRun {
             $(
                 $(#[$doc])*
@@ -859,14 +882,14 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "resolver",
             "package",
         ],
-        "resolver" => &["min_release_age", "release_age_jitter", "seed", "dedupe"],
+        "resolver" => &["min-release-age", "release-age-jitter", "seed", "dedupe"],
         "package" => &[
             "name",
             "version",
             "module",
-            "requires_jacket",
+            "jacket-version",
             "platforms",
-            "import_path",
+            "import-path",
         ],
         dependency if dependency.starts_with("dependencies.") => &[
             "git",
@@ -876,51 +899,51 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "path",
             "module",
             "scheme",
-            "tag_prefix",
-            "min_release_age",
+            "tag-prefix",
+            "min-release-age",
             "shared",
         ],
-        "project" => &["entry", "import_path"],
+        "project" => &["entry", "import-path"],
         "toolchain" => &["version"],
         "lint" => &[
             "lifetimes",
             "freestanding",
             "exclude",
-            "max_nesting",
-            "max_complexity",
-            "max_arguments",
-            "max_bools",
-            "max_stack_array_bytes",
-            "magic_number_allow",
-            "magic_number_min",
-            "magic_number_in_tests",
+            "max-nesting",
+            "max-complexity",
+            "max-arguments",
+            "max-bools",
+            "max-stack-array-bytes",
+            "magic-number-allow",
+            "magic-number-min",
+            "magic-number-in-tests",
             "rules",
             "overrides",
             "portability",
         ],
         "lint.lifetimes" => &["mode"],
-        "lint.freestanding" => &["max_frame_bytes"],
+        "lint.freestanding" => &["max-frame-bytes"],
         "lint.portability" => &["targets", "portable", "platforms"],
         "format" => FORMAT_KEYS,
-        "experimental" => &["parse_threads", "serial_parse", "codegen_units"],
-        "postgres" => &["managed", "managed_version"],
+        "experimental" => &["parse-threads", "serial-parse", "codegen-units"],
+        "postgres" => &["managed", "managed-version"],
         "test" => &[
             "paths",
             "jobs",
             "timeout",
             "slow",
             "retries",
-            "fail_fast",
-            "flaky_fails",
+            "fail-fast",
+            "flaky-fails",
             "runner",
             "needs",
             "profile",
         ],
         "doc" => &[
             "url",
-            "og_image",
-            "site_name",
-            "canonical_version",
+            "og-image",
+            "site-name",
+            "canonical-version",
             "theme",
             "path",
             "name",
@@ -934,14 +957,14 @@ pub(crate) fn known_keys(table: &str) -> &'static [&'static str] {
             "since",
             "category",
             "group",
-            "pages_title",
+            "pages-title",
             "page",
             "section",
             "files",
             "format",
         ],
         "doc.format" => DOC_FORMAT_KEYS,
-        "doc.category" => &["name", "modules", "badge", "tip", "color", "color_dark"],
+        "doc.category" => &["name", "modules", "badge", "tip", "color", "color-dark"],
         "doc.group" => &["name", "modules"],
         "doc.page" => &["file", "name"],
         "doc.section" => &["file", "name"],
@@ -956,8 +979,8 @@ const TEST_RUN_KEYS: &[&str] = &[
     "timeout",
     "slow",
     "retries",
-    "fail_fast",
-    "flaky_fails",
+    "fail-fast",
+    "flaky-fails",
     "runner",
     "needs",
 ];
@@ -969,13 +992,18 @@ pub(crate) const ALIASES: &[(&str, &str, &str)] = &[
     ("build_file", "project", "entry"),
     ("entries", "project", "entry"),
     ("entry_files", "project", "entry"),
-    ("import_dir", "project", "import_path"),
-    ("import_dirs", "project", "import_path"),
-    ("import_paths", "project", "import_path"),
+    ("import_dir", "project", "import-path"),
+    ("import_dirs", "project", "import-path"),
+    ("import_paths", "project", "import-path"),
 ];
+
+/// Keys whose spelling changed beyond `_` becoming `-`: the table, the old key and the new one.
+pub(crate) const RENAMED: &[(&str, &str, &str)] =
+    &[("package", "requires_jacket", "jacket-version")];
 
 /// Where a top-level key was meant: the section and key, found by exact name or by alias.
 pub(crate) fn misplaced_home(key: &str) -> Option<(&'static str, &'static str)> {
+    let kebab = key.replace('_', "-");
     let section = [
         "project",
         "toolchain",
@@ -990,7 +1018,7 @@ pub(crate) fn misplaced_home(key: &str) -> Option<(&'static str, &'static str)> 
     .find_map(|table| {
         known_keys(table)
             .iter()
-            .find(|k| **k == key)
+            .find(|k| **k == kebab)
             .map(|k| (table, *k))
     });
     section.or_else(|| {
@@ -1010,7 +1038,11 @@ pub(crate) fn closest<'a>(wanted: &str, known: &[&'a str]) -> Option<&'a str> {
         .copied()
         .filter(|name| *name != wanted)
         .filter_map(|name| {
-            let d = if name.eq_ignore_ascii_case(wanted) {
+            let d = if name.eq_ignore_ascii_case(wanted)
+                || name
+                    .replace('-', "_")
+                    .eq_ignore_ascii_case(&wanted.replace('-', "_"))
+            {
                 0
             } else {
                 edits(wanted, name)

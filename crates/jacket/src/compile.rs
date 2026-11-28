@@ -5,7 +5,7 @@
 //!
 //! - no `.jai` file among the arguments: the project's entry file goes first (`[project] entry`,
 //!   else the first of `jacket_config::INFERRED_ENTRIES` that exists);
-//! - `[project] import_path` becomes `-import_dir`, with a dependency module below its repository root found through its parent folder, and each dependency's own `import_path`
+//! - `[project] import-path` becomes `-import_dir`, with a dependency module below its repository root found through its parent folder, and each dependency's own `import-path`
 //!   becomes `-package_import_dir <dependency>=<folder>`;
 //! - `[experimental]` becomes `-parse_threads`, `-serial_parse` and `-codegen_units`, each only
 //!   when the arguments do not already carry that flag ([`project_flags`], which `jacket test`
@@ -88,7 +88,7 @@ struct Supplied {
 }
 
 /// What `[project]` and `[experimental]` ask of the compiler, in command-line order.
-fn supplied(loaded: &Loaded) -> Vec<Supplied> {
+fn supplied(loaded: &Loaded) -> Result<Vec<Supplied>, String> {
     let mut out: Vec<Supplied> = loaded
         .config
         .project
@@ -106,7 +106,8 @@ fn supplied(loaded: &Loaded) -> Vec<Supplied> {
         &jacket_config::Disk,
         loaded.dir(),
         &loaded.config,
-    );
+    )
+    .map_err(|error| error.to_string())?;
     for dir in roots.modules {
         out.push(Supplied {
             flag: "-import_dir",
@@ -145,7 +146,7 @@ fn supplied(loaded: &Loaded) -> Vec<Supplied> {
             unless: Some(&["-no_split"]),
         });
     }
-    out
+    Ok(out)
 }
 
 /// The jaic flags whose value is a path. jacket runs jaic in a folder of its own, so a relative
@@ -168,13 +169,15 @@ pub fn absolute_flag_paths(flags: &mut [String], cwd: &Path) {
 /// The flags the project adds in front of `args` (jaic's arguments, user-written): its import
 /// folders, and each `[experimental]` setting the arguments do not already carry. `build`,
 /// `check`, `run` and `test` all take their compiler flags from here.
-pub fn project_flags(args: &[OsString], loaded: Option<&Loaded>) -> Vec<OsString> {
+///
+/// Fails when a dependency's `jacket.toml` cannot be read.
+pub fn project_flags(args: &[OsString], loaded: Option<&Loaded>) -> Result<Vec<OsString>, String> {
     let Some(loaded) = loaded else {
-        return Vec::new();
+        return Ok(Vec::new());
     };
     let region = flag_region(args);
     let mut out: Vec<OsString> = Vec::new();
-    for supplied in supplied(loaded) {
+    for supplied in supplied(loaded)? {
         let given = supplied.unless.is_some_and(|others| {
             has_flag(region, supplied.flag) || others.iter().any(|o| has_flag(region, o))
         });
@@ -183,27 +186,27 @@ pub fn project_flags(args: &[OsString], loaded: Option<&Loaded>) -> Vec<OsString
             out.extend(supplied.value.map(OsString::from));
         }
     }
-    out
+    Ok(out)
 }
 
 /// The command line `jaic` is started with.
-pub fn jaic_argv(check: bool, args: &[OsString], ctx: &Context) -> Vec<OsString> {
+pub fn jaic_argv(check: bool, args: &[OsString], ctx: &Context) -> Result<Vec<OsString>, String> {
     let mut argv: Vec<OsString> = Vec::new();
     if check {
         argv.push("-check".into());
     }
     if asks_about_jaic(args) {
         argv.extend(args.iter().cloned());
-        return argv;
+        return Ok(argv);
     }
     if named_input(args).is_none()
         && let Some(entry) = entry(ctx)
     {
         argv.push(entry.into_os_string());
     }
-    argv.extend(project_flags(args, ctx.loaded));
+    argv.extend(project_flags(args, ctx.loaded)?);
     argv.extend(args.iter().cloned());
-    argv
+    Ok(argv)
 }
 
 /// Where `jaic argv` writes the executable (`docs/tools/cli.md`, "Where the executable goes").
@@ -351,6 +354,7 @@ mod tests {
             fs: &fs,
         };
         jaic_argv(check, &os(args), &ctx)
+            .unwrap()
             .iter()
             .map(|a| a.to_string_lossy().into_owned())
             .collect()
@@ -438,7 +442,7 @@ mod tests {
     #[test]
     fn project_settings_become_jaic_flags_unless_given() {
         let with = loaded(
-            "[project]\nentry = [\"m.jai\"]\nimport_path = [\"vendor\"]\n[experimental]\nparse_threads = 2\nserial_parse = true\ncodegen_units = 4\n",
+            "[project]\nentry = [\"m.jai\"]\nimport-path = [\"vendor\"]\n[experimental]\nparse-threads = 2\nserial-parse = true\ncodegen-units = 4\n",
         );
         assert_eq!(
             argv(false, &[], Some(&with), vec!["/w/m.jai"]),
@@ -475,10 +479,11 @@ mod tests {
     #[test]
     fn test_runs_take_the_same_project_flags() {
         let with = loaded(
-            "[project]\nimport_path = [\"vendor\"]\n[experimental]\nparse_threads = 2\ncodegen_units = 4\n",
+            "[project]\nimport-path = [\"vendor\"]\n[experimental]\nparse-threads = 2\ncodegen-units = 4\n",
         );
         let flags = |args: &[&str]| -> Vec<String> {
             project_flags(&os(args), Some(&with))
+                .unwrap()
                 .iter()
                 .map(|a| a.to_string_lossy().into_owned())
                 .collect()
@@ -498,7 +503,7 @@ mod tests {
             flags(&["-parse_threads=8", "-no_split"]),
             ["-import_dir", "/w/vendor"]
         );
-        assert!(project_flags(&os(&["-O2"]), None).is_empty());
+        assert!(project_flags(&os(&["-O2"]), None).unwrap().is_empty());
     }
 
     #[test]

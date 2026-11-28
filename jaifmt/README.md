@@ -43,7 +43,7 @@ The [main README](../README.md#install) lists the other ways to install.
 | `--stdin` | format standard input to standard output |
 | `--is-ignored <file>` | print nothing; exit 0 when the config's `ignore` list covers the file, 1 when not (2 on a config error); editors use it |
 | `--config <file>` | use this `jacket.toml` instead of the nearest one |
-| `-v`, `--verbose` | report every file, a summary, and lines longer than `max_width` |
+| `-v`, `--verbose` | report every file, a summary, and lines longer than `max-width` |
 | `--color auto\|always\|never` | colour in error messages (`NO_COLOR` is respected) |
 
 Every flag also has a `--no-` form. Directories are searched for `*.jai` files.
@@ -56,9 +56,9 @@ jaifmt reads the `[format]` section of the nearest `jacket.toml` above each file
 
 ```toml
 [format]
-indent_width = 4
-max_blank_lines = 2
-brace_style = "same_line"   # or "preserve"
+indent-width = 4
+max-blank-lines = 2
+brace-style = "same_line"   # or "preserve"
 ignore = ["generated/**"]
 ```
 

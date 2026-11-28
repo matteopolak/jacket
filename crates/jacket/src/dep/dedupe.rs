@@ -83,7 +83,7 @@ fn common(name: &str, needs: &[Need]) -> Result<Dependency> {
                 "{name}: {} and {} read its tags differently",
                 first.by, other.by
             ))
-            .note("`scheme` and `tag_prefix` must agree"));
+            .note("`scheme` and `tag-prefix` must agree"));
         }
     }
     Ok(Dependency {
@@ -338,7 +338,7 @@ fn choose(
             return Err(DepError::new(format!(
                 "{name} rev {rev}'s age can't be checked: a commit has no release"
             ))
-            .note("a shared dependency pinned by commit needs `min_release_age = \"0\"` in its requirers' policy"));
+            .note("a shared dependency pinned by commit needs `min-release-age = \"0\"` in its requirers' policy"));
         }
         return Ok(Pin {
             commit: Target::Rev((*rev).clone()),

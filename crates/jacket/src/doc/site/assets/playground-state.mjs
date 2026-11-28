@@ -105,5 +105,5 @@ export function words(line) {
 export function formatConfig(options) {
   const indent = [2, 4, 8].includes(Number(options.indent)) ? Number(options.indent) : 4;
   const braces = options.braces === 'preserve' ? 'preserve' : 'same_line';
-  return `[format]\nindent_width = ${indent}\nbrace_style = "${braces}"\n`;
+  return `[format]\nindent-width = ${indent}\nbrace-style = "${braces}"\n`;
 }

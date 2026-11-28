@@ -180,10 +180,10 @@ without_line_prefix :: (message: string) -> string {
     return message;
 }
 
-FORMAT_KEYS :: string.["indent_width", "case_indent", "case_body_indent", "max_blank_lines", "max_width", "brace_style", "blank_lines_between_items", "blank_line_after_declarations", "blank_lines_around_blocks", "blank_line_between_cases", "blank_line_before_comments", "blank_line_after_guards", "blank_line_before_return", "format_doc_examples", "ignore"];
+FORMAT_KEYS :: string.["indent-width", "case-indent", "case-body-indent", "max-blank-lines", "max-width", "brace-style", "blank-lines-between-items", "blank-line-after-declarations", "blank-lines-around-blocks", "blank-line-between-cases", "blank-line-before-comments", "blank-line-after-guards", "blank-line-before-return", "format-doc-examples", "ignore"];
 
 // The settings `[doc.format]` can override: those of `[format]` that apply to code in a block.
-DOC_FORMAT_KEYS :: string.["indent_width", "case_indent", "case_body_indent", "max_blank_lines", "max_width", "brace_style", "blank_lines_between_items", "blank_line_after_declarations", "blank_lines_around_blocks", "blank_line_between_cases", "blank_line_before_comments", "blank_line_after_guards", "blank_line_before_return"];
+DOC_FORMAT_KEYS :: string.["indent-width", "case-indent", "case-body-indent", "max-blank-lines", "max-width", "brace-style", "blank-lines-between-items", "blank-line-after-declarations", "blank-lines-around-blocks", "blank-line-between-cases", "blank-line-before-comments", "blank-line-after-guards", "blank-line-before-return"];
 
 // The warning for an unknown `[format]` or `[doc.format]` setting `key` found in the config file
 // `file`: it is ignored, and the nearest known key is named when there is one within a third of
@@ -320,10 +320,19 @@ setting_moves :: (T: Type) -> string {
 
         if skipped continue;
 
-        print_to_builder(*builder, "if key == \"%\" { config.% = from.%; return; }\n", member.name, member.name, member.name);
+        print_to_builder(*builder, "if key == \"%\" { config.% = from.%; return; }\n", kebab_case(member.name), member.name, member.name);
     }
 
     return builder_to_string(*builder,, temp);
+}
+
+// `name` with each `_` written `-`: a member's key in the file.
+kebab_case :: (name: string) -> string {
+    key := copy_string(name,, temp);
+
+    for *key if it.* == #char "_" it.* = #char "-";
+
+    return key;
 }
 
 // Insertions, deletions and substitutions turning `a` into `b`; names past 63 bytes count as far.

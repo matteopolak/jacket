@@ -84,7 +84,7 @@ fn expand(
     }
 }
 
-/// What the import folders of a program rooted at `path` are made of: the `import_path` of the
+/// What the import folders of a program rooted at `path` are made of: the `import-path` of the
 /// nearest `jacket.toml`, the `-import_dir`s of the run and the standard library.
 fn program_inputs(options: &Options, configs: &Configs, path: &Path) -> ProgramInputs {
     let mut inputs = ProgramInputs::for_file(&jaic::sema::NativeFs, path, &options.stdlib);

@@ -103,7 +103,7 @@ failures:
 
 Put `@allow_leaks` after the body to turn the check off for one test.
 
-The same layout works for a program. With `main.jai` and `math.jai` in the project folder, `tests/math.jai` can `#load "../math.jai";` and test `double` directly. For a project that keeps its modules in a folder, set `import_path = ["src"]` under `[project]` in `jacket.toml` and the tests can `#import` them by name.
+The same layout works for a program. With `main.jai` and `math.jai` in the project folder, `tests/math.jai` can `#load "../math.jai";` and test `double` directly. For a project that keeps its modules in a folder, set `import-path = ["src"]` under `[project]` in `jacket.toml` and the tests can `#import` them by name.
 
 ## Writing tests
 
@@ -381,7 +381,7 @@ A golden test whose program now prints something else fails with the difference.
 ```console cwd=../examples/testing/more/slugs
 $ jacket test --exact stale
     Starting 1 test
-        FAIL [   0.285s] stale
+        FAIL [   0.208s] stale
 
 failures:
 
@@ -389,13 +389,13 @@ failures:
   standard output differs from stale.stdout:
   --- want
   +++ got
-  + hello-golden-world
   - hello-world
+  + hello-golden-world
   stdout:
     hello-golden-world
   rerun: jacket test --exact 'stale'
 
-     Summary [   0.296s] 1 test run: 0 passed, 1 failed
+     Summary [   0.208s] 1 test run: 0 passed, 1 failed
 ```
 
 When the output changes on purpose, rewrite the files instead of editing them:
@@ -550,11 +550,11 @@ paths = ["src/**"]    # test roots, folders or patterns
 jobs = 8              # tests at a time
 timeout = 120         # seconds a test may take; 0 for no limit
 retries = 0
-fail_fast = false
+fail-fast = false
 
 [test.profile.ci]     # jacket test --profile ci
 retries = 2
-fail_fast = true
+fail-fast = true
 ```
 
 Flags win over the profile, and the profile over `[test]`.

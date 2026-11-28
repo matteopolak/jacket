@@ -18,7 +18,7 @@ pub enum Status {
 }
 
 impl Status {
-    /// Whether the run fails because of it (`flaky_fails` decides about FLAKY).
+    /// Whether the run fails because of it (`flaky-fails` decides about FLAKY).
     pub fn fails(self, flaky_fails: bool) -> bool {
         matches!(self, Status::Fail | Status::Timeout | Status::XPass)
             || (flaky_fails && self == Status::Flaky)

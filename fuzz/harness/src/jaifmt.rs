@@ -49,9 +49,9 @@ main :: () -> s32 {
 /// indentation and brace styles get checked too.
 const CONFIGS: [&str; 4] = [
     "",
-    "[format]\nindent_width = 2\ncase_indent = 0\n",
-    "[format]\nbrace_style = \"preserve\"\nmax_blank_lines = 0\n",
-    "[format]\nindent_width = 8\ncase_body_indent = 2\nmax_blank_lines = 1\n",
+    "[format]\nindent-width = 2\ncase-indent = 0\n",
+    "[format]\nbrace-style = \"preserve\"\nmax-blank-lines = 0\n",
+    "[format]\nindent-width = 8\ncase-body-indent = 2\nmax-blank-lines = 1\n",
 ];
 
 /// Interpreter steps for formatting one input twice. Formatting is linear: an 8 KiB input takes

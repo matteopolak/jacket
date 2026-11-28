@@ -41,22 +41,22 @@ impl World {
 #[test]
 fn a_named_version_that_is_too_new_is_refused_with_the_override_in_the_note() {
     let world = World::new(
-        "min_release_age = \"3d\"\n",
+        "min-release-age = \"3d\"\n",
         &[("v1.2.0", 10 * DAY), ("v1.3.0", 20 * HOUR)],
     );
     let run = world.run(&["dep", "add", "someone/lib@v1.3.0"]);
     assert_eq!(run.code, 2, "{}{}", run.out, run.err);
     assert!(
         run.err
-            .contains("error: lib v1.3.0 was published 20 hours ago; min_release_age is 3d"),
+            .contains("error: lib v1.3.0 was published 20 hours ago; min-release-age is 3d"),
         "{}",
         run.err
     );
     assert!(
         run.err
-            .contains("note: to accept it, add `min_release_age = \"0\"` to its entry:")
+            .contains("note: to accept it, add `min-release-age = \"0\"` to its entry:")
             && run.err.contains(
-                "lib = { git = \"someone/lib\", tag = \"v1.3.0\", min_release_age = \"0\" }"
+                "lib = { git = \"someone/lib\", tag = \"v1.3.0\", min-release-age = \"0\" }"
             ),
         "{}",
         run.err
@@ -71,21 +71,21 @@ fn a_named_version_that_is_too_new_is_refused_with_the_override_in_the_note() {
 #[test]
 fn a_range_skips_versions_that_are_too_new_and_a_waiver_accepts_one() {
     let world = World::new(
-        "min_release_age = \"3d\"\n",
+        "min-release-age = \"3d\"\n",
         &[("v1.2.0", 10 * DAY), ("v1.3.0", 20 * HOUR)],
     );
     let run = world.run(&["dep", "add", "someone/lib@^1.0"]);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.out.contains("v1.2.0"), "{}", run.out);
     assert!(
-        run.err.contains("note: lib v1.3.0 is newer but not used: it was published 20 hours ago; min_release_age is 3d"),
+        run.err.contains("note: lib v1.3.0 is newer but not used: it was published 20 hours ago; min-release-age is 3d"),
         "{}",
         run.err
     );
     // Waiving the policy for this entry lets update take the newer one.
     let toml = world.project.toml().replace(
         "version = \"^1.0\"",
-        "version = \"^1.0\", min_release_age = \"0\"",
+        "version = \"^1.0\", min-release-age = \"0\"",
     );
     std::fs::write(world.project.dir.join("jacket.toml"), toml).unwrap();
     let run = world.run(&["dep", "update", "lib"]);
@@ -95,7 +95,7 @@ fn a_range_skips_versions_that_are_too_new_and_a_waiver_accepts_one() {
 
 #[test]
 fn nothing_old_enough_is_an_error_naming_the_newest() {
-    let world = World::new("min_release_age = \"3d\"\n", &[("v1.0.0", 5 * HOUR)]);
+    let world = World::new("min-release-age = \"3d\"\n", &[("v1.0.0", 5 * HOUR)]);
     let run = world.run(&["dep", "add", "someone/lib"]);
     assert_eq!(run.code, 2, "{}{}", run.out, run.err);
     assert!(
@@ -103,13 +103,13 @@ fn nothing_old_enough_is_an_error_naming_the_newest() {
         "{}",
         run.err
     );
-    assert!(run.err.contains("min_release_age = \"0\""), "{}", run.err);
+    assert!(run.err.contains("min-release-age = \"0\""), "{}", run.err);
 }
 
 #[test]
 fn an_age_that_cannot_be_checked_is_an_error_with_the_same_note() {
     // A tag without a release, a host that keeps no times, and a commit pin all have no age.
-    let world = World::new("min_release_age = \"3d\"\n", &[]);
+    let world = World::new("min-release-age = \"3d\"\n", &[]);
     world.origin.release("v1.0.0", &[]);
     let run = world.run(&["dep", "add", "someone/lib@v1.0.0"]);
     assert_eq!(run.code, 2, "{}{}", run.out, run.err);
@@ -119,9 +119,9 @@ fn an_age_that_cannot_be_checked_is_an_error_with_the_same_note() {
         "{}",
         run.err
     );
-    assert!(run.err.contains("min_release_age = \"0\""), "{}", run.err);
+    assert!(run.err.contains("min-release-age = \"0\""), "{}", run.err);
 
-    let plain = Project::new("[resolver]\nmin_release_age = \"3d\"\n");
+    let plain = Project::new("[resolver]\nmin-release-age = \"3d\"\n");
     let local = Origin::new(&plain.root, "local", &[("module.jai", "")]);
     local.release("v1.0.0", &[]);
     let run = plain.jacket(&["dep", "add", &format!("{}@v1.0.0", local.url())]);
@@ -139,8 +139,8 @@ fn an_age_that_cannot_be_checked_is_an_error_with_the_same_note() {
 }
 
 #[test]
-fn with_no_policy_nothing_asks_a_forge() {
-    let world = World::new("", &[("v1.0.0", HOUR)]);
+fn with_the_policy_off_nothing_asks_a_forge() {
+    let world = World::new("min-release-age = \"0\"\n", &[("v1.0.0", HOUR)]);
     let run = world.run(&["dep", "add", "someone/lib@v1.0.0"]);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(world.forge.log().is_empty());
@@ -148,7 +148,7 @@ fn with_no_policy_nothing_asks_a_forge() {
 
 #[test]
 fn times_are_cached_and_lists_are_asked_for_with_their_etag() {
-    let world = World::new("min_release_age = \"1d\"\n", &[("v1.0.0", 5 * DAY)]);
+    let world = World::new("min-release-age = \"1d\"\n", &[("v1.0.0", 5 * DAY)]);
     assert_eq!(world.run(&["dep", "add", "someone/lib"]).code, 0);
     assert_eq!(world.forge.log().len(), 1);
     // The same tag at the same commit: answered from the cache.
@@ -181,7 +181,7 @@ fn times_are_cached_and_lists_are_asked_for_with_their_etag() {
 
 #[test]
 fn a_rate_limit_is_reported_with_the_token_to_set() {
-    let world = World::new("min_release_age = \"1d\"\n", &[("v1.0.0", 5 * DAY)]);
+    let world = World::new("min-release-age = \"1d\"\n", &[("v1.0.0", 5 * DAY)]);
     world.forge.limit(true);
     let run = world.run(&["dep", "add", "someone/lib"]);
     assert_eq!(run.code, 2, "{}{}", run.out, run.err);
@@ -194,7 +194,7 @@ fn a_rate_limit_is_reported_with_the_token_to_set() {
 
 #[test]
 fn tokens_go_only_to_their_own_forge() {
-    let world = World::new("min_release_age = \"1d\"\n", &[("v1.0.0", 5 * DAY)]);
+    let world = World::new("min-release-age = \"1d\"\n", &[("v1.0.0", 5 * DAY)]);
     let envs = [
         ("JACKET_FORGE_API", world.forge.base.as_str()),
         ("GITHUB_TOKEN", "gh-secret"),
@@ -259,7 +259,10 @@ fn tokens_go_only_to_their_own_forge() {
 
 #[test]
 fn update_asks_github_once_for_every_dependency() {
-    let world = World::new("min_release_age = \"1d\"\n", &[("v1.0.0", 5 * DAY)]);
+    let world = World::new(
+        "min-release-age = \"1d\"\nrelease-age-jitter = \"0\"\n",
+        &[("v1.0.0", 5 * DAY)],
+    );
     let other = Origin::new(&world.project.root, "other", &[("module.jai", "")]);
     other.release("v1.0.0", &[]);
     world
@@ -315,20 +318,14 @@ fn update_asks_github_once_for_every_dependency() {
 }
 
 #[test]
-fn jitter_needs_a_seed_and_the_first_add_writes_one() {
+fn the_first_add_writes_a_seed() {
     let world = World::new(
-        "min_release_age = \"1d\"\nrelease_age_jitter = \"2d\"\n",
+        "min-release-age = \"1d\"\nrelease-age-jitter = \"2d\"\n",
         &[("v1.0.0", 30 * DAY)],
     );
     let run = world.run(&["dep", "add", "someone/lib"]);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
-    assert!(
-        run.err.contains("release_age_jitter")
-            && run.err.contains("seed")
-            && run.err.contains("jacket dep init"),
-        "{}",
-        run.err
-    );
+    assert!(!run.err.contains("warning"), "{}", run.err);
     assert!(
         world.project.toml().contains("seed = \""),
         "{}",
@@ -345,7 +342,7 @@ fn the_same_seed_gives_the_same_wait_and_another_seed_another() {
         let verdict = || {
             let world = World::new(
                 &format!(
-                    "min_release_age = \"1d\"\nrelease_age_jitter = \"2d\"\nseed = \"{seed}\"\n"
+                    "min-release-age = \"1d\"\nrelease-age-jitter = \"2d\"\nseed = \"{seed}\"\n"
                 ),
                 &[("v1.0.0", age)],
             );
@@ -363,7 +360,7 @@ fn the_same_seed_gives_the_same_wait_and_another_seed_another() {
 
 #[test]
 fn init_lists_adopted_versions_that_break_the_policy() {
-    let world = World::new("min_release_age = \"3d\"\n", &[("v1.0.0", 10 * HOUR)]);
+    let world = World::new("min-release-age = \"3d\"\n", &[("v1.0.0", 10 * HOUR)]);
     dep_support::git(
         &world.project.dir,
         &[
@@ -395,10 +392,32 @@ fn init_lists_adopted_versions_that_break_the_policy() {
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     assert!(
         run.err.contains("lib v1.0.0 was published 10 hours ago")
-            && run.err.contains("min_release_age = \"0\""),
+            && run.err.contains("min-release-age = \"0\""),
         "{}{}",
         run.out,
         run.err
     );
     assert!(world.project.toml().contains("lib = {"));
+}
+
+#[test]
+fn with_no_settings_a_version_must_be_two_weeks_old() {
+    let world = World::new("", &[("v1.2.0", 30 * DAY), ("v1.3.0", 10 * DAY)]);
+    let run = world.run(&["dep", "add", "someone/lib@v1.3.0"]);
+    assert_eq!(run.code, 2, "{}{}", run.out, run.err);
+    assert!(
+        run.err
+            .contains("error: lib v1.3.0 was published 10 days ago; min-release-age is 2w"),
+        "{}",
+        run.err
+    );
+    let run = world.run(&["dep", "add", "someone/lib@v1.2.0"]);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
+}
+
+#[test]
+fn a_zero_resolver_age_turns_the_default_policy_off() {
+    let world = World::new("min-release-age = \"0\"\n", &[("v1.3.0", HOUR)]);
+    let run = world.run(&["dep", "add", "someone/lib@v1.3.0"]);
+    assert_eq!(run.code, 0, "{}{}", run.out, run.err);
 }

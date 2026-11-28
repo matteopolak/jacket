@@ -77,7 +77,7 @@ Lints run on documents that parse. The `[lint]` table of the nearest `jacket.tom
 ```toml
 [project]
 entry = ["first.jai", "src/main.jai"]   # what jaic is given
-import_path = ["vendor/modules"]        # extra module folders
+import-path = ["vendor/modules"]        # extra module folders
 ```
 
 Without `entry`, the server infers `build.jai`, `first.jai`, `main.jai` or `src/main.jai`.

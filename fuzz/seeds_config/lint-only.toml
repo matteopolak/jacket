@@ -3,7 +3,7 @@
 exclude = [
   "tests/**", # fixtures
 ]
-max_nesting = 4
+max-nesting = 4
 
 [lint.rules]
 # strict here

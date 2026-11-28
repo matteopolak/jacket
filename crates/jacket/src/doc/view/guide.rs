@@ -402,7 +402,7 @@ fn group(segs: &[Segment], at: usize, consoles: &Consoles) -> (DocSegment, usize
 }
 
 /// `jai before` and `jai after` fences next to each other become one side-by-side block. Words
-/// after `after` (`indent_width=2`) are the settings the after side was formatted with.
+/// after `after` (`indent-width=2`) are the settings the after side was formatted with.
 fn segments(segs: &[Segment], consoles: &Consoles) -> Vec<DocSegment> {
     let mut out = Vec::new();
     let mut i = 0;
@@ -455,7 +455,7 @@ fn segments(segs: &[Segment], consoles: &Consoles) -> Vec<DocSegment> {
 
 impl Guides {
     /// The page to link a header button to: the first `[[doc.page]]`, else the overview of the
-    /// section named like `pages_title`.
+    /// section named like `pages-title`.
     pub fn first_href(&self, site: &Site) -> Option<String> {
         let overview = format!("{}.html", site.pages_dir());
         self.pages

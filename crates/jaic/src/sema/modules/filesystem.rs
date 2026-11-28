@@ -53,7 +53,7 @@ pub fn module_listed(fs: &dyn FileSystem, dir: &Path, entry: &str, is_dir: bool)
     }
 }
 
-/// Folders that only the files of one package search: a dependency's own `import_path`.
+/// Folders that only the files of one package search: a dependency's own `import-path`.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PackageImports {
     /// The package's folder; every file below it belongs to the package.

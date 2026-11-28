@@ -10,7 +10,7 @@ fn closed_workspace_callers_outside_the_library_tree_are_merged_and_cached() {
     let files = [
         (
             "/workspace/jacket.toml",
-            "[project]\nentry=[\"a.jai\",\"b.jai\",\"c.jai\",\"d.jai\"]\nimport_path=[\"/shared\"]\n",
+            "[project]\nentry=[\"a.jai\",\"b.jai\",\"c.jai\",\"d.jai\"]\nimport-path=[\"/shared\"]\n",
         ),
         (
             "/workspace/a.jai",
@@ -318,7 +318,7 @@ fn an_edit_recompiles_only_the_programs_that_read_it() {
     let files = [
         (
             "/app/jacket.toml",
-            "[project]\nentry=[\"a.jai\",\"b.jai\"]\nimport_path=[\"/shared\"]\n",
+            "[project]\nentry=[\"a.jai\",\"b.jai\"]\nimport-path=[\"/shared\"]\n",
         ),
         (
             "/app/a.jai",
@@ -397,7 +397,7 @@ fn lens_compiles_keep_the_open_programs_analyses() {
     let files = [
         (
             "/app/jacket.toml",
-            "[project]\nentry=[\"a.jai\",\"b.jai\",\"c.jai\"]\nimport_path=[\"/shared\"]\n",
+            "[project]\nentry=[\"a.jai\",\"b.jai\",\"c.jai\"]\nimport-path=[\"/shared\"]\n",
         ),
         (
             "/app/a.jai",

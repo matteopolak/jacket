@@ -1,2 +1,2 @@
 [lint]
-max_complexity = 4
+max-complexity = 4

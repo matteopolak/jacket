@@ -33,7 +33,7 @@ Use the [graph audit](lsp-graph-audit.md) to check every included repository fil
 ```toml
 [project]
 entry = ["first.jai"]
-import_path = ["modules"]
+import-path = ["modules"]
 ```
 
 Explicit entries override inference. Existing compile-time budgets and workspace trust settings still apply. The checker has no executable output backend; indexing follows build metaprograms without linking their output.

@@ -77,7 +77,7 @@ fn config_mistakes_name_the_line_and_the_fix() {
             "[lint.rules]\nfloat_equality = \"loud\"\n",
             "unknown level \"loud\" for `float_equality`\nhelp: use \"allow\", \"warn\" or \"deny\"",
         ),
-        ("[lint]\nmax_nesting = \"deep\"\n", "invalid type: string"),
+        ("[lint]\nmax-nesting = \"deep\"\n", "invalid type: string"),
     ];
     for (config, expected) in cases {
         std::fs::write(dir.join("jacket.toml"), config).unwrap();
@@ -276,14 +276,14 @@ fn exclude_applies_with_a_relative_config_path() {
 #[test]
 fn an_unknown_setting_is_a_configuration_error() {
     let dir = scratch("config-note");
-    std::fs::write(dir.join("jacket.toml"), "[lint]\nmax_nestng = 3\n").unwrap();
+    std::fs::write(dir.join("jacket.toml"), "[lint]\nmax-nestng = 3\n").unwrap();
     let (err, code) = jailint(&dir, &["game.jai"]);
     assert!(
-        err.contains("unknown setting `lint.max_nestng` in jacket.toml (line 2)"),
+        err.contains("unknown setting `lint.max-nestng` in jacket.toml (line 2)"),
         "{err}"
     );
     assert!(
-        err.contains("help: did you mean `lint.max_nesting`?"),
+        err.contains("help: did you mean `lint.max-nesting`?"),
         "{err}"
     );
     assert_eq!(code, Some(2), "{err}");

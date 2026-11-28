@@ -6,7 +6,7 @@ use dep_support::{Origin, Project, git, run_in};
 const MODULE: &[(&str, &str)] = &[("module.jai", "answer :: 42;\n")];
 
 fn added() -> (Project, Origin) {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let origin = Origin::new(&project.root, "jaison", MODULE);
     origin.release("v1.0.0", &[("module.jai", "answer :: 43;\n")]);
     let run = project.jacket(&["dep", "add", &format!("{}@v1.0.0", origin.url())]);
@@ -116,7 +116,7 @@ fn an_edited_dependency_is_not_overwritten_by_an_update() {
 
 #[test]
 fn replacing_a_vendored_copy_needs_it_unmodified() {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let origin = Origin::new(&project.root, "jaison", MODULE);
     origin.release("v1.0.0", &[]);
     std::fs::create_dir_all(project.dir.join("modules/jaison")).unwrap();
@@ -143,7 +143,7 @@ fn replacing_a_vendored_copy_needs_it_unmodified() {
 
 #[test]
 fn a_package_that_names_itself_moves_its_submodule_with_git_still_agreeing() {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let origin = Origin::new(
         &project.root,
         "jaison",

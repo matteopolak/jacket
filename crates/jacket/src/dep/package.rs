@@ -92,12 +92,12 @@ pub fn import_name(module: &str, fallback: &str) -> String {
 }
 
 /// Why this jacket cannot use a package, if it cannot.
-pub fn requires_jacket(package: &Package, jacket: &str) -> Result<(), String> {
-    let Some(text) = &package.requires_jacket else {
+pub fn check_jacket_version(package: &Package, jacket: &str) -> Result<(), String> {
+    let Some(text) = &package.jacket_version else {
         return Ok(());
     };
     let req = semver::VersionReq::parse(text)
-        .map_err(|e| format!("requires_jacket `{text}` is not a version range: {e}"))?;
+        .map_err(|e| format!("jacket-version `{text}` is not a version range: {e}"))?;
     let have = semver::Version::parse(jacket).map_err(|e| e.to_string())?;
     // A prerelease build of jacket counts as its release for this check.
     let release = semver::Version::new(have.major, have.minor, have.patch);
@@ -127,9 +127,9 @@ mod tests {
     #[test]
     fn only_package_dependencies_and_import_folders_are_read() {
         let manifest = read_text(
-            "[package]\nname = \"my_lib\"\nversion = \"1.2.0\"\nmodule = \"src/My_Lib\"\nrequires_jacket = \">=0.40\"\nplatforms = [\"macos\"]\n\
+            "[package]\nname = \"my_lib\"\nversion = \"1.2.0\"\nmodule = \"src/My_Lib\"\njacket-version = \">=0.40\"\nplatforms = [\"macos\"]\n\
              [dependencies]\nutf8 = { git = \"x/utf8\", version = \"^0.4\" }\n\
-             [project]\nentry = [\"evil.jai\"]\nimport_path = [\"vendor\"]\n[target.pico]\ntriple = \"t\"\n[lint]\nmax_nesting = 1\n",
+             [project]\nentry = [\"evil.jai\"]\nimport-path = [\"vendor\"]\n[target.pico]\ntriple = \"t\"\n[lint]\nmax-nesting = 1\n",
         )
         .unwrap();
         assert_eq!(manifest.package.name.as_deref(), Some("my_lib"));
@@ -145,18 +145,18 @@ mod tests {
     #[test]
     fn requirements_and_platforms_are_checked_against_this_jacket() {
         let package = |req: &str| Package {
-            requires_jacket: Some(req.into()),
+            jacket_version: Some(req.into()),
             ..Package::default()
         };
-        assert!(requires_jacket(&package(">=0.40"), "0.41.0").is_ok());
-        assert!(requires_jacket(&package(">=0.40"), "0.41.0-rc.1").is_ok());
-        let error = requires_jacket(&package(">=0.40"), "0.39.0").unwrap_err();
+        assert!(check_jacket_version(&package(">=0.40"), "0.41.0").is_ok());
+        assert!(check_jacket_version(&package(">=0.40"), "0.41.0-rc.1").is_ok());
+        let error = check_jacket_version(&package(">=0.40"), "0.39.0").unwrap_err();
         assert!(
             error.contains(">=0.40") && error.contains("0.39.0"),
             "{error}"
         );
-        assert!(requires_jacket(&package("nope"), "0.39.0").is_err());
-        assert!(requires_jacket(&Package::default(), "0.39.0").is_ok());
+        assert!(check_jacket_version(&package("nope"), "0.39.0").is_err());
+        assert!(check_jacket_version(&Package::default(), "0.39.0").is_ok());
         let linux = Package {
             platforms: vec!["linux".into()],
             ..Package::default()

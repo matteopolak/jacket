@@ -75,7 +75,7 @@ Controls, all of which the browser build honours:
 | Arguments | text | the program's `argv` after its name; quotes group words |
 | Standard input | text | the program's whole input |
 | Messages | errors and warnings, errors only | which diagnostics the Problems list shows |
-| Indent, Braces | 2, 4 or 8 spaces; same line or as written | `indent_width` and `brace_style` of Format |
+| Indent, Braces | 2, 4 or 8 spaces; same line or as written | `indent-width` and `brace-style` of Format |
 
 The target is fixed: the browser build interprets the program for WebAssembly, so there is no optimisation level, native target or compiled mode to offer. The status bar says so.
 
@@ -99,11 +99,11 @@ icon = "assets/icon.svg"            # tab icon when it should differ from the lo
 repo = "https://github.com/me/my_lib"   # Source links need it
 playground = "https://example.com/play"  # default: the site's own playground page
 since = "notes/since.tsv"           # "since X" labels; used only with --version
-pages_title = "Guides"              # sidebar heading and folder of the [[doc.page]] pages
+pages-title = "Guides"              # sidebar heading and folder of the [[doc.page]] pages
 url = "https://docs.example.com"    # canonical origin: canonical links, og:url, sitemap.xml, robots.txt
-og_image = "assets/social.png"      # a file (copied to assets/) or a URL; 1200x630 suits most sites
-site_name = "my_lib"                # og:site_name; default: name
-canonical_version = "1.4.0"         # other versions point their canonical here and get noindex
+og-image = "assets/social.png"      # a file (copied to assets/) or a URL; 1200x630 suits most sites
+site-name = "my_lib"                # og:site_name; default: name
+canonical-version = "1.4.0"         # other versions point their canonical here and get noindex
 theme = "doc-theme"                 # files that replace or extend the built-in theme
 files = ["install.sh"]              # published as they are at the site root (/install.sh); a name a page uses is an error
 
@@ -119,14 +119,14 @@ modules = ["src/my_lib/Labs/**"]
 badge = "labs"                      # beside the module and its items; default: no badge
 tip = "Not stable yet"              # hover text; default: the name
 color = "oklch(51% 0.1 70.8deg)"      # oklch(), #hex or a colour name; default: muted
-color_dark = "oklch(80% 0.11 75.4deg)" # default: color
+color-dark = "oklch(80% 0.11 75.4deg)" # default: color
 
 # Folding groups inside each heading. With any, every module must be in one (last match wins).
 [[doc.group]]
 name = "Core"
 modules = ["src/my_lib/Core", "src/my_lib/Util"]
 
-# Extra pages, listed under `pages_title` in the sidebar. The header's link goes to the first.
+# Extra pages, listed under `pages-title` in the sidebar. The header's link goes to the first.
 [[doc.page]]
 file = "notes/guide.md"
 name = "Guide"
@@ -137,17 +137,17 @@ file = "notes/recipes.md"
 name = "Recipes"
 ```
 
-`[doc.format]` is not a site setting: it holds `jaifmt` overrides for the examples in doc comments ([jaifmt-rules](jaifmt-rules.md#format_doc_examples)).
+`[doc.format]` is not a site setting: it holds `jaifmt` overrides for the examples in doc comments ([jaifmt-rules](jaifmt-rules.md#format-doc-examples)).
 
 A pattern matching a module's folder also matches the modules inside it. `jacket doc` fails on a pattern that matches no module, a module in no group (when there are groups), and a colour that is not `#hex` or a plain name. The header shows the version, repository button, playground link and pages link only when set.
 
 The standard library's `[doc]` sits in the root `jacket.toml`: categories "Standard library" (`stdlib/**`) and "Extensions" (`stdlib/Extensions/**`, teal "extension" badge), the topic groups, and the "Tools", "Lint rules" and "Format rules" sections (generated into `docs/reference/` and `docs/tools/jaifmt-rules.md`). Add new stdlib modules to a group there.
 
-**Sections.** A `[[doc.section]]` file is split at its headings: the text before the first `##` (plus each `##`'s own text and a list of its pages) is the overview at `<name as a slug>/`, each `##` is a folding group in the sidebar, and each `###` is a page at `<section>/<heading slug>/` titled with the heading. A `###` before any `##` goes in a group with no label. Inside a page, `####` and `#####` headings move up to `##` and `###`, so they reach its outline. The header link (`pages_title`) goes to the first `[[doc.page]]`, else to the overview of the section with that name. A link to `#heading` or `file.md#heading` of a split file goes to that heading's page. A `##` with no `###` under it (the Format rules' "Indentation") stays text on the overview, so `format-rules#indentation` is still an anchor there.
+**Sections.** A `[[doc.section]]` file is split at its headings: the text before the first `##` (plus each `##`'s own text and a list of its pages) is the overview at `<name as a slug>/`, each `##` is a folding group in the sidebar, and each `###` is a page at `<section>/<heading slug>/` titled with the heading. A `###` before any `##` goes in a group with no label. Inside a page, `####` and `#####` headings move up to `##` and `###`, so they reach its outline. The header link (`pages-title`) goes to the first `[[doc.page]]`, else to the overview of the section with that name. A link to `#heading` or `file.md#heading` of a split file goes to that heading's page. A `##` with no `###` under it (the Format rules' "Indentation") stays text on the overview, so `format-rules#indentation` is still an anchor there.
 
 **Home.** `[doc] home` names a Markdown file rendered as the front page, with the module sidebar. Links in it (and in every extra page) to a module's folder or `module.jai` go to that module's page, so `[Basic](../../stdlib/Basic)` works both on GitHub and on the site. Without it the front page shows the name and description; the stdlib's is `docs/reference/home.md`. Raw HTML in any Markdown the site renders shows as text, except a bare `<kbd>` and `</kbd>` for a key (`Press <kbd>/</kbd>`); one left open closes with its paragraph. Configured pages and sections come first, followed by module categories, wherever the module sidebar is shown (`view/guide.rs`, `Site::extra_nav`).
 
-**Before and after.** Two fences in a row, ```` ```jai before ```` then ```` ```jai after ````, render as one block split by a line ("Before", "After"), stacked under 700px. Words after `after` are shown as the settings used (`indent_width=2` reads "After, with `indent_width = 2`"). **Example, finding and fix.** A ```` ```jai example ```` fence, then optionally a ```` ```diagnostic ```` fence and a ```` ```jai fixed ```` fence directly after it, render as one card with a caption over each block ("Example", "Diagnostic", "Fixed"). `docs/reference/lint-rules.md` is written that way (`crates/jailint/examples/lint_reference.rs`). In a diagnostic, `-` marks a removed line of a fix preview. Jai fences on these pages are highlighted and scroll sideways; other fences are plain and wrap long lines (usage lines, shell output).
+**Before and after.** Two fences in a row, ```` ```jai before ```` then ```` ```jai after ````, render as one block split by a line ("Before", "After"), stacked under 700px. Words after `after` are shown as the settings used (`indent-width=2` reads "After, with `indent-width = 2`"). **Example, finding and fix.** A ```` ```jai example ```` fence, then optionally a ```` ```diagnostic ```` fence and a ```` ```jai fixed ```` fence directly after it, render as one card with a caption over each block ("Example", "Diagnostic", "Fixed"). `docs/reference/lint-rules.md` is written that way (`crates/jailint/examples/lint_reference.rs`). In a diagnostic, `-` marks a removed line of a fix preview. Jai fences on these pages are highlighted and scroll sideways; other fences are plain and wrap long lines (usage lines, shell output).
 
 **Console blocks.** A ```` ```console ```` fence holds commands, each on a line starting with `$ `, and the lines each one prints. `jacket doc` (with `--check` too) runs them and fails when the output differs from the block, so a guide can't drift from the tools. `--no-test-examples` skips them.
 
@@ -171,7 +171,7 @@ Every page gets a title made from `[doc] name` (`String.trim — Jacket`, `Strin
 
 Rust works out these facts (`metadata.rs`, into each page's `head` in the view) and `HeadMeta` in `shell.jai` writes the tags, leaving out any that are empty.
 
-Versions: the current release lives at `<url><base>`, older ones at `<url><base>versions/<version>/` (built with that as `--base-url`). With `canonical_version` set and different from `--version`, each page's canonical points at the same path under that version, and the page is `noindex`.
+Versions: the current release lives at `<url><base>`, older ones at `<url><base>versions/<version>/` (built with that as `--base-url`). With `canonical-version` set and different from `--version`, each page's canonical points at the same path under that version, and the page is `noindex`.
 
 ## Accessibility
 
@@ -191,7 +191,7 @@ The site targets WCAG 2.2 AA:
 - **Contrast:**
   - Every colour in `site.css` and the theme is `oklch()`, written as `oklch(L% C Hdeg)` (stylelint enforces the notation); keep new ones in that form.
   - `tools/dev/test_doc_palette.py` checks every colour token in `site.css` in both themes: 4.5:1 for text, including the search field's placeholder on its fill (the field has no border).
-  - `jacket doc` rejects a `[doc.category]` `color`/`color_dark` under 4.5:1 and prints the measured ratio. It reads `oklch()` (out-of-gamut colours are clamped to sRGB to measure), `#hex` and colour names.
+  - `jacket doc` rejects a `[doc.category]` `color`/`color-dark` under 4.5:1 and prints the measured ratio. It reads `oklch()` (out-of-gamut colours are clamped to sRGB to measure), `#hex` and colour names.
 - **CI:** `tools/dev/doc_a11y.ts <url>` runs axe-core on six pages in both themes at 1280px and 320px. It needs Chrome (`CHROME_PATH` overrides its location). When browser checks are enabled, `docs-pages.yml` runs it after the build. Its guide sample is the direct header navigation target; changes to that markup should update `doc_samples.ts` and its fixture tests.
 - **HTTP probes:** status-only page checks use `HEAD`, so they leave no unread response body in Node. The configured static server must support `HEAD`; the included `doc_serve.py` does. Browser navigation and asset interception still read the actual page content.
 - **Browser readiness:** both browser checks wait up to ten seconds for a complete, valid DevTools port record. File creation alone is not readiness. Startup failures report elapsed time, the last record, child exit/signal and bounded Chrome stderr. Run `node --test tools/dev/test_chrome_startup.ts tools/dev/test_doc_samples.ts tools/dev/test_doc_sidebar.ts tools/dev/test_doc_search.ts` to check partial writes, read failures, the startup deadline and sidebar parser-state restoration without launching Chrome.
@@ -253,7 +253,7 @@ The implicit `#Context` reference is a configured Markdown guide at `guides/cont
 ## How to change it
 
 - **What a page says** comes from the doc comment ([doc comments](../compiler/doc-comments.md)). Document parameters with `- name: text` or a comment on the parameter.
-- **Module names.** A module has three: `id` (its page's place below the documented folder, so `Json` when only `stdlib/Extensions/Json` is documented), `doc_key` (what the compiler's `jaidoc:` links call it, `Extensions/Json` there too) and `import_path` (what an example imports). Links resolve through `doc_key` (`Site::module_for_link`) and examples and the import line of a module page use `import_path` (`Module::import_name`). Two modules with one `doc_key` leave their links unresolved rather than guessing. Outside the standard library a link names the folder alone, and the import is the id found through `-import_dir`.
+- **Module names.** A module has three: `id` (its page's place below the documented folder, so `Json` when only `stdlib/Extensions/Json` is documented), `doc_key` (what the compiler's `jaidoc:` links call it, `Extensions/Json` there too) and `import-path` (what an example imports). Links resolve through `doc_key` (`Site::module_for_link`) and examples and the import line of a module page use `import-path` (`Module::import_name`). Two modules with one `doc_key` leave their links unresolved rather than guessing. Outside the standard library a link names the folder alone, and the import is the id found through `-import_dir`.
 - **A fact the compiler should supply:** `model.rs` in `doc_comments/` and the JSON it prints, then `doc/model.rs`.
 - **Layout and colours:** `doc/site/assets/site.css` (colours are custom properties at the top, with a dark set; run `test_doc_palette.py` after changing one). Behaviour: `doc/site/assets/site.js`, which only adds to pages that read fine without it. `site.js` reads the header's height into `--header-offset` (61px until it runs), which the sticky sidebar and outline use. Lint and type checks for these files: [doc site assets](doc-site-assets.md).
 - **Markup** is the Jai theme: `shell.jai` (head, header, footer, the layout), `sidebars.jai`, `index.jai`, `module.jai`, `item.jai`, `guides.jai`, `examples.jai`, `playground.jai`, `parts.jai` (badges, crumbs, Source links). A new value on a page goes in `view.rs`, `view/build.rs` and `contract.jai` together. Markup tests are in `site/tests/suite.jai` with JSON fixtures; `cargo test -p jacket doc::` runs them (they need a built `jaic` beside `jacket`, and are skipped otherwise), and so does `jacket test --path crates/jacket/src/doc/site`.
@@ -304,7 +304,7 @@ The implicit `#Context` reference is a configured Markdown guide at `guides/cont
 | `--module` | all | build only these; broken links are then warnings |
 | `--check` | off | build and check, write nothing |
 | `--allow-broken-links` | off | warn instead of failing |
-| `--site-url`, `--og-image` | `[doc] url`, `og_image` | override `[doc]` |
+| `--site-url`, `--og-image` | `[doc] url`, `og-image` | override `[doc]` |
 | `--theme` | `[doc] theme` | theme override folder, relative to the current folder |
 | `--emit-input` | off | also write the view JSON to this folder |
 | `--timings` | off | print each phase's time to stderr |

@@ -5,7 +5,7 @@ use dep_support::{Origin, Project};
 const MODULE: &[(&str, &str)] = &[("module.jai", "answer :: 42;\n")];
 
 fn project() -> Project {
-    Project::new("[project]\nentry = [\"main.jai\"]\n")
+    Project::waived("[project]\nentry = [\"main.jai\"]\n")
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn a_package_that_needs_a_newer_jacket_is_refused_and_removed() {
         "future",
         &[
             ("module.jai", "answer :: 42;\n"),
-            ("jacket.toml", "[package]\nrequires_jacket = \">=99.0.0\"\n"),
+            ("jacket.toml", "[package]\njacket-version = \">=99.0.0\"\n"),
         ],
     );
     let run = project.jacket(&["dep", "add", &origin.url()]);
@@ -118,7 +118,7 @@ fn update_keeps_the_old_commit_when_the_new_one_needs_a_newer_jacket() {
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     origin.release(
         "v2.0.0",
-        &[("jacket.toml", "[package]\nrequires_jacket = \">=99.0.0\"\n")],
+        &[("jacket.toml", "[package]\njacket-version = \">=99.0.0\"\n")],
     );
     let run = project.jacket(&["dep", "update", "lib", "--to", "v2.0.0"]);
     assert_ne!(run.code, 0);

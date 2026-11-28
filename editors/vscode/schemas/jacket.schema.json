@@ -18,7 +18,7 @@
           },
           "markdownDescription": "The files you give `jaic`, relative to this file, such as `[\"main.jai\"]`. Default: the first of `build.jai`, `first.jai`, `main.jai`, `src/main.jai` and `module.jai` that exists."
         },
-        "import_path": {
+        "import-path": {
           "type": "array",
           "items": {
             "type": "string"
@@ -253,7 +253,7 @@
                 "deny"
               ],
               "default": "allow",
-              "markdownDescription": "a procedure whose branching scores above `max_complexity` (default 25) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#cognitive_complexity)"
+              "markdownDescription": "a procedure whose branching scores above `max-complexity` (default 25) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#cognitive_complexity)"
             },
             "constant_condition": {
               "type": "string",
@@ -363,7 +363,7 @@
                 "deny"
               ],
               "default": "allow",
-              "markdownDescription": "a procedure with more `bool` parameters than `max_bools` (default 3) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#excessive_bools)"
+              "markdownDescription": "a procedure with more `bool` parameters than `max-bools` (default 3) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#excessive_bools)"
             },
             "excessive_nesting": {
               "type": "string",
@@ -373,7 +373,7 @@
                 "deny"
               ],
               "default": "allow",
-              "markdownDescription": "blocks nested deeper than `max_nesting` (default 6) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#excessive_nesting)"
+              "markdownDescription": "blocks nested deeper than `max-nesting` (default 6) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#excessive_nesting)"
             },
             "field_reassign_with_default": {
               "type": "string",
@@ -543,7 +543,7 @@
                 "deny"
               ],
               "default": "allow",
-              "markdownDescription": "a local fixed array bigger than `max_stack_array_bytes` (default 64 KiB) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#large_stack_array)"
+              "markdownDescription": "a local fixed array bigger than `max-stack-array-bytes` (default 64 KiB) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#large_stack_array)"
             },
             "integer_division_in_float": {
               "type": "string",
@@ -973,7 +973,7 @@
                 "deny"
               ],
               "default": "allow",
-              "markdownDescription": "a procedure with more parameters than `max_arguments` (default 7) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#too_many_arguments)"
+              "markdownDescription": "a procedure with more parameters than `max-arguments` (default 7) (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#too_many_arguments)"
             },
             "unchecked_directive": {
               "type": "string",
@@ -1207,49 +1207,49 @@
             }
           }
         },
-        "max_nesting": {
+        "max-nesting": {
           "type": "integer",
           "minimum": 1,
           "markdownDescription": "How many blocks deep code may nest before `excessive_nesting` fires."
         },
-        "max_complexity": {
+        "max-complexity": {
           "type": "integer",
           "minimum": 0,
           "default": 25,
           "markdownDescription": "The cognitive complexity above which `cognitive_complexity` reports a procedure."
         },
-        "max_arguments": {
+        "max-arguments": {
           "type": "integer",
           "minimum": 0,
           "default": 7,
           "markdownDescription": "The parameter count above which `too_many_arguments` reports a procedure."
         },
-        "max_bools": {
+        "max-bools": {
           "type": "integer",
           "minimum": 0,
           "default": 3,
           "markdownDescription": "The number of `bool` parameters above which `excessive_bools` reports a procedure."
         },
-        "max_stack_array_bytes": {
+        "max-stack-array-bytes": {
           "type": "integer",
           "minimum": 0,
           "default": 65536,
           "markdownDescription": "The size in bytes above which `large_stack_array` reports a local fixed array."
         },
-        "magic_number_allow": {
+        "magic-number-allow": {
           "type": "array",
           "items": {
             "type": "number"
           },
           "markdownDescription": "Numbers `magic_number` never reports, besides `10`, `100`, `1000`, powers of two and all-ones masks, such as `[60, 24, 3.14159]`."
         },
-        "magic_number_min": {
+        "magic-number-min": {
           "type": "number",
           "minimum": 0,
           "default": 3,
           "markdownDescription": "Whole numbers smaller than this in magnitude are not reported by `magic_number`."
         },
-        "magic_number_in_tests": {
+        "magic-number-in-tests": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "`magic_number` also checks files in `tests` and `test` folders."
@@ -1283,7 +1283,7 @@
           "additionalProperties": false,
           "markdownDescription": "Limits for the `freestanding` rule.",
           "properties": {
-            "max_frame_bytes": {
+            "max-frame-bytes": {
               "type": "integer",
               "minimum": 0,
               "default": 1024,
@@ -1369,12 +1369,12 @@
           "default": 0,
           "markdownDescription": "Runs of a failed test before it counts as failed (`--retries`); one that then passes is FLAKY."
         },
-        "fail_fast": {
+        "fail-fast": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "Start no more tests after the first failure (`--fail-fast`)."
         },
-        "flaky_fails": {
+        "flaky-fails": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "A FLAKY test fails the run."
@@ -1420,12 +1420,12 @@
                 "default": 0,
                 "markdownDescription": "Runs of a failed test before it counts as failed (`--retries`); one that then passes is FLAKY."
               },
-              "fail_fast": {
+              "fail-fast": {
                 "type": "boolean",
                 "default": false,
                 "markdownDescription": "Start no more tests after the first failure (`--fail-fast`)."
               },
-              "flaky_fails": {
+              "flaky-fails": {
                 "type": "boolean",
                 "default": false,
                 "markdownDescription": "A FLAKY test fails the run."
@@ -1451,40 +1451,40 @@
       "additionalProperties": false,
       "markdownDescription": "Settings for the jaifmt formatter.",
       "properties": {
-        "indent_width": {
+        "indent-width": {
           "type": "integer",
           "minimum": 1,
           "maximum": 16,
           "default": 4,
           "markdownDescription": "Spaces per indentation level."
         },
-        "case_indent": {
+        "case-indent": {
           "type": "integer",
           "minimum": 0,
           "maximum": 16,
-          "markdownDescription": "Indentation of `case` lines in `if x == {`. Default: `indent_width`."
+          "markdownDescription": "Indentation of `case` lines in `if x == {`. Default: `indent-width`."
         },
-        "case_body_indent": {
+        "case-body-indent": {
           "type": "integer",
           "minimum": 0,
           "maximum": 16,
-          "markdownDescription": "Indentation of the statements under a `case`. Default: `indent_width`."
+          "markdownDescription": "Indentation of the statements under a `case`. Default: `indent-width`."
         },
-        "max_blank_lines": {
+        "max-blank-lines": {
           "type": "integer",
           "minimum": 0,
           "maximum": 100,
           "default": 2,
           "markdownDescription": "Consecutive blank lines kept."
         },
-        "max_width": {
+        "max-width": {
           "type": "integer",
           "minimum": 10,
           "maximum": 10000,
           "default": 100,
           "markdownDescription": "Line width reported by `jaifmt --verbose`; lines are never wrapped."
         },
-        "brace_style": {
+        "brace-style": {
           "type": "string",
           "enum": [
             "same_line",
@@ -1493,42 +1493,42 @@
           "default": "same_line",
           "markdownDescription": "`same_line` joins a `{` on its own line to its header; `preserve` leaves it."
         },
-        "blank_lines_between_items": {
+        "blank-lines-between-items": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "A blank line around multi-line file-level items and import groups."
         },
-        "blank_line_after_declarations": {
+        "blank-line-after-declarations": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "In code, a blank line after a run of declarations."
         },
-        "blank_lines_around_blocks": {
+        "blank-lines-around-blocks": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "In code, a blank line before and after a statement with a block body."
         },
-        "blank_line_between_cases": {
+        "blank-line-between-cases": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "In a switch, a blank line before a `case` that follows a multi-line arm."
         },
-        "blank_line_before_comments": {
+        "blank-line-before-comments": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "In code, a blank line above a comment that follows code."
         },
-        "blank_line_after_guards": {
+        "blank-line-after-guards": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "In code, a blank line after a run of one-line `if`, `for` or `while`."
         },
-        "blank_line_before_return": {
+        "blank-line-before-return": {
           "type": "boolean",
           "default": false,
           "markdownDescription": "In code, a blank line above a `return` in a longer body."
         },
-        "format_doc_examples": {
+        "format-doc-examples": {
           "type": "boolean",
           "default": true,
           "markdownDescription": "Format the `jai` code blocks inside `//` comments, such as doc comment examples. They follow these settings, except those `[doc.format]` sets."
@@ -1606,13 +1606,13 @@
             ],
             "markdownDescription": "How tags read as versions. Default `semver`."
           },
-          "tag_prefix": {
+          "tag-prefix": {
             "type": "string",
             "markdownDescription": "Fixed text stripped from tags before they are read (`alpha-`)."
           },
-          "min_release_age": {
+          "min-release-age": {
             "type": "string",
-            "markdownDescription": "Replaces `[resolver] min_release_age` for this dependency. `\"0\"` waives the policy."
+            "markdownDescription": "Replaces `[resolver] min-release-age` for this dependency. `\"0\"` waives the policy."
           },
           "shared": {
             "type": "boolean",
@@ -1638,7 +1638,7 @@
           "type": "string",
           "markdownDescription": "The folder holding `module.jai`. Default: the repository root, else the only `modules/<Name>`."
         },
-        "requires_jacket": {
+        "jacket-version": {
           "type": "string",
           "markdownDescription": "The jacket versions this package builds with (`>=0.40`). `jacket dep add` and `update` refuse it elsewhere."
         },
@@ -1649,7 +1649,7 @@
           },
           "markdownDescription": "The operating systems it supports (`linux`, `macos`, `windows`). Others get a warning."
         },
-        "import_path": {
+        "import-path": {
           "type": "array",
           "items": {
             "type": "string"
@@ -1663,11 +1663,11 @@
       "additionalProperties": false,
       "markdownDescription": "How `jacket dep` picks versions.",
       "properties": {
-        "min_release_age": {
+        "min-release-age": {
           "type": "string",
           "markdownDescription": "How long ago a version must have been published (`3d`, `12h`, `90m`, `2w`, `0`). Times come from the forge's release records."
         },
-        "release_age_jitter": {
+        "release-age-jitter": {
           "type": "string",
           "markdownDescription": "Adds a per-version wait in `[0, jitter]`, hashed from `seed`, the dependency and the version, so a bad release reaches projects in stages."
         },
@@ -1690,37 +1690,37 @@
           "additionalProperties": false,
           "markdownDescription": "`[format]` settings that differ for the examples in doc comments. A key left out keeps the `[format]` value.",
           "properties": {
-            "indent_width": {
+            "indent-width": {
               "type": "integer",
               "minimum": 1,
               "maximum": 16,
               "markdownDescription": "Spaces per indentation level."
             },
-            "case_indent": {
+            "case-indent": {
               "type": "integer",
               "minimum": 0,
               "maximum": 16,
-              "markdownDescription": "Indentation of `case` lines in `if x == {`. Default: `indent_width`."
+              "markdownDescription": "Indentation of `case` lines in `if x == {`. Default: `indent-width`."
             },
-            "case_body_indent": {
+            "case-body-indent": {
               "type": "integer",
               "minimum": 0,
               "maximum": 16,
-              "markdownDescription": "Indentation of the statements under a `case`. Default: `indent_width`."
+              "markdownDescription": "Indentation of the statements under a `case`. Default: `indent-width`."
             },
-            "max_blank_lines": {
+            "max-blank-lines": {
               "type": "integer",
               "minimum": 0,
               "maximum": 100,
               "markdownDescription": "Consecutive blank lines kept."
             },
-            "max_width": {
+            "max-width": {
               "type": "integer",
               "minimum": 10,
               "maximum": 10000,
               "markdownDescription": "Line width reported by `jaifmt --verbose`; lines are never wrapped."
             },
-            "brace_style": {
+            "brace-style": {
               "type": "string",
               "enum": [
                 "same_line",
@@ -1728,31 +1728,31 @@
               ],
               "markdownDescription": "`same_line` joins a `{` on its own line to its header; `preserve` leaves it."
             },
-            "blank_lines_between_items": {
+            "blank-lines-between-items": {
               "type": "boolean",
               "markdownDescription": "A blank line around multi-line file-level items and import groups."
             },
-            "blank_line_after_declarations": {
+            "blank-line-after-declarations": {
               "type": "boolean",
               "markdownDescription": "In code, a blank line after a run of declarations."
             },
-            "blank_lines_around_blocks": {
+            "blank-lines-around-blocks": {
               "type": "boolean",
               "markdownDescription": "In code, a blank line before and after a statement with a block body."
             },
-            "blank_line_between_cases": {
+            "blank-line-between-cases": {
               "type": "boolean",
               "markdownDescription": "In a switch, a blank line before a `case` that follows a multi-line arm."
             },
-            "blank_line_before_comments": {
+            "blank-line-before-comments": {
               "type": "boolean",
               "markdownDescription": "In code, a blank line above a comment that follows code."
             },
-            "blank_line_after_guards": {
+            "blank-line-after-guards": {
               "type": "boolean",
               "markdownDescription": "In code, a blank line after a run of one-line `if`, `for` or `while`."
             },
-            "blank_line_before_return": {
+            "blank-line-before-return": {
               "type": "boolean",
               "markdownDescription": "In code, a blank line above a `return` in a longer body."
             }
@@ -1765,16 +1765,16 @@
       "additionalProperties": false,
       "markdownDescription": "Performance knobs that may change between releases; each becomes a `jaic` flag.",
       "properties": {
-        "parse_threads": {
+        "parse-threads": {
           "type": "integer",
           "minimum": 1,
           "markdownDescription": "Threads that parse files ahead of the compiler (`-parse_threads`)."
         },
-        "serial_parse": {
+        "serial-parse": {
           "type": "boolean",
           "markdownDescription": "Parse files one at a time (`-serial_parse`)."
         },
-        "codegen_units": {
+        "codegen-units": {
           "type": "integer",
           "minimum": 1,
           "markdownDescription": "Split code generation into this many units (`-codegen_units`)."

@@ -24,14 +24,14 @@ def main():
     parser.add_argument('--rust', type=Path, required=True)
     parser.add_argument('--report', type=Path, required=True)
     args = parser.parse_args()
-    valid = ['', '[format]\n', '[format]\nindent_width=0x2\n', '[format]\nindent_width=1_6\n', 'format.indent_width=0o2\n', 'format={indent_width=0b10}\n', '["format"]\n"indent_width"=+2\n', '[format]\nbrace_style="pres\\u0065rve"\nignore=["vendor\\u002f**", "**/generated_*.jai"]\n', '[doc.format]\nmax_width=0x50\nbrace_style="pres\\u0065rve"\nindent_width=2\n', '[format]\ntyop=1\n', '[doc.format]\ntyop=1\n', (ROOT / 'jacket.toml').read_text()]
-    for key in ['blank_lines_between_items', 'blank_line_after_declarations', 'blank_lines_around_blocks', 'blank_line_between_cases', 'blank_line_before_comments', 'blank_line_after_guards', 'blank_line_before_return', 'format_doc_examples']:
+    valid = ['', '[format]\n', '[format]\nindent-width=0x2\n', '[format]\nindent-width=1_6\n', 'format.indent-width=0o2\n', 'format={indent-width=0b10}\n', '["format"]\n"indent-width"=+2\n', '[format]\nbrace-style="pres\\u0065rve"\nignore=["vendor\\u002f**", "**/generated_*.jai"]\n', '[doc.format]\nmax-width=0x50\nbrace-style="pres\\u0065rve"\nindent-width=2\n', '[format]\ntyop=1\n', '[doc.format]\ntyop=1\n', (ROOT / 'jacket.toml').read_text()]
+    for key in ['blank-lines-between-items', 'blank-line-after-declarations', 'blank-lines-around-blocks', 'blank-line-between-cases', 'blank-line-before-comments', 'blank-line-after-guards', 'blank-line-before-return', 'format-doc-examples']:
         for flag in ('true', 'false'):
             valid.append(f'[format]\n{key}={flag}\n')
-    for key, numbers in [('indent_width', [1, 16]), ('case_indent', [0, 16]), ('case_body_indent', [0, 16]), ('max_blank_lines', [0, 100]), ('max_width', [10, 10000])]:
+    for key, numbers in [('indent-width', [1, 16]), ('case-indent', [0, 16]), ('case-body-indent', [0, 16]), ('max-blank-lines', [0, 100]), ('max-width', [10, 10000])]:
         for number in numbers:
             valid.append(f'[format]\n{key}={number}\n')
-    invalid = ['[format]\nindent_width=0\n', '[format]\nindent_width=17\n', '[format]\nindent_width=true\n', '[format]\ncase_indent=-1\n', '[format]\nmax_width=9\n', '[format]\nmax_width=10.0\n', '[format]\nbrace_style="other"\n', '[format]\nblank_line_before_return=1\n', '[format]\nignore=[1]\n', '[format]\nindent_width=2\nindent_width=3\n', '[other]\nbroken=[\n', '[doc.format]\nindent_width=0\n']
+    invalid = ['[format]\nindent-width=0\n', '[format]\nindent-width=17\n', '[format]\nindent-width=true\n', '[format]\ncase-indent=-1\n', '[format]\nmax-width=9\n', '[format]\nmax-width=10.0\n', '[format]\nbrace-style="other"\n', '[format]\nblank-line-before-return=1\n', '[format]\nignore=[1]\n', '[format]\nindent-width=2\nindent-width=3\n', '[other]\nbroken=[\n', '[doc.format]\nindent-width=0\n']
     report = dict(own_sha256=hashlib.sha256(args.own.read_bytes()).hexdigest(), rust_sha256=hashlib.sha256(args.rust.read_bytes()).hexdigest(), cases=[])
     failures = 0
     for text, accepted in [(text, True) for text in valid] + [(text, False) for text in invalid]:

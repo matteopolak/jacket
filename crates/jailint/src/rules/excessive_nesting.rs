@@ -31,7 +31,7 @@ use jaic::source::Span;
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "excessive_nesting",
     category: crate::config::Category::Pedantic,
-    summary: "blocks nested deeper than `max_nesting` (default 6)",
+    summary: "blocks nested deeper than `max-nesting` (default 6)",
     check,
 };
 

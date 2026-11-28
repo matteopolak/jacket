@@ -87,7 +87,7 @@ struct Own {
     /// Deny a rule; `-D warnings` makes every warning an error
     #[arg(short = 'D', value_name = "rule")]
     deny: Vec<String>,
-    /// Blocks `excessive_nesting` allows (default: `[lint] max_nesting` in `jacket.toml`, else 6)
+    /// Blocks `excessive_nesting` allows (default: `[lint] max-nesting` in `jacket.toml`, else 6)
     #[arg(long, value_name = "n", value_parser = number::<usize>("--max-nesting", "a whole number", "6"))]
     max_nesting: Option<usize>,
     /// Lifetime proof mode (default: [lint.lifetimes] mode, else must)

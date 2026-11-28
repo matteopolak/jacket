@@ -3,7 +3,7 @@
 //! ```toml
 //! [lint]
 //! exclude = ["tests/corpus/**"]
-//! max_nesting = 6
+//! max-nesting = 6
 //!
 //! [lint.rules]
 //! float_equality = "warn"
@@ -145,9 +145,9 @@ pub struct Config {
     pub portability: Portability,
     /// The file the settings came from, if any.
     pub source: Option<PathBuf>,
-    /// `[project] import_path` of the file the settings came from, as absolute folders.
+    /// `[project] import-path` of the file the settings came from, as absolute folders.
     pub import_dirs: Vec<PathBuf>,
-    /// The folders each dependency's own files search: its package folder and `import_path`.
+    /// The folders each dependency's own files search: its package folder and `import-path`.
     pub package_imports: Vec<(PathBuf, Vec<PathBuf>)>,
 }
 
@@ -318,10 +318,10 @@ pub const DEFAULT_MAX_BOOLS: usize = 3;
 pub const DEFAULT_MAX_STACK_ARRAY_BYTES: usize = 64 * 1024;
 
 /// The bytes of fixed-size locals a procedure may hold for `freestanding` when nothing sets
-/// `[lint.freestanding] max_frame_bytes`.
+/// `[lint.freestanding] max-frame-bytes`.
 pub const DEFAULT_MAX_FRAME_BYTES: usize = 1024;
 
-/// Whole numbers below this magnitude are not magic when nothing sets `magic_number_min`.
+/// Whole numbers below this magnitude are not magic when nothing sets `magic-number-min`.
 pub const DEFAULT_MAGIC_NUMBER_MIN: f64 = 3.0;
 
 /// The numbers `magic_number` lets through.
@@ -549,7 +549,8 @@ impl Config {
             &jacket_config::Disk,
             loaded.dir(),
             &loaded.config,
-        );
+        )
+        .map_err(|e| e.to_string())?;
         config.import_dirs.extend(roots.modules);
         config.package_imports = roots.packages;
         Ok(config)
@@ -840,7 +841,7 @@ mod tests {
 
     #[test]
     fn rejects_invalid_patterns_with_their_line() {
-        let error = parse("[lint]\nmax_nesting = 3\nexclude = [\"a[\"]\n").unwrap_err();
+        let error = parse("[lint]\nmax-nesting = 3\nexclude = [\"a[\"]\n").unwrap_err();
         assert!(
             error.contains("line 3") && error.contains("`a[`"),
             "{error}"

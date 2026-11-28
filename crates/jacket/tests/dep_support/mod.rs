@@ -143,6 +143,18 @@ pub struct Run {
 }
 
 impl Project {
+    /// A project whose `[resolver]` waives the release-age policy (`min-release-age = "0"`), for
+    /// tests of everything but the policy: their origins are local repositories with no
+    /// release times.
+    pub fn waived(toml: &str) -> Self {
+        let waiver = "min-release-age = \"0\"\n";
+        let toml = match toml.split_once("[resolver]\n") {
+            Some((before, after)) => format!("{before}[resolver]\n{waiver}{after}"),
+            None => format!("{toml}\n[resolver]\n{waiver}"),
+        };
+        Self::new(&toml)
+    }
+
     pub fn new(toml: &str) -> Self {
         let root = TempDir::new("dep");
         let dir = root.join("project");

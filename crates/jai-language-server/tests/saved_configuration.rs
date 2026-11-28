@@ -111,10 +111,10 @@ fn save_and_watcher_notifications_report_one_problem() {
     }
     let out = send(
         &mut s,
-        json!({"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":config,"version":2},"contentChanges":[{"text":"import_path ="}]}}),
+        json!({"jsonrpc":"2.0","method":"textDocument/didChange","params":{"textDocument":{"uri":config,"version":2},"contentChanges":[{"text":"import-path ="}]}}),
     );
     assert_eq!(warnings(&out), 0);
-    std::fs::write(dir.join("jacket.toml"), "import_path =").unwrap();
+    std::fs::write(dir.join("jacket.toml"), "import-path =").unwrap();
     let save = json!({"jsonrpc":"2.0","method":"textDocument/didSave","params":{"textDocument":{"uri":config}}});
     let watch = json!({"jsonrpc":"2.0","method":"workspace/didChangeWatchedFiles","params":{"changes":[{"uri":config,"type":2}]}});
     assert_eq!(warnings(&send(&mut s, save.clone())), 1);

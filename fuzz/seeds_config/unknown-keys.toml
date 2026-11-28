@@ -3,5 +3,5 @@ build_files = "x.jai"
 [lint]
 color = true
 [format]
-indent_width = 3
+indent-width = 3
 bogus = [1, 2]

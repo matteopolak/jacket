@@ -6,20 +6,20 @@ main :: () {
     config: Format_Config;
 
     assignments := string.[
-        "indent_width=2",
-        "case_indent=3",
-        "case_body_indent=5",
-        "max_blank_lines=1",
-        "max_width=120",
-        "brace_style=\"preserve\"",
-        "blank_lines_between_items=false",
-        "blank_line_after_declarations=true",
-        "blank_lines_around_blocks=true",
-        "blank_line_between_cases=true",
-        "blank_line_before_comments=true",
-        "blank_line_after_guards=true",
-        "blank_line_before_return=true",
-        "format_doc_examples=false",
+        "indent-width=2",
+        "case-indent=3",
+        "case-body-indent=5",
+        "max-blank-lines=1",
+        "max-width=120",
+        "brace-style=\"preserve\"",
+        "blank-lines-between-items=false",
+        "blank-line-after-declarations=true",
+        "blank-lines-around-blocks=true",
+        "blank-line-between-cases=true",
+        "blank-line-before-comments=true",
+        "blank-line-after-guards=true",
+        "blank-line-before-return=true",
+        "format-doc-examples=false",
         "ignore=[\"vendor\"]",
     ];
 
@@ -45,12 +45,12 @@ main :: () {
     assert(config.ignore.count == 1 && config.ignore[0] == "vendor");
 
     // A later setting does not disturb the earlier ones, and one that fails changes nothing.
-    ok, error := format_apply_setting(*config, "indent_width=8");
+    ok, error := format_apply_setting(*config, "indent-width=8");
 
     assert(ok, error);
     assert(config.indent_width == 8 && config.case_indent == 3 && config.max_width == 120);
 
-    ok, error = format_apply_setting(*config, "max_width=5");
+    ok, error = format_apply_setting(*config, "max-width=5");
 
     assert(!ok);
     assert(config.max_width == 120);

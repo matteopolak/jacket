@@ -18,7 +18,7 @@ use jaic::ast::{ExprKind as E, Param};
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "excessive_bools",
     category: crate::config::Category::Restriction,
-    summary: "a procedure with more `bool` parameters than `max_bools` (default 3)",
+    summary: "a procedure with more `bool` parameters than `max-bools` (default 3)",
     check,
 };
 

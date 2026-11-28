@@ -4,24 +4,24 @@
 # the configuration the playground's formatter reads.
 
 [format]
-indent_width = 4
-max_width = 100
-max_blank_lines = 1
-brace_style = "same_line"
-blank_line_after_declarations = true
-blank_lines_around_blocks = true
-blank_line_after_guards = true
-blank_line_before_return = true
+indent-width = 4
+max-width = 100
+max-blank-lines = 1
+brace-style = "same_line"
+blank-line-after-declarations = true
+blank-lines-around-blocks = true
+blank-line-after-guards = true
+blank-line-before-return = true
 
 # Examples in doc comments are short; the extra blank lines make them airy.
 [doc.format]
-blank_line_after_declarations = false
-blank_lines_around_blocks = false
-blank_line_after_guards = false
-blank_line_before_return = false
+blank-line-after-declarations = false
+blank-lines-around-blocks = false
+blank-line-after-guards = false
+blank-line-before-return = false
 
 [lint]
-max_complexity = 100
+max-complexity = 100
 
 [lint.rules]
 shadowed_local = "warn"

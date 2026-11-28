@@ -47,7 +47,7 @@ Most projects need none: jailsp finds the entry file (`build.jai`, `first.jai`, 
 ```toml
 [project]
 entry = ["src/app.jai"]   # what you would pass to jaic
-import_path = ["vendor"]  # extra module folders, like jaic -I
+import-path = ["vendor"]  # extra module folders, like jaic -I
 ```
 
 Lint levels come from the `[lint]` table of the nearest `jacket.toml`. `JAIC_STDLIB` points the server at a different standard library.

@@ -18,7 +18,7 @@ def main() -> None:
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     workloads = {
-        'config': "title = 'tool'\n[format]\nindent_width = 2\nmax_width = 100\nbrace_style = 'preserve'\nignore = ['vendor/**', '**/generated_*.jai']\n[doc.format]\nmax_width = 80\n",
+        'config': "title = 'tool'\n[format]\nindent-width = 2\nmax-width = 100\nbrace-style = 'preserve'\nignore = ['vendor/**', '**/generated_*.jai']\n[doc.format]\nmax-width = 80\n",
     }
     workloads['repository-config'] = args.repository_config.read_bytes().decode('utf-8')
     for size in (1024, 8192):

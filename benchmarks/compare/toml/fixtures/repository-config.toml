@@ -23,7 +23,7 @@ exclude = [
 
 # Procedures over this mark carry a `// jailint: allow(cognitive_complexity)` on their first
 # line; lower it as they are split.
-max_complexity = 100
+max-complexity = 100
 
 # Off-by-default rules this repository holds itself to.
 [lint.rules]
@@ -161,15 +161,15 @@ portable = ["stdlib/**"]
 
 [format]
 # jaifmt settings for this repository; see docs/tools/jaifmt.md.
-indent_width = 4
-max_width = 100
-max_blank_lines = 1
-brace_style = "same_line"
+indent-width = 4
+max-width = 100
+max-blank-lines = 1
+brace-style = "same_line"
 # Stricter, opt-in spacing inside code blocks (see docs/tools/jaifmt.md).
-blank_line_after_declarations = true # after a run of declarations
-blank_lines_around_blocks = true # around statements with a block body
-blank_line_after_guards = true # after a run of one-line if/for/while
-blank_line_before_return = true # above a return in a longer body
+blank-line-after-declarations = true # after a run of declarations
+blank-lines-around-blocks = true # around statements with a block body
+blank-line-after-guards = true # after a run of one-line if/for/while
+blank-line-before-return = true # above a return in a longer body
 
 # Every Jai file the repository owns is formatted, except:
 # - tests/corpus: fixtures pinned by sha256 in tests/corpus/manifest.json, and negative cases
@@ -188,7 +188,7 @@ paths = ["stdlib/**"]
 # `jacket doc` with no path documents this. Patterns match module folders, as elsewhere here.
 [doc]
 url = "https://jacket.matteopolak.com"
-og_image = "editors/vscode/images/doc-og.png"
+og-image = "editors/vscode/images/doc-og.png"
 path = "stdlib"
 name = "Jacket"
 breadcrumb = "std"
@@ -197,14 +197,14 @@ home = "docs/reference/home.md"
 logo = "editors/vscode/images/icon.svg"
 repo = "https://github.com/matteopolak/jacket"
 since = "crates/jacket/src/doc/since.tsv"
-pages_title = "Guides"
+pages-title = "Guides"
 
 # Doc comment examples are short; the extra blank lines make them airy.
 [doc.format]
-blank_line_after_declarations = false
-blank_lines_around_blocks = false
-blank_line_after_guards = false
-blank_line_before_return = false
+blank-line-after-declarations = false
+blank-lines-around-blocks = false
+blank-line-after-guards = false
+blank-line-before-return = false
 
 # A module goes under the last category that matches it.
 [[doc.category]]
@@ -217,7 +217,7 @@ modules = ["stdlib/Extensions/**"]
 badge = "extension"
 tip = "Extension: not part of the standard library"
 color = "#1d7282"
-color_dark = "#6cc4d4"
+color-dark = "#6cc4d4"
 
 [[doc.page]]
 file = "docs/guides/testing.md"

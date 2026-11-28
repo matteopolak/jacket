@@ -49,7 +49,7 @@ class ScriptingWasmBuildTests(unittest.TestCase):
             (example / "main.jai").write_text('#load "part/one.jai";\n')
             (example / "part/one.jai").write_text("// own nested example fixture\n")
             (example / ".hidden").write_text("editor state, not shipped\n")
-            (root / "examples/jacket.toml").write_text("[format]\nindent_width = 2\n")
+            (root / "examples/jacket.toml").write_text("[format]\nindent-width = 2\n")
             (root / "tests/corpus").mkdir(parents=True)
             (root / "tests/corpus/examples.json").write_text(
                 json.dumps(
@@ -148,7 +148,7 @@ class ScriptingWasmBuildTests(unittest.TestCase):
                 },
             )
             self.assertEqual(
-                (output / "walk/jacket.toml").read_text(), "[format]\nindent_width = 2\n"
+                (output / "walk/jacket.toml").read_text(), "[format]\nindent-width = 2\n"
             )
             self.assertEqual(
                 (output / "walk/part/one.jai").read_text(),

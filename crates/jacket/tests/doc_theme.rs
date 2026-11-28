@@ -222,7 +222,7 @@ mod doc {
             return;
         };
         let temp = TempDir::new("doc-metadata");
-        temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\nbreadcrumb='std'\nurl='https://example.com'\nsite_name='Tiny std'\nog_image='https://example.com/og.png'\ncanonical_version='2'\n[[doc.page]]\nfile='guide.md'\nname='Guide'\n[[doc.section]]\nfile='rules.md'\nname='Rules'\n");
+        temp.write("jacket.toml", "[doc]\npath='lib'\nname='Tiny'\nbreadcrumb='std'\nurl='https://example.com'\nsite-name='Tiny std'\nog-image='https://example.com/og.png'\ncanonical-version='2'\n[[doc.page]]\nfile='guide.md'\nname='Guide'\n[[doc.section]]\nfile='rules.md'\nname='Rules'\n");
         temp.write(
             "lib/String/module.jai",
             "// Strings.\n\n// Trim & compare.\ntrim :: 42;\n",

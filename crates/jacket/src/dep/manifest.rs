@@ -41,8 +41,8 @@ pub fn inline(entry: &Dependency) -> String {
         ("path", &entry.path),
         ("module", &entry.module),
         ("scheme", &entry.scheme),
-        ("tag_prefix", &entry.tag_prefix),
-        ("min_release_age", &entry.min_release_age),
+        ("tag-prefix", &entry.tag_prefix),
+        ("min-release-age", &entry.min_release_age),
     ] {
         if let Some(value) = value {
             parts.push(format!("{name} = {}", quote(value)));
@@ -194,11 +194,11 @@ mod tests {
 
     #[test]
     fn an_entry_joins_its_table_keeps_comments_and_replaces_in_place() {
-        let text = "[dependencies]\n# json\njaison = { git = \"a/jaison\", tag = \"v1\" }\n\n[lint]\nmax_nesting = 3\n";
+        let text = "[dependencies]\n# json\njaison = { git = \"a/jaison\", tag = \"v1\" }\n\n[lint]\nmax-nesting = 3\n";
         let out = set_dependency(text, "utf8", &entry("a/utf8", "v2")).unwrap();
         assert_eq!(
             out,
-            "[dependencies]\n# json\njaison = { git = \"a/jaison\", tag = \"v1\" }\nutf8 = { git = \"a/utf8\", tag = \"v2\" }\n\n[lint]\nmax_nesting = 3\n"
+            "[dependencies]\n# json\njaison = { git = \"a/jaison\", tag = \"v1\" }\nutf8 = { git = \"a/utf8\", tag = \"v2\" }\n\n[lint]\nmax-nesting = 3\n"
         );
         let again = set_dependency(&out, "jaison", &entry("a/jaison", "v3")).unwrap();
         assert!(again.contains("jaison = { git = \"a/jaison\", tag = \"v3\" }"));
@@ -223,10 +223,10 @@ mod tests {
     #[test]
     fn the_seed_goes_under_resolver() {
         assert_eq!(set_seed("", "k"), "[resolver]\nseed = \"k\"\n");
-        let text = "[resolver]\nmin_release_age = \"3d\"\n";
+        let text = "[resolver]\nmin-release-age = \"3d\"\n";
         assert_eq!(
             set_seed(text, "k"),
-            "[resolver]\nseed = \"k\"\nmin_release_age = \"3d\"\n"
+            "[resolver]\nseed = \"k\"\nmin-release-age = \"3d\"\n"
         );
         assert_eq!(
             set_seed("[resolver]\nseed = \"old\"\n", "new"),

@@ -1,4 +1,4 @@
-//! A dependency's own `import_path` reaches the compiler as `-package_import_dir`, with a
+//! A dependency's own `import-path` reaches the compiler as `-package_import_dir`, with a
 //! compiler that only records its arguments.
 #![cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -8,7 +8,7 @@ use test_support::TempDir;
 const COMPILER: &str =
     "#!/bin/sh\nfor a in \"$@\"; do printf '%s\\n' \"$a\"; done > \"$ARGS_LOG\"\n";
 
-fn seen(files: &[(&str, &str)], args: &[&str]) -> (TempDir, Vec<String>) {
+fn run(files: &[(&str, &str)], args: &[&str]) -> (TempDir, std::process::Output) {
     let root = TempDir::new("package-roots");
     for (path, text) in files {
         let full = root.join(path);
@@ -27,7 +27,13 @@ fn seen(files: &[(&str, &str)], args: &[&str]) -> (TempDir, Vec<String>) {
         .env("ARGS_LOG", &log)
         .output()
         .unwrap();
+    (root, output)
+}
+
+fn seen(files: &[(&str, &str)], args: &[&str]) -> (TempDir, Vec<String>) {
+    let (root, output) = run(files, args);
     assert!(output.status.success(), "{output:?}");
+    let log = root.join("args.txt");
     let lines = std::fs::read_to_string(&log)
         .unwrap()
         .lines()
@@ -48,11 +54,11 @@ fn each_dependency_with_import_folders_is_passed_as_its_own_flags() {
             ("modules/plain/.git", "gitdir: x"),
             (
                 "modules/dep/jacket.toml",
-                "[package]\nimport_path = [\"lib\", \"more\"]\n",
+                "[package]\nimport-path = [\"lib\", \"more\"]\n",
             ),
             (
                 "vendor/moved/jacket.toml",
-                "[project]\nimport_path = \"v\"\n",
+                "[package]\nimport-path = \"v\"\n",
             ),
             ("modules/plain/jacket.toml", "[package]\nname = \"plain\"\n"),
         ],
@@ -103,5 +109,25 @@ fn a_module_below_the_repository_root_is_found_through_its_parent_folder() {
             &at("modules/wrap/modules"),
             "main.jai"
         ]
+    );
+}
+
+#[test]
+fn a_dependency_manifest_that_cannot_be_read_stops_the_build_and_names_the_file() {
+    let (root, output) = run(
+        &[
+            ("jacket.toml", TOML),
+            ("modules/dep/.git", "gitdir: x"),
+            ("vendor/moved/.git", "gitdir: x"),
+            ("modules/plain/.git", "gitdir: x"),
+            ("modules/dep/jacket.toml", "[package\n"),
+        ],
+        &["build", "main.jai"],
+    );
+    assert!(!output.status.success(), "{output:?}");
+    let err = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        err.contains(&root.join("modules/dep/jacket.toml").display().to_string()),
+        "{err}"
     );
 }

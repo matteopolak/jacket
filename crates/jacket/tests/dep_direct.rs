@@ -5,7 +5,7 @@ use dep_support::{Origin, Project, git, run_in};
 const MODULE: &[(&str, &str)] = &[("module.jai", "answer :: 42;\n")];
 
 fn one_tag() -> (Project, Origin, String) {
-    let project = Project::new("[project]\nentry = [\"main.jai\"]\n");
+    let project = Project::waived("[project]\nentry = [\"main.jai\"]\n");
     let origin = Origin::new(&project.root, "jaison", MODULE);
     let commit = origin.release("v1.0.0", &[("module.jai", "answer :: 43;\n")]);
     (project, origin, commit)
@@ -40,7 +40,7 @@ fn add_by_tag_checks_out_the_commit_and_records_the_entry_without_committing() {
 
 #[test]
 fn add_without_tags_pins_the_default_branch_by_rev() {
-    let project = Project::new("");
+    let project = Project::waived("");
     let origin = Origin::new(&project.root, "plain", MODULE);
     let tip = origin.commit("more");
     let run = project.jacket(&["dep", "add", &origin.url(), "--name", "j"]);
@@ -63,7 +63,7 @@ fn add_refuses_an_unknown_tag_and_a_folder_that_is_not_a_repository() {
     assert_eq!(run.code, 2);
     assert!(run.err.contains("has no tag `v9`"), "{}", run.err);
     assert!(!project.dir.join("modules").exists());
-    let bare = Project::new("");
+    let bare = Project::waived("");
     std::fs::remove_dir_all(bare.dir.join(".git")).unwrap();
     let run = run_in(&bare.dir, &bare.root, &["dep", "check"], &[]);
     assert_eq!(run.code, 2);
@@ -154,7 +154,7 @@ fn a_moved_tag_fails_check_and_update_naming_both_commits() {
 
 #[test]
 fn update_moves_a_rev_entry_to_the_newest_commit_and_a_tag_with_to() {
-    let project = Project::new("");
+    let project = Project::waived("");
     let origin = Origin::new(&project.root, "plain", MODULE);
     let first = origin.commit("one");
     project.jacket(&["dep", "add", &origin.url(), "--name", "j"]);
@@ -187,7 +187,7 @@ fn update_moves_a_rev_entry_to_the_newest_commit_and_a_tag_with_to() {
 
 #[test]
 fn nested_submodules_are_fetched_with_the_dependency() {
-    let project = Project::new("");
+    let project = Project::waived("");
     let inner = Origin::new(&project.root, "inner", &[("module.jai", "inner :: 1;\n")]);
     let outer = Origin::new(&project.root, "outer", MODULE);
     git(
@@ -284,7 +284,7 @@ fn check_reports_a_submodule_that_jacket_toml_does_not_list() {
 
 #[test]
 fn an_entry_whose_repository_is_not_an_address_is_refused_before_anything_runs() {
-    let project = Project::new(
+    let project = Project::waived(
         "[project]\nentry = [\"main.jai\"]\n\n[dependencies]\nbad = { git = \"--upload-pack=x\", tag = \"v1\" }\n",
     );
     for args in [["dep", "list"], ["dep", "check"], ["dep", "sync"]] {

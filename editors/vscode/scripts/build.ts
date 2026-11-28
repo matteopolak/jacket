@@ -168,29 +168,29 @@ const count = (minimum: number, maximum: number, fallback: number | undefined, t
 const flag = (text: string) => ({ type: "boolean", default: false, markdownDescription: text });
 // The settings that shape code; `[doc.format]` can override each of them for doc comment examples.
 const layoutKeys = {
-  indent_width: count(1, 16, 4, "Spaces per indentation level."),
-  case_indent: count(0, 16, undefined, "Indentation of `case` lines in `if x == {`. Default: `indent_width`."),
-  case_body_indent: count(0, 16, undefined, "Indentation of the statements under a `case`. Default: `indent_width`."),
-  max_blank_lines: count(0, 100, 2, "Consecutive blank lines kept."),
-  max_width: count(10, 10000, 100, "Line width reported by `jaifmt --verbose`; lines are never wrapped."),
-  brace_style: {
+  "indent-width": count(1, 16, 4, "Spaces per indentation level."),
+  "case-indent": count(0, 16, undefined, "Indentation of `case` lines in `if x == {`. Default: `indent-width`."),
+  "case-body-indent": count(0, 16, undefined, "Indentation of the statements under a `case`. Default: `indent-width`."),
+  "max-blank-lines": count(0, 100, 2, "Consecutive blank lines kept."),
+  "max-width": count(10, 10000, 100, "Line width reported by `jaifmt --verbose`; lines are never wrapped."),
+  "brace-style": {
     type: "string",
     enum: ["same_line", "preserve"],
     default: "same_line",
     markdownDescription: "`same_line` joins a `{` on its own line to its header; `preserve` leaves it.",
   },
-  blank_lines_between_items: { type: "boolean", default: true, markdownDescription: "A blank line around multi-line file-level items and import groups." },
-  blank_line_after_declarations: flag("In code, a blank line after a run of declarations."),
-  blank_lines_around_blocks: flag("In code, a blank line before and after a statement with a block body."),
-  blank_line_between_cases: flag("In a switch, a blank line before a `case` that follows a multi-line arm."),
-  blank_line_before_comments: flag("In code, a blank line above a comment that follows code."),
-  blank_line_after_guards: flag("In code, a blank line after a run of one-line `if`, `for` or `while`."),
-  blank_line_before_return: flag("In code, a blank line above a `return` in a longer body."),
+  "blank-lines-between-items": { type: "boolean", default: true, markdownDescription: "A blank line around multi-line file-level items and import groups." },
+  "blank-line-after-declarations": flag("In code, a blank line after a run of declarations."),
+  "blank-lines-around-blocks": flag("In code, a blank line before and after a statement with a block body."),
+  "blank-line-between-cases": flag("In a switch, a blank line before a `case` that follows a multi-line arm."),
+  "blank-line-before-comments": flag("In code, a blank line above a comment that follows code."),
+  "blank-line-after-guards": flag("In code, a blank line after a run of one-line `if`, `for` or `while`."),
+  "blank-line-before-return": flag("In code, a blank line above a `return` in a longer body."),
 };
 const formatKeys = {
   properties: {
     ...layoutKeys,
-    format_doc_examples: {
+    "format-doc-examples": {
       type: "boolean",
       default: true,
       markdownDescription: "Format the `jai` code blocks inside `//` comments, such as doc comment examples. They follow these settings, except those `[doc.format]` sets.",
@@ -209,8 +209,8 @@ const testRunKeys = {
     timeout: { type: "integer", minimum: 0, default: 120, markdownDescription: "Seconds before a test without `@timeout` is killed (`--timeout`); 0 for no limit." },
     slow: { type: "integer", minimum: 0, default: 30, markdownDescription: "Seconds before a running test is reported as slow; 0 for never." },
     retries: { type: "integer", minimum: 0, default: 0, markdownDescription: "Runs of a failed test before it counts as failed (`--retries`); one that then passes is FLAKY." },
-    fail_fast: { type: "boolean", default: false, markdownDescription: "Start no more tests after the first failure (`--fail-fast`)." },
-    flaky_fails: { type: "boolean", default: false, markdownDescription: "A FLAKY test fails the run." },
+    "fail-fast": { type: "boolean", default: false, markdownDescription: "Start no more tests after the first failure (`--fail-fast`)." },
+    "flaky-fails": { type: "boolean", default: false, markdownDescription: "A FLAKY test fails the run." },
     runner: { type: "string", markdownDescription: "Command that runs test programs built for another target, such as `node tools/wasi_run.mjs` (`--runner`)." },
     needs: { type: "array", items: { type: "string" }, markdownDescription: "Capabilities this machine has, for tests with `@needs(...)` (`--needs`), such as `[\"network\"]`." },
   },
@@ -236,7 +236,7 @@ const jacket = {
       markdownDescription: "What to build and where its modules are.",
       properties: {
         entry: paths("The files you give `jaic`, relative to this file, such as `[\"main.jai\"]`. Default: the first of `build.jai`, `first.jai`, `main.jai`, `src/main.jai` and `module.jai` that exists."),
-        import_path: paths("More folders to import modules from, relative to this file (`-import_dir`)."),
+        "import-path": paths("More folders to import modules from, relative to this file (`-import_dir`)."),
       },
     },
     toolchain: {
@@ -253,14 +253,14 @@ const jacket = {
       markdownDescription: "Settings for jailint and the lints jailsp reports.",
       properties: {
         ...lintRules.properties,
-        max_nesting: { type: "integer", minimum: 1, markdownDescription: "How many blocks deep code may nest before `excessive_nesting` fires." },
-        max_complexity: { type: "integer", minimum: 0, default: 25, markdownDescription: "The cognitive complexity above which `cognitive_complexity` reports a procedure." },
-        max_arguments: { type: "integer", minimum: 0, default: 7, markdownDescription: "The parameter count above which `too_many_arguments` reports a procedure." },
-        max_bools: { type: "integer", minimum: 0, default: 3, markdownDescription: "The number of `bool` parameters above which `excessive_bools` reports a procedure." },
-        max_stack_array_bytes: { type: "integer", minimum: 0, default: 65536, markdownDescription: "The size in bytes above which `large_stack_array` reports a local fixed array." },
-        magic_number_allow: { type: "array", items: { type: "number" }, markdownDescription: "Numbers `magic_number` never reports, besides `10`, `100`, `1000`, powers of two and all-ones masks, such as `[60, 24, 3.14159]`." },
-        magic_number_min: { type: "number", minimum: 0, default: 3, markdownDescription: "Whole numbers smaller than this in magnitude are not reported by `magic_number`." },
-        magic_number_in_tests: { type: "boolean", default: false, markdownDescription: "`magic_number` also checks files in `tests` and `test` folders." },
+        "max-nesting": { type: "integer", minimum: 1, markdownDescription: "How many blocks deep code may nest before `excessive_nesting` fires." },
+        "max-complexity": { type: "integer", minimum: 0, default: 25, markdownDescription: "The cognitive complexity above which `cognitive_complexity` reports a procedure." },
+        "max-arguments": { type: "integer", minimum: 0, default: 7, markdownDescription: "The parameter count above which `too_many_arguments` reports a procedure." },
+        "max-bools": { type: "integer", minimum: 0, default: 3, markdownDescription: "The number of `bool` parameters above which `excessive_bools` reports a procedure." },
+        "max-stack-array-bytes": { type: "integer", minimum: 0, default: 65536, markdownDescription: "The size in bytes above which `large_stack_array` reports a local fixed array." },
+        "magic-number-allow": { type: "array", items: { type: "number" }, markdownDescription: "Numbers `magic_number` never reports, besides `10`, `100`, `1000`, powers of two and all-ones masks, such as `[60, 24, 3.14159]`." },
+        "magic-number-min": { type: "number", minimum: 0, default: 3, markdownDescription: "Whole numbers smaller than this in magnitude are not reported by `magic_number`." },
+        "magic-number-in-tests": { type: "boolean", default: false, markdownDescription: "`magic_number` also checks files in `tests` and `test` folders." },
         overrides: {
           type: "array",
           markdownDescription: "Rule levels for some paths. Each entry's `rules` win over `[lint.rules]` for the files its `paths` match; a later entry wins over an earlier one, and command-line flags win over both.",
@@ -279,7 +279,7 @@ const jacket = {
           additionalProperties: false,
           markdownDescription: "Limits for the `freestanding` rule.",
           properties: {
-            max_frame_bytes: { type: "integer", minimum: 0, default: 1024, markdownDescription: "The bytes of local variables above which `freestanding` reports a procedure's stack frame." },
+            "max-frame-bytes": { type: "integer", minimum: 0, default: 1024, markdownDescription: "The bytes of local variables above which `freestanding` reports a procedure's stack frame." },
           },
         },
         portability: {
@@ -341,8 +341,8 @@ const jacket = {
           path: { type: "string", markdownDescription: "The submodule folder, relative to the project. Default `modules/<name>`." },
           module: { type: "string", markdownDescription: "The folder of the repository that holds `module.jai`. Default: its `[package] module`, else the repository root." },
           scheme: { enum: ["semver", "calendar", "integer"], markdownDescription: "How tags read as versions. Default `semver`." },
-          tag_prefix: { type: "string", markdownDescription: "Fixed text stripped from tags before they are read (`alpha-`)." },
-          min_release_age: { type: "string", markdownDescription: "Replaces `[resolver] min_release_age` for this dependency. `\"0\"` waives the policy." },
+          "tag-prefix": { type: "string", markdownDescription: "Fixed text stripped from tags before they are read (`alpha-`)." },
+          "min-release-age": { type: "string", markdownDescription: "Replaces `[resolver] min-release-age` for this dependency. `\"0\"` waives the policy." },
           shared: { type: "boolean", markdownDescription: "Written by `jacket dep` under `[resolver] dedupe`: another package asks for this one, so it is removed with the last package that needs it." },
         },
       },
@@ -355,9 +355,9 @@ const jacket = {
         name: { type: "string", markdownDescription: "The import name, which is the module folder's name. `jacket dep add` names the submodule folder after it." },
         version: { type: "string", markdownDescription: "The version this tree is; `jacket dep add` warns when it differs from the tag." },
         module: { type: "string", markdownDescription: "The folder holding `module.jai`. Default: the repository root, else the only `modules/<Name>`." },
-        requires_jacket: { type: "string", markdownDescription: "The jacket versions this package builds with (`>=0.40`). `jacket dep add` and `update` refuse it elsewhere." },
+        "jacket-version": { type: "string", markdownDescription: "The jacket versions this package builds with (`>=0.40`). `jacket dep add` and `update` refuse it elsewhere." },
         platforms: { type: "array", items: { type: "string" }, markdownDescription: "The operating systems it supports (`linux`, `macos`, `windows`). Others get a warning." },
-        import_path: { type: "array", items: { type: "string" }, markdownDescription: "More module folders searched for this package's files only." },
+        "import-path": { type: "array", items: { type: "string" }, markdownDescription: "More module folders searched for this package's files only." },
       },
     },
     resolver: {
@@ -365,8 +365,8 @@ const jacket = {
       additionalProperties: false,
       markdownDescription: "How `jacket dep` picks versions.",
       properties: {
-        min_release_age: { type: "string", markdownDescription: "How long ago a version must have been published (`3d`, `12h`, `90m`, `2w`, `0`). Times come from the forge's release records." },
-        release_age_jitter: { type: "string", markdownDescription: "Adds a per-version wait in `[0, jitter]`, hashed from `seed`, the dependency and the version, so a bad release reaches projects in stages." },
+        "min-release-age": { type: "string", markdownDescription: "How long ago a version must have been published (`3d`, `12h`, `90m`, `2w`, `0`). Times come from the forge's release records." },
+        "release-age-jitter": { type: "string", markdownDescription: "Adds a per-version wait in `[0, jitter]`, hashed from `seed`, the dependency and the version, so a bad release reaches projects in stages." },
         seed: { type: "string", markdownDescription: "Random text the jitter is hashed from. `jacket dep init` and the first `jacket dep add` write it; commit it." },
         dedupe: { type: "boolean", markdownDescription: "Experimental: solve every package's ranges together and share one copy per name." },
       },
@@ -387,9 +387,9 @@ const jacket = {
       additionalProperties: false,
       markdownDescription: "Performance knobs that may change between releases; each becomes a `jaic` flag.",
       properties: {
-        parse_threads: { type: "integer", minimum: 1, markdownDescription: "Threads that parse files ahead of the compiler (`-parse_threads`)." },
-        serial_parse: { type: "boolean", markdownDescription: "Parse files one at a time (`-serial_parse`)." },
-        codegen_units: { type: "integer", minimum: 1, markdownDescription: "Split code generation into this many units (`-codegen_units`)." },
+        "parse-threads": { type: "integer", minimum: 1, markdownDescription: "Threads that parse files ahead of the compiler (`-parse_threads`)." },
+        "serial-parse": { type: "boolean", markdownDescription: "Parse files one at a time (`-serial_parse`)." },
+        "codegen-units": { type: "integer", minimum: 1, markdownDescription: "Split code generation into this many units (`-codegen_units`)." },
       },
     },
   },

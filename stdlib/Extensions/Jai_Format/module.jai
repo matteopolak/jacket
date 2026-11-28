@@ -28,21 +28,21 @@ Brace_Style :: enum u8 {
 // formatted, ok := format_source("main :: () {\nx := 1;\n}\n", config);
 // assert(ok && formatted == "main :: () {\n  x := 1;\n}\n");
 // ```
-Format_Config :: struct @toml(default) {
-    indent_width := 4; @toml(range=1..16, message="indent_width must be an integer from 1 to 16")
-    case_indent := -1; @toml(range=0..16, message="case_indent must be an integer from 0 to 16") // `case` lines inside `if x == {`; -1: indent_width
-    case_body_indent := -1; @toml(range=0..16, message="case_body_indent must be an integer from 0 to 16") // statements under a `case`; -1: indent_width
-    max_blank_lines := 2; @toml(range=0..100, message="max_blank_lines must be an integer from 0 to 100")
-    max_width := 100; @toml(range=10..10000, message="max_width must be an integer from 10 to 10000") // only reported (format_count_long_lines); lines are never rewrapped
-    brace_style := Brace_Style.SAME_LINE; @toml(message="brace_style must be \"same_line\" or \"preserve\"")
-    blank_lines_between_items := true; @toml(message="blank_lines_between_items must be true or false") // a blank line around multi-line file-level items and import groups
-    blank_line_after_declarations := false; @toml(message="blank_line_after_declarations must be true or false") // in code blocks: a blank line after a run of declarations
-    blank_lines_around_blocks := false; @toml(message="blank_lines_around_blocks must be true or false") // in code blocks: a blank line before and after statements with a block body
-    blank_line_between_cases := false; @toml(message="blank_line_between_cases must be true or false") // in a switch: a blank line before a `case` that follows a multi-line arm
-    blank_line_before_comments := false; @toml(message="blank_line_before_comments must be true or false") // in code blocks: a blank line above a comment that follows code
-    blank_line_after_guards := false; @toml(message="blank_line_after_guards must be true or false") // in code blocks: a blank line after a one-line `if`, `for` or `while`
-    blank_line_before_return := false; @toml(message="blank_line_before_return must be true or false") // in code blocks: a blank line above a `return`
-    format_doc_examples := true; @toml(message="format_doc_examples must be true or false") // format the ```jai blocks in `//` comments
+Format_Config :: struct @toml(default, rename_all=kebab-case) {
+    indent_width := 4; @toml(range=1..16, message="indent-width must be an integer from 1 to 16")
+    case_indent := -1; @toml(range=0..16, message="case-indent must be an integer from 0 to 16") // `case` lines inside `if x == {`; -1: indent_width
+    case_body_indent := -1; @toml(range=0..16, message="case-body-indent must be an integer from 0 to 16") // statements under a `case`; -1: indent_width
+    max_blank_lines := 2; @toml(range=0..100, message="max-blank-lines must be an integer from 0 to 100")
+    max_width := 100; @toml(range=10..10000, message="max-width must be an integer from 10 to 10000") // only reported (format_count_long_lines); lines are never rewrapped
+    brace_style := Brace_Style.SAME_LINE; @toml(message="brace-style must be \"same_line\" or \"preserve\"")
+    blank_lines_between_items := true; @toml(message="blank-lines-between-items must be true or false") // a blank line around multi-line file-level items and import groups
+    blank_line_after_declarations := false; @toml(message="blank-line-after-declarations must be true or false") // in code blocks: a blank line after a run of declarations
+    blank_lines_around_blocks := false; @toml(message="blank-lines-around-blocks must be true or false") // in code blocks: a blank line before and after statements with a block body
+    blank_line_between_cases := false; @toml(message="blank-line-between-cases must be true or false") // in a switch: a blank line before a `case` that follows a multi-line arm
+    blank_line_before_comments := false; @toml(message="blank-line-before-comments must be true or false") // in code blocks: a blank line above a comment that follows code
+    blank_line_after_guards := false; @toml(message="blank-line-after-guards must be true or false") // in code blocks: a blank line after a one-line `if`, `for` or `while`
+    blank_line_before_return := false; @toml(message="blank-line-before-return must be true or false") // in code blocks: a blank line above a `return`
+    format_doc_examples := true; @toml(message="format-doc-examples must be true or false") // format the ```jai blocks in `//` comments
     ignore: [..] string; @toml(message="ignore must be an array of quoted globs") // globs relative to `root`, for format_is_ignored
     unknown_keys: [..] string; @toml(skip) // keys the parser did not know and dropped; see format_unknown_setting_note
     doc_format: [..] Doc_Setting; @toml(skip) // `[doc.format]`: overrides for the examples in doc comments, in file order
@@ -99,7 +99,7 @@ format_range :: (text: string, from: s64, to: s64, config: Format_Config = .{}) 
 // reported as `line N: ...`; unknown keys are dropped and listed in `unknown_keys`.
 //
 // ```jai
-// config, ok, error := parse_config("[format]\nindent_width = 2\nbrace_style = \"preserve\"\n");
+// config, ok, error := parse_config("[format]\nindent-width = 2\nbrace-style = \"preserve\"\n");
 // assert(ok);
 // assert(config.indent_width == 2 && config.brace_style == .PRESERVE);
 // ```
@@ -116,7 +116,7 @@ parse_config :: (text: string) -> config: Format_Config, ok: bool, error: string
 //
 // ```jai
 // config: Format_Config;
-// ok, error := format_apply_setting(*config, "indent_width=8");
+// ok, error := format_apply_setting(*config, "indent-width=8");
 //
 // assert(ok && config.indent_width == 8);
 // ok, error = format_apply_setting(*config, "colour=red");
@@ -213,7 +213,7 @@ Format_File_Reader :: #type (path: string) -> text: string, ok: bool;
 //
 // ```jai
 // reader :: (path: string) -> string, bool {
-//     if path == "/project/jacket.toml" return "[format]\nindent_width = 2\n", true;
+//     if path == "/project/jacket.toml" return "[format]\nindent-width = 2\n", true;
 //     return "", false;
 // }
 //

@@ -1,5 +1,5 @@
 //! `-package_import_dir`: folders that only one package's files search. A dependency's own
-//! `import_path` finds the dependency's modules for its files and for nobody else, so it can't
+//! `import-path` finds the dependency's modules for its files and for nobody else, so it can't
 //! replace `Basic` (or any other module) for the rest of the program.
 use std::path::Path;
 use std::process::{Command, Output};

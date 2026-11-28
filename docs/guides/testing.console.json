@@ -57,7 +57,7 @@
     [
       {
         "command": "jacket test --exact stale",
-        "output": "\u001b[1;32m    Starting\u001b[0m 1 test\n\u001b[1;31m        FAIL\u001b[0m [   0.285s] stale\n\nfailures:\n\n\u001b[1m--- stale (FAIL) ---\u001b[0m\n  standard output differs from stale.stdout:\n  --- want\n  +++ got\n  + hello-golden-world\n  - hello-world\n  stdout:\n    hello-golden-world\n  rerun: jacket test --exact 'stale'\n\n\u001b[1;32m     Summary\u001b[0m [   0.296s] 1 test run: 0 passed, 1 failed"
+        "output": "\u001b[1;32m    Starting\u001b[0m 1 test\n\u001b[1;31m        FAIL\u001b[0m [   0.208s] stale\n\nfailures:\n\n\u001b[1m--- stale (FAIL) ---\u001b[0m\n  standard output differs from stale.stdout:\n  --- want\n  +++ got\n  - hello-world\n  + hello-golden-world\n  stdout:\n    hello-golden-world\n  rerun: jacket test --exact 'stale'\n\n\u001b[1;32m     Summary\u001b[0m [   0.208s] 1 test run: 0 passed, 1 failed"
       }
     ],
     [

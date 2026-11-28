@@ -15,7 +15,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 - `Gltf` adds `gltf_world_matrices` (every node's world matrix) and `gltf_decompose` (a matrix into translation, rotation and scale).
 - `jaic -completions bash|zsh|fish` and `jacket completions bash|zsh|fish` print shell completion scripts; `jacket completions SHELL --tool jaic` prints jaic's.
-- `jacket dep add` and `update` note a newer version skipped by `min_release_age`, with its age.
+- `jacket dep add` and `update` note a newer version skipped by `min-release-age`, with its age.
 - `jaic -help` is in capitalised sections (`Usage:`, `Modes:`, `Exit status:`), bold when colour is on.
 
 ### Breaking changes
@@ -28,6 +28,9 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jaic`, `jailint` and `jailsp` no longer use the build machine's stdlib; set `JAIC_STDLIB` or keep `stdlib/` beside them.
 - `jailsp` without a standard library exits with the error `jaic` gives, instead of starting without one.
 - An unknown `jacket.toml` key is an error naming its line and the nearest known key, in every tool.
+- `jacket.toml` keys are kebab-case (`max-nesting`) and `requires_jacket` is `jacket-version`; old spellings are unknown-key errors naming the new one.
+- `[resolver] min-release-age` defaults to 2 weeks plus up to 3 days of jitter; `"0"` turns it off.
+- A dependency's unreadable `jacket.toml` is an error naming the file; its `[project] import_path` is no longer read.
 - A freestanding build without compiler builtins stops before linking; `jacket toolchain add TRIPLE` builds them.
 - A set `JAIC_NATIVE_LIBS` that names a missing folder is an error.
 - A set `LLVM_PREFIX` or `llvm-sys` prefix without `bin/` is an error, not a search elsewhere.

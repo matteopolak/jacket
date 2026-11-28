@@ -15,7 +15,7 @@ fn existing(paths: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
 
 fn files() -> Vec<(&'static str, &'static str)> {
     vec![
-        ("jacket.toml", "[project]\nimport_path = [\"vendor\"]\n"),
+        ("jacket.toml", "[project]\nimport-path = [\"vendor\"]\n"),
         ("main.jai", "main :: () {}\n"),
         ("modules/Local/module.jai", "local :: 1;\n"),
         ("vendor/Vendored.jai", "vendored :: 2;\n"),
@@ -47,7 +47,7 @@ fn language_server_linter_and_command_line_search_the_same_folders() {
     let expected = existing([dir.join("modules"), dir.join("vendor"), stdlib()]);
     assert_eq!(expected.len(), 3);
 
-    // The command line: `jacket` passes `import_path` as `-import_dir`, jaic puts its own
+    // The command line: `jacket` passes `import-path` as `-import_dir`, jaic puts its own
     // `modules` folder first and the standard library last.
     let config =
         jacket_config::parse(&std::fs::read_to_string(dir.join("jacket.toml")).unwrap()).unwrap();

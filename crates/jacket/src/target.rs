@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn link_settings_become_link_arguments_in_ld_lld_spelling() {
-        let table = "[target.fw]\ntriple = \"aarch64-none-elf\"\nstack_size = 65536\nentry = \"start\"\ngc_sections = true\n";
+        let table = "[target.fw]\ntriple = \"aarch64-none-elf\"\nstack-size = 65536\nentry = \"start\"\ngc-sections = true\n";
         let got = expand(&os(&["m.jai", "--target", "fw"]), Some(&config(table))).unwrap();
         assert_eq!(
             got.args,

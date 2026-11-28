@@ -116,7 +116,7 @@ fn jaifmt_builds_and_formats() {
     let bad_source = "f :: () { x := (1; }\n";
     std::fs::write(
         dir.join("jacket.toml"),
-        "[format]\nindent_width = 2\nignore = [\"src/skipped\"]\n",
+        "[format]\nindent-width = 2\nignore = [\"src/skipped\"]\n",
     )
     .unwrap();
     std::fs::write(dir.join("src/a.jai"), messy).unwrap();

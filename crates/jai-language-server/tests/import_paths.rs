@@ -32,7 +32,7 @@ fn imports_and_loads_resolve_through_every_kind_of_path() {
     let dir = project(
         "kinds",
         &[
-            ("jacket.toml", "[project]\nimport_path = [\"vendor\"]\n"),
+            ("jacket.toml", "[project]\nimport-path = [\"vendor\"]\n"),
             ("src/main.jai", main),
             ("src/modules/Single.jai", "single_value :: 1;\n"),
             ("src/modules/Folder/module.jai", "folder_value :: 2;\n"),

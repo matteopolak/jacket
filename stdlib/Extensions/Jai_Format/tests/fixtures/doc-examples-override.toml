@@ -1,8 +1,8 @@
 [format]
-indent_width = 2
-blank_line_after_declarations = true
-blank_line_before_return = true
+indent-width = 2
+blank-line-after-declarations = true
+blank-line-before-return = true
 
 [doc.format]
-blank_line_after_declarations = false
-indent_width = 3
+blank-line-after-declarations = false
+indent-width = 3

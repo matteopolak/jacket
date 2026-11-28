@@ -26,7 +26,7 @@ pub(super) fn inspect(
 ) -> Result<Inspected> {
     let checkout = path.under(&project.dir);
     let manifest = package::read(&checkout).unwrap_or_default();
-    package::requires_jacket(&manifest.package, env!("CARGO_PKG_VERSION"))
+    package::check_jacket_version(&manifest.package, env!("CARGO_PKG_VERSION"))
         .map_err(|why| DepError::new(format!("{name}: {why}")))?;
     let module = package::find_module(&checkout, &manifest, asked_module).map_err(|why| {
         DepError::new(format!("{name}: {why}"))

@@ -239,7 +239,7 @@ check_equivalence_guard :: () {
 }
 
 check_config_parsing :: () {
-    config, ok, message := parse_config("[format]\nindent_width = 2 # two\nmax_width = 120\nbrace_style = \"preserve\"\nignore = [\"a/**\", \"b.jai\"]\n");
+    config, ok, message := parse_config("[format]\nindent-width = 2 # two\nmax-width = 120\nbrace-style = \"preserve\"\nignore = [\"a/**\", \"b.jai\"]\n");
     if !ok fail("config rejected: %", message);
 
     if config.indent_width != 2 || config.max_width != 120 || config.brace_style != .PRESERVE || config.ignore.count != 2 {
@@ -248,55 +248,55 @@ check_config_parsing :: () {
 
     if !config.blank_lines_between_items fail("blank_lines_between_items should default to true");
 
-    off, off_ok := parse_config("[format]\nblank_lines_between_items = false\n");
-    if !off_ok || off.blank_lines_between_items fail("blank_lines_between_items = false not parsed");
+    off, off_ok := parse_config("[format]\nblank-lines-between-items = false\n");
+    if !off_ok || off.blank_lines_between_items fail("blank-lines-between-items = false not parsed");
 
     if config.blank_line_after_declarations || config.blank_lines_around_blocks || config.blank_line_between_cases || config.blank_line_before_comments || config.blank_line_after_guards || config.blank_line_before_return {
         fail("the code block blank line options should default to false");
     }
 
-    on, on_ok := parse_config("[format]\nblank_line_after_declarations = true\nblank_lines_around_blocks = true\nblank_line_between_cases = true\nblank_line_before_comments = true\nblank_line_after_guards = true\nblank_line_before_return = true\n");
+    on, on_ok := parse_config("[format]\nblank-line-after-declarations = true\nblank-lines-around-blocks = true\nblank-line-between-cases = true\nblank-line-before-comments = true\nblank-line-after-guards = true\nblank-line-before-return = true\n");
     if !on_ok || !on.blank_line_after_declarations || !on.blank_lines_around_blocks || !on.blank_line_between_cases || !on.blank_line_before_comments || !on.blank_line_after_guards || !on.blank_line_before_return {
         fail("the code block blank line options were not parsed");
     }
 
     if !config.format_doc_examples fail("format_doc_examples should default to true");
 
-    docs_off, docs_off_ok := parse_config("[format]\nformat_doc_examples = false\n");
-    if !docs_off_ok || docs_off.format_doc_examples fail("format_doc_examples = false not parsed");
+    docs_off, docs_off_ok := parse_config("[format]\nformat-doc-examples = false\n");
+    if !docs_off_ok || docs_off.format_doc_examples fail("format-doc-examples = false not parsed");
 
-    for string.["[format]\nindent_width = x\n", "[format]\nbrace_style = \"weird\"\n", "[format]\nignore = \"a\"\n", "[format]\nblank_lines_between_items = 1\n", "[format]\nblank_lines_around_blocks = yes\n", "[format]\nformat_doc_examples = 1\n"] {
+    for string.["[format]\nindent-width = x\n", "[format]\nbrace-style = \"weird\"\n", "[format]\nignore = \"a\"\n", "[format]\nblank-lines-between-items = 1\n", "[format]\nblank-lines-around-blocks = yes\n", "[format]\nformat-doc-examples = 1\n"] {
         _, accepted := parse_config(it);
         if accepted fail("bad config accepted: %", it);
     }
 
-    jacket, jacket_ok, jacket_message := parse_config("[project]\nentry = [\n  \"a.jai\", # the program\n]\n\n[format]\nindent_width = 2 # two\nignore = [\n  \"a/**\", # first\n  \"b.jai\",\n]\nbrace_style = \"preserve\"\n\n[lint.rules]\nindent_width = \"deny\"\n");
+    jacket, jacket_ok, jacket_message := parse_config("[project]\nentry = [\n  \"a.jai\", # the program\n]\n\n[format]\nindent-width = 2 # two\nignore = [\n  \"a/**\", # first\n  \"b.jai\",\n]\nbrace-style = \"preserve\"\n\n[lint.rules]\nindent-width = \"deny\"\n");
     if !jacket_ok fail("jacket.toml rejected: %", jacket_message);
 
     if jacket.indent_width != 2 || jacket.brace_style != .PRESERVE || jacket.ignore.count != 2 || jacket.ignore[1] != "b.jai" {
         fail("jacket.toml [format] parsed wrong: %", jacket);
     }
 
-    none, none_ok := parse_config("[lint]\nmax_nesting = 3\n");
+    none, none_ok := parse_config("[lint]\nmax-nesting = 3\n");
     if !none_ok || none.indent_width != 4 fail("a jacket.toml without [format] should give the defaults");
 
-    for string.["[format]\nindent_width = x\n", "[format]\nignore = [\"a\"\n", "[format]\nindent_width\n"] {
+    for string.["[format]\nindent-width = x\n", "[format]\nignore = [\"a\"\n", "[format]\nindent-width\n"] {
         _, accepted := parse_config(it);
         if accepted fail("bad jacket.toml accepted: %", it);
     }
 
-    unknown, unknown_ok := parse_config("[format]\nindent_widht = 2\ncolour = 1\n[format.extra]\nx = 1\n");
+    unknown, unknown_ok := parse_config("[format]\nindent-widht = 2\ncolour = 1\n[format.extra]\nx = 1\n");
     if !unknown_ok || unknown.unknown_keys.count != 3 || unknown.indent_width != 4 fail("unknown [format] keys should be dropped and listed");
 
     note := format_unknown_setting_note(unknown.unknown_keys[0], "jacket.toml");
-    if note != "unknown setting `format.indent_widht` in jacket.toml (ignored); did you mean `format.indent_width`?" fail("unknown key note: %", note);
+    if note != "unknown setting `format.indent-widht` in jacket.toml (ignored); did you mean `format.indent-width`?" fail("unknown key note: %", note);
 
     note = format_unknown_setting_note(unknown.unknown_keys[1], "jacket.toml");
     if note != "unknown setting `format.colour` in jacket.toml (ignored)" fail("unknown key note: %", note);
 
     if config.doc_format.count fail("a config without [doc.format] should have no doc overrides");
 
-    docs_format, docs_format_ok, docs_format_message := parse_config("[format]\nindent_width = 2\n[doc]\nurl = \"x\"\n[doc.format]\nindent_width = 3\nblank_line_after_declarations = false\nbrace_style = 'preserve'\ncolour = 1\nignore = [\"a\"]\nformat_doc_examples = false\n[doc.format.extra]\nx = 1\n");
+    docs_format, docs_format_ok, docs_format_message := parse_config("[format]\nindent-width = 2\n[doc]\nurl = \"x\"\n[doc.format]\nindent-width = 3\nblank-line-after-declarations = false\nbrace-style = 'preserve'\ncolour = 1\nignore = [\"a\"]\nformat-doc-examples = false\n[doc.format.extra]\nx = 1\n");
     if !docs_format_ok fail("[doc.format] rejected: %", docs_format_message);
 
     if docs_format.indent_width != 2 || !docs_format.format_doc_examples || docs_format.ignore.count fail("[doc.format] must not change the file's own settings");
@@ -306,13 +306,13 @@ check_config_parsing :: () {
     note = format_unknown_setting_note("doc.format.colour", "jacket.toml");
     if note != "unknown setting `doc.format.colour` in jacket.toml (ignored)" fail("doc unknown key note: %", note);
 
-    note = format_unknown_setting_note("doc.format.indent_widht", "jacket.toml");
-    if note != "unknown setting `doc.format.indent_widht` in jacket.toml (ignored); did you mean `doc.format.indent_width`?" fail("doc unknown key note: %", note);
+    note = format_unknown_setting_note("doc.format.indent-widht", "jacket.toml");
+    if note != "unknown setting `doc.format.indent-widht` in jacket.toml (ignored); did you mean `doc.format.indent-width`?" fail("doc unknown key note: %", note);
 
-    docs_inline, docs_inline_ok := parse_config("doc.format.max_width = 60\ndoc.format.blank_lines_around_blocks = true\n");
+    docs_inline, docs_inline_ok := parse_config("doc.format.max-width = 60\ndoc.format.blank-lines-around-blocks = true\n");
     if !docs_inline_ok || docs_inline.doc_format.count != 2 fail("inline and dotted [doc.format] forms not parsed");
 
-    for string.["[doc.format]\nindent_width = x\n", "[doc.format]\nbrace_style = \"weird\"\n", "[doc.format]\nblank_line_before_return = 1\n", "[doc]\nformat = 3\n"] {
+    for string.["[doc.format]\nindent-width = x\n", "[doc.format]\nbrace-style = \"weird\"\n", "[doc.format]\nblank-line-before-return = 1\n", "[doc]\nformat = 3\n"] {
         _, accepted := parse_config(it);
         if accepted fail("bad [doc.format] accepted: %", it);
     }
@@ -332,12 +332,12 @@ check_config_parsing :: () {
 check_applied_settings :: () {
     applied: Format_Config;
 
-    for string.["indent_width=2", "brace_style=\"preserve\"", "blank_line_before_return = true", "max_width=80"] {
+    for string.["indent-width=2", "brace-style=\"preserve\"", "blank-line-before-return = true", "max-width=80"] {
         ok, message := format_apply_setting(*applied, it);
         if !ok fail("--set %: %", it, message);
     }
 
-    doc_ok, doc_message := format_apply_setting(*applied, "doc.format.blank_line_before_return=false");
+    doc_ok, doc_message := format_apply_setting(*applied, "doc.format.blank-line-before-return=false");
     if !doc_ok || applied.doc_format.count != 1 fail("--set doc.format.key: %", doc_message);
 
     doc_ok, doc_message = format_apply_setting(*applied, "doc.format.ignore=[]");
@@ -345,14 +345,14 @@ check_applied_settings :: () {
 
     if applied.indent_width != 2 || applied.brace_style != .PRESERVE || !applied.blank_line_before_return || applied.max_width != 80 fail("applied settings wrong: %", applied);
 
-    for string.["indent_width=0", "indent_width=x", "colour=1", "indent_width", "brace_style=same_line", "blank_lines_between_items=1"] {
+    for string.["indent-width=0", "indent-width=x", "colour=1", "indent-width", "brace-style=same_line", "blank-lines-between-items=1"] {
         ok, message := format_apply_setting(*applied, it);
         if ok fail("--set % should be refused", it);
         if !message.count fail("--set % needs a message", it);
     }
 
-    ok, message := format_apply_setting(*applied, "indent_width=17");
-    if ok || message != "indent_width must be an integer from 1 to 16" fail("range message: %", message);
+    ok, message := format_apply_setting(*applied, "indent-width=17");
+    if ok || message != "indent-width must be an integer from 1 to 16" fail("range message: %", message);
 }
 
 // The cases jailint's Rust tests run too: `pattern<TAB>path<TAB>match|nomatch`.
@@ -385,24 +385,24 @@ check_shared_globs :: () {
 
 // The TOML forms a config may use besides `key = value` under `[format]`.
 check_toml_forms :: () {
-    literal, literal_ok, literal_message := parse_config("[format]\nbrace_style = 'preserve'\nignore = ['a#b/**', \"c\\\"d\"] # 'x'\n");
+    literal, literal_ok, literal_message := parse_config("[format]\nbrace-style = 'preserve'\nignore = ['a#b/**', \"c\\\"d\"] # 'x'\n");
     if !literal_ok fail("literal strings rejected: %", literal_message);
 
     if literal.brace_style != .PRESERVE || literal.ignore.count != 2 || literal.ignore[0] != "a#b/**" || literal.ignore[1] != "c\"d" {
         fail("strings parsed wrong: %", literal);
     }
 
-    quoted, quoted_ok, quoted_message := parse_config("[format]\n\"indent_width\" = 3\n'max_width' = 90\n");
+    quoted, quoted_ok, quoted_message := parse_config("[format]\n\"indent-width\" = 3\n'max-width' = 90\n");
     if !quoted_ok || quoted.indent_width != 3 || quoted.max_width != 90 fail("quoted keys: % %", quoted_message, quoted);
 
     // Every way of writing `[format] indent_width = 2` in a jacket.toml.
-    for string.["[format]\nindent_width = 2\n", "[ \"format\" ]\n\"indent_width\" = 2\n", "format.indent_width = 2\n", "format . 'indent_width' = 2\n", "[format]\nindent_width = 2\n\n[lint]\nmax_nesting = 3\n", "format = { indent_width = 2 }\n", "format = {\n  max_width = 80, # wide\n  indent_width = 2,\n}\n", "[project]\nentry = \"a.jai\"\n\n[format.sub]\nx = 1\n\n[other]\nformat.indent_width = 9\n[format]\nindent_width = 2\n"] {
+    for string.["[format]\nindent-width = 2\n", "[ \"format\" ]\n\"indent-width\" = 2\n", "format.indent-width = 2\n", "format . 'indent-width' = 2\n", "[format]\nindent-width = 2\n\n[lint]\nmax-nesting = 3\n", "format = { indent-width = 2 }\n", "format = {\n  max-width = 80, # wide\n  indent-width = 2,\n}\n", "[project]\nentry = \"a.jai\"\n\n[format.sub]\nx = 1\n\n[other]\nformat.indent-width = 9\n[format]\nindent-width = 2\n"] {
         parsed, ok, message := parse_config(it);
         if !ok fail("jacket.toml rejected: % in %", message, it);
         if ok && parsed.indent_width != 2 fail("jacket.toml form not read: %", it);
     }
 
-    table_form, table_ok, table_message := parse_config("format = { ignore = ['a/**', \"b.jai\"], brace_style = 'preserve', colour = 1, extra.deep = { x = 1 } }\n");
+    table_form, table_ok, table_message := parse_config("format = { ignore = ['a/**', \"b.jai\"], brace-style = 'preserve', colour = 1, extra.deep = { x = 1 } }\n");
     if !table_ok fail("inline table rejected: %", table_message);
 
     if table_form.brace_style != .PRESERVE || table_form.ignore.count != 2 || table_form.unknown_keys.count != 2 || table_form.unknown_keys[0] != "colour" || table_form.unknown_keys[1] != "extra.deep" {
@@ -416,7 +416,7 @@ check_toml_forms :: () {
     others, others_ok := parse_config("[project]\nname = 'a = b'\n[lint]\nexclude = [\"x\"]\nrules = { format = 1 }\n");
     if !others_ok || others.indent_width != 4 || others.unknown_keys.count fail("other tables should be skipped");
 
-    for string.["format = 3\n", "format = { indent_width = x }\n", "format = { indent_width = 2\n", "format.indent_width = 'two'\n", "[format\nindent_width = 2\n", "[format]\nindent_width = 2 3\n", "[format]\nbrace_style = 'weird'\n", "[format]\nignore = [ 'a\n"] {
+    for string.["format = 3\n", "format = { indent-width = x }\n", "format = { indent-width = 2\n", "format.indent-width = 'two'\n", "[format\nindent-width = 2\n", "[format]\nindent-width = 2 3\n", "[format]\nbrace-style = 'weird'\n", "[format]\nignore = [ 'a\n"] {
         _, accepted := parse_config(it);
         if accepted fail("bad jacket.toml accepted: %", it);
     }

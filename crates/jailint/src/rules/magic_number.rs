@@ -16,19 +16,19 @@
 //! are skipped too.
 //!
 //! These numbers are never reported:
-//! - integers whose magnitude is below `magic_number_min` (default 3: `-2` to `2`);
+//! - integers whose magnitude is below `magic-number-min` (default 3: `-2` to `2`);
 //! - powers of two (`4`, `64`, `4096`), all-ones masks (`255`, `1023`) and integers written in
 //!   hex, octal or binary;
 //! - floats with an allowed whole value (`2.0`) or a short binary fraction (`0.5`, `0.25`,
 //!   `1.5`);
-//! - `10`, `100`, `1000` and anything listed in `magic_number_allow`.
+//! - `10`, `100`, `1000` and anything listed in `magic-number-allow`.
 //!
 //! A printable character, tab, newline or carriage return code compared with a byte of a
 //! `string` (`text[i] >= 97`, `c == 92` with `c := text[i]`, or `it` in `for text`) is fixed to
 //! `#char "a"` or `#char "\\"`. In `<`, `<=`, `>` and `>=` only digits, `a z A Z f F`, space and
 //! `~` are rewritten: the usual ends of a character range.
 //!
-//! Files in a `tests` or `test` folder are skipped unless `magic_number_in_tests` is set: test
+//! Files in a `tests` or `test` folder are skipped unless `magic-number-in-tests` is set: test
 //! data is full of expected values. Generated files are skipped. Off by default.
 use super::{finding, replacing};
 use crate::Finding;

@@ -5,7 +5,7 @@
 //!
 //! Where it comes from, first match wins:
 //! 1. `jacket.toml`, the nearest config directory at or above the document (a saved session snapshot before
-//!    the one on disk): `[project] entry` names the entry files, `import_path` adds module folders; paths are relative to its
+//!    the one on disk): `[project] entry` names the entry files, `import-path` adds module folders; paths are relative to its
 //!    folder.
 //! 2. Otherwise the workspace folder holding the document, with the entry files inferred
 //!    (`jacket_config::INFERRED_ENTRIES`: all that exist are tried as entries).

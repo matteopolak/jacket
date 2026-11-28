@@ -5,20 +5,20 @@ Json :: #import "Extensions/Json";
 project_settings :: (config: $T) -> Json.Json_Value {
     resolved := Json.json_object();
 
-    Json.json_set(*resolved, "indent_width", Json.json_string(tprint("%", formatInt(config.indent_width))));
-    Json.json_set(*resolved, "case_indent", Json.json_string(tprint("%", formatInt(ifx config.case_indent < 0 then config.indent_width else config.case_indent))));
-    Json.json_set(*resolved, "case_body_indent", Json.json_string(tprint("%", formatInt(ifx config.case_body_indent < 0 then config.indent_width else config.case_body_indent))));
-    Json.json_set(*resolved, "max_blank_lines", Json.json_string(tprint("%", formatInt(config.max_blank_lines))));
-    Json.json_set(*resolved, "max_width", Json.json_string(tprint("%", formatInt(config.max_width))));
-    Json.json_set(*resolved, "brace_style", Json.json_string(ifx config.brace_style == .PRESERVE then "\"preserve\"" else "\"same_line\""));
-    Json.json_set(*resolved, "blank_lines_between_items", Json.json_string(ifx config.blank_lines_between_items then "true" else "false"));
-    Json.json_set(*resolved, "blank_line_after_declarations", Json.json_string(ifx config.blank_line_after_declarations then "true" else "false"));
-    Json.json_set(*resolved, "blank_lines_around_blocks", Json.json_string(ifx config.blank_lines_around_blocks then "true" else "false"));
-    Json.json_set(*resolved, "blank_line_between_cases", Json.json_string(ifx config.blank_line_between_cases then "true" else "false"));
-    Json.json_set(*resolved, "blank_line_before_comments", Json.json_string(ifx config.blank_line_before_comments then "true" else "false"));
-    Json.json_set(*resolved, "blank_line_after_guards", Json.json_string(ifx config.blank_line_after_guards then "true" else "false"));
-    Json.json_set(*resolved, "blank_line_before_return", Json.json_string(ifx config.blank_line_before_return then "true" else "false"));
-    Json.json_set(*resolved, "format_doc_examples", Json.json_string(ifx config.format_doc_examples then "true" else "false"));
+    Json.json_set(*resolved, "indent-width", Json.json_string(tprint("%", formatInt(config.indent_width))));
+    Json.json_set(*resolved, "case-indent", Json.json_string(tprint("%", formatInt(ifx config.case_indent < 0 then config.indent_width else config.case_indent))));
+    Json.json_set(*resolved, "case-body-indent", Json.json_string(tprint("%", formatInt(ifx config.case_body_indent < 0 then config.indent_width else config.case_body_indent))));
+    Json.json_set(*resolved, "max-blank-lines", Json.json_string(tprint("%", formatInt(config.max_blank_lines))));
+    Json.json_set(*resolved, "max-width", Json.json_string(tprint("%", formatInt(config.max_width))));
+    Json.json_set(*resolved, "brace-style", Json.json_string(ifx config.brace_style == .PRESERVE then "\"preserve\"" else "\"same_line\""));
+    Json.json_set(*resolved, "blank-lines-between-items", Json.json_string(ifx config.blank_lines_between_items then "true" else "false"));
+    Json.json_set(*resolved, "blank-line-after-declarations", Json.json_string(ifx config.blank_line_after_declarations then "true" else "false"));
+    Json.json_set(*resolved, "blank-lines-around-blocks", Json.json_string(ifx config.blank_lines_around_blocks then "true" else "false"));
+    Json.json_set(*resolved, "blank-line-between-cases", Json.json_string(ifx config.blank_line_between_cases then "true" else "false"));
+    Json.json_set(*resolved, "blank-line-before-comments", Json.json_string(ifx config.blank_line_before_comments then "true" else "false"));
+    Json.json_set(*resolved, "blank-line-after-guards", Json.json_string(ifx config.blank_line_after_guards then "true" else "false"));
+    Json.json_set(*resolved, "blank-line-before-return", Json.json_string(ifx config.blank_line_before_return then "true" else "false"));
+    Json.json_set(*resolved, "format-doc-examples", Json.json_string(ifx config.format_doc_examples then "true" else "false"));
     overrides := Json.json_object();
     for config.doc_format Json.json_set(*overrides, it.key, Json.json_string(it.value));
 

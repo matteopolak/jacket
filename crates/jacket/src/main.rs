@@ -173,7 +173,10 @@ fn run_jaic(check: bool, args: &[OsString], ctx: &compile::Context) -> ExitCode 
         Ok(expansion) => expansion,
         Err(error) => return commands::fail(error),
     };
-    let argv = compile::jaic_argv(check, &expansion.args, ctx);
+    let argv = match compile::jaic_argv(check, &expansion.args, ctx) {
+        Ok(argv) => argv,
+        Err(error) => return commands::fail(error),
+    };
     tools::exec_with_env(jaic.as_os_str(), &argv, &project_name_env(ctx))
 }
 
@@ -214,7 +217,10 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
         Ok(expansion) => expansion,
         Err(error) => return commands::fail(error),
     };
-    let argv = compile::jaic_argv(false, &expansion.args, ctx);
+    let argv = match compile::jaic_argv(false, &expansion.args, ctx) {
+        Ok(argv) => argv,
+        Err(error) => return commands::fail(error),
+    };
     let Some(jaic) = tools::require(tools::JAIC, "jacket run") else {
         return ExitCode::from(127);
     };

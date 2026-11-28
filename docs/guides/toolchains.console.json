@@ -3,7 +3,7 @@
     [
       {
         "command": "jacket build hello.jai --target Mps2_An386",
-        "output": "\u001b[1;32m   Compiling\u001b[0m blink (hello.jai)\n\u001b[1;32m      Linker\u001b[0m /opt/homebrew/opt/lld/bin/ld.lld 23.1.6\n\u001b[1;32m    Builtins\u001b[0m compiler-rt 21.1.8 (cached)\n\u001b[1;32m      Script\u001b[0m hello.ld\n\u001b[1;32m    Finished\u001b[0m debug [unoptimized] in 0.19s"
+        "output": "\u001b[1;32m   Compiling\u001b[0m blink (hello.jai)\n\u001b[1;32m      Linker\u001b[0m /opt/homebrew/opt/lld/bin/ld.lld 23.1.6\n\u001b[1;32m    Builtins\u001b[0m compiler-rt 21.1.8 (cached)\n\u001b[1;32m      Script\u001b[0m hello.ld\n\u001b[1;32m    Finished\u001b[0m debug [unoptimized] in 0.16s"
       }
     ],
     [
@@ -27,13 +27,13 @@
     [
       {
         "command": "jacket toolchain add armv7-unknown-linux-gnueabihf thumbv7em-none-eabihf",
-        "output": "     Sysroot ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot (cached)\n    Builtins compiler-rt 21.1.8 (cached)"
+        "output": "\u001b[1;32m     Sysroot\u001b[0m ~/Library/Caches/jacket/toolchains/armv7-unknown-linux-gnueabihf/sysroot (cached)\n\u001b[1;32m    Builtins\u001b[0m compiler-rt 21.1.8 (cached)"
       }
     ],
     [
       {
         "command": "jacket toolchain list",
-        "output": "~/Library/Caches/jacket/toolchains\nTARGET                         SYSROOT   BUILTINS\narmv7-unknown-linux-gnueabihf  yes       -\nthumbv7em-none-eabihf          -         compiler-rt 21.1.8"
+        "output": "~/Library/Caches/jacket/toolchains\nTARGET                         SYSROOT   BUILTINS\narmv7-unknown-linux-gnueabihf  yes       -\ni686-unknown-linux-gnu         yes       -\nthumbv7em-none-eabihf          -         compiler-rt 21.1.8"
       }
     ],
     [

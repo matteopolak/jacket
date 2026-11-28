@@ -49,7 +49,7 @@ Other files below `tests/` are for what the tests `#load` or `#import`. All unit
 Two layouts:
 
 - **A library** (`Name/module.jai`, `Name/tests/`): the parent folder is an import folder, so tests `#import "Name"`. Only a library root has doc tests.
-- **A project** (`tests/` beside the code, no `module.jai` in the root): `[project] import_path` folders are passed as `-import_dir`, so `import_path = ["src"]` with `src/Name/module.jai` lets tests `#import "Name"`.
+- **A project** (`tests/` beside the code, no `module.jai` in the root): `[project] import_path` folders are passed as `-import_dir`, so `import-path = ["src"]` with `src/Name/module.jai` lets tests `#import "Name"`.
 
 Roots are the `--path DIR` folders, else the folders `[test] paths` in `jacket.toml` names (only those the current directory is inside, when it is inside some; of nested roots, the innermost), else the nearest folder from the current directory up to (not including) the project folder that has a `tests/` folder or a `module.jai`, else the project folder. So `jacket test` in `examples/kvdb` tests `kvdb` when only `examples/` has a `jacket.toml`. With several roots, test names get the root's folder as a prefix (`Bit_Array::finds_the_first_set`). `--list` prints the roots that have tests; `--roots` prints every root and runs nothing, for scripts.
 
@@ -130,7 +130,7 @@ Examples of every flag are in the [guide](../guides/testing.md#running-tests).
 - A test's output is captured and shown with its failure (`--no-capture` streams it, one test at a time). A test past its timeout has its process group killed and is `TIMEOUT`. Plain golden programs use their declared timeout from process launch, even without Testing records; framed unit programs retain a separate deadline for each test. Closing both output streams does not end supervision: Jacket waits for the process and checks its completion before declaring an expired deadline. A timeout of 0 disables that limit. `--quiet` prints only failures and the summary.
 - A test whose process dies of a signal (or a Windows exception such as `0xC0000005`) shows the last 64 lines of its stdout and stderr under the failure, for unit tests and golden tests alike. Native test builds pass `-backtrace_on_crash`, so stderr also has `crash signal N at 0xADDR` and a `native stack:` trace (`stdlib/internal/runtime/crash-native/runtime.c`). `-no_backtrace_on_crash` after `--` turns the trace off; `--interp` runs have none.
 - Each test gets a fresh `temp_dir`; a failing test's is kept and printed (`--keep-temp` keeps all).
-- Statuses: `PASS`, `FAIL`, `SKIP`, `TIMEOUT`, `XFAIL`, `XPASS` (fails the run so the note gets removed), `FLAKY` (failed, then passed on a `--retries` attempt; a pass unless `flaky_fails`). `--fail-fast` starts no new tests after the first failure.
+- Statuses: `PASS`, `FAIL`, `SKIP`, `TIMEOUT`, `XFAIL`, `XPASS` (fails the run so the note gets removed), `FLAKY` (failed, then passed on a `--retries` attempt; a pass unless `flaky-fails`). `--fail-fast` starts no new tests after the first failure.
 - `--changed FILE` (repeat it per file) keeps the tests a change to FILE can affect, before `--partition` splits what is left. A unit-test root, a golden program and a compile-fail test are kept when their program reads FILE (the `--list --deps` closure); a compile-fail test and a root's doc examples cannot be compiled alone, so they stand for the modules they `#import`. A test whose program does not compile is kept (a deleted file breaks its importers), and so is every test of a root that gains a file no program reads (a new test, a data file). `Basic` changes keep nearly everything. What a program reads comes from the [dependency store](#dependency-store), so a warm store costs no compiles. Pass paths as they exist from the current directory. CI's use of it: [CI job selection](ci-job-selection.md).
 - `--partition hash:K/N` keeps tests whose name hashes to part K of N (stable across machines); `count:K/N` takes every Nth. `time:K/N` with `--partition-times FILE` (a JSON object of seconds per test name) deals the tests, slowest first, to the part with the least time so far, so the parts take about equal time; a test missing from the file weighs the median of those listed. The split depends only on the set of names and the times, so each part computes it on its own. CI's table is `tools/ci/test-times.json` (built by `tools/ci/test_times.py` from `--junit` files).
 - `-os`/`-cpu` are spelled as in jaic. A cross-built test is skipped unless `--runner` can run it (compile-fail tests still run). `--target TRIPLE` for another machine, with no runner, fails and names the fix. `--runner` is split on spaces; the program and its arguments follow.
@@ -258,14 +258,14 @@ jobs = 8                 # -j
 timeout = 120            # seconds; 0: no limit
 slow = 30                # seconds before a SLOW line
 retries = 0
-fail_fast = false
-flaky_fails = false      # FLAKY fails the run
+fail-fast = false
+flaky-fails = false      # FLAKY fails the run
 runner = "node --no-warnings tools/wasi_run.ts"
 needs = ["network"]
 
 [test.profile.ci]        # --profile ci: these over [test]
 retries = 2
-fail_fast = true
+fail-fast = true
 ```
 
 Flags win over the profile, the profile over `[test]`. Environment: `JAIC_STDLIB`, `TMPDIR` (the work folder), and `JACKET_TEST_DEPS_DIR` (the [dependency store](#dependency-store)), and `JACKET_TEST_DLLS`, a path list of folders whose `.dll` files are hard-linked next to every native test program (how a Windows test finds `SDL3.dll`, or a replacement `opengl32.dll`).

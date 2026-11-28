@@ -3734,7 +3734,7 @@ Off by default, since many read the `ifx` more easily than the cast.
 
 ### cognitive_complexity
 
-Finds a procedure whose branching scores above `max_complexity` (default 25).
+Finds a procedure whose branching scores above `max-complexity` (default 25).
 
 Category `pedantic`, `allow` by default.
 
@@ -3744,7 +3744,7 @@ Shown with these settings:
 
 ```toml
 [lint]
-max_complexity = 4
+max-complexity = 4
 ```
 
 ```jai example
@@ -3851,7 +3851,7 @@ A top-level procedure, struct or enum with a blank line between its declaration 
 
 ### excessive_nesting
 
-Finds blocks nested deeper than `max_nesting` (default 6).
+Finds blocks nested deeper than `max-nesting` (default 6).
 
 Category `pedantic`, `allow` by default.
 
@@ -4281,7 +4281,7 @@ Lists the members no case mentions. Mark the switch `#complete` so the compiler 
 
 ### large_stack_array
 
-Finds a local fixed array bigger than `max_stack_array_bytes` (default 64 KiB).
+Finds a local fixed array bigger than `max-stack-array-bytes` (default 64 KiB).
 
 Category `pedantic`, `allow` by default.
 
@@ -4895,7 +4895,7 @@ main :: () {
 
 ### excessive_bools
 
-Finds a procedure with more `bool` parameters than `max_bools` (default 3).
+Finds a procedure with more `bool` parameters than `max-bools` (default 3).
 
 Category `restriction`, `allow` by default.
 
@@ -5041,7 +5041,7 @@ It reports:
 - **OS-only modules.** An `#import` of a module that asserts its systems and leaves out `NONE` (`Thread`, `Process`, `POSIX`). The systems are the ones `jacket doc` shows, read from the module's `#assert`, so there is no list to maintain. An import under `#if` is skipped.
 - **Allocation through the default allocator.** `alloc`, `New`, `NewArray`, `array_add` and `tprint` reached from `main`, a `#program_export` procedure or an `@Interrupt` procedure with no `push_allocator` or `push_context` (naming a context) around the call. Calls into other files are followed; the finding is at the call in the linted file that leads there. Calls into the standard library are not followed.
 - **Interrupt handlers that do too much.** In an `@Interrupt` procedure and what it calls: allocation (even with an allocator pushed), `print`, `write_string`, `log`, locks, and calls that block (`sleep_milliseconds`, `wait`, `wait_for`).
-- **Unbounded stack.** A procedure in a call cycle (once per cycle, at the first member in the file), and a procedure whose locals add up to more than `max_frame_bytes`.
+- **Unbounded stack.** A procedure in a call cycle (once per cycle, at the first member in the file), and a procedure whose locals add up to more than `max-frame-bytes`.
 - **Work the CPU cannot do.** `float64` arithmetic, or `s64` division in a loop, when the target is freestanding and its CPU has no double-precision float unit or 64-bit divide. AArch64 has both, so this is quiet until the 32-bit microcontroller CPUs are added.
 
 Turn it on with `-W freestanding` or `[lint.rules] freestanding = "warn"`. The frame limit is `[lint.freestanding] max_frame_bytes`, 1024 by default:
@@ -5051,7 +5051,7 @@ Turn it on with `-W freestanding` or `[lint.rules] freestanding = "warn"`. The f
 freestanding = "warn"
 
 [lint.freestanding]
-max_frame_bytes = 512
+max-frame-bytes = 512
 ```
 
 ### missing_doc
@@ -5348,7 +5348,7 @@ A marker is `TODO`, `FIXME`, `XXX` or `HACK` in capitals, standing alone (`TODO:
 
 ### too_many_arguments
 
-Finds a procedure with more parameters than `max_arguments` (default 7).
+Finds a procedure with more parameters than `max-arguments` (default 7).
 
 Category `restriction`, `allow` by default.
 

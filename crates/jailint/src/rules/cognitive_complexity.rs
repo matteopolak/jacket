@@ -21,7 +21,7 @@ use jaic::ast::{BinOp, ExprKind as E, Stmt, StmtKind as S};
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
     name: "cognitive_complexity",
     category: crate::config::Category::Pedantic,
-    summary: "a procedure whose branching scores above `max_complexity` (default 25)",
+    summary: "a procedure whose branching scores above `max-complexity` (default 25)",
     check,
 };
 

@@ -888,7 +888,7 @@ async function pagesToCheck() {
     ['home', ''],
     ['guide', listed.find((p) => p.startsWith('guides/'))],
     ['format rules overview', 'format-rules'],
-    ['format setting page', 'format-rules/max_width'],
+    ['format setting page', 'format-rules/max-width'],
     ['lint rules', 'lint-rules'],
     ['tool page', listed.find((p) => p.startsWith('tools/'))],
     ['small module', 'api/Base64'],

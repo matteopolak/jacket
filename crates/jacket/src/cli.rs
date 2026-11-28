@@ -281,7 +281,7 @@ pub struct TestArgs {
     /// Start no more tests after the first failure
     #[arg(long)]
     pub fail_fast: bool,
-    /// Run every test even when a profile sets `fail_fast`
+    /// Run every test even when a profile sets `fail-fast`
     #[arg(long, conflicts_with = "fail_fast")]
     pub no_fail_fast: bool,
     /// Show the tests' output as it is written (runs one test at a time)

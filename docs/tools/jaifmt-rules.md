@@ -6,8 +6,8 @@ What every run does is on this page. The settings change the details; they go in
 
 ```toml
 [format]
-indent_width = 2
-blank_line_before_return = true
+indent-width = 2
+blank-line-before-return = true
 ```
 
 ## Indentation
@@ -92,7 +92,7 @@ main :: () {
 
 ## Braces
 
-A `{` alone on a line joins its header, and `else` joins the `}` before it. `brace_style` turns this off.
+A `{` alone on a line joins its header, and `else` joins the `}` before it. `brace-style` turns this off.
 
 ```jai before
 main :: () {
@@ -119,7 +119,7 @@ main :: () {
 
 ## Blank lines
 
-Trailing spaces go, a run of blank lines is cut to `max_blank_lines`, and a file ends with one newline. Blank lines between statements are kept, never removed.
+Trailing spaces go, a run of blank lines is cut to `max-blank-lines`, and a file ends with one newline. Blank lines between statements are kept, never removed.
 
 ```jai before
 main :: () {
@@ -143,7 +143,7 @@ main :: () {
 
 ## Comments and strings
 
-Comments keep their place and text. Strings, here-strings, `#asm` bodies and everything between `// jaifmt: off` and `// jaifmt: on` are left exactly as written, except that blanks ending a here-string's header lines are dropped (they are outside the literal). The one exception is the Jai in fenced blocks inside `//` comments, which is formatted too (see [format_doc_examples](#format_doc_examples)).
+Comments keep their place and text. Strings, here-strings, `#asm` bodies and everything between `// jaifmt: off` and `// jaifmt: on` are left exactly as written, except that blanks ending a here-string's header lines are dropped (they are outside the literal). The one exception is the Jai in fenced blocks inside `//` comments, which is formatted too (see [format_doc_examples](#format-doc-examples)).
 
 ```jai before
 main :: () {
@@ -169,7 +169,7 @@ main :: () {
 
 Each key of `[format]`, with an example of what it does.
 
-### indent_width
+### indent-width
 
 Spaces per level of nesting, 1 to 16. Default 4.
 
@@ -181,7 +181,7 @@ main :: () {
 }
 ```
 
-```jai after indent_width=2
+```jai after indent-width=2
 main :: () {
   if ok {
     go();
@@ -189,9 +189,9 @@ main :: () {
 }
 ```
 
-### case_indent
+### case-indent
 
-How far `case` lines sit inside `if x == {`, 0 to 16. Default: `indent_width`.
+How far `case` lines sit inside `if x == {`, 0 to 16. Default: `indent-width`.
 
 ```jai before
 main :: () {
@@ -202,7 +202,7 @@ main :: () {
 }
 ```
 
-```jai after case_indent=0
+```jai after case-indent=0
 main :: () {
     if x == {
     case 1; one();
@@ -211,9 +211,9 @@ main :: () {
 }
 ```
 
-### case_body_indent
+### case-body-indent
 
-How far statements under a `case` sit, 0 to 16. Default: `indent_width`.
+How far statements under a `case` sit, 0 to 16. Default: `indent-width`.
 
 ```jai before
 main :: () {
@@ -225,7 +225,7 @@ main :: () {
 }
 ```
 
-```jai after case_body_indent=2
+```jai after case-body-indent=2
 main :: () {
     if x == {
         case 1;
@@ -235,7 +235,7 @@ main :: () {
 }
 ```
 
-### max_blank_lines
+### max-blank-lines
 
 The longest run of blank lines kept, 0 to 100. Default 2.
 
@@ -248,7 +248,7 @@ main :: () {
 }
 ```
 
-```jai after max_blank_lines=1
+```jai after max-blank-lines=1
 main :: () {
     a();
 
@@ -256,7 +256,7 @@ main :: () {
 }
 ```
 
-### brace_style
+### brace-style
 
 `"same_line"` (the default) joins a lone `{` to its header and `else` to the `}` before it. `"preserve"` leaves them where they are.
 
@@ -269,7 +269,7 @@ main :: () {
 }
 ```
 
-```jai after brace_style="preserve"
+```jai after brace-style="preserve"
 main :: () {
     if ok
     {
@@ -278,7 +278,7 @@ main :: () {
 }
 ```
 
-### blank_lines_between_items
+### blank-lines-between-items
 
 A blank line around file-level items that span several lines, and around groups of imports. On by default; `false` turns it off.
 
@@ -304,7 +304,7 @@ go :: () {
 }
 ```
 
-### blank_line_after_declarations
+### blank-line-after-declarations
 
 In code, a blank line after a run of declarations. Off by default.
 
@@ -318,7 +318,7 @@ main :: () {
 }
 ```
 
-```jai after blank_line_after_declarations=true
+```jai after blank-line-after-declarations=true
 main :: () {
     width := 640;
     height := 480;
@@ -329,7 +329,7 @@ main :: () {
 }
 ```
 
-### blank_lines_around_blocks
+### blank-lines-around-blocks
 
 In code, a blank line before and after a statement with a block body. Off by default.
 
@@ -343,7 +343,7 @@ main :: () {
 }
 ```
 
-```jai after blank_lines_around_blocks=true
+```jai after blank-lines-around-blocks=true
 main :: () {
     start();
 
@@ -355,7 +355,7 @@ main :: () {
 }
 ```
 
-### blank_line_between_cases
+### blank-line-between-cases
 
 In an `if x == {` switch, a blank line before a `case` that follows a multi-line arm. Off by default.
 
@@ -371,7 +371,7 @@ main :: () {
 }
 ```
 
-```jai after blank_line_between_cases=true
+```jai after blank-line-between-cases=true
 main :: () {
     if x == {
         case 1;
@@ -384,7 +384,7 @@ main :: () {
 }
 ```
 
-### blank_line_before_comments
+### blank-line-before-comments
 
 In code, a blank line above a comment that follows code. Off by default.
 
@@ -396,7 +396,7 @@ main :: () {
 }
 ```
 
-```jai after blank_line_before_comments=true
+```jai after blank-line-before-comments=true
 main :: () {
     start();
 
@@ -405,7 +405,7 @@ main :: () {
 }
 ```
 
-### blank_line_after_guards
+### blank-line-after-guards
 
 In code, a blank line after a one-line `if`, `for` or `while`. Off by default.
 
@@ -419,7 +419,7 @@ load :: (path: string) -> bool {
 }
 ```
 
-```jai after blank_line_after_guards=true
+```jai after blank-line-after-guards=true
 load :: (path: string) -> bool {
     if !path return false;
     if !exists(path) return false;
@@ -430,7 +430,7 @@ load :: (path: string) -> bool {
 }
 ```
 
-### blank_line_before_return
+### blank-line-before-return
 
 In code, a blank line above a `return`. Off by default.
 
@@ -444,7 +444,7 @@ save :: (path: string) -> bool {
 }
 ```
 
-```jai after blank_line_before_return=true
+```jai after blank-line-before-return=true
 save :: (path: string) -> bool {
     file := open(path);
     write(file, header);
@@ -455,7 +455,7 @@ save :: (path: string) -> bool {
 }
 ```
 
-### format_doc_examples
+### format-doc-examples
 
 Formats the code in `jai` fenced blocks inside `//` comments, such as the examples in doc comments. On by default.
 
@@ -491,19 +491,19 @@ add :: (a: int, b: int) -> int {
 }
 ```
 
-With `format_doc_examples = false` the comments stay as written.
+With `format-doc-examples = false` the comments stay as written.
 
-Short examples can look airy under the blank-line options. `[doc.format]` takes the same keys as `[format]` except `ignore` and `format_doc_examples`, and each one set there wins over `[format]` inside doc examples; the keys left out are inherited.
+Short examples can look airy under the blank-line options. `[doc.format]` takes the same keys as `[format]` except `ignore` and `format-doc-examples`, and each one set there wins over `[format]` inside doc examples; the keys left out are inherited.
 
 ```toml
 [format]
-blank_line_after_declarations = true
+blank-line-after-declarations = true
 
 [doc.format]
-blank_line_after_declarations = false
+blank-line-after-declarations = false
 ```
 
-### max_width
+### max-width
 
 The line length `jaifmt --verbose` reports lines over. Default 100. Lines are never re-wrapped, so it changes no output.
 

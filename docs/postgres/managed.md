@@ -45,7 +45,7 @@ Cache: `$XDG_CACHE_HOME/jacket/postgres` or `~/.cache/jacket/postgres` (Linux), 
 ```toml
 [postgres]
 managed = true
-managed_version = "16.15.1"
+managed-version = "16.15.1"
 ```
 
 Environment (wins over `jacket.toml`): `JACKET_PG_MANAGED` (`0` turns it off), `JACKET_PG_MANAGED_VERSION`, `JACKET_PG_MANAGED_CACHE`.

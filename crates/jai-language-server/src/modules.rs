@@ -7,7 +7,7 @@
 //!
 //! 1. `modules/` next to the root file, then next to each folder above it up to the project
 //!    base (the folder of the nearest `jacket.toml`, else the workspace folder holding the file).
-//! 2. `import_path` of the nearest `jacket.toml`, relative to it, and for a test file of a
+//! 2. `import-path` of the nearest `jacket.toml`, relative to it, and for a test file of a
 //!    library (`tests/*.jai` beside a `module.jai`) the folder above the library.
 //! 3. The string literals a project entry file (`[project] entry`, an inferred entry, or the root
 //!    itself) writes in a statement that mentions `import_path`: `array_add(*import_path,

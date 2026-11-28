@@ -29,7 +29,7 @@ def main():
     assert {p["name"]: p["doc_html"] for p in params} == {"x": "first value", "y": "second value"}
     narrow = output_dir("bindings-doc-comments-narrow")
     narrow.mkdir(parents=True, exist_ok=True)
-    (narrow / "jacket.toml").write_text("[format]\nmax_width = 40\n")
+    (narrow / "jacket.toml").write_text("[format]\nmax-width = 40\n")
     subprocess.run([JAIC, source, "-interp", "--", narrow, "narrow"], env=ENV, cwd=narrow, check=True)
     text = (narrow / "module.jai").read_text()
     assert "// Slash docs. Bang docs. A paragraph\n// with enough words to wrap at the" in text

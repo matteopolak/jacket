@@ -275,7 +275,7 @@ jaifmt [OPTIONS] [PATHS]...
 | `--range <START:END>` | With --stdin: format only the top-level statements the byte range START:END touches and copy the rest unchanged |
 | `--config <FILE>` | Use this jacket.toml instead of the nearest one |
 | `--is-ignored <FILE>` | Print nothing; exit 0 when FILE is ignored by the nearest config's ignore list, 1 when it is not (for editors) |
-| `--set <KEY=VALUE>` | Set one [format] key, written as in jacket.toml (--set indent_width=2); implies --no-config. `jacket fmt` passes every resolved setting this way |
+| `--set <KEY=VALUE>` | Set one [format] key, written as in jacket.toml (--set indent-width=2); implies --no-config. `jacket fmt` passes every resolved setting this way |
 | `--[no-]no-config` | Read no jacket.toml: start from the defaults, then --config and --set. Nothing is ignored, since the caller chooses the files |
 | `-v, --[no-]verbose` | Report every file, a summary, and lines over max_width |
 | `-j, --jobs <N>` | Format this many files at once [default: the number of cores] |
@@ -425,7 +425,7 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--timeout <SECONDS>` | Seconds before a test without `@timeout` is killed; 0 for no limit [default: 120] |
 | `--retries <N>` | Run a failed test again up to N times; one that then passes is FLAKY |
 | `--fail-fast` | Start no more tests after the first failure |
-| `--no-fail-fast` | Run every test even when a profile sets `fail_fast` |
+| `--no-fail-fast` | Run every test even when a profile sets `fail-fast` |
 | `--no-capture` | Show the tests' output as it is written (runs one test at a time) |
 | `--no-isolation` | Run a root's tests in one process instead of one process each |
 | `--allow-missing-prerequisites` | Skip, instead of failing, the tests whose test-driver probe library is missing or does not build |
@@ -493,7 +493,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--timeout <SECONDS>` | Seconds before a test without `@timeout` is killed; 0 for no limit [default: 120] |
 | `--retries <N>` | Run a failed test again up to N times; one that then passes is FLAKY |
 | `--fail-fast` | Start no more tests after the first failure |
-| `--no-fail-fast` | Run every test even when a profile sets `fail_fast` |
+| `--no-fail-fast` | Run every test even when a profile sets `fail-fast` |
 | `--no-capture` | Show the tests' output as it is written (runs one test at a time) |
 | `--no-isolation` | Run a root's tests in one process instead of one process each |
 | `--allow-missing-prerequisites` | Skip, instead of failing, the tests whose test-driver probe library is missing or does not build |

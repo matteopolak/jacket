@@ -225,10 +225,10 @@ pub fn load_at_checked(
 /// schema does not know is an error that names the nearest known one, as `[lint]` does for a rule.
 ///
 /// ```
-/// let error = jacket_config::parse("[lint]\nmax_nestng = 3\n").unwrap_err();
+/// let error = jacket_config::parse("[lint]\nmax-nestng = 3\n").unwrap_err();
 /// assert_eq!(
 ///     error,
-///     "unknown setting `lint.max_nestng` in jacket.toml (line 2)\nhelp: did you mean `lint.max_nesting`?"
+///     "unknown setting `lint.max-nestng` in jacket.toml (line 2)\nhelp: did you mean `lint.max-nesting`?"
 /// );
 /// ```
 pub fn parse(text: &str) -> Result<Config, String> {
@@ -267,7 +267,7 @@ pub fn parse_noting(text: &str) -> Result<(Config, Vec<String>), String> {
 }
 
 /// The settings, and the dotted path of every key the schema does not know
-/// (`lint.max_nestng`), which is dropped from them. Only the schema oracle
+/// (`lint.max-nestng`), which is dropped from them. Only the schema oracle
 /// (`examples/toml-oracle.rs`) and tests read a file this way; every tool uses [`parse`].
 pub fn parse_lenient(text: &str) -> Result<(Config, Vec<String>), String> {
     let invalid = |e: toml::de::Error| e.to_string().trim_end().to_string();
@@ -291,6 +291,13 @@ pub fn unknown_note(path: &str) -> String {
         } else {
             note.push_str(&format!("\nhelp: use `{meant}` under `[{home}]`"));
         }
+        return note;
+    }
+    if let Some((_, _, new)) = schema::RENAMED
+        .iter()
+        .find(|(t, old, _)| *t == table && *old == key)
+    {
+        note.push_str(&format!("\nhelp: `{key}` is now `{table}.{new}`"));
         return note;
     }
     if let Some(near) = schema::closest(key, schema::known_keys(table)) {
