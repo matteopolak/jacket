@@ -428,6 +428,7 @@ jacket test [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--no-fail-fast` | Run every test even when a profile sets `fail_fast` |
 | `--no-capture` | Show the tests' output as it is written (runs one test at a time) |
 | `--no-isolation` | Run a root's tests in one process instead of one process each |
+| `--allow-missing-prerequisites` | Skip, instead of failing, the tests whose test-driver probe library is missing or does not build |
 | `-q, --quiet` | Print only the tests that fail, time out or are flaky, then the summary |
 | `--format <FORMAT>` | `human` text, or `json`: one event per line on standard output Possible values: - human - json:  One JSON object per event on standard output [default: human] |
 | `--junit <FILE>` | Also write the results as `JUnit` XML |
@@ -495,6 +496,7 @@ jacket bench [OPTIONS] [FILTER]... [-- <FLAGS>...]
 | `--no-fail-fast` | Run every test even when a profile sets `fail_fast` |
 | `--no-capture` | Show the tests' output as it is written (runs one test at a time) |
 | `--no-isolation` | Run a root's tests in one process instead of one process each |
+| `--allow-missing-prerequisites` | Skip, instead of failing, the tests whose test-driver probe library is missing or does not build |
 | `-q, --quiet` | Print only the tests that fail, time out or are flaky, then the summary |
 | `--format <FORMAT>` | `human` text, or `json`: one event per line on standard output Possible values: - human - json:  One JSON object per event on standard output [default: human] |
 | `--junit <FILE>` | Also write the results as `JUnit` XML |

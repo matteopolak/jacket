@@ -1,10 +1,9 @@
 //! Testing the examples of a site: every one with a Run button is run before the site is written,
 //! the way the browser runs it, so a Run button never opens on an error.
+use crate::test::exec::{Invocation, run_bounded};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// The most an example may run when it has no `timeout(n)` of its own.
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(60);
@@ -41,10 +40,6 @@ pub enum Engine<'a> {
 pub struct Failure {
     pub label: String,
     pub message: String,
-}
-
-fn threads() -> usize {
-    std::thread::available_parallelism().map_or(2, |n| n.get().min(3))
 }
 
 fn scratch() -> Result<PathBuf, String> {
@@ -98,27 +93,9 @@ fn interpreted(
     programs: &[Program],
     dir: &Path,
 ) -> Result<Vec<Failure>, String> {
-    let next = AtomicUsize::new(0);
-    let outcomes = Mutex::new(vec![None; programs.len()]);
-    std::thread::scope(|scope| {
-        for _ in 0..threads() {
-            scope.spawn(|| {
-                loop {
-                    let i = next.fetch_add(1, Ordering::Relaxed);
-                    let Some(program) = programs.get(i) else {
-                        break;
-                    };
-                    let message = interpret(jaic, stdlib, import_dir, program, dir, i);
-                    outcomes
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner)[i] = message;
-                }
-            });
-        }
+    let outcomes = crate::parallel::map(programs, crate::parallel::threads(), |i, program| {
+        interpret(jaic, stdlib, import_dir, program, dir, i)
     });
-    let outcomes = outcomes
-        .into_inner()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
     Ok(failures(programs, outcomes))
 }
 
@@ -132,46 +109,39 @@ fn interpret(
     n: usize,
 ) -> Option<String> {
     let file = dir.join(format!("{n}.jai"));
-    let out = dir.join(format!("{n}.out"));
     if let Err(e) = std::fs::write(&file, &program.text) {
         return Some(format!("cannot write {}: {e}", file.display()));
     }
-    let log = match std::fs::File::create(&out).and_then(|f| Ok((f.try_clone()?, f))) {
-        Ok(log) => log,
-        Err(e) => return Some(format!("cannot write {}: {e}", out.display())),
-    };
-    let child = Command::new(jaic)
-        .env(jacket_config::env::STDLIB.name, stdlib)
-        .current_dir(dir)
-        .arg(&file)
-        .args(["-interp", "-quiet", "-os", "wasm"])
-        .args(import_dir)
-        .stdin(Stdio::null())
-        .stdout(log.0)
-        .stderr(log.1)
-        .spawn();
-    let mut child = match child {
-        Ok(child) => child,
-        Err(e) => return Some(format!("could not start `{}`: {e}", jaic.display())),
+    let mut args = vec![file.to_string_lossy().into_owned()];
+    args.extend(["-interp", "-quiet", "-os", "wasm"].map(String::from));
+    args.extend(
+        import_dir
+            .iter()
+            .map(|arg| arg.to_string_lossy().into_owned()),
+    );
+    let invocation = Invocation {
+        program: jaic.to_path_buf(),
+        args,
+        cwd: dir.to_path_buf(),
+        env: vec![(
+            jacket_config::env::STDLIB.name.to_string(),
+            stdlib.to_string_lossy().into_owned(),
+        )],
+        pipe_input: false,
     };
     let limit = program.timeout.map_or(DEFAULT_TIMEOUT, Duration::from_secs);
-    let started = Instant::now();
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break Some(status),
-            Ok(None) if started.elapsed() > limit => {
-                let _ = child.kill();
-                let _ = child.wait();
-                break None;
-            }
-            Ok(None) => std::thread::sleep(Duration::from_millis(5)),
-            Err(e) => return Some(format!("could not wait for the example: {e}")),
-        }
-    };
-    let printed = std::fs::read_to_string(&out).unwrap_or_default();
+    let ran = run_bounded(&invocation, Some(limit));
     let _ = std::fs::remove_file(&file);
-    let _ = std::fs::remove_file(&out);
-    match status {
+    let ran = match ran {
+        Ok(ran) => ran,
+        Err(e) => return Some(format!("could not run `{}`: {e}", jaic.display())),
+    };
+    let printed = format!(
+        "{}{}",
+        String::from_utf8_lossy(&ran.stdout),
+        String::from_utf8_lossy(&ran.stderr)
+    );
+    match ran.status {
         Some(status) if status.success() => None,
         Some(status) => Some(if printed.trim().is_empty() {
             format!("The example exited with {status}.")
@@ -202,71 +172,48 @@ fn browser(
         .collect();
     std::fs::write(&list, serde_json::to_vec(&json).map_err(|e| e.to_string())?)
         .map_err(|e| format!("cannot write {}: {e}", list.display()))?;
-    let shards = threads().min(programs.len().max(1));
-    let outcomes = Mutex::new(vec![None; programs.len()]);
-    let error: Mutex<Option<String>> = Mutex::new(None);
-    std::thread::scope(|scope| {
-        for shard in 0..shards {
-            let (script, list, outcomes, error) = (&script, &list, &outcomes, &error);
-            scope.spawn(move || {
-                let output = Command::new(node)
-                    .arg(script)
-                    .arg(runtime)
-                    .arg(list)
-                    .arg(shard.to_string())
-                    .arg(shards.to_string())
-                    .stdin(Stdio::null())
-                    .output();
-                let output = match output {
-                    Ok(output) => output,
-                    Err(e) => {
-                        *error
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner) =
-                            Some(format!("could not start `{}`: {e}", node.display()));
-                        return;
-                    }
-                };
-                let mut seen = 0;
-                for line in String::from_utf8_lossy(&output.stdout).lines() {
-                    let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
-                        continue;
-                    };
-                    let (Some(i), Some(ok)) = (
-                        value["i"].as_u64().and_then(|i| usize::try_from(i).ok()),
-                        value["ok"].as_bool(),
-                    ) else {
-                        continue;
-                    };
-                    seen += 1;
-                    if !ok && i < programs.len() {
-                        outcomes
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner)[i] =
-                            Some(value["message"].as_str().unwrap_or("").to_owned());
-                    }
-                }
-                let expected = (shard..programs.len()).step_by(shards).count();
-                if seen < expected {
-                    *error
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(format!(
-                        "the browser compiler stopped after {seen} of {expected} examples:\n{}",
-                        String::from_utf8_lossy(&output.stderr).trim()
-                    ));
-                }
-            });
+    let shards = crate::parallel::threads().min(programs.len().max(1));
+    let indices: Vec<usize> = (0..shards).collect();
+    let found = crate::parallel::try_map(&indices, shards, |_, &shard| {
+        let output = Command::new(node)
+            .arg(&script)
+            .arg(runtime)
+            .arg(&list)
+            .arg(shard.to_string())
+            .arg(shards.to_string())
+            .stdin(Stdio::null())
+            .output()
+            .map_err(|e| format!("could not start `{}`: {e}", node.display()))?;
+        let mut seen = 0;
+        let mut failed = Vec::new();
+        for line in String::from_utf8_lossy(&output.stdout).lines() {
+            let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            let (Some(i), Some(ok)) = (
+                value["i"].as_u64().and_then(|i| usize::try_from(i).ok()),
+                value["ok"].as_bool(),
+            ) else {
+                continue;
+            };
+            seen += 1;
+            if !ok && i < programs.len() {
+                failed.push((i, value["message"].as_str().unwrap_or("").to_owned()));
+            }
         }
-    });
-    if let Some(message) = error
-        .into_inner()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-    {
-        return Err(message);
+        let expected = (shard..programs.len()).step_by(shards).count();
+        if seen < expected {
+            return Err(format!(
+                "the browser compiler stopped after {seen} of {expected} examples:\n{}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ));
+        }
+        Ok(failed)
+    })?;
+    let mut outcomes = vec![None; programs.len()];
+    for (i, message) in found.into_iter().flatten() {
+        outcomes[i] = Some(message);
     }
-    let outcomes = outcomes
-        .into_inner()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
     Ok(failures(programs, outcomes))
 }
 

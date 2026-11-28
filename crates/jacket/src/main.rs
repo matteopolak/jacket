@@ -12,7 +12,10 @@ mod dep;
 mod doc;
 mod fmt;
 mod git;
+mod markup;
 mod migrate;
+mod net;
+mod parallel;
 mod prerequisite;
 mod project;
 mod shown;
@@ -27,7 +30,7 @@ use clap::Parser;
 use cli::{Cli, Command, TOOL_COMMANDS};
 use jacket_config::Disk;
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -119,8 +122,10 @@ fn tool_command(command: &str, args: &[OsString], cwd: &Path) -> ExitCode {
             return ExitCode::from(2);
         }
     };
-    if let Some(loaded) = &loaded {
-        project::check_toolchain(loaded);
+    if let Some(loaded) = &loaded
+        && let Err(error) = project::check_toolchain(loaded)
+    {
+        return commands::fail(error);
     }
     if matches!(command, "build" | "check" | "run")
         && let Some(loaded) = &loaded
@@ -228,7 +233,7 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
         report.clone().into_os_string(),
     ));
     let started = tools::status(jaic.as_os_str(), &argv, &env);
-    let reported = std::fs::read_to_string(&report).ok();
+    let reported = compile::reported_executable(&report);
     let _ = std::fs::remove_file(&report);
     match started {
         Ok(0) => {}
@@ -238,18 +243,9 @@ fn run_program(args: &[OsString], ctx: &compile::Context) -> ExitCode {
             return ExitCode::from(127);
         }
     }
-    let reported = reported
-        .as_deref()
-        .and_then(|text| text.lines().last())
-        .map(PathBuf::from);
-    let Some(exe) = reported
-        .or_else(|| compile::executable(&argv, ctx.cwd))
-        .filter(|p| p.is_file())
-    else {
-        eprintln!(
-            "jacket: error: jaic built nothing to run\nhelp: pass the executable's location with -exe, or run it yourself"
-        );
-        return ExitCode::from(2);
+    let exe = match reported {
+        Ok(exe) => exe,
+        Err(error) => return commands::fail(error),
     };
     if let Some(color) = status::lines(&argv) {
         let shown = exe.strip_prefix(ctx.cwd).unwrap_or(&exe);

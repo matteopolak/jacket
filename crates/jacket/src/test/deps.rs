@@ -4,13 +4,9 @@ use super::deps_store::{self, Program};
 use super::{Case, Kind, discover};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// A program whose reads are wanted, and how the store knows it.
 struct Query {
-    /// Its place in the batch; names the scratch list when there is no store.
-    id: usize,
     path: PathBuf,
     /// Its text when jacket generated it into a folder that differs from run to run (a root's
     /// unit tests, the stand-in for a compile-fail test): the store names it by that, not by
@@ -24,9 +20,8 @@ struct Query {
 
 impl Query {
     /// A program of the project, named by its path.
-    fn file(id: usize, path: PathBuf, root: usize) -> Self {
+    fn file(path: PathBuf, root: usize) -> Self {
         Self {
-            id,
             path,
             text: None,
             root,
@@ -35,10 +30,9 @@ impl Query {
     }
 
     /// A program jacket generated at `path`, named by its text; `None` when it cannot be read.
-    fn generated(id: usize, path: PathBuf, root: usize, plugin: bool) -> Option<Self> {
+    fn generated(path: PathBuf, root: usize, plugin: bool) -> Option<Self> {
         let text = std::fs::read_to_string(&path).ok()?;
         Some(Self {
-            id,
             path,
             text: Some(text),
             root,
@@ -54,11 +48,19 @@ impl Query {
     }
 }
 
-/// How a program is compiled to learn what it reads: `true` when it wrote the list to the path.
-type Compile<'a> = &'a (dyn Fn(&Query, &Path) -> bool + Sync);
+/// How a program is compiled to learn what it reads: `true` when it wrote the list to the path,
+/// an error when the compiler could not run.
+type Compile<'a> = &'a (dyn Fn(&Query, &Path) -> Result<bool, String> + Sync);
 
-/// Compiles the program of `query` with `jaic -check -deps_file list`.
-fn compile_list(query: &Query, root_flags: &[String], toolchain: &Toolchain, list: &Path) -> bool {
+/// Compiles the program of `query` with `jaic -check -deps_file list`. A compile that fails says
+/// the program does not compile; a compiler that does not start is an error, since every case
+/// would then look affected.
+fn compile_list(
+    query: &Query,
+    root_flags: &[String],
+    toolchain: &Toolchain,
+    list: &Path,
+) -> Result<bool, String> {
     let mut command = toolchain.jaic_command();
     command
         .current_dir(query.path.parent().unwrap_or(Path::new(".")))
@@ -71,7 +73,15 @@ fn compile_list(query: &Query, root_flags: &[String], toolchain: &Toolchain, lis
     if query.plugin {
         command.arg(PLUGIN);
     }
-    command.output().is_ok_and(|o| o.status.success())
+    let output = command.output().map_err(|e| {
+        format!(
+            "could not start `{}` to list the files {} reads: {}",
+            toolchain.jaic.display(),
+            query.path.display(),
+            jaic::io_reason(&e)
+        )
+    })?;
+    Ok(output.status.success())
 }
 
 /// The source files the program of `query` reads, `None` when it does not compile: the list the
@@ -86,27 +96,18 @@ fn list(
     query: &Query,
     root_flags: &[String],
     toolchain: &Toolchain,
-    work: &Path,
     compile: Compile,
-) -> Option<Vec<String>> {
+) -> Result<Option<Vec<String>>, String> {
     let entry = toolchain.deps_entry(query.program(), root_flags, query.plugin);
-    if let Some(files) = entry.as_deref().and_then(deps_store::read) {
-        return Some(files);
+    if let Some(files) = deps_store::read(&entry)? {
+        return Ok(Some(files));
     }
-    let target = if let (Some(entry), Some(store)) = (&entry, &toolchain.deps) {
-        store.prepare(entry);
-        entry.clone()
+    toolchain.deps.prepare(&entry)?;
+    if compile(query, &entry)? {
+        deps_store::read(&entry)
     } else {
-        let _ = std::fs::create_dir_all(work);
-        work.join(format!("deps-{}.list", query.id))
-    };
-    let files = compile(query, &target)
-        .then(|| deps_store::read(&target))
-        .flatten();
-    if entry.is_none() {
-        let _ = std::fs::remove_file(&target);
+        Ok(None)
     }
-    files
 }
 
 /// `list` of every query, `jobs` at a time, in the order of `queries`.
@@ -114,23 +115,12 @@ fn lists(
     queries: &[Query],
     root_flags: &[Vec<String>],
     toolchain: &Toolchain,
-    work: &Path,
     jobs: usize,
     compile: Compile,
-) -> Vec<Option<Vec<String>>> {
-    let next = AtomicUsize::new(0);
-    let found: Mutex<Vec<Option<Vec<String>>>> = Mutex::new(vec![None; queries.len()]);
-    std::thread::scope(|scope| {
-        for _ in 0..jobs.max(1).min(queries.len()) {
-            scope.spawn(|| {
-                while let Some(query) = queries.get(next.fetch_add(1, Ordering::Relaxed)) {
-                    let files = list(query, &root_flags[query.root], toolchain, work, compile);
-                    found.lock().expect("lock")[query.id] = files;
-                }
-            });
-        }
-    });
-    found.into_inner().expect("lock")
+) -> Result<Vec<Option<Vec<String>>>, String> {
+    crate::parallel::try_map(queries, jobs, |_, query| {
+        list(query, &root_flags[query.root], toolchain, compile)
+    })
 }
 
 /// `lists`, compiling with jaic.
@@ -138,17 +128,11 @@ fn read_all(
     queries: &[Query],
     root_flags: &[Vec<String>],
     toolchain: &Toolchain,
-    work: &Path,
     jobs: usize,
-) -> Vec<Option<Vec<String>>> {
-    lists(
-        queries,
-        root_flags,
-        toolchain,
-        work,
-        jobs,
-        &|query, list| compile_list(query, &root_flags[query.root], toolchain, list),
-    )
+) -> Result<Vec<Option<Vec<String>>>, String> {
+    lists(queries, root_flags, toolchain, jobs, &|query, list| {
+        compile_list(query, &root_flags[query.root], toolchain, list)
+    })
 }
 
 /// What `--list --deps` reads programs with.
@@ -163,32 +147,36 @@ pub(super) struct Listing<'a> {
 /// The files every program the selected tests build reads, one per line, sorted: each root's
 /// generated unit-test program (written by `build::unit` in `work/build-N`) and each golden
 /// program.
-pub(super) fn print(selected: &[Case], roots: &[discover::Root], ctx: &Listing) {
+pub(super) fn print(
+    selected: &[Case],
+    roots: &[discover::Root],
+    ctx: &Listing,
+) -> Result<(), String> {
     let mut queries = Vec::new();
     for (i, root) in roots.iter().enumerate() {
         let wanted = selected
             .iter()
             .any(|c| c.root == i && matches!(c.kind, Kind::Test | Kind::Bench));
         if let Some(program) = unit_program(ctx.work, i, root, ctx.bench).filter(|_| wanted) {
-            queries.extend(Query::generated(queries.len(), program, i, true));
+            queries.extend(Query::generated(program, i, true));
         }
     }
     for case in selected {
         if matches!(case.kind, Kind::Golden | Kind::CompileFail) {
-            queries.push(Query::file(queries.len(), case.file.clone(), case.root));
+            queries.push(Query::file(case.file.clone(), case.root));
         }
     }
-    let found: BTreeSet<String> =
-        read_all(&queries, ctx.root_flags, ctx.toolchain, ctx.work, ctx.jobs)
-            .into_iter()
-            .flatten()
-            .flatten()
-            // A list outlives the files it names.
-            .filter(|file| Path::new(file).is_file())
-            .collect();
+    let found: BTreeSet<String> = read_all(&queries, ctx.root_flags, ctx.toolchain, ctx.jobs)?
+        .into_iter()
+        .flatten()
+        .flatten()
+        // A list outlives the files it names.
+        .filter(|file| Path::new(file).is_file())
+        .collect();
     for file in found {
         println!("{file}");
     }
+    Ok(())
 }
 
 /// The generated unit-test (or bench) program of root `i`, if it has one.
@@ -245,18 +233,34 @@ fn imported_modules(text: &str) -> Option<BTreeSet<String>> {
 }
 
 /// The stand-in for a program that cannot be compiled alone (a compile-fail test) or is not
-/// built here (a doc example): a program that imports `modules`, written to `work`. `None` when
-/// it cannot be written.
-fn stand_in(modules: &BTreeSet<String>, work: &Path, root: usize, id: usize) -> Option<Query> {
+/// built here (a doc example): a program that imports `modules`, written to `work`.
+fn stand_in(
+    modules: &BTreeSet<String>,
+    work: &Path,
+    root: usize,
+    id: usize,
+) -> Result<Query, String> {
     let text: String = modules
         .iter()
         .enumerate()
         .map(|(i, m)| format!("__dep{i} :: #import \"{m}\";\n"))
         .collect();
     let program = work.join(format!("deps-{id}.jai"));
-    std::fs::create_dir_all(work).ok()?;
-    std::fs::write(&program, text).ok()?;
-    Query::generated(id, program, root, false)
+    std::fs::create_dir_all(work)
+        .and_then(|()| std::fs::write(&program, &text))
+        .map_err(|e| {
+            format!(
+                "cannot write `{}` to list what a test reads: {}",
+                program.display(),
+                jaic::io_reason(&e)
+            )
+        })?;
+    Ok(Query {
+        path: program,
+        text: Some(text),
+        root,
+        plugin: false,
+    })
 }
 
 /// What `--changed` reads programs with.
@@ -271,22 +275,26 @@ pub(super) struct Context<'a> {
 }
 
 /// `affected`, saying on standard error how many of the cases stay.
-pub(super) fn narrow(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Vec<Case> {
+pub(super) fn narrow(
+    selected: Vec<Case>,
+    changed: &[PathBuf],
+    ctx: &Context,
+) -> Result<Vec<Case>, String> {
     let before = selected.len();
-    let kept = affected(selected, changed, ctx);
+    let kept = affected(selected, changed, ctx)?;
     eprintln!(
         "jacket: {} of {before} tests can be affected by the {} changed files",
         kept.len(),
         changed.len()
     );
-    kept
+    Ok(kept)
 }
 
 /// The `selected` cases a change to the `changed` files can affect: those whose program reads one
 /// of them, those of a root the change adds an unlisted file to, and every case whose program
 /// does not compile (it may fail to because a file is gone). A compile-fail test and a doc
 /// example cannot be read alone, so they stand for the modules they import (and their root's).
-fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Vec<Case> {
+fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Result<Vec<Case>, String> {
     let Context {
         roots,
         root_flags,
@@ -317,10 +325,12 @@ fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Vec<Case
     let mut unit: BTreeMap<usize, Option<usize>> = BTreeMap::new();
     let mut alone: BTreeMap<PathBuf, Option<usize>> = BTreeMap::new();
     let mut docs: BTreeMap<usize, Option<usize>> = BTreeMap::new();
-    let mut add = |make: &dyn Fn(usize) -> Option<Query>| -> Option<usize> {
-        let query = make(queries.len())?;
+    let mut add = |make: &dyn Fn(usize) -> Result<Option<Query>, String>| {
+        let Some(query) = make(queries.len())? else {
+            return Ok(None);
+        };
         queries.push(query);
-        Some(queries.len() - 1)
+        Ok::<_, String>(Some(queries.len() - 1))
     };
     for case in &selected {
         let i = case.root;
@@ -329,11 +339,15 @@ fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Vec<Case
                 let program = unit_program(work, i, &roots[i], bench);
                 unit.insert(
                     i,
-                    add(&|id| Query::generated(id, program.clone()?, i, true)),
+                    add(&|_| {
+                        Ok(program
+                            .clone()
+                            .and_then(|program| Query::generated(program, i, true)))
+                    })?,
                 );
             }
             Kind::Golden if !alone.contains_key(&case.file) => {
-                let query = add(&|id| Some(Query::file(id, case.file.clone(), i)));
+                let query = add(&|_| Ok(Some(Query::file(case.file.clone(), i))))?;
                 alone.insert(case.file.clone(), query);
             }
             Kind::CompileFail if !alone.contains_key(&case.file) => {
@@ -341,7 +355,12 @@ fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Vec<Case
                     .ok()
                     .and_then(|text| imported_modules(&text))
                     .map(|m| m.into_iter().chain(base(i)).collect());
-                let query = add(&|id| stand_in(modules.as_ref()?, work, i, id));
+                let query = add(&|id| {
+                    modules
+                        .as_ref()
+                        .map(|modules| stand_in(modules, work, i, id))
+                        .transpose()
+                })?;
                 alone.insert(case.file.clone(), query);
             }
             Kind::Doc if !docs.contains_key(&i) => {
@@ -352,13 +371,18 @@ fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Vec<Case
                     .try_fold(base(i), |all, block| {
                         block.map(|m| all.into_iter().chain(m).collect())
                     });
-                let query = add(&|id| stand_in(modules.as_ref()?, work, i, id));
+                let query = add(&|id| {
+                    modules
+                        .as_ref()
+                        .map(|modules| stand_in(modules, work, i, id))
+                        .transpose()
+                })?;
                 docs.insert(i, query);
             }
             _ => {}
         }
     }
-    let read = read_all(&queries, root_flags, toolchain, work, jobs);
+    let read = read_all(&queries, root_flags, toolchain, jobs)?;
     let found = |query: Option<usize>| query.and_then(|q| read[q].clone()).map(canon);
     let unit: BTreeMap<usize, Option<BTreeSet<PathBuf>>> =
         unit.into_iter().map(|(k, q)| (k, found(q))).collect();
@@ -387,7 +411,7 @@ fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Vec<Case
         let dir = super::watch::canonical(&roots[i].dir);
         changed.iter().any(|p| unknown_to_deps(p, &dir, known))
     };
-    selected
+    Ok(selected
         .into_iter()
         .filter(|case| {
             let reads = match case.kind {
@@ -397,12 +421,13 @@ fn affected(selected: Vec<Case>, changed: &[PathBuf], ctx: &Context) -> Vec<Case
             };
             touches(&changed, reads.and_then(Option::as_ref)) || root_touched(case.root)
         })
-        .collect()
+        .collect())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     fn set(paths: &[&str]) -> BTreeSet<PathBuf> {
         paths.iter().map(PathBuf::from).collect()
@@ -446,12 +471,11 @@ mod tests {
         dir
     }
 
-    fn toolchain(dir: &Path, stored: bool) -> Toolchain {
+    fn toolchain(dir: &Path) -> Toolchain {
         let jaic = dir.join("jaic");
         std::fs::write(&jaic, "compiler").unwrap();
         Toolchain {
-            deps: stored
-                .then(|| std::sync::Arc::new(deps_store::Store::at(dir.join("store"), &jaic))),
+            deps: std::sync::Arc::new(deps_store::Store::at(dir.join("store"), &jaic).unwrap()),
             jaic,
             stdlib: PathBuf::from("/stdlib"),
             flags: Vec::new(),
@@ -466,30 +490,33 @@ mod tests {
     }
 
     /// A compile that writes `files` to the list and counts how often it ran.
-    fn compiling(files: &'static str, runs: &AtomicUsize) -> impl Fn(&Query, &Path) -> bool + Sync {
+    fn compiling(
+        files: &'static str,
+        runs: &AtomicUsize,
+    ) -> impl Fn(&Query, &Path) -> Result<bool, String> + Sync {
         move |_, list| {
             runs.fetch_add(1, Ordering::Relaxed);
-            std::fs::write(list, files).is_ok()
+            Ok(std::fs::write(list, files).is_ok())
         }
     }
 
     #[test]
     fn a_program_with_no_entry_is_compiled_once_and_then_stored() {
         let dir = temp("fallback");
-        let toolchain = toolchain(&dir, true);
+        let toolchain = toolchain(&dir);
         let queries: Vec<Query> = (0..3)
-            .map(|id| Query::file(id, PathBuf::from(format!("/p/{id}.jai")), 0))
+            .map(|id| Query::file(PathBuf::from(format!("/p/{id}.jai")), 0))
             .collect();
         let flags = [Vec::new()];
         let runs = AtomicUsize::new(0);
         let compile = compiling("/s/a.jai\n/s/b.jai\n", &runs);
-        let first = lists(&queries, &flags, &toolchain, &dir, 2, &compile);
+        let first = lists(&queries, &flags, &toolchain, 2, &compile).unwrap();
         assert_eq!(runs.load(Ordering::Relaxed), 3);
         let wanted = Some(vec!["/s/a.jai".to_string(), "/s/b.jai".to_string()]);
         assert!(first.iter().all(|found| *found == wanted), "{first:?}");
         // The lists are in the store now: nothing compiles, whatever the compile would say.
         let compile = compiling("/s/other.jai\n", &runs);
-        let second = lists(&queries, &flags, &toolchain, &dir, 2, &compile);
+        let second = lists(&queries, &flags, &toolchain, 2, &compile).unwrap();
         assert_eq!(
             runs.load(Ordering::Relaxed),
             3,
@@ -501,18 +528,16 @@ mod tests {
     #[test]
     fn a_stored_list_is_used_without_a_compile() {
         let dir = temp("stored");
-        let toolchain = toolchain(&dir, true);
-        assert!(Query::generated(0, dir.join("tests.jai"), 0, true).is_none());
+        let toolchain = toolchain(&dir);
+        assert!(Query::generated(dir.join("tests.jai"), 0, true).is_none());
         std::fs::write(dir.join("tests.jai"), "#load \"a.jai\";\n").unwrap();
-        let query = Query::generated(0, dir.join("tests.jai"), 0, true).unwrap();
-        let entry = toolchain
-            .deps_entry(query.program(), &[], true)
-            .expect("a store");
+        let query = Query::generated(dir.join("tests.jai"), 0, true).unwrap();
+        let entry = toolchain.deps_entry(query.program(), &[], true);
         std::fs::create_dir_all(entry.parent().unwrap()).unwrap();
         std::fs::write(&entry, "/s/a.jai\n").unwrap();
         let runs = AtomicUsize::new(0);
         let compile = compiling("/s/never.jai\n", &runs);
-        let found = lists(&[query], &[Vec::new()], &toolchain, &dir, 1, &compile);
+        let found = lists(&[query], &[Vec::new()], &toolchain, 1, &compile).unwrap();
         assert_eq!(found, [Some(vec!["/s/a.jai".to_string()])]);
         assert_eq!(runs.load(Ordering::Relaxed), 0);
     }
@@ -520,11 +545,11 @@ mod tests {
     #[test]
     fn a_program_that_does_not_compile_has_no_list() {
         let dir = temp("failing");
-        let toolchain = toolchain(&dir, true);
-        let query = Query::file(0, PathBuf::from("/p/a.jai"), 0);
-        let entry = toolchain.deps_entry(query.program(), &[], false).unwrap();
-        let failing = |_: &Query, _: &Path| false;
-        let found = lists(&[query], &[Vec::new()], &toolchain, &dir, 1, &failing);
+        let toolchain = toolchain(&dir);
+        let query = Query::file(PathBuf::from("/p/a.jai"), 0);
+        let entry = toolchain.deps_entry(query.program(), &[], false);
+        let failing = |_: &Query, _: &Path| Ok(false);
+        let found = lists(&[query], &[Vec::new()], &toolchain, 1, &failing).unwrap();
         assert_eq!(found, [None]);
         assert!(!entry.exists());
     }
@@ -532,7 +557,7 @@ mod tests {
     #[test]
     fn the_flags_of_the_environment_do_not_change_the_entry() {
         let dir = temp("environment");
-        let mut toolchain = toolchain(&dir, true);
+        let mut toolchain = toolchain(&dir);
         let program = Program::File(Path::new("/p/a.jai"));
         let before = toolchain.deps_entry(program, &[], false);
         toolchain.flags.extend(["-add".into(), "#run {}".into()]);
@@ -542,15 +567,24 @@ mod tests {
     }
 
     #[test]
-    fn without_a_store_a_list_is_read_from_a_scratch_file() {
-        let dir = temp("unstored");
-        let toolchain = toolchain(&dir, false);
-        let queries = [Query::file(0, PathBuf::from("/p/a.jai"), 0)];
-        let runs = AtomicUsize::new(0);
-        let compile = compiling("/s/a.jai\n", &runs);
-        let found = lists(&queries, &[Vec::new()], &toolchain, &dir, 1, &compile);
-        assert_eq!(found, [Some(vec!["/s/a.jai".to_string()])]);
-        assert!(!dir.join("deps-0.list").exists());
+    fn a_compiler_that_does_not_start_is_an_error_not_a_widened_selection() {
+        let dir = temp("unstartable");
+        let toolchain = toolchain(&dir);
+        let queries = [Query::file(PathBuf::from("/p/a.jai"), 0)];
+        let error = read_all(
+            &queries,
+            &[Vec::new()],
+            &Toolchain {
+                jaic: PathBuf::from("/nowhere/jaic"),
+                ..toolchain
+            },
+            1,
+        )
+        .unwrap_err();
+        assert!(
+            error.starts_with("could not start `/nowhere/jaic` to list the files /p/a.jai reads"),
+            "{error}"
+        );
     }
 
     #[test]

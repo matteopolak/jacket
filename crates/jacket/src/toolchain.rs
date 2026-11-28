@@ -246,7 +246,7 @@ pub fn list(
 
 /// The rows for `names` (targets of the project, built-in boards, or triples; the machine's own
 /// when none), and `tools` as programs that must be installed. Incomplete when anything is
-/// missing.
+/// missing; a name that is none of those is an error ([`crate::target::named`]).
 ///
 /// ```text
 /// jacket toolchain check Mps2_An386 --tool qemu-system-arm
@@ -257,19 +257,10 @@ pub fn check(
     config: Option<&jacket_config::Config>,
     lookup: &Lookup,
     overrides: &Overrides,
-) -> Report {
-    let known = crate::target::all(config);
+) -> Result<Report, String> {
     let mut rows = Vec::new();
     for name in names {
-        let target = known
-            .iter()
-            .find(|target| target.name == *name)
-            .cloned()
-            .unwrap_or_else(|| Target {
-                name: name.clone(),
-                triple: Some(name.clone()),
-                ..Target::default()
-            });
+        let target = crate::target::named(name, config)?;
         rows.push(target_row(&target, lookup, overrides));
     }
     if names.is_empty() && tools.is_empty() {
@@ -294,10 +285,10 @@ pub fn check(
             Piece::NotNeeded => {}
         }
     }
-    Report {
+    Ok(Report {
         text,
         complete,
-    }
+    })
 }
 
 /// What each missing piece of `rows` needs, one block per target.

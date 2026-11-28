@@ -14,10 +14,9 @@ use super::options::Target;
 use super::{Case, Settings};
 use crate::cli::{BenchArgs, OutputFormat};
 use serde_json::{Value, json};
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 /// The version of the JSON document (`schema` in it).
 const SCHEMA: u32 = 2;
@@ -345,8 +344,14 @@ fn measure(run: &Run, case: &Case) -> Result<Measure, String> {
         ..Invocation::default()
     };
     let limit = case.options.timeout.unwrap_or(run.settings.timeout);
-    let (stdout, stderr, status) =
-        execute(&invocation, (limit > 0).then(|| Duration::from_secs(limit)))?;
+    let ran = exec::run_bounded(&invocation, (limit > 0).then(|| Duration::from_secs(limit)))
+        .map_err(|e| format!("could not run `{}`: {e}", invocation.program.display()))?;
+    let Some(status) = ran.status else {
+        return Err(format!(
+            "timed out after {limit}s (`@timeout(SECONDS)` or `--timeout` raises the limit)"
+        ));
+    };
+    let (stdout, stderr) = (ran.stdout, ran.stderr);
     let mut demux = Demux::default();
     let mut pieces = demux.feed(&stdout);
     let _ = demux.finish();
@@ -371,46 +376,6 @@ impl Run<'_> {
     fn root_of(&self, case: &Case) -> usize {
         case.root.min(self.roots.len().saturating_sub(1))
     }
-}
-
-/// Runs the process to its end, or kills it after `limit`.
-fn execute(
-    invocation: &Invocation,
-    limit: Option<Duration>,
-) -> Result<(Vec<u8>, Vec<u8>, String), String> {
-    let mut child = exec::spawn(invocation)
-        .map_err(|e| format!("could not start `{}`: {e}", invocation.program.display()))?;
-    let drain = |mut stream: Box<dyn Read + Send>| {
-        std::thread::spawn(move || {
-            let mut bytes = Vec::new();
-            let _ = stream.read_to_end(&mut bytes);
-            bytes
-        })
-    };
-    let out = drain(Box::new(child.stdout.take().expect("piped")));
-    let err = drain(Box::new(child.stderr.take().expect("piped")));
-    let started = Instant::now();
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break status.to_string(),
-            Ok(None) => {}
-            Err(error) => return Err(format!("cannot wait for the program: {error}")),
-        }
-        if limit.is_some_and(|l| started.elapsed() > l) {
-            exec::kill_tree(&mut child);
-            let _ = child.wait();
-            return Err(format!(
-                "timed out after {}s (`@timeout(SECONDS)` or `--timeout` raises the limit)",
-                started.elapsed().as_secs()
-            ));
-        }
-        std::thread::sleep(Duration::from_millis(10));
-    };
-    Ok((
-        out.join().unwrap_or_default(),
-        err.join().unwrap_or_default(),
-        status,
-    ))
 }
 
 /// The JSON document of a run, which is also what a baseline file holds.

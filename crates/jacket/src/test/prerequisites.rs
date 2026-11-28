@@ -6,6 +6,7 @@
 //! are also built before the run, when a selected test needs one that is missing ([`prepare`]).
 use super::options::TestOptions;
 use super::{Outcome, Status};
+use jaic_toolchain::package::Need;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -134,47 +135,31 @@ const SETUPS: [Setup; 8] = [
 /// The directory the repository's tools write to and the tests read from: `target/` of the
 /// checkout `root`, or `JACKET_OUTPUT_DIR`.
 fn output_dir(root: &Path) -> PathBuf {
-    output_in(root, jacket_config::env::OUTPUT_DIR.non_empty())
+    output_override(root).unwrap_or_else(|| root.join("target"))
 }
 
-/// [`output_dir`] for a given `JACKET_OUTPUT_DIR`. Empty is unset, and a relative one is below
-/// the checkout, as `tools/repo_output.py` reads it.
-pub(super) fn output_in(root: &Path, over: Option<std::ffi::OsString>) -> PathBuf {
-    over.filter(|dir| !dir.is_empty())
-        .map_or_else(|| root.join("target"), |dir| root.join(dir))
+/// `JACKET_OUTPUT_DIR`, the one rule for where it points: unset or empty is `None`, and a
+/// relative one is below the checkout `root`, as `tools/repo_output.py` reads it.
+pub(super) fn output_override(root: &Path) -> Option<PathBuf> {
+    output_override_in(root, jacket_config::env::OUTPUT_DIR.os())
 }
 
-/// `source` with its `//` and `/* */` comments (which nest) blanked, leaving strings alone.
+pub(super) fn output_override_in(root: &Path, over: Option<std::ffi::OsString>) -> Option<PathBuf> {
+    over.filter(|dir| !dir.is_empty()).map(|dir| root.join(dir))
+}
+
+/// `source` with its comments dropped, as jaic's lexer finds them (block comments nest, and a
+/// `//` inside a string is not one).
 fn without_comments(source: &str) -> String {
+    let (_, comments, _) = jaic::lexer::lex_with_trivia(jaic::source::FileId(0), source);
     let mut out = String::with_capacity(source.len());
-    let mut chars = source.chars().peekable();
-    let mut depth = 0usize;
-    while let Some(c) = chars.next() {
-        match (c, chars.peek()) {
-            ('*', Some('/')) if depth > 0 => {
-                chars.next();
-                depth -= 1;
-            }
-            ('/', Some('*')) => {
-                chars.next();
-                depth += 1;
-            }
-            _ if depth > 0 => {}
-            ('/', Some('/')) => while chars.next_if(|&n| n != '\n').is_some() {},
-            ('"', _) => {
-                out.push(c);
-                while let Some(s) = chars.next() {
-                    out.push(s);
-                    match s {
-                        '\\' => out.extend(chars.next()),
-                        '"' => break,
-                        _ => {}
-                    }
-                }
-            }
-            _ => out.push(c),
-        }
+    let mut at = 0;
+    for comment in comments {
+        out.push_str(&source[at..comment.span.start as usize]);
+        out.push(' ');
+        at = comment.span.end as usize;
     }
+    out.push_str(&source[at..]);
     out
 }
 
@@ -294,11 +279,6 @@ fn prepare_with(python: &str, files: &[PathBuf], stdlib: &Path) -> Result<(), St
     Ok(())
 }
 
-/// CI must diagnose a missing dependency rather than silently reduce its coverage.
-pub fn in_ci() -> bool {
-    jacket_config::env::CI.is_set() || jacket_config::env::GITHUB_ACTIONS.is_set()
-}
-
 /// Why a test that declared `optional(NAME)` is skipped: one of its `args` uses `${NAME}` and
 /// the variable is not set. A test that does not declare it runs and fails, on every machine,
 /// the way [`super::golden`] fails an argument with an unset variable.
@@ -316,10 +296,11 @@ pub fn optional_skip(
     })
 }
 
-/// Only absent test-driver libraries qualify. Missing production libraries, assertions,
-/// crashes and timeouts remain failures, as do all missing dependencies in CI.
-pub fn skip_missing_probe(outcome: &mut Outcome, ci: bool) {
-    if ci || outcome.status != Status::Fail || outcome.crashed || !outcome.failures.is_empty() {
+/// With `--allow-missing-prerequisites` (`allow`), a test that failed only because a test-driver
+/// probe library is absent is skipped, with the command that builds it. Missing production
+/// libraries, assertions, crashes and timeouts stay failures, and without the flag so does this.
+pub fn skip_missing_probe(outcome: &mut Outcome, allow: bool) {
+    if !allow || outcome.status != Status::Fail || outcome.crashed || !outcome.failures.is_empty() {
         return;
     }
     let text = format!(
@@ -342,13 +323,23 @@ pub fn skip_missing_probe(outcome: &mut Outcome, ci: bool) {
 /// Build only probes that need system headers and the host C compiler. SDK providers and
 /// the clipboard decoder need separately prepared dependencies and are left to CI's recipes.
 /// The returned directory is added through the compiler API, preserving `JAIC_NATIVE_LIBS`.
-pub fn prepare_probes(files: &[PathBuf], stdlib: &Path) -> Option<PathBuf> {
+///
+/// A probe that does not build is an error naming the command and what it printed. With `allow`
+/// (`--allow-missing-prerequisites`) it is a warning, and the tests that link the probe are
+/// skipped ([`skip_missing_probe`]).
+pub fn prepare_probes(
+    files: &[PathBuf],
+    stdlib: &Path,
+    allow: bool,
+) -> Result<Option<PathBuf>, String> {
     if !cfg!(any(target_os = "macos", target_os = "linux")) {
-        return None;
+        return Ok(None);
     }
-    let root = stdlib.parent()?;
+    let Some(root) = stdlib.parent() else {
+        return Ok(None);
+    };
     if !stdlib.join("Compiler/module.jai").is_file() {
-        return None;
+        return Ok(None);
     }
     let output = output_dir(root).join("jacket-test-probes");
     let sources: String = files
@@ -374,16 +365,6 @@ pub fn prepare_probes(files: &[PathBuf], stdlib: &Path) -> Option<PathBuf> {
             ),
         ]);
     }
-    let suffix = if cfg!(target_os = "macos") {
-        "dylib"
-    } else {
-        "so"
-    };
-    let shared = if cfg!(target_os = "macos") {
-        "-dynamiclib"
-    } else {
-        "-shared"
-    };
     let mut available = false;
     for (name, source, flags) in probes {
         if !sources.contains(name) {
@@ -393,56 +374,95 @@ pub fn prepare_probes(files: &[PathBuf], stdlib: &Path) -> Option<PathBuf> {
         if !source.is_file() {
             continue;
         }
-        let library = output.join(format!("lib{name}.{suffix}"));
-        let archive = output.join(format!("lib{name}.a"));
-        let fresh = |path: &Path| -> bool {
-            path.metadata()
-                .and_then(|m| m.modified())
-                .ok()
-                .zip(source.metadata().and_then(|m| m.modified()).ok())
-                .is_some_and(|(built, source)| built >= source)
-        };
-        if fresh(&library) && fresh(&archive) {
-            available = true;
-            continue;
-        }
-        if std::fs::create_dir_all(&output).is_err() {
-            continue;
-        }
-        eprintln!("jacket: building test probe {name}");
-        let object = output.join(format!("{name}.o"));
-        let compiled = Command::new("cc")
-            .args(["-O2", "-fPIC", "-Wall", "-Wextra", "-Werror", "-c"])
-            .arg(&source)
-            .arg("-o")
-            .arg(&object)
-            .output()
-            .is_ok_and(|out| out.status.success());
-        let linked = compiled
-            && Command::new("cc")
-                .arg(shared)
-                .arg(&object)
-                .args(&flags)
-                .arg("-o")
-                .arg(&library)
-                .output()
-                .is_ok_and(|out| out.status.success());
-        let archived = linked
-            && Command::new("ar")
-                .arg("rcs")
-                .arg(&archive)
-                .arg(&object)
-                .output()
-                .is_ok_and(|out| out.status.success());
-        if archived {
-            available = true;
-        } else {
-            eprintln!(
-                "jacket: could not build {name}; tests requiring it need a prepared probe library"
-            );
+        match build_probe(name, &source, &flags, &output) {
+            Ok(()) => available = true,
+            Err(error) if allow => eprintln!(
+                "jacket: warning: {error}\nnote: the tests that link {name} are skipped (--allow-missing-prerequisites)"
+            ),
+            Err(error) => {
+                return Err(format!(
+                    "{error}\nnote: or pass --allow-missing-prerequisites to skip the tests that link {name}"
+                ));
+            }
         }
     }
-    available.then_some(output)
+    Ok(available.then_some(output))
+}
+
+/// Builds probe `name` from `source` into `lib{name}.dylib` (`.so`) and `lib{name}.a` in
+/// `output`, unless both are newer than the source.
+fn build_probe(name: &str, source: &Path, flags: &[&str], output: &Path) -> Result<(), String> {
+    let (suffix, shared) = if cfg!(target_os = "macos") {
+        ("dylib", "-dynamiclib")
+    } else {
+        ("so", "-shared")
+    };
+    let library = output.join(format!("lib{name}.{suffix}"));
+    let archive = output.join(format!("lib{name}.a"));
+    let fresh = |path: &Path| -> bool {
+        path.metadata()
+            .and_then(|m| m.modified())
+            .ok()
+            .zip(source.metadata().and_then(|m| m.modified()).ok())
+            .is_some_and(|(built, source)| built >= source)
+    };
+    if fresh(&library) && fresh(&archive) {
+        return Ok(());
+    }
+    std::fs::create_dir_all(output).map_err(|error| {
+        format!(
+            "could not build test probe {name}: cannot create `{}`: {}",
+            output.display(),
+            jaic::io_reason(&error)
+        )
+    })?;
+    eprintln!("jacket: building test probe {name}");
+    let object = output.join(format!("{name}.o"));
+    let mut compile = Command::new("cc");
+    compile
+        .args(["-O2", "-fPIC", "-Wall", "-Wextra", "-Werror", "-c"])
+        .arg(source)
+        .arg("-o")
+        .arg(&object);
+    let mut link = Command::new("cc");
+    link.arg(shared)
+        .arg(&object)
+        .args(flags)
+        .arg("-o")
+        .arg(&library);
+    let mut archiver = Command::new("ar");
+    archiver.arg("rcs").arg(&archive).arg(&object);
+    run_probe_step(name, &mut compile, &Need::CDriver)?;
+    run_probe_step(name, &mut link, &Need::CDriver)?;
+    run_probe_step(name, &mut archiver, &Need::Archiver)
+}
+
+/// Runs one step of building probe `name`. A program that will not start, or that exits with
+/// an error, is an error with the command line and what it printed.
+fn run_probe_step(name: &str, command: &mut Command, need: &Need) -> Result<(), String> {
+    let program = command.get_program().to_string_lossy().into_owned();
+    let line = std::iter::once(command.get_program())
+        .chain(command.get_args())
+        .map(|word| word.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join(" ");
+    let out = command.output().map_err(|error| {
+        let reason = crate::prerequisite::spawn_error(&error, need, &program, "jacket test");
+        format!("could not build test probe {name}: {reason}")
+    })?;
+    if out.status.success() {
+        return Ok(());
+    }
+    let printed = String::from_utf8_lossy(if out.stderr.is_empty() {
+        &out.stdout
+    } else {
+        &out.stderr
+    });
+    Err(format!(
+        "could not build test probe {name}: `{line}` failed ({}):\n{}",
+        out.status,
+        printed.trim()
+    ))
 }
 
 const DEBUG_HELPER: &str = "developer_tools_debug";
@@ -765,18 +785,15 @@ mod tests {
     #[test]
     fn the_output_directory_is_the_one_the_tools_write_to() {
         let root = Path::new("/checkout");
-        assert_eq!(output_in(root, None), Path::new("/checkout/target"));
+        assert_eq!(output_override_in(root, None), None);
+        assert_eq!(output_override_in(root, Some("".into())), None);
         assert_eq!(
-            output_in(root, Some("".into())),
-            Path::new("/checkout/target")
+            output_override_in(root, Some("/scratch/out".into())),
+            Some(PathBuf::from("/scratch/out"))
         );
         assert_eq!(
-            output_in(root, Some("/scratch/out".into())),
-            Path::new("/scratch/out")
-        );
-        assert_eq!(
-            output_in(root, Some("out".into())),
-            Path::new("/checkout/out")
+            output_override_in(root, Some("out".into())),
+            Some(PathBuf::from("/checkout/out"))
         );
     }
 
@@ -896,35 +913,35 @@ mod local_prerequisite_tests {
     }
 
     #[test]
-    fn missing_probes_skip_locally_but_real_failures_and_ci_stay_fatal() {
+    fn missing_probes_skip_only_when_allowed_and_real_failures_stay_fatal() {
         let failed = |text: &str| {
             let mut result = Outcome::new(0, Status::Fail);
             result.stderr = text.as_bytes().to_vec();
             result
         };
-        for (text, ci, expected) in [
-            (
-                "library 'rpmalloc_adaptive_probe' not found",
-                false,
-                Status::Skip,
-            ),
-            ("library 'window_gl_probe' not found", false, Status::Skip),
+        for (text, allow, expected) in [
             (
                 "library 'rpmalloc_adaptive_probe' not found",
                 true,
-                Status::Fail,
+                Status::Skip,
             ),
-            ("library 'mbedtls' not found", false, Status::Fail),
+            ("library 'window_gl_probe' not found", true, Status::Skip),
             (
-                "library 'abi_probe' not found; library 'SDL3' not found",
+                "library 'rpmalloc_adaptive_probe' not found",
                 false,
                 Status::Fail,
             ),
-            ("assertion failed", false, Status::Fail),
+            ("library 'mbedtls' not found", true, Status::Fail),
+            (
+                "library 'abi_probe' not found; library 'SDL3' not found",
+                true,
+                Status::Fail,
+            ),
+            ("assertion failed", true, Status::Fail),
         ] {
             let mut result = failed(text);
-            skip_missing_probe(&mut result, ci);
-            assert_eq!(result.status, expected, "{text}, ci={ci}");
+            skip_missing_probe(&mut result, allow);
+            assert_eq!(result.status, expected, "{text}, allow={allow}");
             if expected == Status::Skip {
                 assert!(
                     result
@@ -936,7 +953,23 @@ mod local_prerequisite_tests {
         }
         let mut crash = failed("library 'abi_probe' not found");
         crash.crashed = true;
-        skip_missing_probe(&mut crash, false);
+        skip_missing_probe(&mut crash, true);
         assert_eq!(crash.status, Status::Fail);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_probe_step_that_fails_names_the_command_and_what_it_printed() {
+        let mut failing = Command::new("sh");
+        failing.args(["-c", "echo 'context.m: no such header' >&2; exit 3"]);
+        let error = run_probe_step("window_gl_probe", &mut failing, &Need::CDriver).unwrap_err();
+        assert!(
+            error.starts_with("could not build test probe window_gl_probe: `sh -c "),
+            "{error}"
+        );
+        assert!(error.ends_with("\ncontext.m: no such header"), "{error}");
+        let mut missing = Command::new("/nowhere/cc");
+        let error = run_probe_step("window_gl_probe", &mut missing, &Need::CDriver).unwrap_err();
+        assert!(error.contains("`/nowhere/cc` is not installed"), "{error}");
     }
 }

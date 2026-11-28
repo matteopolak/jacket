@@ -158,7 +158,10 @@ pub fn toolchain(action: Option<ToolchainAction>, cwd: &Path) -> ExitCode {
         Some(ToolchainAction::Check {
             tools,
             targets,
-        }) => crate::toolchain::check(&targets, &tools, config, &lookup, &overrides),
+        }) => match crate::toolchain::check(&targets, &tools, config, &lookup, &overrides) {
+            Ok(report) => report,
+            Err(error) => return fail(error),
+        },
         Some(ToolchainAction::Add {
             targets,
         }) => {

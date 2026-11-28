@@ -9,10 +9,8 @@ use std::path::{Path, PathBuf};
 /// relative one is below the checkout the standard library is in, as everywhere else), else
 /// `target/` in the project.
 fn report_dir(project_dir: &Path, stdlib: &Path, over: Option<std::ffi::OsString>) -> PathBuf {
-    match over {
-        Some(dir) => prerequisites::output_in(stdlib.parent().unwrap_or(project_dir), Some(dir)),
-        None => project_dir.join("target"),
-    }
+    prerequisites::output_override_in(stdlib.parent().unwrap_or(project_dir), over)
+        .unwrap_or_else(|| project_dir.join("target"))
 }
 
 /// What `--coverage` records and where it goes, or why this run cannot.
@@ -39,7 +37,7 @@ pub(super) fn coverage_for(
         report_dir(
             project_dir,
             &toolchain.stdlib,
-            jacket_config::env::OUTPUT_DIR.non_empty(),
+            jacket_config::env::OUTPUT_DIR.os(),
         )
         .join(name)
     });

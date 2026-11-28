@@ -397,7 +397,7 @@ fn leftovers_of_an_earlier_upgrade_are_removed() {
 fn release_json_is_read_defensively() {
     assert!(Release::parse("not json").is_err());
     assert!(Release::parse("{\"message\":\"Not Found\"}").is_err());
-    let release = Release::parse("{\"tag_name\":\"v1.2.3\",\"assets\":[{\"name\":\"a\"},{\"name\":\"b\",\"browser_download_url\":\"https://x/b\"}]}").unwrap();
+    let release = Release::parse("{\"tag_name\":\"v1.2.3\",\"assets\":[{\"name\":\"b\",\"browser_download_url\":\"https://x/b\"}]}").unwrap();
     assert_eq!(release.tag, "v1.2.3");
     assert_eq!(release.asset("a"), None);
     assert_eq!(release.asset("b"), Some("https://x/b"));
@@ -439,5 +439,21 @@ fn archive_roots_drop_the_extension() {
     assert_eq!(
         archive_root("jacket-windows-arm64.zip"),
         "jacket-windows-arm64"
+    );
+}
+
+#[test]
+fn a_release_without_an_assets_list_or_with_a_broken_asset_is_an_error() {
+    let error = Release::parse(r#"{"tag_name": "v1.2.0"}"#).err().unwrap();
+    assert_eq!(
+        error,
+        "GitHub's answer for release v1.2.0 has no `assets` list"
+    );
+    let error = Release::parse(r#"{"tag_name": "v1.2.0", "assets": [{"name": "a"}]}"#)
+        .err()
+        .unwrap();
+    assert!(
+        error.contains("an asset without a `name` and `browser_download_url`"),
+        "{error}"
     );
 }

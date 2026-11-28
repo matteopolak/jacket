@@ -251,6 +251,53 @@ pub(super) fn spawn(invocation: &Invocation) -> std::io::Result<Child> {
     command.spawn()
 }
 
+/// What a program run by [`run_bounded`] printed, and its exit status; `None` when it ran past
+/// the limit and was killed.
+#[derive(Debug)]
+pub struct Bounded {
+    pub stdout: Vec<u8>,
+    pub stderr: Vec<u8>,
+    pub status: Option<std::process::ExitStatus>,
+}
+
+/// Runs `invocation` to its end, or past `limit` kills it and every process it started
+/// ([`kill_tree`]), and returns what it printed. An error is a program that would not start or
+/// could not be waited for.
+///
+/// ```ignore
+/// let ran = run_bounded(&invocation, Some(Duration::from_secs(60)))?;
+/// if ran.status.is_none() { /* timed out */ }
+/// ```
+pub fn run_bounded(invocation: &Invocation, limit: Option<Duration>) -> std::io::Result<Bounded> {
+    let mut child = spawn(invocation)?;
+    let drain = |mut stream: Box<dyn Read + Send>| {
+        std::thread::spawn(move || {
+            let mut bytes = Vec::new();
+            let _ = stream.read_to_end(&mut bytes);
+            bytes
+        })
+    };
+    let out = drain(Box::new(child.stdout.take().expect("piped")));
+    let err = drain(Box::new(child.stderr.take().expect("piped")));
+    let started = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait()? {
+            break Some(status);
+        }
+        if limit.is_some_and(|limit| started.elapsed() > limit) {
+            kill_tree(&mut child);
+            child.wait()?;
+            break None;
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    };
+    Ok(Bounded {
+        stdout: out.join().unwrap_or_default(),
+        stderr: err.join().unwrap_or_default(),
+        status,
+    })
+}
+
 /// The name of the top-level test a (sub)test name belongs to.
 pub fn top_name(name: &str) -> &str {
     name.split('/').next().unwrap_or(name)
@@ -784,6 +831,33 @@ mod process_tests {
 
     fn no_limit(_: &str) -> Option<Duration> {
         None
+    }
+
+    #[test]
+    fn a_bounded_run_past_its_limit_kills_what_the_program_started() {
+        let marker = std::env::temp_dir().join(format!("jacket-bounded-{}", std::process::id()));
+        let _ = std::fs::remove_file(&marker);
+        // The grandchild would write the marker after the limit, unless it is killed too.
+        let body = format!(
+            "(sleep 2; touch '{}') & echo started; sleep 30",
+            marker.display()
+        );
+        let ran = run_bounded(&script(&body), Some(Duration::from_millis(300))).unwrap();
+        assert!(ran.status.is_none(), "{ran:?}");
+        assert_eq!(ran.stdout, b"started\n");
+        std::thread::sleep(Duration::from_secs(3));
+        assert!(!marker.exists(), "the grandchild outlived the timeout");
+        let ran = run_bounded(&script("echo out; echo err >&2; exit 4"), None).unwrap();
+        assert_eq!(ran.status.and_then(|s| s.code()), Some(4));
+        assert_eq!(
+            (ran.stdout, ran.stderr),
+            (b"out\n".to_vec(), b"err\n".to_vec())
+        );
+        let missing = Invocation {
+            program: PathBuf::from("/nowhere/program"),
+            ..script("")
+        };
+        assert!(run_bounded(&missing, None).is_err());
     }
 
     #[test]

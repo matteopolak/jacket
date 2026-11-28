@@ -1,10 +1,10 @@
 //! Examples: the ```` ```jai ```` blocks of doc comments, shown as `jacket test` reads them and
 //! run in the browser as the very program it builds for them.
 use super::highlight;
-use super::markdown::esc;
 use super::model::Module;
 use super::site::Site;
 use super::view::Example;
+use crate::markup::escape;
 use crate::test::doctest::{self, Block, Mode};
 use crate::test::options::{RunMode, Target};
 use sha2::{Digest, Sha256};
@@ -93,7 +93,7 @@ pub fn plain_code(site: &Site, module: &Module, info: &str, code: &str) -> Examp
     let body = if lang.is_empty() || lang == "jai" {
         highlight::jai(code.trim_end(), &|name| site.call_link(module, name))
     } else {
-        highlight::other(lang, code.trim_end()).unwrap_or_else(|| esc(code.trim_end()))
+        highlight::other(lang, code.trim_end()).unwrap_or_else(|| escape(code.trim_end()))
     };
     Example {
         plain: true,

@@ -46,7 +46,7 @@ pub struct Toolchain {
     /// Doc examples are type-checked only, whatever their mode (`--check-only`).
     pub check_only: bool,
     /// Where the source files each compile read are kept for `--changed`; `None` records nothing.
-    pub deps: Option<Arc<Store>>,
+    pub deps: Arc<Store>,
     /// How many of the last `flags` only prepare the environment (the folder of the probe
     /// libraries) and cannot change which files a compile reads: dependency entries leave them out.
     pub environment_flags: usize,
@@ -76,33 +76,29 @@ impl Toolchain {
         &self.flags[..self.flags.len() - self.environment_flags]
     }
 
-    /// Where the list of files a compile of `program` reads is kept, if lists are kept.
-    pub fn deps_entry(
-        &self,
-        program: Program,
-        root_flags: &[String],
-        plugin: bool,
-    ) -> Option<PathBuf> {
-        let store = self.deps.as_ref()?;
-        Some(store.entry(
+    /// Where the list of files a compile of `program` reads is kept.
+    pub fn deps_entry(&self, program: Program, root_flags: &[String], plugin: bool) -> PathBuf {
+        self.deps.entry(
             program,
             &self.stdlib,
             self.program_flags(),
             root_flags,
             plugin,
-        ))
+        )
     }
 
-    /// The arguments that make a compile of `program` record the files it reads in the store
-    /// (none without one). Any list left by an earlier compile goes, so a compile that fails
-    /// leaves none. Put them before the plugins, which take the arguments that follow them.
-    pub fn deps_args(&self, program: Program, root_flags: &[String], plugin: bool) -> Vec<String> {
-        let (Some(store), Some(entry)) = (&self.deps, self.deps_entry(program, root_flags, plugin))
-        else {
-            return Vec::new();
-        };
-        store.prepare(&entry);
-        vec!["-deps_file".into(), path_text(&entry)]
+    /// The arguments that make a compile of `program` record the files it reads in the store.
+    /// Any list left by an earlier compile goes, so a compile that fails leaves none. Put them
+    /// before the plugins, which take the arguments that follow them.
+    pub fn deps_args(
+        &self,
+        program: Program,
+        root_flags: &[String],
+        plugin: bool,
+    ) -> Result<Vec<String>, String> {
+        let entry = self.deps_entry(program, root_flags, plugin);
+        self.deps.prepare(&entry)?;
+        Ok(vec!["-deps_file".into(), path_text(&entry)])
     }
 
     /// A command that runs this toolchain's jaic with its standard library.
@@ -281,7 +277,7 @@ pub fn unit(
         .arg("-quiet")
         .args(&plain)
         .args(root_flags)
-        .args(toolchain.deps_args(Program::Text(&loads), root_flags, true))
+        .args(toolchain.deps_args(Program::Text(&loads), root_flags, true)?)
         .arg("-exe")
         .arg(&exe)
         .env(jacket_config::env::REPORT_EXE.name, &report);
@@ -290,7 +286,7 @@ pub fn unit(
     }
     command.args(&plugins).arg(PLUGIN);
     let found = records(&run_jaic(&mut command, toolchain)?);
-    let program = reported_exe(&report, exe);
+    let program = crate::compile::reported_executable(&report)?;
     if !wasm && toolchain.runner.is_empty() {
         stage_dlls(&program)?;
     }
@@ -324,7 +320,7 @@ pub fn check_unit(
         .args(["-check", "-no_dce", "-quiet"])
         .args(&toolchain.flags)
         .args(root_flags)
-        .args(toolchain.deps_args(Program::Text(&loads), root_flags, false));
+        .args(toolchain.deps_args(Program::Text(&loads), root_flags, false)?);
     run_jaic(&mut command, toolchain).map(|_| ())
 }
 
@@ -352,7 +348,7 @@ fn interpreted(
     let mut args = vec![path_text(root), "-interp".into(), "-quiet".into()];
     args.extend(toolchain.flags.iter().cloned());
     args.extend(root_flags.iter().cloned());
-    args.extend(toolchain.deps_args(Program::Text(loads), root_flags, true));
+    args.extend(toolchain.deps_args(Program::Text(loads), root_flags, true)?);
     args.push(PLUGIN.into());
     if list {
         // Nothing runs afterwards, so the plugin leaves the `@compile_time` tests unrun too.
@@ -460,15 +456,6 @@ fn failure_text(stderr: &[u8], stdout: &[u8]) -> String {
     }
     text.push_str(&String::from_utf8_lossy(&demux.finish()));
     text
-}
-
-/// The executable jaic reported writing, or `fallback`.
-fn reported_exe(report: &Path, fallback: PathBuf) -> PathBuf {
-    std::fs::read_to_string(report)
-        .ok()
-        .and_then(|t| t.lines().last().map(PathBuf::from))
-        .filter(|p| p.is_file())
-        .unwrap_or(fallback)
 }
 
 /// The folders of libraries test programs load by name: `JACKET_TEST_DLLS`, a path list.
@@ -750,7 +737,7 @@ mod tests {
             coverage: false,
             coverage_dir: None,
             check_only: false,
-            deps: None,
+            deps: super::super::deps_store::Store::scratch(),
             environment_flags: 0,
         };
         let names = ["a".to_string()];
@@ -794,7 +781,7 @@ mod tests {
             coverage: false,
             coverage_dir: None,
             check_only: false,
-            deps: None,
+            deps: super::super::deps_store::Store::scratch(),
             environment_flags: 0,
         };
         let run = RunFlags {
@@ -828,7 +815,7 @@ mod tests {
             coverage: false,
             coverage_dir: None,
             check_only: false,
-            deps: None,
+            deps: super::super::deps_store::Store::scratch(),
             environment_flags: 0,
         };
         assert!(targets_wasm(&toolchain("wasm", &[])));
@@ -909,7 +896,7 @@ mod tests {
             coverage: false,
             coverage_dir: None,
             check_only: false,
-            deps: None,
+            deps: super::super::deps_store::Store::scratch(),
             environment_flags: 0,
         };
         let built = |name: &str, warm: bool| {

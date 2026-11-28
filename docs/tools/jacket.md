@@ -50,7 +50,7 @@ A board adds `+Extensions/Embedded/Boards/<board>` to jaic's command line, so th
 
 Tools are found next to the `jacket` executable (symlinks followed), else on `PATH`.
 
-`jacket explain` reads the catalog in `crates/jaic-syntax/src/diagnostics/catalog.rs`; see [diagnostics](../compiler/diagnostics.md). `build`, `check` and `run` show jaic's [build status](cli.md#output), and `jacket run` adds a `Running` line (`crates/jacket/src/status.rs`; keep it in step with jaic's rules).
+`jacket explain` reads the catalog in `crates/jaic-syntax/src/diagnostics/catalog.rs`; see [diagnostics](../compiler/diagnostics.md). `build`, `check` and `run` show jaic's [build status](cli.md#output), and `jacket run` adds a `Running` line (`crates/jacket/src/status.rs`; keep it in step with jaic's rules). `jacket run` and `jacket test` start the executable jaic reports writing through `JAIC_REPORT_EXE` (a metaprogram can rename it); a build that reports none is the error `jaic did not report the executable it wrote`.
 
 ## Upgrading
 
@@ -80,7 +80,7 @@ entry = ["src/main.jai"]        # string or array; relative to this file
 import_path = ["vendor"]       # more module folders (-import_dir)
 
 [toolchain]
-version = "0.19.1"              # jacket warns when its release differs
+version = "0.19.1"              # another jacket release refuses to build this project
 
 [lint]
 exclude = ["tests/negative/**"]

@@ -1,22 +1,24 @@
-//! Release versions: `0.21.0`, `v0.21.0`, `0.22.0-rc.1`. Ordered by semver precedence (build
-//! metadata ignored), so `upgrade` can tell newer from older without caring how the tag is spelled.
+//! Release versions: `0.21.0`, `v0.21.0`, `0.22.0-rc.1`, read as a dependency's semver tag is
+//! ([`crate::dep::version::parse_tag`]). Ordered by semver precedence (build metadata ignored),
+//! so `upgrade` can tell newer from older without caring how the tag is spelled.
+use crate::dep::version::{self, Scheme};
 use std::cmp::Ordering;
 
 #[derive(Debug, Clone)]
 pub struct Version(semver::Version);
 
 impl Version {
-    /// Parses a tag or version; a leading `v` is allowed.
+    /// Parses a tag or version; a leading `v` is allowed, and `0.22` is `0.22.0`.
     pub fn parse(text: &str) -> Result<Version, String> {
-        semver::Version::parse(text.trim().trim_start_matches('v'))
-            .map(Version)
-            .map_err(|_| format!("`{text}` is not a version like 0.22.0"))
+        match version::parse_tag(Scheme::Semver, None, text.trim()) {
+            Some(version::Version::Semver(parsed)) => Ok(Version(parsed)),
+            _ => Err(format!("`{text}` is not a version like 0.22.0")),
+        }
     }
 
     /// The tag a release of this version is published under.
     pub fn tag(text: &str) -> Result<String, String> {
-        Version::parse(text)?;
-        Ok(format!("v{}", text.trim().trim_start_matches('v')))
+        Ok(format!("v{}", Version::parse(text)?.0))
     }
 }
 
@@ -86,6 +88,7 @@ mod tests {
     fn tags_get_one_v() {
         assert_eq!(Version::tag("0.22.0").unwrap(), "v0.22.0");
         assert_eq!(Version::tag("v0.22.0").unwrap(), "v0.22.0");
+        assert_eq!(Version::tag("0.22").unwrap(), "v0.22.0");
         assert!(Version::tag("nope").is_err());
     }
 }

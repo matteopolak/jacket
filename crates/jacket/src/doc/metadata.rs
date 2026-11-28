@@ -1,6 +1,7 @@
 //! Publication metadata is resolved before rendering, so themes need no URL or JSON logic.
-use super::markdown::{esc, plain};
+use super::markdown::plain;
 use super::view::{Content, ModuleView, PageView};
+use crate::markup::escape;
 use serde_json::json;
 mod config;
 pub use config::{Publication, prepare};
@@ -195,7 +196,7 @@ pub fn sitemaps(
     let mut text = START.to_owned();
     let mut count = 0;
     for url in urls {
-        let entry = format!("<url><loc>{}</loc></url>", esc(url));
+        let entry = format!("<url><loc>{}</loc></url>", escape(url));
         if count > 0 && (count >= count_limit || text.len() + entry.len() + END.len() > byte_limit)
         {
             text.push_str(END);
@@ -218,7 +219,7 @@ pub fn sitemaps(
         let name = format!("sitemap-{}.xml", i + 1);
         index.push_str(&format!(
             "<sitemap><loc>{}{name}</loc></sitemap>",
-            esc(root)
+            escape(root)
         ));
         files.push((name, shard.into_bytes()));
     }

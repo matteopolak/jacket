@@ -2,14 +2,10 @@
 //! pinned URL and checked against a pinned sha256 before it is used; nothing else in jacket
 //! reaches the network for a build.
 //!
-//! The real work is done by `curl` and `tar`, as in `jacket upgrade`: both ship with macOS,
-//! nearly every Linux and Windows 10 and later, and `curl` honours the proxy variables and the
-//! system certificate store.
-use crate::prerequisite::spawn_error;
+//! The real work is done by `curl` and `tar`, through [`crate::net`] as in `jacket upgrade`.
+use crate::net::Curl;
 use crate::upgrade::checksum::sha256_file;
-use jaic_toolchain::package::Need;
 use std::path::Path;
-use std::process::Command;
 
 /// Saves `url` as `dest`, unless `dest` already holds a file with the sha256 `sha256`. A
 /// download whose hash differs is deleted and is an error.
@@ -17,33 +13,14 @@ pub fn pinned(url: &str, sha256: &str, dest: &Path) -> Result<(), String> {
     if dest.is_file() && sha256_file(dest).is_ok_and(|hash| hash == sha256) {
         return Ok(());
     }
-    if !url.starts_with("https://") {
-        return Err(format!("refusing to fetch {url}: only https URLs are used"));
-    }
+    let curl = Curl::get(url, "jacket toolchain add").retry(3);
     if let Some(parent) = dest.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
     }
     let partial = dest.with_extension("part");
-    let output = Command::new("curl")
-        .args([
-            "--proto",
-            "=https",
-            "--tlsv1.2",
-            "--fail",
-            "--silent",
-            "--show-error",
-        ])
-        .args(["--location", "--retry", "3", "--output"])
-        .arg(&partial)
-        .arg(url)
-        .output()
-        .map_err(|e| spawn_error(&e, &Need::Curl, "curl", "jacket toolchain add"))?;
-    if !output.status.success() {
+    if let Err(error) = curl.output(&partial).run() {
         let _ = std::fs::remove_file(&partial);
-        return Err(format!(
-            "could not fetch {url}: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ));
+        return Err(error);
     }
     let hash = sha256_file(&partial).map_err(|e| format!("{}: {e}", partial.display()))?;
     if hash != sha256 {
@@ -58,31 +35,7 @@ pub fn pinned(url: &str, sha256: &str, dest: &Path) -> Result<(), String> {
 /// Unpacks the tar archive `archive` (`.tar`, `.tar.xz`, `.tar.gz`) into the existing folder
 /// `dest`.
 pub fn untar(archive: &Path, dest: &Path) -> Result<(), String> {
-    // Windows: System32's tar.exe is bsdtar; a `tar` earlier on PATH (Git's) may not read xz.
-    let program = if cfg!(windows) {
-        let root = jacket_config::env::SYSTEM_ROOT
-            .os()
-            .unwrap_or_else(|| "C:\\Windows".into());
-        Path::new(&root).join("System32").join("tar.exe")
-    } else {
-        "tar".into()
-    };
-    let output = Command::new(&program)
-        .arg("-xf")
-        .arg(archive)
-        .arg("-C")
-        .arg(dest)
-        .output()
-        .map_err(|e| spawn_error(&e, &Need::Tar, "tar", "jacket toolchain add"))?;
-    if output.status.success() {
-        Ok(())
-    } else {
-        Err(format!(
-            "could not unpack {}: {}",
-            archive.display(),
-            String::from_utf8_lossy(&output.stderr).trim()
-        ))
-    }
+    crate::net::untar(archive, dest, "jacket toolchain add")
 }
 
 /// The contents of the member `data.tar.*` of a Debian package (an `ar` archive), with its

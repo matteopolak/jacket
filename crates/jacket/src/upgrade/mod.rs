@@ -136,17 +136,19 @@ impl Release {
         let assets = value
             .get("assets")
             .and_then(|a| a.as_array())
-            .map(|assets| {
-                assets
-                    .iter()
-                    .filter_map(|a| {
-                        let name = a.get("name")?.as_str()?;
-                        let url = a.get("browser_download_url")?.as_str()?;
-                        Some((name.to_owned(), url.to_owned()))
-                    })
-                    .collect()
+            .ok_or_else(|| format!("GitHub's answer for release {tag} has no `assets` list"))?
+            .iter()
+            .map(|a| {
+                let name = a.get("name").and_then(|n| n.as_str());
+                let url = a.get("browser_download_url").and_then(|u| u.as_str());
+                match (name, url) {
+                    (Some(name), Some(url)) => Ok((name.to_owned(), url.to_owned())),
+                    _ => Err(format!(
+                        "GitHub's answer for release {tag} has an asset without a `name` and `browser_download_url`: {a}"
+                    )),
+                }
             })
-            .unwrap_or_default();
+            .collect::<Result<_, _>>()?;
         Ok(Release {
             tag,
             assets,

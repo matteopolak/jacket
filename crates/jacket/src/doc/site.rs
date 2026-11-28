@@ -1,8 +1,8 @@
 //! The site as a whole: every module, where each page lives, and the links between them.
 use super::categories::Category;
 use super::highlight;
-use super::markdown::esc;
 use super::model::{Item, Kind, Module, Overload, Param, TypeRef};
+use crate::markup::escape;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 
@@ -422,7 +422,7 @@ impl Site {
                 out.push_str(&if marked {
                     ty[start..end].to_owned()
                 } else {
-                    esc(&ty[start..end])
+                    escape(&ty[start..end])
                 });
                 i = j;
             } else if c.is_alphabetic() || c == '_' {
@@ -447,7 +447,7 @@ impl Site {
                 out.push_str(&if marked {
                     c.to_string()
                 } else {
-                    esc(&ty[start..start + c.len_utf8()])
+                    escape(&ty[start..start + c.len_utf8()])
                 });
                 i += 1;
             }
@@ -518,9 +518,9 @@ impl Site {
                 }
                 return format!(
                     "<a class=\"ty\" href=\"{}\">{}</a>{}",
-                    esc(&self.item_href(&self.modules[m].id, name)),
-                    esc(head),
-                    esc(&path[end..])
+                    escape(&self.item_href(&self.modules[m].id, name)),
+                    escape(head),
+                    escape(&path[end..])
                 );
             }
         }
@@ -528,9 +528,9 @@ impl Site {
             return path.to_owned();
         }
         if BUILTIN_TYPES.contains(&path) {
-            return format!("<span class=\"ty\">{}</span>", esc(path));
+            return format!("<span class=\"ty\">{}</span>", escape(path));
         }
-        esc(path)
+        escape(path)
     }
 }
 
@@ -575,16 +575,16 @@ fn param_html(site: &Site, p: &Param, here: usize) -> String {
     let name = if p.name.is_empty() {
         String::new()
     } else {
-        esc(&p.name)
+        escape(&p.name)
     };
     match (p.ty.is_empty(), p.default.is_empty()) {
         (false, true) if p.name.is_empty() => site.type_html(&p.ty, &p.refs, here),
         (false, true) => format!("{name}: {}", site.type_html(&p.ty, &p.refs, here)),
-        (true, false) => format!("{name} := {}", esc(&p.default)),
+        (true, false) => format!("{name} := {}", escape(&p.default)),
         (false, false) => format!(
             "{name}: {} = {}",
             site.type_html(&p.ty, &p.refs, here),
-            esc(&p.default)
+            escape(&p.default)
         ),
         (true, true) => name,
     }
@@ -687,7 +687,7 @@ pub fn signature_line_html(site: &Site, o: &Overload, here: usize) -> String {
 /// broken over lines when they are long, and the results with links to their types.
 pub fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> String {
     let plain = format!("{name} :: {}", signature_plain(o));
-    let head = format!("<span class=\"fn\">{}</span> :: (", esc(name));
+    let head = format!("<span class=\"fn\">{}</span> :: (", escape(name));
     let tail = |returns: &[Param]| -> String {
         match returns {
             [] => String::new(),
@@ -704,7 +704,7 @@ pub fn signature_html(site: &Site, name: &str, o: &Overload, here: usize) -> Str
             ),
         }
     };
-    let flags: String = o.flags.iter().map(|f| format!(" {}", esc(f))).collect();
+    let flags: String = o.flags.iter().map(|f| format!(" {}", escape(f))).collect();
     let params = o
         .params
         .iter()

@@ -290,6 +290,10 @@ pub struct TestArgs {
     /// Run a root's tests in one process instead of one process each
     #[arg(long)]
     pub no_isolation: bool,
+    /// Skip, instead of failing, the tests whose test-driver probe library is missing or does not
+    /// build
+    #[arg(long)]
+    pub allow_missing_prerequisites: bool,
     /// Print only the tests that fail, time out or are flaky, then the summary
     #[arg(short, long)]
     pub quiet: bool,

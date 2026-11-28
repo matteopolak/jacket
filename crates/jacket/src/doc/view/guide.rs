@@ -1,12 +1,13 @@
 //! Extra Markdown pages: `[[doc.page]]` files under one sidebar heading, and `[[doc.section]]`
 //! files split into an overview and one page per `###` heading, each its own sidebar heading.
-use super::super::markdown::{self, Segment, Settings, esc};
+use super::super::markdown::{self, Segment, Settings};
 use super::super::site::Site;
 use super::super::{console, highlight};
 use super::{
     Content, DocSegment, GroupPart, NavCategory, NavGroup, NavLink, Outline, PageHead, PageView,
     Sidebar,
 };
+use crate::markup::escape;
 use jacket_config::schema::Doc;
 use jaic::fxhash::HashMap;
 use std::path::Path;
@@ -356,7 +357,7 @@ fn code_html(info: &str, code: &str, consoles: &Consoles) -> String {
         return consoles
             .get(code)
             .cloned()
-            .unwrap_or_else(|| esc(code.trim_end()));
+            .unwrap_or_else(|| escape(code.trim_end()));
     }
     let code = code.trim_end();
     if lang == "jai" {
@@ -364,7 +365,7 @@ fn code_html(info: &str, code: &str, consoles: &Consoles) -> String {
     } else if lang == "diagnostic" {
         highlight::diagnostic(code)
     } else {
-        highlight::other(lang, code).unwrap_or_else(|| esc(code))
+        highlight::other(lang, code).unwrap_or_else(|| escape(code))
     }
 }
 

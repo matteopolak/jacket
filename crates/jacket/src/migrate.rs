@@ -46,7 +46,13 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
         std::fs::metadata(path)
             .map_err(|e| format!("cannot read `{}`: {}", path.display(), jaic::io_reason(&e)))?;
     }
-    let first = jaic::canonicalize(&paths[0]).unwrap_or_else(|_| cwd.to_path_buf());
+    let first = jaic::canonicalize(&paths[0]).map_err(|e| {
+        format!(
+            "cannot resolve `{}`: {}",
+            paths[0].display(),
+            jaic::io_reason(&e)
+        )
+    })?;
     let start = if first.is_dir() {
         first
     } else {
@@ -79,7 +85,7 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
         only: (!args.only.is_empty()).then(|| args.only.clone()),
     };
     let plan = migrate::plan(options, &selection)?;
-    show(&plan, cwd);
+    show(&plan, cwd)?;
     let status = if plan.rejected.is_empty() {
         ExitCode::SUCCESS
     } else {
@@ -110,7 +116,7 @@ fn migrate(args: &MigrateArgs, cwd: &Path) -> Result<ExitCode, String> {
 }
 
 /// Print the diff of each file, which migrations made it, and what needs a person.
-fn show(plan: &Plan, cwd: &Path) {
+fn show(plan: &Plan, cwd: &Path) -> Result<(), String> {
     for file in &plan.files {
         let shown = crate::shown::path(&file.path, cwd);
         let diff = similar::TextDiff::from_lines(&*file.before, &file.after);
@@ -128,7 +134,7 @@ fn show(plan: &Plan, cwd: &Path) {
     for m in &plan.manual {
         eprintln!(
             "note: {}: {}: {}",
-            location(&m.path, m.start, plan, cwd),
+            location(&m.path, m.start, plan, cwd)?,
             m.migration,
             m.message
         );
@@ -166,16 +172,19 @@ fn show(plan: &Plan, cwd: &Path) {
             plan.remaining.len()
         );
     }
+    Ok(())
 }
 
-/// `path:line:column` of `offset` in the text the plan ended with for `path`.
-fn location(path: &Path, offset: usize, plan: &Plan, cwd: &Path) -> String {
+/// `path:line:column` of `offset` in the text the plan ended with for `path`, which is the file
+/// on disk when the plan does not change it.
+fn location(path: &Path, offset: usize, plan: &Plan, cwd: &Path) -> Result<String, String> {
     let text = match plan.files.iter().find(|f| f.path == path) {
         Some(file) => file.after.clone(),
-        None => std::fs::read_to_string(path).unwrap_or_default(),
+        None => std::fs::read_to_string(path)
+            .map_err(|e| format!("cannot read `{}`: {}", path.display(), jaic::io_reason(&e)))?,
     };
     let (line, column) = line_column(&text, offset);
-    format!("{}:{line}:{column}", crate::shown::path(path, cwd))
+    Ok(format!("{}:{line}:{column}", crate::shown::path(path, cwd)))
 }
 
 fn line_column(text: &str, offset: usize) -> (usize, usize) {
@@ -259,8 +268,8 @@ fn write(path: &Path, before: &str, after: &str) -> Result<(), String> {
     }
     let name = path
         .file_name()
-        .map(|n| n.to_string_lossy())
-        .unwrap_or_default();
+        .ok_or_else(|| format!("cannot write `{}`: it names no file", path.display()))?
+        .to_string_lossy();
     let temp = path.with_file_name(format!(".{name}.migrate"));
     let failed = |e: std::io::Error| {
         // The original is untouched; the temporary file is ours and is all there is to undo.
@@ -271,4 +280,29 @@ fn write(path: &Path, before: &str, after: &str) -> Result<(), String> {
     std::fs::write(&temp, after).map_err(failed)?;
     std::fs::set_permissions(&temp, permissions).map_err(failed)?;
     std::fs::rename(&temp, path).map_err(failed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_location_in_a_file_that_cannot_be_read_is_an_error() {
+        let plan = Plan::default();
+        let missing = Path::new("/nowhere/jacket-migrate/a.jai");
+        let error = location(missing, 0, &plan, Path::new("/")).unwrap_err();
+        assert!(
+            error.starts_with("cannot read `/nowhere/jacket-migrate/a.jai`: "),
+            "{error}"
+        );
+        let dir = std::env::temp_dir().join(format!("jacket-migrate-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("a.jai");
+        std::fs::write(&file, "a\nbc").unwrap();
+        assert_eq!(
+            location(&file, 3, &plan, &dir).unwrap(),
+            format!("{}:2:2", crate::shown::path(&file, &dir))
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

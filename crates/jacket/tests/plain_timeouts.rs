@@ -23,7 +23,8 @@ fn declared_golden_timeout_is_enforced_in_native_and_interpreter_modes() {
     for interpreted in [false, true] {
         let project = TempDir::new("plain-timeout-contract");
         std::fs::create_dir_all(project.join("tests")).unwrap();
-        std::fs::create_dir_all(project.join("stdlib")).unwrap();
+        std::fs::create_dir_all(project.join("stdlib/prelude")).unwrap();
+        std::fs::write(project.join("stdlib/prelude/module.jai"), "").unwrap();
         std::fs::write(project.join("jacket.toml"), "[project]\n").unwrap();
         for (name, expected) in [("slow", ""), ("quick", "quick\n")] {
             std::fs::write(

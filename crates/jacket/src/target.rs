@@ -291,7 +291,27 @@ fn os_args<const N: usize>(words: [&str; N]) -> Vec<OsString> {
     words.into_iter().map(OsString::from).collect()
 }
 
-/// The error for a `--target` that names nothing.
+/// The target `name` names: a `[target.NAME]` table, a built-in board, or an LLVM triple jaic
+/// can build for. Anything else is an error listing the known targets.
+pub fn named(name: &str, config: Option<&Config>) -> Result<Target, String> {
+    let targets = all(config);
+    if let Some(target) = targets.iter().find(|t| t.name == name) {
+        return Ok(target.clone());
+    }
+    match jaic::target::Target::parse(name) {
+        Ok(_) => Ok(Target {
+            name: name.to_string(),
+            triple: Some(name.to_string()),
+            ..Target::default()
+        }),
+        Err(reason) if name.contains('-') => {
+            Err(format!("{}\nnote: {reason}", unknown(name, &targets)))
+        }
+        Err(_) => Err(unknown(name, &targets)),
+    }
+}
+
+/// The error for a `--target` that names nothing, with the nearest name and every known one.
 fn unknown(name: &str, targets: &[Target]) -> String {
     let near = jaic::suggest::closest(name, targets.iter().map(|t| t.name.as_str()));
     let help = match near {
@@ -301,7 +321,11 @@ fn unknown(name: &str, targets: &[Target]) -> String {
                 .to_string()
         }
     };
-    format!("unknown target `{name}`\nhelp: {help}")
+    let known: Vec<&str> = targets.iter().map(|t| t.name.as_str()).collect();
+    format!(
+        "unknown target `{name}`\nhelp: {help}\nnote: the known targets are {}",
+        known.join(", ")
+    )
 }
 
 #[cfg(test)]
@@ -403,6 +427,24 @@ mod tests {
         assert!(error.contains("did you mean `pico`?"), "{error}");
         let error = expand(&os(&["--target", "zzzzzz"]), None).unwrap_err();
         assert!(error.contains("`jacket toolchain`"), "{error}");
+    }
+
+    #[test]
+    fn a_name_is_a_known_target_or_a_triple_jaic_builds_for() {
+        let project = config(PROJECT);
+        assert_eq!(
+            named("pico", Some(&project)).unwrap().triple.as_deref(),
+            Some("thumbv6m-none-eabi")
+        );
+        let triple = named("aarch64-unknown-linux-gnu", None).unwrap();
+        assert_eq!(triple.triple.as_deref(), Some("aarch64-unknown-linux-gnu"));
+        let error = named("pic", Some(&project)).unwrap_err();
+        assert!(error.contains("did you mean `pico`?"), "{error}");
+        assert!(error.contains("\nnote: the known targets are "), "{error}");
+        assert!(error.contains("pico, "), "{error}");
+        assert!(error.contains("Mps2_An386"), "{error}");
+        let error = named("sparc-sun-solaris", None).unwrap_err();
+        assert!(error.contains("unsupported target architecture"), "{error}");
     }
 
     #[test]

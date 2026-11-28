@@ -19,6 +19,7 @@ mod site;
 mod theme;
 mod type_links;
 mod view;
+mod wasm;
 
 use crate::cli::DocArgs;
 use crate::{test::stdlib::stdlib_dir, tools};
@@ -28,8 +29,6 @@ use site::Site;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Present in a folder `jacket doc` wrote, so the next run may replace it.
 const MARKER: &str = ".jacket-doc";
@@ -94,117 +93,26 @@ fn read_models(
     imports: &[std::ffi::OsString],
     ids: &[String],
 ) -> Result<Vec<Module>, String> {
-    let next = AtomicUsize::new(0);
-    let found: Mutex<Vec<Result<Module, String>>> = Mutex::new(Vec::new());
-    let threads = std::thread::available_parallelism().map_or(2, |n| n.get().min(4));
-    std::thread::scope(|scope| {
-        for _ in 0..threads {
-            scope.spawn(|| {
-                loop {
-                    let i = next.fetch_add(1, Ordering::Relaxed);
-                    let Some(id) = ids.get(i) else {
-                        break;
-                    };
-                    let output = Command::new(jaic)
-                        .env(jacket_config::env::STDLIB.name, stdlib)
-                        .args(imports)
-                        .arg("-doc_model")
-                        .arg(root.join(id))
-                        .output();
-                    let result = match output {
-                        Ok(o) if o.status.success() => {
-                            model::parse(id, &String::from_utf8_lossy(&o.stdout), root, stdlib)
-                                .and_then(|mut module| {
-                                    module.wasm =
-                                        builds_for_wasm(jaic, stdlib, imports, &module, i)?;
-                                    Ok(module)
-                                })
-                        }
-                        Ok(o) => Err(format!(
-                            "`jaic -doc_model` failed for {id}: {}",
-                            String::from_utf8_lossy(&o.stderr).trim()
-                        )),
-                        Err(e) => Err(format!("could not start `{}`: {e}", jaic.display())),
-                    };
-                    found
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner)
-                        .push(result);
-                }
-            });
+    let mut modules = crate::parallel::try_map(ids, crate::parallel::threads(), |i, id| {
+        let output = Command::new(jaic)
+            .env(jacket_config::env::STDLIB.name, stdlib)
+            .args(imports)
+            .arg("-doc_model")
+            .arg(root.join(id))
+            .output()
+            .map_err(|e| format!("could not start `{}`: {e}", jaic.display()))?;
+        if !output.status.success() {
+            return Err(format!(
+                "`jaic -doc_model` failed for {id}: {}",
+                String::from_utf8_lossy(&output.stderr).trim()
+            ));
         }
-    });
-    let mut modules = Vec::new();
-    for result in found
-        .into_inner()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-    {
-        modules.push(result?);
-    }
+        let mut module = model::parse(id, &String::from_utf8_lossy(&output.stdout), root, stdlib)?;
+        module.wasm = wasm::builds_for_wasm(jaic, stdlib, imports, &module, i)?;
+        Ok(module)
+    })?;
     modules.sort_by(|a, b| a.id.cmp(&b.id));
     Ok(modules)
-}
-
-/// `flags` without the ones that choose a target (`-os`, `-cpu`, `-target`) or a mode; the error
-/// is a flag the compiler would refuse.
-fn without_target(flags: &[std::ffi::OsString]) -> Result<Vec<std::ffi::OsString>, String> {
-    let text: Vec<String> = flags
-        .iter()
-        .map(|flag| flag.to_string_lossy().into_owned())
-        .collect();
-    let found = jaic_cli_args::arguments::target_flags(&text)?;
-    Ok(found.host.into_iter().map(Into::into).collect())
-}
-
-/// The command that checks `file` for wasm: the user's flags, except the ones that choose a
-/// target, since this check chooses its own.
-fn wasm_check_command(
-    jaic: &Path,
-    stdlib: &Path,
-    imports: &[std::ffi::OsString],
-    file: &Path,
-) -> Result<Command, String> {
-    let mut command = Command::new(jaic);
-    command
-        .env(jacket_config::env::STDLIB.name, stdlib)
-        .args(["-check", "-no_dce", "-os", "wasm"])
-        .args(without_target(imports)?)
-        .arg(file);
-    Ok(command)
-}
-
-/// Whether `module` can be imported when the target is wasm, and most of its items exist there.
-/// Found by checking a program that imports it, so a module that asserts another system, or
-/// leaves everything to other systems, is out. `n` keeps the scratch files of threads apart.
-fn builds_for_wasm(
-    jaic: &Path,
-    stdlib: &Path,
-    imports: &[std::ffi::OsString],
-    module: &Module,
-    n: usize,
-) -> Result<bool, String> {
-    let asserted_elsewhere =
-        !module.platforms.is_empty() && !module.platforms.iter().any(|p| p == "WASM");
-    let there = module
-        .items
-        .iter()
-        .filter(|i| i.platforms.is_empty() || i.platforms.iter().any(|p| p == "WASM"))
-        .count();
-    let somewhere = there > 0 && there * 2 >= module.items.len();
-    if asserted_elsewhere || !somewhere {
-        return Ok(false);
-    }
-    let dir = std::env::temp_dir().join(format!("jacket-doc-wasm-{}", std::process::id()));
-    if std::fs::create_dir_all(&dir).is_err() {
-        return Ok(false);
-    }
-    let file = dir.join(format!("{n}.jai"));
-    let program = format!("#import \"{}\";\nmain :: () {{}}\n", module.import_name());
-    let mut command = wasm_check_command(jaic, stdlib, imports, &file)?;
-    let ok = std::fs::write(&file, program).is_ok()
-        && command.output().is_ok_and(|o| o.status.success());
-    let _ = std::fs::remove_file(&file);
-    Ok(ok)
 }
 
 /// A warning for each indented code block in a doc comment of `modules`, with where to find it.
@@ -1114,54 +1022,6 @@ mod tests {
                 && problems[0].contains("#insert at Gen/module.jai:7")
                 && problems[0].contains("the generator emits"),
             "{problems:?}"
-        );
-    }
-
-    #[test]
-    fn the_wasm_check_keeps_import_folders_and_drops_the_target() {
-        let flags: Vec<std::ffi::OsString> = [
-            "-import_dir",
-            "/lib",
-            "-os",
-            "windows",
-            "-cpu=arm64",
-            "-no_color",
-        ]
-        .into_iter()
-        .map(Into::into)
-        .collect();
-        assert_eq!(
-            without_target(&flags).unwrap(),
-            ["-import_dir", "/lib", "-no_color"]
-        );
-        // The check names its own target and keeps the user's other flags.
-        let command = wasm_check_command(
-            Path::new("jaic"),
-            Path::new("/s"),
-            &flags,
-            Path::new("m.jai"),
-        )
-        .unwrap();
-        let args: Vec<_> = command.get_args().collect();
-        assert_eq!(
-            args,
-            [
-                "-check",
-                "-no_dce",
-                "-os",
-                "wasm",
-                "-import_dir",
-                "/lib",
-                "-no_color",
-                "m.jai"
-            ]
-        );
-        // A flag the compiler would refuse is reported, not passed on.
-        let bad: Vec<std::ffi::OsString> = vec!["-os".into()];
-        assert!(without_target(&bad).is_err());
-        assert!(
-            wasm_check_command(Path::new("jaic"), Path::new("/s"), &bad, Path::new("m.jai"))
-                .is_err()
         );
     }
 

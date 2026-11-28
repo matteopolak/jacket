@@ -17,7 +17,7 @@
 //! A `cache` block is run only when its capture is missing or no longer matches its text, for
 //! commands whose output depends on the machine (timings, installed cross tools).
 
-use super::markdown::esc;
+use crate::markup::escape;
 use jaic::fxhash::HashMap;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -583,7 +583,7 @@ fn html(runs: &[Run]) -> String {
             out.push('\n');
         }
         out.push_str("<span class=\"prompt\">$ </span>");
-        out.push_str(&esc(&run.command));
+        out.push_str(&escape(&run.command));
         if !run.output.is_empty() {
             out.push('\n');
             out.push_str(&ansi_html(&run.output));
@@ -639,12 +639,12 @@ pub fn ansi_html(text: &str) -> String {
             return;
         }
         if pen == Pen::default() {
-            out.push_str(&esc(run));
+            out.push_str(&escape(run));
         } else {
             out.push_str(&format!(
                 "<span class=\"{}\">{}</span>",
                 classes(pen),
-                esc(run)
+                escape(run)
             ));
         }
         run.clear();

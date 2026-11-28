@@ -10,6 +10,7 @@
 //! `type` names the kind of item (`test`; `bench` is reserved for benchmark results).
 use super::{Case, Kind, Outcome, Status};
 use crate::cli::OutputFormat;
+use crate::markup::escape;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -97,22 +98,6 @@ fn rerun_names(case: &Case, failed_subtests: &[&str]) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-fn xml(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            // Control characters other than tab and line breaks are not allowed in XML 1.0.
-            c if (c as u32) < 0x20 && !matches!(c, '\t' | '\n' | '\r') => out.push('?'),
-            c => out.push(c),
-        }
-    }
-    out
 }
 
 impl Reporter {
@@ -494,7 +479,7 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
             }
             current = Some(case.root);
             let suite = case.name.split_once("::").map_or("tests", |(root, _)| root);
-            out.push_str(&format!("  <testsuite name=\"{}\">\n", xml(suite)));
+            out.push_str(&format!("  <testsuite name=\"{}\">\n", escape(suite)));
         }
         let class = match case.kind {
             Kind::Test | Kind::Bench => "test",
@@ -504,8 +489,8 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
         };
         out.push_str(&format!(
             "    <testcase name=\"{}\" classname=\"{class}\" file=\"{}\" line=\"{}\" time=\"{:.3}\"",
-            xml(&case.name),
-            xml(&case.file.to_string_lossy()),
+            escape(&case.name),
+            escape(&case.file.to_string_lossy()),
             case.line,
             outcome.duration.as_secs_f64()
         ));
@@ -519,13 +504,13 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
         match outcome.status {
             Status::Fail | Status::XPass => body.push_str(&format!(
                 "      <failure message=\"{}\">{}</failure>\n",
-                xml(message.first().map_or("failed", String::as_str)),
-                xml(&message.join("\n"))
+                escape(message.first().map_or("failed", String::as_str)),
+                escape(&message.join("\n"))
             )),
             Status::Timeout => body.push_str("      <failure message=\"timed out\"/>\n"),
             Status::Skip => body.push_str(&format!(
                 "      <skipped message=\"{}\"/>\n",
-                xml(outcome.skip_reason.as_deref().unwrap_or(""))
+                escape(outcome.skip_reason.as_deref().unwrap_or(""))
             )),
             _ => {}
         }
@@ -534,7 +519,7 @@ fn junit(cases: &[Case], outcomes: &[Outcome], elapsed: Duration) -> String {
             ("system-err", &outcome.stderr),
         ] {
             if !bytes.is_empty() {
-                body.push_str(&format!("      <{tag}>{}</{tag}>\n", xml(&text(bytes))));
+                body.push_str(&format!("      <{tag}>{}</{tag}>\n", escape(&text(bytes))));
             }
         }
         if body.is_empty() {

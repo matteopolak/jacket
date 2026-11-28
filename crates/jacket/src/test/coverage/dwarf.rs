@@ -18,33 +18,21 @@ pub(super) fn debug_file(program: &Path) -> PathBuf {
     }
 }
 
-/// `llvm-dwarfdump` from the LLVM jaic is built with (`jacket_config::llvm`), Homebrew's, or the
-/// one on `PATH`.
+/// `llvm-dwarfdump` as the toolchain lookup finds an LLVM program: the LLVM installs jaic knows
+/// (`jacket_config::llvm::bin_dirs`, which `LLVM_PREFIX` leads), then `PATH`.
 pub(super) fn find_dwarfdump() -> Result<PathBuf, String> {
-    let prefixes = jacket_config::llvm::prefixes(None)
-        .into_iter()
-        .chain(["/opt/homebrew/opt/llvm", "/usr/local/opt/llvm"].map(PathBuf::from));
-    let path = jacket_config::env::PATH.os().unwrap_or_default();
-    let folders = prefixes
-        .map(|p| p.join("bin"))
-        .chain(std::env::split_paths(&path));
-    for folder in folders {
-        let versioned = format!("llvm-dwarfdump-{}", jacket_config::llvm::MAJOR);
-        for name in ["llvm-dwarfdump", versioned.as_str()] {
-            let tool = folder.join(name);
-            if tool.is_file() {
-                return Ok(tool);
-            }
-        }
-    }
-    Err(format!(
-        "{}, or set LLVM_PREFIX",
-        crate::prerequisite::missing(
-            &jaic_toolchain::package::Need::Clang,
-            "llvm-dwarfdump",
-            "jacket test --coverage"
-        )
-    ))
+    crate::toolchain::lookup()
+        .llvm_tool("llvm-dwarfdump")
+        .ok_or_else(|| {
+            format!(
+                "{}, or set LLVM_PREFIX",
+                crate::prerequisite::missing(
+                    &jaic_toolchain::package::Need::Clang,
+                    "llvm-dwarfdump",
+                    "jacket test --coverage"
+                )
+            )
+        })
 }
 
 /// A row of a DWARF line table.

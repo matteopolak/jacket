@@ -11,14 +11,12 @@
 use super::DepError;
 use super::policy::parse_time;
 use super::types::CommitId;
+use crate::net::{Curl, Response, parse_response};
 use serde_json::Value;
 use std::collections::BTreeMap;
-use std::io::Write;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
 
 /// Status, lower-cased headers and body of an HTTP answer.
-type Response = (u16, Vec<(String, String)>, String);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
@@ -337,88 +335,25 @@ impl Http {
         token: Option<(&str, &str)>,
         post: Option<&str>,
     ) -> Result<Response, ForgeError> {
-        Curl {
-            url,
-            etag,
-            token,
-            post,
-            https_only: self.base.is_none(),
-        }
-        .send()
-    }
-}
-
-/// One HTTP request, run by `curl` as `jacket upgrade` does. The only code that starts it.
-struct Curl<'a> {
-    url: &'a str,
-    etag: Option<&'a str>,
-    /// A header name and its value.
-    token: Option<(&'a str, &'a str)>,
-    /// A JSON body, which makes it a POST.
-    post: Option<&'a str>,
-    /// The real forges are HTTPS only; a test server set through the environment is not.
-    https_only: bool,
-}
-
-impl Curl<'_> {
-    fn send(&self) -> Result<Response, ForgeError> {
-        let (url, etag, token, post) = (self.url, self.etag, self.token, self.post);
-        let mut command = Command::new("curl");
-        command
-            .args(["--silent", "--show-error", "--include", "--max-time", "30"])
-            .args([
-                "--user-agent",
-                concat!("jacket-dep/", env!("CARGO_PKG_VERSION")),
-            ])
-            .args(["--header", "Accept: application/json"]);
-        if self.https_only {
-            command.args(["--proto", "=https", "--tlsv1.2"]);
+        // The real forges are HTTPS only; a test server set through the environment is not.
+        let mut curl = Curl::get(url, "jacket dep")
+            .include()
+            .max_time(30)
+            .header("Accept: application/json");
+        if self.base.is_some() {
+            curl = curl.allow_http();
         }
         if let Some(etag) = etag {
-            command.args(["--header", &format!("If-None-Match: {etag}")]);
+            curl = curl.header(format!("If-None-Match: {etag}"));
         }
-        let mut config = String::new();
         if let Some((header, value)) = token {
-            if value.contains(['"', '\\', '\n', '\r']) {
-                return Err(ForgeError::Failed(
-                    "a token has characters a token never has".into(),
-                ));
-            }
-            // Through stdin, so the token is never on a command line others can list.
-            config = format!("header = \"{header}: {value}\"\n");
-            command.args(["--config", "-"]);
+            curl = curl.secret_header(header, value);
         }
         if let Some(body) = post {
-            command.args([
-                "--header",
-                "Content-Type: application/json",
-                "--data-binary",
-                body,
-            ]);
+            curl = curl.post_json(body);
         }
-        let mut child = command
-            .arg(url)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|e| match e.kind() {
-                std::io::ErrorKind::NotFound => ForgeError::Failed(missing().message),
-                _ => ForgeError::Failed(format!("could not run `curl`: {e}")),
-            })?;
-        if let Some(mut stdin) = child.stdin.take() {
-            let _ = stdin.write_all(config.as_bytes());
-        }
-        let output = child
-            .wait_with_output()
-            .map_err(|e| ForgeError::Failed(format!("curl failed: {e}")))?;
-        if !output.status.success() {
-            return Err(ForgeError::Failed(format!(
-                "could not reach {url}: {}",
-                String::from_utf8_lossy(&output.stderr).trim()
-            )));
-        }
-        parse_response(&String::from_utf8_lossy(&output.stdout)).ok_or_else(|| {
+        let output = curl.run().map_err(ForgeError::Failed)?;
+        parse_response(&String::from_utf8_lossy(&output)).ok_or_else(|| {
             ForgeError::Failed(format!("{url} answered with something that is not HTTP"))
         })
     }
@@ -431,27 +366,6 @@ fn missing() -> DepError {
     match text.split_once("\nnote: ") {
         Some((message, note)) => DepError::new(message).note(note),
         None => DepError::new(text),
-    }
-}
-
-/// Status, lower-cased headers and body of a `curl --include` answer.
-fn parse_response(text: &str) -> Option<Response> {
-    let mut rest = text;
-    loop {
-        let (head, body) = rest
-            .split_once("\r\n\r\n")
-            .or_else(|| rest.split_once("\n\n"))?;
-        let mut lines = head.lines();
-        let status: u16 = lines.next()?.split_whitespace().nth(1)?.parse().ok()?;
-        if (100..200).contains(&status) {
-            rest = body;
-            continue;
-        }
-        let headers = lines
-            .filter_map(|l| l.split_once(':'))
-            .map(|(k, v)| (k.trim().to_ascii_lowercase(), v.trim().to_string()))
-            .collect();
-        return Some((status, headers, body.to_string()));
     }
 }
 
@@ -771,13 +685,5 @@ mod tests {
             serde_json::from_str(r#"[{"tag_name":"v1","released_at":"1970-01-02T00:00:00Z"}]"#)
                 .unwrap();
         assert_eq!(releases_from(Kind::GitLab, &gitlab).len(), 1);
-    }
-
-    #[test]
-    fn curl_output_loses_its_interim_headers() {
-        let text = "HTTP/1.1 100 Continue\r\n\r\nHTTP/1.1 200 OK\r\nETag: \"x\"\r\n\r\n[]";
-        let (status, headers, body) = parse_response(text).unwrap();
-        assert_eq!((status, body.as_str()), (200, "[]"));
-        assert_eq!(header(&headers, "etag"), Some("\"x\""));
     }
 }

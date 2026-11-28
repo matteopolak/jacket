@@ -13,15 +13,20 @@ fn from_variable(value: &std::ffi::OsStr, cwd: &Path) -> PathBuf {
 /// jacket starts is told through `JAIC_STDLIB`. `JAIC_STDLIB` as jacket was started wins; else
 /// the project's own `stdlib/` when it holds the library (the Jacket repository, or a checkout
 /// of it such as a git worktree, tests itself and not the checkout its binaries were built in);
-/// else the one jaic reports (`jaic -print_stdlib`).
+/// else the one jaic reports (`jaic -print_stdlib`). Whichever it is must hold a prelude, as
+/// jaic decides it ([`jaic::find_preload`]): a folder that does not is an error naming where the
+/// path came from.
 pub(crate) fn stdlib_dir(jaic: &Path, project: &Path, cwd: &Path) -> Result<PathBuf, String> {
     if let Some(dir) = jacket_config::env::STDLIB.non_empty() {
-        return Ok(from_variable(&dir, cwd));
+        let dir = from_variable(&dir, cwd);
+        return checked(
+            dir,
+            &format!("{} is set to it", jacket_config::env::STDLIB.name),
+        );
     }
-    let canonical = |dir: PathBuf| dir.canonicalize().unwrap_or(dir);
     let own = project.join("stdlib");
-    if own.join("prelude/module.jai").is_file() || own.join("Preload.jai").is_file() {
-        return Ok(canonical(own));
+    if holds_library(&own) {
+        return checked(own, "it is the project's own");
     }
     let output = std::process::Command::new(jaic)
         .arg("-print_stdlib")
@@ -35,7 +40,28 @@ pub(crate) fn stdlib_dir(jaic: &Path, project: &Path, cwd: &Path) -> Result<Path
             jaic.display()
         ));
     }
-    Ok(canonical(PathBuf::from(line)))
+    checked(
+        PathBuf::from(line),
+        &format!("`{} -print_stdlib` named it", jaic.display()),
+    )
+}
+
+/// Whether `dir` holds a standard library: a prelude jaic would load.
+fn holds_library(dir: &Path) -> bool {
+    jaic::find_preload(&jaic::filesystem::NativeFs, dir).is_some()
+}
+
+/// `dir`, canonical, when it holds a standard library; else jaic's error for it, with `why` it
+/// was chosen.
+fn checked(dir: PathBuf, why: &str) -> Result<PathBuf, String> {
+    if let Some(message) = jaic::missing_stdlib(&dir) {
+        return Err(format!(
+            "{message}\nnote: jacket uses `{}` because {why}",
+            dir.display()
+        ));
+    }
+    dir.canonicalize()
+        .map_err(|e| format!("cannot open the standard library `{}`: {e}", dir.display()))
 }
 
 #[cfg(test)]
@@ -57,6 +83,30 @@ mod tests {
         let bare = project.join("stdlib/prelude");
         assert!(stdlib_dir(Path::new("/no/such/jaic"), &bare, &bare).is_err());
         let _ = std::fs::remove_dir_all(&project);
+    }
+
+    #[test]
+    fn a_folder_without_a_prelude_is_an_error_naming_where_it_came_from() {
+        let root = std::env::temp_dir().join(format!("jacket-stdlib-bad-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let error = checked(root.clone(), "JAIC_STDLIB is set to it").unwrap_err();
+        assert!(
+            error.starts_with("cannot find the standard library"),
+            "{error}"
+        );
+        assert!(
+            error.ends_with(&format!(
+                "\nnote: jacket uses `{}` because JAIC_STDLIB is set to it",
+                root.display()
+            )),
+            "{error}"
+        );
+        let stdlib = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../stdlib");
+        assert_eq!(
+            checked(stdlib.clone(), "-").unwrap(),
+            stdlib.canonicalize().unwrap()
+        );
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

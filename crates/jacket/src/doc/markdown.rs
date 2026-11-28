@@ -25,20 +25,6 @@ pub struct Settings<'a> {
     pub link: &'a dyn Fn(&str) -> Option<String>,
 }
 
-pub fn esc(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            c => out.push(c),
-        }
-    }
-    out
-}
-
 /// The plain text of HTML produced here: tags dropped, entities undone.
 pub fn plain(html: &str) -> String {
     let mut out = String::with_capacity(html.len());

@@ -155,39 +155,17 @@ fn compile(
     obj: &Path,
     progress: &(dyn Fn(usize, usize) + Sync),
 ) -> Result<Vec<PathBuf>, String> {
-    let next = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
-    let objects: Vec<PathBuf> = (0..sources.len())
-        .map(|index| obj.join(format!("{index:04}.o")))
-        .collect();
-    let workers = std::thread::available_parallelism().map_or(2, usize::from);
-    let failure = std::sync::Mutex::new(None::<String>);
-    std::thread::scope(|scope| {
-        for _ in 0..workers {
-            scope.spawn(|| {
-                loop {
-                    let index = next.fetch_add(1, Ordering::Relaxed);
-                    if index >= sources.len() || failure.lock().is_ok_and(|f| f.is_some()) {
-                        return;
-                    }
-                    let (source, defines) = &sources[index];
-                    if let Err(error) =
-                        compile_one(clang, flags, builtins, source, defines, &objects[index])
-                    {
-                        if let Ok(mut failure) = failure.lock() {
-                            failure.get_or_insert(error);
-                        }
-                        return;
-                    }
-                    progress(done.fetch_add(1, Ordering::Relaxed) + 1, sources.len());
-                }
-            });
-        }
-    });
-    match failure.into_inner().ok().flatten() {
-        Some(error) => Err(error),
-        None => Ok(objects),
-    }
+    crate::parallel::try_map(
+        sources,
+        crate::parallel::threads(),
+        |index, (source, defines)| {
+            let object = obj.join(format!("{index:04}.o"));
+            compile_one(clang, flags, builtins, source, defines, &object)?;
+            progress(done.fetch_add(1, Ordering::Relaxed) + 1, sources.len());
+            Ok(object)
+        },
+    )
 }
 
 fn compile_one(

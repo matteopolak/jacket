@@ -263,9 +263,64 @@ fn flag_region_has(args: &[OsString], flag: &str) -> bool {
     has_flag(flag_region(args), flag)
 }
 
+/// The executable a successful jaic build wrote, read from the `JAIC_REPORT_EXE` file `report`
+/// (its last line). A metaprogram can pick the name, so jacket never guesses it: a missing or
+/// empty report, or a path that is not a file, is an error.
+pub fn reported_executable(report: &Path) -> Result<PathBuf, String> {
+    let text = std::fs::read_to_string(report).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::NotFound {
+            "jaic did not report the executable it wrote\nnote: the build wrote none; a metaprogram may have turned the output off".to_string()
+        } else {
+            format!(
+                "jaic did not report the executable it wrote: cannot read `{}`: {}",
+                report.display(),
+                jaic::io_reason(&error)
+            )
+        }
+    })?;
+    let Some(line) = text.lines().rfind(|line| !line.trim().is_empty()) else {
+        return Err(format!(
+            "jaic did not report the executable it wrote: `{}` is empty",
+            report.display()
+        ));
+    };
+    let exe = PathBuf::from(line.trim());
+    if exe.is_file() {
+        Ok(exe)
+    } else {
+        Err(format!(
+            "jaic reported writing `{}`, but there is no such file",
+            exe.display()
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_executable_is_the_one_jaic_reported_never_a_guess() {
+        let dir = std::env::temp_dir().join(format!("jacket-reported-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let report = dir.join("exe.txt");
+        let error = reported_executable(&report).unwrap_err();
+        assert!(
+            error.starts_with("jaic did not report the executable it wrote\n"),
+            "{error}"
+        );
+        std::fs::write(&report, "").unwrap();
+        let error = reported_executable(&report).unwrap_err();
+        assert!(error.ends_with("is empty"), "{error}");
+        let exe = dir.join("app");
+        std::fs::write(&report, format!("{}\n", exe.display())).unwrap();
+        let error = reported_executable(&report).unwrap_err();
+        assert!(error.contains("but there is no such file"), "{error}");
+        std::fs::write(&exe, "").unwrap();
+        std::fs::write(&report, format!("/old/one\n{}\n", exe.display())).unwrap();
+        assert_eq!(reported_executable(&report).unwrap(), exe);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 
     struct Mem(Vec<&'static str>);
 

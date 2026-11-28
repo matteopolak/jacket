@@ -18,6 +18,14 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket dep add` and `update` note a newer version skipped by `min_release_age`, with its age.
 - `jaic -help` is in capitalised sections (`Usage:`, `Modes:`, `Exit status:`), bold when colour is on.
 
+### Breaking changes
+
+- `jacket test` fails when a test-driver probe library is missing; `--allow-missing-prerequisites` skips those tests. `CI` no longer decides.
+- A project whose `[toolchain] version` differs from the running jacket is an error naming `jacket upgrade --version`.
+- `jacket toolchain check` refuses an unknown target name and lists the known ones.
+- `jacket test` with no cache folder fails and says to set `JACKET_TEST_DEPS_DIR`.
+- `jacket test` refuses a standard library folder without a prelude and says where the folder came from.
+
 ### Fixes
 
 - `jacket toolchain add` and jaic's progress lines follow the diagnostics' colour rule, so `FORCE_COLOR` colours them.
@@ -96,6 +104,19 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - `jacket test` and `jacket doc` read a relative `JAIC_STDLIB` from the working directory and hand every `jaic` the absolute path.
 - `jacket test --target BOARD` reports golden tests and running doc examples as skipped, and runs compile-fail tests.
 - `jacket test --coverage` writes its report below the checkout for a relative `JACKET_OUTPUT_DIR`, not the working directory.
+- A test-driver probe that does not build shows the failed `cc` or `ar` command and its output.
+- `jacket run` and `jacket test` fail when `jaic` reports no executable, instead of guessing its path.
+- `jacket doc` reports a wasm check it could not start instead of treating it as unsupported.
+- `jacket test --changed` reports a compiler it could not start instead of running every test.
+- `jacket upgrade` rejects a release answer without an asset list.
+- `jacket migrate` reports a file it cannot read instead of skipping it.
+- On Windows, jacket errors when `SystemRoot` is unset instead of assuming `C:\Windows`.
+- A doc example that times out stops every process it started.
+- Golden-file diffs of long outputs show the changed lines.
+- `jacket test --coverage` finds `llvm-dwarfdump` where the other LLVM tools are found.
+- Doc and test HTML replace control characters instead of writing invalid XML.
+- `jacket upgrade --version 0.22` means `v0.22.0`.
+- `jacket doc` checks and reads modules on every core.
 
 ## [0.40.0] - 2026-11-24
 

@@ -15,7 +15,7 @@ mod deps_store;
 mod diff;
 mod discover;
 pub(crate) mod doctest;
-mod exec;
+pub(crate) mod exec;
 mod filter;
 mod golden;
 mod jobs;
@@ -38,8 +38,7 @@ use options::{RunMode, Target, TestOptions};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 use std::time::{Duration, Instant};
 
 const DEFAULT_TIMEOUT: u64 = 120;
@@ -128,6 +127,8 @@ struct Settings {
     seed: u64,
     isolate: bool,
     capture: bool,
+    /// `--allow-missing-prerequisites`: a missing test-driver probe skips its tests.
+    allow_missing_prerequisites: bool,
 }
 
 /// Everything the workers share.
@@ -321,6 +322,22 @@ fn take_forwarded_modes(args: &mut TestArgs) -> Result<(), String> {
     }
     args.interp |= forwarded.interp;
     args.jaic_args = forwarded.without_modes(std::mem::take(&mut args.jaic_args));
+    Ok(())
+}
+
+/// Builds the test-driver probe libraries `files` need and adds their folder to the library
+/// search path of every compile `toolchain` makes.
+fn link_probes(
+    toolchain: &mut Toolchain,
+    files: &[PathBuf],
+    stdlib: &Path,
+    allow_missing: bool,
+) -> Result<(), String> {
+    if let Some(probes) = prerequisites::prepare_probes(files, stdlib, allow_missing)? {
+        let path = serde_json::to_string(&probes.to_string_lossy()).expect("serialize path");
+        toolchain.flags.extend(["-add".into(), format!("#run {{ C :: #import \"Compiler\"; C.compiler_add_library_search_directory({path}); }}")]);
+        toolchain.environment_flags = 2;
+    }
     Ok(())
 }
 
@@ -519,10 +536,14 @@ fn run_once(
             .flat_map(|root| root.unit.iter().chain(&root.golden))
             .cloned()
             .collect();
-        if let Some(probes) = prerequisites::prepare_probes(&files, &stdlib) {
-            let path = serde_json::to_string(&probes.to_string_lossy()).expect("serialize path");
-            toolchain.flags.extend(["-add".into(), format!("#run {{ C :: #import \"Compiler\"; C.compiler_add_library_search_directory({path}); }}")]);
-            toolchain.environment_flags = 2;
+        if let Err(error) = link_probes(
+            &mut toolchain,
+            &files,
+            &stdlib,
+            args.allow_missing_prerequisites,
+        ) {
+            let _ = std::fs::remove_dir_all(&work);
+            return fail(error);
         }
     }
     // Native compilation runs #run code and generators too. Their interpreter coverage belongs
@@ -620,7 +641,13 @@ fn run_once(
             bench,
             jobs: settings.jobs,
         };
-        selected = deps::narrow(selected, &args.changed, &ctx);
+        selected = match deps::narrow(selected, &args.changed, &ctx) {
+            Ok(selected) => selected,
+            Err(error) => {
+                let _ = std::fs::remove_dir_all(&work);
+                return fail(error);
+            }
+        };
     }
     if let Some(in_part) = &in_part {
         selected = selected
@@ -662,7 +689,10 @@ fn run_once(
                 bench,
                 jobs: settings.jobs,
             };
-            deps::print(&selected, &roots, &listing);
+            if let Err(error) = deps::print(&selected, &roots, &listing) {
+                let _ = std::fs::remove_dir_all(&work);
+                return fail(error);
+            }
         } else {
             reporter.list(&selected);
         }
@@ -781,6 +811,7 @@ fn settings(
         seed: args.seed.unwrap_or_else(random_seed),
         isolate: !args.no_isolation,
         capture,
+        allow_missing_prerequisites: args.allow_missing_prerequisites,
     };
     // Tests run in their own folders, so a file the runner names is resolved where it was
     // written: `--runner` from here, `[test] runner` beside jacket.toml.
@@ -956,7 +987,6 @@ fn execute(
     let started = Instant::now();
     reporter.run_started(plan.cases.len());
     let mut outcomes = Vec::new();
-    let ci = prerequisites::in_ci();
     // Skips are decided before anything runs.
     let mut to_run = Vec::new();
     for (index, case) in plan.cases.iter().enumerate() {
@@ -1003,7 +1033,10 @@ fn execute(
             Message::Slow(case, elapsed) => reporter.slow(&plan.cases[case], elapsed),
             Message::Done(mut outcome) => {
                 if plan.cases[outcome.case].kind != Kind::CompileFail {
-                    prerequisites::skip_missing_probe(&mut outcome, ci);
+                    prerequisites::skip_missing_probe(
+                        &mut outcome,
+                        plan.settings.allow_missing_prerequisites,
+                    );
                 }
                 reporter.finished(&plan.cases[outcome.case], &outcome);
                 outcomes.push(outcome);
@@ -1113,46 +1146,25 @@ fn build_all(
     bench: bool,
     workers: Workers,
 ) -> Vec<BuildResult> {
-    let next = AtomicUsize::new(0);
-    let results: Mutex<Vec<Option<BuildResult>>> =
-        Mutex::new((0..roots.len()).map(|_| None).collect());
-    std::thread::scope(|scope| {
-        for _ in 0..workers.builds.max(1).min(roots.len()) {
-            scope.spawn(|| {
-                loop {
-                    let i = next.fetch_add(1, Ordering::Relaxed);
-                    let Some(root) = roots.get(i) else {
-                        break;
-                    };
-                    let files = if bench {
-                        &root.bench
-                    } else {
-                        &root.unit
-                    };
-                    let result = if files.is_empty() {
-                        Ok(None)
-                    } else {
-                        build::unit(
-                            files,
-                            &root_flags[i],
-                            &work.join(format!("build-{i}")),
-                            toolchain,
-                            listing,
-                            i < workers.warm,
-                        )
-                        .map(Some)
-                    };
-                    results.lock().expect("lock")[i] = Some(result);
-                }
-            });
+    crate::parallel::map(roots, workers.builds, |i, root| {
+        let files = if bench {
+            &root.bench
+        } else {
+            &root.unit
+        };
+        if files.is_empty() {
+            return Ok(None);
         }
-    });
-    results
-        .into_inner()
-        .expect("lock")
-        .into_iter()
-        .map(|r| r.unwrap_or(Ok(None)))
-        .collect()
+        build::unit(
+            files,
+            &root_flags[i],
+            &work.join(format!("build-{i}")),
+            toolchain,
+            listing,
+            i < workers.warm,
+        )
+        .map(Some)
+    })
 }
 
 #[cfg(test)]

@@ -322,7 +322,7 @@ fn inline_html(site: &Site, doc: &str) -> String {
             .to_owned(),
         Segment::Code {
             code, ..
-        } => format!("<code>{}</code>", markdown::esc(code.trim())),
+        } => format!("<code>{}</code>", crate::markup::escape(code.trim())),
     })
     .collect::<Vec<_>>()
     .join(" ")
@@ -482,7 +482,7 @@ fn commented_declaration(site: &Site, mi: usize, item: &Item, anchor: &str) -> (
         }
         let names: Vec<String> = at[i]
             .iter()
-            .map(|&k| markdown::esc(&item.members[k].name))
+            .map(|&k| crate::markup::escape(&item.members[k].name))
             .collect();
         let extra: String = names[1..]
             .iter()

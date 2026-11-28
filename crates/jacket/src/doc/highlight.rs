@@ -1,6 +1,6 @@
 //! Syntax colours for code on the site. Jai: keywords, types, strings, numbers, comments and
 //! `#directives`. It looks at one token at a time, which is enough for ten lines of example.
-use super::markdown::esc;
+use crate::markup::escape;
 
 const KEYWORDS: &[&str] = &[
     "if",
@@ -49,7 +49,7 @@ fn span(out: &mut String, class: &str, text: &str) {
     out.push_str("<span class=\"");
     out.push_str(class);
     out.push_str("\">");
-    out.push_str(&esc(text));
+    out.push_str(&escape(text));
     out.push_str("</span>");
 }
 
@@ -188,16 +188,16 @@ fn tokens(code: &str, link: &dyn Fn(&str) -> Option<(usize, String)>, names: Nam
                 Some((len, href)) if len <= path.len() && path.is_char_boundary(len) => {
                     out.push_str(&format!(
                         "<a href=\"{}\">{}</a>{}",
-                        esc(&href),
-                        esc(&path[..len]),
-                        esc(&path[len..])
+                        escape(&href),
+                        escape(&path[..len]),
+                        escape(&path[len..])
                     ));
                 }
-                _ => out.push_str(&esc(path)),
+                _ => out.push_str(&escape(path)),
             }
             i = j;
         } else {
-            out.push_str(&esc(&code[start..at(i + 1)]));
+            out.push_str(&escape(&code[start..at(i + 1)]));
             i += 1;
         }
     }
@@ -322,7 +322,7 @@ fn shell_line(line: &str) -> String {
             continue;
         }
         if c == '|' || c == ';' || c == '&' {
-            out.push_str(&esc(&c.to_string()));
+            out.push_str(&escape(&c.to_string()));
             command = true;
             i += 1;
             continue;
@@ -341,14 +341,14 @@ fn shell_line(line: &str) -> String {
         }
         let word = text(i, end);
         if command && word == "$" {
-            out.push_str(&esc(&word));
+            out.push_str(&escape(&word));
         } else if command && !word.contains('=') {
             span(&mut out, "k", &word);
             command = false;
         } else if word.starts_with('-') && at_word {
             span(&mut out, "d", &word);
         } else {
-            out.push_str(&esc(&word));
+            out.push_str(&escape(&word));
         }
         i = end;
     }
@@ -421,12 +421,12 @@ fn toml_line(line: &str) -> String {
             if word == "true" || word == "false" {
                 span(&mut out, "k", &word);
             } else {
-                out.push_str(&esc(&word));
+                out.push_str(&escape(&word));
             }
             i = end;
             continue;
         }
-        out.push_str(&esc(&c.to_string()));
+        out.push_str(&escape(&c.to_string()));
         i += 1;
     }
     out
@@ -497,19 +497,19 @@ pub fn diagnostic(text: &str) -> String {
             };
             let colon = trimmed.find(':').unwrap_or(trimmed.len());
             span(&mut html, level, &trimmed[..colon]);
-            html.push_str(&esc(&trimmed[colon..]));
+            html.push_str(&escape(&trimmed[colon..]));
         } else if let Some(place) = trimmed.strip_prefix("--> ") {
-            html.push_str(&esc(indent));
+            html.push_str(&escape(indent));
             span(&mut html, "dm", "-->");
             html.push(' ');
-            html.push_str(&esc(place));
+            html.push_str(&escape(place));
         } else if let Some((label, rest)) = ["= note:", "= help:", "help:", "note:"]
             .into_iter()
             .find_map(|l| trimmed.strip_prefix(l).map(|r| (l, r)))
         {
-            html.push_str(&esc(indent));
+            html.push_str(&escape(indent));
             span(&mut html, "dh", label);
-            html.push_str(&esc(rest));
+            html.push_str(&escape(rest));
         } else {
             gutter_line(&mut html, line, level);
         }
@@ -529,11 +529,11 @@ fn gutter_line(html: &mut String, line: &str, level: &str) {
         .next()
         .filter(|c| matches!(c, '|' | '~' | '+' | '-'))
     else {
-        html.push_str(&esc(line));
+        html.push_str(&escape(line));
         return;
     };
     let frame_end = line.len() - bar.len();
-    html.push_str(&esc(&line[..frame_end]));
+    html.push_str(&escape(&line[..frame_end]));
     let rest = &bar[1..];
     let class = match sign {
         '|' => "dm",
@@ -546,7 +546,7 @@ fn gutter_line(html: &mut String, line: &str, level: &str) {
     let marks = rest.trim_start();
     // Only a line without a number can be markers: `5 |     -x` is code.
     if number == 0 && sign == '|' && marks.starts_with(['^', '-']) {
-        html.push_str(&esc(&rest[..rest.len() - marks.len()]));
+        html.push_str(&escape(&rest[..rest.len() - marks.len()]));
         let run = marks.len() - marks.trim_start_matches(['^', '-']).len();
         let class = if marks.starts_with('^') {
             level
@@ -560,7 +560,7 @@ fn gutter_line(html: &mut String, line: &str, level: &str) {
             span(html, class, label);
         }
     } else {
-        html.push_str(&esc(rest));
+        html.push_str(&escape(rest));
     }
 }
 

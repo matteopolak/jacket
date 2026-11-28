@@ -35,11 +35,15 @@ if '-exe' in args:
     path = pathlib.Path(args[args.index('-exe')+1])
     path.write_text(pathlib.Path(__file__).read_text())
     path.chmod(0o755)
+    with open(os.environ['JAIC_REPORT_EXE'], 'a') as report:
+        report.write(str(path.resolve()) + '\n')
 ";
 
 fn fixture() -> (TempDir, std::path::PathBuf) {
     let root = TempDir::new("forwarded-target");
     std::fs::create_dir_all(root.join("tests")).unwrap();
+    std::fs::create_dir_all(root.join("stdlib/prelude")).unwrap();
+    std::fs::write(root.join("stdlib/prelude/module.jai"), "").unwrap();
     let compiler = root.join("jaic");
     std::fs::write(&compiler, COMPILER).unwrap();
     std::fs::set_permissions(&compiler, std::fs::Permissions::from_mode(0o755)).unwrap();

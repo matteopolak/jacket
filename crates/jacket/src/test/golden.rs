@@ -142,7 +142,7 @@ fn built(
         }
         args.extend(toolchain.flags.iter().cloned());
         args.extend(root_flags.iter().cloned());
-        args.extend(toolchain.deps_args(Program::File(source), root_flags, false));
+        args.extend(toolchain.deps_args(Program::File(source), root_flags, false)?);
         return Ok(Built {
             invocation: Invocation {
                 program: toolchain.jaic.clone(),
@@ -168,7 +168,7 @@ fn built(
         .args(&quiet)
         .args(&toolchain.flags)
         .args(root_flags)
-        .args(toolchain.deps_args(Program::File(source), root_flags, false))
+        .args(toolchain.deps_args(Program::File(source), root_flags, false)?)
         .arg("-exe")
         .arg(&exe)
         .env(jacket_config::env::REPORT_EXE.name, &report)
@@ -272,7 +272,15 @@ fn check_only(source: &Path, root_flags: &[String], toolchain: &Toolchain, cwd: 
         .arg("-quiet")
         .args(&toolchain.flags)
         .args(root_flags)
-        .args(toolchain.deps_args(Program::File(source), root_flags, false))
+        .args(
+            match toolchain.deps_args(Program::File(source), root_flags, false) {
+                Ok(args) => args,
+                Err(error) => {
+                    checked.problems.push(error);
+                    return checked;
+                }
+            },
+        )
         .current_dir(cwd)
         .output();
     match output {

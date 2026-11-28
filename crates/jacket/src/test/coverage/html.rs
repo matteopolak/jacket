@@ -1,6 +1,7 @@
 //! `--coverage-format html`: one page with no outside files. The top is a table of modules
 //! linking to their files; each file opens to its source, a line at a time with how often it
 //! ran. See `mod.rs`.
+use crate::markup::escape;
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
@@ -28,20 +29,6 @@ pre.src span.hit { background: var(--hit); } pre.src span.miss { background: var
 pre.src i { display: inline-block; width: 4.5rem; padding-right: .75rem; text-align: right; color: var(--muted); font-style: normal; }
 pre.src b { display: inline-block; width: 5rem; padding-right: .75rem; text-align: right; font-weight: 400; color: var(--muted); }
 ";
-
-fn escape(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for c in text.chars() {
-        match c {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            _ => out.push(c),
-        }
-    }
-    out
-}
 
 fn bar(tally: Tally) -> String {
     format!(
