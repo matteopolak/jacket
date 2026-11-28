@@ -17,8 +17,8 @@ use std::path::{Path, PathBuf};
 
 pub use gaps::{Entry as GapEntry, gaps, records as gap_records};
 pub use model::{
-    Expander, generated_origin, generated_path, module_platforms,
-    print_expanding as model_json_expanding,
+    BareBuild, Dependency, Expander, bare_build, generated_origin, generated_path,
+    module_platforms, print_expanding as model_json_expanding,
 };
 
 use crate::parser::ide_facts::{self, TopLevelKind};

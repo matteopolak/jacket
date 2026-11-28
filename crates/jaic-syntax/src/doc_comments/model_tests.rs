@@ -181,6 +181,48 @@ fn no_operating_system_is_a_system_of_its_own() {
 }
 
 #[test]
+fn a_bare_build_follows_the_branches_that_hold_without_a_system() {
+    let dir = library(
+        "bare-build",
+        &[
+            (
+                "module.jai",
+                "#import \"Basic\";\n#load \"part.jai\";\nImpl :: #import,file \"impl.jai\";\n#import,string \"x :: 1;\";\n#if OS == .LINUX {\n    #import \"Posix\";\n    #assert OS == .LINUX;\n}\n#if OS == .WINDOWS #load \"win.jai\";\nelse #load \"unix.jai\";\n#if OS_IS_UNIX #load \"native.jai\";\n#if CPU == .X64 #load \"wide.jai\";\n",
+            ),
+            ("needs/module.jai", "#assert OS != .NONE;\n"),
+            ("only/module.jai", "#assert OS == .MACOS || OS == .LINUX;\n"),
+            ("free/module.jai", "#assert OS == .NONE;\n"),
+            ("other/module.jai", "#assert CPU == .X64;\n"),
+            (
+                "guarded/module.jai",
+                "#if OS == .LINUX {\n    #assert OS == .LINUX;\n}\n",
+            ),
+        ],
+    );
+    let rejected = |name: &str| bare_build(&dir.join(name)).rejected;
+
+    assert_eq!(
+        bare_build(&dir.join("module.jai")),
+        BareBuild {
+            rejected: false,
+            dependencies: vec![
+                Dependency::Module("Basic".into()),
+                Dependency::File("part.jai".into()),
+                Dependency::File("impl.jai".into()),
+                Dependency::File("unix.jai".into()),
+            ],
+        }
+    );
+    assert_eq!(bare_build(&dir.join("missing.jai")), BareBuild::default());
+    assert!(rejected("needs/module.jai"));
+    assert!(rejected("only/module.jai"));
+    assert!(!rejected("free/module.jai"));
+    assert!(!rejected("other/module.jai"));
+    assert!(!rejected("guarded/module.jai"));
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn the_experimental_tag_is_a_flag_not_doc_text() {
     let dir = library(
         "experimental",

@@ -5078,7 +5078,7 @@ main :: () {
 
 It reports:
 
-- **OS-only modules.** An `#import` of a module that asserts its systems and leaves out `NONE` (`Thread`, `Process`, `POSIX`). The systems are the ones `jacket doc` shows, read from the module's `#assert`, so there is no list to maintain. An import under `#if` is skipped.
+- **OS-only modules.** An `#import` of a module that asserts its systems and leaves out `NONE` (`Thread`, `Process`, `POSIX`), or that loads or imports one at its top level (`File`, through its unix bindings). The systems are the ones `jacket doc` shows, read from the `#assert`, so there is no list to maintain. A top-level `#if` is followed on the branch that holds for `NONE`; an import under `#if` is skipped. A module that fails for `NONE` without any `#assert` on `OS` in what it pulls in is not found.
 - **Allocation through the default allocator.** `alloc`, `New`, `NewArray`, `array_add` and `tprint` reached from `main`, a `#program_export` procedure or an `@Interrupt` procedure with no `push_allocator` or `push_context` (naming a context) around the call. Calls into other files are followed; the finding is at the call in the linted file that leads there. Calls into the standard library are not followed.
 - **Interrupt handlers that do too much.** In an `@Interrupt` procedure and what it calls: allocation (even with an allocator pushed), `print`, `write_string`, `log`, locks, and calls that block (`sleep_milliseconds`, `wait`, `wait_for`).
 - **Unbounded stack.** A procedure in a call cycle (once per cycle, at the first member in the file), and a procedure whose locals add up to more than `max-frame-bytes`.

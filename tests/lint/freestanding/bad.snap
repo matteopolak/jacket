@@ -10,109 +10,118 @@ warning[freestanding]: `Thread` needs an operating system: it builds only for WI
    = help: use a module that works with `OS == .NONE`, or import it under `#if OS != .NONE`
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
-warning[freestanding]: `New` allocates with the default allocator
-  --> tests/lint/freestanding/bad.jai:9:12
+warning[freestanding]: `File` needs an operating system: it needs `posix-api/module.jai`, which does not build with `OS == .NONE`
+  --> tests/lint/freestanding/bad.jai:3:1
    |
- 9 |     return New(int);
+ 3 | #import "File";
+   | ^^^^^^^^^^^^^^
+   |
+   = help: use a module that works with `OS == .NONE`, or import it under `#if OS != .NONE`
+   = note: see https://jacket.matteopolak.com/lint-rules/freestanding
+
+warning[freestanding]: `New` allocates with the default allocator
+  --> tests/lint/freestanding/bad.jai:10:12
+   |
+10 |     return New(int);
    |            ^^^^^^^^
    |
    = help: the default allocator has no heap here: wrap the call in `push_allocator(...)`, or `push_context` with an allocator set
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `array_add` allocates with the default allocator
-  --> tests/lint/freestanding/bad.jai:14:5
+  --> tests/lint/freestanding/bad.jai:15:5
    |
-14 |     array_add(*items, 1);
+15 |     array_add(*items, 1);
    |     ^^^^^^^^^^^^^^^^^^^^
    |
    = help: the default allocator has no heap here: wrap the call in `push_allocator(...)`, or `push_context` with an allocator set
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `tprint` allocates with the default allocator
-  --> tests/lint/freestanding/bad.jai:19:12
+  --> tests/lint/freestanding/bad.jai:20:12
    |
-19 |     return tprint("n = %", n);
+20 |     return tprint("n = %", n);
    |            ^^^^^^^^^^^^^^^^^^
    |
    = help: the default allocator has no heap here: wrap the call in `push_allocator(...)`, or `push_context` with an allocator set
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `grow` reaches `New`, which allocates with the default allocator
-  --> tests/lint/freestanding/bad.jai:23:12
+  --> tests/lint/freestanding/bad.jai:24:12
    |
-23 |     return grow();
+24 |     return grow();
    |            ^^^^^^
    |
    = help: the default allocator has no heap here: wrap the call in `push_allocator(...)`, or `push_context` with an allocator set
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `factorial` calls itself, so its stack use has no bound
-  --> tests/lint/freestanding/bad.jai:26:1
+  --> tests/lint/freestanding/bad.jai:27:1
    |
-26 | factorial :: (n: int) -> int {
+27 | factorial :: (n: int) -> int {
    | ^^^^^^^^^
    |
    = help: rewrite it as a loop, or keep an explicit stack of a fixed size
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `ping` is part of a call cycle (ping -> pong -> ping), so its stack use has no bound
-  --> tests/lint/freestanding/bad.jai:31:1
+  --> tests/lint/freestanding/bad.jai:32:1
    |
-31 | ping :: (n: int) {
+32 | ping :: (n: int) {
    | ^^^^
    |
    = help: rewrite it as a loop, or keep an explicit stack of a fixed size
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `buffer_work` keeps 4 KiB of locals on the stack, past the limit of 1 KiB
-  --> tests/lint/freestanding/bad.jai:39:1
+  --> tests/lint/freestanding/bad.jai:40:1
    |
-39 | buffer_work :: () {
+40 | buffer_work :: () {
    | ^^^^^^^^^^^
    |
    = help: keep the large locals in globals or a fixed pool, or raise `[lint.freestanding] max_frame_bytes`
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `print` writes to the console, in an interrupt handler
-  --> tests/lint/freestanding/bad.jai:45:5
+  --> tests/lint/freestanding/bad.jai:46:5
    |
-45 |     print("tick\n");
+46 |     print("tick\n");
    |     ^^^^^^^^^^^^^^^
    |
    = help: a handler must not print: set a flag or a counter and report it from the main loop
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `lock` takes a lock, in an interrupt handler
-  --> tests/lint/freestanding/bad.jai:50:5
+  --> tests/lint/freestanding/bad.jai:51:5
    |
-50 |     lock(*guard);
+51 |     lock(*guard);
    |     ^^^^^^^^^^^^
    |
    = help: a handler must not take a lock: the code it interrupts may hold it. Use a flag or an atomic
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `unlock` takes a lock, in an interrupt handler
-  --> tests/lint/freestanding/bad.jai:51:5
+  --> tests/lint/freestanding/bad.jai:52:5
    |
-51 |     unlock(*guard);
+52 |     unlock(*guard);
    |     ^^^^^^^^^^^^^^
    |
    = help: a handler must not take a lock: the code it interrupts may hold it. Use a flag or an atomic
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `sleep_milliseconds` may block, in an interrupt handler
-  --> tests/lint/freestanding/bad.jai:52:5
+  --> tests/lint/freestanding/bad.jai:53:5
    |
-52 |     sleep_milliseconds(1);
+53 |     sleep_milliseconds(1);
    |     ^^^^^^^^^^^^^^^^^^^^^
    |
    = help: a handler must return quickly: do not wait in it
    = note: see https://jacket.matteopolak.com/lint-rules/freestanding
 
 warning[freestanding]: `New` allocates with the default allocator, in an interrupt handler
-  --> tests/lint/freestanding/bad.jai:53:13
+  --> tests/lint/freestanding/bad.jai:54:13
    |
-53 |     cell := New(int);
+54 |     cell := New(int);
    |             ^^^^^^^^
    |
    = help: a handler must not allocate: use storage set aside beforehand

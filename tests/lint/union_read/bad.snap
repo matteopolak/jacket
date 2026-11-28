@@ -63,3 +63,12 @@ warning[union_read]: `p.pong` reads a union member, but nothing here says it is 
     |
     = help: check `p.pong.id` first, or write `p.pong` here before reading it
     = note: see https://jacket.matteopolak.com/lint-rules/union_read
+
+warning[union_read]: `(cast(*Value) p).text` reads a union member, but nothing here says it is the live one
+   --> tests/lint/union_read/bad.jai:98:13
+    |
+ 98 |     return (cast(*Value) p).text;
+    |             ^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: check `(cast(*Value) p).kind` first, or write `(cast(*Value) p).text` here before reading it
+    = note: see https://jacket.matteopolak.com/lint-rules/union_read

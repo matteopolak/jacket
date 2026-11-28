@@ -12,7 +12,8 @@
 //! so the rule reads the code for it. Five things are reported:
 //!
 //! - **OS-only modules.** An `#import` of a module that asserts the systems it builds for
-//!   (`#assert OS == .LINUX || OS == .MACOS`) without `NONE`. The systems are the ones
+//!   (`#assert OS == .LINUX || OS == .MACOS`) without `NONE`, or that loads or imports one at
+//!   its top level, on the `#if` branches that hold for `NONE`. The systems are the ones
 //!   `jacket doc` lists for the module, so there is no list to keep. An import under `#if` is
 //!   left alone.
 //! - **Allocation through the default allocator.** `alloc`, `New`, `NewArray`, `array_add` and
@@ -37,9 +38,10 @@
 //! alone. No fix. Off by default (`allow`, category `restriction`): it is for code that is
 //! meant to run without an operating system. Turn it on with `-W freestanding` or
 //! `[lint.rules] freestanding = "warn"`.
-use super::{callee_procs, finding, has_note, large_stack_array, proc_label, statement_lists};
-use crate::Finding;
-use crate::syntax::Cx;
+use std::cell::RefCell;
+use std::path::PathBuf;
+use std::rc::Rc;
+
 use jaic::ast::walk::{Node, walk};
 use jaic::ast::{AssignOp, BinOp, Block, ExprKind as E, ImportSource, Stmt, StmtKind as S};
 use jaic::fxhash::{HashMap, HashSet};
@@ -47,9 +49,10 @@ use jaic::sema::ProcId;
 use jaic::source::Span;
 use jaic::target::{TargetCpu, TargetOs};
 use jaic::types::TypeId;
-use std::cell::RefCell;
-use std::path::PathBuf;
-use std::rc::Rc;
+
+use super::{callee_procs, finding, has_note, large_stack_array, proc_label, statement_lists};
+use crate::Finding;
+use crate::syntax::Cx;
 
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
@@ -641,21 +644,70 @@ fn imports(cx: &Cx, report: &mut Report) {
         let Some(entry) = cx.compiler.find_module(name, &dir) else {
             continue;
         };
-        let systems = jaic::doc_comments::module_platforms(&entry);
-
-        if systems.is_empty() || systems.iter().any(|s| s == "NONE") {
+        let Some(blocker) = needs_operating_system(cx, &entry, &mut Vec::new()) else {
             continue;
-        }
+        };
+        let systems = if blocker == entry {
+            jaic::doc_comments::module_platforms(&entry)
+        } else {
+            Vec::new()
+        };
+        let reason = if systems.is_empty() {
+            let folder = blocker
+                .parent()
+                .and_then(std::path::Path::file_name)
+                .map(|f| f.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            let file = blocker
+                .file_name()
+                .map(|f| f.to_string_lossy().into_owned())
+                .unwrap_or_default();
+
+            format!("it needs `{folder}/{file}`, which does not build with `OS == .NONE`")
+        } else {
+            format!("it builds only for {}", words(&systems))
+        };
 
         report.add(
             stmt.span,
-            format!(
-                "`{name}` needs an operating system: it builds only for {}",
-                words(&systems)
-            ),
+            format!("`{name}` needs an operating system: {reason}"),
             "use a module that works with `OS == .NONE`, or import it under `#if OS != .NONE`",
         );
     }
+}
+
+/// The first file a build of `entry` for `OS == .NONE` pulls in at its top level, itself
+/// included, that states it does not build without an operating system. `seen` holds the files already visited.
+fn needs_operating_system(
+    cx: &Cx,
+    entry: &std::path::Path,
+    seen: &mut Vec<std::path::PathBuf>,
+) -> Option<std::path::PathBuf> {
+    if seen.iter().any(|path| path == entry) {
+        return None;
+    }
+
+    seen.push(entry.to_path_buf());
+    let build = jaic::doc_comments::bare_build(entry);
+
+    if build.rejected {
+        return Some(entry.to_path_buf());
+    }
+
+    let dir = entry.parent()?;
+
+    for dependency in build.dependencies {
+        let next = match dependency {
+            jaic::doc_comments::Dependency::Module(name) => cx.compiler.find_module(&name, dir),
+            jaic::doc_comments::Dependency::File(path) => Some(dir.join(path)),
+        };
+
+        if let Some(found) = next.and_then(|next| needs_operating_system(cx, &next, seen)) {
+            return Some(found);
+        }
+    }
+
+    None
 }
 
 /// `a, b and c`.

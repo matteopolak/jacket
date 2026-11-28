@@ -28,12 +28,13 @@
 //! (ignoring case and `_`); a tag value no member is named after counts for any. Where the caller checks the
 //! tag, an `assert` on it at the top of the helper states the requirement and satisfies the
 //! rule.
-use crate::Finding;
-use crate::syntax::Cx;
 use jaic::ast::walk::{Node, walk};
 use jaic::ast::{BinOp, Expr, ExprKind as E, Stmt, StmtKind as S, UnOp};
 use jaic::intern::Sym;
 use jaic::types::{ArrayKind, StructId, TypeId, TypeKind, Types};
+
+use crate::Finding;
+use crate::syntax::Cx;
 
 /// The rule's name, group and one-line summary, and its check.
 pub(crate) const INFO: super::RuleInfo = super::RuleInfo {
@@ -82,11 +83,11 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
                 return true;
             }
 
-            let shown = cx.src(e.span).trim();
+            let shown = cx.whole_src(e).trim();
             let help = match tag_of(cx, &read) {
                 Some(tag) => format!(
                     "check `{}.{tag}` first, or write `{shown}` here before reading it",
-                    cx.src(base.span).trim()
+                    cx.whole_src(base).trim()
                 ),
                 None => format!(
                     "keep the union in a struct beside a tag and check it, or write `{shown}` here before reading it"

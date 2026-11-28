@@ -175,6 +175,86 @@ pub fn module_platforms(file: &Path) -> Vec<String> {
     out
 }
 
+/// A file or module another file loads or imports.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Dependency {
+    /// `#import "Name"`, found like any module.
+    Module(String),
+    /// `#load "path.jai"` or `#import,file "path.jai"`, relative to the file that names it.
+    File(String),
+}
+
+/// What building a file with no operating system (`OS == .NONE`) does at its top level.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct BareBuild {
+    /// A top-level `#assert` that tests only `OS` and fails (`#assert OS != .NONE;`).
+    pub rejected: bool,
+    /// The files and modules it loads or imports, in the `#if` branches that hold for `NONE`.
+    pub dependencies: Vec<Dependency>,
+}
+
+/// Whether `expr` holds with `OS == .NONE`: `None` when it depends on anything else (`CPU`,
+/// another constant). `OS_IS_UNIX` is false there.
+fn holds_bare(expr: &Expr) -> Option<bool> {
+    match &expr.kind {
+        ExprKind::Ident(name) if name.as_str() == "OS_IS_UNIX" => Some(false),
+        ExprKind::Binary(BinOp::And, left, right) => match (holds_bare(left), holds_bare(right)) {
+            (Some(false), _) | (_, Some(false)) => Some(false),
+            (Some(true), Some(true)) => Some(true),
+            _ => None,
+        },
+        ExprKind::Binary(BinOp::Or, left, right) => match (holds_bare(left), holds_bare(right)) {
+            (Some(true), _) | (_, Some(true)) => Some(true),
+            (Some(false), Some(false)) => Some(false),
+            _ => None,
+        },
+        ExprKind::Unary(UnOp::Not, inner) => holds_bare(inner).map(|v| !v),
+        _ => holds_on(expr, "NONE"),
+    }
+}
+
+/// What a build of the file at `file` for `OS == .NONE` pulls in and rejects at its top level.
+/// A top-level `#if` follows the branch that holds for `NONE`, and neither when it depends on
+/// anything else. Empty when the file cannot be read.
+pub fn bare_build(file: &Path) -> BareBuild {
+    fn walk(stmts: &[Stmt], out: &mut BareBuild) {
+        for stmt in stmts {
+            match &stmt.kind {
+                StmtKind::StaticIf(branches) => match holds_bare(&branches.cond) {
+                    Some(true) => walk(&branches.then_branch, out),
+                    Some(false) => walk(&branches.else_branch, out),
+                    None => {}
+                },
+                StmtKind::Load {
+                    path, ..
+                } => out.dependencies.push(Dependency::File(path.to_string())),
+                StmtKind::Import(import) => match &import.source {
+                    crate::ast::ImportSource::Module(name) => {
+                        out.dependencies.push(Dependency::Module(name.to_string()));
+                    }
+                    crate::ast::ImportSource::File(path) => {
+                        out.dependencies.push(Dependency::File(path.to_string()));
+                    }
+                    _ => {}
+                },
+                StmtKind::Assert(assert) if holds_on(&assert.cond, "NONE") == Some(false) => {
+                    out.rejected = true;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let Ok(text) = std::fs::read_to_string(file) else {
+        return BareBuild::default();
+    };
+    let parse = parse_file_ide(FileId(0), &text);
+    let mut out = BareBuild::default();
+
+    walk(&parse.file.stmts, &mut out);
+    out
+}
+
 /// The names of the systems in `mask`; empty for every one.
 fn os_names(mask: u8) -> Vec<String> {
     if mask == EVERY_OS {

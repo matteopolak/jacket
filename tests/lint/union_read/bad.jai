@@ -93,6 +93,11 @@ rtt_of :: (p: *Packet) -> float {
     return p.pong.rtt;
 }
 
+// The base is a cast, so the message keeps its parentheses.
+cast_text :: (p: *void) -> string {
+    return (cast(*Value) p).text;
+}
+
 main :: () {
     v: Value;
     v.kind = .TEXT;
