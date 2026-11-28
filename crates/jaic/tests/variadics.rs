@@ -1,25 +1,16 @@
 //! Mixed scalar/spread normalization regressions.
-use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use jaic::sema::{ProgramSource, VirtualFs};
 use test_support::compiler::bare_compiler;
 
 #[path = "support/variadic_source.rs"]
 mod source;
 use source::SOURCE;
-
-use crate::reflection_bootstrap as bootstrap;
+use test_support::bootstrap;
 
 #[test]
 fn baked_mixed_type_packs_preserve_relocations_and_deduplicate_instances() {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.preload = Some("/lib/prelude/module.jai".into());
-    let mut fs = VirtualFs::default();
-
-    fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
-    let mut c = Compiler::new(options, Rc::new(fs));
+    let mut c = bootstrap::compiler_with("", VirtualFs::default());
     let source = r"
         pick :: ($types: ..Type) -> Type { return types[2]; }
         forwarded :: ($types: ..Type) -> Type { return pick(u8,..types,s64); }

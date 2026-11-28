@@ -178,8 +178,6 @@ mod readiness_preservation;
 mod recursive_variadic_struct;
 #[path = "reflection.rs"]
 mod reflection;
-#[path = "support/reflection_bootstrap.rs"]
-mod reflection_bootstrap;
 #[path = "rejected_forms.rs"]
 mod rejected_forms;
 #[path = "run_result_constants.rs"]

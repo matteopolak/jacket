@@ -2,9 +2,8 @@
 use std::rc::Rc;
 
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
+use test_support::bootstrap;
 use test_support::compiler::bare_compiler as compiler;
-
-use crate::reflection_bootstrap as bootstrap;
 
 
 #[test]

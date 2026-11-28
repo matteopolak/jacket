@@ -3,8 +3,7 @@ use std::rc::Rc;
 
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
 use jaic::target::{TargetCpu, TargetOs};
-
-use crate::reflection_bootstrap as bootstrap;
+use test_support::bootstrap;
 
 fn compile(source: &str, os: TargetOs, cpu: TargetCpu) -> (Compiler, jaic::sema::Result<()>) {
     let mut options = Options::host();

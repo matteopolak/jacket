@@ -111,7 +111,7 @@ pub fn target_flags(args: &[String]) -> Result<TargetFlags, String> {
                 match token.name {
                     "-os" => selection.os = Some(read_os(token.name, value).map_err(error_text)?),
                     "-cpu" => {
-                        selection.cpu = Some(read_cpu(token.name, value).map_err(error_text)?)
+                        selection.cpu = Some(read_cpu(token.name, value).map_err(error_text)?);
                     }
                     _ => selection.triple = Some(value.to_string()),
                 }

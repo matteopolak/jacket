@@ -2,21 +2,10 @@
 use std::rc::Rc;
 
 use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
-
-use crate::reflection_bootstrap as bootstrap;
+use test_support::bootstrap;
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.preload = Some("/lib/prelude/module.jai".into());
-    let mut fs = VirtualFs::default();
-
-    fs.insert(
-        "/lib/prelude/module.jai",
-        format!("{} {}", bootstrap::BOOTSTRAP, ENUM_RECORD).as_bytes(),
-    );
-    let mut c = Compiler::new(options, Rc::new(fs));
+    let mut c = bootstrap::compiler_with(ENUM_RECORD, VirtualFs::default());
     let result = c.compile_sources(&[ProgramSource::String(source.into())]);
 
     (c, result)

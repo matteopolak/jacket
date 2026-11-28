@@ -27,6 +27,9 @@ pub mod snapshot;
 pub mod tmp;
 pub mod toolchain;
 
+#[cfg(feature = "compiler")]
+pub mod bootstrap;
+
 #[cfg(feature = "backend")]
 pub mod backend;
 #[cfg(feature = "compiler")]

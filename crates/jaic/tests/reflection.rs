@@ -1,10 +1,6 @@
 //! Generic-default metadata exposed through the public record fields.
-use std::{path::Path, rc::Rc};
-
-use bootstrap::BOOTSTRAP;
-use jaic::sema::{Compiler, Options, VirtualFs};
-
-use crate::reflection_bootstrap as bootstrap;
+use jaic::sema::Compiler;
+use test_support::bootstrap::compile_app as compile;
 
 #[test]
 fn hidden_procedure_members_keep_the_marker_and_struct_alignment() {
@@ -47,20 +43,6 @@ fn check(source: &str) {
     }
 }
 
-fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
-    let mut fs = VirtualFs::default();
-
-    fs.insert("/lib/prelude/module.jai", BOOTSTRAP.as_bytes());
-    fs.insert("/app/main.jai", source.as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.preload = Some("/lib/prelude/module.jai".into());
-    let mut c = Compiler::new(options, Rc::new(fs));
-    let result = c.compile_program(Path::new("/app/main.jai"));
-
-    (c, result)
-}
 
 #[test]
 fn adding_context_after_layout_appends_the_member() {

@@ -1,7 +1,7 @@
 //! Atomic intrinsic regressions; no module-specific implementation.
 
 use jaic::sema::{Compiler, ProgramSource};
-use test_support::compiler::bare_compiler;
+use test_support::compiler::{bare_compiler, compile_source};
 
 const DECLS: &str = r"
 atomic_load :: (pointer: *$T) -> T #intrinsic;
@@ -11,10 +11,7 @@ compare_and_swap :: (pointer: *$T, old: T, new: T) -> (bool, T) #intrinsic;
 ";
 
 fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
-    let mut c = bare_compiler();
-    let result = c.compile_sources(&[ProgramSource::String(format!("{DECLS}\n{source}"))]);
-
-    (c, result)
+    compile_source(&format!("{DECLS}\n{source}"))
 }
 
 #[test]

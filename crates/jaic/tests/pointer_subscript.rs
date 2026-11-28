@@ -1,9 +1,8 @@
 //! Pointer-subscript dispatch and lvalue controls.
 use std::rc::Rc;
 
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
-
-use crate::reflection_bootstrap as bootstrap;
+use jaic::sema::{Compiler, Options, VirtualFs};
+use test_support::bootstrap;
 
 const STORAGE: &str = r"
     Storage :: struct(Elem: Type, chunk: int, mode := false) { data: *Elem; }
@@ -13,18 +12,9 @@ const STORAGE: &str = r"
 ";
 
 fn compile(source: &str) -> Result<(), String> {
-    let mut options = Options::host();
+    let (compiler, result) = bootstrap::compile(source);
 
-    options.runtime_support = false;
-    options.preload = Some("/lib/prelude/module.jai".into());
-    let mut fs = VirtualFs::default();
-
-    fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-
-    compiler
-        .compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&compiler.src.sources))
+    result.map_err(|error| error.render(&compiler.src.sources))
 }
 
 #[test]

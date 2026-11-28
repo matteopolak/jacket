@@ -1,29 +1,19 @@
 //! Default-value identity checks, without calling a Type formatter.
-use std::{path::Path, rc::Rc};
 
 use jaic::{
     sema::{
-        Compiler, Options, VirtualFs,
+        Compiler,
         value::{Aggregate, Value},
     },
     source::Span,
     types::TypeId,
 };
-
-use crate::reflection_bootstrap as bootstrap;
+use test_support::bootstrap;
 
 fn compiler(source: &str) -> Compiler {
-    let mut fs = VirtualFs::default();
+    let (compiler, result) = bootstrap::compile_app(source);
 
-    fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
-    fs.insert("/app/main.jai", source.as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.preload = Some("/lib/prelude/module.jai".into());
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-
-    if let Err(error) = compiler.compile_program(Path::new("/app/main.jai")) {
+    if let Err(error) = result {
         panic!("{}", error.render(&compiler.src.sources));
     }
 

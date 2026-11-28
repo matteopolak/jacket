@@ -1,23 +1,5 @@
 //! Reductions of default generic pointee identity and constraint binding.
-use std::rc::Rc;
-
-use jaic::sema::{Compiler, Options, ProgramSource, VirtualFs};
-
-use crate::reflection_bootstrap as bootstrap;
-
-fn compile(source: &str) -> (Compiler, jaic::sema::Result<()>) {
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.preload = Some("/lib/prelude/module.jai".into());
-    let mut fs = VirtualFs::default();
-
-    fs.insert("/lib/prelude/module.jai", bootstrap::BOOTSTRAP.as_bytes());
-    let mut c = Compiler::new(options, Rc::new(fs));
-    let result = c.compile_sources(&[ProgramSource::String(source.into())]);
-
-    (c, result)
-}
+use test_support::bootstrap::compile;
 
 #[test]
 fn implicit_default_pointees_bind_the_same_constraint_as_explicit_instances() {

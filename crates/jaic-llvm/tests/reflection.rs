@@ -1,8 +1,6 @@
 //! Native/WASM execution of independently constructed generic reflection data.
 use test_support::backend;
-
-#[path = "../../jaic/tests/support/reflection_bootstrap.rs"]
-mod bootstrap;
+use test_support::bootstrap;
 
 const SOURCE: &str = r#"
 Record :: struct #type_info_procedures_are_void_pointers { callback: (int) -> int; n: u8; }
