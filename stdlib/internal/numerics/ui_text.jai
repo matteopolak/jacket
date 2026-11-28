@@ -1,9 +1,16 @@
+// Returns `x` times the width of one em in `font`, in pixels.
+//
+// Returns 0 for `x == 0` without looking at `font`; any other `x` asserts that `font` is not null.
 em :: (x: float, font: *Font) -> float {
     if x == 0 return 0;
     assert(font != null, "em requires a font");
     return x * cast(float) font.em_width;
 }
 
+// Returns the width and height in pixels that `text` takes in `font`.
+//
+// The width is measured by the draw procedures' `prepare_text` callback; the height is the font's character
+// height whatever the text. Asserts that the callback and `font` are set.
 text_size :: (font: *Font, text: string) -> (width: float, height: float) {
     assert(draw_procs.prepare_text != null, "text preparation callback required");
     width = cast(float) draw_procs.prepare_text(font, text);
@@ -13,6 +20,10 @@ text_size :: (font: *Font, text: string) -> (width: float, height: float) {
     return width, height;
 }
 
+// Returns the distance from the `y` edge of a rectangle `height` tall to the baseline of text in `font`, so
+// that the text is centred vertically in it.
+//
+// Uses the font's largest ascender and descender plus its `y_offset_for_centering`.
 default_text_baseline :: (font: *Font, height: float) -> float {
     assert(font != null, "default_text_baseline requires a font");
     ascender := abs(cast(float) font.max_ascender);
@@ -23,6 +34,11 @@ default_text_baseline :: (font: *Font, height: float) -> float {
     else return offset + descender;
 }
 
+// Returns the `x` and `y` at which a label's text is drawn inside `r`.
+//
+// `x` follows `theme.alignment`: centred by default, or inset by `theme.alignment_pad_ems` from the left or
+// right edge. `y` is `r.y` plus `theme.text_baseline_vertical_position` times `r.h` when that is finite, and
+// `r.y` plus [default_text_baseline] otherwise.
 text_origin :: (theme: *Label_Theme, font: *Font, r: Rect, text_width: float) -> (x: float, y: float) {
     x = r.x + (r.w - text_width) / 2;
     if theme.alignment == .Left x = r.x + em(theme.alignment_pad_ems, font);
@@ -33,6 +49,10 @@ text_origin :: (theme: *Label_Theme, font: *Font, r: Rect, text_width: float) ->
     return x, y;
 }
 
+// Draws the text last prepared for `font` with its origin at the `x` and `y` of `r`, in `theme.text_color`.
+//
+// No alignment is applied and `r` only supplies the position and the clip: the draw is clipped to `r` unless
+// `do_scissor` is false. Asserts that the draw callback is set.
 label_from_prepared_text :: (r: Rect, font: *Font, theme: *Label_Theme, do_scissor := true) {
     assert(draw_procs.draw_prepared_text != null, "text drawing callback required");
     if do_scissor push_scissor(r);
@@ -40,6 +60,11 @@ label_from_prepared_text :: (r: Rect, font: *Font, theme: *Label_Theme, do_sciss
     if do_scissor pop_scissor();
 }
 
+// Draws `text` inside `r` using `theme` and returns the width in pixels the text needs.
+//
+// Draws nothing and returns 0 for empty text. The font is `theme.font`, else the default theme's font, else a
+// bundled font sized to the height of `r`. The text is aligned by [text_origin] and clipped to `r` unless
+// `do_scissor` is false.
 label :: (r: Rect, text: string, theme: *Label_Theme, do_scissor := true) -> desired_width: float {
     if text.count == 0 return 0;
 
@@ -59,12 +84,16 @@ label :: (r: Rect, text: string, theme: *Label_Theme, do_scissor := true) -> des
     return desired_width;
 }
 
+// Draws `text` in `font` with its origin at pixel (`x`, `y`), without alignment or clipping.
 my_draw_text :: (font: *Font, x: s64, y: s64, text: string, color: Vector4, effects: Font_Effects = 0) {
     assert(draw_procs.prepare_text != null && draw_procs.draw_prepared_text != null);
     draw_procs.prepare_text(font, text, effects);
     draw_procs.draw_prepared_text(font, x, y, color, effects);
 }
 
+// Returns the vertical extent of a line of text whose baseline is at `text_y`, as `y0 <= y1`.
+//
+// The extent runs from the font's largest descender to its largest ascender, so the baseline lies inside it.
 get_y_range :: (font: *Font, text_y: float) -> (y0: float, y1: float) {
     assert(font != null, "get_y_range requires a font");
     ascender := abs(cast(float) font.max_ascender);
@@ -74,12 +103,22 @@ get_y_range :: (font: *Font, text_y: float) -> (y0: float, y1: float) {
     else return text_y - descender, text_y + ascender;
 }
 
+// Returns the `x` positions of the left and right edges of the part of `text` from byte `start_character` up
+// to byte `end_character`, for text drawn from `text_x`.
+//
+// Both offsets are byte offsets, not character counts, and must be on character boundaries to give a sensible
+// result. Asserts `0 <= start_character <= end_character <= text.count`.
 get_selection_endpoints :: (font: *Font, text: string, effect: Font_Effects, text_x: float, start_character: int, end_character: int) -> (x0: float, x1: float) {
     assert(start_character >= 0 && end_character >= start_character && end_character <= text.count);
     assert(draw_procs.prepare_text != null);
     return text_x + cast(float) draw_procs.prepare_text(font, .{ start_character, text.data }, effect), text_x + cast(float) draw_procs.prepare_text(font, .{ end_character, text.data }, effect);
 }
 
+// Returns the byte offset of the character boundary nearest to the horizontal position `cursor_x`, for text
+// drawn from `current_frame_text_x`.
+//
+// A position left of the middle of the first character gives 0, and one right of the middle of the last gives
+// `text.count`. `state` and `glyphs_prepped` are not read.
 get_insert_point_for_cursor :: (state: *Text_Input_State, font: *Font, text: string, current_frame_text_x: float, cursor_x: int, effect: Font_Effects, glyphs_prepped := false) -> int {
     assert(draw_procs.prepare_text != null);
     i := 0;
@@ -98,6 +137,10 @@ get_insert_point_for_cursor :: (state: *Text_Input_State, font: *Font, text: str
     return text.count;
 }
 
+// Returns a copy of `s` with every malformed UTF-8 byte replaced by U+FFFD and every NUL byte removed.
+//
+// Valid sequences are kept as they are. Overlong forms, surrogates and values above U+10FFFF count as
+// malformed. The result is allocated with the context allocator and the caller frees it with `free`.
 sanitize :: (s: string) -> string {
     // Replace malformed UTF-8 with U+FFFD and drop NUL; preserve valid byte sequences.
     builder: String_Builder;
@@ -118,6 +161,10 @@ sanitize :: (s: string) -> string {
     return builder_to_string(*builder);
 }
 
+// Returns the byte offset of the start of the character before byte offset `_point`.
+//
+// `_point` is clamped to `0..s.count`, and 0 is returned at the start. Steps back over continuation bytes
+// without validating the sequence.
 seek_left_one_utf8_character :: (s: string, _point: int) -> int {
     i := clamp(_point, 0, s.count);
     if i == 0 return 0;
@@ -128,6 +175,10 @@ seek_left_one_utf8_character :: (s: string, _point: int) -> int {
     return i;
 }
 
+// Returns the byte offset of the start of the word before byte offset `point`.
+//
+// Skips whitespace to the left of `point`, then the non-whitespace run before it. Returns 0 when there is no
+// earlier word.
 seek_left_one_word :: (s: string, point: int) -> int {
     i := clamp(point, 0, s.count);
     while i > 0 && is_space(s[seek_left_one_utf8_character(s, i)]) i = seek_left_one_utf8_character(s, i);
@@ -135,6 +186,10 @@ seek_left_one_word :: (s: string, point: int) -> int {
     return i;
 }
 
+// Returns the byte offset of the start of the word after byte offset `point`.
+//
+// Skips the rest of the current word, then the whitespace after it. Returns `s.count` when no later word
+// starts.
 seek_right_one_word :: (s: string, point: int) -> int {
     i := clamp(point, 0, s.count);
     while i < s.count && !is_space(s[i]) i = seek_right_character(s, i);
@@ -142,6 +197,12 @@ seek_right_one_word :: (s: string, point: int) -> int {
     return i;
 }
 
+// Splits `s` at every newline byte (10) and returns the lines without the newlines.
+//
+// Each line points into `s` and is not copied. A string with no newline gives one line, and a trailing
+// newline gives a final empty line. A carriage return stays in its line. When `between_lines_string` is not
+// empty it is inserted as its own element after every line except the last. The array is allocated with the
+// context allocator and the caller frees its `data`.
 break_into_lines :: (s: string, between_lines_string := "") -> [] string {
     result: [..] string;
     start := 0;
@@ -157,16 +218,29 @@ break_into_lines :: (s: string, between_lines_string := "") -> [] string {
     return .{ result.count, result.data };
 }
 
+// Moves the cursor of `state` into the text and onto a character boundary.
+//
+// Clamps `insert_point` to `0..text.count`, then steps back over continuation bytes to the start of the
+// character it was inside.
 clamp_insert_point :: (state: *Text_Input_State) {
     state.insert_point = clamp(state.insert_point, 0, state.text.count);
     while state.insert_point > 0 && state.insert_point < state.text.count && (state.text[state.insert_point] & 0xc0) == 0x80 state.insert_point -= 1;
 }
 
+// Replaces the text of `state` with `_s` and puts the cursor at the end.
+//
+// Sanitizes `_s` as [set_text] does, and records it as the text that [text_input] restores on Escape.
 set_input :: (using state: *Text_Input_State, _s: string) {
     set_text(state, _s);
     insert_point = text.count;
 }
 
+// Replaces the text of `state` with a sanitized copy of `s`.
+//
+// Copies into the state's own buffer, so `s` may point into the old text. Asserts that the result fits in
+// `Text_Input_State.MAX_BUFFER_SIZE` bytes. The cursor is kept but clamped to a character boundary; no
+// [Text_Result_Action] is raised. When `replace_pre_modification_text` is true, `pre_modification_text`
+// becomes a copy of the new text.
 set_text :: (state: *Text_Input_State, s: string, replace_pre_modification_text := true) {
     cleaned := sanitize(s);
 
@@ -183,12 +257,18 @@ set_text :: (state: *Text_Input_State, s: string, replace_pre_modification_text 
     }
 }
 
+// Empties the text of `state`, puts the cursor at 0 and clears the selection.
+//
+// Raises no [Text_Result_Action] and leaves the history alone.
 clear_text :: (using state: *Text_Input_State) {
     text = .{ 0, input_buffer.data };
     insert_point = 0;
     deselect(*selection);
 }
 
+// Inserts `s` at the end of the text of `state` with [insert_text].
+//
+// Logs an error and asserts when the text would exceed `Text_Input_State.MAX_BUFFER_SIZE` bytes.
 append_text :: (using state: *Text_Input_State, s: string) {
     insert_point = text.count;
     inserted := insert_text(state, s);
@@ -198,6 +278,12 @@ append_text :: (using state: *Text_Input_State, s: string) {
     }
 }
 
+// Inserts a sanitized copy of `s` at the cursor, replacing the selection if there is one, and returns whether
+// it fit.
+//
+// Returns false and changes nothing when the result would exceed `Text_Input_State.MAX_BUFFER_SIZE` bytes.
+// On success the cursor moves after the inserted text, the selection is cleared and `.TEXT_MODIFIED` is
+// raised.
 insert_text :: (using state: *Text_Input_State, s: string) -> bool {
     cleaned := sanitize(s);
 
@@ -224,10 +310,14 @@ insert_text :: (using state: *Text_Input_State, s: string) -> bool {
     return true;
 }
 
+// Returns the text of `state`.
+//
+// The string points into the state's buffer and is valid until the text next changes; copy it to keep it.
 get_result :: (using state: *Text_Input_State) -> string {
     return text;
 }
 
+// Empties `state`, discards its pending result actions and deactivates it.
 reset :: (using state: *Text_Input_State) {
     clear_text(state);
     pending_result_actions = 0;
@@ -235,6 +325,9 @@ reset :: (using state: *Text_Input_State) {
     active_widget_remove(*widget);
 }
 
+// Makes `state` the active input, deactivating other active widgets.
+//
+// Saves a copy of the current text as the text Escape restores and the history falls back to.
 activate :: (using state: *Text_Input_State) {
     active_widget_deactivate_all(*widget);
     active = true;
@@ -243,11 +336,19 @@ activate :: (using state: *Text_Input_State) {
     active_widget_add(*widget);
 }
 
+// Records a copy of `text` as the inert text that [text_input] last saw.
+//
+// [text_input] compares the text it is given with this to notice that the program changed it while the input
+// was inactive.
 set_last_inert_text :: (state: *Text_Input_State, text: string) {
     free(state.last_inert_text);
     state.last_inert_text = copy_string(text);
 }
 
+// Starts a selection at the cursor if there is none.
+//
+// The new selection is empty, with both ends at the cursor's byte offset. Does nothing when a selection is
+// already active.
 start_selecting :: (using state: *Text_Input_State) {
     if selection.active return;
 
@@ -258,21 +359,27 @@ start_selecting :: (using state: *Text_Input_State) {
     selection.end_character = insert_point;
 }
 
+// Marks `selection` as not active and resets its lines to -1; the character offsets are left as they were.
 deselect :: (using selection: *Selection) {
     active = false;
     start_line = -1;
     end_line = -1;
 }
 
+// Sets `selection.active` to whether its start and end differ, in line or in character offset.
 selection_was_modified :: (using selection: *Selection) {
     active = start_character != end_character || start_line != end_line;
 }
 
+// Selects the whole text of `state` and puts the cursor at the end.
 select_all :: (using state: *Text_Input_State) {
     selection = .{ 0, 0, 0, text.count, true };
     insert_point = text.count;
 }
 
+// Writes the selected bytes to the clipboard, and removes them from the text when `cut` is true.
+//
+// Does nothing when nothing is selected.
 copy_selection_to_clipboard :: (using state: *Text_Input_State, cut := false) {
     lo, hi := selection_range(state);
     if lo == hi return;
@@ -282,6 +389,9 @@ copy_selection_to_clipboard :: (using state: *Text_Input_State, cut := false) {
     if cut erase_selection(state);
 }
 
+// Inserts the clipboard text at the cursor with [insert_text], replacing the selection.
+//
+// Reports a native failure and leaves the text unchanged when the result would not fit.
 insert_clipboard_at_cursor :: (using state: *Text_Input_State) {
     clipboard := clipboard_read();
 
@@ -289,64 +399,97 @@ insert_clipboard_at_cursor :: (using state: *Text_Input_State) {
     if !insert_text(state, clipboard) report_native_failure("Clipboard text exceeds input capacity");
 }
 
+// Moves the cursor one character left, to the previous character boundary.
+//
+// With `want_selection` the selection is extended from where the cursor was; without it the selection is
+// cleared. The same holds for the other `move_cursor_` procedures.
 move_cursor_left :: (using state: *Text_Input_State, want_selection := false) {
     move_cursor(state, seek_left_one_utf8_character(text, insert_point), want_selection);
 }
 
+// Moves the cursor one character right, to the next character boundary.
+//
+// See [move_cursor_left] for `want_selection`.
 move_cursor_right :: (state: *Text_Input_State, want_selection := false) {
     move_cursor(state, seek_right_character(state.text, state.insert_point), want_selection);
 }
 
+// Moves the cursor to the start of the previous word.
+//
+// See [move_cursor_left] for `want_selection`.
 move_cursor_left_by_word :: (using state: *Text_Input_State, want_selection := false) {
     move_cursor(state, seek_left_one_word(text, insert_point), want_selection);
 }
 
+// Moves the cursor to the start of the next word, or to the end of the text after the last word.
+//
+// See [move_cursor_left] for `want_selection`.
 move_cursor_right_by_word :: (using state: *Text_Input_State, want_selection := false) {
     move_cursor(state, seek_right_one_word(text, insert_point), want_selection);
 }
 
+// Moves the cursor to the start of the text.
+//
+// See [move_cursor_left] for `want_selection`.
 move_cursor_to_beginning :: (state: *Text_Input_State, want_selection := false) {
     move_cursor(state, 0, want_selection);
 }
 
+// Moves the cursor to the end of the text.
+//
+// See [move_cursor_left] for `want_selection`.
 move_cursor_to_end :: (state: *Text_Input_State, want_selection := false) {
     move_cursor(state, state.text.count, want_selection);
 }
 
+// Sets the text of `state` to the history entry at `command_history_index`, or to the text saved by
+// [activate] when the index is outside the history.
 refresh_input_from_history :: (using state: *Text_Input_State) {
     if command_history_index >= 0 && command_history_index < command_history.count set_input(state, command_history[command_history_index]);
     else set_input(state, last_saved_input);
 }
 
+// Shows the previous history entry, stopping at the oldest.
+//
+// Does nothing when the history is empty.
 navigate_history_backward :: (using state: *Text_Input_State) {
     if command_history.count == 0 return;
     command_history_index = max(0, command_history_index - 1);
     refresh_input_from_history(state);
 }
 
+// Shows the next history entry; past the newest it restores the text saved by [activate].
 navigate_history_forward :: (using state: *Text_Input_State) {
     command_history_index = min(command_history.count, command_history_index + 1);
     refresh_input_from_history(state);
 }
 
 #if LEFT_HANDED {
+    // Deletes the selection, or the character before the cursor, or the word before it when `by_word` is true.
     backspace_from_cursor :: (using state: *Text_Input_State, by_word := false) {
         delete_left(state, by_word);
     }
 
+    // Deletes the selection, or the character after the cursor, or the word after it when `by_word` is true.
     delete_from_cursor :: (using state: *Text_Input_State, by_word := false) {
         delete_right(state, by_word);
     }
 } else {
+    // Deletes the selection, or the character before the cursor.
     backspace_from_cursor :: (using state: *Text_Input_State) {
         delete_left(state, false);
     }
 
+    // Deletes the selection, or the character after the cursor.
     delete_from_cursor :: (using state: *Text_Input_State) {
         delete_right(state, false);
     }
 }
 
+// Handles the Enter key: finishes the input, or inserts a newline when `shift_pressed` is true.
+//
+// Finishing raises `.ENTERED`, appends a copy of the text to the history, points the history index past its
+// end and deactivates the input.
 press_enter :: (using state: *Text_Input_State, shift_pressed := false) {
     if shift_pressed {
         insert_user_text(state, "\n");
@@ -360,6 +503,7 @@ press_enter :: (using state: *Text_Input_State, shift_pressed := false) {
     active_widget_remove(*widget);
 }
 
+// Handles the Escape key: restores the text saved by [activate], raises `.ESCAPED` and deactivates the input.
 press_escape :: (using state: *Text_Input_State) {
     pending_result_actions |= .ESCAPED;
     set_text(state, last_saved_input, false);
@@ -367,6 +511,11 @@ press_escape :: (using state: *Text_Input_State) {
     active_widget_remove(*widget);
 }
 
+// Handles the Tab key by cycling through the completions of the state's `auto_complete`.
+//
+// Calls `auto_complete.proc` with the current text and replaces the text with the next match, or the previous
+// one when `shift_pressed` is true, then raises `.TEXT_MODIFIED`. Leaves the text alone when there is no
+// completion procedure or no match.
 press_tab :: (using state: *Text_Input_State, shift_pressed := false) {
     tab_pressed = true;
     if auto_complete.proc == null return;
@@ -385,21 +534,35 @@ press_tab :: (using state: *Text_Input_State, shift_pressed := false) {
     pending_result_actions |= .TEXT_MODIFIED;
 }
 
+// Deactivates the [Text_Input_State] that `widget` belongs to; stored as its `deactivate_proc`.
 text_input_deactivate :: (widget: *Active_Widget) {
     state := cast(*Text_Input_State) widget;
     state.active = false;
 }
 
+// Returns whether `event` is a left mouse button press while the pointer is over the input's rectangle;
+// stored as the state's `check_for_activation_proc`.
 text_input_check_for_activation :: (widget: *Active_Widget, event: Event) -> bool {
     state := cast(*Text_Input_State) widget;
     return event.type == .KEYBOARD && event.key_code == .MOUSE_BUTTON_LEFT && event.key_pressed != 0 && has_focus(state.rect);
 }
 
+// Passes each of `events` to [handle_event] in order; stored as the state's `serial_events_proc`.
 text_input_serial_events :: (widget: *Active_Widget, events: [] Event) {
     state := cast(*Text_Input_State) widget;
     for event: events handle_event(state, event);
 }
 
+// Applies one input event to `state`; ignored while the input is inactive or disabled.
+//
+// A text event inserts its character as UTF-8, and one that is not a valid Unicode scalar is rejected with a
+// message on standard error. Key presses act as follows:
+// - Backspace and Delete: delete a character, or a word with Ctrl.
+// - Left and Right: move the cursor, by word with Ctrl; Shift extends the selection.
+// - Home and End: move to the start or end; Shift extends the selection.
+// - Up and Down: step through the history.
+// - Enter, Escape and Tab: see [press_enter], [press_escape] and [press_tab].
+// - Ctrl or Cmd with A, C, X and V: select all, copy, cut and paste.
 handle_event :: (state: *Text_Input_State, event: Event) {
     if !state.active || state.disabled return;
 
@@ -444,6 +607,18 @@ handle_event :: (state: *Text_Input_State, event: Event) {
     }
 }
 
+// Draws a single-line text input in `_r` and returns what the user did this frame.
+//
+// `inert_text` is the text shown while the input is inactive; when the program passes a different string
+// later, the input takes it as its new text. The state is found from the call location `loc` and
+// `identifier`, so inputs made from one call site need distinct identifiers. A null `theme` selects the
+// default theme. `input_action` can activate or deactivate the input from code.
+//
+// Returns:
+// - result_action: what happened since the last call: `.ENTERED`, `.ESCAPED` and `.TEXT_MODIFIED`.
+// - new_string: the current text. It points into the state's buffer and is valid until the text next
+//   changes.
+// - state: the input's state.
 text_input :: (_r: Rect, inert_text: string, theme: *Text_Input_Theme, identifier: s64 = 0, loc := #caller_location,input_action: Text_Input_Action = 0, auto_complete: Auto_Complete = .{}) -> (result_action: Text_Result_Action, new_string: string, state: *Text_Input_State) {
     if theme == null theme = *default_overall_theme.text_input_theme;
 
@@ -476,6 +651,7 @@ text_input :: (_r: Rect, inert_text: string, theme: *Text_Input_Theme, identifie
     return result_action, state.text, state;
 }
 
+// Draws the background of a text input in `r`, in its pressed look while `active` is true.
 draw_text_input_background :: (r: Rect, theme: *Text_Input_Theme, state: *Text_Input_State, active := false, changed := false) {
     state.base.rect = r;
     if active state.base.pressed_factor = 1;
@@ -483,6 +659,9 @@ draw_text_input_background :: (r: Rect, theme: *Text_Input_Theme, state: *Text_I
     core_draw_button(r, "", *state.base, state.base.status, *theme.button_theme, null);
 }
 
+// Draws `state` in `r`: the background, then its text as a label.
+//
+// Does not read events or change the text. A null `theme` selects the default theme.
 draw :: (using state: *Text_Input_State, r: Rect, theme: *Text_Input_Theme = null, identifier: s64 = 0, loc := #caller_location) {
     if theme == null theme = *default_overall_theme.text_input_theme;
     rect = r;

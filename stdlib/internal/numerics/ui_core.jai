@@ -15,30 +15,54 @@ THEME_COUNT :: 7;
 Theme_Proc :: #type () -> Overall_Theme;
 default_theme_procs: [THEME_COUNT] Theme_Proc = .[theme_default, theme_grayscale, theme_bentonite, theme_nimbus, theme_blood, theme_freddie, theme_contrast];
 
+// Sets the corner radius, in pixels, used by shapes whose roundedness type is `.ABSOLUTE_FROM_GLOBAL`.
+//
+// The radius is still limited to half of the shorter side of the rectangle being drawn.
 set_global_rounding_radius_in_pixels :: (value: float) {
     rounding_pixels = value;
 }
 
+// Sets the frame thickness, in pixels, used by shapes whose frame thickness type is `.ABSOLUTE_FROM_GLOBAL`.
+//
+// The thickness is still limited to half of the shorter side of the rectangle being drawn.
 set_global_frame_thickness_in_pixels :: (value: float) {
     frame_pixels_global = value;
 }
 
+// Sets the divider thickness, in pixels, used by [slidable_region] themes whose divider thickness type is
+// `.ABSOLUTE_FROM_GLOBAL`.
 set_global_divider_thickness_in_pixels :: (value: float) {
     divider_pixels = value;
 }
 
+// Sets the starting divider position, in pixels from the first edge, used by [slidable_region] themes whose
+// initial position type is `.ABSOLUTE_FROM_GLOBAL`.
+//
+// Only read when the region's state is first created.
 set_global_initial_divider_position_in_pixels :: (value: float) {
     divider_initial_pixels = value;
 }
 
+// Sets the nub width, in pixels, used by [slider] themes whose nub thickness type is `.ABSOLUTE_FROM_GLOBAL`.
 set_global_slider_nub_thickness_in_pixels :: (value: float) {
     nub_pixels = value;
 }
 
+// Sets the theme that widgets use when they are passed a null theme.
+//
+// Widgets read their sub-theme (button, checkbox, slider and so on) from this copy at call time, so a change
+// applies from the next widget call.
 set_default_theme :: (theme: Overall_Theme) {
     default_overall_theme = theme;
 }
 
+// Initializes the library with a draw procedure table and a default font.
+//
+// - default_font: the font data to use; empty selects the bundled font.
+// - procs: the drawing callbacks to copy. With null, `Simp` drawing is used when the module is imported with
+//   the default `Type_Indicator`; otherwise `draw_procs` is left as it was.
+//
+// Call once before the first [ui_per_frame_update].
 ui_init :: (default_font := "", procs: *Draw_Procs = null) {
     if procs != null draw_procs = procs.*;
     else {
@@ -49,17 +73,33 @@ ui_init :: (default_font := "", procs: *Draw_Procs = null) {
     array_reset(*default_fonts);
 }
 
+// Returns the state of `key` for the current frame as `Key_Current_State` flags.
+//
+// `.START` is set only on the frame the key went down, `.DOWN` while it is held, and `.END` on the frame it
+// was released. Asserts that `key` is within the tracked range. Mouse buttons and wheel directions are keys
+// too.
 ui_get_button_state :: (key: Key_Code) -> Key_Current_State {
     index := cast(int) key;
     assert(index >= 0 && index < button_states.count);
     return button_states[index];
 }
 
+// Clears the per-frame key edges (`.START` and `.END`) and the recorded wheel movement, keeping `.DOWN`.
+//
+// Called by [ui_per_frame_update]; call it directly only when driving the frame yourself.
 windows_per_frame_update :: () {
     for *s: button_states s.* &= .DOWN;
     wheel_records.count = 0;
 }
 
+// Makes `window` the target of subsequent widget calls and refreshes the mouse position for it.
+//
+// - _render_target_width, _render_target_height: the window's drawable size in pixels.
+//
+// The pointer position comes from the `get_mouse_pointer_position` callback in `draw_procs`, requested with
+// the y axis flipped unless built with `LEFT_HANDED`; without that callback the mouse is treated as invalid
+// and widgets see no hover. Returns `background_occluded`, which is true when the mouse is over a widget that
+// blocks input (see [occluder_start]), and `is_active`, which is true while any widget is active.
 switch_window :: (window: Window_Type, _render_target_width: s32, _render_target_height: s32) -> (background_occluded: bool, is_active: bool) {
     current_window = window;
     render_width = _render_target_width;
@@ -77,6 +117,12 @@ switch_window :: (window: Window_Type, _render_target_width: s32, _render_target
     return events_occluded(), active_widgets.count > 0;
 }
 
+// Starts a UI frame for `window` and returns the same pair as [switch_window].
+//
+// Call once per frame before any widget. Advances the frame counter, sets the frame time step from
+// `_current_time` (in seconds; never negative), clears the tooltip and the click-consumed flag, and drops
+// widgets that were not called during the previous frame, running their deactivate callbacks. To draw into
+// more than one window in a frame, call [switch_window] for each additional window.
 ui_per_frame_update :: (window: Window_Type, _render_target_width: s32, _render_target_height: s32, _current_time: float64) -> (background_occluded: bool, is_active: bool) {
     frame_number += 1;
     dt = cast(float) max(_current_time - current_time, 0.0);
@@ -90,6 +136,16 @@ ui_per_frame_update :: (window: Window_Type, _render_target_width: s32, _render_
     return switch_window(window, _render_target_width, _render_target_height);
 }
 
+// Returns the mouse status of `r`: `.OVER` and `.FOCUS` when the pointer is inside it, plus `.DOWN` while the
+// left button is held and `.PRESSED` on the frame it went down.
+//
+// Returns no flags when the mouse is invalid, the pointer is outside the current scissor, the pointer is
+// covered by an occluder that does not own the widget, or (for `.DOWN` and `.PRESSED`) the click was already
+// taken by another widget this frame.
+//
+// - widget_if_querying_outside_of_render_time: the widget asking, so that its own occluder does not hide it.
+//   Pass null while drawing; the widget being drawn is used.
+// - ignore: [Status_Flags_Ignore] bits to skip the scissor check or the left click.
 get_status_flags :: (r: Rect, widget_if_querying_outside_of_render_time: *Active_Widget = null, ignore := Status_Flags_Ignore.NOTHING) -> Status_Flags {
     result: Status_Flags;
     if !mouse_valid || !is_inside(mouse_position.x, mouse_position.y, r) return result;
@@ -107,10 +163,16 @@ get_status_flags :: (r: Rect, widget_if_querying_outside_of_render_time: *Active
     return result;
 }
 
+// Returns true if the pointer is over `rect` and not hidden behind an occluder or outside the scissor.
 has_focus :: (rect: Rect) -> bool {
     return (get_status_flags(rect) & .FOCUS) != 0;
 }
 
+// Feeds one input event to the library.
+//
+// Call it for every input event. Events for a window other than the current one are ignored. Records key and
+// mouse button transitions and wheel notches, treats touches as the left mouse button at the touch position,
+// and forwards the event to the active widgets of that window.
 getrect_handle_event :: (event: Event) {
     if event.window != current_window return;
 
@@ -168,6 +230,12 @@ getrect_handle_event :: (event: Event) {
     }
 }
 
+// Registers `widget` as active, so that it receives events and is kept alive across frames.
+//
+// - is_grabbing: also records the widget as grabbing the pointer, which makes [is_grabbing] return true until
+//   the widget is removed.
+//
+// Adding a widget twice has no effect. The widget is dropped automatically if it is not called for a frame.
 active_widget_add :: (widget: *Active_Widget, is_grabbing := false) {
     array_add_if_unique(*active_widgets, widget);
     widget.is_on_state_stack = true;
@@ -176,12 +244,16 @@ active_widget_add :: (widget: *Active_Widget, is_grabbing := false) {
     if is_grabbing array_add_if_unique(*grabbing_widgets, widget);
 }
 
+// Unregisters `widget` from the active and grabbing sets without running its deactivate callback.
 active_widget_remove :: (widget: *Active_Widget) {
     array_ordered_remove_by_value(*active_widgets, widget);
     array_ordered_remove_by_value(*grabbing_widgets, widget);
     widget.is_on_state_stack = false;
 }
 
+// Deactivates every active widget except `except`, running each widget's deactivate callback.
+//
+// Use it to close popups and end drags, for example when the user clicks elsewhere.
 active_widget_deactivate_all :: (except: *Active_Widget = null) {
     snapshot := array_copy(active_widgets);
 
@@ -196,6 +268,9 @@ active_widget_deactivate_all :: (except: *Active_Widget = null) {
     }
 }
 
+// Removes active widgets that were not called during the previous frame, running their deactivate callbacks.
+//
+// Called by [ui_per_frame_update].
 active_widgets_per_frame_update :: () {
     i := 0;
     while i < active_widgets.count {
@@ -207,20 +282,32 @@ active_widgets_per_frame_update :: () {
     }
 }
 
+// Returns true while any active widget has grabbed the pointer, for example a slider being dragged.
 is_grabbing :: () -> bool {
     return grabbing_widgets.count > 0;
 }
 
+// Promotes the occluders recorded during the last frame to the current set used for hit testing.
+//
+// Occluders are therefore one frame late: a widget is hidden by what was drawn over it in the previous frame.
+// Called by [ui_per_frame_update].
 occlusion_per_frame_update :: () {
     swap(*occlusions_current_frame, *occlusions_next_frame);
     occlusions_next_frame.count = 0;
     occluder_being_drawn = null;
 }
 
+// Sets the current window for occlusion testing.
+//
+// Called by [switch_window].
 occlusion_per_window_update :: (window: Window_Type) {
     current_window = window;
 }
 
+// Begins an input-blocking rectangle owned by `widget`.
+//
+// Until the matching [occluder_finish], widgets drawn inside belong to `widget` and can still be hovered;
+// everything else under `rect` is hidden from the pointer on the next frame. Calls nest.
 occluder_start :: (widget: *Active_Widget, rect: Rect) {
     array_add(*occluder_stack, occluder_being_drawn);
     if widget != null widget.exists_on_occluder = occluder_being_drawn;
@@ -228,6 +315,12 @@ occluder_start :: (widget: *Active_Widget, rect: Rect) {
     array_add(*occlusions_next_frame, .{ cast(s32) occlusions_next_frame.count, rect, widget });
 }
 
+// Ends the occluder begun by [occluder_start] for `widget`.
+//
+// - rect: when it has a nonzero width or height, replaces the rectangle recorded for `widget`, for occluders
+//   whose size is only known after their contents are laid out.
+//
+// Asserts if the calls are not balanced.
 occluder_finish :: (widget: *Active_Widget, rect := Rect.{}) {
     assert(occluder_being_drawn == widget && occluder_stack.count > 0, "unbalanced occluder stack");
 
@@ -239,6 +332,13 @@ occluder_finish :: (widget: *Active_Widget, rect := Rect.{}) {
     occluder_stack.count -= 1;
 }
 
+// Returns true if the pointer is over a rectangle recorded as an occluder that the widget does not belong to.
+//
+// Occluders are tested from the most recently recorded one backwards, and the first one under the pointer
+// decides. A widget is not occluded by its own occluder or by an occluder it was drawn inside.
+//
+// - widget_if_querying_outside_of_render_time: the widget asking; null uses the occluder currently being
+//   drawn.
 events_occluded :: (widget_if_querying_outside_of_render_time: *Active_Widget = null) -> bool {
     w := widget_if_querying_outside_of_render_time;
     if w == null w = occluder_being_drawn;
@@ -265,6 +365,14 @@ events_occluded :: (widget_if_querying_outside_of_render_time: *Active_Widget = 
     return false;
 }
 
+// Returns the persistent state of type `T` stored under `hash`, creating it default-initialized the first
+// time.
+//
+// `created` is true on the call that created it. States are identified only by `hash`, which widgets build
+// with [get_hash] from the call site and an identifier. Asserts if `hash` was earlier used with a different
+// type.
+//
+// - start_using: when true, marks the state as used this frame and records the frame time step and window.
 find_or_create_state :: ($T: Type, hash: u64, start_using := true) -> (*T, created: bool) {
     pointer := table_find_pointer(*state_table, hash);
     created := pointer == null;
@@ -289,14 +397,24 @@ find_or_create_state :: ($T: Type, hash: u64, start_using := true) -> (*T, creat
     return state, created;
 }
 
+// Sets the tooltip for the current frame.
+//
+// The text and data are kept until the next [ui_per_frame_update] and read back with [get_active_tooltip].
+// `text` is not copied, so it must outlive the frame.
 tooltip :: (text := "", pointer_data: *void = null, int_data := 0) {
     active_tooltip = .{ text, pointer_data, int_data };
 }
 
+// Returns the tooltip set by [tooltip] this frame, or an empty one if none was set.
 get_active_tooltip :: () -> Tooltip {
     return active_tooltip;
 }
 
+// Changes the mouse cursor to `image` on behalf of `widget`.
+//
+// Uses the `set_pointer_image` callback in `draw_procs` when there is one; otherwise sets the platform's
+// native cursor, creating the native cursors on first use. If the native cursor can't be created or set, prints
+// the reason to standard error and traps.
 getrect_set_pointer_image :: (image: Pointer_Image, widget: *Active_Widget) {
     if draw_procs.set_pointer_image != null {
         draw_procs.set_pointer_image(image, widget);
@@ -312,6 +430,10 @@ getrect_set_pointer_image :: (image: Pointer_Image, widget: *Active_Widget) {
     if !ok report_native_failure(message);
 }
 
+// Creates the native cursors used by [getrect_set_pointer_image], replacing any created before.
+//
+// Called automatically on first use. If the cursors can't be created, prints the reason to standard error and
+// traps.
 init_pointers :: () {
     if native_pointers_initialized {
         Native_Cursors.destroy(native_pointer_ownership);
@@ -330,6 +452,11 @@ init_pointers :: () {
     native_pointers_initialized = true;
 }
 
+// Returns a texture loaded from the image bytes `data`, loading it on the first request and caching it by
+// content.
+//
+// Returns null if loading fails. The texture stays in the library's cache and is shared by later requests for
+// the same bytes. Asserts if `draw_procs.texture_load_from_memory` is not set.
 require_texture :: (data: string, loc := #caller_location) -> *Texture {
     assert(draw_procs.texture_load_from_memory != null, "texture loader callback required");
     for item: texture_cache if item.data == data return item.texture;
@@ -352,6 +479,16 @@ get_rect_get_global_data :: () -> string, string, string, string, string, string
     return "", "", "", "", "", "", "", "", "";
 }
 
+// Fills the main color fields of `theme` from five base colors.
+//
+// - main_surface_color: backgrounds and button surfaces.
+// - border_color: title bars, button frames and the pressed surface.
+// - interact_color: hovered surfaces and highlighted title bars.
+// - atop_surface_text: text drawn on a surface.
+// - atop_border_text: text of a pressed button.
+//
+// Sets the background, title bar, label, button, checkbox, slider foreground and dropdown current-value
+// colors, overwriting what was there. Other fields of `theme` are left unchanged.
 set_theme_from_base_colors :: (theme: *Overall_Theme, main_surface_color: Vector4, border_color: Vector4, interact_color: Vector4, atop_surface_text: Vector4, atop_border_text: Vector4) {
     theme.background_color = main_surface_color;
     theme.text_color = atop_surface_text;
@@ -369,6 +506,9 @@ set_theme_from_base_colors :: (theme: *Overall_Theme, main_surface_color: Vector
     theme.dropdown_theme.theme_for_current_value = theme.button_theme;
 }
 
+// Replaces the surface, frame and text colors of `button_theme` with their RGB inverses.
+//
+// Alpha and the hover and pressed text colors are not changed.
 invert_button_theme :: (button_theme: *Button_Theme) {
     button_theme.surface_color = invert_rgb(button_theme.surface_color);
     button_theme.surface_color_over = invert_rgb(button_theme.surface_color_over);
@@ -377,6 +517,8 @@ invert_button_theme :: (button_theme: *Button_Theme) {
     button_theme.text_color = invert_rgb(button_theme.text_color);
 }
 
+// Inverts the colors of a scrollable region theme: the scrollbar nib's button colors, the scrollbar
+// background and the region background.
 invert_scrollbar :: (using scrollable_region_theme: *Scrollable_Region_Theme) {
     invert_button_theme(*scrollbar_nib_theme);
     scrollbar_background.color = invert_rgb(scrollbar_background.color);

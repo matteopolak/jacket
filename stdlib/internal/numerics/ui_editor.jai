@@ -1,14 +1,20 @@
 MAX_STASHED_COLORS :: 10;
 EPSILON :: 0.0001;
 
+// Returns the width divided by the height that a color picker is meant to have, which is 1.
 get_desired_aspect_ratio :: (theme: *Color_Picker_Theme) -> float {
     return 1;
 }
 
+// Returns the width divided by the height that a color animation editor is meant to have, which is 2.
 get_desired_aspect_ratio :: (theme: *Color_Animation_Editor_Theme) -> float {
     return 2;
 }
 
+// Makes `hsv` the current color of `state`, with the hue in degrees.
+//
+// Updates the RGB color and the positions of the hue ring and the saturation-value disc to match. When
+// `update_zoom_hue` is true the zoom hue centre follows the new hue.
 set_current_color_hsv :: (state: *Color_Picker_State, hsv: Vector3, update_zoom_hue := true) {
     state.current_hsv_color = hsv;
     state.current_rgb_color = hsv_to_rgb(hsv);
@@ -19,11 +25,17 @@ set_current_color_hsv :: (state: *Color_Picker_State, hsv: Vector3, update_zoom_
     if update_zoom_hue state.zoom_hue_center = hsv.x;
 }
 
+// Sets both the color that Revert restores and the current color of `state` to `rgb`.
 set_original_and_current_color_rgb :: (state: *Color_Picker_State, rgb: Vector3) {
     state.original_rgb_color = rgb;
     set_current_color_hsv(state, rgb_to_hsv(rgb));
 }
 
+// Sets the current color of `state` to `rgb`.
+//
+// With `update_hsv` the HSV color is recomputed from `rgb` through [set_current_color_hsv], using
+// `maintain_h` as the hue when it is finite. With `update_disc_point` false the disc position stays where it
+// was. `theme` is not read.
 set_current_color_rgb :: (state: *Color_Picker_State, theme: *Color_Picker_Theme, rgb: Vector3, update_hsv := true, maintain_h := FLOAT32_INFINITY, update_disc_point := true) {
     state.current_rgb_color = rgb;
 
@@ -38,26 +50,52 @@ set_current_color_rgb :: (state: *Color_Picker_State, theme: *Color_Picker_Theme
     }
 }
 
+// Returns the position in the picker's disc that stands for `rgb`.
+//
+// See [backsolve_disc_point_from_hsv].
 backsolve_disc_point_from_rgb :: (state: *Color_Picker_State, rgb: Vector3) -> Vector2 {
     hsv := rgb_to_hsv(rgb);
     return backsolve_disc_point_from_hsv(state, hsv.x, hsv.y, hsv.z);
 }
 
+// Returns the disc position for a hue `h` in degrees, a saturation `s` and a value `v`, in the warped layout.
+//
+// The angle is the hue and the radius is `s` times `v`, with both clamped to 0 through 1.
 backsolve_disc_point_from_hsv_warp :: (h: float, s: float, v: float) -> Vector2 {
     a := h * PI / 180;
     radius := saturate(s) * saturate(v);
     return .{ radius * cos(a), radius * sin(a) };
 }
 
+// Returns the disc position for a hue `h` in degrees, a saturation `s` and a value `v`.
+//
+// In warped mode this is [backsolve_disc_point_from_hsv_warp]. Otherwise the disc is a square with
+// saturation on one axis and value on the other, each mapped from 0 through 1 to -1 through 1, and `h` is
+// not used.
 backsolve_disc_point_from_hsv :: (state: *Color_Picker_State, h: float, s: float, v: float) -> Vector2 {
     if state.circle_picker_in_warped_mode return backsolve_disc_point_from_hsv_warp(h, s, v);
     return .{ 2 * s - 1, 2 * v - 1 };
 }
 
+// Returns `hsv` as an opaque RGBA color, with the hue in degrees.
 hsv_to_argb :: (hsv: Vector3) -> Vector4 {
     return xyzw(hsv_to_rgb(hsv), 1);
 }
 
+// Draws a color picker in `r` and returns what the user did this frame.
+//
+// The picker has a hue ring with a saturation-value disc, HSV sliders, RGB sliders and typed-number fields,
+// a stash of up to `MAX_STASHED_COLORS` colors where the oldest is dropped when it is full, and Apply and
+// Revert buttons. The state is found from the call location `loc` and `identifier`. A null `theme` selects
+// the default theme.
+//
+// `input_and_output_color_rgb` is read only when the state is created, to set the starting color. It is
+// written with the current color when Apply is pressed, and with the original color when Revert is pressed.
+//
+// Returns:
+// - applied: true on the frame Apply was pressed.
+// - still_dragging: true while the user is dragging in the ring or the disc.
+// - state: the picker's state.
 color_picker :: (r: Rect, input_and_output_color_rgb: *Vector3, theme: *Color_Picker_Theme = null, identifier: s64 = 0, loc := #caller_location) -> (applied: bool, still_dragging: bool, state: *Color_Picker_State) {
     if theme == null theme = *default_overall_theme.color_picker_theme;
 
@@ -218,6 +256,7 @@ color_picker :: (r: Rect, input_and_output_color_rgb: *Vector3, theme: *Color_Pi
     return applied, still_dragging, state;
 }
 
+// Replaces the keyframes of `state` with `frames`, discarding the editor's per-keyframe state.
 set_keyframes :: (state: *Color_Animation_Editor_State, frames: [] Color_Keyframe) {
     array_resize(*state.color_keyframes, frames.count);
 
@@ -227,12 +266,16 @@ set_keyframes :: (state: *Color_Animation_Editor_State, frames: [] Color_Keyfram
     }
 }
 
+// Returns the keyframes of `state` in the order the editor holds them, which is not sorted by time.
+//
+// The array is a new allocation from the context allocator and the caller frees its `data`.
 get_keyframes :: (state: *Color_Animation_Editor_State) -> [] Color_Keyframe {
     frames: [] Color_Keyframe = .{ state.color_keyframes.count, cast(*Color_Keyframe) alloc(state.color_keyframes.count * size_of(Color_Keyframe)) };
     for key, i: state.color_keyframes frames[i] = key.base;
     return frames;
 }
 
+// Returns the color space, geometry and wrapping that `state`'s controls currently select.
 get_interpolation :: (state: *Color_Animation_Editor_State) -> Interpolation {
     interp: Interpolation;
     interp.color_space = cast(type_of(interp.color_space)) state.interpolation_color_space_s32;
@@ -242,12 +285,18 @@ get_interpolation :: (state: *Color_Animation_Editor_State) -> Interpolation {
     return interp;
 }
 
+// Sets the color space, geometry and wrapping of `state` from `interp`.
 set_interpolation :: (using state: *Color_Animation_Editor_State, interp: Interpolation) {
     interpolation_color_space_s32 = cast(s32) interp.color_space;
     interpolation_geometry_s32 = cast(s32) interp.geometry;
     interpolation_wrapping = interp.wrapping;
 }
 
+// Returns pointers to the keyframes of `state` in order of increasing time, skipping the one at
+// `index_to_ignore`.
+//
+// The pointers point into the state's keyframes and are valid until that array changes. The array is a new
+// allocation from the context allocator and the caller frees it.
 get_sorted_keyframes :: (state: *Color_Animation_Editor_State, index_to_ignore := -1) -> [] *Augmented_Keyframe {
     keys: [..] *Augmented_Keyframe;
     for *key, i: state.color_keyframes if i != index_to_ignore array_add(*keys, key);
@@ -263,12 +312,25 @@ get_sorted_keyframes :: (state: *Color_Animation_Editor_State, index_to_ignore :
     return .{ keys.count, keys.data };
 }
 
+// Returns the index in `sorted` of the last keyframe whose time is at most `t`, or 0 when there is none.
+//
+// `sorted` must be in order of increasing time, as [get_sorted_keyframes] returns it.
 find_index_of_t :: (sorted: [] *Augmented_Keyframe, t: float) -> (index: int) {
     index = 0;
     while index + 1 < sorted.count && sorted[index + 1].t <= t index += 1;
     return index;
 }
 
+// Draws a color animation editor in `r` and returns its state.
+//
+// The editor is a gradient bar with a stripe for each keyframe, whose times are fractions of the bar's width
+// from 0 through 1. Ctrl and a click on the bar adds a keyframe colored by the interpolation at that time.
+// Dragging a stripe moves it, the Delete key removes the one nearest the pointer, and a right click opens a
+// [color_picker] subwindow for it. `theme.draw_subwidgets_flags` selects the controls below the bar:
+// interpolation, preview, sampling and copy to the clipboard.
+//
+// The state is found from the call location `loc` and `identifier`, and starts from the theme's default
+// keyframes and interpolation. A null `theme` selects the default theme.
 color_animation_editor :: (r: Rect, theme: *Color_Animation_Editor_Theme = null, identifier: s64 = 0, loc := #caller_location) -> (state: *Color_Animation_Editor_State) {
     if theme == null theme = *default_overall_theme.color_animation_editor_theme;
 
@@ -334,6 +396,10 @@ color_animation_editor :: (r: Rect, theme: *Color_Animation_Editor_Theme = null,
     return state;
 }
 
+// Fills `area` with the color gradient of `state`, starting `top_margin` in from its `y` edge.
+//
+// Samples the gradient once per pixel of width, between 2 and 4096 times, and keeps the samples in
+// `state.color_samples`.
 draw_color_gradient_bar :: (area: Rect, theme: *Color_Animation_Editor_Theme, state: *Color_Animation_Editor_State, top_margin: float) {
     count := max(2, cast(int) ceil(area.w));
     count = min(count, 4096);
@@ -348,6 +414,12 @@ draw_color_gradient_bar :: (area: Rect, theme: *Color_Animation_Editor_Theme, st
     }
 }
 
+// Handles the pointer for the keyframe bar in `rect`: add, delete, drag and open the picker.
+//
+// press near a keyframe starts dragging it; near means within the bar height times
+// `theme.keyframe_selection_size_relative_to_visual_size`. A right click opens the picker for the nearest
+// keyframe.
+// times the bar height. A right click opens the picker for the nearest keyframe.
 update_keyframes :: (rect: Rect, theme: *Color_Animation_Editor_Theme, state: *Color_Animation_Editor_State) {
     status := get_status_flags(rect, *state.widget);
     if (status & .PRESSED) != 0 && (ui_get_button_state(.CTRL) & .DOWN) != 0 {
@@ -423,6 +495,9 @@ update_keyframes :: (rect: Rect, theme: *Color_Animation_Editor_Theme, state: *C
     }
 }
 
+// Draws the keyframe at `index` as a stripe across the bar `rect` and records its `x` position.
+//
+// The stripe is wider while it is being dragged.
 draw_color_keyframe :: (index: int, rect: Rect, theme: *Color_Animation_Editor_Theme, state: *Color_Animation_Editor_State) {
     key := *state.color_keyframes[index];
     width := rect.h * theme.keyframe_width_relative_to_bar_height_nondragging;
@@ -435,12 +510,18 @@ draw_color_keyframe :: (index: int, rect: Rect, theme: *Color_Animation_Editor_T
     rounded_rectangle(.{ key.pos_x - width / 2, rect.y, width, rect.h }, shape, key.color_rgb, theme.keyframe_color_backing);
 }
 
+// Draws a slider in `rect` for the alpha of the keyframe being dragged and returns whether it changed.
+//
+// Returns false and draws nothing when no keyframe is being dragged. `alpha` and `theme` are not read.
 my_color_slider :: (rect: Rect, alpha: float, theme: *Color_Animation_Editor_Theme, state: *Color_Animation_Editor_State) -> (changed: bool) {
     if state.dragging_keyframe_index < 0 || state.dragging_keyframe_index >= state.color_keyframes.count return false;
     color := *state.color_keyframes[state.dragging_keyframe_index].color_rgb;
     return slider(rect, *color.w, 0.0, 1.0, 0.01, *default_overall_theme.slider_theme);
 }
 
+// Sets the color of the keyframe at `keyframe_index` to the color the other keyframes give at its time.
+//
+// Leaves the color alone when it is the only keyframe. Asserts that the index is valid.
 init_color_by_interpolation :: (state: *Color_Animation_Editor_State, keyframe_index: int) {
     assert(keyframe_index >= 0 && keyframe_index < state.color_keyframes.count);
     sorted := get_sorted_keyframes(state, keyframe_index);
@@ -468,6 +549,10 @@ init_color_by_interpolation :: (state: *Color_Animation_Editor_State, keyframe_i
     state.color_keyframes[keyframe_index].color_rgb = interpolate_one_sample(index, t, interp, pointers, colors);
 }
 
+// Opens the color picker subwindow for the keyframe at `keyframe_index`.
+//
+// The window starts at the top-left of `bar_rect` and is half its width square. The keyframe's RGB color
+// becomes the picker's color. Asserts that the index is valid. `theme` is not read.
 open_color_picker :: (theme: *Color_Animation_Editor_Theme, state: *Color_Animation_Editor_State, keyframe_index: int, bar_rect: Rect) {
     assert(keyframe_index >= 0 && keyframe_index < state.color_keyframes.count);
     state.color_picker_keyframe_index = keyframe_index;
@@ -479,6 +564,7 @@ open_color_picker :: (theme: *Color_Animation_Editor_Theme, state: *Color_Animat
     state.color_picker_editing_color_applied = state.color_keyframes[keyframe_index].color_rgb.xyz;
 }
 
+// Opens the preview subwindow over `bar_rect`. `theme` is not read.
 open_time_view :: (theme: *Color_Animation_Editor_Theme, state: *Color_Animation_Editor_State, bar_rect: Rect) {
     info := *state.time_view_subwindow_info;
     info.open = true;
@@ -487,14 +573,19 @@ open_time_view :: (theme: *Color_Animation_Editor_Theme, state: *Color_Animation
     info.user_data = state;
 }
 
+// Registers the color picker subwindow of `state` for this frame with [add_subwindow].
 draw_color_picker :: (theme: *Color_Animation_Editor_Theme, state: *Color_Animation_Editor_State) {
     add_subwindow(*state.color_picker_subwindow_info, *theme.color_picker_subwindow_theme, cast(s64) state);
 }
 
+// Registers the preview subwindow of `state` for this frame with [add_subwindow].
 draw_time_view :: (theme: *Color_Animation_Editor_Theme, state: *Color_Animation_Editor_State) {
     add_subwindow(*state.time_view_subwindow_info, *theme.time_view_subwindow_theme, cast(s64) state + 1);
 }
 
+// Draws the content of the color picker subwindow; `data` is the [Color_Animation_Editor_State].
+//
+// Applying a color in the picker copies it into the keyframe being edited.
 draw_callback_color_picker :: (state: *Subwindow_State, r: Rect, data: *void) {
     editor := cast(*Color_Animation_Editor_State) data;
     applied, _, picker := color_picker(r, *editor.color_picker_editing_color_applied, *editor.theme.color_picker_theme, cast(s64) editor);
@@ -502,11 +593,18 @@ draw_callback_color_picker :: (state: *Subwindow_State, r: Rect, data: *void) {
     if applied update_keyframe_color_due_to_open_color_picker(editor);
 }
 
+// Copies the picker's color into the red, green and blue of the keyframe being edited, and keeps its alpha.
+//
+// Does nothing when no keyframe is being edited.
 update_keyframe_color_due_to_open_color_picker :: (state: *Color_Animation_Editor_State) {
     i := state.color_picker_keyframe_index;
     if i >= 0 && i < state.color_keyframes.count state.color_keyframes[i].color_rgb.xyz = state.color_picker_editing_color_applied;
 }
 
+// Draws the content of the preview subwindow, a swatch of the animation's color at the current time.
+//
+// `data` is the [Color_Animation_Editor_State]. While the preview is playing the time advances by `dt`, and
+// it wraps around at `time_view_period`.
 draw_callback_time_view :: (state: *Subwindow_State, r: Rect, data: *void) {
     editor := cast(*Color_Animation_Editor_State) data;
     if editor.time_view_playing editor.time_view_current_time += cast(float64) dt;
@@ -523,6 +621,11 @@ draw_callback_time_view :: (state: *Subwindow_State, r: Rect, data: *void) {
     rounded_rectangle(r, shape, sample[index], .{ 0, 0, 0, 1 });
 }
 
+// Writes the animation of `state` to the clipboard as text.
+//
+// With `.RESAMPLED_ARRAY` it writes `num_clipboard_samples` evenly spaced colors, one `{r, g, b, a}` line
+// each. Otherwise it writes one line per keyframe, in editor order: the time, a space, then its color in the
+// same form. Numbers have 6 decimals.
 copy_output_to_clipboard :: (state: *Color_Animation_Editor_State, output_type: Output_Type) {
     builder: String_Builder;
 
@@ -546,6 +649,10 @@ copy_output_to_clipboard :: (state: *Color_Animation_Editor_State, output_type: 
     clipboard_write(text);
 }
 
+// Returns the height in pixels of the title bar of a subwindow with `theme`, or 0 if it has no title bar.
+//
+// The height is `theme.title_bar_size` times the render target height, which is `override_render_target_height`
+// when that is above 0.
 get_title_bar_height :: (theme: *Subwindow_Theme, override_render_target_height: s32 = 0) -> float {
     h := render_height;
     if override_render_target_height > 0 h = override_render_target_height;
@@ -553,6 +660,7 @@ get_title_bar_height :: (theme: *Subwindow_Theme, override_render_target_height:
     return theme.title_bar_size * cast(float) h;
 }
 
+// Returns the rectangle of a subwindow whose content area is `content_rect`, grown by the title bar height.
 subwindow_rect_from_content_rect :: (content_rect: Rect, theme: *Subwindow_Theme, override_render_target_height: s32 = 0) -> Rect {
     r := content_rect;
     title := get_title_bar_height(theme, override_render_target_height);
@@ -563,6 +671,11 @@ subwindow_rect_from_content_rect :: (content_rect: Rect, theme: *Subwindow_Theme
     return r;
 }
 
+// Registers the subwindow described by `info` to be drawn this frame, and returns its state.
+//
+// The state is found from the call location `loc` and `identifier`, and takes a copy of `theme`. Nothing is
+// drawn here: while `info.open` is true the state is added to the popups that [draw_subwindow] draws. A null
+// `theme` selects the default theme. `z` is not read.
 add_subwindow :: (info: *Subwindow_Info, theme: *Subwindow_Theme = null, identifier: s64 = 0, loc := #caller_location,z: s32 = 0) -> (state: *Subwindow_State) {
     if theme == null theme = *default_overall_theme.subwindow_theme;
 
@@ -579,6 +692,11 @@ add_subwindow :: (info: *Subwindow_Info, theme: *Subwindow_Theme = null, identif
     return state;
 }
 
+// Draws one open subwindow and handles its dragging, closing and resizing.
+//
+// Draws the background, the title bar (pressing it starts a drag), the close button when the theme has one,
+// the content through `info.draw` clipped to the content rectangle, and the resize corner. Moving or
+// resizing updates `info.rect`. Does nothing when `info` is null or closed.
 draw_subwindow :: (state: *Subwindow_State) {
     if state.info == null || !state.info.open return;
 
@@ -624,6 +742,7 @@ draw_subwindow :: (state: *Subwindow_State) {
     occluder_finish(*state.widget);
 }
 
+// Moves the subwindow to the end of the popup list, so that it is drawn last, on top of the others.
 raise :: (state: *Subwindow_State) {
     state.wants_a_raise = true;
     state.info.wants_a_raise = true;
@@ -631,6 +750,12 @@ raise :: (state: *Subwindow_State) {
     array_add(*subwindow_popups, state);
 }
 
+// Applies the pointer's movement since the last call to `full` while the subwindow is being moved or
+// resized.
+//
+// Ends the drag when the left button is up. A resize moves the edges chosen by `dragging_resize_control`,
+// keeps the size at least `resize_minimum_size` times the render target, and derives the height from the
+// width when `info.fixed_aspect_ratio` is above 0.
 update_dragging :: (state: *Subwindow_State, full: *Rect) {
     if cast(u8) state.dragging == 0 return;
 
@@ -677,16 +802,22 @@ update_dragging :: (state: *Subwindow_State, full: *Rect) {
     }
 }
 
+// Returns `flag` with `low` added when `mouse` is within `margin` of the start of the span from `x` of length
+// `w`, or `high` when it is within `margin` of the end.
 maybe_diagonalize :: (flag: Resize_Controls, x: float, w: float, margin: float, low: Resize_Controls, high: Resize_Controls, mouse: float) -> Resize_Controls {
     if mouse < x + margin return flag | low;
     if mouse > x + w - margin return flag | high;
     return flag;
 }
 
+// Returns `f` with only the edges that `theme.resize_controls` allows. `state` is not read.
 adjust_resize_control :: (theme: *Subwindow_Theme, state: *Subwindow_State, f: Resize_Controls) -> Resize_Controls {
     return f & theme.resize_controls;
 }
 
+// Starts a resize drag of the subwindow at the current pointer position.
+//
+// Resizes from the east and south edges when the state has no resize control yet. `f` is not read.
 start_resizing :: (state: *Subwindow_State, f: Rect) {
     state.dragging = cast(type_of(state.dragging)) 2;
     state.dragging_start = mouse_position;
@@ -696,6 +827,8 @@ start_resizing :: (state: *Subwindow_State, f: Rect) {
     active_widget_add(*state.widget, true);
 }
 
+// Returns the pointer image for dragging the edges in `flags`: diagonal for a corner, horizontal or
+// vertical for an edge, and `.NORMAL` for none.
 get_pointer_from_resize_control :: (flags: Resize_Controls) -> Pointer_Image {
     if (flags & .EW) != 0 && (flags & .NS) != 0 {
         if (flags & .NE) == .NE || (flags & .SW) == .SW return .DRAGGING_NE_SW;
@@ -708,6 +841,11 @@ get_pointer_from_resize_control :: (flags: Resize_Controls) -> Pointer_Image {
     return .NORMAL;
 }
 
+// Handles and draws the resize corner of the subwindow occupying `r`.
+//
+// A press on the corner square, whose side is `theme.resize_rect_size` times the shorter side of `r`,
+// starts a resize from the east and south edges. A triangle is drawn there when the draw procedures
+// provide one.
 draw_resize_corner :: (theme: *Subwindow_Theme, state: *Subwindow_State, r: Rect) {
     side := theme.resize_rect_size * min(r.w, r.h);
     corner := Rect.{ r.x + r.w - side, r.y, side, side };
@@ -724,6 +862,7 @@ draw_resize_corner :: (theme: *Subwindow_Theme, state: *Subwindow_State, r: Rect
 }
 
 #if !LEFT_HANDED {
+    // Ends the content rectangle of the subwindow at `new_y1` and records that its draw procedure adjusted it.
     draw_proc_adjust_y1 :: (state: *Subwindow_State, new_y1: float) {
         state.draw_proc_adjusted_y = true;
         state.draw_proc_new_y1 = new_y1;

@@ -1,3 +1,10 @@
+// Advances the press-flash timer of a button and returns the flash strength.
+//
+// - begin: restarts the timer at zero, for the frame the button was pressed.
+// - dt: seconds since the last update.
+//
+// Returns 1 at the start of the flash falling to 0 over `theme.press_duration` seconds, and 0 when the
+// duration is zero or no press has happened.
 update_action_durations :: (state: *Button_State, theme: *Button_Theme, begin: bool, dt: float) -> (pressed_flash_factor: float) {
     if begin state.action_duration = 0;
     else if state.action_duration >= 0 state.action_duration += dt;
@@ -5,6 +12,11 @@ update_action_durations :: (state: *Button_State, theme: *Button_Theme, begin: b
     return saturate(1 - state.action_duration / theme.press_duration);
 }
 
+// Advances the hover and pressed fade of `state` by `dt` seconds toward the `.OVER` and `.DOWN` bits of
+// `status`.
+//
+// Fade speeds come from the theme's `over_fade_in_speed`, `over_fade_out_speed`, `down_fade_in_speed` and
+// `down_fade_out_speed`. Also tracks how long the pointer has been over and down.
 update_over_state :: (state: *Button_State, theme: *Button_Theme, status: Status_Flags, dt: float) {
     over := (status & .OVER) != 0;
     down := (status & .DOWN) != 0;
@@ -22,6 +34,10 @@ update_over_state :: (state: *Button_State, theme: *Button_Theme, status: Status
     state.down_effect_t = state.pressed_factor;
 }
 
+// Updates the animation state of a button-like widget that is drawn by something other than [button].
+//
+// Stores `r` and `status` in `state`, then advances the hover fade and, when `changed` is true, restarts the
+// press flash.
 update_production_value_button :: (r: Rect, changed: bool, state: *Button_State, status: Status_Flags, theme: *Button_Theme) {
     state.rect = r;
     state.status = status;
@@ -29,6 +45,10 @@ update_production_value_button :: (r: Rect, changed: bool, state: *Button_State,
     update_action_durations(state, theme, changed, state.cosmetic_dt);
 }
 
+// Returns the surface color, frame color and frame thickness a button is drawn with right now.
+//
+// Blends the theme's normal colors with the hover, pressed and flash colors according to the fade factors in
+// `state`, and scales alpha by `theme.alpha_scale`. The thickness is in pixels, derived from `state.rect`.
 get_colors_and_thickness_for_button :: (theme: *Button_Theme, state: *Button_State) -> (surface_color: Vector4, frame_color: Vector4, frame_thickness: float) {
     surface_color = lerp(theme.surface_color, theme.surface_color_over, state.over_factor);
     surface_color = lerp(surface_color, theme.surface_color_down, state.pressed_factor);
@@ -51,6 +71,8 @@ get_colors_and_thickness_for_button :: (theme: *Button_Theme, state: *Button_Sta
     return surface_color, frame_color, frame_thickness;
 }
 
+// Draws `text` centered by the theme's label settings inside `r`, with its color blended toward the hover and
+// pressed text colors of `theme`.
 core_draw_button_label :: (r: Rect, text: string, state: *Button_State, theme: *Button_Theme) {
     t := theme.label_theme;
     t.text_color = lerp(t.text_color, theme.text_color_over, state.over_factor);
@@ -58,6 +80,12 @@ core_draw_button_label :: (r: Rect, text: string, state: *Button_State, theme: *
     label(r, text, *t);
 }
 
+// Draws a button's rectangle, optional texture and text from `state` without handling input.
+//
+// Does nothing when `theme.properties` has `.DO_NOT_DRAW`. When `theme.draw_callback` is set, it is called
+// instead of the default drawing. A non-null `texture` is drawn over the rectangle, tinted by the surface
+// color, and needs the `set_shader_for_images` and `immediate_quad` callbacks. Stores the drawn frame
+// thickness in `state.frame_pixels`.
 core_draw_button :: (r: Rect, text: string, state: *Button_State, status: Status_Flags, theme: *Button_Theme, texture: *Texture) {
     if (theme.properties & .DO_NOT_DRAW) != 0 return;
 
@@ -81,6 +109,23 @@ core_draw_button :: (r: Rect, text: string, state: *Button_State, status: Status
     if text.count > 0 core_draw_button_label(r, text, state, theme);
 }
 
+// Draws a button in `r` and handles its input.
+//
+// Returns `was_just_pressed`, true on the frame the left button went down over the widget; `state`, the
+// widget's persistent state; and `was_just_released`, true on the frame the left button was released after
+// the widget was pressed, whether or not the pointer is still over it. A click is therefore usually tested
+// with `was_just_pressed`.
+//
+// The widget's identity across frames is the call site (`loc`) combined with `identifier`. Calls in a loop or
+// a shared helper must pass a distinct `identifier` each.
+//
+// - theme: null uses the default theme's button theme. With `.TOGGLE` in its properties a press flips
+//   `state.pressed` instead of holding it only while the mouse is down.
+// - texture: an image drawn over the button.
+// - disable_over: ignores hover.
+// - disable_press: ignores presses and holding.
+//
+// A press takes the click for the frame, so widgets drawn later do not also see it.
 button :: (r: Rect, text: string, theme: *Button_Theme = null, identifier: s64 = 0, loc := #caller_location,texture: *Texture = null, disable_over := false, disable_press := false) -> (was_just_pressed: bool, state: *Button_State, was_just_released: bool) {
     if theme == null theme = *default_overall_theme.button_theme;
 
@@ -118,6 +163,11 @@ button :: (r: Rect, text: string, theme: *Button_Theme = null, identifier: s64 =
     return was_just_pressed, state, was_just_released;
 }
 
+// Draws a button that shows as selected when `selected` is true, and returns whether it was clicked.
+//
+// Returns `changed`, true on the frame the button was pressed, and the checkbox state. It does not store
+// `selected`; the caller flips its own value, as [radio_button] and [checkbox_flags] do. A null theme uses
+// the default checkbox theme. Identity follows [button]: `loc` and `identifier`.
 base_checkbox :: (_r: Rect, text: string, selected: bool, theme: *Checkbox_Theme = null, identifier: s64 = 0, loc := #caller_location) -> changed: bool, checkbox_state: Checkbox_State {
     if theme == null theme = *default_overall_theme.checkbox_theme;
 
@@ -138,6 +188,11 @@ base_checkbox :: (_r: Rect, text: string, selected: bool, theme: *Checkbox_Theme
     return clicked, checkbox_state;
 }
 
+// Draws a radio button labeled `text` that selects `button_value` in `current_value`.
+//
+// Returns `changed`, true only when the click changed `current_value`; clicking the already selected button
+// returns false. The button shows as selected while `current_value` equals `button_value`. See [button] for
+// how `identifier` and `loc` identify the widget.
 radio_button :: (r: Rect, text: string, current_value: *$Enum, button_value: Enum, theme: *Checkbox_Theme = null, identifier: s64 = 0, loc := #caller_location) -> changed: bool, checkbox_state: Checkbox_State {
     clicked, state := base_checkbox(r, text, current_value.* == button_value, theme, identifier, loc);
     changed = clicked && current_value.* != button_value;
@@ -145,20 +200,40 @@ radio_button :: (r: Rect, text: string, current_value: *$Enum, button_value: Enu
     return changed, state;
 }
 
+// Draws a radio button without a label.
+//
+// Same as the labeled overload with empty text.
 radio_button :: (r: Rect, current_value: *$Enum, button_value: Enum, theme: *Checkbox_Theme = null, identifier: s64 = 0, loc := #caller_location) -> changed: bool, checkbox_state: Checkbox_State {
     return radio_button(r, "", current_value, button_value, theme, identifier, loc);
 }
 
+// Draws a checkbox labeled `text` for the `button_value` bits of the flags in `current_value`.
+//
+// Clicking toggles those bits with xor. The box shows as selected when any of the bits is set. Returns
+// `changed`, true on the frame it was clicked. See [button] for how `identifier` and `loc` identify the
+// widget.
 checkbox_flags :: (r: Rect, text: string, current_value: *$Enum, button_value: Enum, theme: *Checkbox_Theme = null, identifier: s64 = 0, loc := #caller_location) -> changed: bool, checkbox_state: Checkbox_State {
     clicked, state := base_checkbox(r, text, (current_value.* & button_value) != 0, theme, identifier, loc);
     if clicked current_value.* ^= button_value;
     return clicked, state;
 }
 
+// Draws a checkbox without a label.
+//
+// Same as the labeled overload with empty text.
 checkbox_flags :: (r: Rect, current_value: *$Enum, button_value: Enum, theme: *Checkbox_Theme = null, identifier: s64 = 0, loc := #caller_location) -> changed: bool, checkbox_state: Checkbox_State {
     return checkbox_flags(r, "", current_value, button_value, theme, identifier, loc);
 }
 
+// Draws a drop-down list of `choices` showing the current one, and returns whether the selection changed.
+//
+// `current_value_pointer` holds the selected index; an index outside `choices` shows an empty label. Clicking
+// the button opens the list below it, and the list is drawn by [draw_popups], which must be called at the end
+// of the frame so the list is on top. Picking an entry writes its index to `current_value_pointer`; the
+// resulting `changed` is returned by the next call of this dropdown. Also returns a copy of the widget's
+// state.
+//
+// - theme: null uses the default theme's dropdown theme.
 dropdown :: (r: Rect, choices: [] string, current_value_pointer: *s32, theme: *Dropdown_Theme = null, identifier: s64 = 0, z: s32 = 100, loc := #caller_location) -> changed: bool, Dropdown_State {
     if theme == null theme = *default_overall_theme.dropdown_theme;
 
@@ -198,6 +273,11 @@ dropdown :: (r: Rect, choices: [] string, current_value_pointer: *s32, theme: *D
     return changed, state.*;
 }
 
+// Draws the open list of one dropdown and handles picking an entry.
+//
+// Called by [draw_popups]. The entries are laid out one row of the base rectangle's height apart, stepping
+// down the screen from the base: toward lower y by default and toward higher y when built with `LEFT_HANDED`.
+// The list is an occluder, so widgets under it do not get hover or clicks.
 draw_dropdown_popup :: (_state: *void) {
     state := cast(*Dropdown_State) _state;
     if !state.open return;
@@ -234,11 +314,17 @@ draw_dropdown_popup :: (_state: *void) {
     occluder_finish(*state.widget);
 }
 
+// Closes the dropdown that `widget` belongs to.
+//
+// Installed as the dropdown's deactivate callback.
 dropdown_deactivate :: (widget: *Active_Widget) {
     state := cast(*Dropdown_State) widget;
     state.open = false;
 }
 
+// Draws every popup requested this frame, dropdown lists first and then subwindows, and clears the requests.
+//
+// Call once at the end of the frame, after all other widgets, so that popups appear on top.
 draw_popups :: () {
     for p: dropdown_popups if p.open draw_dropdown_popup(p);
     dropdown_popups.count = 0;
@@ -246,6 +332,12 @@ draw_popups :: () {
     subwindow_popups.count = 0;
 }
 
+// Starts a region that clips and scrolls its content, and returns its state and the area to lay content in.
+//
+// Draws the region background and pushes a scissor; content drawn until [end_scrollable_region] is clipped to
+// `inside`. `inside` is `r` less the theme's margins and the scrollbar, which is cut from the right edge for
+// vertical scrolling or the bottom for horizontal. A null theme uses the default scrollable region theme.
+// Identity follows [button]: `loc` and `identifier`.
 begin_scrollable_region :: (r: Rect, theme: *Scrollable_Region_Theme = null, identifier: s64 = 0, loc := #caller_location) -> (state: *Scrollable_Region_State, inside: Rect) {
     if theme == null theme = *default_overall_theme.scrollable_region_theme;
 
@@ -275,15 +367,37 @@ begin_scrollable_region :: (r: Rect, theme: *Scrollable_Region_Theme = null, ide
 }
 
 #if LEFT_HANDED {
+    // Ends the region started by [begin_scrollable_region], draws its scrollbar and applies scrolling.
+    //
+    // - max_x: the right edge of the content, used for horizontal scrolling.
+    // - max_y: the largest y the content reached; the content height is measured down from the top of the
+    //   region.
+    // - scroll_value: the scroll offset in pixels, clamped to the scrollable range. The mouse wheel changes
+    //   it while the pointer is over the region, and dragging or clicking the scrollbar sets it.
     end_scrollable_region :: (state: *Scrollable_Region_State, max_x: float, max_y: float, scroll_value: *float) {
         finish_scroll(state, max_x, max_y - state.inner_rect.y, scroll_value);
     }
 } else {
+    // Ends the region started by [begin_scrollable_region], draws its scrollbar and applies scrolling.
+    //
+    // - max_x: the right edge of the content, used for horizontal scrolling.
+    // - min_y: the lowest y the content reached; the content height is measured down from the top of the
+    //   region.
+    // - scroll_value: the scroll offset in pixels, clamped to the scrollable range. The mouse wheel changes
+    //   it while the pointer is over the region, and dragging or clicking the scrollbar sets it.
     end_scrollable_region :: (state: *Scrollable_Region_State, max_x: float, min_y: float, scroll_value: *float) {
         finish_scroll(state, max_x, state.inner_rect.y + state.inner_rect.h - min_y, scroll_value);
     }
 }
 
+// Splits `r` into two panes separated by a draggable divider and returns the panes.
+//
+// Returns the persistent state, the first (left or top) pane, the second (right or bottom) pane, and the
+// divider rectangle. The first pane is drawn with its background and has the scissor set to it; call
+// [switch_to_second_rect] to move to the other pane and [finish] when done. The divider position is kept in
+// the state as a fraction of the region, starts from the theme's initial position, and follows the pointer
+// while dragged. Identity follows [button]: `loc` and `identifier`; a null theme uses the default slidable
+// region theme.
 slidable_region :: (r: Rect, theme: *Slidable_Region_Theme = null, identifier: s64 = 0, loc := #caller_location) -> (state: *Slidable_Region_State, left_or_top_rect: Rect, right_or_bottom_rect: Rect, divider_rect: Rect) {
     if theme == null theme = *default_overall_theme.slidable_region_theme;
 
@@ -333,38 +447,54 @@ slidable_region :: (r: Rect, theme: *Slidable_Region_Theme = null, identifier: s
     return state, left_or_top_rect, right_or_bottom_rect, divider_rect;
 }
 
+// Ends drawing in the first pane of a [slidable_region], draws the second pane's background and clips to it.
 switch_to_second_rect :: (state: *Slidable_Region_State) {
     pop_scissor();
     rounded_rectangle(state.right_or_bottom_rect, state.theme.second_background.shape, state.theme.second_background.color, state.theme.second_background.frame_color);
     push_scissor(state.right_or_bottom_rect);
 }
 
+// Returns drawing to the first pane of a [slidable_region] after [switch_to_second_rect].
 switch_to_first_rect :: (state: *Slidable_Region_State) {
     pop_scissor();
     push_scissor(state.left_or_top_rect);
 }
 
+// Alias of [switch_to_second_rect], for a region with `.VERTICAL` orientation.
 switch_to_bottom_rect :: switch_to_second_rect;
+// Alias of [switch_to_second_rect], for a region with `.HORIZONTAL` orientation.
 switch_to_right_rect :: switch_to_second_rect;
+// Alias of [switch_to_first_rect], for a region with `.VERTICAL` orientation.
 switch_to_top_rect :: switch_to_first_rect;
+// Alias of [switch_to_first_rect], for a region with `.HORIZONTAL` orientation.
 switch_to_left_rect :: switch_to_first_rect;
 
+// Ends a [slidable_region] by popping the scissor of the pane being drawn.
 finish :: (state: *Slidable_Region_State) {
     pop_scissor();
 }
 
+// Records `value` in `state` as the value the slider had when the drag began.
+//
+// Stored as float, double or integer according to `T`.
 set_initial_value :: (state: *Slider_State, value: $T) {
     #if T == float32 state.initial_value_float32 = value;
     else #if T == float64 state.initial_value_float64 = value;
     else state.initial_value_int = cast(int) value;
 }
 
+// Returns the value recorded by [set_initial_value], converted to `T`.
 get_initial_value :: (state: *Slider_State, $T: Type) -> T {
     #if T == float32 return state.initial_value_float32;
     else #if T == float64 return state.initial_value_float64;
     else return cast(T) state.initial_value_int;
 }
 
+// Stores `new_value` converted to `T` in `pointer`, limited to `min_value` and `max_value` where a clamp flag
+// is set.
+//
+// - clamp_low: store `min_value` when `new_value` is at or below it.
+// - clamp_high: store `max_value` when `new_value` is at or above it.
 set_and_maybe_clamp :: (new_value: $ValueType, pointer: *$T, min_value: T, max_value: T, clamp_low: bool, clamp_high: bool) {
     if clamp_low && new_value <= cast(ValueType) min_value {
         pointer.* = min_value;
@@ -379,6 +509,20 @@ set_and_maybe_clamp :: (new_value: $ValueType, pointer: *$T, min_value: T, max_v
     pointer.* = cast(T) new_value;
 }
 
+// Draws a slider for `value` between `min_value` and `max_value` and edits it in place.
+//
+// Returns `changed`, true if `value` differs after this call, and `entered`, true on the frame a number typed
+// into the slider was accepted. Works for float and integer types; integer values are rounded to whole
+// numbers.
+//
+// Dragging sets the value from the pointer position along the track, or, when the theme is relative or shift
+// is held and the theme allows it, moves it relative to the drag. A right click starts typing a value when
+// `theme.text_editable` is set; Enter parses and applies it (clamped as the theme says), Escape cancels. With
+// `theme.use_spinboxes`, `+` and `-` buttons are cut from the right edge and step by `spinbox_step`, clamped
+// to the range.
+//
+// The label is `prefix`, the value and `suffix`. Identity follows [button]: `loc` and `identifier`; a null
+// theme uses the default slider theme.
 slider :: (_r: Rect, value: *$T, min_value: T, max_value: T, spinbox_step: T, theme: *Slider_Theme, prefix := "", suffix := "", identifier: s64 = 0, loc := #caller_location) -> changed: bool, entered: bool {
     if theme == null theme = *default_overall_theme.slider_theme;
 
@@ -504,23 +648,37 @@ slider :: (_r: Rect, value: *$T, min_value: T, max_value: T, spinbox_step: T, th
     return state.changed_this_frame, entered;
 }
 
+// Returns `v2` as a `Vector3` with z set to 0.
 to_vec3 :: (v2: Vector2) -> Vector3 {
     return xyz(v2, 0);
 }
 
+// Draws the triangle `p4`, `p5`, `p6` filled with the button theme's text color.
+//
+// Asserts that the `immediate_triangle` callback is set. `state` is not used.
 draw_arrow :: (state: *Button_State, p4: Vector3, p5: Vector3, p6: Vector3, theme: *Button_Theme) {
     assert(draw_procs.immediate_triangle != null);
     emit_triangle(p4, p5, p6, theme.text_color);
 }
 
+// Draws a slider's track as a button using the theme's background button theme.
+//
+// The default for `Slider_Theme.draw_background`.
 slider_draw_background_default :: (r: Rect, theme: *Slider_Theme, state: *Slider_State) {
     core_draw_button(r, "", *state.background, state.background.status, *theme.background, null);
 }
 
+// Draws a slider's filled part, or its nub, as a button using the theme's foreground button theme.
+//
+// The default for `Slider_Theme.draw_foreground`.
 slider_draw_foreground_default :: (r_background: Rect, r_foreground: Rect, theme: *Slider_Theme, state: *Slider_State) {
     core_draw_button(r_foreground, "", *state.foreground, state.foreground.status, *theme.foreground, null);
 }
 
+// Formats a float slider value as `prefix`, the value with `theme.decimals` decimals, and `suffix`.
+//
+// Returns a new string that the caller frees. The default for `Slider_Theme.format_text_float`; `mode` is not
+// used.
 slider_format_text_float_default :: (prefix: string, suffix: string, value: float64, theme: *Slider_Theme, state: *Slider_State, mode: Slider_Format_Text_Mode) -> string {
     builder: String_Builder;
 
@@ -532,19 +690,42 @@ slider_format_text_float_default :: (prefix: string, suffix: string, value: floa
     return builder_to_string(*builder);
 }
 
+// Formats an integer slider value as `prefix`, the value, and `suffix`.
+//
+// Returns a new string that the caller frees. The default for `Slider_Theme.format_text_int`; `mode` is not
+// used.
 slider_format_text_int_default :: (prefix: string, suffix: string, value: s64, theme: *Slider_Theme, state: *Slider_State, mode: Slider_Format_Text_Mode) -> string {
     return sprint("%%%", prefix, value, suffix);
 }
 
+// Parses typed slider text as a decimal number.
+//
+// The default for `Slider_Theme.parse_text_float`.
 slider_parse_text_float_default :: (text: string, theme: *Slider_Theme, state: *Slider_State) -> (success: bool, value: float64) {
     return parse_decimal(text);
 }
 
+// Parses typed slider text as an integer, allowing trailing spaces.
+//
+// Returns `success` false when other characters follow the number. The default for
+// `Slider_Theme.parse_text_int`.
 slider_parse_text_int_default :: (text: string, theme: *Slider_Theme, state: *Slider_State) -> (success: bool, value: s64) {
     v, ok, rest := string_to_int(text);
     return ok && eat_spaces(rest).count == 0, v;
 }
 
+// Draws a text field showing `value` and updates it when a number is entered.
+//
+// Returns true only when Enter was pressed, the text parsed, and the stored value changed. Out of range input
+// is clamped according to the theme's `clamp_low` and `clamp_high`; text that does not parse is ignored.
+// Works for float and integer types.
+//
+// - text: not used.
+// - parse_proc: converts the entered text to a value and a success flag; null parses a decimal number for
+//   floats and an integer for integer types.
+//
+// Identity follows [button]: `loc` and `identifier`. A null theme uses a default-initialized
+// `Number_Input_Theme`.
 number_input :: (_r: Rect, text: string, value: *$T, min_value: T, max_value: T, theme: *Number_Input_Theme, identifier: s64 = 0, loc := #caller_location,parse_proc: (string) -> (T, bool) = null) -> bool {
     if theme == null theme = *number_default;
 
