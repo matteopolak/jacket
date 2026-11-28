@@ -1,7 +1,7 @@
 //! Module configuration controls.
-use std::{path::Path, rc::Rc};
 
-use jaic::sema::{Compiler, Options, VirtualFs};
+use jaic::sema::Compiler;
+use test_support::compiler::compile_virtual;
 
 fn compile(module: &str, main: &str) -> (Compiler, jaic::sema::Result<()>) {
     compile_with_dependency(module, main, None)
@@ -12,23 +12,15 @@ fn compile_with_dependency(
     main: &str,
     dependency: Option<&str>,
 ) -> (Compiler, jaic::sema::Result<()>) {
-    let mut fs = VirtualFs::default();
-
-    fs.insert("/lib/Choice/module.jai", module.as_bytes());
-    fs.insert("/app/main.jai", main.as_bytes());
+    let mut files = vec![("/lib/Choice/module.jai", module), ("/app/main.jai", main)];
 
     if let Some(source) = dependency {
-        fs.insert("/lib/Dep/module.jai", source.as_bytes());
+        files.push(("/lib/Dep/module.jai", source));
     }
 
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.import_paths = vec!["/lib".into()];
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-    let result = compiler.compile_program(Path::new("/app/main.jai"));
-
-    (compiler, result)
+    compile_virtual(&files, "/app/main.jai", |options| {
+        options.import_paths = vec!["/lib".into()];
+    })
 }
 
 const INTERFACE: &str = r"#module_parameters ()(Implementation: $I/interface Protocol = Fallback) {

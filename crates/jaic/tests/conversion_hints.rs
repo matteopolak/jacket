@@ -1,11 +1,11 @@
 //! The help on conversion and cast errors is a rewrite of the code: a `cast`, a dereference,
 //! an address, a comparison, a range or a flag. Each test checks the message and the help, then
 //! applies the edit to the source and compiles the result to show it type-checks.
-use std::{path::Path, rc::Rc};
 
 use jaic::diagnostics::Diagnostic;
-use jaic::sema::{Compiler, Options, VirtualFs};
+use jaic::sema::Compiler;
 use jaic::source::Applicability;
+use test_support::compiler::compile_virtual;
 
 const PRELUDE: &str = "P :: struct { x: s64; }
 Q :: struct { y: s64; }
@@ -13,14 +13,7 @@ take :: (n: s32) -> s32 { return n; }
 ";
 
 fn compile(source: &str) -> (Result<(), Box<Diagnostic>>, Compiler) {
-    let mut fs = VirtualFs::default();
-
-    fs.insert("/main.jai", source.as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-    let result = compiler.compile_program(Path::new("/main.jai"));
+    let (compiler, result) = compile_virtual(&[("/main.jai", source)], "/main.jai", |_| {});
 
     (result, compiler)
 }

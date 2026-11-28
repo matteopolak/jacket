@@ -1,26 +1,21 @@
 //! Controls for anonymous imports in loaded files.
-use std::{path::Path, rc::Rc};
 
-use jaic::sema::{Compiler, Options, VirtualFs};
+use test_support::compiler::compile_virtual_rendered;
 
 fn compile(piece: &str, main: &str) -> Result<(), String> {
-    let mut fs = VirtualFs::default();
     let dependency =
         "#module_parameters(N: int = 42); Token :: struct { value: int; } answer :: N;";
 
-    fs.insert("/lib/Dependency/module.jai", dependency.as_bytes());
-    fs.insert("/app/dependency.jai", dependency.as_bytes());
-    fs.insert("/app/piece.jai", piece.as_bytes());
-    fs.insert("/app/main.jai", main.as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.import_paths = vec!["/lib".into()];
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-
-    compiler
-        .compile_program(Path::new("/app/main.jai"))
-        .map_err(|error| error.render(&compiler.src.sources))
+    compile_virtual_rendered(
+        &[
+            ("/lib/Dependency/module.jai", dependency),
+            ("/app/dependency.jai", dependency),
+            ("/app/piece.jai", piece),
+            ("/app/main.jai", main),
+        ],
+        "/app/main.jai",
+        |options| options.import_paths = vec!["/lib".into()],
+    )
 }
 
 #[test]

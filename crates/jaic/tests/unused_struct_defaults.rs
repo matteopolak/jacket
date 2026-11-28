@@ -1,19 +1,9 @@
 //! Member defaults of a struct nothing instantiates are still checked.
-use std::{path::Path, rc::Rc};
-
-use jaic::sema::{Compiler, Options, VirtualFs};
+use test_support::compiler::compile_virtual;
 
 fn check(source: &str) -> Result<(), String> {
-    let mut fs = VirtualFs::default();
-
-    fs.insert("/main.jai", source.as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-
-    compiler
-        .compile_program(Path::new("/main.jai"))
+    compile_virtual(&[("/main.jai", source)], "/main.jai", |_| {})
+        .1
         .map_err(|d| d.message)
 }
 

@@ -1,23 +1,16 @@
 //! Warnings carry the fix when it is clear: a format string and its arguments that disagree, code
 //! after a `return`, a procedure that can end without one. Each test applies the edit and
 //! compiles the result to show the warning is gone and the program still builds.
-use std::rc::Rc;
-
 use jaic::diagnostics::Diagnostic;
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
 use jaic::source::Applicability;
+use test_support::compiler::compile_with_stdlib;
 
 const PRELUDE: &str = "emit :: (format: string, args: ..Any) {} @PrintLike\n";
 
 fn compile(source: &str) -> Vec<Diagnostic> {
-    let stdlib = test_support::repo::stdlib();
-    let mut options = Options::host();
+    let (compiler, result) = compile_with_stdlib(source);
 
-    options.import_paths = vec![stdlib.clone()];
-    options.set_stdlib(&NativeFs, &stdlib);
-    let mut compiler = Compiler::new(options, Rc::new(NativeFs));
-
-    if let Err(e) = compiler.compile_sources(&[ProgramSource::String(source.into())]) {
+    if let Err(e) = result {
         panic!("{}\n{source}", e.render(&compiler.src.sources));
     }
 

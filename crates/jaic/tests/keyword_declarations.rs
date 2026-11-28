@@ -3,20 +3,12 @@
 //! The words that start a statement (`case`, `if`, `for`, `return`, ...) can't be declared
 //! either: a statement can't start with them as a name. Nor can `ifx`, `then` and `else`, which
 //! are read as part of an `if` or `ifx`. A backticked declaration may use them.
-use std::{path::Path, rc::Rc};
 
 use jaic::diagnostics::Diagnostic;
-use jaic::sema::{Compiler, Options, VirtualFs};
+use test_support::compiler::compile_virtual;
 
 fn compile(source: &str) -> Result<(), Box<Diagnostic>> {
-    let mut fs = VirtualFs::default();
-
-    fs.insert("/main.jai", source.as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-    compiler.compile_program(Path::new("/main.jai"))
+    compile_virtual(&[("/main.jai", source)], "/main.jai", |_| {}).1
 }
 
 #[test]

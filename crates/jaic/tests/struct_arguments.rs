@@ -195,22 +195,7 @@ mod bindings {
 
 mod conversion {
     //! Generic struct arguments obey their declared type before binding and reflection.
-    use std::rc::Rc;
-
-    use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
-
-    fn compile(source: &str) -> Result<(), String> {
-        let root = test_support::repo::stdlib();
-        let mut options = Options::host();
-
-        options.import_paths = vec![root.clone()];
-        options.preload = Some(root.join("prelude/module.jai"));
-        let mut compiler = Compiler::new(options, Rc::new(NativeFs));
-
-        compiler
-            .compile_sources(&[ProgramSource::String(source.into())])
-            .map_err(|error| error.render(&compiler.src.sources))
-    }
+    use test_support::compiler::compile_with_prelude as compile;
 
     #[test]
     fn typed_callback_arguments_instantiate_before_metadata_and_preserve_identity() {

@@ -1,26 +1,24 @@
 //! A canonical type alias does not import its defining scope's operators.
-use std::{
-    path::{Path, PathBuf},
-    rc::Rc,
-};
 
-use jaic::sema::{Compiler, Options, VirtualFs};
+use test_support::compiler::compile_virtual_rendered;
 
 fn compile(facade: &str, body: &str) -> Result<(), String> {
-    let mut fs = VirtualFs::default();
+    let main = format!(
+        "using #import \"Facade\"; check :: () {{a:Value=.{{17}}; b:Value=.{{4}}; {body}}} main :: () {{}}"
+    );
 
-    fs.insert("/modules/Definition/module.jai", "Value :: struct {n:int;} operator - :: (a:Value,b:Value)->Value {return .{a.n-b.n};} operator ! :: (a:Value)->bool {return a.n==0;}".as_bytes());
-    fs.insert("/modules/Facade/module.jai", facade.as_bytes());
-    fs.insert("/main.jai", format!("using #import \"Facade\"; check :: () {{a:Value=.{{17}}; b:Value=.{{4}}; {body}}} main :: () {{}}").as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.import_paths = vec![PathBuf::from("/modules")];
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-
-    compiler
-        .compile_program(Path::new("/main.jai"))
-        .map_err(|error| error.render(&compiler.src.sources))
+    compile_virtual_rendered(
+        &[
+            (
+                "/modules/Definition/module.jai",
+                "Value :: struct {n:int;} operator - :: (a:Value,b:Value)->Value {return .{a.n-b.n};} operator ! :: (a:Value)->bool {return a.n==0;}",
+            ),
+            ("/modules/Facade/module.jai", facade),
+            ("/main.jai", &main),
+        ],
+        "/main.jai",
+        |options| options.import_paths = vec!["/modules".into()],
+    )
 }
 
 #[test]

@@ -3,27 +3,9 @@
 //! that two overloads fit, and a declaration named like a builtin type. They are errors in
 //! imported modules as well (`docs/language/casts-and-conversions.md`, `procedures.md` and
 //! `declarations-and-constants.md`).
-use std::{path::Path, rc::Rc};
 
 use jaic::diagnostics::{Code, Diagnostic};
-use jaic::sema::{Compiler, Options, VirtualFs};
-
-fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> {
-    let mut fs = VirtualFs::default();
-
-    for (name, source) in modules {
-        fs.insert(format!("/modules/{name}/module.jai"), source.as_bytes());
-    }
-
-    fs.insert("/main.jai", main.as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.import_paths = vec![Path::new("/modules").to_path_buf()];
-    options.preload_stdlib = Some(Path::new("/modules").to_path_buf());
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-    compiler.compile_program(Path::new("/main.jai"))
-}
+use test_support::compiler::compile_with_modules as compile;
 
 /// The error of `main` alone, and the same error when the source is a module `User` that the
 /// program imports.

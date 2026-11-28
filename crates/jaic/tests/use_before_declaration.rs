@@ -1,26 +1,8 @@
 //! A constant, procedure or type of a body is visible only below the line that declares it, as in
 //! the official compiler (`docs/language/scoping.md`, rule scope.19).
-use std::{path::Path, rc::Rc};
 
 use jaic::diagnostics::{Code, Diagnostic};
-use jaic::sema::{Compiler, Options, VirtualFs};
-
-fn compile(main: &str, modules: &[(&str, &str)]) -> Result<(), Box<Diagnostic>> {
-    let mut fs = VirtualFs::default();
-
-    for (name, source) in modules {
-        fs.insert(format!("/modules/{name}/module.jai"), source.as_bytes());
-    }
-
-    fs.insert("/main.jai", main.as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.import_paths = vec![Path::new("/modules").to_path_buf()];
-    options.preload_stdlib = Some(Path::new("/modules").to_path_buf());
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-    compiler.compile_program(Path::new("/main.jai"))
-}
+use test_support::compiler::compile_with_modules as compile;
 
 fn rejected(main: &str) -> Diagnostic {
     let d = compile(main, &[]).expect_err("must be rejected");

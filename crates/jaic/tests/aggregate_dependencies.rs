@@ -1,19 +1,10 @@
 //! Declaration lookup must not request offsets from a record being laid out.
-use std::rc::Rc;
-
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
+use test_support::compiler::compile_with_stdlib;
 
 fn check(source: &str) -> Result<(), String> {
-    let stdlib = test_support::repo::stdlib();
-    let mut options = Options::host();
+    let (compiler, result) = compile_with_stdlib(source);
 
-    options.import_paths = vec![stdlib.clone()];
-    options.set_stdlib(&NativeFs, &stdlib);
-    let mut compiler = Compiler::new(options, Rc::new(NativeFs));
-
-    compiler
-        .compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&compiler.src.sources))
+    result.map_err(|error| error.render(&compiler.src.sources))
 }
 
 #[test]

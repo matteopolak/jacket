@@ -1,26 +1,14 @@
 //! Declaration metadata must not be selected by structural procedure `TypeId`.
 use std::rc::Rc;
 
-use jaic::sema::{Compiler, NativeFs, Options, ProgramSource};
-use test_support::compiler::bare_compiler;
+use jaic::sema::{Compiler, Options, ProgramSource};
+use test_support::compiler::{bare_compiler, compile_with_prelude as compile};
 
 /// The parameter names of a procedure value's header, without where they are declared.
 fn names(header: &jaic::sema::ProcTypeParams) -> Vec<Option<jaic::intern::Sym>> {
     header.names.iter().map(|n| n.map(|n| n.name)).collect()
 }
 
-fn compile(source: &str) -> Result<(), String> {
-    let mut options = Options::host();
-    let root = test_support::repo::stdlib();
-
-    options.import_paths = vec![root.clone()];
-    options.preload = Some(root.join("prelude/module.jai"));
-    let mut compiler = Compiler::new(options, Rc::new(NativeFs));
-
-    compiler
-        .compile_sources(&[ProgramSource::String(source.into())])
-        .map_err(|error| error.render(&compiler.src.sources))
-}
 
 #[test]
 fn globals_parameters_and_inferred_procedure_values_keep_their_own_headers() {

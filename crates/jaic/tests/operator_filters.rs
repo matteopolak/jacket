@@ -1,7 +1,6 @@
 //! Public filter symbols select original operator declarations, never their internal names.
-use std::{path::Path, rc::Rc};
 
-use jaic::sema::{Compiler, Options, VirtualFs};
+use test_support::compiler::compile_virtual_rendered;
 
 const OPERATORS: &str = r"
 Value :: struct { n: int; }
@@ -31,24 +30,18 @@ operator - :: (a:Hidden,b:Hidden)->Hidden { return .{a.n-b.n}; }
 ";
 
 fn compile(main: &str, facade: Option<&str>) -> Result<(), String> {
-    let mut fs = VirtualFs::default();
-
-    fs.insert("/lib/Operators/module.jai", OPERATORS.as_bytes());
+    let mut files = vec![
+        ("/lib/Operators/module.jai", OPERATORS),
+        ("/main.jai", main),
+    ];
 
     if let Some(facade) = facade {
-        fs.insert("/lib/Facade/module.jai", facade.as_bytes());
+        files.push(("/lib/Facade/module.jai", facade));
     }
 
-    fs.insert("/main.jai", main.as_bytes());
-    let mut options = Options::host();
-
-    options.runtime_support = false;
-    options.import_paths = vec!["/lib".into()];
-    let mut compiler = Compiler::new(options, Rc::new(fs));
-
-    compiler
-        .compile_program(Path::new("/main.jai"))
-        .map_err(|error| error.render(&compiler.src.sources))
+    compile_virtual_rendered(&files, "/main.jai", |options| {
+        options.import_paths = vec!["/lib".into()];
+    })
 }
 
 #[test]
