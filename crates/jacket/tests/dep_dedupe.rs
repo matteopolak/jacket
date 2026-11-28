@@ -253,6 +253,12 @@ fn qlib() -> Vec<Version> {
         .to_vec()
 }
 
+/// `jacket dep add` of `name` at `range` succeeds; a failure shows what it printed.
+fn added(world: &World, name: &str, range: &str) {
+    let run = world.add(name, range);
+    assert_eq!(run.code, 0, "add {name}: {}{}", run.out, run.err);
+}
+
 fn first_error(run: &Run) -> String {
     run.err
         .lines()
@@ -381,7 +387,7 @@ fn removing_the_last_package_that_needs_a_shared_copy_removes_it() {
     diamond(&mut world);
     world.main(HANDLES);
     for name in ["alpha", "beta"] {
-        assert_eq!(world.add(name, "^1").code, 0);
+        added(&world, name, "^1");
     }
     let run = world.project.jacket(&["dep", "remove", "alpha"]);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
@@ -408,10 +414,10 @@ fn removing_the_last_package_that_needs_a_shared_copy_removes_it() {
 fn a_shared_entry_cannot_be_removed_or_updated_by_name() {
     let mut world = World::new(true);
     diamond(&mut world);
-    assert_eq!(world.add("alpha", "^1").code, 0);
+    added(&world, "alpha", "^1");
     for command in [["dep", "remove", "qlib"], ["dep", "update", "qlib"]] {
         let run = world.project.jacket(&command);
-        assert_ne!(run.code, 0);
+        assert_ne!(run.code, 0, "{}{}", run.out, run.err);
         assert!(run.err.contains("is shared"), "{}", run.err);
     }
 }
@@ -611,9 +617,9 @@ fn requirers_that_read_tags_differently_conflict() {
     let mut calendar = need("qlib", ">=1", "v1.2.0");
     calendar.scheme = Some("calendar");
     world.package("beta", &[version("v1.0.0").needs(&[calendar])]);
-    assert_eq!(world.add("alpha", "^1").code, 0);
+    added(&world, "alpha", "^1");
     let run = world.add("beta", "^1");
-    assert_ne!(run.code, 0);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(run.err.contains("read its tags differently"), "{}", run.err);
 }
 
@@ -648,14 +654,14 @@ fn a_moved_shared_tag_fails_check() {
     let mut world = World::new(true);
     diamond(&mut world);
     for name in ["alpha", "beta"] {
-        assert_eq!(world.add(name, "^1").code, 0);
+        added(&world, name, "^1");
     }
     let qlib = &world.libs["qlib"];
     qlib.write(&[("module.jai", "qlib_id :: () -> s64 { return 0; }\n")]);
     qlib.commit("rewrite");
     qlib.tag("v1.4.0");
     let check = world.project.jacket(&["dep", "check"]);
-    assert_ne!(check.code, 0);
+    assert_ne!(check.code, 0, "{}{}", check.out, check.err);
     assert!(
         check.err.contains("v1.4.0") && check.err.contains("moved"),
         "{}",
@@ -700,7 +706,7 @@ fn update_moves_every_shared_copy_to_the_newest_version_its_requirers_admit() {
     let mut world = World::new(true);
     diamond(&mut world);
     for name in ["alpha", "beta"] {
-        assert_eq!(world.add(name, "^1").code, 0);
+        added(&world, name, "^1");
     }
     let qlib = &world.libs["qlib"];
     qlib.release("v1.5.0", &[]);
@@ -722,7 +728,7 @@ fn a_fresh_clone_syncs_the_shared_copy_and_leaves_the_nested_ones_empty() {
     diamond(&mut world);
     world.main(HANDLES);
     for name in ["alpha", "beta"] {
-        assert_eq!(world.add(name, "^1").code, 0);
+        added(&world, name, "^1");
     }
     let project = &world.project;
     git(&project.dir, &["add", "-A"]);
@@ -764,7 +770,7 @@ fn a_version_the_project_pinned_itself_must_satisfy_every_requirer() {
         .jacket(&["dep", "add", &format!("{url}@v1.0.0")]);
     assert_eq!(run.code, 0, "{}{}", run.out, run.err);
     let run = world.add("beta", "^1");
-    assert_ne!(run.code, 0);
+    assert_ne!(run.code, 0, "{}{}", run.out, run.err);
     assert!(
         run.err.contains("qlib is pinned at v1.0.0") && run.err.contains("beta needs ^1.1"),
         "{}",
@@ -787,7 +793,7 @@ fn an_update_that_fails_while_sharing_puts_back_the_shared_copies_too() {
     diamond(&mut world);
     world.package("zlib", &[version("v2.0.0")]);
     for name in ["alpha", "beta"] {
-        assert_eq!(world.add(name, "^1").code, 0);
+        added(&world, name, "^1");
     }
     // qlib moves to its newest version first, then alpha's new release asks for a zlib no
     // version of which fits.
@@ -887,7 +893,7 @@ fn a_nested_checkout_that_fails_leaves_an_add_and_an_update_undone() {
     );
     assert!(!world.project.dir.join("modules/alpha").exists());
     // The same for an update that has to check out what its new release nests.
-    assert_eq!(world.add("alpha", "^1").code, 0);
+    added(&world, "alpha", "^1");
     world.package(
         "alpha",
         &[version("v1.1.0").needs(&[need("qlib", "^1.0", "v1.2.0")])],
@@ -917,7 +923,7 @@ fn moved_repository() -> World {
         "alpha",
         &[version("v1.0.0").needs(&[need("qlib", "^1.0", "v1.2.0")])],
     );
-    assert_eq!(world.add("alpha", "^1").code, 0);
+    added(&world, "alpha", "^1");
     let manifest = format!(
         "[package]\nname = \"alpha\"\n[dependencies]\nqlib = {{ git = \"{}\", version = \"^1.0\" }}\n",
         world.libs["qlib2"].url()
@@ -979,7 +985,7 @@ fn a_shared_copy_needed_by_an_unchecked_out_package_is_not_removed() {
     let mut world = World::new(true);
     diamond(&mut world);
     for name in ["alpha", "beta"] {
-        assert_eq!(world.add(name, "^1").code, 0);
+        added(&world, name, "^1");
     }
     git(&world.project.dir, &["add", "-A"]);
     git(&world.project.dir, &["commit", "-q", "-m", "deps"]);

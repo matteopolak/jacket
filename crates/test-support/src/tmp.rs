@@ -20,8 +20,9 @@ pub struct TempDir {
 impl TempDir {
     /// A new directory whose name starts with `name`, under [`std::env::temp_dir`] (or under
     /// `JAIC_TEST_TMPDIR` when that names a directory). The process id and a counter make the
-    /// name unique, so tests never share a directory and a stale one is never reused. The
-    /// path is canonical, so it compares equal to what the compiler prints.
+    /// name unique, and a name already taken (left by an earlier run) is skipped, so tests never
+    /// share a directory and a stale one is never reused. The path is canonical, so it compares
+    /// equal to what the compiler prints.
     #[must_use]
     pub fn new(name: &str) -> Self {
         let base = jacket_config::env::TEST_TMPDIR
@@ -38,13 +39,21 @@ impl TempDir {
                 }
             })
             .collect();
-        let path = base.join(format!(
-            "jaic-test-{clean}-{}-{}",
-            std::process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        std::fs::create_dir_all(&path)
-            .unwrap_or_else(|error| panic!("cannot create {}: {error}", path.display()));
+        // `create_dir` fails when the name exists, so a directory an earlier run left behind
+        // (a panicked test keeps its files, and a later process can get the same id) is never
+        // handed out: the next counter is tried instead.
+        let path = loop {
+            let path = base.join(format!(
+                "jaic-test-{clean}-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            match std::fs::create_dir(&path) {
+                Ok(()) => break path,
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(error) => panic!("cannot create {}: {error}", path.display()),
+            }
+        };
         let path = path.canonicalize().unwrap_or(path);
         TempDir {
             path,
@@ -149,5 +158,30 @@ mod tests {
         assert!(dir.exists());
         let name = dir.file_name().unwrap().to_string_lossy().into_owned();
         assert!(name.starts_with("jaic-test-a_b_c-"), "{name}");
+    }
+
+    /// A directory a killed or panicked test left behind has the name a later process with the
+    /// same id would pick; the new directory must be a different, empty one.
+    #[test]
+    fn a_leftover_directory_is_never_reused() {
+        let base = jacket_config::env::TEST_TMPDIR
+            .os()
+            .map_or_else(std::env::temp_dir, PathBuf::from);
+        let from = NEXT.load(Ordering::Relaxed);
+        let stale: Vec<PathBuf> = (from..from + 64)
+            .map(|n| base.join(format!("jaic-test-leftover-{}-{n}", std::process::id())))
+            .collect();
+        for dir in &stale {
+            std::fs::create_dir_all(dir).unwrap();
+            std::fs::write(dir.join("old"), "from an earlier run").unwrap();
+        }
+        let fresh = TempDir::new("leftover");
+        let canonical: Vec<PathBuf> = stale.iter().filter_map(|d| d.canonicalize().ok()).collect();
+        let reused = canonical.contains(&fresh.path().to_path_buf());
+        let empty = fresh.read_dir().unwrap().next().is_none();
+        for dir in &stale {
+            let _ = std::fs::remove_dir_all(dir);
+        }
+        assert!(!reused && empty, "reused a leftover directory");
     }
 }
