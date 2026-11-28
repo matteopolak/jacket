@@ -70,6 +70,9 @@ pub(super) enum Op {
         region: usize,
         cell: usize,
         span: Span,
+        /// The callee frees this place and then replaces it, so the release is of what the place
+        /// held before the call and comes before the replacement.
+        first: bool,
     },
     Return {
         cell: usize,

@@ -152,3 +152,26 @@ refreshed_old_pointer :: () {
     print("%\n", old.*);
     free(h.p);
 }
+
+Cell :: struct {
+    storage: *int;
+}
+
+peek :: (cell: *Cell) -> int {
+    return cell.storage.*;
+}
+
+install_and_release :: (cell: *Cell, value: *int) {
+    cell.storage = value;
+    peek(cell);
+    free(cell.storage);
+}
+
+// A call that writes nothing in between leaves `cell.storage` holding `value`, which is freed.
+installed_then_freed :: () {
+    value := New(int);
+    cell: Cell;
+
+    install_and_release(*cell, value);
+    print("%\n", value.*);
+}

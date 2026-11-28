@@ -148,3 +148,18 @@ error[use_after_free]: `old` is used after the call above freed it
     = help: free it after its last use, or give it a new value before using it again
     = note: `use_after_free` is `deny` by default
     = note: see https://jacket.matteopolak.com/lint-rules/use_after_free
+
+error[use_after_free]: `value` is used after the call above freed it
+   --> tests/lint/use_after_free/bad.jai:176:18
+    |
+172 |     value := New(int);
+    |              -------- storage derived here
+    ...
+175 |     install_and_release(*cell, value);
+    |     --------------------------------- storage invalidated here
+176 |     print("%\n", value.*);
+    |                  ^^^^^
+    |
+    = help: free it after its last use, or give it a new value before using it again
+    = note: `use_after_free` is `deny` by default
+    = note: see https://jacket.matteopolak.com/lint-rules/use_after_free

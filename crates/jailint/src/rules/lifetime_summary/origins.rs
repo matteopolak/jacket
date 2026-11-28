@@ -111,8 +111,8 @@ impl Resolver<'_> {
                     {
                         let source = self.load_sources.get(&v)?;
                         self.trace(*source, summaries, visiting, depth + 1)?
-                    } else if let Some(source) = self.stored_loads.get(&v) {
-                        self.trace(*source, summaries, visiting, depth + 1)?
+                    } else if let Some(source) = self.stored_load(v, summaries) {
+                        self.trace(source, summaries, visiting, depth + 1)?
                     } else if !self.places.paths[*p].1.is_empty() {
                         self.location(*p, summaries, visiting, depth + 1)?
                             .append(&[Step::Deref])?
@@ -205,5 +205,25 @@ impl Resolver<'_> {
 
         visiting.remove(&v);
         result
+    }
+}
+
+impl Resolver<'_> {
+    /// The value a load of caller-owned memory yields because this body stored it there, found on
+    /// first use so the calls in between can be judged by the summaries solved by then.
+    fn stored_load(&self, load: Val, summaries: &HashMap<ProcId, Summary>) -> Option<Val> {
+        self.core
+            .stored_loads
+            .get_or_init(|| {
+                super::return_fields::stored_loads(
+                    self.body,
+                    &self.places,
+                    &self.write_sources,
+                    &self.owned,
+                    summaries,
+                )
+            })
+            .get(&load)
+            .copied()
     }
 }

@@ -286,9 +286,6 @@ impl Builder<'_> {
             .resources
             .operations(event, self.places, self.cells, &mut self.resolver);
 
-        let frees_then_replaces = matches!(event, Event::Call { callee, expands: false, .. }
-            if self.summaries.procs.get(callee).is_some_and(|s| !s.free_then_write.is_empty()));
-
         if matches!(event, Event::Store { .. }) {
             ops.splice(0..0, extra.into_iter().map(Op::Resource));
         } else {
@@ -297,6 +294,7 @@ impl Builder<'_> {
                     region,
                     cell,
                     span,
+                    ..
                 } = op
                     && self.places.types.get(&region).is_some_and(|ty| {
                         self.cx.compiler.ir_ty(*ty).is_some()
@@ -311,8 +309,10 @@ impl Builder<'_> {
                 // first leaves the order as it is.
                 let before = match &op {
                     resources::Op::FreeRegion {
-                        region, ..
-                    } if frees_then_replaces => ops.iter().position(|o| {
+                        region,
+                        first: true,
+                        ..
+                    } => ops.iter().position(|o| {
                         matches!(o, Op::Replace(p) if self.places.contains(*p, *region)
                             || self.places.contains(*region, *p))
                     }),

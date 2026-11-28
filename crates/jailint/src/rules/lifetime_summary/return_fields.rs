@@ -27,7 +27,6 @@ impl super::prepared::Core<'_> {
             })
             .collect();
         self.load_sources = ordered_load_sources(body, places, &self.write_sources, &self.owned);
-        self.stored_loads = stored_loads(body, places, &self.write_sources, &self.owned);
         let empty_descriptors: HashMap<_, _> = body
             .blocks
             .iter()
@@ -970,11 +969,12 @@ fn ordered_load_sources(
 ///
 /// The stores that reach a block are the ones every path into it agrees on, so a store before a
 /// branch or a loop still counts, and one made on only some paths does not.
-fn stored_loads(
+pub(super) fn stored_loads(
     body: &super::LifetimeBody,
     places: &super::Places,
     unique: &HashMap<usize, Val>,
     owned: &HashSet<usize>,
+    calls: &HashMap<ProcId, Summary>,
 ) -> HashMap<Val, Val> {
     type Stored = HashMap<usize, Val>;
     let local = |place: usize| owned.contains(&places.root_of(place)) && !places.unresolved(place);
@@ -1010,66 +1010,12 @@ fn stored_loads(
                         found.insert(value, source);
                     }
                 }
-                Event::Expression {
+                _ if leaves_memory(event) => {}
+                Event::Call {
+                    callee,
+                    expands: false,
                     ..
-                }
-                | Event::Use {
-                    ..
-                }
-                | Event::Address {
-                    ..
-                }
-                | Event::Field {
-                    ..
-                }
-                | Event::Copy {
-                    ..
-                }
-                | Event::Offset {
-                    ..
-                }
-                | Event::IntegerBinary {
-                    ..
-                }
-                | Event::Index {
-                    ..
-                }
-                | Event::Borrow {
-                    ..
-                }
-                | Event::View {
-                    ..
-                }
-                | Event::Local {
-                    ..
-                }
-                | Event::Parameter {
-                    ..
-                }
-                | Event::ReadMemory {
-                    ..
-                }
-                | Event::EmptyDescriptor {
-                    ..
-                }
-                | Event::Procedure {
-                    ..
-                }
-                | Event::StatementEnd {
-                    ..
-                }
-                | Event::ScopeEnd {
-                    ..
-                }
-                | Event::Branch {
-                    ..
-                }
-                | Event::Return {
-                    ..
-                }
-                | Event::StaticChoice {
-                    ..
-                } => {}
+                } if calls.get(&callee).is_some_and(|c| c.writes_no_memory) => {}
                 _ => stored.clear(),
             }
         }
@@ -1112,6 +1058,75 @@ fn stored_loads(
     }
 
     result
+}
+
+
+/// Whether `event` leaves every place of memory as it was: it reads, computes or ends a scope.
+fn leaves_memory(event: &Event) -> bool {
+    matches!(
+        event,
+        Event::Indirect { .. }
+            | Event::ContextRead { .. }
+            | Event::ContextSet { .. }
+            | Event::ContextAlias { .. }
+            | Event::CallContract { .. }
+            | Event::Expression { .. }
+            | Event::Use { .. }
+            | Event::Address { .. }
+            | Event::Field { .. }
+            | Event::Copy { .. }
+            | Event::Offset { .. }
+            | Event::IntegerBinary { .. }
+            | Event::Index { .. }
+            | Event::Borrow { .. }
+            | Event::View { .. }
+            | Event::Local { .. }
+            | Event::Parameter { .. }
+            | Event::ReadMemory { .. }
+            | Event::EmptyDescriptor { .. }
+            | Event::Procedure { .. }
+            | Event::StatementEnd { .. }
+            | Event::ScopeEnd { .. }
+            | Event::Branch { .. }
+            | Event::Return { .. }
+            | Event::StaticChoice { .. }
+    )
+}
+
+/// Whether a body writes no memory that outlives it: every event leaves memory as it was, stores
+/// into one of the body's own locals, or calls a procedure that does the same.
+///
+/// ```jai
+/// peek  :: (c: *Cell) -> int { return c.storage.*; }  // writes nothing
+/// reset :: (c: *Cell) { c.storage = null; }           // writes caller memory
+/// ```
+pub(super) fn writes_no_memory(
+    body: &super::LifetimeBody,
+    places: &super::Places,
+    owned: &HashSet<usize>,
+    calls: &HashMap<ProcId, Summary>,
+) -> bool {
+    body.blocks
+        .iter()
+        .flat_map(|b| &b.events)
+        .all(|event| match *event {
+            Event::Store {
+                place,
+                ty,
+                ..
+            } => places
+                .existing(place, ty)
+                .is_some_and(|p| owned.contains(&places.root_of(p)) && !places.unresolved(p)),
+            Event::Load {
+                ..
+            } => true,
+            Event::Call {
+                callee,
+                expands: false,
+                ..
+            } => calls.get(&callee).is_some_and(|c| c.writes_no_memory),
+            _ => leaves_memory(event),
+        })
 }
 
 fn dominates(parents: &[Option<usize>], ancestor: usize, mut node: usize) -> bool {

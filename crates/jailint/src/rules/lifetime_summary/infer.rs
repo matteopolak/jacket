@@ -16,6 +16,8 @@ impl Resolver<'_> {
         next.observable = self.observable_calls.infer(all);
         next.ordering = self.ordering_base.or_else(|| self.aggregate_order(all));
         next.rounded_address = self.rounded_address_base;
+        next.writes_no_memory =
+            super::return_fields::writes_no_memory(body, &self.places, &self.owned, all);
         let swap_facts = body.blocks.iter().flat_map(|b| &b.events).any(|e| matches!(e, Event::Call { callee, .. } if super::swap::swaps_arguments(self.compiler, *callee))).then(|| crate::rules::lifetime_movement::facts::Facts::new(self.compiler, body));
         let mut effects = vec![Vec::new(); body.blocks.len()];
 

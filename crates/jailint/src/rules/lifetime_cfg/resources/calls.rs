@@ -211,10 +211,18 @@ impl Builder<'_> {
             {
                 let region = places.import(&resolver.places, p);
 
+                let first = direct
+                    && summaries.procs.get(callee).is_some_and(|s| {
+                        s.free_then_write.iter().any(|(freed, _)| {
+                            !freed.steps.is_empty() && effect.target.steps.ends_with(&freed.steps)
+                        })
+                    });
+
                 ops.push(Op::FreeRegion {
                     region,
                     cell: cells.id(Cell::Place(region)),
                     span: *span,
+                    first,
                 });
             }
         }

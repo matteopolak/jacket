@@ -157,6 +157,9 @@ pub(super) struct Summary {
     /// `(freed, written)` places of parameters where every write of `written` follows a free of
     /// `freed`: the call releases what the place held and then replaces it.
     pub free_then_write: HashSet<(Path, Path)>,
+    /// The body writes no memory that outlives it (see `return_fields::writes_no_memory`), so a
+    /// call to it leaves what the caller stored as it was.
+    pub writes_no_memory: bool,
 }
 
 impl Summary {

@@ -237,3 +237,27 @@ clear_holder :: () {
     h.p = New(int);
     reset_then_free(h);
 }
+
+Cell :: struct {
+    storage: *int;
+}
+
+forget :: (cell: *Cell) {
+    cell.storage = null;
+}
+
+install_and_forget :: (cell: *Cell, value: *int) {
+    cell.storage = value;
+    forget(cell);
+    free(cell.storage);
+}
+
+// The call between emptied the field, so nothing was freed through it.
+installed_then_forgotten :: () {
+    value := New(int);
+    cell: Cell;
+
+    install_and_forget(*cell, value);
+    print("%\n", value.*);
+    free(value);
+}
