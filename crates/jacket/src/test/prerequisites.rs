@@ -508,11 +508,24 @@ const WINDOW_DRIVER_LIBRARIES: [&str; 4] = [
     "thread_sdk_identity",
 ];
 
-/// Where a missing native library comes from: the stdlib's own libraries, or the probes that
-/// test drivers link, which `build_native_libs.py` does not build.
+/// Libraries that `tools/native/provided_libs.py` gives a recipe of their own instead of
+/// `build_native_libs.py`: name and script. `tools/ci/test_check_native_libs.py` keeps this list in
+/// step with `RECIPES` there.
+const PROVIDED_LIBRARIES: [(&str, &str); 3] = [
+    ("wgpu_native", "tools/bindings/fetch_wgpu_native.py"),
+    (
+        "platform_io_windows_crash",
+        "tools/stdlib/build_platform_io_runtime.py",
+    ),
+    ("generator_platform", "tools/ci/package_bindings_helpers.py"),
+];
+
+/// Where a missing native library comes from: the stdlib's own libraries, a library with its own
+/// recipe, or the probes that test drivers link, which `build_native_libs.py` does not build.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Source {
     Stdlib,
+    Provided,
     WindowDrivers,
     BindingProbes,
 }
@@ -524,6 +537,8 @@ impl Source {
 
         if WINDOW_DRIVER_LIBRARIES.contains(&name) {
             Source::WindowDrivers
+        } else if PROVIDED_LIBRARIES.iter().any(|(n, _)| *n == name) {
+            Source::Provided
         } else if name.ends_with("_probe") {
             Source::BindingProbes
         } else {
@@ -539,6 +554,22 @@ impl Source {
             Source::Stdlib => format!(
                 "native libraries not built ({list}): PYTHONPATH=tools python3 tools/native/build_native_libs.py"
             ),
+            Source::Provided => {
+                let recipes: Vec<String> = names
+                    .iter()
+                    .filter_map(|name| {
+                        PROVIDED_LIBRARIES
+                            .iter()
+                            .find(|(n, _)| n == name)
+                            .map(|(n, script)| format!("{n}: {script}"))
+                    })
+                    .collect();
+
+                format!(
+                    "native libraries with their own build script not built ({}); `PYTHONPATH=tools python3 tools/native/package_native_libs.py --dry-run --platform <platform> --package <dir> --llvm-prefix <dir>` prints each command",
+                    recipes.join(", ")
+                )
+            }
             Source::WindowDrivers => format!(
                 "test-driver probe libraries not built ({list}): PYTHONPATH=tools python3 tools/window_render/window_render_native.py, then add target/window-native to JAIC_NATIVE_LIBS"
             ),
@@ -551,17 +582,22 @@ impl Source {
 
 /// One hint line for each group of missing libraries, each with the command that builds it.
 fn library_hints(libraries: &BTreeSet<String>) -> Vec<String> {
-    [Source::Stdlib, Source::WindowDrivers, Source::BindingProbes]
-        .into_iter()
-        .filter_map(|source| {
-            let names: Vec<&str> = libraries
-                .iter()
-                .map(String::as_str)
-                .filter(|name| Source::of(name) == source)
-                .collect();
-            (!names.is_empty()).then(|| source.hint(&names))
-        })
-        .collect()
+    [
+        Source::Stdlib,
+        Source::Provided,
+        Source::WindowDrivers,
+        Source::BindingProbes,
+    ]
+    .into_iter()
+    .filter_map(|source| {
+        let names: Vec<&str> = libraries
+            .iter()
+            .map(String::as_str)
+            .filter(|name| Source::of(name) == source)
+            .collect();
+        (!names.is_empty()).then(|| source.hint(&names))
+    })
+    .collect()
 }
 
 /// One line for each build output the failed tests were missing, in a stable order.
@@ -886,6 +922,21 @@ mod tests {
         }
 
         assert!(unbuilt.is_empty(), "no setup builds: {unbuilt:?}");
+    }
+
+    #[test]
+    fn provided_libraries_name_their_own_recipe() {
+        let libraries: BTreeSet<String> = ["generator_platform", "mbedtls", "wgpu_native"]
+            .map(String::from)
+            .into();
+        let lines = library_hints(&libraries);
+
+        assert_eq!(lines.len(), 2, "{lines:?}");
+        assert!(lines[0].starts_with("native libraries not built (mbedtls):"));
+        assert!(lines[1].contains("generator_platform: tools/ci/package_bindings_helpers.py"));
+        assert!(lines[1].contains("wgpu_native: tools/bindings/fetch_wgpu_native.py"));
+        assert!(!lines[1].contains("build_native_libs.py"), "{lines:?}");
+        assert!(lines[1].contains("package_native_libs.py --dry-run"));
     }
 
     #[test]

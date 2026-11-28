@@ -121,6 +121,14 @@ class Repository(unittest.TestCase):
         declared = provided_libs.providers(ROOT / "stdlib")[0]
         self.assertEqual(sorted(set(provided_libs.RECIPES) - set(declared)), [])
 
+    def test_the_jacket_hint_names_every_recipe_script(self):
+        # crates/jacket/src/test/prerequisites.rs PROVIDED_LIBRARIES mirrors RECIPES.
+        text = (ROOT / "crates/jacket/src/test/prerequisites.rs").read_text()
+        block = text[text.index("const PROVIDED_LIBRARIES") :].split("];")[0]
+        for name, recipe in provided_libs.RECIPES.items():
+            self.assertIn(f'"{name}"', block)
+            self.assertIn(f'"{recipe["script"]}"', block)
+
 
 if __name__ == "__main__":
     unittest.main()
