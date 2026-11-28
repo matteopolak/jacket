@@ -238,6 +238,23 @@ fn push_clients_get_the_errors_of_an_open_generated_document() {
             .any(|d| d.to_string().contains("type mismatch")),
         "{edited:?}"
     );
+
+    // The metaprogram's string is edited: the open document is gone from the compile, so its
+    // errors are cleared instead of staying.
+    let build = dir.join("build.jai");
+    let build_text = std::fs::read_to_string(&build).unwrap();
+
+    send(
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+        "uri": uri_of(&build).as_str(), "languageId": "jai", "version": 1, "text": build_text}}}),
+    );
+    let fixed = send(
+        json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {
+        "textDocument": {"uri": uri_of(&build).as_str(), "version": 2},
+        "contentChanges": [{"text": build_text.replace("\\\"seven\\\"", "7")}]}}),
+    );
+
+    assert_eq!(published(&fixed).last(), Some(&json!([])), "{fixed:?}");
     let closed = send(
         json!({"jsonrpc": "2.0", "method": "textDocument/didClose", "params": {"textDocument": {
         "uri": generated}}}),

@@ -483,13 +483,26 @@ impl Cache {
         analysis
     }
 
-    /// The findings in the generated source with this text, from the newest kept compile that
-    /// made it.
+    /// The findings in the generated source with this text, from the newest compile of a
+    /// program that made it. An older compile kept beside a newer one of the same program does
+    /// not count: its text is gone from the program.
     pub(crate) fn generated_findings(&mut self, text: &str) -> Option<Vec<super::CheckFinding>> {
-        self.entries
-            .iter_mut()
-            .rev()
-            .find_map(|analysis| analysis.generated_findings(text))
+        let mut seen = Vec::new();
+
+        self.entries.iter_mut().rev().find_map(|analysis| {
+            if analysis.os.is_some() || seen.contains(&analysis.root) {
+                return None;
+            }
+
+            seen.push(analysis.root.clone());
+            analysis.generated_findings(text)
+        })
+    }
+
+    /// Whether any compile is kept at all, so a text found in none of them is gone rather than
+    /// not yet compiled.
+    pub(crate) fn has_compiles(&self) -> bool {
+        !self.entries.is_empty()
     }
 
     /// The canonical texts and keys of a compile's inputs.

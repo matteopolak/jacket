@@ -282,7 +282,13 @@ impl Session {
     /// (an error in the generated code itself), or `None` for a URI this session never gave.
     pub fn generated_diagnostics(&self, uri: &str) -> Option<Vec<crate::model::Diagnostic>> {
         let text = self.generated.borrow().get(uri)?.clone();
-        let findings = self.semantic.borrow_mut().generated_findings(&text)?;
+        let mut semantic = self.semantic.borrow_mut();
+        let Some(findings) = semantic.generated_findings(&text) else {
+            // Compiled, and the text is no longer in any program: nothing is left to report.
+            return semantic.has_compiles().then(Vec::new);
+        };
+
+        drop(semantic);
         let index = LineIndex::new(&text);
 
         Some(
