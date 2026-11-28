@@ -15,6 +15,7 @@ from native_bindings.build_dependencies import INPUTS
 from native_bindings.rpmalloc_profiles import PROFILES, c_definitions
 from native_bindings.build_rpmalloc import platform_c_flags
 from toolkit.hashing import sha256_file
+from toolkit.host import require_tool
 from toolkit.repo import ROOT
 
 
@@ -178,6 +179,11 @@ def main():
         parser.error(
             "test provider output must remain outside production library sources"
         )
+    # The ABI probe compiles against FreeType; check before building anything.
+    pkg_config = require_tool(
+        "pkg-config",
+        "install pkg-config and FreeType (`brew install pkg-config freetype`, or `apt install pkg-config libfreetype-dev`)",
+    )
     libraries, profiles, abi = selected_libraries()
     input_files = [
         Path(__file__).resolve(),
@@ -227,7 +233,7 @@ def main():
         vendor / pins["mojoshader"]["archive"]["root"],
     ]
     font_flags = shlex.split(
-        subprocess.check_output(["pkg-config", "--cflags", "freetype2"], text=True)
+        subprocess.check_output([pkg_config, "--cflags", "freetype2"], text=True)
     )
     suffix = "dylib" if platform.system() == "Darwin" else "so"
     flags = ["-dynamiclib"] if platform.system() == "Darwin" else ["-shared", "-fPIC"]
