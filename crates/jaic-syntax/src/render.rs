@@ -146,12 +146,52 @@ pub fn detect(choice: ColorChoice) -> Style {
     )
 }
 
+/// Whether output to a stream is coloured: the one colour rule of every jacket tool.
+///
+/// `--color always|never` wins; otherwise `NO_COLOR` (any value) turns it off,
+/// `CLICOLOR_FORCE` / `FORCE_COLOR` (set, not `0`) turn it on, and else it is on for a
+/// `terminal` whose `TERM` is not `dumb`. On Windows, `auto` colours only consoles known to
+/// understand ANSI sequences (Windows Terminal, `ConEmu`, ANSICON, a `TERM`).
+///
+/// ```
+/// use jaic_syntax::render::{ColorChoice, color_with};
+/// let env = |key: &str| (key == "FORCE_COLOR").then(|| "1".to_string());
+/// assert!(color_with(ColorChoice::Auto, false, env));
+/// assert!(!color_with(ColorChoice::Never, true, env));
+/// ```
+pub fn color_with(
+    choice: ColorChoice,
+    terminal: bool,
+    env: impl Fn(&str) -> Option<String>,
+) -> bool {
+    let forced = |key: &str| env(key).is_some_and(|v| !v.is_empty() && v != "0");
+    match choice {
+        ColorChoice::Always => true,
+        ColorChoice::Never => false,
+        ColorChoice::Auto if env("NO_COLOR").is_some() => false,
+        ColorChoice::Auto if forced("CLICOLOR_FORCE") || forced("FORCE_COLOR") => true,
+        ColorChoice::Auto => terminal && !dumb_terminal(&env) && ansi_console(&env),
+    }
+}
+
+/// Whether `TERM` says the terminal takes no control codes.
+pub fn dumb_terminal(env: impl Fn(&str) -> Option<String>) -> bool {
+    env("TERM").as_deref() == Some("dumb")
+}
+
+/// Whether the console understands ANSI sequences: always outside Windows; on Windows, the
+/// consoles known to (Windows Terminal, `ConEmu`, ANSICON, any with a `TERM`).
+pub fn ansi_console(env: impl Fn(&str) -> Option<String>) -> bool {
+    !cfg!(windows)
+        || env("WT_SESSION").is_some()
+        || env("ANSICON").is_some()
+        || env("ConEmuANSI").as_deref() == Some("ON")
+        || env("TERM").is_some()
+}
+
 /// `detect` with the terminal test and the environment given (for tests).
 ///
-/// - Colour: `--color always|never` wins; otherwise `NO_COLOR` (any value) turns it off,
-///   `CLICOLOR_FORCE` / `FORCE_COLOR` (set, not `0`) turn it on, and else it is on for a
-///   terminal whose `TERM` is not `dumb`. On Windows, `auto` colours only consoles known to
-///   understand ANSI sequences (Windows Terminal, `ConEmu`, ANSICON, a `TERM`).
+/// - Colour: [`color_with`].
 /// - Layout: `JAIC_DIAGNOSTICS=plain|ascii|unicode` wins; otherwise `Plain` when stderr is
 ///   not a terminal (or `TERM=dumb`), `Unicode` for a UTF-8 locale or Windows Terminal, and
 ///   `Ascii` for other terminals.
@@ -160,20 +200,8 @@ pub fn detect_with(
     terminal: bool,
     env: impl Fn(&str) -> Option<String>,
 ) -> Style {
-    let forced = |key: &str| env(key).is_some_and(|v| !v.is_empty() && v != "0");
-    let dumb = env("TERM").as_deref() == Some("dumb");
-    let ansi_console = !cfg!(windows)
-        || env("WT_SESSION").is_some()
-        || env("ANSICON").is_some()
-        || env("ConEmuANSI").as_deref() == Some("ON")
-        || env("TERM").is_some();
-    let color = match choice {
-        ColorChoice::Always => true,
-        ColorChoice::Never => false,
-        ColorChoice::Auto if env("NO_COLOR").is_some() => false,
-        ColorChoice::Auto if forced("CLICOLOR_FORCE") || forced("FORCE_COLOR") => true,
-        ColorChoice::Auto => terminal && !dumb && ansi_console,
-    };
+    let color = color_with(choice, terminal, &env);
+    let dumb = dumb_terminal(&env);
     let utf8 = ["LC_ALL", "LC_CTYPE", "LANG"]
         .iter()
         .find_map(|key| env(key).filter(|v| !v.is_empty()))

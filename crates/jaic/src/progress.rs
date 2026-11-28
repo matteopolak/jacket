@@ -34,8 +34,8 @@ impl Mode {
 /// Picks the mode. `JAIC_PROGRESS=off|plain|live` wins over everything but `quiet`; otherwise a
 /// terminal gets `Live`, or `Plain` when it cannot or should not take control codes (`NO_COLOR`,
 /// `-no_color`, `TERM=dumb`, `CI`, a Windows console without ANSI support), and anything else
-/// `Off`, so logs and pipes see no change. `Plain` becomes `Colored` when colour is forced and
-/// neither `NO_COLOR` nor `-no_color` turns it off.
+/// `Off`, so logs and pipes see no change. Colour follows the shared rule
+/// ([`crate::render::color_with`]): `Plain` becomes `Colored` when it says colour.
 pub fn mode_with(
     terminal: bool,
     quiet: bool,
@@ -45,10 +45,12 @@ pub fn mode_with(
     if quiet {
         return Mode::Off;
     }
-    let forced = |key: &str| env(key).is_some_and(|v| !v.is_empty() && v != "0");
-    let colored = !no_color
-        && env("NO_COLOR").is_none()
-        && (forced("FORCE_COLOR") || forced("CLICOLOR_FORCE"));
+    let choice = if no_color {
+        crate::render::ColorChoice::Never
+    } else {
+        crate::render::ColorChoice::Auto
+    };
+    let colored = crate::render::color_with(choice, terminal, &env);
     let plain = if colored {
         Mode::Colored
     } else {
@@ -63,14 +65,10 @@ pub fn mode_with(
     if !terminal {
         return Mode::Off;
     }
-    let dumb = env("TERM").as_deref() == Some("dumb");
-    let ansi_console = !cfg!(windows)
-        || env("WT_SESSION").is_some()
-        || env("ANSICON").is_some()
-        || env("ConEmuANSI").as_deref() == Some("ON")
-        || env("TERM").is_some();
+    // Redrawing the status line in place also needs a console that takes control codes, and
+    // CI logs keep every redraw, so they get the plain lines.
     let ci = env("CI").is_some_and(|v| !v.is_empty() && v != "0" && v != "false");
-    if no_color || dumb || ci || !ansi_console || env("NO_COLOR").is_some() {
+    if !colored || ci || crate::render::dumb_terminal(&env) || !crate::render::ansi_console(&env) {
         plain
     } else {
         Mode::Live
@@ -667,8 +665,9 @@ mod tests {
         assert_eq!(mode_with(true, false, true, env(term)), Mode::Plain);
         let no_color: &[(&str, &str)] = &[("TERM", "xterm"), ("NO_COLOR", "1")];
         assert_eq!(mode_with(true, false, false, env(no_color)), Mode::Plain);
+        // CI keeps every redraw, so a terminal there gets lines; they are coloured like diagnostics.
         let ci: &[(&str, &str)] = &[("TERM", "xterm"), ("CI", "true")];
-        assert_eq!(mode_with(true, false, false, env(ci)), Mode::Plain);
+        assert_eq!(mode_with(true, false, false, env(ci)), Mode::Colored);
         let dumb: &[(&str, &str)] = &[("TERM", "dumb")];
         assert_eq!(mode_with(true, false, false, env(dumb)), Mode::Plain);
         let forced: &[(&str, &str)] = &[("JAIC_PROGRESS", "plain")];

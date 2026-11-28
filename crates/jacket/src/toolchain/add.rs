@@ -3,7 +3,7 @@
 use crate::status;
 use jaic::target::Target;
 use jaic_toolchain::{Host, Lookup, System, cache, pins, tilde};
-use std::io::{IsTerminal, Write};
+use std::io::Write;
 
 /// The target a name stands for: a triple, or a board or `[target.NAME]` table.
 fn resolve(name: &str, config: Option<&jacket_config::Config>) -> Result<Target, String> {
@@ -21,8 +21,9 @@ fn resolve(name: &str, config: Option<&jacket_config::Config>) -> Result<Target,
 }
 
 /// Whether lines are coloured and the live line is redrawn: a terminal.
+/// Whether the progress line is redrawn in place: jaic's rule for its own status line.
 fn live() -> bool {
-    std::io::stderr().is_terminal() && jacket_config::env::NO_COLOR.os().is_none()
+    jaic::progress::mode(false, false) == jaic::progress::Mode::Live
 }
 
 /// Redraws the progress line in place on a terminal; elsewhere says nothing until the end.
@@ -69,7 +70,7 @@ fn downloads_possible(lookup: &Lookup) -> Result<(), String> {
 }
 
 fn add_one(target: Target, lookup: &Lookup) -> Result<(), String> {
-    let color = live();
+    let color = jaic::render::detect(jaic::render::ColorChoice::Auto).color;
     if let Some(family) = pins::compiler_rt_family(target) {
         let pin = pins::compiler_rt(family);
         if let Some((_, source)) = cache::builtins(lookup.host, target)
