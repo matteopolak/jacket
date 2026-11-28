@@ -1,3 +1,6 @@
+// Decodes a run of DWARF call frame instructions in `data`.
+//
+// Returns `false` and an empty slice on an unknown opcode or truncated operand. The slice is allocated.
 decode_cfa_instructions :: (data: [] u8) -> [] Call_Frame_Address_Instruction, success: bool {
     input: Frame_Input = .{ data = data };
     rows: [..] Call_Frame_Address_Instruction;
@@ -41,6 +44,9 @@ decode_cfa_instructions :: (data: [] u8) -> [] Call_Frame_Address_Instruction, s
     return .{ rows.count, rows.data }, true;
 }
 
+// Parses the common information entry that starts at `offset_in` in `data`.
+//
+// Returns success, the entry, and the offset just past it. On failure the offset is `offset_in`. Accepts versions 1, 3 and 4, and only the `z` augmentation. The entry points into `data`, except `initial_instructions`, which is allocated.
 parse_common_information_entry :: (data: [] u8, offset_in: s64) -> success: bool, Frame_Common_Information_Entry, offset: s64 {
     empty: Frame_Common_Information_Entry;
     if offset_in < 0 || offset_in > data.count return false, empty, offset_in;
@@ -105,6 +111,9 @@ parse_common_information_entry :: (data: [] u8, offset_in: s64) -> success: bool
     return true, result, end;
 }
 
+// Parses the frame description entry that starts at `offset_in` in `data`, for the common information entry `cie`.
+//
+// `frame_section_address` is the load address of `data`. Returns success, the entry, and the offset just past it; on failure the offset is `offset_in`. Handles `.eh_frame` entries and 32-bit `.debug_frame` version 4 entries. `instructions` is allocated.
 parse_frame_description_entry :: (cie: Frame_Common_Information_Entry, frame_section_address: u64, data: [] u8, offset_in: s64) -> success: bool, Frame_Description_Entry, offset: s64 {
     empty: Frame_Description_Entry;
     if data.count < 0 || offset_in < 0 || offset_in > data.count return false, empty, offset_in;

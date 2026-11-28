@@ -1,3 +1,6 @@
+// Resets `fpm` for a 4096-byte-page MSF with room for `cbitsFpm` pages, all marked free.
+//
+// Asserts on any other page size.
 init :: (fpm: *Free_Page_Map, cbitsFpm: s32, cbPg: s32) {
     assert(fpm != null && cbitsFpm >= 0 && cbPg == 4096, "Debug_Info: invalid free-page map initialization");
     array_free(fpm.rgw);
@@ -8,6 +11,7 @@ init :: (fpm: *Free_Page_Map, cbitsFpm: s32, cbPg: s32) {
     ensure_room(fpm, cast(u32) cbitsFpm, true);
 }
 
+// Grows `fpm` to hold at least `upnMac` pages, marking new pages free when `fill` is true and in use otherwise.
 ensure_room :: (using fpm: *Free_Page_Map, upnMac: UPN, fill: bool) {
     assert(fpm != null && fpm.fBigMsf && fpm.cbPg == 4096 && fpm.iwMac == fpm.rgw.count, "Debug_Info: invalid free-page map state");
     words := (cast(s64) upnMac + 63) / 64;
@@ -24,6 +28,7 @@ ensure_room :: (using fpm: *Free_Page_Map, upnMac: UPN, fill: bool) {
     fpm.wFill = value;
 }
 
+// Marks every page of `fpm` free and resets the allocation rover.
 set_all :: (using fpm: *Free_Page_Map) {
     assert(fpm != null && fpm.iwMac == fpm.rgw.count, "Debug_Info: invalid free-page map state");
     for *word: fpm.rgw word.* = -1;
@@ -31,12 +36,14 @@ set_all :: (using fpm: *Free_Page_Map) {
     fpm.wFill = -1;
 }
 
+// Returns whether `page_number` is marked free. Asserts if the page is outside the map.
 is_free_page :: (using fpm: Free_Page_Map, page_number: UPN) -> bool {
     word, mask := msf_page_bit(fpm, page_number);
     bits := cast,no_check(u64) fpm.rgw[word];
     return (bits & mask) != 0;
 }
 
+// Marks `page_number` as in use. Asserts if the page is outside the map.
 alloc_page :: (using fpm: *Free_Page_Map, page_number: UPN) {
     assert(fpm != null, "Debug_Info: null free-page map");
     word, mask := msf_page_bit(fpm.*, page_number);
@@ -45,6 +52,7 @@ alloc_page :: (using fpm: *Free_Page_Map, page_number: UPN) {
     fpm.rgw[word] = cast,no_check(s64) bits;
 }
 
+// Marks `page_number` as free. Asserts if the page is outside the map.
 free_page :: (using fpm: *Free_Page_Map, page_number: UPN) {
     assert(fpm != null, "Debug_Info: null free-page map");
     word, mask := msf_page_bit(fpm.*, page_number);
@@ -53,6 +61,7 @@ free_page :: (using fpm: *Free_Page_Map, page_number: UPN) {
     fpm.rgw[word] = cast,no_check(s64) bits;
 }
 
+// Returns whether `pn` is one of the two free-page-map pages of each 4096-page interval (offsets 1 and 2).
 is_fpm_page_number :: (using fpm: Free_Page_Map, pn: UPN) -> bool {
     assert(fpm.fBigMsf && fpm.cbPg == 4096, "Debug_Info: unsupported free-page map format");
     index := pn % cast(u32) fpm.cbPg;

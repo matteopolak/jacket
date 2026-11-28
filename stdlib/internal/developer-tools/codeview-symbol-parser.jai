@@ -1,3 +1,6 @@
+// Parses the C13 subsections of a module (symbols, lines, string table, file checksums, inlinee lines) in `data` into `info`.
+//
+// Returns `false` and leaves `info` unchanged on malformed or unsupported input, such as an unknown subsection, a repeated table, a duplicate file ID or a line block that names a missing file. `verbose` logs progress.
 parse_codeview_symbols :: (info: *Codeview_Debug_Info, data: [] u8, verbose := false) -> success: bool {
     staged: Codeview_Debug_Info;
     committed := false;

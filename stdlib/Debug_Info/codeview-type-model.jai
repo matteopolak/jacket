@@ -1,9 +1,14 @@
 // Canonical CodeView type records, including common using base storage.
+
+// A builtin type, such as `int` or `void`, identified by an index below `0x1000` that has no record in the type stream.
 Codeview_Builtin :: struct {
     using base: Codeview_Type = .{ kind = .BUILTIN };
     id: Type_Id;
 }
 
+// A class, struct or union type record.
+//
+// `field_list` points to the [Codeview_List] with the members. A record with `FWDREF` set is a declaration only.
 Codeview_Struct :: struct {
     using base: Codeview_Type = .{ kind = .STRUCTURE };
     num_fields: u16;
@@ -16,6 +21,7 @@ Codeview_Struct :: struct {
     unique_name: string;
 }
 
+// An enum type record: its underlying `type`, and a `field_list` of [Codeview_Enumerate] entries.
 Codeview_Enum :: struct {
     using base: Codeview_Type = .{ kind = .ENUM };
     num_fields: u16;
@@ -26,6 +32,7 @@ Codeview_Enum :: struct {
     unique_name: string;
 }
 
+// An array type record: the element and index types and the total `size` in bytes.
 Codeview_Array :: struct {
     using base: Codeview_Type = .{ kind = .ARRAY };
     element_type: Type_Id;
@@ -34,12 +41,14 @@ Codeview_Array :: struct {
     name: string;
 }
 
+// A pointer or reference type record, pointing to `type`; `flags` holds the raw attribute bits.
 Codeview_Pointer :: struct {
     using base: Codeview_Type = .{ kind = .POINTER };
     type: Type_Id;
     flags: u32;
 }
 
+// A free procedure type: its return type, calling convention and argument list.
 Codeview_Procedure :: struct {
     using base: Codeview_Type = .{ kind = .PROCEDURE };
     return_type: Type_Id;
@@ -49,6 +58,7 @@ Codeview_Procedure :: struct {
     arguments: Type_Id;
 }
 
+// A member function type: a procedure type plus its class, `this` pointer type and `this` adjustment.
 Codeview_Method_Function :: struct {
     using base: Codeview_Type = .{ kind = .MFUNCTION };
     return_type: Type_Id;
@@ -61,6 +71,7 @@ Codeview_Method_Function :: struct {
     this_adjuster: s32;
 }
 
+// A set of overloads that share one name; `list_type` is the [Codeview_Method_List] with `count` entries.
 Codeview_Overloaded_Method :: struct {
     using base: Codeview_Type = .{ kind = .METHOD };
     count: u16;
@@ -68,11 +79,13 @@ Codeview_Overloaded_Method :: struct {
     name: string;
 }
 
+// The overloads of one method name.
 Codeview_Method_List :: struct {
     using base: Codeview_Type = .{ kind = .METHODLIST };
     elements: [..] Codeview_Method;
 }
 
+// A single member function with its procedure type and attributes.
 Codeview_Method :: struct {
     using base: Codeview_Type = .{ kind = .ONEMETHOD };
     attributes: u16;
@@ -81,6 +94,9 @@ Codeview_Method :: struct {
     name: string;
 }
 
+// A field list: the members, methods, enumerates and nested types of a record.
+//
+// A long list is split; `previous` links to the part that came before it.
 Codeview_List :: struct {
     using base: Codeview_Type = .{ kind = .FIELDLIST };
     previous: Type_Id;
@@ -91,17 +107,20 @@ Codeview_List :: struct {
     nested: [..] Codeview_Nested_Type;
 }
 
+// The argument types of a procedure type.
 Codeview_Arguments :: struct {
     using base: Codeview_Type = .{ kind = .ARGLIST };
     arguments: [] Type_Id;
 }
 
+// A string in the ID stream, such as a file path or a build option.
 Codeview_String_Id :: struct {
     using base: Codeview_Type = .{ kind = .STRING_ID };
     id: u32;
     name: string;
 }
 
+// The source file and line where the user-defined type `type` is declared.
 Codeview_Udt_Source_Line :: struct {
     using base: Codeview_Type = .{ kind = .UDT_SRC_LINE };
     type: Type_Id;
@@ -109,6 +128,7 @@ Codeview_Udt_Source_Line :: struct {
     line: u32;
 }
 
+// A function in the ID stream: its `scope`, name and procedure type.
 Codeview_Function_Id :: struct {
     using base: Codeview_Type = .{ kind = .FUNC_ID };
     scope: Type_Id;
@@ -117,12 +137,14 @@ Codeview_Function_Id :: struct {
     undocumented: u64;
 }
 
+// A type alias: `name` refers to `type`.
 Codeview_Alias :: struct {
     using base: Codeview_Type = .{ kind = .ALIAS };
     type: Type_Id;
     name: string;
 }
 
+// A reference to the PDB that holds the types: its GUID, age and path.
 Codeview_Typeserver2 :: struct {
     using base: Codeview_Type = .{ kind = .TYPESERVER2 };
     sig70: Guid;
@@ -130,6 +152,7 @@ Codeview_Typeserver2 :: struct {
     name: string;
 }
 
+// A `const`, `volatile` or unaligned qualifier applied to `type`.
 Codeview_Modifier :: struct {
     using base: Codeview_Type = .{ kind = .MODIFIER };
     type: Type_Id;
@@ -141,6 +164,7 @@ Codeview_Modifier :: struct {
     }
 }
 
+// A data member of a record: its type, byte `offset` and name.
 Codeview_Member :: struct {
     using base: Codeview_Type = .{ kind = .MEMBER };
     access: u16;
@@ -149,6 +173,7 @@ Codeview_Member :: struct {
     name: string;
 }
 
+// One enumerator of an enum: its name and value.
 Codeview_Enumerate :: struct {
     using base: Codeview_Type = .{ kind = .ENUMERATE };
     access: u16;
@@ -156,12 +181,14 @@ Codeview_Enumerate :: struct {
     name: string;
 }
 
+// A type declared inside a record, under `name`.
 Codeview_Nested_Type :: struct {
     using base: Codeview_Type = .{ kind = .NESTTYPE };
     type: Type_Id;
     name: string;
 }
 
+// The property bits of a [Codeview_Struct] or [Codeview_Enum] record.
 Struct_Properties :: enum_flags u16 {
     PACKED :: 0x0001;
     CTOR :: 0x0002;
@@ -183,17 +210,20 @@ Struct_Properties :: enum_flags u16 {
     MOCOM_UDT_VALUE :: 0x8000;
 }
 
+// The attribute bits of a procedure type.
 Function_Attributes :: enum_flags u8 {
     CXX_RETURN_UDT :: 0x01;
     CTOR :: 0x02;
     CTOR_V_BASE :: 0x03;
 }
 
+// The access level of a member; only the values this module reads are listed.
 Codeview_Access :: enum u16 {
     NONE :: 0;
     PUBLIC :: 3;
 }
 
+// The builtin type indexes below `0x1000`, with no mode bits.
 Codeview_Builtin_Type :: enum {
     NOTYPE :: 0x0000;
     ABS :: 0x0002;
@@ -229,6 +259,7 @@ Codeview_Builtin_Type :: enum {
     BOOL64 :: 0x0033;
 }
 
+// The pointer kinds of a pointer record, from near and far to 64-bit.
 Codeview_Pointer_Type :: enum u8 {
     NEAR :: 0x00;
     FAR :: 0x01;
@@ -246,6 +277,7 @@ Codeview_Pointer_Type :: enum u8 {
     UNUSEDPTR :: 0x0d;
 }
 
+// A 128-bit identifier in the Windows layout.
 Guid :: struct {
     data1: u32;
     data2: u16;

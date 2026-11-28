@@ -1,3 +1,6 @@
+// Parses a CodeView type or ID stream in `data` into type records.
+//
+// The stream starts with a 4-byte version that must be 4 unless `expect_codeview_version` is `false`. Returns `false` and an empty slice for malformed or unsupported records. The slice and records are allocated. `verbose` logs the record count.
 parse_codeview_types :: (data: [] u8, expect_codeview_version := true, verbose := false) -> bool, [] *Codeview_Type {
     records: [..] *Codeview_Type;
     keep := false;
@@ -40,6 +43,9 @@ parse_codeview_types :: (data: [] u8, expect_codeview_version := true, verbose :
     return true, .{ records.count, records.data };
 }
 
+// Returns the record for `type`, and whether it exists.
+//
+// Indexes below `0x1000` are builtin types and get a newly allocated [Codeview_Builtin]; others index `types` from `0x1000`.
 get_type :: (types: [] *Codeview_Type, type: Type_Id) -> *Codeview_Type, success: bool {
     id := cast(u32) type;
     if id < 0x1000 {
@@ -60,6 +66,7 @@ get_type :: (types: [] *Codeview_Type, type: Type_Id) -> *Codeview_Type, success
     return result, result != null;
 }
 
+// Like `get_type`, but a `type` with the top bit set is looked up in `ids` (without the bit), and any other in `types`.
 get_id_type :: (types: [] *Codeview_Type, ids: [] *Codeview_Type, type: Type_Id) -> *Codeview_Type, success: bool {
     id := cast(u32) type;
     if id & 0x80000000 {
@@ -70,6 +77,9 @@ get_id_type :: (types: [] *Codeview_Type, ids: [] *Codeview_Type, type: Type_Id)
     return get_type(types, type);
 }
 
+// Returns a newly allocated name for a builtin `type_id`, such as `unsigned int`, or an empty string if it is not a builtin the module knows.
+//
+// A pointer mode in bits 8-11 is appended as `*[mode=N]`; modes above 7 give an empty string.
 describe_builtin :: (type_id: Type_Id) -> string {
     id := cast(u32) type_id;
     if id >= 0x1000 return "";
@@ -118,19 +128,25 @@ describe_builtin :: (type_id: Type_Id) -> string {
     return sprint("% *[mode=%]", name, mode);
 }
 
+// Returns a text description of the ID-stream entry `type_id`, and whether it could be built. The caller frees the string.
 describe_id_type :: (types: [] *Codeview_Type, ids: [] *Codeview_Type, type_id: Type_Id) -> string, success: bool {
     id := cast(u32) type_id;
     return cv_describe_index(types, ids, cast(Type_Id) (id | 0x80000000), 0);
 }
 
+// Returns a text description of a type, given by index or by record, and whether it could be built. The caller frees the string.
 describe_type :: (types: [] *Codeview_Type, ids: [] *Codeview_Type, type_id: Type_Id) -> string, success: bool {
     return cv_describe_index(types, ids, type_id, 0);
 }
 
+// Returns a text description of a type, given by index or by record, and whether it could be built. The caller frees the string.
 describe_type :: (types: [] *Codeview_Type, ids: [] *Codeview_Type, type: *Codeview_Type) -> string, success: bool {
     return cv_describe_record(types, ids, type, 0);
 }
 
+// Prints every record of `types` and then `ids`, one per line, as `type 4096: ...` or `id 4096: ...`.
+//
+// Builds all descriptions first and returns `false` without printing anything if one fails.
 dump_codeview_types :: (types: [] *Codeview_Type, ids: [] *Codeview_Type) -> bool {
     // Prepare all descriptions before writing, so a failed graph produces no
     // misleading partial dump.
@@ -161,6 +177,7 @@ dump_codeview_types :: (types: [] *Codeview_Type, ids: [] *Codeview_Type) -> boo
     return true;
 }
 
+// Returns whether `symbol` is a local or global procedure symbol; `null` gives `false`.
 is_procedure :: (symbol: *Codeview_Symbol) -> bool {
     if !symbol return false;
 

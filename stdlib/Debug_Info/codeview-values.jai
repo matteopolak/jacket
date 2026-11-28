@@ -1,5 +1,6 @@
 // Reviewed public CodeView constants; unresolved dependency aliases are recorded separately.
 
+// The record kinds of a type or ID stream; the value is the 16-bit leaf tag.
 Codeview_Leaf_Type :: enum u16 {
     ALIAS :: 0x150a;
     ALIAS_ST :: 0x1010;
@@ -180,6 +181,7 @@ Codeview_Leaf_Type :: enum u16 {
     VTSHAPE :: 0xa;
 }
 
+// The record kinds of a symbol stream; the value is the 16-bit symbol tag.
 Codeview_Symbol_Type :: enum u16 {
     ALIGN :: 0x402;
     ANNOTATION :: 0x1019;

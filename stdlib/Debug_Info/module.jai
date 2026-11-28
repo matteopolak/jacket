@@ -17,6 +17,9 @@
 // assert(found && mapping.line == 42);
 // ```
 
+// A set of non-negative integers stored as a bit array; bit `i % BPW` of `words[i / BPW]` is set when `i` is a member.
+//
+// Query it with `is_set` and `cardinality`.
 Int_Set :: struct {
     BPW :: 32;
     words: [] u32;
@@ -58,22 +61,30 @@ Line_Mapping :: struct {
     }
 }
 
+// One line row: `text_offset` is relative to the start of its sequence.
+//
+// `line_and_delta_and_flag` packs the line in bits 0-23, the line-end delta in bits 24-30 and the statement flag in bit 31.
 Codeview_Line_Info :: struct {
     text_offset: u32;
     line_and_delta_and_flag: u32;
 }
 
+// A gap inside a [Codeview_Address_Range] where the variable is not live: `start_offset` from the range start, `range_bytes` long.
 Codeview_Address_Gap :: struct {
     start_offset: u16;
     range_bytes: u16;
 }
 
+// A code range in one section: `range_bytes` bytes starting at `start_offset` in `start_section`.
 Codeview_Address_Range :: struct {
     start_offset: u32;
     start_section: u16;
     range_bytes: u16;
 }
 
+// The live range of a variable stored at a register-relative address, minus the `gaps`.
+//
+// `spilled_udt_member_and_offset_parent` packs two fields: bit 0 says the variable is a spilled member of a user-defined type, and the bits from 4 up are the member's offset in its parent.
 Codeview_Symbol_Defrange_Register_Rel :: struct {
     base_register: u16;
     spilled_udt_member_and_offset_parent: u16;

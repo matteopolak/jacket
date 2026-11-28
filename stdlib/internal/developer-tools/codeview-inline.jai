@@ -1,3 +1,6 @@
+// Turns the binary annotations of `site` into line sequences for the code it occupies inside `procedure`.
+//
+// Returns `false` and an empty slice if `info` has no single inlinee entry for the site, an annotation is out of range or unsupported, or a range is left unfinished. The slice is allocated.
 decode_inline_site_line_info :: (info: Codeview_Debug_Info, procedure: Codeview_Symbol_Procedure, site: Codeview_Symbol_Inline_Site) -> [] Codeview_Line_Info_Sequence, success: bool {
     output: [..] Codeview_Line_Info_Sequence;
     keep := false;
@@ -109,6 +112,9 @@ decode_inline_site_line_info :: (info: Codeview_Debug_Info, procedure: Codeview_
     return .{ output.count, output.data }, true;
 }
 
+// Returns copies of `sequences` with the code of each of `inline_sites` (and their children) replaced by its own line rows.
+//
+// Returns `false` and an empty slice if a site cannot be decoded or does not lie in exactly one sequence, or if a child leaves its parent's range. The result is allocated and owns its blocks; `sequences` is left unchanged.
 overlay_inlinesites :: (sequences: [] Codeview_Line_Info_Sequence, procedure: Codeview_Symbol_Procedure, inline_sites: [] *Codeview_Symbol_Inline_Site, debug_info: Codeview_Debug_Info) -> bool, [] Codeview_Line_Info_Sequence {
     owned: [..] Codeview_Line_Info_Sequence;
     keep := false;
@@ -133,6 +139,7 @@ overlay_inlinesites :: (sequences: [] Codeview_Line_Info_Sequence, procedure: Co
     return true, .{ owned.count, owned.data };
 }
 
+// Overlays one inline site; see [overlay_inlinesites].
 overlay_inlinesite :: (sequences: [] Codeview_Line_Info_Sequence, procedure: Codeview_Symbol_Procedure, inline_site: *Codeview_Symbol_Inline_Site, debug_info: Codeview_Debug_Info) -> bool, new_sequences: [] Codeview_Line_Info_Sequence {
     sites: [1] *Codeview_Symbol_Inline_Site = .[inline_site];
     return overlay_inlinesites(sequences, procedure, sites, debug_info);

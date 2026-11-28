@@ -7,6 +7,7 @@ Codeview_Symbol_Compile :: struct {
     compiler_version: string;
 }
 
+// The S_COMPILE3 record: the language, target CPU and compiler version of a module.
 Codeview_Symbol_Compile3 :: struct {
     using base: Codeview_Symbol = .{ symbol_type = .COMPILE3 };
     language: u8;
@@ -25,6 +26,9 @@ Codeview_Symbol_Compile3 :: struct {
     }
 }
 
+// A procedure symbol (S_GPROC32 or a related kind): its code range, type and name.
+//
+// `inlinesites` holds the inline sites found inside it. `offset` and `segment_index` give the start of its code.
 Codeview_Symbol_Procedure :: struct {
     using base: Codeview_Symbol = .{ symbol_type = .GPROC32 };
     parent: u32;
@@ -51,6 +55,9 @@ Codeview_Symbol_Procedure :: struct {
     inlinesites: [..] *Codeview_Symbol_Inline_Site;
 }
 
+// An inlined call (S_INLINESITE) inside a procedure: the inlined function and the annotations that place its code.
+//
+// `children` are the sites nested directly inside this one.
 Codeview_Symbol_Inline_Site :: struct {
     using base: Codeview_Symbol = .{ symbol_type = .INLINESITE };
     parent: u32;
@@ -60,6 +67,7 @@ Codeview_Symbol_Inline_Site :: struct {
     children: [..] *Codeview_Symbol_Inline_Site;
 }
 
+// One opcode of an inline site's annotation stream, with up to two operands.
 Codeview_Binary_Annotation :: struct {
     opcode: Codeview_Binary_Annotation_Opcode;
     operand1: Operand;
@@ -70,6 +78,7 @@ Codeview_Binary_Annotation :: struct {
     }
 }
 
+// The cursor and flags shared by the CodeView record readers.
 Codeview_Parser_State :: struct {
     data: [] u8;
     offset: s64;
@@ -77,16 +86,21 @@ Codeview_Parser_State :: struct {
     verbose: bool;
 }
 
+// The type records collected while parsing a type stream.
 Codeview_Type_Parser_State :: struct {
     types: [..] *Codeview_Type;
 }
 
+// The destination and open scopes while parsing a symbol stream.
 Codeview_Symbol_Parser_State :: struct {
     info: *Codeview_Debug_Info;
     current_procedure: *Codeview_Symbol_Procedure;
     open_inlinesites: [..] *Codeview_Symbol_Inline_Site;
 }
 
+// The opcodes of an inline site's binary annotation stream.
+//
+// Each opcode changes the code offset, code length, file, line or column state used to build line rows.
 Codeview_Binary_Annotation_Opcode :: enum u8 {
     INVALID :: 0x00;
     CODE_OFFSET :: 0x01;
@@ -104,6 +118,9 @@ Codeview_Binary_Annotation_Opcode :: enum u8 {
     CHANGE_COLUMN_END :: 0x0d;
 }
 
+// The kinds of C13 subsection in a module's debug data.
+//
+// A subsection type with the `IGNORE` bit set is skipped.
 Codeview_Symbol_Section :: enum u32 {
     SYMBOLS :: 0xF1;
     LINES :: 0xF2;
@@ -121,6 +138,7 @@ Codeview_Symbol_Section :: enum u32 {
     IGNORE :: 0x80000000;
 }
 
+// The format of an inlinee-lines subsection: `NORMAL` entries, or `EX` entries that list extra files.
 Codeview_Inlinee_Source_Variant :: enum u32 {
     NORMAL :: 0;
     EX :: 1;

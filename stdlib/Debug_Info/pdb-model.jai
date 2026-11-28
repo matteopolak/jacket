@@ -37,6 +37,7 @@ Tpi_Stream_Header :: struct {
     hash_adj_buffer_length: u32;
 }
 
+// The version numbers a PDB header can carry, named after the toolset that wrote them.
 Pdb_Version :: enum u32 {
     VC2 :: 19941610;
     VC4 :: 19950623;
@@ -50,6 +51,7 @@ Pdb_Version :: enum u32 {
     VC140 :: 20140508;
 }
 
+// The version numbers a type-info (TPI or IPI) stream header can carry.
 Tpi_Stream_Version :: enum u32 {
     V40 :: 19950410;
     V41 :: 19951122;

@@ -1,3 +1,6 @@
+// Returns the NUL-terminated string at offset `id` in `info.string_table`, and whether it was found.
+//
+// Fails for an offset past the table or a string with no terminator. The result points into the table; it is not a copy.
 get_string_from_table :: (info: Codeview_Debug_Info, id: Codeview_String_Table_Id) -> string, success: bool {
     if info.string_table.count <= 0 || !info.string_table.data || id >= info.string_table.count return "", false;
 
@@ -10,6 +13,9 @@ get_string_from_table :: (info: Codeview_Debug_Info, id: Codeview_String_Table_I
     return "", false;
 }
 
+// Returns the file name for the checksum entry `id`, and whether it was found.
+//
+// Fails if no entry has that ID, if two do (an error is logged), or if its name is not in the string table. The result points into the string table.
 get_filename_for_file_id :: (info: Codeview_Debug_Info, id: Codeview_File_Checksum_Id) -> string, success: bool {
     if info.file_checksums.count < 0 || (info.file_checksums.count > 0 && !info.file_checksums.data) return "", false;
 

@@ -34,6 +34,9 @@ parse_dwarf_debug_info :: (debug_info_data: [] u8, abbrev: [] u8, line_programs:
     return result, true;
 }
 
+// Parses the version 4 compilation unit at `offset` in `full_cu_data` (the `.debug_info` bytes), and returns whether it succeeded.
+//
+// `abbrev` is `.debug_abbrev` and `line_programs` is `.debug_line`. Fails for another version, an address size other than 4 or 8, a bad abbreviation table or a truncated unit, and if `parse_context` is already inside a unit.
 parse_compilation_unit_v4 :: (using parse_context: *Parse_Context, cu_index: int, offset: int, full_cu_data: [] u8, abbrev: [] u8, line_programs: [] u8) -> Compilation_Unit, success: bool {
     result: Compilation_Unit;
     keep := false;

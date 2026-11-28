@@ -1,3 +1,6 @@
+// Replaces the file blocks of `sequence` with fresh copies that keep only the rows inside its current range.
+//
+// `old_sequence_text_offset` is where the blocks' row offsets were measured from, and must not be after `sequence.text_offset`. Logs an error and leaves `sequence` unchanged if the blocks are invalid. The old blocks are not freed; the caller owns them.
 copy_and_truncate_blocks :: (sequence: *Codeview_Line_Info_Sequence, old_sequence_text_offset: u32) {
     if !sequence {
         log_error("Debug_Info: null CodeView line sequence\n");

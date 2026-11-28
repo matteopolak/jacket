@@ -1,3 +1,6 @@
+// A bit map of the pages of an MSF file; a set bit means the page is free.
+//
+// `rgw` holds 64 pages per word and `iwMac` is its length. Only 4096-byte pages are supported.
 Free_Page_Map :: struct {
     BPW :: 8 * size_of(u64);
     iwMac: u32;
@@ -97,6 +100,7 @@ parse_msf :: (file_content: string, path := "", verbose := false) -> success: bo
     return true, result;
 }
 
+// Returns whether `stream_index` names a stream in `msf` after the five fixed streams (old directory, PDB, TPI, DBI, IPI).
 is_valid_user_stream_number :: (msf: Msf, stream_index: UNSN) -> bool {
     // The streams before this one are the fixed ones (old directory, PDB, TPI, DBI, IPI).
     FIRST_USER_STREAM :: 5;
@@ -142,6 +146,7 @@ verify_integrity :: (msf: Msf) -> bool {
     return true;
 }
 
+// Returns whether `stream_index` is within the stream table of `msf`; the stream itself may still be absent.
 is_valid_stream_number :: (msf: Msf, stream_index: UNSN) -> bool {
     return msf.stream_table.stream_infos.count >= 0 && stream_index < msf.stream_table.stream_infos.count && msf.stream_table.stream_infos.data != null;
 }
@@ -157,6 +162,7 @@ get_stream_size :: (msf: Msf, stream_index: UNSN) -> s64 {
     return msf.stream_table.stream_infos[stream_index].byte_count;
 }
 
+// Returns whether `pn` is below the page count in the header of `msf`.
 is_valid_page_number :: (msf: Msf, pn: UPN) -> bool {
     if !msf.header return false;
     // jailint: allow(union_read): the header page is both raw bytes and these fields.
