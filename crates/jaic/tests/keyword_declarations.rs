@@ -1,7 +1,8 @@
 //! `null`, `true` and `false` always read as literals, so declaring a variable, constant or
 //! parameter of that name is an error. A struct member may use them: it is reached as `x.null`.
 //! The words that start a statement (`case`, `if`, `for`, `return`, ...) can't be declared
-//! either: a statement can't start with them as a name. A backticked declaration may use them.
+//! either: a statement can't start with them as a name. Nor can `ifx`, `then` and `else`, which
+//! are read as part of an `if` or `ifx`. A backticked declaration may use them.
 use jaic::diagnostics::Diagnostic;
 use jaic::sema::{Compiler, Options, VirtualFs};
 use std::{path::Path, rc::Rc};
@@ -55,6 +56,7 @@ fn statement_keywords_cannot_be_declared() {
         ),
         ("main :: () { x, return := 1, 2; }\n", "return"),
         ("f :: (defer: int) {}\nmain :: () { f(1); }\n", "defer"),
+        ("f :: (using: int) {}\nmain :: () { f(1); }\n", "using"),
     ] {
         let error = compile(source).expect_err(source);
         assert_eq!(
@@ -63,10 +65,29 @@ fn statement_keywords_cannot_be_declared() {
             "{source}"
         );
     }
-    // `using` before a name is the modifier; a parameter of that name is told apart by `:`.
-    compile("f :: (using: int) {}\nmain :: () { f(1); }\n").unwrap();
     // A backticked declaration is not read as a statement, so it may use the word.
     compile("S :: struct { `remove: int; }\nmain :: () { s: S; s.remove = 1; }\n").unwrap();
+}
+
+/// `ifx` always starts an expression, and `then` and `else` are read as part of an `if` that
+/// precedes them, so none of them can name a variable, parameter or member.
+#[test]
+fn if_keywords_cannot_be_declared() {
+    for (source, word) in [
+        ("main :: () { ifx := 1; }\n", "ifx"),
+        ("ifx :: 1;\nmain :: () {}\n", "ifx"),
+        ("main :: () { then := 1; if then then = 2; }\n", "then"),
+        ("f :: (then: int) {}\nmain :: () { f(1); }\n", "then"),
+        ("S :: struct { else: int; }\nmain :: () {}\n", "else"),
+    ] {
+        let error = compile(source).expect_err(source);
+        assert_eq!(
+            error.message,
+            format!("`{word}` is a keyword and cannot be declared"),
+            "{source}"
+        );
+    }
+    compile("S :: struct { `ifx: int; }\nmain :: () { s: S; s.ifx = 1; }\n").unwrap();
 }
 
 #[test]

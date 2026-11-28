@@ -1,7 +1,4 @@
 #scope_module
-android_device_serial_storage: string;
-android_device_serial_allocator: Allocator;
-
 android_device_retain_serial :: (serial: string) {
     if android_device_serial_storage.data {
         push_allocator(android_device_serial_allocator);
@@ -85,3 +82,6 @@ android_device_manifest_package :: (manifest: Android_Manifest_Binary) -> string
 
 #scope_file
 #import "Basic";
+
+android_device_serial_storage: string;
+android_device_serial_allocator: Allocator;

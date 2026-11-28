@@ -1,40 +1,4 @@
 #scope_module
-android_host_literal :: (builder: *String_Builder, value: string) {
-    append(builder, #char "\"");
-
-    for byte: value {
-        if byte == #char "\"" append(builder, "\\\"");
-        else if byte == #char "\\" append(builder, "\\\\");
-        else if byte == 10 append(builder, "\\n");
-        else if byte == #char "\r" append(builder, "\\r");
-        else if byte == #char "\t" append(builder, "\\t");
-        else if byte == 0 append(builder, "\\0");
-        else append(builder, byte);
-    }
-
-    append(builder, #char "\"");
-}
-
-android_host_helper_source :: (app_name: string, package_name: string, activity: string, debug: bool) -> string {
-    builder: String_Builder;
-
-    defer free_buffers(*builder);
-    print(*builder, "// Android helper version %, debug=%\n", ANDROID_HELPER_VERSION, debug);
-    append(*builder, "#import \"Basic\";\nAT :: #import \"Android/Toolchain\";\nmain :: () {\n print(\"Starting %\\n\", ");
-    android_host_literal(*builder, app_name);
-    append(*builder, ");\n success, output, errors := AT.adb(\"shell\", \"am\", \"start\", \"-n\", ");
-    component := sprint("%/%", package_name, activity);
-
-    defer free(component);
-    quoted_component := quote_remote(component);
-
-    defer free(quoted_component);
-    android_host_literal(*builder, quoted_component);
-    append(*builder, ", print_captured_output = true, try_and_escape_spaces_in_shell_arguments = false);\n free(output);\n free(errors);\n if !success exit(1);\n}\n");
-
-    return builder_to_string(*builder);
-}
-
 android_host_helper_compile :: (app_name: string, package_name: string, output_path: string, activity: string, debug: bool, force: bool) -> bool #compile_time {
     if !android_device_package_valid(package_name) || !android_host_activity_valid(activity) return false;
 
@@ -73,6 +37,48 @@ android_host_helper_compile :: (app_name: string, package_name: string, output_p
     return outcome.type == .EXITED && outcome.exit_code == 0 && !timed_out && Android_Helper_Files.file_exists(executable);
 }
 
+#scope_file
+#import "Basic";
+Android_Helper_File :: #import "File";
+Android_Helper_Files :: #import "File_Utilities";
+Android_Helper_Process :: #import "Process";
+
+android_host_literal :: (builder: *String_Builder, value: string) {
+    append(builder, #char "\"");
+
+    for byte: value {
+        if byte == #char "\"" append(builder, "\\\"");
+        else if byte == #char "\\" append(builder, "\\\\");
+        else if byte == 10 append(builder, "\\n");
+        else if byte == #char "\r" append(builder, "\\r");
+        else if byte == #char "\t" append(builder, "\\t");
+        else if byte == 0 append(builder, "\\0");
+        else append(builder, byte);
+    }
+
+    append(builder, #char "\"");
+}
+
+android_host_helper_source :: (app_name: string, package_name: string, activity: string, debug: bool) -> string {
+    builder: String_Builder;
+
+    defer free_buffers(*builder);
+    print(*builder, "// Android helper version %, debug=%\n", ANDROID_HELPER_VERSION, debug);
+    append(*builder, "#import \"Basic\";\nAT :: #import \"Android/Toolchain\";\nmain :: () {\n print(\"Starting %\\n\", ");
+    android_host_literal(*builder, app_name);
+    append(*builder, ");\n success, output, errors := AT.adb(\"shell\", \"am\", \"start\", \"-n\", ");
+    component := sprint("%/%", package_name, activity);
+
+    defer free(component);
+    quoted_component := quote_remote(component);
+
+    defer free(quoted_component);
+    android_host_literal(*builder, quoted_component);
+    append(*builder, ", print_captured_output = true, try_and_escape_spaces_in_shell_arguments = false);\n free(output);\n free(errors);\n if !success exit(1);\n}\n");
+
+    return builder_to_string(*builder);
+}
+
 android_host_activity_valid :: (activity: string) -> bool {
     activity := activity;
     if activity.count == 0 return false;
@@ -91,9 +97,3 @@ android_host_activity_valid :: (activity: string) -> bool {
 
     return true;
 }
-
-#scope_file
-#import "Basic";
-Android_Helper_File :: #import "File";
-Android_Helper_Files :: #import "File_Utilities";
-Android_Helper_Process :: #import "Process";

@@ -1,6 +1,8 @@
 //! Which procedures of a target's C library compile-time code may call on a host whose OS
 //! differs, and how: natively, by another name, answered in the target's ABI, or not at all.
-use super::super::{native, posix};
+use super::super::native;
+#[cfg(unix)]
+use super::super::posix;
 use crate::ir::{self, Program};
 
 /// C library procedures whose arguments, results and effects mean the same in every C library
@@ -81,6 +83,7 @@ pub(super) enum Reach {
 
 /// The C libraries of the target of `program` and of the host, when the target's OS is not
 /// the host's and both are POSIX ones: then `errno` and the answered calls translate.
+#[cfg(unix)]
 pub(super) fn other_posix_library(program: &Program) -> Option<posix::Libraries> {
     let (os, cpu) = (program.target_os?, program.target_cpu?);
     let target = posix::PosixAbi::of(os, cpu)?;

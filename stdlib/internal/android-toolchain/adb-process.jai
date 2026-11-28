@@ -160,45 +160,10 @@ adb_devices :: (return_only_ready_devices := false) -> bool, [] Adb_Device {
 #scope_module
 #import "Basic";
 
-cached_adb_path: string;
-cached_adb_allocator: Allocator;
-
-retain_adb_path :: (path: string) -> bool {
-    allocator := context.default_allocator;
-    if !allocator.proc {
-        adb_failure("ADB cache requires a durable default allocator");
-        return false;
-    }
-
-    copy: string;
-
-    {
-        push_allocator(allocator);
-        copy = copy_string(path);
-    }
-
-    if copy.count != path.count || (path.count > 0 && !copy.data) return false;
-
-    if cached_adb_path.data {
-        push_allocator(cached_adb_allocator);
-        free(cached_adb_path);
-    }
-
-    cached_adb_path = copy;
-    cached_adb_allocator = allocator;
-    __adb_path = copy;
-
-    return true;
-}
-
 starts :: (text: string, prefix: string) -> bool {
     if text.count < prefix.count return false;
     for index: 0..prefix.count - 1 if text[index] != prefix[index] return false;
     return true;
-}
-
-after_prefix :: (text: string, prefix: string) -> string {
-    return .{ text.count - prefix.count, text.data + prefix.count };
 }
 
 take_line :: (remaining: *string) -> string {
@@ -232,6 +197,64 @@ take_word :: (remaining: *string) -> string {
     return result;
 }
 
+adb_failure :: (message: string) {
+    context.logger(message, context.logger_data, Log_Info.{ common_flags = .ERROR });
+    assert(false, message);
+}
+
+quote_remote :: (text: string) -> string {
+    builder: String_Builder;
+
+    defer free_buffers(*builder);
+    append(*builder, "'");
+
+    for byte: text {
+        if byte == #char "'" append(*builder, "'\"'\"'");
+        else append(*builder, *byte, 1);
+    }
+
+    append(*builder, "'");
+
+    return builder_to_string(*builder);
+}
+
+#scope_file
+
+cached_adb_path: string;
+cached_adb_allocator: Allocator;
+
+retain_adb_path :: (path: string) -> bool {
+    allocator := context.default_allocator;
+    if !allocator.proc {
+        adb_failure("ADB cache requires a durable default allocator");
+        return false;
+    }
+
+    copy: string;
+
+    {
+        push_allocator(allocator);
+        copy = copy_string(path);
+    }
+
+    if copy.count != path.count || (path.count > 0 && !copy.data) return false;
+
+    if cached_adb_path.data {
+        push_allocator(cached_adb_allocator);
+        free(cached_adb_path);
+    }
+
+    cached_adb_path = copy;
+    cached_adb_allocator = allocator;
+    __adb_path = copy;
+
+    return true;
+}
+
+after_prefix :: (text: string, prefix: string) -> string {
+    return .{ text.count - prefix.count, text.data + prefix.count };
+}
+
 parse_state :: (word: string) -> Adb_Device.Connection_State {
     if word == "device" return .DEVICE;
     if word == "offline" return .OFFLINE;
@@ -245,11 +268,6 @@ parse_state :: (word: string) -> Adb_Device.Connection_State {
     if word == "sideload" return .SIDELOAD;
 
     return .UNKNOWN;
-}
-
-adb_failure :: (message: string) {
-    context.logger(message, context.logger_data, Log_Info.{ common_flags = .ERROR });
-    assert(false, message);
 }
 
 escape_spaces :: (text: string) -> string {
@@ -271,20 +289,4 @@ escape_spaces :: (text: string) -> string {
     result[index] = 34;
 
     return result;
-}
-
-quote_remote :: (text: string) -> string {
-    builder: String_Builder;
-
-    defer free_buffers(*builder);
-    append(*builder, "'");
-
-    for byte: text {
-        if byte == #char "'" append(*builder, "'\"'\"'");
-        else append(*builder, *byte, 1);
-    }
-
-    append(*builder, "'");
-
-    return builder_to_string(*builder);
 }

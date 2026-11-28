@@ -1,11 +1,15 @@
 //! Calls out to foreign symbols and native code, and the thunks that let C call back in.
 #[cfg(not(target_arch = "wasm32"))]
 use super::crash;
+#[cfg(unix)]
+use super::posix;
 use super::rets::Rets;
 use super::trap::{Trap, TrapKind};
-use super::{Interp, Res, native, posix, probe, proc_addr, sandbox};
+use super::{Interp, Res, native, probe, proc_addr, sandbox};
 use crate::ir::{self, ForeignId, FuncId, Program};
-use reach::{Reach, other_posix_library, reach};
+#[cfg(unix)]
+use reach::other_posix_library;
+use reach::{Reach, reach};
 
 mod reach;
 
@@ -119,10 +123,12 @@ const FORKS: u8 = 32;
 
 /// The call is to the target's C library, of another POSIX OS than the host's, and
 /// `posix::native` answers it in compile-time code (`Reach::Answered`).
+#[cfg(unix)]
 const ANSWERED: u8 = 64;
 
 /// The call is to the target's C library, of another POSIX OS than the host's, and runs
 /// natively in compile-time code: `errno` passes through the program's own cell.
+#[cfg(unix)]
 const TRANSLATES_ERRNO: u8 = 128;
 
 /// Is `symbol` one `call_foreign` treats specially by name, before native code runs: the
@@ -369,9 +375,9 @@ impl Interp {
         if matches!(symbol, "fork" | "vfork") {
             flags |= FORKS;
         }
+        #[cfg(unix)]
         if other_posix_library(program).is_some() {
             match reach(program, &program.foreigns[id.0 as usize]) {
-                #[cfg(unix)]
                 Some(Reach::Answered(_)) => flags |= ANSWERED,
                 Some(Reach::Native | Reach::Renamed(_)) => flags |= TRANSLATES_ERRNO,
                 _ => {}

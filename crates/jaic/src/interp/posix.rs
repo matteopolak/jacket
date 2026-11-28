@@ -12,7 +12,9 @@
 pub(super) mod native;
 pub(super) mod records;
 
-use crate::target::{TargetCpu, TargetOs};
+use crate::target::TargetCpu;
+#[cfg(unix)]
+use crate::target::TargetOs;
 
 /// Whose C library a POSIX program calls: macOS's, or Linux's on one CPU.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,12 +26,14 @@ pub(super) struct PosixAbi {
 }
 
 /// The two C libraries a call passes between.
+#[cfg(unix)]
 #[derive(Clone, Copy)]
 pub(super) struct Libraries {
     pub target: PosixAbi,
     pub host: PosixAbi,
 }
 
+#[cfg(unix)]
 impl Libraries {
     /// The program's number for the host's error `code`.
     pub(super) fn to_target(self, code: u64) -> u64 {
@@ -220,6 +224,7 @@ const EIO: u64 = 5;
 impl PosixAbi {
     /// The ABI of a program built for `os` on `cpu`; `None` when `os` is not a POSIX OS whose
     /// C library is answered here.
+    #[cfg(unix)]
     pub(super) fn of(os: TargetOs, cpu: TargetCpu) -> Option<PosixAbi> {
         match os {
             TargetOs::MacOS => Some(PosixAbi {
@@ -244,6 +249,7 @@ impl PosixAbi {
     }
 
     /// The ABI of the C library the compiler itself runs on, if it is a POSIX one.
+    #[cfg(unix)]
     pub(super) fn host() -> Option<PosixAbi> {
         let (os, cpu) = crate::sema::compiler_host();
         PosixAbi::of(os, cpu)
@@ -299,6 +305,7 @@ impl PosixAbi {
     }
 
     /// This ABI's open flags for `open`.
+    #[cfg(any(unix, test))]
     pub(super) fn encode_open(self, open: Open) -> u64 {
         let bits = self.open_bits();
         let mode = match (open.read, open.write) {
@@ -337,6 +344,7 @@ impl PosixAbi {
     }
 
     /// The Linux number of this ABI's error `code`.
+    #[cfg(any(unix, test))]
     pub(super) fn linux_errno(self, code: u64) -> u64 {
         if !self.darwin {
             return code;

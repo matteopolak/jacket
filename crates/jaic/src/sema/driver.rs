@@ -391,7 +391,9 @@ impl Compiler {
             Ok(lowered) => lowered,
             // A program its own metaprogram never writes can reach code that waits on a
             // `#placeholder` only the metaprogram's unrun branch would define.
-            Err(error) if self.writes_no_program() && error.message.contains("#placeholder") => {
+            Err(error)
+                if self.writes_no_program() && error.code == Code::PlaceholderNeverDefined =>
+            {
                 false
             }
             Err(error) => return Err(error),
@@ -478,12 +480,8 @@ impl Compiler {
             }
             // All at once, since one body may use what another declares (`#insert,scope`), and
             // in creation order: the queue is taken from the back.
-            // Only when this pass queued a body: a failed lowering the program accepts (see
-            // `writes_no_program`) may leave bodies waiting that it never reaches.
-            if self.pr.body_queue.len() > queued {
-                self.pr.body_queue[queued..].reverse();
-                self.drain_bodies()?;
-            }
+            self.pr.body_queue[queued..].reverse();
+            self.drain_bodies()?;
         }
         Ok(())
     }

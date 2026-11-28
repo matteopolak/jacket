@@ -7,11 +7,13 @@
 // // build.jai: the metaprogram, next to app.jai.
 // #import "Compiler";
 // Board :: #import "Extensions/Embedded/Boards/Mps2_An386";
+// Embedded :: #import "Extensions/Embedded";
 //
 // #run {
 //     w := compiler_create_workspace("app");
 //     options := get_build_options(w);
 //     Board.configure(*options);
+//     Embedded.link_for(*options, Board.memory_map);
 //     set_build_options(options, w);
 //     add_build_file("app.jai", w);
 // }
@@ -59,19 +61,17 @@ memory_map :: Embedded.Memory_Map.{
     #import "Basic";
     #import "Compiler";
 
-    // Makes the workspace build a freestanding Cortex-M4F program for this board and writes its
-    // linker script.
+    // Makes the workspace build a freestanding Cortex-M4F program for this board.
     configure :: (options: *Build_Options) {
         options.os_target = .NONE;
         options.llvm_options.target_system_triple = triple;
         options.runtime_support_definitions = .ONLY_INIT;
-        Embedded.link_for(options, memory_map);
     }
 
     // `jaic app.jai +Extensions/Embedded/Boards/Mps2_An386` builds the program for this board
     // without a metaprogram of its own: the plugin runs `configure` on the workspace.
     get_plugin :: () -> *Metaprogram_Plugin {
-        return Embedded.board_plugin("Extensions/Embedded/Boards/Mps2_An386", configure);
+        return Embedded.board_plugin("Extensions/Embedded/Boards/Mps2_An386", memory_map, configure);
     }
 } else {
     // Runs `program` as the machine starts it: sets up the runtime, sends output and panics to

@@ -1,5 +1,5 @@
 //! Advancing a workspace one step at a time and resuming failed loads.
-use super::output::{Written, finish_custom_link, write_output};
+use super::output::{Written, finish_custom_link, write_now, write_output};
 use super::registry::{WASI_RUNTIME_IMPORT, new_compiler, phase, record_event, wants_wasi_runtime};
 use super::settings::ReportSeverity;
 use super::state::{
@@ -34,6 +34,9 @@ pub(super) fn step(
     }
     if shared.borrow_mut().ws(id)?.link.is_some() {
         return finish_custom_link(shared, id);
+    }
+    if shared.borrow_mut().ws(id)?.awaiting_write {
+        return finish_write(shared, id);
     }
     if shared.borrow_mut().ws(id)?.failed_load.is_some() && resume_failed_load(shared, id)? {
         return Ok(());
@@ -88,6 +91,39 @@ pub(super) fn step(
     )?;
     file_events.extend(events);
     store_step(shared, id, compiler, outcome, file_events, original_sources)
+}
+
+/// The step after `PRE_WRITE_EXECUTABLE`: write the output the metaprogram was told about and
+/// end the workspace (or wait for its custom link).
+fn finish_write(shared: &SharedWorkspaces, id: i64) -> Result<(), String> {
+    let mut compiler = {
+        let mut reg = shared.borrow_mut();
+        let ws = reg.ws(id)?;
+        ws.awaiting_write = false;
+        ws.compiler
+            .take()
+            .expect("the compiler of a workspace being written")
+    };
+    let mut events = Vec::new();
+    let (next, failed) = match write_now(shared, id, &mut compiler, &mut events)? {
+        Written::Done(ok) => (Stage::Done, !ok),
+        Written::AwaitingLink => (Stage::Checked, false),
+        Written::AwaitingWrite => unreachable!("the output was announced already"),
+    };
+    if next == Stage::Done {
+        events.extend(performance_event(shared, id, &mut compiler));
+        events.push(Event {
+            kind: EVENT_COMPLETE,
+            ints: vec![failed as i64],
+            strings: Vec::new(),
+        });
+    }
+    let outcome = Outcome {
+        next,
+        failed,
+        held: None,
+    };
+    store_step(shared, id, compiler, outcome, events, Vec::new())
 }
 
 /// What the compiler of one step produced once its result was settled.
@@ -307,6 +343,8 @@ fn settle(
                 }
                 // The metaprogram links; `finish_custom_link` ends the workspace.
                 Written::AwaitingLink => Stage::Checked,
+                // The metaprogram sees `PRE_WRITE_EXECUTABLE` first; `finish_write` writes.
+                Written::AwaitingWrite => Stage::Checked,
             }
         }
         Ok(next) => next,

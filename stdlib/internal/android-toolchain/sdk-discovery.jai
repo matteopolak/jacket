@@ -38,19 +38,6 @@ is_adb_installed :: () -> bool, string {
 #scope_module
 #import "Basic";
 
-select_sdk_directory :: (paths: [] string) -> bool, string {
-    F :: #import "File_Utilities";
-
-    for path, index: paths {
-        if path.count == 0 continue;
-        directory, valid := F.is_directory(path);
-        if directory && valid return true, copy_string(path);
-        if index > 0 context.logger("Android SDK environment path is not a directory\n", context.logger_data, Log_Info.{ common_flags = .WARNING });
-    }
-
-    return false, "";
-}
-
 tool_path_join :: (root: string, suffix: string) -> string {
     root := root;
     while root.count > 1 && (root[root.count - 1] == #char "/" || root[root.count - 1] == #char "\\") root.count -= 1;
@@ -64,4 +51,19 @@ tool_path_join :: (root: string, suffix: string) -> string {
     append(*builder, suffix);
 
     return builder_to_string(*builder);
+}
+
+#scope_file
+
+select_sdk_directory :: (paths: [] string) -> bool, string {
+    F :: #import "File_Utilities";
+
+    for path, index: paths {
+        if path.count == 0 continue;
+        directory, valid := F.is_directory(path);
+        if directory && valid return true, copy_string(path);
+        if index > 0 context.logger("Android SDK environment path is not a directory\n", context.logger_data, Log_Info.{ common_flags = .WARNING });
+    }
+
+    return false, "";
 }

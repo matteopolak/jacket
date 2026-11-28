@@ -47,8 +47,7 @@ memory_map :: Embedded.Memory_Map.{
     #import "Basic";
     #import "Compiler";
 
-    // Makes the workspace build a freestanding ATmega328P program for this board and writes its
-    // linker script.
+    // Makes the workspace build a freestanding ATmega328P program for this board.
     configure :: (options: *Build_Options) {
         options.os_target = .NONE;
         options.llvm_options.target_system_triple = triple;
@@ -64,13 +63,12 @@ memory_map :: Embedded.Memory_Map.{
         // takes everything below 4096 for a null pointer, would stop every global access.
         options.null_pointer_check = .OFF;
         options.temporary_storage_size = 64;
-        Embedded.link_for(options, memory_map);
     }
 
     // `jaic app.jai +Extensions/Embedded/Boards/Arduino_Uno` builds the program for this board
     // without a metaprogram of its own: the plugin runs `configure` on the workspace.
     get_plugin :: () -> *Metaprogram_Plugin {
-        return Embedded.board_plugin("Extensions/Embedded/Boards/Arduino_Uno", configure);
+        return Embedded.board_plugin("Extensions/Embedded/Boards/Arduino_Uno", memory_map, configure);
     }
 } else {
     Program :: Embedded.Program;

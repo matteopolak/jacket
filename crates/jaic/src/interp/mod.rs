@@ -69,6 +69,7 @@ pub use self::rets::Rets;
 pub use self::trap::{Trap, TrapDetails, TrapFrame, TrapKind};
 pub use self::window::Window;
 use crate::fxhash::HashMap;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::ir::Ty;
 use crate::ir::{self, FuncId, GlobalId, Program};
 #[cfg(target_os = "macos")]
@@ -297,6 +298,7 @@ pub struct Interp {
     /// Thunk address -> procedure, for every thunk this interpreter made.
     thunk_funcs: HashMap<u64, FuncId>,
     /// The procedures of `thunk_funcs`, in the order their thunks were made.
+    #[cfg(not(target_arch = "wasm32"))]
     thunk_list: Vec<FuncId>,
     /// Thunks made since the last foreign call, which C has not been able to see yet. One that
     /// starts a Jai thread (`pthread_create`, `CreateThread`) leaves the list, since the
@@ -497,6 +499,7 @@ impl Interp {
             profile: profile::enabled().then(Default::default),
             proc_values: Vec::new(),
             thunk_funcs: HashMap::default(),
+            #[cfg(not(target_arch = "wasm32"))]
             thunk_list: Vec::new(),
             #[cfg(not(target_arch = "wasm32"))]
             unseen_thunks: Vec::new(),

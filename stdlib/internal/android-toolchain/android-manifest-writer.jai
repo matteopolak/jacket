@@ -1,128 +1,4 @@
 #scope_module
-AM_Writer :: struct {
-    strings: [..] string;
-    ids: [..] u32;
-    attributes: [..] ResXMLTree_attribute;
-    nodes: String_Builder;
-}
-
-am_put16 :: (b: *String_Builder, v: u16) {
-    bytes: [2] u8;
-    bytes[0] = cast(u8) (v & 255);
-    bytes[1] = cast(u8) (v >> 8);
-    append(b, *bytes[0], 2);
-}
-
-am_put32 :: (b: *String_Builder, v: u32) {
-    am_put16(b, cast(u16) (v & 65535));
-    am_put16(b, cast(u16) (v >> 16));
-}
-
-am_header :: (b: *String_Builder, kind: u16, header: u16, size: u32) {
-    am_put16(b, kind);
-    am_put16(b, header);
-    am_put32(b, size);
-}
-
-am_node :: (b: *String_Builder, kind: u16, size: u32) {
-    am_header(b, kind, 16, size);
-    am_put32(b, 0);
-    am_put32(b, DUMMY_U32);
-}
-
-am_string :: (w: *AM_Writer, value: string) -> u32 {
-    for s: w.strings if s == value return cast(u32) it_index;
-    array_add(*w.strings, value);
-    array_add(*w.ids, 0);
-    return cast(u32) (w.strings.count - 1);
-}
-
-am_id :: (name: string) -> u32 {
-    if name == "theme" return 0x01010000;
-    if name == "label" return 0x01010001;
-    if name == "name" return 0x01010003;
-    if name == "hasCode" return 0x0101000c;
-    if name == "exported" return 0x01010010;
-    if name == "launchMode" return 0x0101001d;
-    if name == "screenOrientation" return 0x0101001e;
-    if name == "configChanges" return 0x0101001f;
-    if name == "value" return 0x01010024;
-    if name == "minSdkVersion" return 0x0101020c;
-    if name == "versionCode" return 0x0101021b;
-    if name == "versionName" return 0x0101021c;
-    if name == "targetSdkVersion" return 0x01010270;
-    if name == "required" return 0x0101028e;
-
-    return 0;
-}
-
-am_attr :: (w: *AM_Writer, name: string, value := "", kind: u8 = 3, data: u32 = 0, android := true) {
-    a: ResXMLTree_attribute;
-    a.ns.index = DUMMY_U32;
-    if android a.ns.index = am_string(w, ANDROID_XML_SCHEMA);
-
-    a.name.index = am_string(w, name);
-    if android w.ids[a.name.index] = am_id(name);
-
-    a.rawValue.index = DUMMY_U32;
-    a.typedValue = .{ 8, 0, kind, data };
-
-    if kind == 3 {
-        a.rawValue.index = am_string(w, value);
-        a.typedValue.data = a.rawValue.index;
-    }
-
-    array_add(*w.attributes, a);
-}
-
-am_start :: (w: *AM_Writer, name: string) {
-    b := *w.nodes;
-
-    am_node(b, 0x102, cast(u32) (36 + w.attributes.count * 20));
-    am_put32(b, DUMMY_U32);
-    am_put32(b, am_string(w, name));
-    am_put16(b, 20);
-    am_put16(b, 20);
-    am_put16(b, cast(u16) w.attributes.count);
-    am_put16(b, 0);
-    am_put16(b, 0);
-    am_put16(b, 0);
-
-    // Framework attributes are ordered by resource identifier.
-    for i: 0..w.attributes.count - 1 {
-        for j: i + 1..w.attributes.count - 1 {
-            if w.ids[w.attributes[j].name.index] < w.ids[w.attributes[i].name.index] {
-                swap := w.attributes[i];
-                w.attributes[i] = w.attributes[j];
-                w.attributes[j] = swap;
-            }
-        }
-    }
-
-    for a: w.attributes {
-        am_put32(b, a.ns.index);
-        am_put32(b, a.name.index);
-        am_put32(b, a.rawValue.index);
-        am_put16(b, 8);
-        am_put16(b, (cast(u16) a.typedValue.dataType) << 8);
-        am_put32(b, a.typedValue.data);
-    }
-
-    w.attributes.count = 0;
-}
-
-am_end :: (w: *AM_Writer, name: string) {
-    am_node(*w.nodes, 0x103, 24);
-    am_put32(*w.nodes, DUMMY_U32);
-    am_put32(*w.nodes, am_string(w, name));
-}
-
-am_namespace :: (w: *AM_Writer, kind: u16) {
-    am_node(*w.nodes, kind, 24);
-    am_put32(*w.nodes, am_string(w, "android"));
-    am_put32(*w.nodes, am_string(w, ANDROID_XML_SCHEMA));
-}
-
 am_write :: (out: *String_Builder, c: Android_Project_Config) -> bool {
     if c.app_id.count == 0 || c.version_code < 0 || c.min_sdk_level < 1 || c.target_sdk_level < c.min_sdk_level return false;
 
@@ -271,6 +147,134 @@ am_write :: (out: *String_Builder, c: Android_Project_Config) -> bool {
     return !out.failed;
 }
 
+#import "Basic";
+
+#scope_file
+
+AM_Writer :: struct {
+    strings: [..] string;
+    ids: [..] u32;
+    attributes: [..] ResXMLTree_attribute;
+    nodes: String_Builder;
+}
+
+am_put16 :: (b: *String_Builder, v: u16) {
+    bytes: [2] u8;
+    bytes[0] = cast(u8) (v & 255);
+    bytes[1] = cast(u8) (v >> 8);
+    append(b, *bytes[0], 2);
+}
+
+am_put32 :: (b: *String_Builder, v: u32) {
+    am_put16(b, cast(u16) (v & 65535));
+    am_put16(b, cast(u16) (v >> 16));
+}
+
+am_header :: (b: *String_Builder, kind: u16, header: u16, size: u32) {
+    am_put16(b, kind);
+    am_put16(b, header);
+    am_put32(b, size);
+}
+
+am_node :: (b: *String_Builder, kind: u16, size: u32) {
+    am_header(b, kind, 16, size);
+    am_put32(b, 0);
+    am_put32(b, DUMMY_U32);
+}
+
+am_string :: (w: *AM_Writer, value: string) -> u32 {
+    for s: w.strings if s == value return cast(u32) it_index;
+    array_add(*w.strings, value);
+    array_add(*w.ids, 0);
+    return cast(u32) (w.strings.count - 1);
+}
+
+am_id :: (name: string) -> u32 {
+    if name == "theme" return 0x01010000;
+    if name == "label" return 0x01010001;
+    if name == "name" return 0x01010003;
+    if name == "hasCode" return 0x0101000c;
+    if name == "exported" return 0x01010010;
+    if name == "launchMode" return 0x0101001d;
+    if name == "screenOrientation" return 0x0101001e;
+    if name == "configChanges" return 0x0101001f;
+    if name == "value" return 0x01010024;
+    if name == "minSdkVersion" return 0x0101020c;
+    if name == "versionCode" return 0x0101021b;
+    if name == "versionName" return 0x0101021c;
+    if name == "targetSdkVersion" return 0x01010270;
+    if name == "required" return 0x0101028e;
+
+    return 0;
+}
+
+am_attr :: (w: *AM_Writer, name: string, value := "", kind: u8 = 3, data: u32 = 0, android := true) {
+    a: ResXMLTree_attribute;
+    a.ns.index = DUMMY_U32;
+    if android a.ns.index = am_string(w, ANDROID_XML_SCHEMA);
+
+    a.name.index = am_string(w, name);
+    if android w.ids[a.name.index] = am_id(name);
+
+    a.rawValue.index = DUMMY_U32;
+    a.typedValue = .{ 8, 0, kind, data };
+
+    if kind == 3 {
+        a.rawValue.index = am_string(w, value);
+        a.typedValue.data = a.rawValue.index;
+    }
+
+    array_add(*w.attributes, a);
+}
+
+am_start :: (w: *AM_Writer, name: string) {
+    b := *w.nodes;
+
+    am_node(b, 0x102, cast(u32) (36 + w.attributes.count * 20));
+    am_put32(b, DUMMY_U32);
+    am_put32(b, am_string(w, name));
+    am_put16(b, 20);
+    am_put16(b, 20);
+    am_put16(b, cast(u16) w.attributes.count);
+    am_put16(b, 0);
+    am_put16(b, 0);
+    am_put16(b, 0);
+
+    // Framework attributes are ordered by resource identifier.
+    for i: 0..w.attributes.count - 1 {
+        for j: i + 1..w.attributes.count - 1 {
+            if w.ids[w.attributes[j].name.index] < w.ids[w.attributes[i].name.index] {
+                swap := w.attributes[i];
+                w.attributes[i] = w.attributes[j];
+                w.attributes[j] = swap;
+            }
+        }
+    }
+
+    for a: w.attributes {
+        am_put32(b, a.ns.index);
+        am_put32(b, a.name.index);
+        am_put32(b, a.rawValue.index);
+        am_put16(b, 8);
+        am_put16(b, (cast(u16) a.typedValue.dataType) << 8);
+        am_put32(b, a.typedValue.data);
+    }
+
+    w.attributes.count = 0;
+}
+
+am_end :: (w: *AM_Writer, name: string) {
+    am_node(*w.nodes, 0x103, 24);
+    am_put32(*w.nodes, DUMMY_U32);
+    am_put32(*w.nodes, am_string(w, name));
+}
+
+am_namespace :: (w: *AM_Writer, kind: u16) {
+    am_node(*w.nodes, kind, 24);
+    am_put32(*w.nodes, am_string(w, "android"));
+    am_put32(*w.nodes, am_string(w, ANDROID_XML_SCHEMA));
+}
+
 am_len8 :: (b: *String_Builder, length: u32) {
     bytes: [2] u8;
 
@@ -283,5 +287,3 @@ am_len8 :: (b: *String_Builder, length: u32) {
         append(b, *bytes[0], 2);
     }
 }
-
-#import "Basic";

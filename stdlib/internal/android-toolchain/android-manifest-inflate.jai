@@ -9,28 +9,6 @@
     am_zlib :: #library,system "z"; @native(external)
 }
 
-AM_Z_Stream :: struct {
-    next_in: *u8;
-    avail_in: u32;
-    total_in: AM_Z_Long;
-    next_out: *u8;
-    avail_out: u32;
-    total_out: AM_Z_Long;
-    msg: *u8;
-    state: *void;
-    zalloc: *void;
-    zfree: *void;
-    opaque: *void;
-    data_type: s32;
-    adler: AM_Z_Long;
-    reserved: AM_Z_Long;
-}
-
-am_z_version :: () -> *u8 #foreign am_zlib "zlibVersion";
-am_z_init :: (stream: *AM_Z_Stream, window_bits: s32, version: *u8, stream_size: s32) -> s32 #foreign am_zlib "inflateInit2_";
-am_z_inflate :: (stream: *AM_Z_Stream, flush: s32) -> s32 #foreign am_zlib "inflate";
-am_z_end :: (stream: *AM_Z_Stream) -> s32 #foreign am_zlib "inflateEnd";
-
 am_inflate :: (compressed: string, expected: u32) -> bool, string {
     if compressed.count > 0xffffffff || expected == 0 return false, "";
 
@@ -58,3 +36,27 @@ am_inflate :: (compressed: string, expected: u32) -> bool, string {
 }
 
 #import "Basic";
+
+#scope_file
+
+AM_Z_Stream :: struct {
+    next_in: *u8;
+    avail_in: u32;
+    total_in: AM_Z_Long;
+    next_out: *u8;
+    avail_out: u32;
+    total_out: AM_Z_Long;
+    msg: *u8;
+    state: *void;
+    zalloc: *void;
+    zfree: *void;
+    opaque: *void;
+    data_type: s32;
+    adler: AM_Z_Long;
+    reserved: AM_Z_Long;
+}
+
+am_z_version :: () -> *u8 #foreign am_zlib "zlibVersion";
+am_z_init :: (stream: *AM_Z_Stream, window_bits: s32, version: *u8, stream_size: s32) -> s32 #foreign am_zlib "inflateInit2_";
+am_z_inflate :: (stream: *AM_Z_Stream, flush: s32) -> s32 #foreign am_zlib "inflate";
+am_z_end :: (stream: *AM_Z_Stream) -> s32 #foreign am_zlib "inflateEnd";

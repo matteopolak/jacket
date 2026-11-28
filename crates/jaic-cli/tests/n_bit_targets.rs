@@ -250,10 +250,10 @@ fn volatile_accesses_use_the_targets_byte_order() {
 }
 
 /// A program for the Arduino Uno board (2-byte pointers) passes compile-time checks: the
-/// compiler's own compile-time buffers fit the 16-bit address window.
+/// compiler's own compile-time buffers fit the 16-bit address window. A check writes no
+/// executable, so the board writes no linker script beside it.
 #[test]
 fn an_avr_program_checks_at_compile_time() {
-    // The board writes its linker script beside the executable, so name one outside the tree.
     let dir = test_support::tmp::TempDir::new("avr-check");
     let output = Command::new(JAIC)
         .arg("-check")
@@ -263,6 +263,31 @@ fn an_avr_program_checks_at_compile_time() {
             Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../tests/compiler/targets/avr-hello.jai"),
         )
+        .arg("+Extensions/Embedded/Boards/Arduino_Uno")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!dir.join("avr-hello.ld").exists());
+}
+
+/// `-target` names the program's target, not the plugins' metaprogram's: the board's
+/// `get_plugin`, which only a host build declares, is found with a freestanding `-target`.
+#[test]
+fn a_board_plugin_runs_on_the_host_with_a_freestanding_target() {
+    let dir = test_support::tmp::TempDir::new("avr-target");
+    let output = Command::new(JAIC)
+        .arg("-check")
+        .arg("-exe")
+        .arg(dir.join("avr-hello"))
+        .arg(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../tests/compiler/targets/avr-hello.jai"),
+        )
+        .args(["-target", "avr-none-elf"])
         .arg("+Extensions/Embedded/Boards/Arduino_Uno")
         .output()
         .unwrap();

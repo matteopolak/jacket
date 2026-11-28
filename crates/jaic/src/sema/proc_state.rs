@@ -64,7 +64,6 @@ pub struct ProcState {
     /// Procedures `compiler_make_procedure_live` asked to keep in the program though nothing
     /// calls them.
     pub live_procs: Probed<Vec<ProcId>, { W::PrLiveProcs as usize }>,
-    pub entry_point: Option<ProcId>,
     pub exports: Probed<Vec<ProcId>, { W::PrExports as usize }>,
     /// Procedure literals and anonymous types, per (AST node, scope).
     pub anonymous_procs:

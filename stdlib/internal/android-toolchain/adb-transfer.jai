@@ -69,13 +69,6 @@ adb_uninstall :: (package_name: string) -> bool {
 }
 
 #scope_module
-discard_capture :: (arguments: [] string) -> bool {
-    success, output, errors := adb(..arguments);
-    defer free(output);
-    defer free(errors);
-    return success;
-}
-
 shell_status :: (arguments: ..string) -> bool {
     all: [..] string;
 
@@ -88,6 +81,15 @@ shell_status :: (arguments: ..string) -> bool {
     defer free(output);
     defer free(errors);
 
+    return success;
+}
+
+#scope_file
+
+discard_capture :: (arguments: [] string) -> bool {
+    success, output, errors := adb(..arguments);
+    defer free(output);
+    defer free(errors);
     return success;
 }
 

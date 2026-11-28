@@ -86,7 +86,7 @@ A board lives in `Extensions/Embedded/Boards/<Name>` and holds its memory map an
 
 Every board has:
 
-- `configure(*options)` sets the target, runtime and linker script.
+- `configure(*options)` sets the target and runtime. A metaprogram of your own then calls `Embedded.link_for(*options, Board.memory_map)` for the linker script. The board's plugin adds the script to the link line and writes it at `PRE_WRITE_EXECUTABLE`, so `jaic -check` writes none.
 - `start(program)` runs from the reset function: it sets up the runtime, a heap, a semihosting console and panic handler, runs `program`, and exits with status 0. A panic exits with status 1.
 
 The program exports `jai_start`, which the board's reset code calls:

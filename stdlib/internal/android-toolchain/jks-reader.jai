@@ -95,6 +95,49 @@ jks_failure :: (message: string) {
     assert(false, message);
 }
 
+jks_password_bytes :: (password: string) -> bool, string {
+    if password.count < 0 || password.count > 0x3fffffffffffffff {
+        jks_failure("JKS password length overflow");
+        return false, "";
+    }
+
+    for byte: password {
+        if byte > 127 {
+            jks_failure("JKS password conversion supports ASCII only");
+            return false, "";
+        }
+    }
+
+    result := alloc_string(password.count * 2);
+
+    for index: 0..password.count - 1 {
+        result.data[2 * index] = 0;
+        result.data[2 * index + 1] = password[index];
+    }
+
+    return true, result;
+}
+
+jks_hash :: (prefix: string, payload: string) -> [20] u8 {
+    input := jks_join(prefix, payload);
+    defer jks_release_secret(input);
+    return sha1(input);
+}
+
+jks_release_secret :: (secret: string) {
+    if secret.count > 0 memset(secret.data, 0, secret.count);
+    free(secret);
+}
+
+jks_equal_digest :: (a: string, b: string) -> bool {
+    if a.count != b.count return false;
+    difference: u8;
+    for index: 0..a.count - 1 difference |= a[index] ^ b[index];
+    return difference == 0;
+}
+
+#scope_file
+
 jks_take :: (cursor: *string, count: s64) -> bool, string {
     if count < 0 || cursor.count < count {
         jks_failure("truncated or negative JKS field");
@@ -131,29 +174,6 @@ jks_prefixed :: (cursor: *string, width: s64) -> bool, string {
     return jks_take(cursor, cast(s64) count);
 }
 
-jks_password_bytes :: (password: string) -> bool, string {
-    if password.count < 0 || password.count > 0x3fffffffffffffff {
-        jks_failure("JKS password length overflow");
-        return false, "";
-    }
-
-    for byte: password {
-        if byte > 127 {
-            jks_failure("JKS password conversion supports ASCII only");
-            return false, "";
-        }
-    }
-
-    result := alloc_string(password.count * 2);
-
-    for index: 0..password.count - 1 {
-        result.data[2 * index] = 0;
-        result.data[2 * index + 1] = password[index];
-    }
-
-    return true, result;
-}
-
 jks_join :: (prefix: string, payload: string) -> string {
     if prefix.count < 0 || payload.count < 0 || prefix.count > 0x7fffffffffffffff - payload.count {
         jks_failure("JKS hash input length overflow");
@@ -165,22 +185,4 @@ jks_join :: (prefix: string, payload: string) -> string {
     if payload.count > 0 memcpy(result.data + prefix.count, payload.data, payload.count);
 
     return result;
-}
-
-jks_hash :: (prefix: string, payload: string) -> [20] u8 {
-    input := jks_join(prefix, payload);
-    defer jks_release_secret(input);
-    return sha1(input);
-}
-
-jks_release_secret :: (secret: string) {
-    if secret.count > 0 memset(secret.data, 0, secret.count);
-    free(secret);
-}
-
-jks_equal_digest :: (a: string, b: string) -> bool {
-    if a.count != b.count return false;
-    difference: u8;
-    for index: 0..a.count - 1 difference |= a[index] ^ b[index];
-    return difference == 0;
 }

@@ -418,11 +418,13 @@ impl<'a> Parser<'a> {
     }
 
     /// A name being declared. `null`, `true` and `false` always read as their literals, so a
-    /// variable, constant or parameter of that name could never be used. A word that only starts
-    /// statements (`case`, `if`, `for`, `return`, ...; `stmt::Keyword`) can't be declared either:
-    /// a statement naming it reads as the keyword. A backticked declaration (`` `remove: T; ``)
-    /// is not read as a statement, so it may use such a word, which `x.remove` then reaches.
-    /// `using` stays a parameter name, which `parse_param_group` tells from the modifier.
+    /// variable, constant or parameter of that name could never be used. A word that starts
+    /// statements (`case`, `if`, `for`, `return`, `using`, ...; `stmt::Keyword`) can't be declared
+    /// either: a statement naming it reads as the keyword. Nor can `ifx`, which always starts an
+    /// expression, or `then` and `else`, which read as part of an `if` before them. These are the
+    /// lexicon's reserved conditional and statement words. A backticked declaration
+    /// (`` `remove: T; ``) is not read as a statement, so it may use such a word, which
+    /// `x.remove` then reaches.
     fn reject_keyword_name(&self, name: Ident, backticked: bool) -> PResult<Ident> {
         let word = name.name.as_str();
         if is_builtin_type_name(word) {
@@ -433,17 +435,20 @@ impl<'a> Parser<'a> {
             )
             .with_help("choose another name"));
         }
-        let statement = !backticked
-            && word != "using"
-            && stmt::Keyword::of(word).is_some_and(stmt::Keyword::only_starts_statements);
+        let keyword = stmt::Keyword::of(word);
+        let in_if = matches!(word, "then" | "else");
         let literal = !self.in_aggregate_body && matches!(word, "null" | "true" | "false");
-        if !statement && !literal {
+        if !literal && (backticked || (keyword.is_none() && !in_if)) {
             return Ok(name);
         }
         let help = if literal {
             format!("`{word}` always means the literal; use another name")
-        } else {
+        } else if keyword.is_some_and(stmt::Keyword::only_starts_statements) {
             format!("`{word}` always starts a statement; use another name")
+        } else if in_if {
+            format!("`{word}` is read as part of an `if`; use another name")
+        } else {
+            format!("`{word}` always starts an expression; use another name")
         };
         Err(Diagnostic::new(
             Code::ParseKeywordDeclared,

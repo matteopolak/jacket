@@ -1,16 +1,4 @@
 #scope_module
-am16 :: (p: *u8) -> u16 {
-    return (cast(u16) p[0]) | ((cast(u16) p[1]) << 8);
-}
-
-am32 :: (p: *u8) -> u32 {
-    return (cast(u32) am16(p)) | ((cast(u32) am16(p + 2)) << 16);
-}
-
-am_ref :: (m: *Android_Manifest_Binary, index: u32, optional := false) -> bool {
-    return (optional && index == DUMMY_U32) || index < m.string_pool.count;
-}
-
 am_read :: (m: *Android_Manifest_Binary) -> bool { // jailint: allow(cognitive_complexity)
     s := m.raw_data;
     if s.count < 8 || !s.data || am16(s.data) != 3 || am16(s.data + 2) != 8 || am32(s.data + 4) != s.count return false;
@@ -184,51 +172,6 @@ am_read :: (m: *Android_Manifest_Binary) -> bool { // jailint: allow(cognitive_c
     return pool_seen && roots == 1 && stack.count == 0 && namespace_stack.count == 0;
 }
 
-am_length :: (p: *u8, pos: s64, end: s64, utf8: bool) -> s64, s64, bool {
-    unit: s64 = ifx utf8 then 1 else 2;
-    if end - pos < unit return 0, pos, false;
-
-    n := cast(s64) p[pos];
-    if !utf8 n = am16(p + pos);
-
-    pos += unit;
-    flag: s64 = ifx utf8 then 0x80 else 0x8000;
-    if (n & flag) != 0 {
-        if end - pos < unit return 0, pos, false;
-
-        tail := cast(s64) p[pos];
-        if !utf8 tail = am16(p + pos);
-
-        n = ((n & (flag - 1)) * flag * 2) + tail;
-        pos += unit;
-    }
-
-    return n, pos, true;
-}
-
-am_utf8 :: (b: *String_Builder, cp: u32) {
-    bytes: [4] u8;
-    n := 1;
-
-    if cp < 0x80 bytes[0] = cast(u8) cp;
-    else {
-        if cp < 0x800 {
-            n = 2;
-            bytes[0] = cast(u8) (0xc0 | (cp >> 6));
-        } else if cp < 0x10000 {
-            n = 3;
-            bytes[0] = cast(u8) (0xe0 | (cp >> 12));
-        } else {
-            n = 4;
-            bytes[0] = cast(u8) (0xf0 | (cp >> 18));
-        }
-
-        for i: 1..n - 1 bytes[i] = cast(u8) (0x80 | ((cp >> ((n - i - 1) * 6)) & 0x3f));
-    }
-
-    append(b, *bytes[0], n);
-}
-
 #import "Basic";
 
 am_utf8_units :: (s: string) -> bool, u32 {
@@ -276,4 +219,63 @@ am_utf8_units :: (s: string) -> bool, u32 {
     }
 
     return true, units;
+}
+
+#scope_file
+
+am16 :: (p: *u8) -> u16 {
+    return (cast(u16) p[0]) | ((cast(u16) p[1]) << 8);
+}
+
+am32 :: (p: *u8) -> u32 {
+    return (cast(u32) am16(p)) | ((cast(u32) am16(p + 2)) << 16);
+}
+
+am_ref :: (m: *Android_Manifest_Binary, index: u32, optional := false) -> bool {
+    return (optional && index == DUMMY_U32) || index < m.string_pool.count;
+}
+
+am_length :: (p: *u8, pos: s64, end: s64, utf8: bool) -> s64, s64, bool {
+    unit: s64 = ifx utf8 then 1 else 2;
+    if end - pos < unit return 0, pos, false;
+
+    n := cast(s64) p[pos];
+    if !utf8 n = am16(p + pos);
+
+    pos += unit;
+    flag: s64 = ifx utf8 then 0x80 else 0x8000;
+    if (n & flag) != 0 {
+        if end - pos < unit return 0, pos, false;
+
+        tail := cast(s64) p[pos];
+        if !utf8 tail = am16(p + pos);
+
+        n = ((n & (flag - 1)) * flag * 2) + tail;
+        pos += unit;
+    }
+
+    return n, pos, true;
+}
+
+am_utf8 :: (b: *String_Builder, cp: u32) {
+    bytes: [4] u8;
+    n := 1;
+
+    if cp < 0x80 bytes[0] = cast(u8) cp;
+    else {
+        if cp < 0x800 {
+            n = 2;
+            bytes[0] = cast(u8) (0xc0 | (cp >> 6));
+        } else if cp < 0x10000 {
+            n = 3;
+            bytes[0] = cast(u8) (0xe0 | (cp >> 12));
+        } else {
+            n = 4;
+            bytes[0] = cast(u8) (0xf0 | (cp >> 18));
+        }
+
+        for i: 1..n - 1 bytes[i] = cast(u8) (0x80 | ((cp >> ((n - i - 1) * 6)) & 0x3f));
+    }
+
+    append(b, *bytes[0], n);
 }

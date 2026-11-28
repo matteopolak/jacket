@@ -102,13 +102,21 @@ fn compile_and_run(mut cli: Cli) -> ExitCode {
         }
     }
     let workspaces = create_workspaces(&cli, &options, &fs, &shared_sandbox);
+    // With `+Plugin` the top-level program is the plugins' metaprogram: it runs on the host, and
+    // the target is the program's, which the workspace it creates starts from.
+    let top_level = if cli.plugins.is_empty() {
+        options
+    } else {
+        host_options(&cli, &stdlib, &path)
+    };
+    let top_level_sandbox = cli.plugins.is_empty().then_some(sandbox.as_ref()).flatten();
     // jaic exits right after: tearing down the syntax trees and the program takes about a tenth
     // of a large check, and nothing observes it. After `-interp` the program's threads are left
     // to the exit too, as a native program's are; joining one blocked in C would never return.
-    let mut compiler = LeakOnExit::new(Compiler::new(options, fs), |c| {
+    let mut compiler = LeakOnExit::new(Compiler::new(top_level, fs), |c| {
         c.ct.interp.stop_for_exit();
     });
-    if let Some(host) = &sandbox {
+    if let Some(host) = top_level_sandbox {
         compiler
             .ct
             .interp
@@ -275,6 +283,21 @@ fn enter_main_directory(cli: &mut Cli) -> Result<(PathBuf, PathBuf), ExitCode> {
 
 /// The compiler options the command line asks for: checks, target and where imports are found.
 pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<Options, ExitCode> {
+    let mut options = host_options(cli, stdlib, main);
+    match cli.build_target() {
+        Ok(Some(target)) => target.apply(&mut options),
+        // `-os`/`-cpu` for checking only.
+        Ok(None) => jaic::target::select_os_cpu(&mut options, cli.os, cli.cpu),
+        Err(message) => {
+            print_error(&message);
+            return Err(ExitCode::from(2));
+        }
+    }
+    Ok(options)
+}
+
+/// [`compiler_options`] for the machine jaic runs on, whatever the target.
+fn host_options(cli: &Cli, stdlib: &Path, main: &Path) -> Options {
     let mut inputs = jaic::project::ProgramInputs::for_file(&NativeFs, main, stdlib);
     inputs.extra.clone_from(&cli.imports);
     inputs.packages = jaic::sema::PackageImports::grouped(&cli.package_imports);
@@ -305,16 +328,7 @@ pub(super) fn compiler_options(cli: &Cli, stdlib: &Path, main: &Path) -> Result<
         options.arithmetic_overflow_check = 0;
         options.cast_bounds_check = 0;
     }
-    match cli.build_target() {
-        Ok(Some(target)) => target.apply(&mut options),
-        // `-os`/`-cpu` for checking only.
-        Ok(None) => jaic::target::select_os_cpu(&mut options, cli.os, cli.cpu),
-        Err(message) => {
-            print_error(&message);
-            return Err(ExitCode::from(2));
-        }
-    }
-    Ok(options)
+    options
 }
 
 /// The registry of workspaces a metaprogram creates.

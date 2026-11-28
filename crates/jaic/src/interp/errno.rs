@@ -20,6 +20,7 @@ pub(super) const ENOTEMPTY: u64 = 39;
 pub(super) const ETIMEDOUT_LINUX: u64 = 110;
 
 /// `ETIMEDOUT` as the host the interpreter runs on defines it.
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) const ETIMEDOUT_HOST: u64 = if cfg!(target_os = "macos") {
     60
 } else {

@@ -92,23 +92,15 @@ fn reach(compiler: &Compiler, entry_module: Option<jaic::sema::ModuleId>) -> Com
                 .map(|_| Node::Function(id))
         })
         .collect();
-    if let Some(id) = compiler.pr.entry_point
-        && let Some(ProcTarget::Func(id)) = compiler.pr.procs[id.0 as usize].target
-    {
-        roots.push(Node::Function(id));
-    }
-    // Lint checking does not select `pr.entry_point`, but the configured root
-    // procedure still runs at runtime even when a #run also invokes it.
+    // The entry point runs at runtime even when a `#run` also calls it.
     roots.extend(compiler.pr.procs.iter().filter_map(|proc| {
-        (proc.name.as_str() == compiler.options.entry_point
-            && [compiler.ns.main_module, entry_module]
-                .contains(&Some(compiler.ns.scopes[proc.scope.0 as usize].module)))
-        .then_some(proc.target)
-        .flatten()
-        .and_then(|target| match target {
-            ProcTarget::Func(id) => Some(Node::Function(id)),
-            ProcTarget::Foreign(_) => None,
-        })
+        super::is_entry_point(compiler, proc, entry_module)
+            .then_some(proc.target)
+            .flatten()
+            .and_then(|target| match target {
+                ProcTarget::Func(id) => Some(Node::Function(id)),
+                ProcTarget::Foreign(_) => None,
+            })
     }));
     roots.extend(
         program

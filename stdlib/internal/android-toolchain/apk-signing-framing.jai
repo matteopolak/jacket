@@ -181,14 +181,16 @@ apk_v2_u32 :: (bytes: *u8) -> u32 {
     return value;
 }
 
-apk_v2_u64 :: (bytes: *u8) -> u64 {
-    return (cast(u64) apk_v2_u32(bytes)) | ((cast(u64) apk_v2_u32(bytes + 4)) << 32);
-}
-
 apk_v2_write_u32 :: (bytes: *u8, value: u32) {
     for index: 0..3 bytes[index] = cast(u8) ((value >> (8 * index)) & 255);
 }
 
 apk_v2_write_u64 :: (bytes: *u8, value: u64) {
     for index: 0..7 bytes[index] = cast(u8) ((value >> (8 * index)) & 255);
+}
+
+#scope_file
+
+apk_v2_u64 :: (bytes: *u8) -> u64 {
+    return (cast(u64) apk_v2_u32(bytes)) | ((cast(u64) apk_v2_u32(bytes + 4)) << 32);
 }

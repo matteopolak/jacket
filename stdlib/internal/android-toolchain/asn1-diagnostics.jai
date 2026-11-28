@@ -117,6 +117,8 @@ asn1_print :: (data: string, depth := 0, hack_skip_depth := false) {
 #scope_module
 #import "Basic";
 
+#scope_file
+
 Diagnostic_Frame :: struct {
     remaining: string;
     depth: s64;

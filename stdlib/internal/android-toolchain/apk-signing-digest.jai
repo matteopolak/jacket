@@ -53,5 +53,8 @@ apk_compute_digest_libressl :: (apk: Android_Apk, algorithm: Digest_Hash_Algorit
 }
 
 #scope_module
-APK_V2_CHUNK_SIZE :: 1048576;
 SHA256_DIGEST_LENGTH :: 32;
+
+#scope_file
+
+APK_V2_CHUNK_SIZE :: 1048576;

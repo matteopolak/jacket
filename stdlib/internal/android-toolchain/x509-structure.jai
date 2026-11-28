@@ -39,7 +39,8 @@ x509_get_subject_public_key_info :: (certificate_data: string) -> ASN1_Value {
     return key;
 }
 
-#scope_module
+#scope_file
+
 x509_field :: (cursor: *string, expected: ASN1_Universal_Type) -> bool, ASN1_Value {
     valid, value := parse_wire_value(cursor);
     if !valid return false, .{};

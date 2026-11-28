@@ -11,9 +11,6 @@ EVP_PKEY_is_a :: (key: *evp_pkey_st, name: *u8) -> s32 #foreign android_crypto;
 EVP_MD_CTX_new :: () -> *EVP_MD_CTX #foreign android_crypto;
 EVP_MD_CTX_free :: (ctx: *EVP_MD_CTX) #foreign android_crypto;
 EVP_sha256 :: () -> *EVP_MD #foreign android_crypto;
-EVP_DigestSignInit :: (ctx: *EVP_MD_CTX, key_context: **EVP_PKEY_CTX, digest: *EVP_MD, engine: *ENGINE, key: *evp_pkey_st) -> s32 #foreign android_crypto;
-EVP_DigestSignUpdate :: (ctx: *EVP_MD_CTX, bytes: *void, count: u64) -> s32 #foreign android_crypto;
-EVP_DigestSignFinal :: (ctx: *EVP_MD_CTX, signature: *u8, count: *u64) -> s32 #foreign android_crypto;
 EVP_DigestVerifyInit :: (ctx: *EVP_MD_CTX, key_context: **EVP_PKEY_CTX, digest: *EVP_MD, engine: *ENGINE, key: *evp_pkey_st) -> s32 #foreign android_crypto;
 EVP_DigestVerifyUpdate :: (ctx: *EVP_MD_CTX, bytes: *void, count: u64) -> s32 #foreign android_crypto;
 EVP_DigestVerifyFinal :: (ctx: *EVP_MD_CTX, signature: *u8, count: u64) -> s32 #foreign android_crypto;
@@ -113,18 +110,6 @@ sign_data :: (private_key_info: string, message: string) -> bool, string {
     return true, signature;
 }
 
-#scope_module
-crypto_check :: (result: s32, loc: Source_Code_Location) -> bool {
-    if result == 1 return true;
-
-    context.logger("Native crypto operation failed\n", context.logger_data,
-                   Log_Info.{ common_flags = .ERROR, location = loc });
-    ERR_print_errors_cb(libressl_error_callback, *context);
-    assert(false, "Native crypto operation failed");
-
-    return false;
-}
-
 #scope_file
 android_crypto :: #library "android-crypto/crypto"; @native(external)
 #if OS == .WINDOWS Crypto_Long :: s32;
@@ -146,4 +131,19 @@ crypto_der_length :: (data: string) -> bool {
     }
 
     return true;
+}
+
+EVP_DigestSignInit :: (ctx: *EVP_MD_CTX, key_context: **EVP_PKEY_CTX, digest: *EVP_MD, engine: *ENGINE, key: *evp_pkey_st) -> s32 #foreign android_crypto;
+EVP_DigestSignUpdate :: (ctx: *EVP_MD_CTX, bytes: *void, count: u64) -> s32 #foreign android_crypto;
+EVP_DigestSignFinal :: (ctx: *EVP_MD_CTX, signature: *u8, count: *u64) -> s32 #foreign android_crypto;
+
+crypto_check :: (result: s32, loc: Source_Code_Location) -> bool {
+    if result == 1 return true;
+
+    context.logger("Native crypto operation failed\n", context.logger_data,
+                   Log_Info.{ common_flags = .ERROR, location = loc });
+    ERR_print_errors_cb(libressl_error_callback, *context);
+    assert(false, "Native crypto operation failed");
+
+    return false;
 }

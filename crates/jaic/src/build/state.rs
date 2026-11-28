@@ -37,6 +37,9 @@ pub(super) struct Workspace {
     pub(super) modifications: Vec<crate::sema::Modification>,
     /// Set from `READY_FOR_CUSTOM_LINK_COMMAND` until the metaprogram's link is reported.
     pub(super) link: Option<PendingLink>,
+    /// `PRE_WRITE_EXECUTABLE` went to the intercepting metaprogram: the next step writes the
+    /// output, so what the metaprogram does on that message comes first.
+    pub(super) awaiting_write: bool,
     /// `remap_import` rules: (importing module, imported name, replacement).
     pub(super) remaps: Vec<(String, String, String)>,
     /// `provide_import` offers.
@@ -86,6 +89,7 @@ impl Workspace {
             failed: false,
             modifications: Vec::new(),
             link: None,
+            awaiting_write: false,
             remaps: Vec::new(),
             provided: Vec::new(),
             live: Vec::new(),

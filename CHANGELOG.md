@@ -46,6 +46,10 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 - A procedure only an unrun `#run` branch calls is type-checked, also in a program with no `main`.
 - `jailint` treats a failed fatal cast, variadic-size or atomic-alignment check as the end of its path.
 - A parameter or multi-declaration named `case`, `if`, `for` or another statement keyword is an error.
+- Declaring a name `ifx`, `then`, `else` or `using` is an error; backtick it to use the word.
+- `jaic -target T app.jai +Plugin` compiles the plugins' metaprogram for the host and only the program for `T`.
+- A named `#import "Android/Toolchain"` no longer reaches the module's file-local helpers.
+- `jaic -check` sends no `PRE_WRITE_EXECUTABLE`, and a board plugin writes its linker script only for a build.
 - A created workspace with no `main` fails with a clear error instead of a linker's `_main` undefined.
 - `reader_create_channel` on Windows logs the call that failed, as it does on Unix.
 - A cross build reports an `#insert #run` error once, from the host, instead of rerunning it for the target.

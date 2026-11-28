@@ -39,9 +39,14 @@ pub(super) enum Written {
     Done(bool),
     /// Objects are written and `READY_FOR_CUSTOM_LINK_COMMAND` queued: the metaprogram links.
     AwaitingLink,
+    /// `PRE_WRITE_EXECUTABLE` is queued for the intercepting metaprogram; the workspace's next
+    /// step writes the output ([`write_now`]).
+    AwaitingWrite,
 }
 
-/// Code generation is done: queue the write phases and call the backend.
+/// Code generation is done: queue the write phases and call the backend. `-check` (no
+/// backend) writes nothing, so it sends no write phases: that is how a metaprogram tells it
+/// from a build.
 pub(super) fn write_output(
     shared: &SharedWorkspaces,
     id: i64,
@@ -73,21 +78,62 @@ pub(super) fn write_output(
         return Ok(Written::Done(false));
     }
     let output = output_path(&settings, compiler);
-    let name = output.display().to_string().into_bytes();
+    if shared.borrow().env.backend.is_none() {
+        let mut reg = shared.borrow_mut();
+        if let Some(hint) = reg.env.unwritten_output_hint.clone() {
+            let name = reg.ws(id)?.name.clone();
+            let kind = match settings.output_type {
+                OutputType::DynamicLibrary => "a dynamic library",
+                OutputType::StaticLibrary => "a static library",
+                OutputType::ObjectFile => "an object file",
+                _ => "an executable",
+            };
+            (reg.env.report)(
+                ReportSeverity::Warning,
+                &format!(
+                    "warning: `jaic -check` does not write {} (workspace `{name}` asks for \
+                     {kind})\n\
+                     help: `jaic {main}` (or `jaic {main} -interp`) writes it",
+                    shown_path(&output),
+                    main = hint.main_file,
+                ),
+            );
+        }
+        return Ok(Written::Done(true));
+    }
     events.push(Event {
         kind: EVENT_PHASE,
         // The phase, then the four file-list counts the metaprogram's reader asks for (none yet).
         ints: vec![PHASE_PRE_WRITE_EXECUTABLE, 0, 0, 0, 0],
-        strings: vec![name.clone()],
+        strings: vec![output.display().to_string().into_bytes()],
     });
-    // Output preparation prunes checked-but-unreferenced bodies and freezes
-    // runtime globals for emission. A check-only embedder keeps this compiler
-    // for further semantic queries; there is no output IR to prepare.
-    if shared.borrow().env.backend.is_some() {
-        compiler
-            .prepare_compiled_output()
-            .map_err(|error| compiler.render(&error))?;
+    {
+        let mut reg = shared.borrow_mut();
+        let ws = reg.ws(id)?;
+        if ws.intercepted {
+            ws.awaiting_write = true;
+            return Ok(Written::AwaitingWrite);
+        }
     }
+    write_now(shared, id, compiler, events)
+}
+
+/// Write the output `PRE_WRITE_EXECUTABLE` announced, then queue `POST_WRITE_EXECUTABLE` (or
+/// `READY_FOR_CUSTOM_LINK_COMMAND` when the metaprogram links).
+pub(super) fn write_now(
+    shared: &SharedWorkspaces,
+    id: i64,
+    compiler: &mut Compiler,
+    events: &mut Vec<Event>,
+) -> Result<Written, String> {
+    let settings = shared.borrow_mut().ws(id)?.settings.clone();
+    let output = output_path(&settings, compiler);
+    let name = output.display().to_string().into_bytes();
+    // Output preparation prunes checked-but-unreferenced bodies and freezes runtime globals for
+    // emission.
+    compiler
+        .prepare_compiled_output()
+        .map_err(|error| compiler.render(&error))?;
     let links = matches!(
         settings.output_type,
         OutputType::Executable | OutputType::DynamicLibrary
@@ -132,30 +178,12 @@ pub(super) fn write_output(
     }
     let written = {
         let mut reg = shared.borrow_mut();
-        if let Some(backend) = reg.env.backend.as_mut() {
-            backend.write_output(&compiler.out.program, &settings, &output)
-        } else {
-            if let Some(hint) = reg.env.unwritten_output_hint.clone() {
-                let name = reg.ws(id)?.name.clone();
-                let kind = match settings.output_type {
-                    OutputType::DynamicLibrary => "a dynamic library",
-                    OutputType::StaticLibrary => "a static library",
-                    OutputType::ObjectFile => "an object file",
-                    _ => "an executable",
-                };
-                (reg.env.report)(
-                    ReportSeverity::Warning,
-                    &format!(
-                        "warning: `jaic -check` does not write {} (workspace `{name}` asks for \
-                     {kind})\n\
-                     help: `jaic {main}` (or `jaic {main} -interp`) writes it",
-                        shown_path(&output),
-                        main = hint.main_file,
-                    ),
-                );
-            }
-            Ok(())
-        }
+        let backend = reg
+            .env
+            .backend
+            .as_mut()
+            .expect("only a backend writes output");
+        backend.write_output(&compiler.out.program, &settings, &output)
     };
     if let Err(message) = &written {
         (shared.borrow_mut().env.report)(

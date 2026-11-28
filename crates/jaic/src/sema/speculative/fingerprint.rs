@@ -2,7 +2,7 @@
 use crate::sema::Compiler;
 
 /// What `spec_fingerprint` lists, in order.
-pub(super) const FINGERPRINT: [&str; 54] = [
+pub(super) const FINGERPRINT: [&str; 53] = [
     "ns.check_handler_resolved",
     "ns.named_imports_done",
     "ns.preload",
@@ -28,7 +28,6 @@ pub(super) const FINGERPRINT: [&str; 54] = [
     "ty.snapshot_key.2",
     "ty.in_element_pattern",
     "pr.runtime_interpreter_assertion",
-    "pr.entry_point",
     "pr.parked_epoch",
     "pr.lowering_depth",
     "out.runtime_info",
@@ -91,7 +90,6 @@ impl Compiler {
             self.ty.snapshot_key.2 as u64,
             u64::from(self.ty.in_element_pattern),
             id(self.pr.runtime_interpreter_assertion.map(|p| p.0)),
-            id(self.pr.entry_point.map(|p| p.0)),
             self.pr.parked_epoch,
             u64::from(self.pr.lowering_depth),
             id(self.out.runtime_info.map(|g| g.0)),

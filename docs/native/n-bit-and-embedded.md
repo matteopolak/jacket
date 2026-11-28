@@ -174,7 +174,7 @@ These are jaic-only. The official compiler ignores unknown notes.
 - **`volatile_load(p)` and `volatile_store(p, v)`** are compiler builtins that lower to volatile loads and stores. In the interpreter, an address outside the window is a compile-time error (MMIO can't run at compile time).
 - **`@Interrupt`** on a `#c_call #no_context` procedure emits the arch's interrupt-entry ABI (LLVM's `interrupt` attribute on RISC-V and AVR). On Cortex-M it's checked and otherwise a no-op, because the hardware already follows AAPCS. `@Interrupt` on any other kind of procedure is a compile error.
 - **Barriers and hints** (`wfi`, `dsb`, `isb`, `cpsid`/`cpsie`, `fence`) go through `#intrinsic "llvm.<name>"`, already used for wasm, extended to each arch's intrinsics.
-- **Memory maps.** `Embedded.Memory_Map` describes flash and RAM regions. `Embedded.link_for(*options, map)` writes the linker script at compile time and adds `-T` to the workspace's link line. A board passes its own map.
+- **Memory maps.** `Embedded.Memory_Map` describes flash and RAM regions. `Embedded.link_for(*options, map)` writes the linker script at compile time and adds `-T` to the workspace's link line. A board passes its own map; its plugin writes the script only when the executable is about to be written (`PRE_WRITE_EXECUTABLE`).
 - **Output formats.** `Embedded.write_binary(elf_path, out_path, .BIN | .HEX | .UF2)` is Jai code in the module that reads the ELF, so there's no `objcopy` dependency.
 
 Boards live in `stdlib/Extensions/Embedded/Boards/<Name>`. A board holds its memory map, vector table type, startup code, console and clocks. The first boards are QEMU machines, so CI can run them.

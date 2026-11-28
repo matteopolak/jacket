@@ -1,8 +1,4 @@
 #scope_module
-Gradle_File :: #import "File_Utilities";
-Gradle_String :: #import "String";
-Gradle_Process :: #import "Process";
-
 android_gradle_task :: (project_path: string, task: string, print_output: bool) -> bool {
     if task.count == 0 return false;
 
@@ -51,3 +47,9 @@ android_gradle_apk :: (project_path: string, release: bool) -> bool, string {
 
     return true, path;
 }
+
+#scope_file
+
+Gradle_File :: #import "File_Utilities";
+Gradle_String :: #import "String";
+Gradle_Process :: #import "Process";

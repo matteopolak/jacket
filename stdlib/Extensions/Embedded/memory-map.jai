@@ -81,16 +81,29 @@ linker_script :: (map: Memory_Map) -> string {
 // set_build_options(options, w);
 // ```
 link_for :: (options: *Build_Options, map: Memory_Map, script_path := "") {
-    path := script_path;
-    if !path {
-        directory := ifx options.output_path then tprint("%/", options.output_path) else "";
-        path = tprint("%%.ld", directory, options.output_executable_name);
-    }
+    path := ifx script_path then script_path else linker_script_path(options);
 
+    write_linker_script(path, map);
+    add_linker_script(options, path);
+}
+
+#scope_module
+
+// `<executable>.ld` beside the executable `options` names.
+linker_script_path :: (options: Build_Options) -> string {
+    directory := ifx options.output_path then tprint("%/", options.output_path) else "";
+
+    return tprint("%%.ld", directory, options.output_executable_name);
+}
+
+write_linker_script :: (path: string, map: Memory_Map) {
     written := write_entire_file(path, linker_script(map));
 
     assert(written, "could not write the linker script %", path);
+}
 
+// Adds `-T path` to `options`' link line.
+add_linker_script :: (options: *Build_Options, path: string) {
     count := options.additional_linker_arguments.count;
     arguments := NewArray(count + 2, string);
 

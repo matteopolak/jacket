@@ -1043,13 +1043,12 @@ fn entrypoint_storage(cx: &Cx, body: &LifetimeBody, kind: Origin) -> bool {
 
 fn entrypoint_activation(cx: &Cx, body: &LifetimeBody) -> bool {
     let proc = &cx.compiler.pr.procs[body.procedure.0 as usize];
-    let selected = cx.compiler.pr.entry_point == Some(body.procedure)
-        || cx.compiler.pr.entry_point.is_none()
-            && proc.name.as_str() == cx.compiler.options.entry_point
-            && [cx.compiler.ns.main_module, cx.run.lifetime_entry_module]
-                .contains(&Some(cx.compiler.ns.scopes[proc.scope.0 as usize].module));
     if !cx.compiler.options.runtime_entry_point
-        || !selected
+        || !crate::rules::lifetime_summary::is_entry_point(
+            cx.compiler,
+            proc,
+            cx.run.lifetime_entry_module,
+        )
         || proc.export.is_some()
         || proc.sig.as_ref().is_none_or(|s| !s.params.is_empty())
     {

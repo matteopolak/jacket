@@ -807,6 +807,19 @@ thread_local! {
 
 /// How many times this thread built the lifetime summaries of a program (see
 /// [`crate::summaries_built`]).
+/// Whether `proc` is the program's entry point: the procedure named by `entry_point_name`
+/// (`main`) in the main module, or in `entry_module`, the module whose program the lint checks
+/// when the linted file is not part of the main one.
+pub(crate) fn is_entry_point(
+    compiler: &Compiler,
+    proc: &jaic::sema::procs::ProcInfo,
+    entry_module: Option<jaic::sema::ModuleId>,
+) -> bool {
+    proc.name.as_str() == compiler.options.entry_point
+        && [compiler.ns.main_module, entry_module]
+            .contains(&Some(compiler.ns.scopes[proc.scope.0 as usize].module))
+}
+
 pub(crate) fn built() -> u64 {
     BUILT.get()
 }

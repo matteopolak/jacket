@@ -109,7 +109,9 @@ apk_verify :: (apk: Android_Apk, verbose := false) -> bool {
     return true;
 }
 
-#scope_module
+#scope_file
+Apk_Signing_File :: #import "File";
+
 apk_v2_require_ec_key :: (key: *evp_pkey_st) -> bool {
     name: [3] u8 = .[69, 67, 0];
     if EVP_PKEY_is_a(key, name.data) == 1 return true;
@@ -141,6 +143,3 @@ apk_v2_verify_signature :: (key: *evp_pkey_st, data: string, signature: string) 
 apk_v2_log_mismatch :: (message: string) {
     context.logger(message, context.logger_data, Log_Info.{ common_flags = .ERROR });
 }
-
-#scope_file
-Apk_Signing_File :: #import "File";
