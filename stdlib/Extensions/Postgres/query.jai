@@ -36,6 +36,7 @@ Result :: struct {
     allocator: Allocator; // context.allocator when the query ran: it owns everything above
 }
 
+// Where one field of a result row lies in the row's text.
 Value_Span :: struct {
     offset: s64;
     length: s64; // -1 for NULL

@@ -51,6 +51,7 @@ decode_jpeg :: (data: [] u8, max_pixels: s64) -> image: Image, ok: bool, error: 
 
 JPEG_MAX_COMPONENTS :: 4;
 
+// One colour component of the frame: its sampling factors, tables and decoded sample plane.
 Jpeg_Component :: struct {
     id: s32;
     h: s32;
@@ -74,6 +75,8 @@ Jpeg_Component :: struct {
     bit_levels: [64] s8; // last transmitted progressive level, or -1 before the first scan
 }
 
+// The state of one [decode_jpeg] call: the input position, the tables, the components and the
+// entropy decoder's bit buffer. Released with [jpeg_release].
 Jpeg_Decoder :: struct {
     data: *u8;
     end: s64;
@@ -112,6 +115,7 @@ Jpeg_Decoder :: struct {
     block: [64] s32;
 }
 
+// Frees the component planes and coefficients, then the decoder itself.
 jpeg_release :: (d: *Jpeg_Decoder) {
     for 0..JPEG_MAX_COMPONENTS - 1 {
         if d.comps[it].plane free(d.comps[it].plane);
@@ -121,6 +125,7 @@ jpeg_release :: (d: *Jpeg_Decoder) {
     free(d);
 }
 
+// Reads a big-endian 16-bit value at `p`.
 jpeg_be16 :: inline (p: *u8) -> s32 {
     return ((cast(s32) p[0]) << 8) | p[1];
 }
@@ -195,6 +200,7 @@ jpeg_read_segments :: (d: *Jpeg_Decoder, max_pixels: s64) -> string {
     return "";
 }
 
+// Reads a DQT segment into the decoder's quantization tables. Returns an empty string or the error.
 jpeg_read_quant_tables :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
     at: s64 = 0;
     while at < size {
@@ -224,6 +230,7 @@ jpeg_read_quant_tables :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string 
     return "";
 }
 
+// Reads a DHT segment and builds each table it defines. Returns an empty string or the error.
 jpeg_read_huffman_tables :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
     at: s64 = 0;
     while at < size {
@@ -391,6 +398,8 @@ jpeg_read_info :: (data: [] u8, max_pixels: s64) -> info: Image_Info, ok: bool, 
     return .{}, false, "JPEG has no frame header";
 }
 
+// Reads the SOF segment: the size, the components and their sampling, checked against
+// `max_pixels`, and allocates the sample planes. Returns an empty string or the error.
 jpeg_read_frame :: (d: *Jpeg_Decoder, segment: *u8, size: s64, progressive: bool, max_pixels: s64) -> string {
     if d.frame_seen return "JPEG has more than one frame";
 

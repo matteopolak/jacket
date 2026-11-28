@@ -81,8 +81,15 @@ previous_word :: (text: string, index: int) -> int {
     return i;
 }
 
-// Decodes one scalar, replacing each malformed byte so editing always advances.
-// Example: `code, size := decode_at("é", 0);` gives 0xE9 and 2.
+// Decodes the code point at byte `index`. A malformed byte gives U+FFFD with size 1, so a loop
+// over the text always advances; an `index` outside `text` gives U+FFFD with size 0.
+//
+// ```jai
+// code, size := decode_at("\xc3\xa9", 0);
+// assert(code == 0xE9 && size == 2);
+// code, size = decode_at("\xff", 0);
+// assert(code == 0xFFFD && size == 1);
+// ```
 decode_at :: (text: string, index: int) -> code: u32, size: int {
     if index < 0 || index >= text.count return 0xFFFD, 0;
     cp, length, status := Unicode.character_utf8_to_utf32(text.data + index, text.count - index, true);

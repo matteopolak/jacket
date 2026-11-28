@@ -151,14 +151,22 @@ adler32 :: (data: [] u8, adler: u32 = 1) -> u32 {
 // Encodes a raw DEFLATE message ending at Z_SYNC_FLUSH, with the four-byte tail omitted.
 // A borrowed dictionary seeds compression history; only its last `2 ^ window_bits` bytes are used, and no match
 // reaches farther back than that (8 to 15, the window a peer's `inflate_sync` is given).
-// Example: packed := deflate_sync(cast([] u8) "hello"); free(packed.data).
+// The result is allocated; free it. [inflate_sync] decodes it.
+//
+// ```jai
+// packed := deflate_sync(cast([] u8) "hello hello hello");
+// defer free(packed.data);
+// plain, ok := inflate_sync(packed, .[], 1024);
+// defer free(plain.data);
+// assert(ok && cast(string) plain == "hello hello hello");
+// ```
 deflate_sync :: (data: [] u8, level: s32 = 6, dictionary: [] u8 = .[], window_bits: int = 15) -> [] u8 {
     return compress(data, .RAW, level, true, dictionary, window_bits);
 }
 
 // Decodes a sync-flushed message with a borrowed history tail (at most 32 KiB).
 // Output excludes the dictionary and must be freed. The output budget excludes history too.
-// Example: plain, ok := inflate_sync(packed, .[], 1024); if ok free(plain.data).
+// A message that decodes past `max_output` bytes fails. See [deflate_sync] for an example.
 inflate_sync :: (data: [] u8, dictionary: [] u8, max_output: s64 = DEFAULT_MAX_OUTPUT, window_bits: int = 15) -> output: [] u8, ok: bool, error: string {
     if window_bits < 8 || window_bits > 15 return .[], false, "invalid window bits";
     if dictionary.count > (1 << window_bits) || max_output < 0 || max_output > 0x7FFFFFFFFFFFFFFF - 32768 return .[], false, "invalid dictionary or output limit";

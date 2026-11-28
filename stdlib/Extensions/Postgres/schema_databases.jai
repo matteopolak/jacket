@@ -10,6 +10,7 @@
 // migration that cannot run in a transaction, it is built right away. See
 // docs/postgres/typed-queries.md.
 
+// What the describe service remembers about schema databases between requests.
 Schema_Databases :: struct {
     // When each set of migrations (by schema hash) was first asked about without a database.
     first_seen: [..] Seen_Hash;
@@ -19,11 +20,13 @@ Schema_Databases :: struct {
     failures: [..] Known_Failure;
 }
 
+// A set of migrations whose schema database failed to build, and why.
 Known_Failure :: struct {
     hash: string;
     failure: Migration_Failure;
 }
 
+// When a set of migrations was first asked about without a schema database.
 Seen_Hash :: struct {
     hash: string;
     milliseconds: s64;

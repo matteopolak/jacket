@@ -19,7 +19,16 @@ Toml_Statement :: struct {
 // Copies a statement's decoded key segments into caller storage, borrowing the strings from doc.
 // Array element indices are omitted. The projection describes the parsed source;
 // statements and returned keys expire with the document. Internal parent/slot fields are read-only.
-// Example: path, error := toml_statement_path(*doc, doc.statements[0], buffer);
+// Fails with `.LIMIT` when `buffer` is too short for the path, and `.OUTPUT` when the statement
+// is not from `doc`.
+//
+// ```jai
+// doc, _ := parse_toml("[a]\nb.c = 1\n", .{ record_statements = true });
+// defer free_toml(*doc);
+// buffer: [8] string;
+// path, error := toml_statement_path(*doc, doc.statements[1], buffer);
+// assert(error.kind == .NONE && path.count == 3 && path[0] == "a" && path[2] == "c");
+// ```
 toml_statement_path :: (doc: *Toml_Document, statement: Toml_Statement, buffer: [] string) -> [] string, Toml_Error {
     if !toml_belongs(doc, statement.value) return .{}, .{ kind = .OUTPUT, message = "statement does not belong to this document" };
 

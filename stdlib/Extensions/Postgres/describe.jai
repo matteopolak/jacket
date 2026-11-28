@@ -5,6 +5,7 @@
 // Requests and answers are JSON (`Json_Value`), so the service protocol can grow fields without
 // breaking an older client. See docs/postgres/typed-queries.md.
 
+// One request to the describe service, decoded from its JSON.
 Describe_Request :: struct {
     op: string; // "describe", "fingerprints" or "ping"
     url: string; // the database; empty with `managed`: the service's own managed server

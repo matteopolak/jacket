@@ -17,6 +17,7 @@ Catalog_Enum :: struct {
     labels: [] string; // in sort order
 }
 
+// One column of a table or view in the schema catalog.
 Catalog_Column :: struct {
     name: string;
     sql_type: string; // `format_type`, for the doc comment
@@ -36,6 +37,7 @@ Catalog_Relation :: struct {
     columns: [] Catalog_Column;
 }
 
+// One foreign key: the referencing columns and the columns they point at.
 Catalog_Foreign_Key :: struct {
     schema: string; // the referencing table
     table: string;
@@ -45,6 +47,7 @@ Catalog_Foreign_Key :: struct {
     target_columns: [] string;
 }
 
+// The enums, tables, views and foreign keys of a schema, read for generating `db/schema.jai`.
 Catalog :: struct {
     enums: [] Catalog_Enum;
     relations: [] Catalog_Relation;
@@ -359,6 +362,7 @@ copy_strings :: (strings: [] string) -> [] string {
 
 #scope_export
 
+// The Jai type names [assign_names] chose for a catalog's enums and relations.
 Names :: struct {
     enums: [] string; // the Jai type of each enum, in the catalog's order
     relations: [] string; // and of each relation

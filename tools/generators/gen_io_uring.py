@@ -364,7 +364,7 @@ def generate(header_text: str, origin: str) -> str:
     enums: list[str] = []
     structs: list[str] = []
     asserts: list[str] = []
-    external = ['__kernel_timespec :: struct {', '    tv_sec: s64;', '    tv_nsec: s64;', '}']
+    external = ['// The kernel\'s `struct __kernel_timespec`, from linux/time_types.h.', '__kernel_timespec :: struct {', '    tv_sec: s64;', '    tv_nsec: s64;', '}']
 
     for item in items(strip_comments(header_text)):
         if item[0] == 'define':
@@ -398,7 +398,7 @@ def generate(header_text: str, origin: str) -> str:
                 constants += [f'{m} :: {literal(v)};' for m, v in resolved]
                 continue
             prefix = enum_prefix(name, [m for m, _ in resolved])
-            lines = [f'{name} :: enum {ENUM_TYPES.get(name, "u32")} {{']
+            lines = [f'// The kernel\'s `enum {name}`.', f'{name} :: enum {ENUM_TYPES.get(name, "u32")} {{']
             for member, number in resolved:
                 short = member
                 for lead in (prefix, '__' + prefix):
@@ -417,7 +417,7 @@ def generate(header_text: str, origin: str) -> str:
         size, _, offsets = layout.of_aggregate(aggregate, 0)
         if name in KNOWN_SIZES and KNOWN_SIZES[name] != size:
             raise GenError(f'{name} comes out {size} bytes, but the kernel ABI is {KNOWN_SIZES[name]}')
-        lines = [f'{name} :: {kind} {{']
+        lines = [f'// The kernel\'s `{kind} {name}`.', f'{name} :: {kind} {{']
         emit_members(body, 1, lines)
         lines.append('}')
         structs.append('\n'.join(lines))

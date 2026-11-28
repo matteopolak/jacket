@@ -31,8 +31,40 @@ Ws_Connection :: struct {
 // returns; `data` is what you passed to `ws_upgrade`.
 Ws_Handler :: #type (connection: *Ws_Connection, data: *void);
 
-// Validates an upgrade and returns a routed response. Example: return ws_upgrade(request, echo).
-// The callback borrows the connection until it returns; config.protocols and data must outlive it.
+// Checks a WebSocket upgrade request and returns the response for the route to send: `101` that
+// then runs `handler` on the connection, or `400`/`426` for a bad request. It agrees on a
+// subprotocol from `config.protocols` and on compression when `config.compression` is set. The
+// handler borrows the connection until it returns; `config.protocols` and `data` must outlive it.
+//
+// ```jai,skip_on(wasm)
+// #import "Basic";
+// #import "Extensions/WebSocket";
+// Http :: #import "Extensions/Http";
+// Io :: #import "Extensions/Io";
+//
+// echo :: (connection: *Ws_Connection, data: *void) {
+//     event := ws_read(connection);
+//     if event.kind == .MESSAGE ws_write(connection, event.data, event.opcode);
+//     ws_read(connection);
+// }
+//
+// route :: (request: *Http.Request) -> Http.Response {
+//     return ws_upgrade(request, echo);
+// }
+//
+// main :: () {
+//     Io.io_run(() {
+//         app: Http.App;
+//         Http.get(*app, "/", route);
+//         connection, error := ws_connect("ws://localhost/", .{}, Http.test_client(*app));
+//         assert(error.kind == .NONE);
+//         assert(ws_write(*connection, cast([] u8) "hello").kind == .NONE);
+//         event := ws_read(*connection);
+//         assert(event.kind == .MESSAGE && cast(string) event.data == "hello");
+//         assert(ws_close(*connection, 1000, "done").kind == .NONE);
+//     });
+// }
+// ```
 ws_upgrade :: (request: *Http.Request, handler: Ws_Handler, data: *void = null, config := Ws_Config.{}) -> Http.Response {
     key, key_ok, _ := unique_header(request.headers, "Sec-WebSocket-Key");
     version, version_ok, _ := unique_header(request.headers, "Sec-WebSocket-Version");
@@ -92,8 +124,40 @@ ws_upgrade :: (request: *Http.Request, handler: Ws_Handler, data: *void = null, 
     return response;
 }
 
-// Connects on the calling Io fiber, sharing Http's transport and TLS configuration.
-// Example: connection, error := ws_connect("wss://example.org/chat"); defer ws_dispose(*connection).
+// Opens a client connection to a `ws://` or `wss://` URL, using `client` (or a default
+// `Http.Client`) for the transport and TLS. It must run on an Io fiber, and fails with
+// `.TRANSPORT` otherwise; `.HANDSHAKE` means the server refused or answered wrongly. Release the
+// connection with [ws_close] or [ws_dispose].
+//
+// ```jai,skip_on(wasm)
+// #import "Basic";
+// #import "Extensions/WebSocket";
+// Http :: #import "Extensions/Http";
+// Io :: #import "Extensions/Io";
+//
+// echo :: (connection: *Ws_Connection, data: *void) {
+//     event := ws_read(connection);
+//     if event.kind == .MESSAGE ws_write(connection, event.data, event.opcode);
+//     ws_read(connection);
+// }
+//
+// route :: (request: *Http.Request) -> Http.Response {
+//     return ws_upgrade(request, echo);
+// }
+//
+// main :: () {
+//     Io.io_run(() {
+//         app: Http.App;
+//         Http.get(*app, "/", route);
+//         connection, error := ws_connect("ws://localhost/", .{}, Http.test_client(*app));
+//         assert(error.kind == .NONE);
+//         assert(ws_write(*connection, cast([] u8) "hello").kind == .NONE);
+//         event := ws_read(*connection);
+//         assert(event.kind == .MESSAGE && cast(string) event.data == "hello");
+//         assert(ws_close(*connection, 1000, "done").kind == .NONE);
+//     });
+// }
+// ```
 ws_connect :: (url: string, config := Ws_Config.{}, client: *Http.Client = null) -> Ws_Connection, Ws_Error {
     if !Io.in_scheduler() return .{}, .{ .TRANSPORT, "ws_connect requires an Io fiber", 0 };
 
@@ -187,8 +251,9 @@ ws_connect :: (url: string, config := Ws_Config.{}, client: *Http.Client = null)
     return connection, .{};
 }
 
-// Reads a message or close; answers pings automatically and ignores pongs.
-// Example: event := ws_read(*connection); if event.kind == .MESSAGE consume(event.data).
+// Waits for the next message or close, answering pings and skipping pongs on the way. `event.data`
+// is valid until the next read. After an `.ERROR` (including `config.read_timeout`) the connection
+// is disposed. See [ws_connect] for an example.
 ws_read :: (connection: *Ws_Connection) -> Ws_Event {
     event: Ws_Event;
 
@@ -202,8 +267,10 @@ ws_read :: (connection: *Ws_Connection) -> Ws_Event {
     return event;
 }
 
-// Sends a complete text/binary message, fragmenting to max_frame_size, or a ping/pong.
-// Example: error := ws_write(*connection, cast([] u8) "hello", .TEXT).
+// Sends one text or binary message, split into frames of `limits.max_frame_size`, or a ping or
+// pong. Text must be valid UTF-8 (`.UTF8`); a closing connection gives `.CLOSED`, and `.CLOSE` is
+// refused: use [ws_close]. A transport error or `write_timeout` disposes the connection. See
+// [ws_connect] for an example.
 ws_write :: (connection: *Ws_Connection, data: [] u8, opcode := Ws_Opcode.TEXT) -> Ws_Error {
     if connection.disposed || connection.close_sent || connection.codec.closed return .{ .CLOSED, "connection is closing", 0 };
     if opcode != .TEXT && opcode != .BINARY && opcode != .PING && opcode != .PONG return .{ .PROTOCOL, "use ws_close for close frames", 0 };
@@ -226,7 +293,8 @@ ws_write :: (connection: *Ws_Connection, data: [] u8, opcode := Ws_Opcode.TEXT) 
 }
 
 // Sends close and waits for the peer under close_timeout, then releases the connection.
-// Example: error := ws_close(*connection, 1000, "done"). Do not call beside another reader.
+// Do not call it while another fiber reads the connection. A reason over 123 bytes fails with
+// `.PROTOCOL`. See [ws_connect] for an example.
 ws_close :: (connection: *Ws_Connection, code: u16 = 1000, reason: string = "") -> Ws_Error {
     if connection.disposed return .{};
     if reason.count > 123 return .{ .PROTOCOL, "close reason too long", 0 };
@@ -256,7 +324,36 @@ ws_close :: (connection: *Ws_Connection, code: u16 = 1000, reason: string = "") 
     return result;
 }
 
-// Aborts without a close handshake and releases owned buffers. Example: defer ws_dispose(*connection).
+// Drops the connection without a close handshake and releases its buffers. Calling it again does
+// nothing; later reads and writes fail with `.CLOSED`.
+//
+// ```jai,skip_on(wasm)
+// #import "Basic";
+// #import "Extensions/WebSocket";
+// Http :: #import "Extensions/Http";
+// Io :: #import "Extensions/Io";
+//
+// echo :: (connection: *Ws_Connection, data: *void) {
+//     event := ws_read(connection);
+//     if event.kind == .MESSAGE ws_write(connection, event.data, event.opcode);
+//     ws_read(connection);
+// }
+//
+// route :: (request: *Http.Request) -> Http.Response {
+//     return ws_upgrade(request, echo);
+// }
+//
+// main :: () {
+//     Io.io_run(() {
+//         app: Http.App;
+//         Http.get(*app, "/", route);
+//         connection, error := ws_connect("ws://localhost/", .{}, Http.test_client(*app));
+//         assert(error.kind == .NONE);
+//         ws_dispose(*connection);
+//         assert(ws_write(*connection, cast([] u8) "late").kind == .CLOSED);
+//     });
+// }
+// ```
 ws_dispose :: (connection: *Ws_Connection) {
     if connection.disposed return;
 

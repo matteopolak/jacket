@@ -15,8 +15,23 @@ Segment_Iterator :: struct {
     lookahead_class: S;
 }
 
-// Creates a byte-offset iterator. Words include punctuation and spaces; no dictionary tailoring.
-// Example: `iter := segments("hello world", .WORD);` then call `next_segment(*iter)`.
+// Returns an iterator over the `kind` boundaries of `text`; advance it with [next_segment]. Word
+// segments include runs of spaces and punctuation, and there is no dictionary tailoring. A bad
+// argument is reported in `iter.error`, and the iterator then yields nothing.
+//
+// ```jai
+// #import "String";
+//
+// iter := segments("hello world", .WORD);
+// words: [..] string;
+// defer array_free(words);
+// while true {
+//     start, end, more := next_segment(*iter);
+//     if !more break;
+//     array_add(*words, slice("hello world", start, end - start));
+// }
+// assert(iter.error.kind == .NONE && words.count == 3 && words[1] == " ");
+// ```
 segments :: (text: string, kind: Segmentation, options: Unicode_Text_Options = .{}) -> Segment_Iterator {
     result := Segment_Iterator.{ text = text, kind = kind };
     result.error = arguments_error(text, .NFC, options);
@@ -24,8 +39,8 @@ segments :: (text: string, kind: Segmentation, options: Unicode_Text_Options = .
     return result;
 }
 
-// Returns [start, end) and true, or false at EOF/error. Each successful call advances.
-// Example: `start, end, more := next_segment(*iter);` slices the next segment by byte offsets.
+// Returns the byte range `[start, end)` of the next segment and true, or false at the end or on an
+// error; check `iter.error` after the loop to tell them apart. See [segments] for an example.
 next_segment :: (iter: *Segment_Iterator) -> start: int, end: int, more: bool {
     if iter.error.kind != .NONE || iter.offset >= iter.text.count return iter.offset, iter.offset, false;
 
@@ -57,8 +72,14 @@ next_segment :: (iter: *Segment_Iterator) -> start: int, end: int, more: bool {
     return start, iter.offset, true;
 }
 
-// Finds the cluster end from a known boundary; decodes only through that cluster and its lookahead.
-// Example: `end, error := next_grapheme("éx", 0);` gives 3.
+// Returns the end of the grapheme cluster that starts at `index`, which must be a cluster
+// boundary. It decodes only that cluster and what follows it, so moving a cursor costs the size of
+// one cluster. An `index` outside `text` gives `.INVALID_ARGUMENT`; at the end it returns `index`.
+//
+// ```jai
+// end, error := next_grapheme("e\xcc\x81x", 0);
+// assert(end == 3 && error.kind == .NONE);
+// ```
 next_grapheme :: (text: string, index: int, options: Unicode_Text_Options = .{}) -> int, Unicode_Text_Error {
     if index < 0 || index > text.count return index, .{ .INVALID_ARGUMENT, "invalid byte offset", index };
 
@@ -69,8 +90,14 @@ next_grapheme :: (text: string, index: int, options: Unicode_Text_Options = .{})
     return end, iter.error;
 }
 
-// Finds the cluster start before `index`, backing up to a guaranteed boundary for context.
-// Example: `start, error := previous_grapheme("éx", 3);` gives 0.
+// Returns the start of the grapheme cluster that ends at or contains the byte before `index`. It
+// backs up to a position that is always a boundary and scans forward from there. An `index`
+// outside `text` gives `.INVALID_ARGUMENT`.
+//
+// ```jai
+// start, error := previous_grapheme("e\xcc\x81x", 3);
+// assert(start == 0 && error.kind == .NONE);
+// ```
 previous_grapheme :: (text: string, index: int, options: Unicode_Text_Options = .{}) -> int, Unicode_Text_Error {
     if index < 0 || index > text.count return index, .{ .INVALID_ARGUMENT, "invalid byte offset", index };
 
@@ -109,8 +136,13 @@ previous_grapheme :: (text: string, index: int, options: Unicode_Text_Options = 
     return 0, iter.error;
 }
 
-// Counts extended grapheme clusters without allocation.
-// Example: `count, error := grapheme_count("éx");` gives 2.
+// Counts the extended grapheme clusters in `text`, what a reader sees as characters. Takes `O(n)`
+// time and allocates nothing.
+//
+// ```jai
+// count, error := grapheme_count("e\xcc\x81x");
+// assert(count == 2 && error.kind == .NONE);
+// ```
 grapheme_count :: (text: string, options: Unicode_Text_Options = .{}) -> int, Unicode_Text_Error {
     iter := segments(text, .GRAPHEME, options);
     count := 0;

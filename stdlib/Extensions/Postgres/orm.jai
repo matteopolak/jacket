@@ -135,6 +135,7 @@ Orm_Strategy :: enum u8 {
     LATERAL; // one query: each related column comes back as an array from a lateral join
 }
 
+// The query that `Pg.each` returns, run row by row by a `for` loop over it.
 Orm_Each :: struct(D: Type, T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, strategy: Orm_Strategy, call: Code) {
     db: D;
     error: *Pg_Error;

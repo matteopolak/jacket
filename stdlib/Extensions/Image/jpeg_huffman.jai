@@ -5,6 +5,7 @@
 // jpeg_ macros below on them. After a marker, or at the end of the data, the reader supplies zero
 // bits and counts them in `pad`; `pad > nbits` therefore means that padding has been consumed.
 
+// One Huffman table, with lookup tables for codes of up to 9 bits and a slow path for longer ones.
 Jpeg_Huffman :: struct {
     defined: bool;
     // (length << 8) | symbol for every 9-bit prefix of a code of at most 9 bits, else 0.
@@ -32,6 +33,8 @@ jpeg_extend :: inline (value: s32, size: s32) -> s32 {
     return value;
 }
 
+// Builds `h` from a DHT table's 16 code-length counts and its symbols. False for a table whose
+// codes do not fit.
 jpeg_build_huffman :: (h: *Jpeg_Huffman, counts: *u8, symbols: *u8, is_ac: bool) -> bool {
     memset(h, 0, size_of(Jpeg_Huffman));
 
@@ -116,6 +119,8 @@ jpeg_huffman_long :: (h: *Jpeg_Huffman, bits: u64) -> symbol: s32, length: s32 #
     return 0, 16;
 }
 
+// Decodes the next symbol with table `h` from the caller's bit buffer. A code that matches nothing
+// gives symbol 0 and consumes 16 bits.
 jpeg_decode_symbol :: (h: *Jpeg_Huffman) -> s32 #expand #no_abc {
     entry := cast(s32) h.fast[`bits >> 55];
     if entry != 0 {

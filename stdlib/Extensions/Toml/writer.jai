@@ -3,7 +3,15 @@
 // inside a table is written under a `[header]` and a nonempty array of tables under `[[header]]`,
 // after the table's own `key = value` lines (an empty table is a bare `[header]`, as in the typed
 // encoder). A table inside any other array stays inline.
-// Example: text, error := write_toml(doc.root); defer free(text);
+// The text uses the current allocator; free it. Fails with `.LIMIT` past `max_output_bytes`.
+//
+// ```jai
+// doc, _ := parse_toml("b = 1\n[t]\nx = 'y'\n");
+// defer free_toml(*doc);
+// text, error := write_toml(doc.root);
+// defer free(text);
+// assert(error.kind == .NONE && text == "b = 1\n\n[t]\nx = \"y\"\n");
+// ```
 write_toml :: (root: *Toml_Value, options := Toml_Options.{}) -> string, Toml_Error {
     writer: Toml_Writer;
     writer.options = options;

@@ -2,6 +2,8 @@
 // procedure compiled for different ones. Extensions/SIMD re-exports it; stdlib code imports it from
 // here. Detection runs once, on the first use.
 
+// Which vector instruction sets the processor has, from [cpu_features]. Fields of the other
+// architecture are false.
 Cpu_Features :: struct {
     // x64: SSE4.2 (and everything below it).
     sse42: bool;

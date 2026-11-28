@@ -4,6 +4,7 @@
 
 #scope_module
 
+// A zero-width assertion: a text or line edge, or a word boundary.
 Look :: enum u8 {
     START_TEXT; // \A, or ^ without (?m)
     END_TEXT; // \z, or $ without (?m)
@@ -25,6 +26,7 @@ Look :: enum u8 {
     WORD_END_HALF_ASCII;
 }
 
+// What one node of a parsed pattern is.
 Node_Kind :: enum u8 {
     EMPTY;
     LITERAL;
@@ -36,6 +38,7 @@ Node_Kind :: enum u8 {
     ALTERNATE;
 }
 
+// One node of a parsed pattern.
 Node :: struct {
     kind: Node_Kind;
     literal: string; // LITERAL: the bytes to match
@@ -50,6 +53,7 @@ Node :: struct {
     children: [..] *Node; // REPEAT and CAPTURE have exactly one
 }
 
+// A parsed pattern: its tree and groups, or the error and where it is.
 Parsed :: struct {
     root: *Node;
     groups: int; // capture groups, not counting the whole match
@@ -62,6 +66,8 @@ Parsed :: struct {
 MAX_REPEAT :: 0xFFFF_FFFF; // as in Rust; big counts still fail as too large a program
 MAX_NESTING :: 250;
 
+// Parses `pattern` with `flags` into a tree; on an error, `ok` is false and `error` and `offset`
+// say what and where.
 parse_pattern :: (pattern: string, flags: Options) -> Parsed {
     p: Parser;
     p.pattern = pattern;

@@ -1,10 +1,12 @@
 // The case table a generated harness hands to `run_cases`, and its command line.
 
+// One fuzzed procedure: its name for `--only` and the output, and the call to make with a seeded
+// [Rng].
 Case :: struct {
     name: string;
     run: (r: *Rng);
-    pointers: bool;
-    nullable: bool;
+    pointers: bool; // copied to `Rng.pointers`: pointer arguments get fresh allocations
+    nullable: bool; // copied to `Rng.nullable`: pointer arguments may also be null
 }
 
 // Arguments (after `--`): --seed N, --count N (seeds per case), --only NAME, --max-len N, --list.

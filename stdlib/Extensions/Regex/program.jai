@@ -5,6 +5,7 @@
 
 #scope_module
 
+// What one program instruction does.
 Inst_Kind :: enum u8 {
     MATCH;
     RANGES; // consume one byte that falls in one of transitions[next .. next + alt]
@@ -14,6 +15,7 @@ Inst_Kind :: enum u8 {
     FAIL;
 }
 
+// One instruction of a compiled pattern.
 Inst :: struct {
     kind: Inst_Kind;
     look: Look;
@@ -21,12 +23,14 @@ Inst :: struct {
     alt: u32;
 }
 
+// One byte range of a `.RANGES` instruction and the instruction it goes to.
 Transition :: struct {
     lo: u8;
     hi: u8;
     next: u32;
 }
 
+// A pattern compiled to instructions over bytes, with its capture slots and group names.
 Program :: struct {
     insts: [] Inst;
     transitions: [] Transition;
@@ -134,6 +138,7 @@ matches_only_empty :: (node: *Node) -> bool {
     return false;
 }
 
+// Whether `node` can match the empty string.
 can_match_empty :: (node: *Node) -> bool {
     if node.kind == {
         case .EMPTY; #through;

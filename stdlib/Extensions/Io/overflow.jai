@@ -12,8 +12,10 @@
 #scope_module
 
 #if OS == .WINDOWS {
+    // Does nothing: Windows reports a stack overflow itself.
     guard_overflow :: (scheduler: *Scheduler) {}
 
+    // Does nothing: Windows reports a stack overflow itself.
     unguard_overflow :: (scheduler: *Scheduler) {}
 } else {
     POSIX :: #import "POSIX";
@@ -35,6 +37,8 @@
     previous_actions: [2] POSIX.sigaction_t;
     handler_installed: s32;
 
+    // Installs the stack-overflow signal handler once, and gives the calling thread an alternate signal
+    // stack to run it on.
     guard_overflow :: (scheduler: *Scheduler) {
         if compare_and_swap(*handler_installed, 0, 1) {
             action: POSIX.sigaction_t;
@@ -55,17 +59,21 @@
         POSIX.sigaltstack(*stack, *scheduler.alt_previous);
     }
 
+    // Restores the thread's previous alternate signal stack and frees this one.
     unguard_overflow :: (scheduler: *Scheduler) {
         POSIX.sigaltstack(*scheduler.alt_previous, null);
         free(scheduler.alt_memory);
         scheduler.alt_memory = null;
     }
 
+    // The faulting address of a SIGSEGV or SIGBUS.
     fault_address :: (info: *POSIX.siginfo_t) -> u64 #c_call {
         #if OS == .MACOS return cast(u64) info.si_addr;
         else return cast(u64) info._sifields._sigfault.si_addr;
     }
 
+    // Reports a fault in a fiber's guard page as a fiber stack overflow and exits; other faults go to
+    // the handler that was there before.
     overflow_handler :: (signal: s32, info: *POSIX.siginfo_t, secret: *void) #c_call {
         alternate: POSIX.stack_t;
 
@@ -94,10 +102,12 @@
         POSIX.sigaction(signal, *previous_actions[which], null);
     }
 
+    // Writes `text` to standard error from a signal handler.
     write_text :: (text: string) #c_call {
         POSIX.write(2, text.data, cast(POSIX.size_t) text.count);
     }
 
+    // Writes `number` in decimal to standard error from a signal handler.
     write_number :: (number: u64) #c_call {
         digits: [20] u8;
         position := digits.count;

@@ -4,9 +4,11 @@
 // reading with no zone, and a [Zoned_Date_Time] is an instant read in an explicit [Time_Zone]. Every
 // fallible procedure returns a [Time_Error]; `error.kind == .NONE` means success.
 //
-// Names follow jiff 1.0 where Jai allows: `Zoned_Date_Time` is its `ZonedDateTime`, and
-// `to_zoned_date_time` is its `Timestamp::to_zoned_datetime`. Types are `Snake_Case` and
-// procedures are free functions, so jiff's methods become `procedure(value, ...)`.
+// A zone from [time_zone_get], [time_zone_system], [time_zone_from_tzif] or
+// [time_zone_from_posix] holds shared rules: release it with [time_zone_free], and keep a copy
+// past that with [time_zone_retain]. UTC and fixed-offset zones allocate nothing. A
+// [Zoned_Date_Time] borrows its zone. Parsers check their input against [Time_Options] before
+// allocating.
 //
 // Civil values and calendar arithmetic:
 //

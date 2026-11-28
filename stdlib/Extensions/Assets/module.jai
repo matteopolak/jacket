@@ -14,6 +14,16 @@
 // command) the path is read from the program's file system instead. The bytes are allocated with
 // context.allocator.
 
+// Returns the bytes of the file at `path`, relative to the program, and true; or false when
+// `path` is absolute or the file is missing. The bytes use `context.allocator`; free them with
+// `array_free`. See the module docs for where each platform looks.
+//
+// ```jai
+// bytes, ok := load_asset("no/such/asset.bin");
+// assert(!ok && bytes.count == 0);
+// _, absolute := load_asset("/etc/hosts");
+// assert(!absolute);
+// ```
 load_asset :: (path: string) -> bytes: [] u8, ok: bool {
     if !asset_path_is_relative(path) return .[], false;
 

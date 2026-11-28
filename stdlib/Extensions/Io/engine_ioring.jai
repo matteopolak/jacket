@@ -27,6 +27,7 @@
 #scope_module
 
 #if OS == .WINDOWS {
+    // The required and advisory flags of an IoRing, as Windows lays them out.
     Io_Ring_Flags :: struct {
         required: u32;
         advisory: u32;
@@ -38,12 +39,14 @@
         value: u64;
     }
 
+    // One IoRing completion entry, as Windows lays it out.
     Io_Ring_Cqe :: struct {
         user_data: u64;
         result: s32;
         information: u64;
     }
 
+    // What the IoRing API of this Windows version supports.
     Io_Ring_Capabilities :: struct {
         max_version: u32;
         max_submission: u32;
@@ -104,6 +107,7 @@
         return reason;
     }
 
+    // Checks whether KernelBase has a usable IoRing API; returns why not, or an empty string.
     ring_probe_run :: () -> string {
         kernelbase := win_load_library("kernelbase.dll");
         if kernelbase == 0 return "KernelBase.dll could not be loaded";
@@ -248,6 +252,7 @@
         return "";
     }
 
+    // Stops the IoRing waiter thread and closes the ring.
     ring_close :: (state: *Iocp_State) {
         if state.ring_thread_started {
             win_set_event(state.stop_event);
@@ -283,6 +288,7 @@
         return 0;
     }
 
+    // Starts the thread that waits on the IoRing's completion event, once.
     ring_start_thread :: (state: *Iocp_State) {
         if state.ring_thread_started return;
 

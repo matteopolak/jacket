@@ -1,11 +1,11 @@
 // Linux's io_uring interface, as thin as the kernel makes it.
 // @experimental
 //
-// ```jai,ignore
+// ```jai,only(linux)
 // Io_Uring :: #import "Extensions/Io_Uring";
 //
 // ring: Io_Uring.Ring;
-// if Io_Uring.ring_init(*ring, 8) < 0 return;     // the kernel's -errno, or 0
+// if Io_Uring.ring_init(*ring, 8) < 0 return; // the kernel's -errno, or 0
 // defer Io_Uring.ring_deinit(*ring);
 //
 // sqe := Io_Uring.get_sqe(*ring);
@@ -15,7 +15,8 @@
 // Io_Uring.submit_and_wait(*ring, 1);
 //
 // cqe: *Io_Uring.io_uring_cqe;
-// Io_Uring.wait_cqe(*ring, *cqe);                  // cqe.user_data == 42, cqe.res == 0
+// assert(Io_Uring.wait_cqe(*ring, *cqe) == 0);
+// assert(cqe.user_data == 42 && cqe.res == 0);
 // Io_Uring.cqe_seen(*ring, cqe);
 // ```
 //
@@ -35,6 +36,7 @@
 // here want 5.6 or newer for probing) and on its policy: containers and seccomp filters often
 // refuse the calls, and `kernel.io_uring_disabled` can switch it off. ring_init then returns
 // -ENOSYS or -EPERM; programs and tests should treat that as "not available" and carry on.
+
 #assert OS == .LINUX "Extensions/Io_Uring is Linux only: io_uring is a Linux kernel interface";
 
 #load "bindings.jai";

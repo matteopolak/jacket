@@ -50,6 +50,7 @@ Iocp_State :: struct {
     // Completion packets dequeued per call.
     ENTRIES :: 64;
 
+    // Creates the completion port and, when `request` allows it, the IoRing for files.
     iocp_start :: (engine: *Engine, request: Backend) {
         state := New(Iocp_State);
 
@@ -90,6 +91,7 @@ Iocp_State :: struct {
         }
     }
 
+    // Closes the IoRing and the completion port and frees the engine state.
     iocp_stop :: (engine: *Engine) {
         state := engine.iocp;
         if !state return;
@@ -182,6 +184,7 @@ Iocp_State :: struct {
         return iocp_fail(op, E_INVAL);
     }
 
+    // Starts an AcceptEx on the listener; true when it failed at once and the op is already done.
     iocp_accept :: (state: *Iocp_State, op: *Op) -> bool {
         // The socket that will be the connection must exist before AcceptEx, in the listener's family.
         name: Sock_Storage;
@@ -213,6 +216,7 @@ Iocp_State :: struct {
         return false;
     }
 
+    // Binds the socket and starts a ConnectEx; true when it failed at once and the op is already done.
     iocp_connect :: (state: *Iocp_State, op: *Op) -> bool {
         // ConnectEx wants the socket bound first.
         wildcard: Sock_Storage;
@@ -267,6 +271,7 @@ Iocp_State :: struct {
         return iocp_started(op, succeeded, error);
     }
 
+    // Asks Windows to cancel the op's I/O; IoRing file operations run to the end instead.
     iocp_cancel :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {
         // File operations in an IoRing run to the end.
         if op.uncancelable return;
@@ -368,9 +373,12 @@ Iocp_State :: struct {
         finish_op(scheduler, op, result);
     }
 } else {
+    // Does nothing: the IOCP engine exists only on Windows.
     iocp_start :: (engine: *Engine, request: Backend) {}
+    // Does nothing: the IOCP engine exists only on Windows.
     iocp_stop :: (engine: *Engine) {}
 
+    // Finishes `op` at once as unsupported: the IOCP engine exists only on Windows.
     iocp_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) -> bool {
         op.result = -E_UNSUPPORTED;
         op.state = .DONE;
@@ -378,7 +386,10 @@ Iocp_State :: struct {
         return true;
     }
 
+    // Does nothing: the IOCP engine exists only on Windows.
     iocp_cancel :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {}
+    // Does nothing: the IOCP engine exists only on Windows.
     iocp_wait :: (scheduler: *Scheduler, engine: *Engine, timeout: s64) {}
+    // Does nothing: the IOCP engine exists only on Windows.
     iocp_post :: (port: s64, key: u64) {}
 }

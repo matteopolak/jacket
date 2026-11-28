@@ -55,9 +55,15 @@ Toml_Error :: struct {
     path_truncated: bool;
 }
 
-// The error's allocation-independent path, borrowed from the error record. Truncation is
-// explicit in path_truncated; full byte spans remain authoritative.
-// Example: assert(toml_error_path(*error) == "$[\"format\"][\"indent_width\"]");
+// Returns the key path of the value the error is about, as `$["table"]["key"]`. The string
+// points into `error`, so it lives as long as the error and needs no freeing. A path longer than
+// `path_bytes` is cut short and sets `path_truncated`; the byte spans stay exact.
+//
+// ```jai
+// doc, error := parse_toml("[format]\nindent_width = 1\nindent_width = 2\n");
+// assert(error.kind == .DUPLICATE);
+// assert(toml_error_path(*error) == "$[\"format\"][\"indent_width\"]");
+// ```
 toml_error_path :: (error: *Toml_Error) -> string {
     return .{ error.path_count, error.path_bytes.data };
 }
@@ -154,8 +160,17 @@ Toml_Document :: struct {
     statements: [..] Toml_Statement;
 }
 
-// Looks up one exact decoded key; null means absent or a non-table. Dots are literal here.
-// Example: toml_get(doc.root, "format") finds the format table.
+// Returns the value of `key` in `table`, or null when the key is absent or `table` is null or not
+// a table. The key is matched exactly, so a dot is part of the key; use [toml_get_path] for
+// nested keys.
+//
+// ```jai
+// doc, error := parse_toml("format.indent = 4\n");
+// defer free_toml(*doc);
+// format := toml_get(doc.root, "format");
+// assert(format.kind == .TABLE && toml_get(format, "indent").integer == 4);
+// assert(toml_get(doc.root, "format.indent") == null);
+// ```
 toml_get :: (table: *Toml_Value, key: string) -> *Toml_Value {
     if !table || table.kind != .TABLE return null;
     member := toml_member(table, key);
@@ -163,9 +178,18 @@ toml_get :: (table: *Toml_Value, key: string) -> *Toml_Value {
     return null;
 }
 
-// Follows exact key segments. Absence is null/NONE; traversing a scalar is TYPE. Nodes remain
-// document-owned. Lookup errors have byte spans where available and no computed line/column.
-// Example: value, error := toml_get_path(doc.root, string.["format", "indent_width"]);
+// Follows `keys` from `table` one table at a time, as [toml_get] does for each. A missing key
+// gives null and `.NONE`; a key below a value that is not a table gives `.TYPE`, with that
+// value's span and the path so far, but no line or column. The result belongs to the document.
+//
+// ```jai
+// doc, error := parse_toml("[format]\nindent_width = 4\n");
+// defer free_toml(*doc);
+// value, lookup := toml_get_path(doc.root, string.["format", "indent_width"]);
+// assert(lookup.kind == .NONE && value.integer == 4);
+// value, lookup = toml_get_path(doc.root, string.["format", "indent_width", "x"]);
+// assert(value == null && lookup.kind == .TYPE);
+// ```
 toml_get_path :: (table: *Toml_Value, keys: [] string) -> *Toml_Value, Toml_Error {
     value := table;
 
@@ -197,8 +221,16 @@ toml_get_path :: (table: *Toml_Value, keys: [] string) -> *Toml_Value, Toml_Erro
     return value, .{};
 }
 
-// Releases the complete document with its original allocator; safe to call again.
-// Example: free_toml(*doc);
+// Releases the document's source, nodes and strings with the allocator it was made under, and
+// resets it. Every node pointer and statement from it is invalid afterwards. Calling it again, or
+// on a zero document, does nothing.
+//
+// ```jai
+// doc, error := parse_toml("a = 1\n");
+// free_toml(*doc);
+// free_toml(*doc);
+// assert(doc.root == null);
+// ```
 free_toml :: (doc: *Toml_Document) {
     if !doc.nodes.data && !doc.source.data {
         doc.* = .{};
@@ -213,8 +245,18 @@ free_toml :: (doc: *Toml_Document) {
     doc.* = .{};
 }
 
-// Parses a complete TOML 1.1 document atomically. All returned storage is independent of input.
-// Example: doc, error := parse_toml("enabled = true\n");
+// Parses a complete TOML 1.1 document. The document copies `text`, so the input can be freed at
+// once; release the document with [free_toml]. On an error nothing is kept: the document is
+// empty and the error has the kind, line, column and key path.
+//
+// ```jai
+// doc, error := parse_toml("enabled = true\n");
+// defer free_toml(*doc);
+// assert(error.kind == .NONE && toml_get(doc.root, "enabled").boolean);
+//
+// _, bad := parse_toml("enabled = yes\n");
+// assert(bad.kind == .SYNTAX && bad.line == 1);
+// ```
 parse_toml :: (text: string, options := Toml_Options.{}) -> Toml_Document, Toml_Error {
     reader: Toml_Reader;
     reader.text = text;

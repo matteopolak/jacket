@@ -17,6 +17,8 @@
 
 #scope_module
 
+// The one-pass capture table: a DFA whose edges also record capture positions, for patterns that
+// never need to try two paths at once.
 OnePass :: struct {
     ok: bool; // false: not one-pass, or too big; nothing below is set
     stride: int; // byte classes
@@ -28,6 +30,7 @@ OnePass :: struct {
     updates: [] u32; // lists of slots to set: a count, then the slots. Entry 0 is the empty list.
 }
 
+// One transition of the one-pass table: the next state, the slots to record and the looks it needs.
 Edge :: struct {
     next: u32; // premultiplied by stride; NO_EDGE if the byte is not allowed
     updates: u32; // index into OnePass.updates
@@ -97,6 +100,7 @@ onepass_build :: (program: *Program, state_limit: int) -> OnePass {
     return out;
 }
 
+// Frees the one-pass table and resets it.
 onepass_free :: (t: *OnePass) {
     if !t.ok return;
 

@@ -38,6 +38,7 @@ jpeg_idct_block :: (block: *s32, last: s32, out: *u8, stride: s64) #no_abc #no_a
     }
 }
 
+// Clamps a sample to 0..255.
 jpeg_clamp :: inline (v: s32) -> u8 {
     if v < 0 return 0;
     if v > 255 return 255;
@@ -90,6 +91,7 @@ jpeg_idct_1d :: inline (i0: s32, i1: s32, i2: s32, i3: s32, i4: s32, i5: s32, i6
     o.*[4] = e3 - a;
 }
 
+// Fixed-point tables for YCbCr to RGB conversion, built once per image by [jpeg_make_color_tables].
 Jpeg_Color :: struct {
     cr_r: [256] s32;
     cb_b: [256] s32;
@@ -98,6 +100,7 @@ Jpeg_Color :: struct {
     range: [768] u8; // clamps -256..511 to 0..255 (index + 256)
 }
 
+// Fills the YCbCr to RGB tables with the JFIF conversion coefficients.
 jpeg_make_color_tables :: (t: *Jpeg_Color) {
     for 0..255 {
         x := cast(s32) it - 128;
@@ -114,6 +117,7 @@ jpeg_make_color_tables :: (t: *Jpeg_Color) {
     }
 }
 
+// Scratch for producing output rows: the colour tables and one upsampled row per component.
 Jpeg_Rows :: struct {
     color: Jpeg_Color;
     rows: [4] *u8;
@@ -121,6 +125,7 @@ Jpeg_Rows :: struct {
     sums: *s32;
 }
 
+// Converts `n` YCbCr samples to RGB pixels in `out`.
 jpeg_row_ycc :: (yy: *u8, cb: *u8, cr: *u8, out: *u8, n: s64, t: *Jpeg_Color) #no_abc {
     range := t.range.data + 256;
 
@@ -135,6 +140,7 @@ jpeg_row_ycc :: (yy: *u8, cb: *u8, cr: *u8, out: *u8, n: s64, t: *Jpeg_Color) #n
     }
 }
 
+// Interleaves `n` samples of three planes that are already RGB into pixels in `out`.
 jpeg_row_rgb :: (r: *u8, g: *u8, b: *u8, out: *u8, n: s64) #no_abc {
     for i: 0..n - 1 {
         out[i * 3] = r[i];
@@ -143,6 +149,7 @@ jpeg_row_rgb :: (r: *u8, g: *u8, b: *u8, out: *u8, n: s64) #no_abc {
     }
 }
 
+// Returns `a * b / 255`, rounded, for two values in 0..255.
 jpeg_scale_255 :: inline (a: s32, b: s32) -> u8 {
     t := a * b + 128;
     return cast,trunc(u8) ((t + (t >> 8)) >> 8);
@@ -161,6 +168,7 @@ jpeg_row_cmyk :: (c: *u8, m: *u8, y: *u8, k: *u8, out: *u8, n: s64, inverted: bo
     }
 }
 
+// Converts `n` Adobe YCCK samples (inverted CMYK) to RGB pixels in `out`.
 jpeg_row_ycck :: (yy: *u8, cb: *u8, cr: *u8, k: *u8, out: *u8, n: s64, t: *Jpeg_Color) #no_abc {
     range := t.range.data + 256;
 

@@ -1,6 +1,18 @@
 // Releases strings and optional pointers owned by a typed row; resets decoded fields. Not for a
 // row read with `Csv_Options.borrow`: use the reader form below.
-// Example: csv_row_free(*row).
+//
+// ```jai
+// User :: struct {
+//     name: string;
+// }
+//
+// r := csv_reader(User, cast([] u8) "ada\n");
+// defer csv_reader_free(*r);
+// user, present, _ := csv_next(*r);
+// assert(present && user.name == "ada");
+// csv_row_free(*user);
+// assert(user.name == "");
+// ```
 csv_row_free :: (value: *$T) {
     #insert -> string {
         return generate_csv(T, .FREE);
@@ -8,8 +20,20 @@ csv_row_free :: (value: *$T) {
 }
 
 // Releases a row of `reader` the way its options allow: with `borrow` only the optional pointers
-// and not the strings, which may be slices of the input; otherwise as csv_row_free(*row).
-// Example: csv_row_free(*reader, *row).
+// and not the strings, which may be slices of the input; otherwise as csv_row_free(*row). Use it
+// in code that does not know how the reader was opened.
+//
+// ```jai
+// User :: struct {
+//     name: string;
+// }
+//
+// r := csv_reader(User, cast([] u8) "ada\n", .{ borrow = true });
+// defer csv_reader_free(*r);
+// user, present, _ := csv_next(*r);
+// assert(present && user.name == "ada");
+// csv_row_free(*r, *user);
+// ```
 csv_row_free :: (reader: *Csv_Reader($Row), value: *Row) {
     if reader.options.borrow {
         #insert -> string {
@@ -18,8 +42,23 @@ csv_row_free :: (reader: *Csv_Reader($Row), value: *Row) {
     } else csv_row_free(value);
 }
 
-// Writes a struct array with a header, honoring @csv(name=...) and @csv(skip).
-// Example: error := csv_write_rows(*builder, users).
+// Writes a header record and then one record per element of `rows`, honoring `@csv(name=...)`
+// and `@csv(skip)`. Fails like [csv_write_record]; records before the failing one stay written.
+//
+// ```jai
+// User :: struct {
+//     name: string;
+//     age: int;
+// }
+//
+// builder: String_Builder;
+// users := User.[.{ "ada", 36 }];
+// error := csv_write_rows(*builder, users, .{ line_ending = .LF });
+// assert(error.kind == .NONE);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "name,age\nada,36\n");
+// ```
 csv_write_rows :: (out: *String_Builder, rows: [] $T, options := Csv_Options.{}) -> Csv_Error {
     fields: [..] string;
 

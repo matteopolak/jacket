@@ -13,6 +13,8 @@
 // first lets them (jai_sched_yield_for_wait) and then waits in short slices, so they keep going
 // while it waits for the GPU or the next frame.
 
+// Runs the callbacks of requests that have finished, after letting the page settle its promises.
+// Callbacks in `.AllowProcessEvents` and `.AllowSpontaneous` mode run here.
 wgpuInstanceProcessEvents :: (instance: WGPUInstance) {
     // Give the page a turn so its promises settle, then run what finished.
     jai_sched_yield_for_wait();
@@ -20,6 +22,8 @@ wgpuInstanceProcessEvents :: (instance: WGPUInstance) {
     webgpu_dispatch(null, 0, .PROCESS_EVENTS);
 }
 
+// Waits until one of `futures` completes or `timeoutNS` passes, then runs the callbacks of the
+// finished futures, whatever their mode. Other Jai threads keep running while it waits.
 wgpuInstanceWaitAny :: (instance: WGPUInstance, futureCount: u64, futures: *WGPUFutureWaitInfo, timeoutNS: u64) -> WGPUWaitStatus {
     status := webgpu_wasm_wait(futures, futureCount, timeoutNS);
     webgpu_dispatch(futures, futureCount, .WAIT_ANY);

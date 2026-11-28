@@ -141,6 +141,7 @@ IORING_CQE_F_TSTAMP_HW :: 0x10000;
 IORING_ZCRX_AREA_SHIFT :: 48;
 IORING_ZCRX_AREA_MASK: u64 : 0xffff000000000000;
 
+// The kernel's `enum io_uring_sqe_flags_bit`.
 io_uring_sqe_flags_bit :: enum u32 {
     FIXED_FILE_BIT :: 0;
     IO_DRAIN_BIT :: 1;
@@ -151,6 +152,7 @@ io_uring_sqe_flags_bit :: enum u32 {
     CQE_SKIP_SUCCESS_BIT :: 6;
 }
 
+// The kernel's `enum io_uring_op`.
 io_uring_op :: enum u8 {
     NOP :: 0;
     READV :: 1;
@@ -220,11 +222,13 @@ io_uring_op :: enum u8 {
     LAST :: 65;
 }
 
+// The kernel's `enum io_uring_msg_ring_flags`.
 io_uring_msg_ring_flags :: enum u32 {
     DATA :: 0;
     SEND_FD :: 1;
 }
 
+// The kernel's `enum io_uring_register_op`.
 io_uring_register_op :: enum u32 {
     REGISTER_BUFFERS :: 0;
     UNREGISTER_BUFFERS :: 1;
@@ -268,28 +272,33 @@ io_uring_register_op :: enum u32 {
     REGISTER_USE_REGISTERED_RING :: 0x80000000;
 }
 
+// The kernel's `enum io_wq_type`.
 io_wq_type :: enum u32 {
     BOUND :: 0;
     UNBOUND :: 1;
 }
 
+// The kernel's `enum io_uring_register_pbuf_ring_flags`.
 io_uring_register_pbuf_ring_flags :: enum u32 {
     MMAP :: 1;
     INC :: 2;
 }
 
+// The kernel's `enum io_uring_napi_op`.
 io_uring_napi_op :: enum u32 {
     REGISTER_OP :: 0;
     STATIC_ADD_ID :: 1;
     STATIC_DEL_ID :: 2;
 }
 
+// The kernel's `enum io_uring_napi_tracking_strategy`.
 io_uring_napi_tracking_strategy :: enum u32 {
     DYNAMIC :: 0;
     STATIC :: 1;
     INACTIVE :: 255;
 }
 
+// The kernel's `enum io_uring_register_restriction_op`.
 io_uring_register_restriction_op :: enum u32 {
     REGISTER_OP :: 0;
     SQE_OP :: 1;
@@ -298,6 +307,7 @@ io_uring_register_restriction_op :: enum u32 {
     LAST :: 4;
 }
 
+// The kernel's `enum io_uring_socket_op`.
 io_uring_socket_op :: enum u32 {
     SIOCINQ :: 0;
     SIOCOUTQ :: 1;
@@ -307,29 +317,35 @@ io_uring_socket_op :: enum u32 {
     GETSOCKNAME :: 5;
 }
 
+// The kernel's `enum io_uring_zcrx_area_flags`.
 io_uring_zcrx_area_flags :: enum u32 {
     DMABUF :: 1;
 }
 
+// The kernel's `enum zcrx_reg_flags`.
 zcrx_reg_flags :: enum u32 {
     IMPORT :: 1;
 }
 
+// The kernel's `enum zcrx_features`.
 zcrx_features :: enum u32 {
     RX_PAGE_SIZE :: 1;
 }
 
+// The kernel's `enum zcrx_ctrl_op`.
 zcrx_ctrl_op :: enum u32 {
     FLUSH_RQ :: 0;
     EXPORT :: 1;
     LAST :: 2;
 }
 
+// The kernel's `struct __kernel_timespec`, from linux/time_types.h.
 __kernel_timespec :: struct {
     tv_sec: s64;
     tv_nsec: s64;
 }
 
+// The kernel's `struct io_uring_sqe`.
 io_uring_sqe :: struct {
     opcode: u8;
     flags: u8;
@@ -412,6 +428,7 @@ io_uring_sqe :: struct {
     };
 }
 
+// The kernel's `struct io_uring_attr_pi`.
 io_uring_attr_pi :: struct {
     flags: u16;
     app_tag: u16;
@@ -421,6 +438,7 @@ io_uring_attr_pi :: struct {
     rsvd: u64;
 }
 
+// The kernel's `struct io_uring_cqe`.
 io_uring_cqe :: struct {
     user_data: u64;
     res: s32;
@@ -428,6 +446,7 @@ io_uring_cqe :: struct {
     big_cqe: [0] u64;
 }
 
+// The kernel's `struct io_sqring_offsets`.
 io_sqring_offsets :: struct {
     head: u32;
     tail: u32;
@@ -440,6 +459,7 @@ io_sqring_offsets :: struct {
     user_addr: u64;
 }
 
+// The kernel's `struct io_cqring_offsets`.
 io_cqring_offsets :: struct {
     head: u32;
     tail: u32;
@@ -452,6 +472,7 @@ io_cqring_offsets :: struct {
     user_addr: u64;
 }
 
+// The kernel's `struct io_uring_params`.
 io_uring_params :: struct {
     sq_entries: u32;
     cq_entries: u32;
@@ -465,12 +486,14 @@ io_uring_params :: struct {
     cq_off: io_cqring_offsets;
 }
 
+// The kernel's `struct io_uring_files_update`.
 io_uring_files_update :: struct {
     offset: u32;
     resv: u32;
     fds: u64;
 }
 
+// The kernel's `struct io_uring_region_desc`.
 io_uring_region_desc :: struct {
     user_addr: u64;
     size: u64;
@@ -480,12 +503,14 @@ io_uring_region_desc :: struct {
     __resv: [4] u64;
 }
 
+// The kernel's `struct io_uring_mem_region_reg`.
 io_uring_mem_region_reg :: struct {
     region_uptr: u64;
     flags: u64;
     __resv: [2] u64;
 }
 
+// The kernel's `struct io_uring_rsrc_register`.
 io_uring_rsrc_register :: struct {
     nr: u32;
     flags: u32;
@@ -494,12 +519,14 @@ io_uring_rsrc_register :: struct {
     tags: u64;
 }
 
+// The kernel's `struct io_uring_rsrc_update`.
 io_uring_rsrc_update :: struct {
     offset: u32;
     resv: u32;
     data: u64;
 }
 
+// The kernel's `struct io_uring_rsrc_update2`.
 io_uring_rsrc_update2 :: struct {
     offset: u32;
     resv: u32;
@@ -509,6 +536,7 @@ io_uring_rsrc_update2 :: struct {
     resv2: u32;
 }
 
+// The kernel's `struct io_uring_probe_op`.
 io_uring_probe_op :: struct {
     op: u8;
     resv: u8;
@@ -516,6 +544,7 @@ io_uring_probe_op :: struct {
     resv2: u32;
 }
 
+// The kernel's `struct io_uring_probe`.
 io_uring_probe :: struct {
     last_op: u8;
     ops_len: u8;
@@ -524,6 +553,7 @@ io_uring_probe :: struct {
     ops: [0] io_uring_probe_op;
 }
 
+// The kernel's `struct io_uring_restriction`.
 io_uring_restriction :: struct {
     opcode: u16;
     union {
@@ -535,6 +565,7 @@ io_uring_restriction :: struct {
     resv2: [3] u32;
 }
 
+// The kernel's `struct io_uring_task_restriction`.
 io_uring_task_restriction :: struct {
     flags: u16;
     nr_res: u16;
@@ -542,11 +573,13 @@ io_uring_task_restriction :: struct {
     restrictions: [0] io_uring_restriction;
 }
 
+// The kernel's `struct io_uring_clock_register`.
 io_uring_clock_register :: struct {
     clockid: u32;
     __resv: [3] u32;
 }
 
+// The kernel's `struct io_uring_clone_buffers`.
 io_uring_clone_buffers :: struct {
     src_fd: u32;
     flags: u32;
@@ -556,6 +589,7 @@ io_uring_clone_buffers :: struct {
     pad: [3] u32;
 }
 
+// The kernel's `struct io_uring_buf`.
 io_uring_buf :: struct {
     addr: u64;
     len: u32;
@@ -563,6 +597,7 @@ io_uring_buf :: struct {
     resv: u16;
 }
 
+// The kernel's `struct io_uring_buf_ring`.
 io_uring_buf_ring :: struct {
     union {
         struct {
@@ -575,6 +610,7 @@ io_uring_buf_ring :: struct {
     };
 }
 
+// The kernel's `struct io_uring_buf_reg`.
 io_uring_buf_reg :: struct {
     ring_addr: u64;
     ring_entries: u32;
@@ -583,12 +619,14 @@ io_uring_buf_reg :: struct {
     resv: [3] u64;
 }
 
+// The kernel's `struct io_uring_buf_status`.
 io_uring_buf_status :: struct {
     buf_group: u32;
     head: u32;
     resv: [8] u32;
 }
 
+// The kernel's `struct io_uring_napi`.
 io_uring_napi :: struct {
     busy_poll_to: u32;
     prefer_busy_poll: u8;
@@ -598,6 +636,7 @@ io_uring_napi :: struct {
     resv: u32;
 }
 
+// The kernel's `struct io_uring_reg_wait`.
 io_uring_reg_wait :: struct {
     ts: __kernel_timespec;
     min_wait_usec: u32;
@@ -608,6 +647,7 @@ io_uring_reg_wait :: struct {
     pad2: [2] u64;
 }
 
+// The kernel's `struct io_uring_getevents_arg`.
 io_uring_getevents_arg :: struct {
     sigmask: u64;
     sigmask_sz: u32;
@@ -615,6 +655,7 @@ io_uring_getevents_arg :: struct {
     ts: u64;
 }
 
+// The kernel's `struct io_uring_sync_cancel_reg`.
 io_uring_sync_cancel_reg :: struct {
     addr: u64;
     fd: s32;
@@ -625,12 +666,14 @@ io_uring_sync_cancel_reg :: struct {
     pad2: [3] u64;
 }
 
+// The kernel's `struct io_uring_file_index_range`.
 io_uring_file_index_range :: struct {
     off: u32;
     len: u32;
     resv: u64;
 }
 
+// The kernel's `struct io_uring_recvmsg_out`.
 io_uring_recvmsg_out :: struct {
     namelen: u32;
     controllen: u32;
@@ -638,22 +681,26 @@ io_uring_recvmsg_out :: struct {
     flags: u32;
 }
 
+// The kernel's `struct io_timespec`.
 io_timespec :: struct {
     tv_sec: u64;
     tv_nsec: u64;
 }
 
+// The kernel's `struct io_uring_zcrx_rqe`.
 io_uring_zcrx_rqe :: struct {
     off: u64;
     len: u32;
     __pad: u32;
 }
 
+// The kernel's `struct io_uring_zcrx_cqe`.
 io_uring_zcrx_cqe :: struct {
     off: u64;
     __pad: u64;
 }
 
+// The kernel's `struct io_uring_zcrx_offsets`.
 io_uring_zcrx_offsets :: struct {
     head: u32;
     tail: u32;
@@ -662,6 +709,7 @@ io_uring_zcrx_offsets :: struct {
     __resv: [2] u64;
 }
 
+// The kernel's `struct io_uring_zcrx_area_reg`.
 io_uring_zcrx_area_reg :: struct {
     addr: u64;
     len: u64;
@@ -671,6 +719,7 @@ io_uring_zcrx_area_reg :: struct {
     __resv2: [2] u64;
 }
 
+// The kernel's `struct io_uring_zcrx_ifq_reg`.
 io_uring_zcrx_ifq_reg :: struct {
     if_idx: u32;
     if_rxq: u32;
@@ -684,15 +733,18 @@ io_uring_zcrx_ifq_reg :: struct {
     __resv: [3] u64;
 }
 
+// The kernel's `struct zcrx_ctrl_flush_rq`.
 zcrx_ctrl_flush_rq :: struct {
     __resv: [6] u64;
 }
 
+// The kernel's `struct zcrx_ctrl_export`.
 zcrx_ctrl_export :: struct {
     zcrx_fd: u32;
     __resv1: [11] u32;
 }
 
+// The kernel's `struct zcrx_ctrl`.
 zcrx_ctrl :: struct {
     zcrx_id: u32;
     op: u32;

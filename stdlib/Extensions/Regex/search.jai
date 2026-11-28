@@ -4,6 +4,8 @@
 
 #scope_module
 
+// Everything a compiled [Regex] searches with: the programs, the forward and reverse DFAs and the
+// one-pass table.
 Engine :: struct {
     pattern: string;
     program: Program;
@@ -99,6 +101,7 @@ fixed_length :: (program: *Program) -> int {
     return length_from(program, lengths, program.start);
 }
 
+// The captures of the match at `s..e` of `text`, with newly allocated slots.
 captures_of :: (engine: *Engine, text: string, s: int, e: int) -> Captures {
     caps: Captures;
     caps.text = text;
@@ -143,17 +146,20 @@ for_matches :: (the_engine: *Engine, text: string, body: Code) #expand {
     }
 }
 
+// Whether `pos` is at the start of a UTF-8 character or at either end of `text`.
 is_boundary :: (engine: *Engine, text: string, pos: int) -> bool {
     if pos == 0 || pos >= text.count return true;
     return (text[pos] & 0xC0) != 0x80;
 }
 
+// The byte length of the character at `pos`; 1 at the end or for invalid UTF-8.
 next_char_size :: (text: string, pos: int) -> int {
     if pos >= text.count return 1;
     _, size := decode_utf8(text, pos);
     return size;
 }
 
+// Whether `c` has a meaning in a pattern and needs a backslash to match itself.
 is_meta :: (c: u8) -> bool {
     if c == {
         case #char "\\"; #through;
@@ -180,6 +186,7 @@ is_meta :: (c: u8) -> bool {
     return false;
 }
 
+// Appends `replacement` to `builder` with `$n`, `${name}` and `$$` replaced from `caps`.
 expand_replacement :: (builder: *String_Builder, caps: Captures, replacement: string) {
     i := 0;
     while i < replacement.count {
@@ -237,6 +244,7 @@ expand_replacement :: (builder: *String_Builder, caps: Captures, replacement: st
     }
 }
 
+// Reads `name` as a decimal group number; false when it is not one or too long.
 parse_group_number :: (name: string) -> int, bool {
     if name.count == 0 || name.count > MAX_GROUP_NUMBER_DIGITS return 0, false;
 

@@ -12,6 +12,8 @@
 // head) is read plainly: nobody else writes
 // it. One thread at a time may use a Ring; nothing here locks.
 
+// One io_uring instance: its file descriptor and the two queues mapped from the kernel. Set it up
+// with [ring_init] and release it with [ring_deinit]; the fields are read-only to callers.
 Ring :: struct {
     fd: s32 = -1;
     flags: u32; // IORING_SETUP_* the ring was created with
@@ -354,6 +356,8 @@ prep_rw :: (sqe: *io_uring_sqe, opcode: io_uring_op, fd: s32, address: *void, le
     sqe.off = offset;
 }
 
+// Makes `sqe` an operation that does nothing and completes with result 0; for waking a waiter or
+// testing the ring.
 prep_nop :: (sqe: *io_uring_sqe) {
     sqe.opcode = cast(u8) io_uring_op.NOP;
 }
@@ -392,6 +396,7 @@ probe_ops :: (ring: *Ring, probe: *Probe) -> s32 {
     return 0;
 }
 
+// Whether the kernel that filled `probe` (see [probe_ops]) supports `opcode`.
 supports :: (probe: *Probe, opcode: io_uring_op) -> bool {
     return probe.supported[cast(u8) opcode];
 }

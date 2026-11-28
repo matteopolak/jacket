@@ -11,6 +11,7 @@
 
 #scope_module
 
+// A lazily built DFA over one program, forward or reverse, and its state table.
 Dfa :: struct {
     program: *Program; // null for a DFA that was built completely at compile time
     reverse: bool;
@@ -61,6 +62,7 @@ CONTEXT_OTHER :: 4;
 CONTEXT_CHARACTER_WORD :: 5; // a non-ASCII word character: a word for Unicode looks only
 START_COUNT :: 12;
 
+// The slot in `Dfa.starts` of the start state for the byte context `side` and anchoring.
 START_INDEX :: inline (side: int, anchored: bool) -> int {
     return side * 2 + cast(int) anchored;
 }
@@ -96,6 +98,8 @@ Skip :: struct {
     exact: bool;
 }
 
+// How the search skips ahead to a candidate before running the DFA: a byte, a byte set, two or
+// three leading bytes, or a byte every match contains.
 Skip_Kind :: enum u8 {
     BYTES;
     SET;
@@ -111,6 +115,8 @@ SKIP_SHARE_LIMIT :: 0.25;
 // Positions into a match that the start analysis looks at.
 FINGERPRINT_DEPTH :: 8;
 
+// Sets up an empty DFA over `program`, which builds states as searches need them, up to
+// `state_limit`.
 dfa_init :: (d: *Dfa, program: *Program, reverse: bool, state_limit := DEFAULT_STATE_LIMIT) {
     d.program = program;
     d.reverse = reverse;
@@ -134,6 +140,7 @@ dfa_init :: (d: *Dfa, program: *Program, reverse: bool, state_limit := DEFAULT_S
     d.trans = d.rows;
 }
 
+// Frees the states a lazy DFA built; a DFA built at compile time owns nothing.
 dfa_free :: (d: *Dfa) {
     if !d.program return;
 
@@ -196,10 +203,12 @@ dfa_freeze :: (d: *Dfa) -> Dfa {
     return out;
 }
 
+// How many states the DFA has built.
 dfa_state_count :: (d: *Dfa) -> int {
     return d.trans.count / d.stride;
 }
 
+// The kind of byte `b` is for looks: a line feed, a carriage return, a word byte or another byte.
 context_of :: inline (b: u8) -> int {
     if b == #char "\n" return CONTEXT_LF;
     if b == #char "\r" return CONTEXT_CR;
@@ -207,6 +216,7 @@ context_of :: inline (b: u8) -> int {
     return CONTEXT_OTHER;
 }
 
+// The start state for the byte context `side` and anchoring, built on first use.
 dfa_start :: (d: *Dfa, side: int, anchored: bool) -> u32 {
     index := START_INDEX(side, anchored);
     s := d.starts[index];
@@ -687,6 +697,7 @@ bytes_before :: (program: *Program, required: [256] bool) -> [256] bool, ok: boo
     return before, true;
 }
 
+// A byte set of the bytes `members` marks.
 make_set :: (members: [256] bool) -> Byte_Search.Byte_Set {
     bytes: [..] u8;
     bytes.allocator = temp;

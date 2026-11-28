@@ -1,4 +1,11 @@
-// Computes RFC 6455's allocated accept value. Example: accept := ws_accept_key(key); free(accept).
+// Returns the `Sec-WebSocket-Accept` value for a client's `Sec-WebSocket-Key`: the base64 SHA-1
+// of the key and the protocol's fixed GUID. The result is allocated; free it.
+//
+// ```jai
+// accept := ws_accept_key("dGhlIHNhbXBsZSBub25jZQ==");
+// defer free(accept);
+// assert(accept == "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
+// ```
 ws_accept_key :: (key: string) -> string {
     input := alloc_string(key.count + WS_GUID.count);
 
@@ -11,8 +18,17 @@ ws_accept_key :: (key: string) -> string {
     return Base64.base64_encode(string.{ digest.count, digest.data });
 }
 
-// Negotiates a bounded extension header; response=true forbids offers without a window value.
-// Example: compression, error := ws_negotiate("permessage-deflate; client_max_window_bits").
+// Parses a `Sec-WebSocket-Extensions` header into permessage-deflate settings; `enabled` stays
+// false when the header offers no permessage-deflate. With `response`, the value is a server's
+// answer, where any other extension is an error and a window parameter must state its bits. A malformed, duplicate or unknown
+// parameter fails with `.HANDSHAKE`, and a header over 8192 bytes with `.LIMIT`.
+//
+// ```jai
+// deflate, error := ws_negotiate("permessage-deflate; client_max_window_bits=10");
+// assert(error.kind == .NONE && deflate.enabled && deflate.client_max_window_bits == 10);
+// _, bad := ws_negotiate("permessage-deflate; level=3");
+// assert(bad.kind == .HANDSHAKE);
+// ```
 ws_negotiate :: (value: string, response := false) -> Ws_Deflate, Ws_Error {
     if value.count > 8192 return .{}, .{ .LIMIT, "extension header too large", 0 };
 

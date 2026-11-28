@@ -112,9 +112,31 @@ Vt_Parser :: struct {
     utf_left: int;
 }
 
-// Feeds arbitrary chunks; returns the first limit error in this call while consuming all bytes.
-// Example: error := vt_feed(*p, "\x1b[1;2H", on_action, user_data);
-// Do not reenter this parser or change its options from a callback. Invalid options consume nothing.
+// Parses `bytes` and calls `callback` for each action, in order. Chunks may split a sequence or a
+// UTF-8 character anywhere; the parser keeps the partial state. Every byte is consumed even when a
+// sequence goes over a limit: the result is the first `.LIMIT` of this call. Invalid options or a
+// null callback give `.OPTIONS` and consume nothing. Do not reenter this parser or change its
+// options from the callback.
+//
+// ```jai
+// Cursor :: struct {
+//     row: u32;
+//     column: u32;
+// }
+//
+// on_action :: (data: *void, action: Vt_Action) {
+//     if action.kind != .CSI_DISPATCH || action.code != #char "H" return;
+//     cursor := cast(*Cursor) data;
+//     cursor.row = action.params[0].value;
+//     cursor.column = action.params[1].value;
+// }
+//
+// cursor: Cursor;
+// parser: Vt_Parser;
+// assert(vt_feed(*parser, "\x1b[1;", on_action, *cursor).kind == .NONE);
+// assert(vt_feed(*parser, "2H", on_action, *cursor).kind == .NONE);
+// assert(cursor.row == 1 && cursor.column == 2);
+// ```
 vt_feed :: (p: *Vt_Parser, bytes: string, callback: Vt_Callback, data: *void = null) -> Vt_Error {
     o := p.options;
     if o.max_params < 1 || o.max_params > 64 || o.max_intermediates < 0 || o.max_intermediates > 8 || o.max_osc_bytes < 0 || o.max_osc_bytes > 4096 || !callback return .{ .OPTIONS, "invalid parser options or callback", p.offset };
@@ -130,8 +152,22 @@ vt_feed :: (p: *Vt_Parser, bytes: string, callback: Vt_Callback, data: *void = n
     return error;
 }
 
-// Ends a stream: emits U+FFFD for incomplete UTF-8 and unhooks an active DCS, then resets.
-// Example: vt_finish(*p, on_action, user_data); // options and byte offset are retained
+// Ends a stream: emits U+FFFD for an incomplete UTF-8 character and `.DCS_UNHOOK` for an open
+// device control string, then resets the parser to ground. The options and the byte offset are
+// kept, so the parser can read the next stream. A null callback does nothing.
+//
+// ```jai
+// on_action :: (data: *void, action: Vt_Action) {
+//     (cast(*u32) data).* = action.code;
+// }
+//
+// last: u32;
+// parser: Vt_Parser;
+// vt_feed(*parser, "\xc3", on_action, *last);
+// assert(last == 0);
+// vt_finish(*parser, on_action, *last);
+// assert(last == 0xfffd && parser.offset == 1);
+// ```
 vt_finish :: (p: *Vt_Parser, callback: Vt_Callback, data: *void = null) {
     if !callback return;
     if p.utf_left != 0 callback(data, .{ kind = .PRINT, code = 0xfffd });

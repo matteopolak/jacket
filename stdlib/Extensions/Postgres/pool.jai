@@ -36,6 +36,7 @@ Pool :: struct {
     maintainer: Io.Fiber_Handle;
 }
 
+// A pooled connection that is not in use, and since when.
 Idle_Connection :: struct {
     connection: *Connection;
     since: s64; // milliseconds, monotonic

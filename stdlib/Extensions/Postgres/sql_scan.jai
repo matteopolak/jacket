@@ -13,6 +13,7 @@ Rewrite_Edit :: struct {
     hole: s64;
 }
 
+// A typed query's SQL with `%` holes rewritten to `$n`, and where each edit is.
 Rewrite :: struct {
     sql: string; // the statement the server sees
     edits: [..] Rewrite_Edit;

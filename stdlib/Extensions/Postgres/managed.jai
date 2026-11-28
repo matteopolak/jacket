@@ -17,6 +17,7 @@
 // below pins: the latest of each supported major version (15, 16, 17 and 18).
 MANAGED_VERSION :: "17.11.1";
 
+// Where and which PostgreSQL release managed mode runs. The zero value uses the defaults below.
 Managed_Settings :: struct {
     // Which release to use; it needs an entry in `MANAGED_ARCHIVES`.
     version := MANAGED_VERSION;
@@ -94,6 +95,8 @@ managed_settings_for :: (root: string) -> Managed_Settings {
     return settings;
 }
 
+// The managed-mode settings that `JACKET_PG_MANAGED_VERSION` and `JACKET_PG_MANAGED_CACHE` set;
+// the rest stay at their defaults.
 managed_settings_from_environment :: () -> Managed_Settings {
     settings: Managed_Settings;
 
@@ -106,6 +109,7 @@ managed_settings_from_environment :: () -> Managed_Settings {
     return settings;
 }
 
+// A running managed server and how to connect to it.
 Managed_Server :: struct {
     config: Config; // connect with this; user `postgres`, database `postgres`, no password
     url: string; // the same as a `postgresql://` URL
@@ -116,12 +120,14 @@ Managed_Server :: struct {
     started_here: bool; // false: a server was already running on `data_dir` and was reused
 }
 
+// The operating systems managed mode has PostgreSQL releases for.
 Managed_Os :: enum u8 {
     MACOS;
     LINUX;
     WINDOWS;
 }
 
+// One PostgreSQL release archive managed mode accepts, by target triple and checksum.
 Managed_Archive :: struct {
     version: string;
     triple: string;
@@ -236,6 +242,8 @@ managed_cache_dir_for :: (os: Managed_Os, home: string, xdg_cache_home: string, 
     return "";
 }
 
+// The folder managed mode keeps downloaded releases in: the user's cache folder on each OS
+// (`XDG_CACHE_HOME` or `~/.cache` on Linux).
 managed_cache_dir :: () -> string {
     #if OS == .WINDOWS {
         return managed_cache_dir_for(.WINDOWS, environment_variable("USERPROFILE"), "", environment_variable("LOCALAPPDATA"));
@@ -359,6 +367,8 @@ prepare_managed :: (settings: Managed_Settings) -> error: string {
     return error;
 }
 
+// Downloads the release and creates the cluster when they are missing, and returns the folder of
+// the binaries or an error. The caller holds the managed-mode lock.
 prepare_managed_locked :: (settings: Managed_Settings) -> bin: string, error: string {
     bin, error := ensure_binaries(settings);
     if error return "", error;
@@ -389,6 +399,8 @@ prepare_managed_locked :: (settings: Managed_Settings) -> bin: string, error: st
     return bin, "";
 }
 
+// Prepares the cluster and starts its server, or reuses one already running on the data folder.
+// The caller holds the managed-mode lock.
 start_managed_locked :: (settings: Managed_Settings) -> Managed_Server, error: string {
     bin, error := prepare_managed_locked(settings);
     if error return .{}, error;

@@ -42,6 +42,7 @@
 
 #import "Basic";
 
+// What became of a [call].
 Status :: enum s64 {
     OK :: 0; // the answer is the service's reply
     PENDING :: 1; // editor only: the reply is not in yet; the file is checked again later

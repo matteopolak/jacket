@@ -7,9 +7,9 @@
 // text := "hello, wide world!";
 //
 // // Where is the first space in these 16 bytes?
-// chunk := load(u8x16, text.data);
+// chunk := load(u8x16, text);
 // spaces := eq(chunk, #char " ");
-// if any(spaces) print("at %\n", first_true(spaces));
+// assert(any(spaces) && first_true(spaces) == 6);
 // ```
 //
 // A Vector(T, N) is N lanes of T, at most 64 bytes. Every operation works lane by lane, and its
@@ -21,6 +21,15 @@
 // simd128, the widest every target of those has. Set 32 when building for AVX2.
 #module_parameters(VECTOR_BYTES := 16);
 
+// `N` lanes of `T`, at most 64 bytes in all. `T` is an integer or float type, and `N` a power of
+// two. Use the named types (`u8x16`, `f32x4`) or `Vector(T, N)` directly; read and write lanes
+// with `vector[i]`.
+//
+// ```jai
+// v := indices(u32x4);
+// v[0] = 9;
+// assert(v[0] == 9 && v[3] == 3);
+// ```
 Vector :: struct(T: Type, N: int) #modify {
     return lanes_are_valid(T, N);
 } {
@@ -121,19 +130,34 @@ load_partial :: ($V: Type, source: *V.T, count: int, fill: V.T = 0) -> V #modify
     return result;
 }
 
+// Writes the N lanes to `dest`, which needs no particular alignment.
+//
+// ```jai
+// out: [4] s32;
+// store(splat(s32x4, 7), out.data);
+// assert(out[3] == 7);
+// ```
 store :: inline (vector: Vector($T, $N), dest: *T) {
     memcpy(dest, *vector, size_of(type_of(vector)));
 }
 
+// Writes the N lanes to `items[start]` onward, which must all exist; asserts otherwise.
+//
+// ```jai
+// out: [8] u16;
+// store(splat(u16x8, 1), out, 0);
+// ```
 store :: inline (vector: Vector($T, $N), items: [] T, start := 0) {
     assert(start >= 0 && start + N <= items.count, "SIMD: store of % lanes at % writes past the % items", N, start, items.count);
     store(vector, items.data + start);
 }
 
+// Lane `index`. An index outside `0..N - 1` is a bounds error, as for an array.
 operator [] :: inline (vector: Vector($T, $N), index: int) -> T {
     return vector.lanes[index];
 }
 
+// Sets lane `index` to `value`.
 operator []= :: inline (vector: *Vector($T, $N), index: int, value: T) {
     vector.lanes[index] = value;
 }
@@ -145,12 +169,14 @@ operator + :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #no_ao
     return result;
 }
 
+// `a - b` per lane; integer lanes wrap.
 operator - :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #no_aoc {
     result: Vector(T, N) = ---;
     for 0..N - 1 result.lanes[it] = a.lanes[it] - b.lanes[it];
     return result;
 }
 
+// `a * b` per lane; integer lanes keep the low bits.
 operator * :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #no_aoc {
     result: Vector(T, N) = ---;
     for 0..N - 1 result.lanes[it] = a.lanes[it] * b.lanes[it];
@@ -164,6 +190,7 @@ operator / :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) {
     return result;
 }
 
+// Each lane negated. The most negative integer stays itself.
 operator - :: inline (a: Vector($T, $N)) -> Vector(T, N) #no_aoc {
     result: Vector(T, N) = ---;
 
@@ -181,32 +208,45 @@ operator + :: inline (a: Vector($T, $N), b: T) -> Vector(T, N) #symmetric {
     return a + splat(Vector(T, N), b);
 }
 
+// Every lane times the scalar `b`, on either side.
 operator * :: inline (a: Vector($T, $N), b: T) -> Vector(T, N) #symmetric {
     return a * splat(Vector(T, N), b);
 }
 
+// Every lane minus the scalar `b`.
 operator - :: inline (a: Vector($T, $N), b: T) -> Vector(T, N) {
     return a - splat(Vector(T, N), b);
 }
 
+// The scalar `a` minus every lane.
 operator - :: inline (a: T, b: Vector($T, $N)) -> Vector(T, N) {
     return splat(Vector(T, N), a) - b;
 }
 
+// Every lane divided by the scalar `b`.
 operator / :: inline (a: Vector($T, $N), b: T) -> Vector(T, N) {
     return a / splat(Vector(T, N), b);
 }
 
+// The scalar `a` divided by every lane.
 operator / :: inline (a: T, b: Vector($T, $N)) -> Vector(T, N) {
     return splat(Vector(T, N), a) / b;
 }
 
+// The smaller of `a` and `b` in each lane. For floats, a NaN in `a` gives `b`'s lane.
+//
+// ```jai
+// a := s32x4.{ .[1, 5, -3, 0] };
+// assert(min(a, splat(s32x4, 0))[2] == -3);
+// assert(max(a, splat(s32x4, 0))[1] == 5);
+// ```
 min :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) {
     result: Vector(T, N) = ---;
     for 0..N - 1 result.lanes[it] = ifx a.lanes[it] < b.lanes[it] then a.lanes[it] else b.lanes[it];
     return result;
 }
 
+// The larger of `a` and `b` in each lane. For floats, a NaN in `a` gives `b`'s lane.
 max :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) {
     result: Vector(T, N) = ---;
     for 0..N - 1 result.lanes[it] = ifx a.lanes[it] > b.lanes[it] then a.lanes[it] else b.lanes[it];
@@ -274,6 +314,11 @@ saturating_sub :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #n
     return result;
 }
 
+// The square root of each float lane; a negative lane gives NaN.
+//
+// ```jai
+// assert(sqrt(f32x4.{ .[4, 9, 16, 25] })[1] == 3);
+// ```
 sqrt :: inline (a: Vector($T, $N)) -> Vector(T, N) #modify {
     return is_float(T), "sqrt needs float lanes";
 } {
@@ -291,6 +336,7 @@ operator & :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #modif
     return result;
 }
 
+// Bitwise or of each pair of integer lanes.
 operator | :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #modify {
     return is_integer(T), "| needs integer lanes";
 } {
@@ -299,6 +345,7 @@ operator | :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #modif
     return result;
 }
 
+// Bitwise exclusive or of each pair of integer lanes.
 operator ^ :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #modify {
     return is_integer(T), "^ needs integer lanes";
 } {
@@ -307,6 +354,7 @@ operator ^ :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Vector(T, N) #modif
     return result;
 }
 
+// Each integer lane with every bit flipped.
 operator ~ :: inline (a: Vector($T, $N)) -> Vector(T, N) #modify {
     return is_integer(T), "~ needs integer lanes";
 } {
@@ -315,14 +363,17 @@ operator ~ :: inline (a: Vector($T, $N)) -> Vector(T, N) #modify {
     return result;
 }
 
+// Every integer lane and the scalar `b`, on either side.
 operator & :: inline (a: Vector($T, $N), b: T) -> Vector(T, N) #symmetric {
     return a & splat(Vector(T, N), b);
 }
 
+// Every integer lane or the scalar `b`, on either side.
 operator | :: inline (a: Vector($T, $N), b: T) -> Vector(T, N) #symmetric {
     return a | splat(Vector(T, N), b);
 }
 
+// Every integer lane exclusive-or the scalar `b`, on either side.
 operator ^ :: inline (a: Vector($T, $N), b: T) -> Vector(T, N) #symmetric {
     return a ^ splat(Vector(T, N), b);
 }
@@ -341,6 +392,7 @@ operator << :: inline (a: Vector($T, $N), count: int) -> Vector(T, N) #modify {
     return result;
 }
 
+// Each lane shifted right by `count` bits, wrapped at the lane width; signed lanes keep their sign.
 operator >> :: inline (a: Vector($T, $N), count: int) -> Vector(T, N) #modify {
     return is_integer(T), ">> needs integer lanes";
 } {
@@ -359,76 +411,97 @@ eq :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Mask(T, N) {
     #insert #run compare_body("==");
 }
 
+// Lanes where `a != b`, including every NaN lane.
 ne :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Mask(T, N) {
     #insert #run compare_body("!=");
 }
 
+// Lanes where `a < b`.
 lt :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Mask(T, N) {
     #insert #run compare_body("<");
 }
 
+// Lanes where `a <= b`.
 le :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Mask(T, N) {
     #insert #run compare_body("<=");
 }
 
+// Lanes where `a > b`.
 gt :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Mask(T, N) {
     #insert #run compare_body(">");
 }
 
+// Lanes where `a >= b`.
 ge :: inline (a: Vector($T, $N), b: Vector(T, N)) -> Mask(T, N) {
     #insert #run compare_body(">=");
 }
 
+// Lanes equal to the scalar `b`.
+//
+// ```jai
+// m := eq(u8x16.{ .[1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1] }, 1);
+// assert(count_true(m) == 3 && first_true(m) == 0 && last_true(m) == 15);
+// ```
 eq :: inline (a: Vector($T, $N), b: T) -> Mask(T, N) {
     return eq(a, splat(Vector(T, N), b));
 }
 
+// Lanes not equal to the scalar `b`.
 ne :: inline (a: Vector($T, $N), b: T) -> Mask(T, N) {
     return ne(a, splat(Vector(T, N), b));
 }
 
+// Lanes less than the scalar `b`.
 lt :: inline (a: Vector($T, $N), b: T) -> Mask(T, N) {
     return lt(a, splat(Vector(T, N), b));
 }
 
+// Lanes at most the scalar `b`.
 le :: inline (a: Vector($T, $N), b: T) -> Mask(T, N) {
     return le(a, splat(Vector(T, N), b));
 }
 
+// Lanes greater than the scalar `b`.
 gt :: inline (a: Vector($T, $N), b: T) -> Mask(T, N) {
     return gt(a, splat(Vector(T, N), b));
 }
 
+// Lanes at least the scalar `b`.
 ge :: inline (a: Vector($T, $N), b: T) -> Mask(T, N) {
     return ge(a, splat(Vector(T, N), b));
 }
 
 // Masks
 
+// Lanes set in both masks.
 operator & :: inline (a: Mask($T, $N), b: Mask(T, N)) -> Mask(T, N) {
     result: Mask(T, N) = ---;
     for 0..N - 1 result.lanes[it] = a.lanes[it] & b.lanes[it];
     return result;
 }
 
+// Lanes set in either mask.
 operator | :: inline (a: Mask($T, $N), b: Mask(T, N)) -> Mask(T, N) {
     result: Mask(T, N) = ---;
     for 0..N - 1 result.lanes[it] = a.lanes[it] | b.lanes[it];
     return result;
 }
 
+// Lanes set in exactly one of the masks.
 operator ^ :: inline (a: Mask($T, $N), b: Mask(T, N)) -> Mask(T, N) {
     result: Mask(T, N) = ---;
     for 0..N - 1 result.lanes[it] = a.lanes[it] ^ b.lanes[it];
     return result;
 }
 
+// The lanes not set in `a`.
 operator ~ :: inline (a: Mask($T, $N)) -> Mask(T, N) {
     result: Mask(T, N) = ---;
     for 0..N - 1 result.lanes[it] = ~a.lanes[it];
     return result;
 }
 
+// Whether lane `index` is set.
 operator [] :: inline (mask: Mask($T, $N), index: int) -> bool {
     return mask.lanes[index] != 0;
 }
@@ -453,14 +526,22 @@ mask_from_bits :: ($M: Type, bits: u64) -> M #modify {
     return result;
 }
 
+// Whether at least one lane is set.
+//
+// ```jai
+// m := gt(s32x4.{ .[1, 2, 3, 4] }, 2);
+// assert(any(m) && !all(m) && !none(m));
+// ```
 any :: inline (mask: Mask($T, $N)) -> bool {
     return reduce_or_lanes(mask) != 0;
 }
 
+// Whether every lane is set.
 all :: inline (mask: Mask($T, $N)) -> bool {
     return reduce_and_lanes(mask) != 0;
 }
 
+// Whether no lane is set.
 none :: inline (mask: Mask($T, $N)) -> bool {
     return reduce_or_lanes(mask) == 0;
 }
@@ -507,18 +588,26 @@ reduce_add :: inline (a: Vector($T, $N)) -> T #no_aoc {
     return total;
 }
 
+// The smallest lane.
+//
+// ```jai
+// v := s32x4.{ .[4, -1, 7, 2] };
+// assert(reduce_min(v) == -1 && reduce_max(v) == 7 && reduce_add(v) == 12);
+// ```
 reduce_min :: inline (a: Vector($T, $N)) -> T {
     result := a.lanes[0];
     for 1..N - 1 if a.lanes[it] < result result = a.lanes[it];
     return result;
 }
 
+// The largest lane.
 reduce_max :: inline (a: Vector($T, $N)) -> T {
     result := a.lanes[0];
     for 1..N - 1 if a.lanes[it] > result result = a.lanes[it];
     return result;
 }
 
+// Every integer lane combined with `&`.
 reduce_and :: inline (a: Vector($T, $N)) -> T #modify {
     return is_integer(T), "reduce_and needs integer lanes";
 } {
@@ -527,6 +616,7 @@ reduce_and :: inline (a: Vector($T, $N)) -> T #modify {
     return result;
 }
 
+// Every integer lane combined with `|`.
 reduce_or :: inline (a: Vector($T, $N)) -> T #modify {
     return is_integer(T), "reduce_or needs integer lanes";
 } {
@@ -535,6 +625,7 @@ reduce_or :: inline (a: Vector($T, $N)) -> T #modify {
     return result;
 }
 
+// Every integer lane combined with `^`.
 reduce_xor :: inline (a: Vector($T, $N)) -> T #modify {
     return is_integer(T), "reduce_xor needs integer lanes";
 } {
@@ -581,6 +672,11 @@ window :: inline (a: Vector($T, $N), b: Vector(T, N), $start: int) -> Vector(T, 
     return result;
 }
 
+// The lanes in the opposite order.
+//
+// ```jai
+// assert(reverse(indices(u32x4))[0] == 3);
+// ```
 reverse :: inline (a: Vector($T, $N)) -> Vector(T, N) {
     result: Vector(T, N) = ---;
     for 0..N - 1 result.lanes[it] = a.lanes[N - 1 - it];
@@ -644,12 +740,19 @@ bitcast :: inline ($V: Type, mask: Mask($T, $N)) -> V #modify {
     return result;
 }
 
+// The first N / 2 lanes; [combine] puts the halves back together.
+//
+// ```jai
+// v := indices(u16x16);
+// assert(low_half(v)[0] == 0 && high_half(v)[0] == 8);
+// ```
 low_half :: inline (a: Vector($T, $N)) -> Vector(T, N / 2) {
     result: Vector(T, N / 2) = ---;
     for 0..N / 2 - 1 result.lanes[it] = a.lanes[it];
     return result;
 }
 
+// The last N / 2 lanes.
 high_half :: inline (a: Vector($T, $N)) -> Vector(T, N / 2) {
     result: Vector(T, N / 2) = ---;
     for 0..N / 2 - 1 result.lanes[it] = a.lanes[N / 2 + it];

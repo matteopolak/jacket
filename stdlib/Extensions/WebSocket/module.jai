@@ -124,7 +124,22 @@ Ws_Codec :: struct {
     error: Ws_Error;
 }
 
-// Parses any input chunk, stopping at one message or control event. Example: used, event := ws_parse(*codec, bytes).
+// Parses frames from `bytes` until one message or control frame is complete, and returns how many
+// bytes it used and the event. Feed the rest of `bytes` (from `used` on) to the next call.
+// `.NEED_MORE` means every byte was used and the frame is not complete. An `.ERROR` is final:
+// every later call returns it again. `event.data` is valid until the next call.
+//
+// ```jai
+// frame: [..] u8;
+// defer array_free(frame);
+// ws_frame(*frame, .PING, cast([] u8) "p");
+// codec := Ws_Codec.{ role = .CLIENT };
+// defer ws_free(*codec);
+// used, event := ws_parse(*codec, array_view(frame, 0, 1));
+// assert(used == 1 && event.kind == .NEED_MORE);
+// used, event = ws_parse(*codec, array_view(frame, 1));
+// assert(event.kind == .PING && cast(string) event.data == "p");
+// ```
 ws_parse :: (c: *Ws_Codec, bytes: [] u8) -> used: s64, event: Ws_Event {
     if c.error.kind != .NONE return 0, .{ kind = .ERROR, error = c.error };
     if c.closed return 0, .{ kind = .CLOSE };
@@ -246,8 +261,18 @@ ws_parse :: (c: *Ws_Codec, bytes: [] u8) -> used: s64, event: Ws_Event {
     return used, .{};
 }
 
-// Appends one frame with an explicit masking key. Example: ws_frame(*out, .TEXT, cast([] u8) "hi").
-// Client transports must obtain a fresh unpredictable key for every call.
+// Appends one frame to `out`, masked with `key` when `masked` is set. A client must mask every
+// frame with a fresh unpredictable key. Fails with `.PROTOCOL` for a reserved opcode, a control
+// frame that is fragmented, compressed or over 125 bytes, or an invalid close payload, and with
+// `.LIMIT` past `options.max_frame_size`; nothing is appended then.
+//
+// ```jai
+// out: [..] u8;
+// defer array_free(out);
+// assert(ws_frame(*out, .TEXT, cast([] u8) "hi").kind == .NONE);
+// assert(out.count == 4 && out[0] == 0x81 && out[1] == 2);
+// assert(ws_frame(*out, .PING, .[], final = false).kind == .PROTOCOL);
+// ```
 ws_frame :: (out: *[..] u8, opcode: Ws_Opcode, data: [] u8, final := true, masked := false, key: [4] u8 = .{}, compressed := false, options := Ws_Options.{}) -> Ws_Error {
     op := cast(u8) opcode;
     if op != 0 && op != 1 && op != 2 && op != 8 && op != 9 && op != 10 return .{ .PROTOCOL, "reserved opcode", 0 };
@@ -281,14 +306,28 @@ ws_frame :: (out: *[..] u8, opcode: Ws_Opcode, data: [] u8, final := true, maske
 
 // Compresses one message for sending as `role`, with the window that role negotiated (`client_max_window_bits` for a
 // client, `server_max_window_bits` for a server). `history` is the sender's retained context, empty without it. The result is
-// a sync-flushed raw deflate message that must be freed. Example: packed := ws_deflate(.CLIENT, codec.compression, text, .[]).
+// a sync-flushed raw deflate message that must be freed. Send it with `compressed = true` in
+// [ws_frame].
+//
+// ```jai
+// packed := ws_deflate(.CLIENT, .{ enabled = true }, cast([] u8) "hello hello hello", .[]);
+// defer free(packed.data);
+// assert(packed.count > 0);
+// ```
 ws_deflate :: (role: Ws_Role, settings: Ws_Deflate, data: [] u8, history: [] u8) -> [] u8 {
     bits := ifx role == .CLIENT then settings.client_max_window_bits else settings.server_max_window_bits;
 
     return Deflate.deflate_sync(data, 6, history, bits);
 }
 
-// Releases codec buffers and resets all state. Example: defer ws_free(*codec).
+// Releases the codec's buffers and resets every field, `role` and `options` included, so the
+// codec must be set up again before reuse. Event data from it is invalid afterwards.
+//
+// ```jai
+// codec := Ws_Codec.{ role = .CLIENT };
+// ws_free(*codec);
+// assert(codec.role == .SERVER);
+// ```
 ws_free :: (c: *Ws_Codec) {
     array_free(c.message);
     array_free(c.control);

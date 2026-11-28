@@ -1,5 +1,23 @@
-// Unicode normalization and default extended grapheme, word and sentence boundaries (UCD 17.0.0).
-// Offsets are bytes; input strings stay owned by the caller. Errors contain static messages.
+// Unicode normalization and text boundaries (UCD 17.0.0).
+//
+// - [normalize] and [is_normalized] for the four normalization forms.
+// - [segments] and [next_segment] for grapheme cluster, word and sentence boundaries, with
+//   [next_grapheme], [previous_grapheme] and [grapheme_count] for moving a cursor by characters.
+//
+// ```jai
+// count, error := grapheme_count("e\xcc\x81te\xcc\x81");
+// assert(error.kind == .NONE && count == 3);
+//
+// builder: String_Builder;
+// normalize("e\xcc\x81te\xcc\x81", .NFC, *builder);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "\xc3\xa9t\xc3\xa9");
+// ```
+//
+// Offsets are bytes, and every procedure borrows its input. Nothing allocates except `normalize`,
+// which appends to the caller's builder. Inputs and outputs are bounded by
+// [Unicode_Text_Options]; error messages are static.
 
 // A Unicode normalization form: canonical composition (`NFC`) or decomposition (`NFD`), or the
 // compatibility variants (`NFKC`, `NFKD`).
@@ -40,8 +58,16 @@ Unicode_Text_Options :: struct {
     stream_safe := false; // Insert CGJ before an NFKD nonstarter sequence would exceed 30.
 }
 
-// Appends normalized UTF-8. Invalid input or a limit error leaves the builder unchanged.
-// Example: `error := normalize("é", .NFC, *builder);` appends "é".
+// Appends `text` in normalization form `form` to `builder`. Invalid UTF-8, a limit error or a bad
+// argument leaves the builder unchanged; see [is_normalized] to check without allocating.
+//
+// ```jai
+// builder: String_Builder;
+// assert(normalize("e\xcc\x81", .NFC, *builder).kind == .NONE);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "\xc3\xa9");
+// ```
 normalize :: (text: string, form: Normalization_Form, builder: *String_Builder, options: Unicode_Text_Options = .{}) -> Unicode_Text_Error {
     error := arguments_error(text, form, options);
     if error.kind != .NONE return error;
@@ -184,8 +210,16 @@ normalize :: (text: string, form: Normalization_Form, builder: *String_Builder, 
     return .{};
 }
 
-// Uses quick-check tables; Maybe cases fall back to exact normalization and comparison.
-// Example: `yes, error := is_normalized("é", .NFC);` gives true and .NONE.
+// Reports whether `text` is already in form `form`. Most text is answered from the quick-check
+// tables without allocating; text they cannot decide is normalized into temporary storage and
+// compared.
+//
+// ```jai
+// yes, error := is_normalized("\xc3\xa9", .NFC);
+// assert(yes && error.kind == .NONE);
+// yes, error = is_normalized("e\xcc\x81", .NFC);
+// assert(!yes);
+// ```
 is_normalized :: (text: string, form: Normalization_Form, options: Unicode_Text_Options = .{}) -> bool, Unicode_Text_Error {
     error := arguments_error(text, form, options);
     if error.kind != .NONE return false, error;

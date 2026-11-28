@@ -17,6 +17,7 @@
 // Only procedures of the main program are collected, and only those at file level outside
 // `#scope_file`, since the table is added at the top level and has to name them.
 
+// Returns the plugin; the compiler calls it when the module is named with `+` on the command line.
 get_plugin :: () -> *Metaprogram_Plugin {
     plugin := New(Discovery);
     plugin.init = init;

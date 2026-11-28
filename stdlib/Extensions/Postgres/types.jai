@@ -113,10 +113,13 @@ Numeric :: struct {
     text: string;
 }
 
-// `infinity` and `-infinity` of timestamps and dates, as the server stores them.
+// `infinity` of a `Timestamp` or `Local_Timestamp`, as the server stores it.
 TIMESTAMP_INFINITY :: S64_MAX;
+// `-infinity` of a `Timestamp` or `Local_Timestamp`.
 TIMESTAMP_MINUS_INFINITY :: S64_MIN;
+// `infinity` of a `Date`.
 DATE_INFINITY :: S32_MAX;
+// `-infinity` of a `Date`.
 DATE_MINUS_INFINITY :: S32_MIN;
 
 MICROSECONDS_PER_SECOND :: 1_000_000;

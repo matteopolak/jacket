@@ -14,6 +14,7 @@ Json :: #import "Extensions/Json";
 Service :: #import "Extensions/Service";
 Pg :: #import "Extensions/Postgres";
 
+// Serves describe requests on an Io fiber until the compiler stops the service.
 main :: () {
     Io.io_run(() {
         Service.serve(answer);
@@ -164,6 +165,7 @@ managed_url :: (version: string) -> url: string, failure: string {
     return managed.url, "";
 }
 
+// The monotonic clock in milliseconds, for the reconnect backoff.
 now_milliseconds :: () -> s64 {
     return to_milliseconds(current_time_monotonic());
 }

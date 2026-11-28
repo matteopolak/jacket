@@ -71,11 +71,13 @@ is_static :: (R: Type) -> bool, string {
     return false, tprint("expected a Regex.Static(\"...\") type, not %; for a pattern made at run time, pass *re from Regex.compile", R);
 }
 
+// Reports a pattern error at compile time, with a caret under `offset`.
 report_pattern_error :: (pattern: string, message: string, offset: int) {
     pointer := tprint("%^", repeat_char(#char " ", offset));
     compiler_report(tprint("Regex: %\n    %\n    %", message, pattern, pointer));
 }
 
+// `count` copies of `c`, in temporary storage.
 repeat_char :: (c: u8, count: int) -> string {
     text := alloc_string(count,, temp);
     for 0..count - 1 text[it] = c;
@@ -90,6 +92,7 @@ Field_Kind :: enum u8 {
     ENUM;
 }
 
+// The field a typed regex struct gets for one named group: its name, group and type.
 Field_Plan :: struct {
     name: string;
     group: int;
@@ -132,6 +135,8 @@ plan_groups :: (pattern: string) -> [..] Field_Plan, ok: bool {
     return plans, true;
 }
 
+// Adds a field plan for every named group under `node`; `optional` marks groups that may not take
+// part in a match.
 collect_groups :: (node: *Node, optional: bool, plans: *[..] Field_Plan) {
     if node.kind == {
         case .CAPTURE;
@@ -157,6 +162,8 @@ collect_groups :: (node: *Node, optional: bool, plans: *[..] Field_Plan) {
 
 JAI_KEYWORDS :: string.["if", "else", "then", "case", "for", "while", "break", "continue", "return", "defer", "using", "cast", "xx", "ifx", "struct", "union", "enum", "enum_flags", "inline", "no_inline", "true", "false", "null", "it", "it_index", "remove", "context", "push_context", "size_of", "type_of", "type_info", "is_constant", "initializer_of", "operator", "interface", "string", "bool", "int", "float", "float32", "float64", "void", "u8", "u16", "u32", "u64", "s8", "s16", "s32", "s64", "Type", "Code", "Any"];
 
+// Picks the field type a named group's pattern implies: an enum of fixed words, an integer, a
+// float, or a string.
 infer_kind :: (node: *Node, plan: *Field_Plan) {
     plan.kind = .STRING;
     plan.type_name = "string";
@@ -256,6 +263,7 @@ member_name :: (word: string) -> string {
     return builder_to_string(*builder);
 }
 
+// The index of `value` in `array`, or -1.
 index_of_name :: (array: [] string, value: string) -> int {
     for array if it == value return it_index;
     return -1;
@@ -282,6 +290,7 @@ literal_text :: (node: *Node) -> string, bool {
     return "", false;
 }
 
+// Whether `word` is a valid identifier: a letter or `_`, then letters, digits or `_`.
 is_identifier :: (word: string) -> bool {
     if !word.count return false;
 
@@ -352,6 +361,7 @@ number_shape :: (node: *Node) -> signed: bool, digits: int, is_float: bool, ok: 
     return signed, max_digits, true, true;
 }
 
+// Appends the pieces of a concatenation, through captures and one byte per literal byte.
 flatten :: (node: *Node, items: *[..] *Node) {
     if node.kind == .CONCAT {
         for node.children flatten(it, items);
@@ -370,6 +380,7 @@ flatten :: (node: *Node, items: *[..] *Node) {
     }
 }
 
+// Whether `node` matches only `-` or `+`, optionally.
 is_sign :: (node: *Node) -> bool {
     if node.kind == .REPEAT && node.min == 0 && node.max == 1 return is_sign(node.children[0]);
     if node.kind == .CAPTURE return is_sign(node.children[0]);
@@ -434,6 +445,7 @@ digit_run :: (node: *Node) -> ok: bool, lo: int, hi: int {
     return false, 0, 0;
 }
 
+// Whether `r` holds only decimal digits: ASCII in byte mode, Unicode `\d` otherwise.
 is_digit_range :: (r: Char_Range, bytes: bool) -> bool {
     if r.lo >= #char "0" && r.hi <= #char "9" return true;
     if bytes return false;

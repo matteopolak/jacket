@@ -1,5 +1,6 @@
 // SCRAM-SHA-256 and SCRAM-SHA-256-PLUS (RFC 5802, RFC 7677, RFC 5929 tls-server-end-point).
 
+// The client side of one SCRAM exchange: what it sent and the signature it expects back.
 Scram :: struct {
     started: bool;
     verified: bool; // the server proved it knows the password
@@ -137,6 +138,7 @@ scram_continue :: (c: *Connection, config: Config, s: *Scram, data: [] u8) -> Pg
 // process, as the password does in the connection's `Config`.
 SALTED_CACHE_SIZE :: 16;
 
+// One cached salted password, keyed by a hash of the password, salt and iteration count.
 Salted_Entry :: struct {
     key: [32] u8;
     salted: [32] u8;
@@ -149,10 +151,12 @@ salted_tick: s64;
 salted_lock: s32; // 0 free, 1 taken: connections open on any thread
 salted_runs: s64; // how many times PBKDF2 ran, for the tests
 
+// Takes the lock of the salted-password cache, spinning until it is free.
 lock_salted :: () {
     while !compare_and_swap(*salted_lock, cast(s32) 0, cast(s32) 1) sleep_milliseconds(0);
 }
 
+// Releases the lock of the salted-password cache.
 unlock_salted :: () {
     atomic_store(*salted_lock, cast(s32) 0);
 }

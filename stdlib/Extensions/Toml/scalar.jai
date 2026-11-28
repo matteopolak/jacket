@@ -84,7 +84,6 @@ toml_append_scalar :: (builder: *String_Builder, scalar: u32) {
 
 // Stop at syntax, a control byte, or the first byte beyond the decoded budget. The input
 // bounds prove each pointer load; valid ordinary UTF-8 needs no per-byte transformation.
-// Example: end := toml_plain_string_end(text, start, 34, remaining);
 toml_plain_string_end :: inline (text: string, start: int, quote: u8, remaining: int) -> int {
     cursor := start;
     while cursor < text.count {

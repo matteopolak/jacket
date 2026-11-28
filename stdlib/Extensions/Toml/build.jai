@@ -1,6 +1,13 @@
 #scope_export
-// Creates an empty owning document. Builder nodes belong to it until free_toml.
-// Example: doc, error := new_toml_document();
+// Creates an empty document to build with [toml_new_value], [toml_insert] and [toml_push]. It
+// uses the current allocator, and its nodes belong to it until [free_toml]. Fails with `.LIMIT`
+// when a limit in `options` is negative.
+//
+// ```jai
+// doc, error := new_toml_document();
+// defer free_toml(*doc);
+// assert(error.kind == .NONE && doc.root.kind == .TABLE && doc.root.members.count == 0);
+// ```
 new_toml_document :: (options := Toml_Options.{}) -> Toml_Document, Toml_Error {
     if !toml_options_valid(options) return .{}, .{ kind = .LIMIT, message = "limits must be nonnegative" };
 
@@ -19,8 +26,19 @@ new_toml_document :: (options := Toml_Options.{}) -> Toml_Document, Toml_Error {
 }
 
 // Allocates a detached node. Its kind stays fixed; assign only scalar fields matching that kind.
-// Use toml_set_text/toml_set_fraction for owned text, and toml_insert/toml_push to attach it.
-// Example: value, error := toml_new_value(*doc, .INTEGER); value.integer = 7;
+// Use [toml_set_text] or [toml_set_fraction] for text, and [toml_insert] or [toml_push] to attach
+// it. Fails with `.LIMIT` past `max_nodes` or `max_retained_bytes`.
+//
+// ```jai
+// doc, _ := new_toml_document();
+// defer free_toml(*doc);
+// value, error := toml_new_value(*doc, .INTEGER);
+// value.integer = 7;
+// assert(toml_insert(*doc, doc.root, "count", value).kind == .NONE);
+// text, _ := write_toml(doc.root);
+// defer free(text);
+// assert(text == "count = 7\n");
+// ```
 toml_new_value :: (doc: *Toml_Document, kind: Toml_Kind) -> *Toml_Value, Toml_Error {
     if !doc.allocator.proc return null, .{ kind = .OUTPUT, message = "document is not initialized" };
 
@@ -43,7 +61,17 @@ toml_new_value :: (doc: *Toml_Document, kind: Toml_Kind) -> *Toml_Value, Toml_Er
 
 // Copies a string with the document's allocator. Failure preserves both value and budget.
 // max_string_bytes limits one decoded string/key/fraction; retained bytes bound their total.
-// Example: error = toml_set_text(*doc, value, "tool");
+// Fails with `.OUTPUT` when `value` is not a string node of `doc`, and `.ENCODING` for invalid
+// UTF-8.
+//
+// ```jai
+// doc, _ := new_toml_document();
+// defer free_toml(*doc);
+// value, _ := toml_new_value(*doc, .STRING);
+// assert(toml_set_text(*doc, value, "tool").kind == .NONE && value.text == "tool");
+// number, _ := toml_new_value(*doc, .INTEGER);
+// assert(toml_set_text(*doc, number, "x").kind == .OUTPUT);
+// ```
 toml_set_text :: (doc: *Toml_Document, value: *Toml_Value, text: string) -> Toml_Error {
     if !toml_belongs(doc, value) || value.kind != .STRING return .{ kind = .OUTPUT, message = "expected a string node in this document" };
     if text.count > doc.options.max_string_bytes return .{ kind = .LIMIT, message = "string byte limit exceeded" };
@@ -72,7 +100,15 @@ toml_set_text :: (doc: *Toml_Document, value: *Toml_Value, text: string) -> Toml
 
 // Copies exact fractional-second digits. Empty means no fractional component. Replacement
 // temporarily holds both old and new strings; max_retained_bytes bounds the resulting document.
-// Example: error = toml_set_fraction(*doc, value, "123456789012");
+// Fails with `.OUTPUT` when `value` is not a time node of `doc` or `digits` has a non-digit.
+//
+// ```jai
+// doc, _ := new_toml_document();
+// defer free_toml(*doc);
+// value, _ := toml_new_value(*doc, .LOCAL_TIME);
+// assert(toml_set_fraction(*doc, value, "123456789012").kind == .NONE);
+// assert(value.temporal.fraction == "123456789012");
+// ```
 toml_set_fraction :: (doc: *Toml_Document, value: *Toml_Value, digits: string) -> Toml_Error {
     if !toml_belongs(doc, value) || (value.kind != .LOCAL_TIME && value.kind != .LOCAL_DATETIME && value.kind != .OFFSET_DATETIME) return .{ kind = .OUTPUT, message = "expected a temporal node in this document" };
     if digits.count > doc.options.max_string_bytes return .{ kind = .LIMIT, message = "fraction byte limit exceeded" };
@@ -94,7 +130,17 @@ toml_set_fraction :: (doc: *Toml_Document, value: *Toml_Value, digits: string) -
 
 // Inserts an absent key and a detached same-document node. Duplicates never replace silently.
 // All depth/storage checks precede mutation. Node pointers remain stable across array/index growth.
-// Example: error = toml_insert(*doc, doc.root, "count", value);
+// Fails with `.DUPLICATE` for a key `table` has, `.OUTPUT` when either node is not from `doc` or
+// `value` is already attached, and `.LIMIT` past the depth or retained-byte limits.
+//
+// ```jai
+// doc, _ := new_toml_document();
+// defer free_toml(*doc);
+// value, _ := toml_new_value(*doc, .BOOL);
+// assert(toml_insert(*doc, doc.root, "on", value).kind == .NONE);
+// again, _ := toml_new_value(*doc, .BOOL);
+// assert(toml_insert(*doc, doc.root, "on", again).kind == .DUPLICATE);
+// ```
 toml_insert :: (doc: *Toml_Document, table: *Toml_Value, key: string, value: *Toml_Value) -> Toml_Error {
     if !toml_can_attach(doc, table, value) || table.kind != .TABLE return .{ kind = .OUTPUT, message = "invalid table attachment" };
     if !toml_attachment_fits(doc, table, value) return .{ kind = .LIMIT, message = "document depth limit exceeded" };
@@ -137,7 +183,17 @@ toml_insert :: (doc: *Toml_Document, table: *Toml_Value, key: string, value: *To
 }
 
 // Appends a detached same-document node. Shared children, cycles and excessive depth are errors.
-// Example: error = toml_push(*doc, list, value);
+//
+// ```jai
+// doc, _ := new_toml_document();
+// defer free_toml(*doc);
+// list, _ := toml_new_value(*doc, .ARRAY);
+// value, _ := toml_new_value(*doc, .INTEGER);
+// value.integer = 1;
+// assert(toml_push(*doc, list, value).kind == .NONE);
+// assert(toml_push(*doc, list, value).kind == .OUTPUT);
+// assert(list.items.count == 1);
+// ```
 toml_push :: (doc: *Toml_Document, array: *Toml_Value, value: *Toml_Value) -> Toml_Error {
     if !toml_can_attach(doc, array, value) || array.kind != .ARRAY return .{ kind = .OUTPUT, message = "invalid array attachment" };
     if !toml_attachment_fits(doc, array, value) return .{ kind = .LIMIT, message = "document depth limit exceeded" };

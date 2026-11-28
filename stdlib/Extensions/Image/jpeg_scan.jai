@@ -11,6 +11,7 @@ JPEG_DC_REFINE :: 2;
 JPEG_AC_FIRST :: 3;
 JPEG_AC_REFINE :: 4;
 
+// Where one block of an MCU lies: its component and its position within the MCU.
 Jpeg_Scan_Block :: struct {
     comp: s32;
     scale_x: s32;
@@ -55,6 +56,7 @@ jpeg_scan_mode :: (d: *Jpeg_Decoder, selected: *[4] s32, count: s32, ss: s32, se
     return mode, "";
 }
 
+// Reads an SOS header and decodes the scan that follows it. Returns an empty string or the error.
 jpeg_read_scan :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
     if !d.frame_seen return "JPEG scan before the frame header";
 
@@ -161,6 +163,8 @@ jpeg_read_scan :: (d: *Jpeg_Decoder, segment: *u8, size: s64) -> string {
     return "";
 }
 
+// Decodes every MCU of one scan, handling restart markers. False only when the padding before a
+// marker is invalid; data that ends early leaves the remaining blocks as they were.
 jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_count: s32, mcus_w: s32, mcus_h: s32, mode: s32, ss: s32, se: s32, al: s32) -> bool {
     d.bits = 0;
     d.nbits = 0;
@@ -234,6 +238,8 @@ jpeg_decode_scan :: (d: *Jpeg_Decoder, blocks: *[10] Jpeg_Scan_Block, block_coun
     return true;
 }
 
+// Decodes and dequantizes one block of a sequential scan into `block`, in natural order. Returns the
+// last zigzag position it set.
 jpeg_block_sequential :: (d: *Jpeg_Decoder, comp: *Jpeg_Component, block: *s32, dc: *Jpeg_Huffman, ac: *Jpeg_Huffman) -> s32 #no_abc #no_aoc {
     bits := d.bits;
     nbits := d.nbits;
@@ -298,6 +304,7 @@ jpeg_block_sequential :: (d: *Jpeg_Decoder, comp: *Jpeg_Component, block: *s32, 
     return last;
 }
 
+// Decodes the DC coefficient of one block in a first progressive DC scan.
 jpeg_block_dc_first :: (d: *Jpeg_Decoder, comp: *Jpeg_Component, coefs: *s16, dc: *Jpeg_Huffman, al: s32) #no_abc #no_aoc {
     bits := d.bits;
     nbits := d.nbits;
@@ -319,6 +326,7 @@ jpeg_block_dc_first :: (d: *Jpeg_Decoder, comp: *Jpeg_Component, coefs: *s16, dc
     d.pos = pos;
 }
 
+// Adds one refinement bit to the DC coefficient of a block.
 jpeg_block_dc_refine :: (d: *Jpeg_Decoder, coefs: *s16, al: s32) #no_abc #no_aoc {
     bits := d.bits;
     nbits := d.nbits;
@@ -334,6 +342,8 @@ jpeg_block_dc_refine :: (d: *Jpeg_Decoder, coefs: *s16, al: s32) #no_abc #no_aoc
     d.pos = pos;
 }
 
+// Decodes the AC coefficients `ss..se` of one block in a first progressive AC scan, honouring
+// end-of-band runs.
 jpeg_block_ac_first :: (d: *Jpeg_Decoder, coefs: *s16, ac: *Jpeg_Huffman, ss: s32, se: s32, al: s32) #no_abc #no_aoc {
     if d.eobrun > 0 {
         d.eobrun -= 1;

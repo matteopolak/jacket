@@ -26,6 +26,7 @@ GREEN_REWINDING :: 2;
 
 green: Green_Control;
 
+// Returns the scheduler's control block, so code jaic generated can find it.
 #program_export "jaic_wasi_green_control"
 green_control :: () -> *Green_Control #c_call {
     return *green;
@@ -43,6 +44,8 @@ green_suspend :: () #c_call {
     green.state = GREEN_UNWINDING;
 }
 
+// Stops the program with a message when a thread's frames outgrow its frame stack; jaic's code
+// calls it.
 #program_export "jaic_wasi_frames_exhausted"
 green_frames_exhausted :: () #c_call {
     message :: "thread stack overflow: a thread's frames outgrew its frame stack\n";
@@ -52,6 +55,7 @@ green_frames_exhausted :: () #c_call {
 
 Thread_Entry :: #type (argument: *void) -> *void #c_call;
 
+// One green thread: its entry, its frame stack and why it waits. Its address is the `pthread_t`.
 Green_Thread :: struct {
     entry: Thread_Entry;
     argument: *void;
@@ -69,6 +73,7 @@ Green_Thread :: struct {
     wake_result: s32;
 }
 
+// Whether a green thread can run, waits for something, or has returned.
 Thread_Status :: enum s32 {
     RUNNABLE;
     BLOCKED;
@@ -86,6 +91,7 @@ next_ticket: u64;
 main_argument_count: s32;
 main_arguments: **u8;
 
+// Runs the program's `main` as the first green thread and exits with its result.
 main_thread_entry :: (argument: *void) -> *void #c_call {
     wasi_proc_exit(program_main(main_argument_count, main_arguments));
     return null;
@@ -123,6 +129,8 @@ run_threads :: () #c_call {
     }
 }
 
+// Adds a runnable thread with the frame stack `frames` at the end of the turn order. Null when
+// `frames` is null or the thread record cannot be allocated.
 add_thread :: (entry: Thread_Entry, argument: *void, frames: *u8, frame_bytes: u64) -> *Green_Thread #c_call {
     if !frames return null;
 
@@ -142,6 +150,7 @@ add_thread :: (entry: Thread_Entry, argument: *void, frames: *u8, frame_bytes: u
     return thread;
 }
 
+// Unlinks a joined thread and frees its record.
 remove_thread :: (thread: *Green_Thread) #c_call {
     link := *first_thread;
     while link.* && link.* != thread link = *link.*.next;
@@ -213,6 +222,7 @@ block_running :: (waiting_for: *void, deadline: u64) -> s32 #c_call {
     return running.wake_result;
 }
 
+// Makes `thread` runnable; its blocking call returns `result`.
 wake :: (thread: *Green_Thread, result: s32) #c_call {
     thread.status = .RUNNABLE;
     thread.waiting_for = null;
@@ -233,6 +243,7 @@ wake_one :: (object: *void) #c_call {
     if first wake(first, 0);
 }
 
+// Wakes every thread waiting for `object` with `result`.
 wake_all :: (object: *void, result: s32) #c_call {
     thread := first_thread;
     while thread {
@@ -241,6 +252,7 @@ wake_all :: (object: *void, result: s32) #c_call {
     }
 }
 
+// The monotonic clock in nanoseconds, or 0 when the host has none.
 monotonic_nanoseconds :: () -> u64 #c_call {
     now: u64;
     if wasi_clock_time_get(1, 1, offset32(*now)) != 0 return 0;
@@ -290,6 +302,8 @@ Green_Mutex :: struct {
 
 EBUSY :: 16;
 
+// Starts a green thread running `entry(argument)` and stores its handle. EAGAIN when the program
+// was built without green threads or out of memory.
 #program_export "pthread_create"
 wasi_pthread_create :: (handle: *u64, attributes: *void, entry: Thread_Entry, argument: *void) -> s32 #c_call {
     if !green.enabled return EAGAIN;
@@ -302,6 +316,8 @@ wasi_pthread_create :: (handle: *u64, attributes: *void, entry: Thread_Entry, ar
     return 0;
 }
 
+// Waits for the thread to return, stores its result and frees it. ESRCH for a null handle,
+// EDEADLK for the calling thread itself or a wait nothing can end.
 #program_export "pthread_join"
 wasi_pthread_join :: (handle: u64, result: **void) -> s32 #c_call {
     thread := cast(*Green_Thread) handle;
@@ -319,6 +335,7 @@ wasi_pthread_join :: (handle: u64, result: **void) -> s32 #c_call {
     return 0;
 }
 
+// Joins the thread if it has returned, else returns EBUSY without waiting.
 #program_export "pthread_tryjoin_np"
 wasi_pthread_tryjoin_np :: (handle: u64, result: **void) -> s32 #c_call {
     thread := cast(*Green_Thread) handle;
@@ -331,21 +348,25 @@ wasi_pthread_tryjoin_np :: (handle: u64, result: **void) -> s32 #c_call {
     return 0;
 }
 
+// Accepts mutex attributes; every mutex is recursive, so they change nothing.
 #program_export "pthread_mutexattr_init"
 wasi_pthread_mutexattr_init :: (attributes: *void) -> s32 #c_call {
     return 0;
 }
 
+// Accepts a mutex type and ignores it: every mutex is recursive.
 #program_export "pthread_mutexattr_settype"
 wasi_pthread_mutexattr_settype :: (attributes: *void, kind: s32) -> s32 #c_call {
     return 0;
 }
 
+// Releases mutex attributes, which hold nothing.
 #program_export "pthread_mutexattr_destroy"
 wasi_pthread_mutexattr_destroy :: (attributes: *void) -> s32 #c_call {
     return 0;
 }
 
+// Makes the mutex unlocked.
 #program_export "pthread_mutex_init"
 wasi_pthread_mutex_init :: (mutex: *Green_Mutex, attributes: *void) -> s32 #c_call {
     mutex.owner = null;
@@ -353,11 +374,14 @@ wasi_pthread_mutex_init :: (mutex: *Green_Mutex, attributes: *void) -> s32 #c_ca
     return 0;
 }
 
+// Releases a mutex, which holds nothing.
 #program_export "pthread_mutex_destroy"
 wasi_pthread_mutex_destroy :: (mutex: *Green_Mutex) -> s32 #c_call {
     return 0;
 }
 
+// Locks the mutex, waiting while another thread holds it; the owner may lock it again. EDEADLK
+// when no thread could unlock it.
 #program_export "pthread_mutex_lock"
 wasi_pthread_mutex_lock :: (mutex: *Green_Mutex) -> s32 #c_call {
     while mutex.owner && mutex.owner != running {
@@ -371,6 +395,7 @@ wasi_pthread_mutex_lock :: (mutex: *Green_Mutex) -> s32 #c_call {
     return 0;
 } @Locks
 
+// Locks the mutex if no other thread holds it, else returns EBUSY.
 #program_export "pthread_mutex_trylock"
 wasi_pthread_mutex_trylock :: (mutex: *Green_Mutex) -> s32 #c_call {
     if mutex.owner && mutex.owner != running return EBUSY;
@@ -379,6 +404,8 @@ wasi_pthread_mutex_trylock :: (mutex: *Green_Mutex) -> s32 #c_call {
     return 0;
 }
 
+// Undoes one lock by the owner and wakes the longest waiter on the last. EPERM for a thread that
+// does not own it.
 #program_export "pthread_mutex_unlock"
 wasi_pthread_mutex_unlock :: (mutex: *Green_Mutex) -> s32 #c_call {
     if mutex.owner != running return EPERM;
@@ -392,28 +419,34 @@ wasi_pthread_mutex_unlock :: (mutex: *Green_Mutex) -> s32 #c_call {
     return 0;
 } @Unlocks
 
+// Initializes a condition variable, which holds nothing: waiters are found by its address.
 #program_export "pthread_cond_init"
 wasi_pthread_cond_init :: (condition: *void, attributes: *void) -> s32 #c_call {
     return 0;
 }
 
+// Releases a condition variable, which holds nothing.
 #program_export "pthread_cond_destroy"
 wasi_pthread_cond_destroy :: (condition: *void) -> s32 #c_call {
     return 0;
 }
 
+// Wakes the thread that has waited longest on the condition.
 #program_export "pthread_cond_signal"
 wasi_pthread_cond_signal :: (condition: *void) -> s32 #c_call {
     wake_one(condition);
     return 0;
 }
 
+// Wakes every thread waiting on the condition.
 #program_export "pthread_cond_broadcast"
 wasi_pthread_cond_broadcast :: (condition: *void) -> s32 #c_call {
     wake_all(condition, 0);
     return 0;
 }
 
+// Releases the mutex, waits for a signal and takes the mutex back. EDEADLK without green threads,
+// where nothing could signal.
 #program_export "pthread_cond_wait"
 wasi_pthread_cond_wait :: (condition: *void, mutex: *Green_Mutex) -> s32 #c_call {
     // With no other thread, nothing could ever signal.

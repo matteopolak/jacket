@@ -53,10 +53,12 @@ look_holds :: (look: Look, text: string, pos: int) -> bool {
     return false;
 }
 
+// Whether `b` is an ASCII word byte: a letter, a digit or `_`.
 is_word_byte :: inline (b: u8) -> bool {
     return (b >= #char "a" && b <= #char "z") || (b >= #char "A" && b <= #char "Z") || (b >= #char "0" && b <= #char "9") || b == #char "_";
 }
 
+// Whether the character at `pos` is a Unicode word character; false at the end or for invalid UTF-8.
 word_char_after :: (text: string, pos: int) -> bool {
     if pos >= text.count return false;
     if text[pos] < 0x80 return is_word_byte(text[pos]);
@@ -67,6 +69,7 @@ word_char_after :: (text: string, pos: int) -> bool {
     return is_word_char(c);
 }
 
+// Whether the character that ends at `pos` is a Unicode word character; false at the start.
 word_char_before :: (text: string, pos: int) -> bool {
     if pos <= 0 return false;
     if text[pos - 1] < 0x80 return is_word_byte(text[pos - 1]);
@@ -81,6 +84,7 @@ word_char_before :: (text: string, pos: int) -> bool {
     return is_word_char(c);
 }
 
+// Whether code point `c` is a Unicode word character (`\w`).
 is_word_char :: (c: u32) -> bool {
     if begin_once(*word_state) {
         // The table outlives every regex, so it must not come from the pool of the one that first needed it.
@@ -242,6 +246,7 @@ backtrack_search :: (program: *Program, text: string, start: int, end: int, slot
     return false;
 }
 
+// Whether the bounded backtracker's visited set for `program` over `span` bytes fits in 256 KiB.
 backtrack_fits :: (program: *Program, span: int) -> bool {
     return program.insts.count * (span + 1) <= 256 * 1024 * 8;
 }

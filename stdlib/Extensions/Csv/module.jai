@@ -140,7 +140,7 @@ Csv_Reader :: struct(Row: Type = void) {
 }
 
 // Creates a reader of records over `input`, which it borrows; release it with csv_reader_free.
-// Example:
+//
 // ```jai
 // r := csv_reader(cast([] u8) "one,two\n", .{ header = true });
 // defer csv_reader_free(*r);
@@ -153,7 +153,7 @@ csv_reader :: (input: [] u8, options := Csv_Options.{}) -> Csv_Reader {
 }
 
 // Creates a reader of records over a chunk source, which uses Json's fill-buffer convention.
-// Example:
+//
 // ```jai
 // #import "Extensions/Csv";
 //
@@ -187,7 +187,7 @@ csv_reader :: (source: Csv_Source, options := Csv_Options.{}) -> Csv_Reader {
 // Creates a reader that decodes each record into a `Row` struct, matching header names (or
 // declaration order without a header; see `@csv(name=...)` and `@csv(skip)`). It maps the columns
 // once, when the first row is read. Release it with csv_reader_free.
-// Example:
+//
 // ```jai
 // #import "Extensions/Csv";
 //
@@ -211,7 +211,7 @@ csv_reader :: ($Row: Type, input: [] u8, options := Csv_Options.{}) -> Csv_Reade
 
 // Creates a typed reader over a chunk source; `options.borrow` is rejected, since the chunk is
 // reused. See the chunk source example of [csv_reader].
-// Example:
+//
 // ```jai
 // #import "Extensions/Csv";
 //
@@ -237,7 +237,7 @@ csv_reader :: ($Row: Type, source: Csv_Source, options := Csv_Options.{}) -> Csv
 
 // Returns the next record as borrowed fields, or false with `.NONE` at the end of the input. With
 // a header the first record is consumed as the column names.
-// Example:
+//
 // ```jai
 // #import "Extensions/Csv";
 //
@@ -253,7 +253,7 @@ csv_next :: (r: *Csv_Reader(void)) -> [] string, bool, Csv_Error {
 // Returns the next record decoded into the reader's `Row`, or false with `.NONE` at the end of
 // the input. The row owns its strings (see `Csv_Options.borrow`); release it with csv_row_free.
 // A failure is final: the row holds what was decoded before it, already released.
-// Example:
+//
 // ```jai
 // #import "Extensions/Csv";
 //
@@ -294,7 +294,7 @@ csv_next :: (r: *Csv_Reader($Row)) -> Row, bool, Csv_Error #modify {
 // Iterates a reader: `for row: reader` runs the body per record (a `[] string` or a `Row`) until
 // the input ends or a record fails, and `reader.error` then says which. A typed row is released
 // by the body.
-// Example:
+//
 // ```jai
 // #import "Extensions/Csv";
 //
@@ -330,8 +330,17 @@ for_expansion :: (r: *Csv_Reader($Row), body: Code, flags: For_Flags) #expand {
     }
 }
 
-// Copies a borrowed record into independently owned fields.
-// Example: owned := csv_record_copy(fields); csv_record_free(owned).
+// Copies a borrowed record into fields it owns, so they outlive the next [csv_next] call and
+// the reader. Allocates one array and one string per field; release them with [csv_record_free].
+//
+// ```jai
+// r := csv_reader(cast([] u8) "a,b\n");
+// fields, present, error := csv_next(*r);
+// owned := csv_record_copy(fields);
+// defer csv_record_free(owned);
+// csv_reader_free(*r);
+// assert(owned.count == 2 && owned[1] == "b");
+// ```
 csv_record_copy :: (fields: [] string) -> [] string {
     result: [] string;
     result.count = fields.count;
@@ -341,15 +350,28 @@ csv_record_copy :: (fields: [] string) -> [] string {
     return result;
 }
 
-// Releases a copied record, including its field strings.
-// Example: csv_record_free(owned).
+// Releases a record from [csv_record_copy], including its field strings. Never pass the borrowed
+// fields of [csv_next]: the reader owns those.
+//
+// ```jai
+// owned := csv_record_copy(string.["x", "y"]);
+// csv_record_free(owned);
+// ```
 csv_record_free :: (fields: [] string) {
     for fields if it.data free(it.data);
     if fields.data free(fields.data);
 }
 
-// Releases reader storage; input and source state stay caller-owned. Works for both kinds of reader.
-// Example: csv_reader_free(*reader).
+// Releases the reader's storage with the allocator it was made under. The input bytes and the
+// source's state stay the caller's. Works for both kinds of reader; borrowed records from it are
+// invalid afterwards, and rows that own their strings are not affected.
+//
+// ```jai
+// r := csv_reader(cast([] u8) "one\n");
+// _, present, _ := csv_next(*r);
+// csv_reader_free(*r);
+// assert(present);
+// ```
 csv_reader_free :: (r: *Csv_Reader($Row)) {
     push_allocator(r.allocator);
 
@@ -366,8 +388,19 @@ csv_reader_free :: (r: *Csv_Reader($Row)) {
     r.header = .[];
 }
 
-// Appends one record atomically after checking the configured field and record limits.
-// Example: error := csv_write_record(*builder, string.["a,b", "two"]).
+// Appends one record with `options.line_ending`, quoting the fields that need it. The limits are
+// checked first, so on an error nothing is written: `.FIELD_COUNT` for no fields or more than
+// `max_fields`, `.FIELD_LIMIT` and `.RECORD_LIMIT` for sizes, `.OPTIONS` for bad options.
+//
+// ```jai
+// builder: String_Builder;
+// error := csv_write_record(*builder, string.["a,b", "two"], .{ line_ending = .LF });
+// assert(error.kind == .NONE);
+// text := builder_to_string(*builder);
+// defer free(text);
+// assert(text == "\"a,b\",two\n");
+// assert(csv_write_record(*builder, .[]).kind == .FIELD_COUNT);
+// ```
 csv_write_record :: (out: *String_Builder, fields: [] string, options := Csv_Options.{}) -> Csv_Error {
     error := validate_options(options);
     if error.kind != .NONE return error;

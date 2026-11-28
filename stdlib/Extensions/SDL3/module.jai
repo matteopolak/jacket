@@ -1,6 +1,8 @@
-// SDL3 3.4.18. A new C binding, independent of the SDL2 module.
-// Official SDL copyright and zlib license are retained in LICENSE.txt.
-// Regeneration and supported surfaces: docs/extensions/sdl3.md.
+// Bindings to SDL3 3.4.18 for windows, input, audio and the GPU API, on macOS, Linux and Windows
+// (x64 and arm64). They are separate from the SDL2 module. The names are SDL's C names; SDL's own
+// documentation describes each procedure. SDL's copyright and zlib license are in `LICENSE.txt`;
+// `docs/extensions/sdl3.md` covers regenerating them.
+
 #assert(CPU == .X64 || CPU == .ARM64, "SDL3 supports x64 and arm64 release targets");
 #assert(size_of(*void) == 8, "SDL3 release bindings require 64-bit pointers");
 SDL3 :: #system_library "SDL3";

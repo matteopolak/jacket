@@ -51,6 +51,7 @@ Accept_Wait :: struct {
     // Accepted sockets block: io_uring waits for them itself.
     SOCK_CLOEXEC :: 0x80000;
 
+    // The io_uring engine's state: the ring, its allocator and the listeners with a multishot accept.
     Uring_State :: struct {
         allocator: Allocator;
         ring: Uring.Ring;
@@ -129,6 +130,7 @@ Accept_Wait :: struct {
         return "";
     }
 
+    // Closes queued accepted sockets, frees the accept slots and closes the ring.
     uring_stop :: (engine: *Engine) {
         for engine.uring.accepts {
             for i: it.head..it.queue.count - 1 sys_close(it.queue[i]);
@@ -160,6 +162,7 @@ Accept_Wait :: struct {
         return sqe;
     }
 
+    // Puts `op` on the submission queue; a close first cancels every operation on its descriptor.
     uring_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {
         if op.kind == .CLOSE {
             uring_close(scheduler, engine, op);
@@ -229,6 +232,7 @@ Accept_Wait :: struct {
         sqe.user_data = cast(u64) cast(*void) op;
     }
 
+    // Submits an asynchronous cancel of `op`.
     uring_cancel :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {
         sqe := uring_entry(scheduler, engine);
 
@@ -236,6 +240,7 @@ Accept_Wait :: struct {
         sqe.user_data = UNTRACKED;
     }
 
+    // Submits what is queued and waits up to `timeout` milliseconds for completions, then handles them.
     uring_wait :: (scheduler: *Scheduler, engine: *Engine, timeout: s64) {
         ring := *engine.uring.ring;
 
@@ -269,6 +274,7 @@ Accept_Wait :: struct {
         uring_reap(scheduler, engine);
     }
 
+    // Handles every completion in the ring.
     uring_reap :: (scheduler: *Scheduler, engine: *Engine) {
         ring := *engine.uring.ring;
 
@@ -306,6 +312,7 @@ Accept_Wait :: struct {
         }
     }
 
+    // The open accept slot of listener `fd`, or null.
     accept_slot :: (state: *Uring_State, fd: s64) -> *Accept_Slot {
         for state.accepts {
             if it.fd == fd && !it.closing return it;
@@ -405,6 +412,8 @@ Accept_Wait :: struct {
         return true, 0, .CLOSED;
     }
 
+    // Handles one multishot accept completion: hands the socket to the waiting fiber or queues it,
+    // closing it when the listener is closing. A full queue cancels the accept.
     accept_completed :: (scheduler: *Scheduler, op: *Op, result: s64, flags: u32) {
         slot := op.slot;
         more := (flags & Uring.IORING_CQE_F_MORE) != 0;
@@ -449,6 +458,7 @@ Accept_Wait :: struct {
         }
     }
 
+    // Removes an accept slot from the engine and frees it.
     accept_free :: (state: *Uring_State, slot: *Accept_Slot) {
         for state.accepts {
             if it == slot {
@@ -503,20 +513,29 @@ Accept_Wait :: struct {
         Uring.submit(*engine.uring.ring);
     }
 
+    // `base` moved forward by `bytes`.
     byte_offset :: (base: *void, bytes: $T) -> *void {
         return cast(*void) (cast(u64) base + cast(u64) bytes);
     }
 } else {
+    // Empty: the io_uring engine exists only on Linux.
     Uring_State :: struct {}
 
+    // Fails: the io_uring engine exists only on Linux.
     uring_start :: (engine: *Engine) -> string {
         return "io_uring exists only on Linux";
     }
 
+    // Does nothing: the io_uring engine exists only on Linux.
     uring_stop :: (engine: *Engine) {}
+    // Does nothing: the io_uring engine exists only on Linux.
     uring_listener_closing :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {}
+    // Does nothing: the io_uring engine exists only on Linux.
     uring_listener_abandoned :: (scheduler: *Scheduler, engine: *Engine, fd: s64) {}
+    // Does nothing: the io_uring engine exists only on Linux.
     uring_submit :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {}
+    // Does nothing: the io_uring engine exists only on Linux.
     uring_cancel :: (scheduler: *Scheduler, engine: *Engine, op: *Op) {}
+    // Does nothing: the io_uring engine exists only on Linux.
     uring_wait :: (scheduler: *Scheduler, engine: *Engine, timeout: s64) {}
 }
