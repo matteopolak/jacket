@@ -51,10 +51,7 @@ find_parent_enum :: (decl: *Declaration, enum_name: string) -> *Enum {
 
     // Native translation-unit parents have no Declaration: their real member
     // list is the active Generator's Block. Do not fabricate a parent record.
-    if !context.generator return null;
-
-    session := context._bindings_generator_session;
-    if session && (!session.live || session.generator != context.generator || session.target_os != TARGET_OS) return null;
+    if gm_generator_problem().count return null;
 
     generator := context.generator;
     if !gm_dependency_view_valid(generator.global_scope.members) {

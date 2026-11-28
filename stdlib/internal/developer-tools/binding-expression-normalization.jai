@@ -69,7 +69,7 @@ maybe_convert_expression_zero_to_null :: (decl: *Declaration) {
 binding_new_type :: () -> *CType {
     session := context._bindings_generator_session;
     if session {
-        assert(session.live && session.generator == context.generator && session.target_os == TARGET_OS);
+        assert(gm_generator_problem().count == 0, "Bindings_Generator: %", gm_generator_problem());
         return GM_Sessions.new_owned(session, CType);
     }
 
