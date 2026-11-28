@@ -278,6 +278,25 @@ impl Session {
         uri
     }
 
+    /// What the type checker found in a `jai-generated:` document a location was given for
+    /// (an error in the generated code itself), or `None` for a URI this session never gave.
+    pub fn generated_diagnostics(&self, uri: &str) -> Option<Vec<crate::model::Diagnostic>> {
+        let text = self.generated.borrow().get(uri)?.clone();
+        let findings = self.semantic.borrow_mut().generated_findings(&text)?;
+        let index = LineIndex::new(&text);
+
+        Some(
+            findings
+                .into_iter()
+                .filter_map(|f| {
+                    let range = index.range(&text, Span::new(f.start, f.end)).ok()?;
+
+                    Some(self.check_finding_at(f, range).diagnostic)
+                })
+                .collect(),
+        )
+    }
+
     /// The text of a `jai-generated:` document a location was given for.
     pub fn generated_source(&self, uri: &str) -> Option<String> {
         self.generated.borrow().get(uri).map(ToString::to_string)

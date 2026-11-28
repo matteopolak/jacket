@@ -338,6 +338,46 @@ impl Analysis {
             return Vec::new();
         };
 
+        self.check_findings_in(file)
+    }
+
+    /// The findings in the generated source (`add_build_string`, `#import,string`) whose text
+    /// is `text`, from the program that made it: this one or one a metaprogram built. `None`
+    /// when no program here has it.
+    pub(crate) fn generated_findings(&mut self, text: &str) -> Option<Vec<CheckFinding>> {
+        let in_virtual = |compiler: &jaic::sema::Compiler| {
+            let sources = &compiler.src.sources;
+
+            (0..sources.len() as u32).map(FileId).find(|&id| {
+                let source = sources.get(id);
+
+                source.path.is_virtual() && *source.text == *text
+            })
+        };
+
+        if let Some(file) = in_virtual(&self.compiler) {
+            return Some(self.check_findings_in(file));
+        }
+
+        let at = self
+            .others
+            .iter()
+            .position(|p| in_virtual(&p.compiler).is_some())?;
+        let other = &mut self.others[at];
+
+        std::mem::swap(&mut self.compiler, &mut other.compiler);
+        std::mem::swap(&mut self.entry, &mut other.entry);
+        std::mem::swap(&mut self.complete, &mut other.complete);
+        std::mem::swap(&mut self.errors, &mut other.errors);
+        std::mem::swap(&mut self.lints, &mut other.lints);
+        std::mem::swap(&mut self.enriched, &mut other.enriched);
+        self.found.borrow_mut().clear();
+        let file = in_virtual(&self.compiler)?;
+
+        Some(self.check_findings_in(file))
+    }
+
+    fn check_findings_in(&mut self, file: FileId) -> Vec<CheckFinding> {
         if self.enriched.is_none() {
             // The render-time help (similar names, the imports that declare a name) of the
             // first errors: working out each one reads the standard library.

@@ -483,6 +483,15 @@ impl Cache {
         analysis
     }
 
+    /// The findings in the generated source with this text, from the newest kept compile that
+    /// made it.
+    pub(crate) fn generated_findings(&mut self, text: &str) -> Option<Vec<super::CheckFinding>> {
+        self.entries
+            .iter_mut()
+            .rev()
+            .find_map(|analysis| analysis.generated_findings(text))
+    }
+
     /// The canonical texts and keys of a compile's inputs.
     fn inputs(
         &mut self,

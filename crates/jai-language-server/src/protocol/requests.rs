@@ -248,6 +248,21 @@ impl JsonSession {
             }
             Request::DocumentDiagnostic => {
                 let p: DiagnosticParams = decode(params)?;
+
+                if p.text_document.uri.starts_with("jai-generated:") {
+                    let diagnostics = self
+                        .session
+                        .generated_diagnostics(&p.text_document.uri)
+                        .unwrap_or_default();
+
+                    return Ok(Reply::Value(document_report(
+                        None,
+                        None,
+                        &diagnostics,
+                        p.previous_result_id.as_deref(),
+                    )));
+                }
+
                 let target = uri(&p.text_document.uri)?;
                 let (version, diagnostics) = self.pulled(&target)?;
 
