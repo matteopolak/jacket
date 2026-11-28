@@ -15,6 +15,14 @@ end, {
   end,
 })
 
+vim.api.nvim_create_autocmd('BufReadCmd', {
+  pattern = 'jai-generated://*',
+  desc = 'Read code a build metaprogram generated, from jailsp',
+  callback = function(args)
+    require('jai.commands').read_generated(args.buf)
+  end,
+})
+
 -- The server's custom semantic token type has no default highlight.
 vim.api.nvim_set_hl(0, '@lsp.type.formatSpecifier.jai', { link = 'SpecialChar', default = true })
 

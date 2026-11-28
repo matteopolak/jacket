@@ -6,6 +6,7 @@ import { JaiDebugProvider } from "./debug";
 import { hasPendingOpens, orderPendingOpens } from "./openOrder";
 import { MissingConfiguredTool, type Settings, findCompiler, findFormatter, findJacket, findServer, nodeEnvironment } from "./discovery";
 import { EXPANSION_SCHEME, ExpansionDocuments } from "./expansion";
+import { GENERATED_SCHEME, GeneratedDocuments } from "./generated";
 import { LimitPopups, type LimitNotice } from "./limitPopups";
 import { limitSettings, vscodeLimitUi } from "./limitUi";
 import { toolEnvironment as configuredEnvironment } from "./toolEnvironment";
@@ -89,6 +90,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<{ clie
     log,
     serverOutput,
     vscode.workspace.registerTextDocumentContentProvider(EXPANSION_SCHEME, expansions),
+    vscode.workspace.registerTextDocumentContentProvider(GENERATED_SCHEME, new GeneratedDocuments(() => client)),
+    vscode.workspace.onDidOpenTextDocument((document) => void GeneratedDocuments.onOpen(document)),
     vscode.commands.registerCommand("jai.restartServer", () => restart(expansions)),
     vscode.commands.registerCommand("jai.showOutput", () => log.show()),
     vscode.commands.registerCommand("jai.downloadToolchain", async () => {

@@ -100,6 +100,26 @@ local function expand()
   end)
 end
 
+---Fill a `jai-generated://` buffer (code a build metaprogram generated, which has no file) with
+---the text `jai/source` serves for it; definitions and related notes point at these.
+---@param buf integer
+function M.read_generated(buf)
+  local client = vim.lsp.get_clients({ name = jai.SERVER })[1]
+  local name = vim.api.nvim_buf_get_name(buf)
+  vim.bo[buf].buftype = 'nofile'
+  vim.bo[buf].filetype = 'jai'
+  if not client then
+    return notify('the language server is not running (:checkhealth jai)', vim.log.levels.WARN)
+  end
+  local response = client:request_sync('jai/source', { uri = name }, 5000, buf)
+  local text = response and response.result
+  if type(text) ~= 'string' then
+    text = '// The generated code is no longer available.'
+  end
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, vim.split(text, '\n', { plain = true }))
+  vim.bo[buf].modifiable = false
+end
+
 ---List the instances a polymorphic procedure has been instantiated with.
 local function polymorphs()
   local client = server()

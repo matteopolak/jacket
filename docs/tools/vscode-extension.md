@@ -9,6 +9,7 @@ src/extension.ts         activation, LanguageClient, restart, jacket.toml docume
 src/discovery.ts         finding jailsp, jaic, jaifmt
 src/toolchain.ts         archive per platform, checksums, download, versioned install
 src/toolchainManager.ts  prompts, progress, remembered answers
+src/generated.ts         `jai-generated:` documents: code a build metaprogram generated, served by `jai/source`
 src/commands.ts          Run/Build/Check File as tasks
 src/testing.ts           test explorer and Run/Debug Test lens commands
 src/testEvents.ts, testTree.ts, testProcess.ts   `jacket test --format json` handling

@@ -47,6 +47,8 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 ### Fixes
 
+- Go to definition and related notes open generated code (`add_build_string`) as read-only `jai-generated:` documents.
+- Go to definition on a note finds a reader that only a skipped library body's generic instance has.
 - `Simple_Package` adds `free_package`, which frees a `Load_Package`'s entries, lookup and file bytes.
 - `Image`'s JPEG decoder, `Postgres`'s wire, SCRAM, startup and managed-server code, and `Wasi_Runtime`'s thread scheduler are no longer public.
 - `Postgres` keeps its schema-database, describe, diff, cache and entry internals, and types no caller names, module-private.
