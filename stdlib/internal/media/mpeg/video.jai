@@ -1,4 +1,5 @@
-// Canonical shapes retain ABI field order.
+// Motion vector state for one direction: `full_px` is nonzero for whole-pixel vectors, `is_set` when the
+// macroblock uses this direction, `r_size` the residual bit count and `h`, `v` the current vector in half pixels.
 Video_Motion :: struct {
     full_px: s32;
     is_set: s32;
@@ -7,6 +8,10 @@ Video_Motion :: struct {
     v: s32;
 }
 
+// MPEG-1 video decoder state, created with [video_create_with_buffer].
+//
+// `width` and `height` are the picture size in pixels, `framerate` is in frames per second and `time` is the
+// decode position in seconds. The remaining fields are slice, macroblock and frame working state.
 Video :: struct {
     framerate: float64;
     time: float64;
@@ -60,6 +65,9 @@ Video :: struct {
     assume_no_b_frames := false;
 }
 
+// Creates a video decoder reading from `buffer` and tries to parse the sequence header.
+//
+// Returns null when `buffer` is null. Destroys `buffer` with the decoder when `destroy_when_done` is true.
 video_create_with_buffer :: (buffer: *Buffer, destroy_when_done: bool) -> *Video {
     if !buffer return null;
 
@@ -72,6 +80,7 @@ video_create_with_buffer :: (buffer: *Buffer, destroy_when_done: bool) -> *Video
     return video;
 }
 
+// Frees the decoder, its frame storage and, if it owns it, its buffer. Does nothing for null.
 video_destroy :: (video: *Video) {
     if !video return;
     if video.destroy_buffer_when_done buffer_destroy(video.buffer);
@@ -79,6 +88,7 @@ video_destroy :: (video: *Video) {
     B.free(video);
 }
 
+// Returns whether the sequence header has been parsed, searching for and parsing it if not.
 video_has_header :: (video: *Video) -> bool {
     B.assert(video != null && video.buffer != null);
     if video.has_sequence_header return true;
@@ -91,16 +101,21 @@ video_has_header :: (video: *Video) -> bool {
     return video_decode_sequence_header(video);
 }
 
+// Returns the frame rate in frames per second, or 0 without a sequence header.
 video_get_framerate :: (video: *Video) -> float64 {
     if video_has_header(video) return video.framerate;
     return 0;
 }
 
+// Declares that the stream has no B pictures, so each decoded picture is output immediately instead of after the
+// next reference. A B picture then asserts.
 video_set_no_delay :: (video: *Video, no_delay: bool) {
     B.assert(video != null);
     video.assume_no_b_frames = no_delay;
 }
 
+// Sets the decode position to `time` seconds without seeking the stream. Asserts when the frame count does not
+// fit in 32 bits.
 video_set_time :: (video: *Video, time: float64) {
     B.assert(video != null);
     frames := video.framerate * time;
@@ -110,11 +125,13 @@ video_set_time :: (video: *Video, time: float64) {
     video.frames_decoded = cast(s32) frames;
 }
 
+// Returns whether the underlying buffer has reached its end.
 video_has_ended :: (video: *Video) -> bool {
     B.assert(video != null && video.buffer != null);
     return video.buffer.has_ended;
 }
 
+// Rewinds the buffer and resets the position and reference state to the start.
 video_rewind :: (video: *Video) {
     B.assert(video != null && video.buffer != null);
     buffer_rewind(video.buffer);
@@ -224,6 +241,8 @@ video_decode_sequence_header :: (video: *Video) -> bool {
     return true;
 }
 
+// Points `frame` at three consecutive planes (luma, then Cr, then Cb) in the storage starting at `base`, sized
+// from the decoder's dimensions.
 video_init_frame :: (video: *Video, frame: *Frame, base: *u8) {
     B.assert(video != null && frame != null && base != null);
     B.assert(video.luma_width > 0 && video.luma_height > 0 && video.chroma_width > 0 && video.chroma_height > 0);

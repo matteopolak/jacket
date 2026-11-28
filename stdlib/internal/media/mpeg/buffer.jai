@@ -1,5 +1,10 @@
 // Reviewed public shapes; field/enum order is ABI-significant.
 
+// Where a [Buffer] gets its bytes and whether it can grow.
+//
+// `FILE` refills from an open file through the load callback, `FIXED_MEM` wraps caller memory that never grows,
+// `RING` is a growable buffer whose consumed bytes are discarded on write, and `APPEND` is a growable buffer that
+// keeps everything written.
 Buffer_Mode :: enum {
     FILE;
     FIXED_MEM;
@@ -7,6 +12,11 @@ Buffer_Mode :: enum {
     APPEND;
 }
 
+// The byte that follows a `00 00 01` prefix in an MPEG stream and names the next syntax element.
+//
+// `SEQUENCE` to `USER_DATA` are video elements, `SLICE_FIRST..SLICE_LAST` is a slice whose value minus one is its
+// macroblock row, `PACK`, `END` and `SYSTEM` are program stream headers, and `PRIVATE`, `AUDIO_*` and `VIDEO_1`
+// are packet stream ids. `NOT_FOUND` is a sentinel for "no start code".
 Start_Code :: enum u8 {
     SEQUENCE :: 0xB3;
     SLICE_FIRST :: 0x01;
@@ -29,16 +39,26 @@ Start_Code :: enum u8 {
     NOT_FOUND :: 0xFF;
 }
 
+// One node of a variable-length code table walked one bit at a time by [buffer_read_vlc].
+//
+// `index` is the table position of the next node pair, or 0 at a leaf, and `value` is the decoded symbol.
+// A negative `index` marks an invalid code.
 Vlc :: struct {
     index: s16;
     value: s16;
 }
 
+// A [Vlc] node whose decoded symbol is unsigned, for tables read with [buffer_read_vlc_uint].
 Vlc_Uint :: struct {
     index: s16;
     value: u16;
 }
 
+// A byte buffer with a bit-granular read cursor that feeds the video and audio decoders.
+//
+// Create one with [buffer_create_with_memory], [buffer_create_with_file], [buffer_create_with_filename],
+// [buffer_create_with_capacity] or [create_for_appending], and release it with [buffer_destroy].
+// The fields are decoder state; use the `buffer_*` procedures instead of writing them.
 Buffer :: struct {
     bit_index: s64;
     capacity: s64;
@@ -69,6 +89,11 @@ BUFFER_DEFAULT_SIZE :: 128 * 1024;
 // Adapted from MIT-licensed PL_MPEG by Dominic Szablewski.
 // Original C input/attribution: third_party/pl_mpeg. This is a separate Jai
 // implementation using layouts and checked bounds/I/O; no Jai port input.
+
+// Wraps `memory` in a read-only `.FIXED_MEM` [Buffer] without copying it.
+//
+// Returns null when the slice is too large or has a null data pointer with a nonzero count. [buffer_destroy] frees
+// `memory` only when `free_when_done` is true.
 buffer_create_with_memory :: (memory: [] u8, free_when_done: bool) -> *Buffer {
     if memory.count < 0 || memory.count > MAX_BUFFER_BYTES || (memory.count > 0 && !memory.data) return null;
 
@@ -83,6 +108,10 @@ buffer_create_with_memory :: (memory: [] u8, free_when_done: bool) -> *Buffer {
     return buffer;
 }
 
+// Creates an empty growable [Buffer] in `.RING` mode that discards consumed bytes, starting at `capacity` bytes.
+//
+// Returns null when `capacity` is not positive, exceeds the supported maximum or cannot be allocated.
+// Fill it with [buffer_write]. [buffer_destroy] frees the bytes.
 buffer_create_with_capacity :: (capacity: s64) -> *Buffer {
     if capacity <= 0 || capacity > MAX_BUFFER_BYTES return null;
 
@@ -101,6 +130,9 @@ buffer_create_with_capacity :: (capacity: s64) -> *Buffer {
     return buffer;
 }
 
+// Creates an empty growable [Buffer] in `.APPEND` mode, which keeps every written byte so it can be rewound.
+//
+// Returns null when `initial_capacity` is rejected by [buffer_create_with_capacity].
 create_for_appending :: (initial_capacity: s64) -> *Buffer {
     buffer := buffer_create_with_capacity(initial_capacity);
     if buffer {
@@ -111,6 +143,9 @@ create_for_appending :: (initial_capacity: s64) -> *Buffer {
     return buffer;
 }
 
+// Opens the file `filename` and returns a [Buffer] that reads it in chunks, or null if it cannot be opened or sized.
+//
+// The buffer closes the file in [buffer_destroy].
 buffer_create_with_filename :: (filename: string) -> *Buffer {
     file, opened := F.file_open(filename, log_errors = false);
     if !opened return null;
@@ -121,6 +156,10 @@ buffer_create_with_filename :: (filename: string) -> *Buffer {
     return buffer;
 }
 
+// Returns a [Buffer] that reads the open file `fh` from its start in chunks, or null if `fh` is invalid or its
+// length cannot be read.
+//
+// The file position is reset to 0. [buffer_destroy] closes `fh` only when `close_when_done` is true.
 buffer_create_with_file :: (fh: File, close_when_done: bool) -> *Buffer {
     if !F.is_valid(fh) return null;
 
@@ -140,6 +179,7 @@ buffer_create_with_file :: (fh: File, close_when_done: bool) -> *Buffer {
     return buffer;
 }
 
+// Frees `buffer`, closing its file and freeing its bytes when it owns them. Does nothing for null.
 buffer_destroy :: (using buffer: *Buffer) {
     if !buffer return;
     if file_initted && close_when_done F.file_close(*fh);
@@ -147,17 +187,24 @@ buffer_destroy :: (using buffer: *Buffer) {
     B.free(buffer);
 }
 
+// Returns the total size of the stream in bytes for a file buffer, or the number of bytes currently held for the
+// other modes.
 buffer_get_size :: (buffer: *Buffer) -> s64 {
     check_state(buffer);
     if buffer.mode == .FILE return buffer.total_size;
     return buffer.length;
 }
 
+// Returns the number of loaded bytes after the read cursor, counting a partly read byte as consumed.
 buffer_get_remaining :: (using buffer: *Buffer) -> s64 {
     check_state(buffer);
     return length - (bit_index >> 3);
 }
 
+// Appends `memory` to the buffer, growing it as needed, and returns the number of bytes written.
+//
+// Returns 0 for a `.FIXED_MEM` buffer or when growing fails. Buffers that discard read bytes drop the consumed
+// bytes first. Clears the ended flag. Asserts when the size would exceed the supported maximum.
 buffer_write :: (using buffer: *Buffer, memory: [] u8) -> s64 {
     check_state(buffer);
     B.assert(memory.count >= 0 && (memory.count == 0 || memory.data != null));
@@ -194,18 +241,25 @@ buffer_write :: (using buffer: *Buffer, memory: [] u8) -> s64 {
     return memory.count;
 }
 
+// Sets the procedure that [buffer_has] calls to load more data when the cursor runs out, and the `user` pointer
+// passed to it.
 buffer_set_load_callback :: (buffer: *Buffer, callback: Buffer_Load_Callback, user: *void) {
     check_state(buffer);
     buffer.load_callback = callback;
     buffer.load_callback_user_data = user;
 }
 
+// Marks the bytes written so far as the whole stream, so reads that run out report the end of the buffer.
 buffer_signal_end :: (buffer: *Buffer) {
     check_state(buffer);
     buffer.total_size = buffer.length;
     if buffer.length == 0 buffer.has_ended = true;
 }
 
+// Moves the read cursor to byte offset `pos` and clears the ended flag.
+//
+// A file buffer seeks the file and drops the loaded bytes, and asserts that `pos` is within the file. A `.RING`
+// buffer only accepts 0. Other buffers assert that `pos` is within the held bytes.
 buffer_seek :: (buffer: *Buffer, pos: s64) {
     check_state(buffer);
     B.assert(pos >= 0);
@@ -233,10 +287,12 @@ buffer_seek :: (buffer: *Buffer, pos: s64) {
     buffer.has_ended = false;
 }
 
+// Moves the read cursor back to the start; see [buffer_seek].
 buffer_rewind :: (buffer: *Buffer) {
     buffer_seek(buffer, 0);
 }
 
+// Returns the byte offset of the read cursor, counted from the start of the stream for file buffers.
 buffer_tell :: (buffer: *Buffer) -> s64 {
     check_state(buffer);
 
@@ -249,6 +305,8 @@ buffer_tell :: (buffer: *Buffer) -> s64 {
     return buffer.bit_index >> 3;
 }
 
+// Drops the bytes before the read cursor and moves the remaining bytes to the front. Does nothing when no whole
+// byte has been consumed.
 buffer_discard_read_bytes :: (using buffer: *Buffer) {
     check_state(buffer);
     consumed := bit_index >> 3;
@@ -267,6 +325,9 @@ buffer_discard_read_bytes :: (using buffer: *Buffer) {
     }
 }
 
+// Reads the next chunk of the file into the free space of a file buffer; used as its load callback.
+//
+// Sets the ended flag when the file is exhausted or a read fails, and logs an error on failure. `user` is unused.
 buffer_load_file_callback :: (using buffer: *Buffer, user: *void) {
     check_state(buffer);
     B.assert(file_initted);
@@ -285,6 +346,9 @@ buffer_load_file_callback :: (using buffer: *Buffer, user: *void) {
     } else if count == 0 has_ended = true;
 }
 
+// Returns whether at least `count` bits are available after the cursor, calling the load callback once if not.
+//
+// Sets the ended flag when the buffer is a fixed memory buffer or its whole stream is already loaded.
 buffer_has :: (buffer: *Buffer, count: s64) -> bool {
     check_state(buffer);
     B.assert(count >= 0);
@@ -301,6 +365,9 @@ buffer_has :: (buffer: *Buffer, count: s64) -> bool {
     return false;
 }
 
+// Reads `count` bits (0 to 32) as a big-endian value and advances the cursor.
+//
+// Returns 0 without advancing when fewer than `count` bits are available. Asserts when `count` is outside 0 to 32.
 buffer_read :: (buffer: *Buffer, count: s64) -> s32 {
     B.assert(count >= 0 && count <= 32);
     if !buffer_has(buffer, count) return 0;
@@ -323,15 +390,18 @@ buffer_read :: (buffer: *Buffer, count: s64) -> s32 {
     return cast,no_check(s32) value;
 }
 
+// Moves the cursor up to the next byte boundary.
 buffer_align :: (buffer: *Buffer) {
     check_state(buffer);
     buffer.bit_index = ((buffer.bit_index + 7) >> 3) * 8;
 }
 
+// Advances the cursor by `count` bits when that many are available, otherwise does nothing.
 buffer_skip :: (buffer: *Buffer, count: s64) {
     if buffer_has(buffer, count) buffer.bit_index += count;
 }
 
+// Aligns the cursor to a byte, then skips every following byte equal to `v` and returns how many were skipped.
 buffer_skip_bytes :: (buffer: *Buffer, v: u8) -> s32 {
     buffer_align(buffer);
     skipped: s32;
@@ -344,6 +414,9 @@ buffer_skip_bytes :: (buffer: *Buffer, v: u8) -> s32 {
     return skipped;
 }
 
+// Aligns the cursor, scans for the next `00 00 01` prefix, consumes it with its code byte and returns that code.
+//
+// Returns `.NOT_FOUND` when the data runs out first.
 buffer_next_start_code :: (buffer: *Buffer) -> Start_Code {
     buffer_align(buffer);
     found := false;
@@ -361,6 +434,9 @@ buffer_next_start_code :: (buffer: *Buffer) -> Start_Code {
     return result;
 }
 
+// Advances through start codes until one equals `code` and returns true, or returns false when the data runs out.
+//
+// On success the cursor is just after the matching start code.
 buffer_find_start_code :: (buffer: *Buffer, code: Start_Code) -> bool {
     found := false;
     finished := false;
@@ -374,12 +450,17 @@ buffer_find_start_code :: (buffer: *Buffer, code: Start_Code) -> bool {
     return found;
 }
 
+// Returns true when at least 40 bits follow the cursor and the next aligned bytes are not a start code prefix.
+// Does not move the cursor.
 buffer_no_start_code :: (buffer: *Buffer) -> bool {
     if !buffer_has(buffer, 40) return false;
     index := (buffer.bit_index + 7) >> 3;
     return buffer.bytes[index] != 0 || buffer.bytes[index + 1] != 0 || buffer.bytes[index + 2] != 1;
 }
 
+// Returns whether a start code equal to `code` appears ahead of the cursor, then restores the cursor.
+//
+// Loaded bytes are kept while it scans, even for buffers that normally discard read bytes.
 buffer_has_start_code :: (buffer: *Buffer, code: Start_Code) -> bool {
     check_state(buffer);
     saved := buffer.bit_index;
@@ -395,6 +476,9 @@ buffer_has_start_code :: (buffer: *Buffer, code: Start_Code) -> bool {
     return buffer_find_start_code(buffer, code);
 }
 
+// Decodes one variable-length code from `table`, reading one bit at a time, and returns its value.
+//
+// Asserts on truncated input or a code the table marks invalid.
 buffer_read_vlc :: (buffer: *Buffer, table: [] Vlc) -> s16 {
     index: s64;
     value: s16;
@@ -419,6 +503,7 @@ buffer_read_vlc :: (buffer: *Buffer, table: [] Vlc) -> s16 {
     return value;
 }
 
+// Like [buffer_read_vlc] for a table of [Vlc_Uint] entries, returning an unsigned value.
 buffer_read_vlc_uint :: (buffer: *Buffer, table: [] Vlc_Uint) -> u16 {
     #assert size_of(Vlc_Uint) == size_of(Vlc);
     view: [] Vlc = .{ table.count, cast(*Vlc) table.data };

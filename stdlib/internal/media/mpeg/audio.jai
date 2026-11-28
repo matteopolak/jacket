@@ -1,4 +1,6 @@
-// Canonical shapes retain ABI field order.
+// One decoded audio frame: `count` stereo sample pairs interleaved as left, right in `interleaved`.
+//
+// `time` is the presentation time of the first sample in seconds. `count` is [SAMPLES_PER_FRAME].
 Samples :: struct {
     time: float64;
     count: u32;
@@ -7,6 +9,10 @@ Samples :: struct {
 
 }
 
+// MP2 audio decoder state, created with [audio_create_with_buffer].
+//
+// `time` is the decode position in seconds and `samples_decoded` the matching sample count. Only MPEG-1 Layer II
+// streams are supported. The remaining fields hold header values and per-frame working buffers.
 Audio :: struct {
     time: float64;
 
@@ -39,6 +45,9 @@ Audio :: struct {
     U: [32] float;
 }
 
+// Creates an audio decoder reading from `buffer` and tries to parse the first frame header.
+//
+// Returns null when `buffer` is null. Destroys `buffer` with the decoder when `destroy_when_done` is true.
 audio_create_with_buffer :: (buffer: *Buffer, destroy_when_done: bool) -> *Audio {
     if !buffer return null;
 
@@ -54,6 +63,7 @@ audio_create_with_buffer :: (buffer: *Buffer, destroy_when_done: bool) -> *Audio
     return audio;
 }
 
+// Frees the decoder and, if it owns it, its buffer. Does nothing for null.
 audio_destroy :: (audio: *Audio) {
     if !audio return;
     remove_audio_private(audio);
@@ -61,17 +71,21 @@ audio_destroy :: (audio: *Audio) {
     B.free(audio);
 }
 
+// Returns whether a frame header has been parsed, trying to parse one if not.
 audio_has_header :: (audio: *Audio) -> bool {
     B.assert(audio != null);
     if !audio.has_header audio.next_frame_data_size = audio_decode_header(audio);
     return audio.has_header;
 }
 
+// Returns whether the underlying buffer has reached its end.
 audio_has_ended :: (audio: *Audio) -> bool {
     B.assert(audio != null && audio.buffer != null);
     return audio.buffer.has_ended;
 }
 
+// Sets the decode position to `time` seconds without seeking the stream. Asserts when the sample count does not
+// fit in 32 bits.
 audio_set_time :: (audio: *Audio, time: float64) {
     B.assert(audio != null && audio.samplerate_index >= 0 && audio.samplerate_index < SAMPLE_RATE.count);
     count := time * SAMPLE_RATE[audio.samplerate_index];
@@ -81,6 +95,7 @@ audio_set_time :: (audio: *Audio, time: float64) {
     audio.time = time;
 }
 
+// Rewinds the buffer and resets the position and synthesis state to the start.
 audio_rewind :: (audio: *Audio) {
     B.assert(audio != null && audio.buffer != null);
     buffer_rewind(audio.buffer);
@@ -92,6 +107,9 @@ audio_rewind :: (audio: *Audio) {
     memset(audio.U.data, 0, size_of(audio.U));
 }
 
+// Scans forward byte by byte for the 11-bit frame sync pattern and returns true with the cursor just after it.
+//
+// Returns false when the data runs out.
 audio_find_frame_sync :: (audio: *Audio) -> bool {
     B.assert(audio != null && audio.buffer != null);
     buffer := audio.buffer;
@@ -111,6 +129,11 @@ audio_find_frame_sync :: (audio: *Audio) -> bool {
     return false;
 }
 
+// Parses the next frame header and returns the number of payload bytes that follow it, or 0 when there is not
+// enough data yet.
+//
+// The cursor is restored when the header is incomplete. Asserts on anything other than MPEG-1 Layer II, on an
+// invalid rate, or when the format changes after the first header.
 audio_decode_header :: (audio: *Audio) -> s32 {
     B.assert(audio != null && audio.buffer != null);
     buffer := audio.buffer;
@@ -184,6 +207,9 @@ audio_decode_header :: (audio: *Audio) -> s32 {
     return cast(s32) (144000 * BIT_RATE[bitrate] / SAMPLE_RATE[samplerate] + padding - overhead);
 }
 
+// Decodes the next frame and returns its samples, or null when a whole frame is not available yet.
+//
+// The result points into `audio` and is overwritten by the next call.
 audio_decode :: (audio: *Audio) -> *Samples {
     B.assert(audio != null && audio.buffer != null);
     if audio.next_frame_data_size == 0 audio.next_frame_data_size = audio_decode_header(audio);
@@ -203,6 +229,8 @@ audio_decode :: (audio: *Audio) -> *Samples {
     return *audio.samples;
 }
 
+// Reads the quantizer choice for subband `sb` from the bit stream using allocation table row `tab3`, and returns
+// the matching [Quantizer_Spec], or null when the subband is not coded.
 audio_read_allocation :: (audio: *Audio, sb: s32, tab3: u8) -> *Quantizer_Spec {
     return read_allocation(audio, sb, tab3, get_audio_private(audio, false));
 }
@@ -225,6 +253,7 @@ read_allocation :: (audio: *Audio, sb: s32, tab3: u8, private: *Audio_Private) -
 
 #scope_export
 
+// Reads and dequantizes the three samples of group `part` for subband `sb` of channel `ch` into `audio.sample`.
 audio_read_samples :: (audio: *Audio, ch: s32, sb: s32, part: s32) {
     B.assert(audio != null && ch >= 0 && ch < 2 && sb >= 0 && sb < 32 && part >= 0 && part < 3);
     q := audio.allocation[ch][sb];
@@ -235,6 +264,8 @@ audio_read_samples :: (audio: *Audio, ch: s32, sb: s32, part: s32) {
     scale_samples(audio, ch, sb, part, q, values);
 }
 
+// Decodes the payload of the current frame (allocation, scale factors and samples) and synthesizes
+// [SAMPLES_PER_FRAME] output samples into `audio.samples`. Asserts when no header has been parsed.
 audio_decode_frame :: (audio: *Audio) {
     B.assert(audio != null && audio.has_header);
     private := get_audio_private(audio, false);

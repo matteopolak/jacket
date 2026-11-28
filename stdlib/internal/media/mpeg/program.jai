@@ -1,4 +1,8 @@
-// Canonical high-level playback record. Private demux state is defined below.
+// A playback session for an MPEG-1 program stream, created with [create_with_filename], [create_with_file],
+// [create_with_memory] or [create_with_buffer] and released with [plm_destroy].
+//
+// `time` is the playback position in seconds and `has_ended` is set when the stream finishes without looping.
+// `audio_lead_time` is added to the video target time when [decode] chooses how far to decode audio.
 Plm :: struct {
     demux: *Demux;
     time: float64;
@@ -31,30 +35,44 @@ Video_Decode_Callback :: #type (self: *Plm, frame: *Frame, user: *void);
 Audio_Decode_Callback :: #type (plm: *Plm, samples: *Samples, user: *void);
 INVALID_TS: float64 : -1.0;
 
+// A demultiplexed packet: its stream id `type`, presentation time `pts` in seconds (`INVALID_TS` when absent) and
+// its payload, which points into the source buffer.
 Packet :: struct {
     type: Start_Code;
     pts: float64;
     data: [] u8;
 }
 
+// Opens `filename` and returns a [Plm] that decodes it, or null if the file cannot be opened.
+//
+// The file is closed by [plm_destroy].
 create_with_filename :: (filename: string) -> *Plm {
     buffer := buffer_create_with_filename(filename);
     if !buffer return null;
     return create_with_buffer(buffer, true);
 }
 
+// Returns a [Plm] that decodes the open file `fh`, or null if the file is unusable.
+//
+// [plm_destroy] closes `fh` only when `close_when_done` is true.
 create_with_file :: (fh: File, close_when_done: bool) -> *Plm {
     buffer := buffer_create_with_file(fh, close_when_done);
     if !buffer return null;
     return create_with_buffer(buffer, true);
 }
 
+// Returns a [Plm] that decodes `memory` in place, or null if it is unusable.
+//
+// [plm_destroy] frees `memory` only when `free_when_done` is true.
 create_with_memory :: (memory: [] u8, free_when_done: bool) -> *Plm {
     buffer := buffer_create_with_memory(memory, free_when_done);
     if !buffer return null;
     return create_with_buffer(buffer, true);
 }
 
+// Returns a [Plm] that decodes `buffer`, or null when `buffer` is null.
+//
+// The buffer is destroyed with the [Plm] when `destroy_when_done` is true.
 create_with_buffer :: (buffer: *Buffer, destroy_when_done: bool) -> *Plm {
     if !buffer return null;
 
@@ -68,6 +86,7 @@ create_with_buffer :: (buffer: *Buffer, destroy_when_done: bool) -> *Plm {
     return self;
 }
 
+// Frees the player, its decoders and, when owned, its source buffer. Does nothing for null.
 plm_destroy :: (using self: *Plm) {
     if !self return;
     if video_decoder video_destroy(video_decoder);
@@ -83,6 +102,8 @@ plm_destroy :: (using self: *Plm) {
     B.free(self);
 }
 
+// Returns whether the stream headers and the first video and audio headers have been read, reading more input
+// if needed.
 has_headers :: (using self: *Plm) -> bool {
     B.assert(self != null && demux != null);
     if !initialize_decoders(self) return false;
@@ -92,12 +113,14 @@ has_headers :: (using self: *Plm) -> bool {
     return true;
 }
 
+// Returns the number of video streams the system header declares, or 0 if the headers are not available yet.
 get_num_video_streams :: (self: *Plm) -> s32 {
     B.assert(self != null);
     if !demux_headers(self.demux) return 0;
     return self.demux.video_streams;
 }
 
+// Returns the video width and height in pixels, or 0, 0 while the video header is unavailable.
 get_size :: (self: *Plm) -> (width: s32, height: s32) {
     if initialize_decoders(self) && self.video_decoder && video_has_header(self.video_decoder) {
         return self.video_decoder.width, self.video_decoder.height;
@@ -106,16 +129,19 @@ get_size :: (self: *Plm) -> (width: s32, height: s32) {
     return 0, 0;
 }
 
+// Returns the video frame rate in frames per second, or 0 when there is no video header.
 get_framerate :: (self: *Plm) -> float64 {
     if initialize_decoders(self) && self.video_decoder return video_get_framerate(self.video_decoder);
     return 0;
 }
 
+// Returns the audio sample rate in Hz, or 0 when there is no audio header.
 get_samplerate :: (self: *Plm) -> s32 {
     if initialize_decoders(self) && self.audio_decoder && audio_has_header(self.audio_decoder) return SAMPLE_RATE[self.audio_decoder.samplerate_index];
     return 0;
 }
 
+// Turns audio decoding on or off. Audio is on by default.
 set_audio_enabled :: (using self: *Plm, enabled: bool) {
     B.assert(self != null);
     audio_enabled = enabled;
@@ -123,6 +149,7 @@ set_audio_enabled :: (using self: *Plm, enabled: bool) {
     if enabled && initialize_decoders(self) && audio_decoder audio_packet_type = cast(Start_Code) (cast(s32) Start_Code.AUDIO_1 + audio_stream_index);
 }
 
+// Turns video decoding on or off. Video is on by default.
 set_video_enabled :: (using self: *Plm, enabled: bool) {
     B.assert(self != null);
     video_enabled = enabled;
@@ -130,29 +157,34 @@ set_video_enabled :: (using self: *Plm, enabled: bool) {
     if enabled && initialize_decoders(self) && video_decoder video_packet_type = .VIDEO_1;
 }
 
+// Selects which of the four audio streams (0 to 3) to decode. Asserts when `stream_index` is out of range.
 set_audio_stream :: (self: *Plm, stream_index: s32) {
     B.assert(self != null && stream_index >= 0 && stream_index < 4, "MPEG audio stream index out of range");
     self.audio_stream_index = stream_index;
     set_audio_enabled(self, self.audio_enabled);
 }
 
+// Sets whether playback restarts from the beginning when the stream ends.
 set_loop :: (self: *Plm, loop: bool) {
     B.assert(self != null);
     self.loop = loop;
 }
 
+// Sets the procedure [decode] calls with each decoded video frame, and the `user` pointer passed to it.
 set_video_decode_callback :: (self: *Plm, callback: Video_Decode_Callback, user: *void) {
     B.assert(self != null);
     self.video_decode_callback = callback;
     self.video_decode_callback_user_data = user;
 }
 
+// Sets the procedure [decode] calls with each decoded audio frame, and the `user` pointer passed to it.
 set_audio_decode_callback :: (self: *Plm, callback: Audio_Decode_Callback, user: *void) {
     B.assert(self != null);
     self.audio_decode_callback = callback;
     self.audio_decode_callback_user_data = user;
 }
 
+// Restarts playback from the beginning of the stream.
 rewind :: (using self: *Plm) {
     B.assert(self != null && demux != null);
     if video_decoder video_rewind(video_decoder);
@@ -164,12 +196,16 @@ rewind :: (using self: *Plm) {
     has_ended = false;
 }
 
+// Called when the source runs out: rewinds when looping is on, otherwise sets `has_ended`.
 handle_end :: (self: *Plm) {
     B.assert(self != null);
     if self.loop rewind(self);
     else self.has_ended = true;
 }
 
+// Decodes and returns the next video frame, or null when none is ready, video is disabled or the stream ended.
+//
+// The frame belongs to the decoder and is overwritten by later decodes.
 decode_video :: (self: *Plm) -> *Frame {
     if !initialize_decoders(self) || self.video_packet_type == .PICTURE return null;
 
@@ -180,6 +216,9 @@ decode_video :: (self: *Plm) -> *Frame {
     return frame;
 }
 
+// Decodes and returns the next audio frame, or null when none is ready, audio is disabled or the stream ended.
+//
+// The samples belong to the decoder and are overwritten by later decodes.
 decode_audio :: (self: *Plm) -> *Samples {
     if !initialize_decoders(self) || self.audio_packet_type == .PICTURE return null;
 
@@ -190,6 +229,11 @@ decode_audio :: (self: *Plm) -> *Samples {
     return samples;
 }
 
+// Advances playback by `tick` seconds, decoding frames and passing them to the video and audio callbacks until
+// the decoders have caught up.
+//
+// Does nothing without a callback for an enabled stream. At the end of the stream it loops or sets `has_ended`.
+// Asserts when `tick` is negative or not finite.
 decode :: (self: *Plm, tick: float64) {
     B.assert(self != null && tick >= 0 && tick <= 1.7976931348623157e308, "invalid MPEG playback tick");
     if !initialize_decoders(self) return;
@@ -236,18 +280,24 @@ decode :: (self: *Plm, tick: float64) {
     self.time = video_target;
 }
 
+// Load callback of the video buffer: reads packets from the stream until a video packet arrives.
 read_video_packet :: (buffer: *Buffer, user: *void) {
     self := cast(*Plm) user;
     B.assert(self != null && buffer == self.video_buffer);
     read_packets(self, self.video_packet_type);
 }
 
+// Load callback of the audio buffer: reads packets from the stream until an audio packet arrives.
 read_audio_packet :: (buffer: *Buffer, user: *void) {
     self := cast(*Plm) user;
     B.assert(self != null && buffer == self.audio_buffer);
     read_packets(self, self.audio_packet_type);
 }
 
+// Demultiplexes packets, appending video and audio payloads to their buffers, until one of type `requested_type`
+// has been stored or the stream ends.
+//
+// Signals the end of both buffers when the source has ended.
 read_packets :: (self: *Plm, requested_type: Start_Code) {
     B.assert(self != null && self.demux != null);
 
@@ -280,8 +330,12 @@ read_packets :: (self: *Plm, requested_type: Start_Code) {
     }
 }
 
-// Linear seeks retain real decoded frames and work without a side index. The
-// precise/nonprecise frame selection and audio alignment require contract review.
+// Rewinds and decodes forward to the frame at `time` seconds, returning it, or null when none is found or video
+// is off.
+//
+// With `seek_exact` the first frame at or after `time` is returned; otherwise the first frame that is still on
+// screen at `time`. The time is clamped to 0. Takes time linear in the distance from the start. Asserts when
+// the source is a ring buffer.
 seek_frame :: (self: *Plm, time: float64, seek_exact: bool) -> *Frame {
     B.assert(self != null && time == time && time >= -1.7976931348623157e308 && time <= 1.7976931348623157e308);
     if !initialize_decoders(self) || self.video_packet_type == .PICTURE return null;
@@ -316,6 +370,8 @@ seek_frame :: (self: *Plm, time: float64, seek_exact: bool) -> *Frame {
     return frame;
 }
 
+// Seeks to `time` seconds as [seek_frame] does, passes the frame to the video callback and decodes audio up to
+// the same position. Returns false when no frame was found.
 seek :: (self: *Plm, time: float64, seek_exact: bool) -> bool {
     frame := seek_frame(self, time, seek_exact);
     if !frame return false;

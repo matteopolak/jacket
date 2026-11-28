@@ -1,5 +1,8 @@
 // Motion reconstruction and integer half-pixel filtering adapted from public C
 // pl_mpeg (MIT); source attribution is in third_party/pl_mpeg/README.md.
+
+// Reads one motion vector component, given the previous value `motion` and the `r_size` bits of residual, and
+// returns the new value wrapped into the legal range.
 video_decode_motion_vector :: (video: *Video, r_size: s32, motion: s32) -> s32 {
     B.assert(video != null && video.buffer != null && r_size >= 0 && r_size <= 6);
     scale: s32 = 1 << r_size;
@@ -24,6 +27,8 @@ video_decode_motion_vector :: (video: *Video, r_size: s32, motion: s32) -> s32 {
     return result;
 }
 
+// Reads the horizontal and vertical forward and backward motion vectors that the current macroblock type sets.
+// A predictive macroblock without forward motion resets the forward vector to zero.
 video_decode_motion_vectors :: (video: *Video) {
     B.assert(video != null);
 
@@ -41,6 +46,8 @@ video_decode_motion_vectors :: (video: *Video) {
     }
 }
 
+// Runs `code` for each pixel of a `block_size` square, advancing the caller's `di` destination and `si` source
+// indices and skipping to the next row by the given widths. Stores the result truncated to a byte.
 BLOCK_SET :: (dest: *u8, dest_width: s32, source_width: s32, block_size: s32, code: Code) #expand {
     target := dest;
     target_stride := dest_width;
@@ -63,6 +70,10 @@ BLOCK_SET :: (dest: *u8, dest_width: s32, source_width: s32, block_size: s32, co
     }
 }
 
+// Predicts a `block_size` block of `d` from `s` displaced by the half-pixel motion (`motion_h`, `motion_v`),
+// averaging neighbours for odd offsets, and averaging with the existing pixels when `interpolate` is true.
+//
+// Asserts when the source region lies outside the frame.
 video_process_macroblock :: (video: *Video, d: *u8, s: *u8, motion_h: s32, motion_v: s32, block_size: s32, interpolate: bool) {
     B.assert(video != null && d != null && s != null);
     B.assert(block_size == 8 || block_size == 16);
@@ -98,7 +109,7 @@ video_process_macroblock :: (video: *Video, d: *u8, s: *u8, motion_h: s32, motio
     }
 }
 
-// The parameter is named d; it denotes the reference frame here.
+// Fills the current macroblock's luma and chroma from the reference frame `d` displaced by the motion vector.
 video_copy_macroblock :: (video: *Video, motion_h: s32, motion_v: s32, d: *Frame) {
     B.assert(video != null && d != null);
     video_process_macroblock(video, video.frame_current.y.data, d.y.data, motion_h, motion_v, 16, false);
@@ -106,6 +117,7 @@ video_copy_macroblock :: (video: *Video, motion_h: s32, motion_v: s32, d: *Frame
     video_process_macroblock(video, video.frame_current.cb.data, d.cb.data, motion_h / 2, motion_v / 2, 8, false);
 }
 
+// Averages the current macroblock's luma and chroma with the motion-compensated prediction from `d`.
 video_interpolate_macroblock :: (video: *Video, motion_h: s32, motion_v: s32, d: *Frame) {
     B.assert(video != null && d != null);
     video_process_macroblock(video, video.frame_current.y.data, d.y.data, motion_h, motion_v, 16, true);
@@ -113,6 +125,8 @@ video_interpolate_macroblock :: (video: *Video, motion_h: s32, motion_v: s32, d:
     video_process_macroblock(video, video.frame_current.cb.data, d.cb.data, motion_h / 2, motion_v / 2, 8, true);
 }
 
+// Fills the current macroblock from the reference frames using the forward and backward motion vectors, averaging
+// both for bidirectional prediction.
 video_predict_macroblock :: (using video: *Video) {
     B.assert(video != null);
     fw_h := motion_forward.h;

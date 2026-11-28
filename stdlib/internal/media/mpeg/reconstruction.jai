@@ -1,5 +1,8 @@
 // Entropy decoding, dequantization and frame ordering adapted from licensed
 // public C pl_mpeg. Reviewed Jai records remain the actual live decoder state.
+
+// Decodes one 8x8 block of the current macroblock (`block` 0 to 3 luma, 4 and 5 chroma) into `block_data`
+// and adds it to the frame.
 video_decode_block :: (video: *Video, block: s32) {
     B.assert(video != null && block >= 0 && block < 6 && video.has_sequence_header);
     B.assert(video.mb_row >= 0 && video.mb_row < video.mb_height && video.mb_col >= 0 && video.mb_col < video.mb_width);
@@ -106,6 +109,8 @@ video_decode_block :: (video: *Video, block: s32) {
     memset(video.block_data.data, 0, size_of(video.block_data));
 }
 
+// Decodes the next macroblock: its address, type, quantizer, motion vectors and coded blocks, predicting any
+// skipped macroblocks before it.
 video_decode_macroblock :: (video: *Video) {
     B.assert(video != null && video.has_sequence_header);
     increment: s32;
@@ -183,6 +188,7 @@ video_decode_macroblock :: (video: *Video) {
     for block: 0..5 if (cbp & (32 >> block)) != 0 video_decode_block(video, cast(s32) block);
 }
 
+// Decodes the macroblocks of one slice, whose start code `slice` gives the macroblock row.
 video_decode_slice :: (video: *Video, slice: Start_Code) {
     decode_slice_inner(video, slice);
 }
@@ -227,6 +233,8 @@ decode_slice_inner :: (video: *Video, slice: Start_Code) -> (first: s32, last: s
 
 #scope_export
 
+// Decodes the picture after its start code, reading the type and motion parameters and every slice, and swaps the
+// reference frames. Asserts when slices overlap or leave part of the picture undecoded.
 video_decode_picture :: (video: *Video) {
     B.assert(video != null && video.has_sequence_header);
     read_bits(video.buffer, 10);
@@ -289,6 +297,10 @@ video_decode_picture :: (video: *Video) {
     }
 }
 
+// Decodes until a frame can be output and returns it, or null when more data is needed or the stream ended.
+//
+// The frame is stamped with the current time, which then advances by one frame. The pointer refers to a frame
+// inside `video` and is overwritten by later calls.
 video_decode :: (video: *Video) -> *Frame {
     if !video_has_header(video) return null;
 
