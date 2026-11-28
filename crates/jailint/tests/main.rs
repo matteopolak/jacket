@@ -39,3 +39,6 @@ mod targets;
 fn every_test_file_is_built() {
     test_support::layout::assert_every_test_file_is_built(env!("CARGO_MANIFEST_DIR"));
 }
+
+#[path = "unreachable_declaration.rs"]
+mod unreachable_declaration;

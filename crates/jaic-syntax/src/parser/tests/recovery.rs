@@ -210,8 +210,8 @@ fn nested_ifx_statements_are_parsed_once() {
         };
         assert!(matches!(e.kind, ExprKind::Ifx { .. }), "{:?}", e.kind);
     }
-    // `ifx` as a name.
-    assert!(matches!(body("ifx := 1;")[0].kind, StmtKind::Decl(_)));
+    // `ifx` is a keyword, so it cannot name a declaration.
+    assert!(error("main :: () { ifx := 1; }").contains("`ifx` is a keyword"));
 }
 
 #[test]
