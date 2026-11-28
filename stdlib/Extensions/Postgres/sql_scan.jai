@@ -3,16 +3,6 @@
 // The scanner skips everything that is text rather than SQL: quotes, `E''` strings, dollar
 // quotes, quoted identifiers and comments.
 
-// One place where the rewritten text differs from the source: a `%` that became `$n` (`hole` is
-// n), or a `%%` that became `%` (`hole` is 0).
-Rewrite_Edit :: struct {
-    source_offset: s64;
-    source_length: s64;
-    rewritten_offset: s64;
-    rewritten_length: s64;
-    hole: s64;
-}
-
 // A typed query's SQL with `%` holes rewritten to `$n`, and where each edit is.
 Rewrite :: struct {
     sql: string; // the statement the server sees
@@ -172,22 +162,6 @@ id_hex :: (id: u64) -> string {
     return scan_hex_text(bytes.data, 8);
 }
 
-// Lower-case hex of `count` bytes at `data`, twice as long.
-//
-// - data: the first byte.
-// - count: how many bytes to show.
-scan_hex_text :: (data: *u8, count: s64) -> string {
-    DIGITS :: "0123456789abcdef";
-    out := alloc_string(count * 2);
-
-    for 0..count - 1 {
-        out[it * 2] = DIGITS[data[it] >> 4];
-        out[it * 2 + 1] = DIGITS[data[it] & 0xf];
-    }
-
-    return out;
-}
-
 #scope_module
 
 scan_is_digit :: (c: u8) -> bool {
@@ -266,4 +240,32 @@ scan_skip_dollar :: (text: string, start: s64) -> s64 {
     if close < 0 return text.count;
 
     return i + 1 + close + tag.count;
+}
+
+#scope_module
+
+// One place where the rewritten text differs from the source: a `%` that became `$n` (`hole` is
+// n), or a `%%` that became `%` (`hole` is 0).
+Rewrite_Edit :: struct {
+    source_offset: s64;
+    source_length: s64;
+    rewritten_offset: s64;
+    rewritten_length: s64;
+    hole: s64;
+}
+
+// Lower-case hex of `count` bytes at `data`, twice as long.
+//
+// - data: the first byte.
+// - count: how many bytes to show.
+scan_hex_text :: (data: *u8, count: s64) -> string {
+    DIGITS :: "0123456789abcdef";
+    out := alloc_string(count * 2);
+
+    for 0..count - 1 {
+        out[it * 2] = DIGITS[data[it] >> 4];
+        out[it * 2 + 1] = DIGITS[data[it] & 0xf];
+    }
+
+    return out;
 }

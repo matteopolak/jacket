@@ -128,29 +128,6 @@ Pg_Error :: struct {
     owner: *Error_Fields;
 }
 
-// The other fields of an ErrorResponse or NoticeResponse. Empty strings and zeros for the ones the
-// server did not send, and for errors that did not come from the server.
-Error_Fields :: struct {
-    severity: string; // "ERROR", "FATAL", "PANIC" (never localized), "NOTICE", ...
-    detail: string;
-    hint: string;
-    position: s32; // 1-based character in the query the error points at, or 0
-    internal_position: s32;
-    internal_query: string;
-    where: string; // the call stack of a PL/pgSQL function, say
-    schema: string;
-    table: string;
-    column: string;
-    data_type: string;
-    constraint: string;
-    file: string; // the server's source location
-    line: string;
-    routine: string;
-
-    // The bytes every string of the error points into, stored after this struct in the same block.
-    storage: [] u8;
-}
-
 NO_FIELDS: Error_Fields;
 
 // The fields of the error, never null: `Pg.error_fields(error).constraint`.
@@ -210,8 +187,6 @@ sqlstate_text :: (code: Sqlstate) -> string {
 sqlstate_class :: (code: Sqlstate) -> Sqlstate {
     return cast(Sqlstate) ((cast(u64) code & 0xffff) | (0x3030303030 & ~cast(u64) 0xffff));
 }
-
-SQLSTATE_LENGTH :: 5;
 
 // The code written as `text`.
 //
@@ -328,3 +303,30 @@ parse_server_error :: (body: [] u8) -> Pg_Error {
 
     return error;
 }
+
+#scope_module
+
+// The other fields of an ErrorResponse or NoticeResponse. Empty strings and zeros for the ones the
+// server did not send, and for errors that did not come from the server.
+Error_Fields :: struct {
+    severity: string; // "ERROR", "FATAL", "PANIC" (never localized), "NOTICE", ...
+    detail: string;
+    hint: string;
+    position: s32; // 1-based character in the query the error points at, or 0
+    internal_position: s32;
+    internal_query: string;
+    where: string; // the call stack of a PL/pgSQL function, say
+    schema: string;
+    table: string;
+    column: string;
+    data_type: string;
+    constraint: string;
+    file: string; // the server's source location
+    line: string;
+    routine: string;
+
+    // The bytes every string of the error points into, stored after this struct in the same block.
+    storage: [] u8;
+}
+
+SQLSTATE_LENGTH :: 5;

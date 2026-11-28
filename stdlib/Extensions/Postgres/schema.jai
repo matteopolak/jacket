@@ -35,27 +35,6 @@ json_column_type :: (column: string) -> Type #expand {
     return Json_Raw;
 }
 
-// The options of the `Json_Columns` entry for `column`, packed as the second parameter of
-// `Json(T, OPTIONS)`; 0 when it has none.
-//
-// - column: "table.column", as in `Json_Column`.
-json_column_options :: (column: string) -> u32 #expand {
-    for `Json_Columns if it.column == column return pack_json_options(it.options);
-
-    return 0;
-}
-
-// Does a file called `name` sit in the folder of `file`? For the generated file to load
-// `json_columns.jai` when there is one.
-//
-// - file: a file in the folder to look in.
-// - name: the file name to look for.
-file_exists_beside :: (file: string, name: string) -> bool {
-    return Schema_Files.file_exists(join(path_strip_filename(file), name,, temp));
-}
-
-SCHEMA_HASH_MARKER :: "// schema hash: ";
-
 // Stops the compile when `file` (the generated schema) was made from other migrations than the
 // ones in the project now. Needs no server: it compares hashes of `db/migrations/*.sql`.
 //
@@ -179,4 +158,27 @@ plain_label :: (label: string) -> bool {
     for RESERVED_WORDS if it == label return false;
 
     return true;
+}
+
+#scope_module
+
+SCHEMA_HASH_MARKER :: "// schema hash: ";
+
+// Does a file called `name` sit in the folder of `file`? For the generated file to load
+// `json_columns.jai` when there is one.
+//
+// - file: a file in the folder to look in.
+// - name: the file name to look for.
+file_exists_beside :: (file: string, name: string) -> bool {
+    return Schema_Files.file_exists(join(path_strip_filename(file), name,, temp));
+}
+
+// The options of the `Json_Columns` entry for `column`, packed as the second parameter of
+// `Json(T, OPTIONS)`; 0 when it has none.
+//
+// - column: "table.column", as in `Json_Column`.
+json_column_options :: (column: string) -> u32 #expand {
+    for `Json_Columns if it.column == column return pack_json_options(it.options);
+
+    return 0;
 }

@@ -36,12 +36,6 @@ Pool :: struct {
     maintainer: Io.Fiber_Handle;
 }
 
-// A pooled connection that is not in use, and since when.
-Idle_Connection :: struct {
-    connection: *Connection;
-    since: s64; // milliseconds, monotonic
-}
-
 // The config is copied. Nothing connects until the first `acquire`, or `min_idle` asks for it.
 //
 // - config: how to connect. It is copied.
@@ -169,14 +163,6 @@ ping :: (c: *Connection) -> Pg_Error {
     }
 
     return .{};
-}
-
-// Transaction isolation level for `transaction`.
-Isolation :: enum u8 {
-    DEFAULT; // the server's default_transaction_isolation
-    READ_COMMITTED;
-    REPEATABLE_READ;
-    SERIALIZABLE;
 }
 
 // Runs `body` in a transaction on a connection from the pool. The transaction commits when `body`
@@ -465,6 +451,22 @@ finish_transaction :: (c: *Connection, failure: *Pg_Error, can_retry: bool) -> P
     failure.* = .{};
 
     return result, false;
+}
+
+#scope_module
+
+// A pooled connection that is not in use, and since when.
+Idle_Connection :: struct {
+    connection: *Connection;
+    since: s64; // milliseconds, monotonic
+}
+
+// Transaction isolation level for `transaction`.
+Isolation :: enum u8 {
+    DEFAULT; // the server's default_transaction_isolation
+    READ_COMMITTED;
+    REPEATABLE_READ;
+    SERIALIZABLE;
 }
 
 now_milliseconds :: () -> s64 {

@@ -34,9 +34,6 @@ Held :: struct {
 
 held: [..] Held;
 
-RECONNECT_FIRST :: 1_000;
-RECONNECT_MAX :: 30_000;
-
 schemas: Pg.Schema_Databases;
 
 // The service's answer to one request.
@@ -126,44 +123,7 @@ answer :: (request_text: string) -> Service.Status, string {
     return .FAILED, "unreachable";
 }
 
-// The managed server this service process owns (managed.jai). It is started by the first request
-// that needs it and then reused; `start_managed` takes a lock, so two services (two compiles, or
-// a compile and the editor) never start the same data folder at once. The server keeps running
-// when the service exits, so the next build finds it ready.
-Managed_State :: struct {
-    ready: bool;
-    url: string;
-    failed_until: s64; // monotonic ms: until then the last failure is the answer
-    failure: string;
-}
-
 managed: Managed_State;
-
-// The URL of the managed server, starting it if needed, or why it cannot.
-//
-// - version: the release the managed server should run. Empty takes the default.
-managed_url :: (version: string) -> url: string, failure: string {
-    if managed.ready return managed.url, "";
-
-    if now_milliseconds() < managed.failed_until return "", managed.failure;
-
-    settings := Pg.managed_settings_from_environment();
-    if version settings.version = version;
-
-    server, error := Pg.start_managed(settings);
-
-    if error {
-        managed.failure = copy_string(tprint("cannot start the managed PostgreSQL server: %", error));
-        managed.failed_until = now_milliseconds() + RECONNECT_MAX;
-
-        return "", managed.failure;
-    }
-
-    managed.ready = true;
-    managed.url = copy_string(server.url);
-
-    return managed.url, "";
-}
 
 // The monotonic clock in milliseconds, for the reconnect backoff.
 now_milliseconds :: () -> s64 {
@@ -194,6 +154,23 @@ drop_connection :: (url: string, database: string) {
         slot.db = null;
     }
 }
+
+#scope_module
+
+// The managed server this service process owns (managed.jai). It is started by the first request
+// that needs it and then reused; `start_managed` takes a lock, so two services (two compiles, or
+// a compile and the editor) never start the same data folder at once. The server keeps running
+// when the service exits, so the next build finds it ready.
+Managed_State :: struct {
+    ready: bool;
+    url: string;
+    failed_until: s64; // monotonic ms: until then the last failure is the answer
+    failure: string;
+}
+
+RECONNECT_FIRST :: 1_000;
+
+RECONNECT_MAX :: 30_000;
 
 // The held connection for this pair, connecting when there is none, or why it cannot. Failures are remembered for a while.
 //
@@ -238,4 +215,30 @@ connection_for :: (url: string, database: string) -> *Pg.Connection, string {
     slot.failed_until = 0;
 
     return db, "";
+}
+
+// The URL of the managed server, starting it if needed, or why it cannot.
+//
+// - version: the release the managed server should run. Empty takes the default.
+managed_url :: (version: string) -> url: string, failure: string {
+    if managed.ready return managed.url, "";
+
+    if now_milliseconds() < managed.failed_until return "", managed.failure;
+
+    settings := Pg.managed_settings_from_environment();
+    if version settings.version = version;
+
+    server, error := Pg.start_managed(settings);
+
+    if error {
+        managed.failure = copy_string(tprint("cannot start the managed PostgreSQL server: %", error));
+        managed.failed_until = now_milliseconds() + RECONNECT_MAX;
+
+        return "", managed.failure;
+    }
+
+    managed.ready = true;
+    managed.url = copy_string(server.url);
+
+    return managed.url, "";
 }

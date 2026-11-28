@@ -58,10 +58,6 @@ copy_in :: (pool: *Pool, sql: string, rows: [] $Row, columns: [] string = .[]) -
     return stored, error;
 }
 
-// Gets the data of a `COPY ... TO STDOUT` in the pieces the server sends it in. A piece is one row
-// in the text and CSV formats, and any slice of the stream in binary; it is valid during the call.
-Copy_Out_Proc :: #type (data: [] u8, user_data: *void);
-
 // Runs a `COPY <table or (query)> TO STDOUT` statement and calls `proc` with each piece of its
 // data, as it arrives, so a table of any size streams through. Returns how many rows the server
 // sent. Any format works: text, CSV or binary.
@@ -612,3 +608,9 @@ enum_label_of :: (value: $T) -> string, bool {
 
     return "", false;
 }
+
+#scope_module
+
+// Gets the data of a `COPY ... TO STDOUT` in the pieces the server sends it in. A piece is one row
+// in the text and CSV formats, and any slice of the stream in binary; it is valid during the call.
+Copy_Out_Proc :: #type (data: [] u8, user_data: *void);

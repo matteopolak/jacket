@@ -37,10 +37,6 @@ Listener :: struct {
     ended: Io.Condition;
 }
 
-LISTENER_QUEUE :: 256; // notifications held before the reader waits for the program
-LISTENER_RETRY_FIRST :: 100; // ms before the first reconnect attempt, doubling
-LISTENER_RETRY_LAST :: 5_000;
-
 // Starts a listener on `channels`, holding a connection from `pool`.
 //
 // - pool: the pool the connection is taken from and returned to.
@@ -220,3 +216,11 @@ reconnect :: (listener: *Listener) -> bool {
 
     return false;
 }
+
+#scope_module
+
+LISTENER_QUEUE :: 256; // notifications held before the reader waits for the program
+
+LISTENER_RETRY_FIRST :: 100; // ms before the first reconnect attempt, doubling
+
+LISTENER_RETRY_LAST :: 5_000;

@@ -45,51 +45,6 @@ json_as_bool :: Json_Module.json_as_bool;
 // again when a database is there (or by the pg tool's prepare), and an error offline.
 ENTRY_FORMAT :: 1;
 
-// Whether a column alias overrode the nullability the server reported.
-Forced_Nullability :: enum u8 {
-    NONE;
-    NON_NULL; // the alias said `name!`
-    NULLABLE; // the alias said `name?`
-}
-
-// A parameter's type as the server described it.
-Query_Type :: struct {
-    type: string; // how Postgres shows it: "bigint", "character varying(20)", "mood"
-    base: string; // what decides the Jai type: domains resolved, arrays as "int4[]", enums as "enum"
-}
-
-// One result column of a described query, as stored in its entry.
-Query_Column :: struct {
-    name: string; // without the alias suffixes
-    type: string;
-    base: string;
-    nullable: bool;
-    origin: string; // schema.table.column, for a column read straight from a table
-    jai: string; // the alias's Jai type, or empty
-    forced: Forced_Nullability;
-    oid: u32; // in the database that described it; not stored
-}
-
-// One schema object a query depends on, and its fingerprint when the query was described.
-Query_Dep :: struct {
-    key: string;
-    fingerprint: string;
-}
-
-// What the describe step stored for one typed query: the statement, its parameter and column
-// types, and the schema it was described against.
-Query_Entry :: struct {
-    format: s64; // ENTRY_FORMAT when written by this compiler; 0 when the file has none
-    sql: string;
-    schema_hash: string;
-    server_major: s64;
-    search_path: string;
-    deps: [..] Query_Dep;
-    deps_complete: bool;
-    params: [..] Query_Type;
-    columns: [..] Query_Column;
-}
-
 // The JSON document of a cache entry.
 //
 // - entry: the cache entry to write.
@@ -197,4 +152,51 @@ string_member_of :: (value: *Json_Value) -> string {
     text, _ := json_as_string(value);
 
     return text;
+}
+
+#scope_module
+
+// Whether a column alias overrode the nullability the server reported.
+Forced_Nullability :: enum u8 {
+    NONE;
+    NON_NULL; // the alias said `name!`
+    NULLABLE; // the alias said `name?`
+}
+
+// One result column of a described query, as stored in its entry.
+Query_Column :: struct {
+    name: string; // without the alias suffixes
+    type: string;
+    base: string;
+    nullable: bool;
+    origin: string; // schema.table.column, for a column read straight from a table
+    jai: string; // the alias's Jai type, or empty
+    forced: Forced_Nullability;
+    oid: u32; // in the database that described it; not stored
+}
+
+// One schema object a query depends on, and its fingerprint when the query was described.
+Query_Dep :: struct {
+    key: string;
+    fingerprint: string;
+}
+
+// What the describe step stored for one typed query: the statement, its parameter and column
+// types, and the schema it was described against.
+Query_Entry :: struct {
+    format: s64; // ENTRY_FORMAT when written by this compiler; 0 when the file has none
+    sql: string;
+    schema_hash: string;
+    server_major: s64;
+    search_path: string;
+    deps: [..] Query_Dep;
+    deps_complete: bool;
+    params: [..] Query_Type;
+    columns: [..] Query_Column;
+}
+
+// A parameter's type as the server described it.
+Query_Type :: struct {
+    type: string; // how Postgres shows it: "bigint", "character varying(20)", "mood"
+    base: string; // what decides the Jai type: domains resolved, arrays as "int4[]", enums as "enum"
 }

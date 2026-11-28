@@ -44,15 +44,6 @@ next_notification :: (c: *Connection) -> n: Notification, found: bool {
     return n, true;
 }
 
-// Frees every queued notification.
-//
-// - c: the connection.
-drop_notifications :: (c: *Connection) {
-    for *c.notifications free_notification(it);
-
-    c.notifications.count = 0;
-}
-
 // The oldest queued notification, or the next one to arrive: blocks the fiber until then, within
 // any `Io.with_deadline` or `Io.cancel` (the error is `.TIMED_OUT` or `.CANCELED`, and the
 // connection stays usable). Free the notification with `free_notification`. Nothing else may use
@@ -150,4 +141,15 @@ quote_identifier :: (name: string) -> string {
     append(*builder, "\"");
 
     return builder_to_string(*builder,, temp);
+}
+
+#scope_module
+
+// Frees every queued notification.
+//
+// - c: the connection.
+drop_notifications :: (c: *Connection) {
+    for *c.notifications free_notification(it);
+
+    c.notifications.count = 0;
 }

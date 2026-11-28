@@ -36,12 +36,6 @@ Result :: struct {
     allocator: Allocator; // context.allocator when the query ran: it owns everything above
 }
 
-// Where one field of a result row lies in the row's text.
-Value_Span :: struct {
-    offset: s64;
-    length: s64; // -1 for NULL
-}
-
 // Runs one statement with parameters `$1`, `$2`, ... taken from `args`, and returns its rows in
 // text format. Arguments may be integers, floats, bools, strings, `[] u8` (bytea), `Uuid`,
 // `Timestamp`, `Local_Timestamp`, `Date`, `Time`, `Interval`, `Numeric`, `Nullable` of any of
@@ -457,19 +451,6 @@ raw_value :: (r: *Result, row: s64, column: s64) -> bytes: [] u8, is_null: bool 
     span := r.values[row * r.columns.count + column];
     if span.length < 0 return .[], true;
     return .{ span.length, r.data.data + span.offset }, false;
-}
-
-// Drops the rows of a result and what was decoded from them, keeping its columns.
-//
-// - r: the result.
-clear_rows :: (r: *Result) {
-    r.row_count = 0;
-    r.values.count = 0;
-    r.data.count = 0;
-
-    for r.allocations free(it,, r.allocator);
-
-    r.allocations.count = 0;
 }
 
 // Frees a result and everything decoded from it. It is zeroed.
@@ -892,4 +873,25 @@ result_allocator :: (mode: Allocator_Mode, size: s64, old_size: s64, old_memory:
     }
 
     return null;
+}
+
+#scope_module
+
+// Where one field of a result row lies in the row's text.
+Value_Span :: struct {
+    offset: s64;
+    length: s64; // -1 for NULL
+}
+
+// Drops the rows of a result and what was decoded from them, keeping its columns.
+//
+// - r: the result.
+clear_rows :: (r: *Result) {
+    r.row_count = 0;
+    r.values.count = 0;
+    r.data.count = 0;
+
+    for r.allocations free(it,, r.allocator);
+
+    r.allocations.count = 0;
 }

@@ -11,10 +11,6 @@
 // In a filter, `it.<field>` is a column, literals stay literals, and any other expression is a
 // parameter, evaluated where the filter was written. See docs/postgres/orm.md.
 
-// Defaults for `select`: no filter, no order.
-EVERY_ROW :: #code true;
-NO_ORDER :: #code null;
-
 // The rows of `T`'s table that pass `where`, in `order_by` order (`desc` for descending), at most
 // `limit` of them (-1: all) after skipping `offset`. `from_sql` replaces the table with a query of
 // your own that returns its columns, with `%name` / `%(expression)` parameters:
@@ -129,18 +125,6 @@ each :: (db: $D, $T: Type, error: *Pg_Error, $where: Code = EVERY_ROW, $order_by
     return .{ db = db, error = error };
 }
 
-// How `Pg.each` loads a has-many relation its loop body reads (`for post: it.posts`).
-Orm_Strategy :: enum u8 {
-    PRELOAD; // a second query for every row's related rows, as `load_many` does
-    LATERAL; // one query: each related column comes back as an array from a lateral join
-}
-
-// The query that `Pg.each` returns, run row by row by a `for` loop over it.
-Orm_Each :: struct(D: Type, T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, strategy: Orm_Strategy, call: Code) {
-    db: D;
-    error: *Pg_Error;
-}
-
 // Makes `Pg.each` loopable.
 //
 // - q: the `Pg.each` call.
@@ -158,31 +142,6 @@ for_expansion :: (q: *Orm_Each($D, $T, $where, $order_by, $desc, $limit, $offset
 // - values: the rows to store.
 copy_many :: (db: $D, values: [] $T) -> s64, Pg_Error {
     #insert #run orm_copy_code(T);
-}
-
-// The rows `parents` have through the has-many relation `relation` (a `@pg_has_many` note of
-// `T`), in one query: `items[i]` belongs to `parents[i]`. Free it with `free_loaded`; the items
-// read from its result.
-//
-// ```jai,ignore
-// posts, error := Pg.load_many(db, users, "posts");
-// for users print("% wrote % posts\n", it.email, posts.items[it_index].count);
-// ```
-//
-// Not run: it needs a PostgreSQL server.
-Loaded_Many :: struct(Item: Type) {
-    items: [][] Item;
-    // Every item once; `items` are views into it.
-    rows: [] Item;
-    result: Result;
-}
-
-// The row each of `parents` points to through the to-one relation `relation` (a
-// `@pg_belongs_to` note of `T`), in one query: `items[i]` is null when `parents[i]` points nowhere.
-Loaded_One :: struct(Item: Type) {
-    items: [] Nullable(Item);
-    rows: [] Item;
-    result: Result;
 }
 
 // Loads a has-many relation for several rows; see `Loaded_Many`.
@@ -203,17 +162,6 @@ load_many :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) 
 // - call: the code of the call, which lets the query text be checked while compiling. Leave the default.
 load_one :: (db: $D, parents: [] $T, $relation: string, $call := #caller_code) -> Loaded_One(#insert,scope(call) #run orm_relation_target(T, relation, .BELONGS_TO)), Pg_Error #expand {
     #insert #run orm_load_code(T, relation, .BELONGS_TO, "", orm_project_argument(call));
-}
-
-// `load_many` with the related struct given, for `Pg.each`, whose loop knows it already.
-//
-// - db: a connection or pool.
-// - parents: the rows to load for.
-// - relation: the name of the `@pg_has_many` relation.
-// - Target: the related struct.
-// - project_file: the file the loop is in.
-orm_load_many_as :: (db: $D, parents: [] $T, $relation: string, $Target: Type, $project_file: string) -> Loaded_Many(Target), Pg_Error {
-    #insert #run orm_load_code(T, relation, .HAS_MANY, "Target", ", project_file = project_file");
 }
 
 // Frees what `load_many` returned.
@@ -2542,4 +2490,59 @@ orm_insert_code :: (T: Type, call: Code) -> string {
     append(*builder, "return row, error;\n");
 
     return builder_to_string(*builder);
+}
+
+#scope_module
+
+// Defaults for `select`: no filter, no order.
+EVERY_ROW :: #code true;
+
+// The rows `parents` have through the has-many relation `relation` (a `@pg_has_many` note of
+// `T`), in one query: `items[i]` belongs to `parents[i]`. Free it with `free_loaded`; the items
+// read from its result.
+//
+// ```jai,ignore
+// posts, error := Pg.load_many(db, users, "posts");
+// for users print("% wrote % posts\n", it.email, posts.items[it_index].count);
+// ```
+//
+// Not run: it needs a PostgreSQL server.
+Loaded_Many :: struct(Item: Type) {
+    items: [][] Item;
+    // Every item once; `items` are views into it.
+    rows: [] Item;
+    result: Result;
+}
+
+// The row each of `parents` points to through the to-one relation `relation` (a
+// `@pg_belongs_to` note of `T`), in one query: `items[i]` is null when `parents[i]` points nowhere.
+Loaded_One :: struct(Item: Type) {
+    items: [] Nullable(Item);
+    rows: [] Item;
+    result: Result;
+}
+
+NO_ORDER :: #code null;
+
+// The query that `Pg.each` returns, run row by row by a `for` loop over it.
+Orm_Each :: struct(D: Type, T: Type, where: Code, order_by: Code, desc: bool, limit: s64, offset: s64, from_sql: string, strategy: Orm_Strategy, call: Code) {
+    db: D;
+    error: *Pg_Error;
+}
+
+// How `Pg.each` loads a has-many relation its loop body reads (`for post: it.posts`).
+Orm_Strategy :: enum u8 {
+    PRELOAD; // a second query for every row's related rows, as `load_many` does
+    LATERAL; // one query: each related column comes back as an array from a lateral join
+}
+
+// `load_many` with the related struct given, for `Pg.each`, whose loop knows it already.
+//
+// - db: a connection or pool.
+// - parents: the rows to load for.
+// - relation: the name of the `@pg_has_many` relation.
+// - Target: the related struct.
+// - project_file: the file the loop is in.
+orm_load_many_as :: (db: $D, parents: [] $T, $relation: string, $Target: Type, $project_file: string) -> Loaded_Many(Target), Pg_Error {
+    #insert #run orm_load_code(T, relation, .HAS_MANY, "Target", ", project_file = project_file");
 }

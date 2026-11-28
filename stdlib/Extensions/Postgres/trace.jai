@@ -1,9 +1,6 @@
 // A message trace: every protocol message the connection sends or receives, one line each, in the
 // text layout of libpq's PQtrace. Off by default.
 
-// Called with each traced line, without its newline. The line is in temporary storage.
-Trace_Proc :: #type (connection: *Connection, line: string);
-
 // Starts tracing: `proc` gets a line per message from now on (null stops). With `regress`, the
 // output is libpq's PQTRACE_SUPPRESS_TIMESTAMPS | PQTRACE_REGRESS_MODE: OIDs, process ids and the
 // server's source locations are replaced by fixed text, and an error's length by NN, so a trace
@@ -320,3 +317,8 @@ trace_chars :: (t: *Tracer, length: s64) {
 trace_rest :: (t: *Tracer) {
     trace_chars(t, t.r.data.count - t.r.at);
 }
+
+#scope_module
+
+// Called with each traced line, without its newline. The line is in temporary storage.
+Trace_Proc :: #type (connection: *Connection, line: string);

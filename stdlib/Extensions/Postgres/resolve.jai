@@ -234,36 +234,6 @@ statement_id_of_hex :: (text: string) -> u64 {
     return id;
 }
 
-// The path of the cache file for a statement.
-//
-// - root: the project root.
-// - id: a statement id.
-cache_file :: (root: string, id: u64) -> string {
-    return join(query_cache_path(root), "/", id_hex(id), ".json",, temp);
-}
-
-// The entry in a cache file and true, or false when there is none, it cannot be read, or it is for another statement.
-//
-// - path: the cache file.
-// - sql: the statement the entry must be for.
-read_cache_entry :: (path: string, sql: string) -> Query_Entry, bool {
-    if !Typed_Files.file_exists(path) return .{}, false;
-
-    text, read := read_entire_file(path,, temp);
-    if !read return .{}, false;
-
-    document, error := Json_Module.from_json(Json_Value, text,, temp);
-    if error.kind != .NONE return .{}, false;
-
-    entry, ok := entry_from_json(*document);
-
-    // The file name holds 64 bits of the hash: the statement itself must match too. An entry of
-    // another format may mean something else by the same words: it is a miss.
-    if !ok || entry.sql != sql || entry.format != ENTRY_FORMAT return .{}, false;
-
-    return entry, true;
-}
-
 // Writes a statement's cache entry, leaving the file alone if it would not change.
 //
 // - root: the project root.
@@ -677,4 +647,36 @@ argument_count :: (call_node: *Code_Procedure_Call, first: s64) -> count: s64, k
     }
 
     return count, true;
+}
+
+#scope_module
+
+// The path of the cache file for a statement.
+//
+// - root: the project root.
+// - id: a statement id.
+cache_file :: (root: string, id: u64) -> string {
+    return join(query_cache_path(root), "/", id_hex(id), ".json",, temp);
+}
+
+// The entry in a cache file and true, or false when there is none, it cannot be read, or it is for another statement.
+//
+// - path: the cache file.
+// - sql: the statement the entry must be for.
+read_cache_entry :: (path: string, sql: string) -> Query_Entry, bool {
+    if !Typed_Files.file_exists(path) return .{}, false;
+
+    text, read := read_entire_file(path,, temp);
+    if !read return .{}, false;
+
+    document, error := Json_Module.from_json(Json_Value, text,, temp);
+    if error.kind != .NONE return .{}, false;
+
+    entry, ok := entry_from_json(*document);
+
+    // The file name holds 64 bits of the hash: the statement itself must match too. An entry of
+    // another format may mean something else by the same words: it is a miss.
+    if !ok || entry.sql != sql || entry.format != ENTRY_FORMAT return .{}, false;
+
+    return entry, true;
 }

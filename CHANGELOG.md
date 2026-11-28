@@ -49,6 +49,7 @@ The guides show real terminal output for cross builds, toolchains and benchmarks
 
 - `Simple_Package` adds `free_package`, which frees a `Load_Package`'s entries, lookup and file bytes.
 - `Image`'s JPEG decoder, `Postgres`'s wire, SCRAM, startup and managed-server code, and `Wasi_Runtime`'s thread scheduler are no longer public.
+- `Postgres` keeps its schema-database, describe, diff, cache and entry internals, and types no caller names, module-private.
 - `Basic` parses its leak-report and memory-viewer code only with `MEMORY_DEBUGGER` on, which shortens every compile's front end.
 - `Testing`'s tracking allocator answers capability queries made without a name buffer, as the memory debugger makes them.
 - A ZIP written with ZIP64 records marks its classic end record, so readers find them. `Archive_Limits.zip64_from` lowers the ZIP64 cut-off.

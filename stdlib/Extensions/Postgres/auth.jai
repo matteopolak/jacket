@@ -11,12 +11,6 @@ Auth_Method :: enum_flags u32 {
     NONE; // the server accepted the login without asking for anything
 }
 
-// The methods `require_auth` allows. `restricted` is false when it is empty: anything goes.
-Auth_Policy :: struct {
-    restricted: bool;
-    allowed: Auth_Method;
-}
-
 // Reads a `require_auth` value (libpq's syntax: see `Config.require_auth`). The errors are
 // libpq's.
 //
@@ -66,52 +60,6 @@ parse_require_auth :: (text: string) -> Auth_Policy, Pg_Error {
     policy.allowed = ifx negative then ALL & ~listed else listed;
 
     return policy, .{};
-}
-
-// Fails the login when the server's way of authenticating is not one `require_auth` allows.
-// `code` is the AuthenticationRequest the server sent.
-//
-// - c: the connection, for the error.
-// - config: its `require_auth` is quoted in the error.
-// - policy: what `parse_require_auth` made of `config.require_auth`.
-// - code: the AuthenticationRequest code the server sent.
-check_auth_method :: (c: *Connection, config: Config, policy: Auth_Policy, code: u32) -> Pg_Error {
-    if !policy.restricted return .{};
-
-    method: Auth_Method;
-    reason: string;
-
-    if code == {
-        case AUTH_OK;
-            method = .NONE;
-            reason = "server did not complete authentication";
-        case AUTH_CLEARTEXT;
-            method = .PASSWORD;
-            reason = "server requested a cleartext password";
-        case AUTH_MD5;
-            method = .MD5;
-            reason = "server requested a hashed password";
-        case AUTH_GSS; #through;
-        case AUTH_GSS_CONTINUE;
-            method = .GSS;
-            reason = "server requested GSSAPI authentication";
-        case AUTH_SSPI;
-            method = .SSPI;
-            reason = "server requested SSPI authentication";
-        case AUTH_SASL; #through;
-        case AUTH_SASL_CONTINUE; #through;
-        case AUTH_SASL_FINAL;
-            method = .SCRAM_SHA_256;
-            // libpq 18 names the mechanism when `require_auth` forbids it by name.
-            reason = "server requested SASL authentication";
-            if contains(config.require_auth, "!scram-sha-256") reason = "server requested SCRAM-SHA-256 authentication";
-        case;
-            return .{};
-    }
-
-    if policy.allowed & method return .{};
-
-    return auth_error(c, tprint("authentication method requirement \"%\" failed: %", config.require_auth, reason));
 }
 
 // The password for a login from the password file, or an empty string. `host` is the name
@@ -217,4 +165,58 @@ passfile_line :: (line: string, wanted: [] string) -> string, bool {
     }
 
     return cast(string) password, true;
+}
+
+#scope_module
+
+// The methods `require_auth` allows. `restricted` is false when it is empty: anything goes.
+Auth_Policy :: struct {
+    restricted: bool;
+    allowed: Auth_Method;
+}
+
+// Fails the login when the server's way of authenticating is not one `require_auth` allows.
+// `code` is the AuthenticationRequest the server sent.
+//
+// - c: the connection, for the error.
+// - config: its `require_auth` is quoted in the error.
+// - policy: what `parse_require_auth` made of `config.require_auth`.
+// - code: the AuthenticationRequest code the server sent.
+check_auth_method :: (c: *Connection, config: Config, policy: Auth_Policy, code: u32) -> Pg_Error {
+    if !policy.restricted return .{};
+
+    method: Auth_Method;
+    reason: string;
+
+    if code == {
+        case AUTH_OK;
+            method = .NONE;
+            reason = "server did not complete authentication";
+        case AUTH_CLEARTEXT;
+            method = .PASSWORD;
+            reason = "server requested a cleartext password";
+        case AUTH_MD5;
+            method = .MD5;
+            reason = "server requested a hashed password";
+        case AUTH_GSS; #through;
+        case AUTH_GSS_CONTINUE;
+            method = .GSS;
+            reason = "server requested GSSAPI authentication";
+        case AUTH_SSPI;
+            method = .SSPI;
+            reason = "server requested SSPI authentication";
+        case AUTH_SASL; #through;
+        case AUTH_SASL_CONTINUE; #through;
+        case AUTH_SASL_FINAL;
+            method = .SCRAM_SHA_256;
+            // libpq 18 names the mechanism when `require_auth` forbids it by name.
+            reason = "server requested SASL authentication";
+            if contains(config.require_auth, "!scram-sha-256") reason = "server requested SCRAM-SHA-256 authentication";
+        case;
+            return .{};
+    }
+
+    if policy.allowed & method return .{};
+
+    return auth_error(c, tprint("authentication method requirement \"%\" failed: %", config.require_auth, reason));
 }

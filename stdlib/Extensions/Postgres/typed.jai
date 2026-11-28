@@ -11,9 +11,6 @@
 // the described statement, and expands into a call that sends the rewritten statement. See
 // docs/postgres/typed-queries.md.
 
-// A typed SQL NULL for any parameter: `Pg.query(db, "update t set x = %", Pg.NULL)`.
-Null_Marker :: struct {}
-
 NULL :: Nullable(Null_Marker).{ null = true };
 
 // The row of a described statement: one field per column, named by the column. `shape` is the
@@ -438,13 +435,6 @@ stream :: (c: *Connection, error: *Pg_Error, $sql: string, args: ..Any, batch :=
     return out;
 } @Interpolates("sql")
 
-// Rows of a streamed typed query, read one at a time with a `for` loop.
-Row_Stream :: struct(T: Type) {
-    pipeline: *Pipeline; // null once the statement is over
-    error: *Pg_Error;
-    meta: Statement_Meta;
-}
-
 // Loops over the streamed rows, fetching a batch when the last one is used up.
 //
 // - stream: the stream to loop over.
@@ -715,4 +705,16 @@ read_row_code :: (T: Type) -> string {
     }
 
     return builder_to_string(*builder);
+}
+
+#scope_module
+
+// A typed SQL NULL for any parameter: `Pg.query(db, "update t set x = %", Pg.NULL)`.
+Null_Marker :: struct {}
+
+// Rows of a streamed typed query, read one at a time with a `for` loop.
+Row_Stream :: struct(T: Type) {
+    pipeline: *Pipeline; // null once the statement is over
+    error: *Pg_Error;
+    meta: Statement_Meta;
 }

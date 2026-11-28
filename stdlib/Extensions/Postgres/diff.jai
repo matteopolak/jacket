@@ -10,46 +10,6 @@
 
 #scope_export
 
-// One field of a struct in the schema file.
-Schema_Field :: struct {
-    name: string;
-    type_text: string; // as written, `Pg.Nullable(...)` included
-    primary_key: bool;
-    has_default: bool;
-    generated: bool;
-    json_text: bool; // `@pg_json`: a `json` column rather than `jsonb`
-}
-
-// A struct with an `@pg_table` note.
-Schema_Struct :: struct {
-    type_name: string;
-    schema: string;
-    table: string;
-    belongs_to: [] string; // the arguments of the `@pg_belongs_to` notes
-    fields: [] Schema_Field;
-}
-
-// An enum of the schema file: a Postgres enum.
-Schema_Enum :: struct {
-    type_name: string;
-    schema: string;
-    name: string;
-    labels: [] string; // in declaration order
-}
-
-// What `parse_schema_text` reads from the file: the table structs and the enums.
-Schema_Description :: struct {
-    structs: [] Schema_Struct;
-    enums: [] Schema_Enum;
-}
-
-// The migration `diff` proposes.
-Migration_Proposal :: struct {
-    sql: string;
-    changes: s64; // statements that change the schema
-    todos: s64; // review comments for changes it could not express
-}
-
 // Reads the catalog of the migrations' schema database (see schema_databases.jai), compares it
 // with the structs in `schema_file`, and returns the proposed SQL; or what went wrong. An empty
 // `sql` means nothing differs. Runs on a fiber, like every call that talks to the server.
@@ -259,13 +219,6 @@ sql_type_of_text :: (text: string, refs: [] Enum_Ref) -> string {
     for refs if it.type_name == type return qualified(it.schema, it.name);
 
     return "";
-}
-
-// How an enum of the file is called in Postgres.
-Enum_Ref :: struct {
-    type_name: string;
-    schema: string;
-    name: string;
 }
 
 #scope_file
@@ -756,4 +709,53 @@ compare_column :: (p: *Proposal_Builder, relation: Catalog_Relation, column: Cat
         line_todo(p, tprint("%.%: now not null; this fails while it holds nulls, so fill them in first", owner, quote(column.name)));
         line_comment_statement(p, tprint("alter table % alter column % set not null;", owner, quote(column.name)));
     }
+}
+
+#scope_module
+
+// How an enum of the file is called in Postgres.
+Enum_Ref :: struct {
+    type_name: string;
+    schema: string;
+    name: string;
+}
+
+// The migration `diff` proposes.
+Migration_Proposal :: struct {
+    sql: string;
+    changes: s64; // statements that change the schema
+    todos: s64; // review comments for changes it could not express
+}
+
+// What `parse_schema_text` reads from the file: the table structs and the enums.
+Schema_Description :: struct {
+    structs: [] Schema_Struct;
+    enums: [] Schema_Enum;
+}
+
+// An enum of the schema file: a Postgres enum.
+Schema_Enum :: struct {
+    type_name: string;
+    schema: string;
+    name: string;
+    labels: [] string; // in declaration order
+}
+
+// One field of a struct in the schema file.
+Schema_Field :: struct {
+    name: string;
+    type_text: string; // as written, `Pg.Nullable(...)` included
+    primary_key: bool;
+    has_default: bool;
+    generated: bool;
+    json_text: bool; // `@pg_json`: a `json` column rather than `jsonb`
+}
+
+// A struct with an `@pg_table` note.
+Schema_Struct :: struct {
+    type_name: string;
+    schema: string;
+    table: string;
+    belongs_to: [] string; // the arguments of the `@pg_belongs_to` notes
+    fields: [] Schema_Field;
 }

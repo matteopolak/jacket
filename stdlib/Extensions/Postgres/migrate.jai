@@ -36,7 +36,6 @@ Migration_Failure :: struct {
     message: string; // the server's message
 }
 
-NO_TRANSACTION_MARKER :: "-- jacket: no-transaction";
 MIGRATIONS_TABLE :: "jacket_migrations";
 
 // The migrations in `folder`, sorted by version, for embedding: `#run load_migrations(...)`.
@@ -111,37 +110,6 @@ schema_hash :: (migrations: [] Migration) -> string {
 
     hashes := prefix_hashes(migrations);
     return hashes[hashes.count - 1];
-}
-
-// The schema hash of each prefix of `migrations`: entry i covers migrations 0 to i.
-//
-// - migrations: the migrations, in order.
-prefix_hashes :: (migrations: [] Migration) -> [] string {
-    hashes := NewArray(migrations.count, string,, temp);
-    chained := "";
-
-    for migrations {
-        chained = sha256_hex(tprint("%\n%\n%", chained, it.name, it.sha256));
-        hashes[it_index] = chained;
-    }
-
-    return hashes;
-}
-
-// Where one migration stands against a database.
-Migration_State :: enum u8 {
-    PENDING; // not applied yet
-    APPLIED;
-    MODIFIED; // applied, but the file changed since
-    MISSING; // applied, but no longer in the list (the entry has only version and name)
-    OUT_OF_ORDER; // pending, but numbered below the newest applied migration
-}
-
-// A migration and whether it is applied, changed, missing or out of order.
-Migration_Status :: struct {
-    version: s64;
-    name: string;
-    state: Migration_State;
 }
 
 // Applies the pending migrations in order, each in its own transaction, and returns how many it
@@ -299,100 +267,6 @@ line_column_of_position :: (text: string, position: s64) -> line: s64, column: s
     }
 
     return line, byte_to_character_count(text, line_start, stop) + 1;
-}
-
-// Characters between two byte offsets of `text`.
-//
-// - text: the text to count in.
-// - from: first byte offset.
-// - to: byte offset to stop before.
-byte_to_character_count :: (text: string, from: s64, to: s64) -> s64 {
-    count := 0;
-    for from..to - 1 if (text[it] & 0xc0) != 0x80 count += 1;
-
-    return count;
-}
-
-// Where `error` stopped in the file `whole` of migration `name`. `statement` is the text the
-// server was sent: the whole file, or one statement inside it (a slice of `whole`) for a migration
-// without a transaction.
-//
-// - name: the migration's name.
-// - index: its place in the list, from 0.
-// - whole: the migration's file.
-// - statement: the text that was sent to the server.
-// - error: what the server answered.
-migration_failure :: (name: string, index: s64, whole: string, statement: string, error: Pg_Error) -> Migration_Failure {
-    failure := Migration_Failure.{ name = name, index = index, message = copy_string(error.message) };
-    if error.kind != .SERVER || error_fields(error).position <= 0 return failure;
-
-    inside := cast(s64) (statement.data - whole.data);
-    if inside < 0 || inside > whole.count inside = 0;
-
-    prefix := slice(whole, 0, inside);
-    line, column := line_column_of_position(statement, error_fields(error).position);
-
-    failure.line = line + count_lines(prefix);
-    failure.column = column;
-
-    // A statement that does not start its line: the column counts from the statement's start.
-    if line == 1 && inside > 0 {
-        last_newline := find_index_from_right(prefix, #char "\n");
-        failure.column += byte_to_character_count(prefix, last_newline + 1, prefix.count);
-    }
-
-    return failure;
-}
-
-// For an error that came without a position: the first statement of the migration `whole` that
-// fails the same way, as the failure's line. Runs inside the caller's open transaction, in the
-// state the migration started from, and leaves it in that state (a savepoint is rolled back to).
-// Gives `failure` back unchanged when no single statement reproduces the error, which happens when
-// the file's `;` splitting is not how the server saw it.
-//
-// - c: the connection, inside the open transaction.
-// - name: the migration's name.
-// - index: its place in the list, from 0.
-// - whole: the migration's file.
-// - message: the server's message to reproduce.
-// - failure: what is returned when no statement reproduces it.
-locate_failing_statement :: (c: *Connection, name: string, index: s64, whole: string, message: string, failure: Migration_Failure) -> Migration_Failure {
-    marked := execute_script(c, "savepoint locate_failing_statement");
-
-    if marked.kind != .NONE {
-        free_error(*marked);
-        return failure;
-    }
-
-    located := failure;
-
-    for statement: split_statements(whole) {
-        attempt := execute_script(c, statement);
-        if attempt.kind == .NONE continue;
-
-        if attempt.kind == .SERVER && attempt.message == message {
-            located = migration_failure(name, index, whole, statement, attempt);
-
-            // No position inside the statement either: the statement's first line.
-            if located.line == 0 {
-                inside := cast(s64) (statement.data - whole.data);
-
-                if inside >= 0 && inside <= whole.count {
-                    located.line = count_lines(slice(whole, 0, inside)) + 1;
-                    located.column = 1;
-                }
-            }
-        }
-
-        free_error(*attempt);
-        break;
-    }
-
-    undone := execute_script(c, "rollback to savepoint locate_failing_statement");
-
-    free_error(*undone);
-
-    return located;
 }
 
 // How many newlines `text` has.
@@ -639,4 +513,133 @@ dollar_tag_end :: (sql: string, i: s64) -> s64 {
     if j < sql.count && sql[j] == #char "$" return j + 1;
 
     return 0;
+}
+
+#scope_module
+
+// Where one migration stands against a database.
+Migration_State :: enum u8 {
+    PENDING; // not applied yet
+    APPLIED;
+    MODIFIED; // applied, but the file changed since
+    MISSING; // applied, but no longer in the list (the entry has only version and name)
+    OUT_OF_ORDER; // pending, but numbered below the newest applied migration
+}
+
+// A migration and whether it is applied, changed, missing or out of order.
+Migration_Status :: struct {
+    version: s64;
+    name: string;
+    state: Migration_State;
+}
+
+NO_TRANSACTION_MARKER :: "-- jacket: no-transaction";
+
+// Characters between two byte offsets of `text`.
+//
+// - text: the text to count in.
+// - from: first byte offset.
+// - to: byte offset to stop before.
+byte_to_character_count :: (text: string, from: s64, to: s64) -> s64 {
+    count := 0;
+    for from..to - 1 if (text[it] & 0xc0) != 0x80 count += 1;
+
+    return count;
+}
+
+// For an error that came without a position: the first statement of the migration `whole` that
+// fails the same way, as the failure's line. Runs inside the caller's open transaction, in the
+// state the migration started from, and leaves it in that state (a savepoint is rolled back to).
+// Gives `failure` back unchanged when no single statement reproduces the error, which happens when
+// the file's `;` splitting is not how the server saw it.
+//
+// - c: the connection, inside the open transaction.
+// - name: the migration's name.
+// - index: its place in the list, from 0.
+// - whole: the migration's file.
+// - message: the server's message to reproduce.
+// - failure: what is returned when no statement reproduces it.
+locate_failing_statement :: (c: *Connection, name: string, index: s64, whole: string, message: string, failure: Migration_Failure) -> Migration_Failure {
+    marked := execute_script(c, "savepoint locate_failing_statement");
+
+    if marked.kind != .NONE {
+        free_error(*marked);
+        return failure;
+    }
+
+    located := failure;
+
+    for statement: split_statements(whole) {
+        attempt := execute_script(c, statement);
+        if attempt.kind == .NONE continue;
+
+        if attempt.kind == .SERVER && attempt.message == message {
+            located = migration_failure(name, index, whole, statement, attempt);
+
+            // No position inside the statement either: the statement's first line.
+            if located.line == 0 {
+                inside := cast(s64) (statement.data - whole.data);
+
+                if inside >= 0 && inside <= whole.count {
+                    located.line = count_lines(slice(whole, 0, inside)) + 1;
+                    located.column = 1;
+                }
+            }
+        }
+
+        free_error(*attempt);
+        break;
+    }
+
+    undone := execute_script(c, "rollback to savepoint locate_failing_statement");
+
+    free_error(*undone);
+
+    return located;
+}
+
+// Where `error` stopped in the file `whole` of migration `name`. `statement` is the text the
+// server was sent: the whole file, or one statement inside it (a slice of `whole`) for a migration
+// without a transaction.
+//
+// - name: the migration's name.
+// - index: its place in the list, from 0.
+// - whole: the migration's file.
+// - statement: the text that was sent to the server.
+// - error: what the server answered.
+migration_failure :: (name: string, index: s64, whole: string, statement: string, error: Pg_Error) -> Migration_Failure {
+    failure := Migration_Failure.{ name = name, index = index, message = copy_string(error.message) };
+    if error.kind != .SERVER || error_fields(error).position <= 0 return failure;
+
+    inside := cast(s64) (statement.data - whole.data);
+    if inside < 0 || inside > whole.count inside = 0;
+
+    prefix := slice(whole, 0, inside);
+    line, column := line_column_of_position(statement, error_fields(error).position);
+
+    failure.line = line + count_lines(prefix);
+    failure.column = column;
+
+    // A statement that does not start its line: the column counts from the statement's start.
+    if line == 1 && inside > 0 {
+        last_newline := find_index_from_right(prefix, #char "\n");
+        failure.column += byte_to_character_count(prefix, last_newline + 1, prefix.count);
+    }
+
+    return failure;
+}
+
+// The schema hash of each prefix of `migrations`: entry i covers migrations 0 to i.
+//
+// - migrations: the migrations, in order.
+prefix_hashes :: (migrations: [] Migration) -> [] string {
+    hashes := NewArray(migrations.count, string,, temp);
+    chained := "";
+
+    for migrations {
+        chained = sha256_hex(tprint("%\n%\n%", chained, it.name, it.sha256));
+        hashes[it_index] = chained;
+    }
+
+    return hashes;
 }

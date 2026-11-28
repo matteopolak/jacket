@@ -162,13 +162,6 @@ rewritten_sql :: (sql: string, call: Code, sql_index: s64, project_file := "") -
     return prepare_query(sql, call, sql_index, project_file).rewrite.sql;
 }
 
-// How a statement's results are asked for and described: binary when every column has a binary
-// decoder, and where each column comes from (`users.settings`, one per line) for decode errors.
-Statement_Meta :: struct {
-    binary: bool;
-    origins: string;
-}
-
 binary_results :: (sql: string, call: Code, sql_index: s64, project_file := "") -> Statement_Meta {
     prepared := prepare_query(sql, call, sql_index, project_file);
     meta := Statement_Meta.{ binary = true };
@@ -544,4 +537,13 @@ row_table_struct :: (prepared: *Prepared) -> string {
     }
 
     return "";
+}
+
+#scope_module
+
+// How a statement's results are asked for and described: binary when every column has a binary
+// decoder, and where each column comes from (`users.settings`, one per line) for decode errors.
+Statement_Meta :: struct {
+    binary: bool;
+    origins: string;
 }

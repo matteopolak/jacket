@@ -1,15 +1,5 @@
 // Where and how to connect: a plain struct with defaults, or one parsed from a URL.
 
-// How `connect` uses TLS, as libpq's `sslmode`.
-Ssl_Mode :: enum u8 {
-    DISABLE; // never TLS
-    PREFER; // TLS when the server offers it, no certificate check (the default, like libpq)
-    REQUIRE; // TLS, no certificate check
-    VERIFY_CA; // TLS, the chain must lead to a trusted root
-    VERIFY_FULL; // TLS, the chain and the host name are checked
-    ALLOW; // a plain connection first; TLS (no certificate check) only when the server refuses that
-}
-
 // Which of several servers `connect` accepts, as libpq's `target_session_attrs`.
 Target_Session_Attrs :: enum u8 {
     ANY;
@@ -18,36 +8,6 @@ Target_Session_Attrs :: enum u8 {
     PRIMARY; // not in hot standby
     STANDBY; // in hot standby
     PREFER_STANDBY; // a standby if any host is one, else any
-}
-
-// The order `connect` tries the hosts in, as libpq's `load_balance_hosts`.
-Load_Balance_Hosts :: enum u8 {
-    DISABLE; // as listed
-    RANDOM; // shuffled for each connection
-}
-
-// Whether `connect` sends a client certificate.
-Ssl_Cert_Mode :: enum u8 {
-    DISABLE; // never send a client certificate
-    ALLOW; // send the certificate in `ssl_cert_pem` when there is one (the default)
-    REQUIRE; // fail unless a certificate was sent
-}
-
-// The TLS versions libpq names in `ssl_min_protocol_version` and `ssl_max_protocol_version`. The
-// TLS library behind this client speaks 1.2 and 1.3 only, so a range that ends below 1.2 cannot
-// be used, and a minimum below it is raised to 1.2.
-Ssl_Protocol_Version :: enum u8 {
-    TLS_1_0;
-    TLS_1_1;
-    TLS_1_2;
-    TLS_1_3;
-}
-
-// Whether SCRAM authentication binds to the TLS channel, as libpq's `channel_binding`.
-Channel_Binding :: enum u8 {
-    DISABLE; // plain SCRAM-SHA-256 only
-    PREFER; // SCRAM-SHA-256-PLUS over TLS when the server offers it
-    REQUIRE; // fail unless SCRAM-SHA-256-PLUS is used
 }
 
 // Everything `connect` needs: servers, login, TLS and session settings. The defaults
@@ -451,43 +411,6 @@ config_from_conninfo :: (info: Conninfo, use_environment := false) -> Config, Pg
     return config, .{};
 }
 
-// A config that owns copies of its strings, for keeping beyond the original (`free_config`).
-//
-// - config: the config to copy.
-copy_config :: (config: Config) -> Config {
-    copy := config;
-    copy.owned = true;
-    copy.host = copy_string(config.host);
-    copy.hostaddr = copy_string(config.hostaddr);
-    copy.hosts = array_copy(config.hosts);
-    for *copy.hosts {
-        it.host = copy_string(it.host);
-        it.hostaddr = copy_string(it.hostaddr);
-    }
-
-    copy.passfile = copy_string(config.passfile);
-    copy.require_auth = copy_string(config.require_auth);
-    copy.user = copy_string(config.user);
-    copy.password = copy_string(config.password);
-    copy.database = copy_string(config.database);
-    copy.application_name = copy_string(config.application_name);
-    copy.options = copy_string(config.options);
-    copy.ssl_root_cert_pem = copy_string(config.ssl_root_cert_pem);
-    copy.ssl_crl_pem = copy_string(config.ssl_crl_pem);
-    copy.ssl_cert_pem = copy_string(config.ssl_cert_pem);
-    copy.ssl_key = copy_string(config.ssl_key);
-    copy.ssl_key_password = copy_string(config.ssl_key_password);
-    copy.ssl_key_file = copy_string(config.ssl_key_file);
-    copy.ssl_key_log_file = copy_string(config.ssl_key_log_file);
-    copy.parameters = array_copy(config.parameters);
-    for *copy.parameters {
-        it.name = copy_string(it.name);
-        it.value = copy_string(it.value);
-    }
-
-    return copy;
-}
-
 // Frees the strings of a config from `parse_conninfo`, `parse_url` or `copy_config`; does nothing
 // for one the program built.
 //
@@ -802,4 +725,83 @@ parse_port :: (text: string) -> u16, bool {
     value, valid, remainder := string_to_int(text);
     if !valid || remainder || value < 1 || value > 65535 return 0, false;
     return cast(u16) value, true;
+}
+
+#scope_module
+
+// Whether SCRAM authentication binds to the TLS channel, as libpq's `channel_binding`.
+Channel_Binding :: enum u8 {
+    DISABLE; // plain SCRAM-SHA-256 only
+    PREFER; // SCRAM-SHA-256-PLUS over TLS when the server offers it
+    REQUIRE; // fail unless SCRAM-SHA-256-PLUS is used
+}
+
+// The order `connect` tries the hosts in, as libpq's `load_balance_hosts`.
+Load_Balance_Hosts :: enum u8 {
+    DISABLE; // as listed
+    RANDOM; // shuffled for each connection
+}
+
+// Whether `connect` sends a client certificate.
+Ssl_Cert_Mode :: enum u8 {
+    DISABLE; // never send a client certificate
+    ALLOW; // send the certificate in `ssl_cert_pem` when there is one (the default)
+    REQUIRE; // fail unless a certificate was sent
+}
+
+// How `connect` uses TLS, as libpq's `sslmode`.
+Ssl_Mode :: enum u8 {
+    DISABLE; // never TLS
+    PREFER; // TLS when the server offers it, no certificate check (the default, like libpq)
+    REQUIRE; // TLS, no certificate check
+    VERIFY_CA; // TLS, the chain must lead to a trusted root
+    VERIFY_FULL; // TLS, the chain and the host name are checked
+    ALLOW; // a plain connection first; TLS (no certificate check) only when the server refuses that
+}
+
+// The TLS versions libpq names in `ssl_min_protocol_version` and `ssl_max_protocol_version`. The
+// TLS library behind this client speaks 1.2 and 1.3 only, so a range that ends below 1.2 cannot
+// be used, and a minimum below it is raised to 1.2.
+Ssl_Protocol_Version :: enum u8 {
+    TLS_1_0;
+    TLS_1_1;
+    TLS_1_2;
+    TLS_1_3;
+}
+
+// A config that owns copies of its strings, for keeping beyond the original (`free_config`).
+//
+// - config: the config to copy.
+copy_config :: (config: Config) -> Config {
+    copy := config;
+    copy.owned = true;
+    copy.host = copy_string(config.host);
+    copy.hostaddr = copy_string(config.hostaddr);
+    copy.hosts = array_copy(config.hosts);
+    for *copy.hosts {
+        it.host = copy_string(it.host);
+        it.hostaddr = copy_string(it.hostaddr);
+    }
+
+    copy.passfile = copy_string(config.passfile);
+    copy.require_auth = copy_string(config.require_auth);
+    copy.user = copy_string(config.user);
+    copy.password = copy_string(config.password);
+    copy.database = copy_string(config.database);
+    copy.application_name = copy_string(config.application_name);
+    copy.options = copy_string(config.options);
+    copy.ssl_root_cert_pem = copy_string(config.ssl_root_cert_pem);
+    copy.ssl_crl_pem = copy_string(config.ssl_crl_pem);
+    copy.ssl_cert_pem = copy_string(config.ssl_cert_pem);
+    copy.ssl_key = copy_string(config.ssl_key);
+    copy.ssl_key_password = copy_string(config.ssl_key_password);
+    copy.ssl_key_file = copy_string(config.ssl_key_file);
+    copy.ssl_key_log_file = copy_string(config.ssl_key_log_file);
+    copy.parameters = array_copy(config.parameters);
+    for *copy.parameters {
+        it.name = copy_string(it.name);
+        it.value = copy_string(it.value);
+    }
+
+    return copy;
 }

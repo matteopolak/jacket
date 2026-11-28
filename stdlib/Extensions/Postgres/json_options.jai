@@ -15,20 +15,6 @@
 
 #scope_export
 
-// What decoding does with a JSON key the target struct has no field for.
-Json_Unknown_Fields :: enum u8 {
-    INHERIT;
-    IGNORE; // the built-in default: a key the struct has no field for is skipped
-    DENY; // it is a decode error
-}
-
-// What decoding does when a required field is absent from the JSON.
-Json_Missing_Fields :: enum u8 {
-    INHERIT;
-    ERROR; // the built-in default: a field that is not optional must be there
-    DEFAULT; // it keeps its declared initializer
-}
-
 // What decoding does when a JSON object repeats a key.
 Json_Duplicate_Keys :: enum u8 {
     INHERIT;
@@ -106,4 +92,20 @@ module_json_options :: (layers: Json_Layers, column: u32) -> Json_Module.Json_Op
     module.borrow = layers.borrow;
 
     return module;
+}
+
+#scope_module
+
+// What decoding does when a required field is absent from the JSON.
+Json_Missing_Fields :: enum u8 {
+    INHERIT;
+    ERROR; // the built-in default: a field that is not optional must be there
+    DEFAULT; // it keeps its declared initializer
+}
+
+// What decoding does with a JSON key the target struct has no field for.
+Json_Unknown_Fields :: enum u8 {
+    INHERIT;
+    IGNORE; // the built-in default: a key the struct has no field for is skipped
+    DENY; // it is a decode error
 }

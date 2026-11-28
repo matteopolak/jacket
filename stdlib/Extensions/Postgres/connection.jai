@@ -1,13 +1,5 @@
 // A connection: one server session, used by one fiber at a time.
 
-// A minor version of protocol 3, for `Config.min_protocol_version` and `max_protocol_version`.
-// Version 3.2 (PostgreSQL 18 and later) allows cancel keys of up to 256 bytes, where 3.0 has four.
-Protocol_Version :: enum u8 {
-    V3_0;
-    V3_2;
-    LATEST; // the newest this client speaks: 3.2
-}
-
 // Where the session is in a transaction, as the server last reported it.
 Transaction_Status :: enum u8 {
     IDLE; // outside a transaction block
@@ -20,14 +12,6 @@ Parameter :: struct {
     name: string;
     value: string;
 }
-
-// Called for each NoticeResponse (warnings, RAISE NOTICE). The notice is freed after the call.
-Notice_Proc :: #type (connection: *Connection, notice: *Pg_Error);
-
-// Called for each NotificationResponse (a NOTIFY on a channel the connection LISTENs to), in the
-// middle of whatever request is reading. The notification is freed after the call. Without one,
-// notifications queue on the connection (`next_notification`, `wait_for_notification`).
-Notification_Proc :: #type (connection: *Connection, notification: *Notification);
 
 // An open session. Made by `connect`, released with `close`. One connection runs one request at a
 // time; use a `Pool` to share a database between fibers.
@@ -191,15 +175,6 @@ close :: (c: *Connection, now := false) {
 parameter :: (c: *Connection, name: string) -> string {
     for c.parameters if it.name == name return it.value;
     return "";
-}
-
-// Writes a server notice to the log.
-//
-// - c: the connection the notice arrived on.
-// - notice: the notice. Its severity and message are logged.
-log_notice :: (c: *Connection, notice: *Pg_Error) {
-    // Standard error, not standard output: a program's output is not the place for server chatter.
-    log("postgres %: %", error_fields(notice.*).severity, notice.message, flags = .WARNING | .ERROR);
 }
 
 #scope_module
@@ -466,4 +441,31 @@ handle_async :: (c: *Connection, type: u8, body: [] u8) -> bool {
     }
 
     return false;
+}
+
+#scope_module
+
+// Called for each NoticeResponse (warnings, RAISE NOTICE). The notice is freed after the call.
+Notice_Proc :: #type (connection: *Connection, notice: *Pg_Error);
+
+// Called for each NotificationResponse (a NOTIFY on a channel the connection LISTENs to), in the
+// middle of whatever request is reading. The notification is freed after the call. Without one,
+// notifications queue on the connection (`next_notification`, `wait_for_notification`).
+Notification_Proc :: #type (connection: *Connection, notification: *Notification);
+
+// A minor version of protocol 3, for `Config.min_protocol_version` and `max_protocol_version`.
+// Version 3.2 (PostgreSQL 18 and later) allows cancel keys of up to 256 bytes, where 3.0 has four.
+Protocol_Version :: enum u8 {
+    V3_0;
+    V3_2;
+    LATEST; // the newest this client speaks: 3.2
+}
+
+// Writes a server notice to the log.
+//
+// - c: the connection the notice arrived on.
+// - notice: the notice. Its severity and message are logged.
+log_notice :: (c: *Connection, notice: *Pg_Error) {
+    // Standard error, not standard output: a program's output is not the place for server chatter.
+    log("postgres %: %", error_fields(notice.*).severity, notice.message, flags = .WARNING | .ERROR);
 }

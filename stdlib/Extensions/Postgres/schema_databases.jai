@@ -20,55 +20,6 @@ Schema_Databases :: struct {
     failures: [..] Known_Failure;
 }
 
-// A set of migrations whose schema database failed to build, and why.
-Known_Failure :: struct {
-    hash: string;
-    failure: Migration_Failure;
-}
-
-// When a set of migrations was first asked about without a schema database.
-Seen_Hash :: struct {
-    hash: string;
-    milliseconds: s64;
-}
-
-// Where to describe: `database` on the same server (empty: the URL's own database) after running
-// `setup` inside the transaction. `built` names a database this call created, so the caller can
-// let go of connections to older ones and then `prune_schema_databases`.
-Schema_Target :: struct {
-    database: string;
-    setup: string;
-    setup_marks: [] Setup_Mark;
-    built: bool;
-
-    // A migration failed while building the database for the whole set. `database` is then the
-    // schema before it (empty when no migration comes before it): answers from it are stale.
-    failed: bool;
-    failure: Migration_Failure;
-}
-
-// Where one migration's SQL lies in `setup`, so a failure in the transaction can be traced to its
-// file.
-Setup_Mark :: struct {
-    name: string;
-    index: s64;
-    start: s64; // byte offset in the setup text
-    length: s64;
-}
-
-// How long a set of migrations must stay unchanged before its database is built;
-// `JACKET_PG_BUILD_DELAY_MS` overrides it.
-SCHEMA_BUILD_DELAY_MS :: 2_000;
-// Schema databases kept on the server, newest first.
-SCHEMA_DATABASES_KEPT :: 3;
-
-// The name of the database for a schema hash.
-//
-// - hash: the schema hash of a set of migrations.
-schema_database_name :: (hash: string) -> string {
-    return tprint("jacket_%", slice(hash, 0, 12));
-}
-
 // Picks (and builds when it is time) the schema database for the migrations in `folder`. `db` is
 // connected to the server's own database and `config` is how it was reached.
 //
@@ -164,26 +115,6 @@ schema_target :: (state: *Schema_Databases, db: *Connection, config: Config, fol
     return .{ database = schema_database_name(hashes[best]), setup = builder_to_string(*builder), setup_marks = marks }, "";
 }
 
-// Drops schema databases beyond the newest `SCHEMA_DATABASES_KEPT`. One still in use (by another
-// editor, say) is left for next time.
-//
-// - db: a connection to the server's own database.
-prune_schema_databases :: (db: *Connection) {
-    names, error := schema_database_names(db);
-
-    if error.kind != .NONE {
-        free_error(*error);
-        return;
-    }
-
-    for names {
-        if it_index < SCHEMA_DATABASES_KEPT continue;
-
-        dropped := execute_script(db, tprint("drop database if exists \"%\"", it));
-        free_error(*dropped);
-    }
-}
-
 #scope_module
 
 // The schema databases on the server, newest first. Half-built ones (`jacket_build_...`) are not
@@ -263,4 +194,76 @@ build_schema_database :: (db: *Connection, config: Config, migrations: [] Migrat
 drop_built :: (db: *Connection, name: string) {
     error := execute_script(db, tprint("drop database if exists \"%\"", name));
     free_error(*error);
+}
+
+#scope_module
+
+// A set of migrations whose schema database failed to build, and why.
+Known_Failure :: struct {
+    hash: string;
+    failure: Migration_Failure;
+}
+
+// How long a set of migrations must stay unchanged before its database is built;
+// `JACKET_PG_BUILD_DELAY_MS` overrides it.
+SCHEMA_BUILD_DELAY_MS :: 2_000;
+
+// Schema databases kept on the server, newest first.
+SCHEMA_DATABASES_KEPT :: 3;
+
+// Where to describe: `database` on the same server (empty: the URL's own database) after running
+// `setup` inside the transaction. `built` names a database this call created, so the caller can
+// let go of connections to older ones and then `prune_schema_databases`.
+Schema_Target :: struct {
+    database: string;
+    setup: string;
+    setup_marks: [] Setup_Mark;
+    built: bool;
+
+    // A migration failed while building the database for the whole set. `database` is then the
+    // schema before it (empty when no migration comes before it): answers from it are stale.
+    failed: bool;
+    failure: Migration_Failure;
+}
+
+// When a set of migrations was first asked about without a schema database.
+Seen_Hash :: struct {
+    hash: string;
+    milliseconds: s64;
+}
+
+// Where one migration's SQL lies in `setup`, so a failure in the transaction can be traced to its
+// file.
+Setup_Mark :: struct {
+    name: string;
+    index: s64;
+    start: s64; // byte offset in the setup text
+    length: s64;
+}
+
+// Drops schema databases beyond the newest `SCHEMA_DATABASES_KEPT`. One still in use (by another
+// editor, say) is left for next time.
+//
+// - db: a connection to the server's own database.
+prune_schema_databases :: (db: *Connection) {
+    names, error := schema_database_names(db);
+
+    if error.kind != .NONE {
+        free_error(*error);
+        return;
+    }
+
+    for names {
+        if it_index < SCHEMA_DATABASES_KEPT continue;
+
+        dropped := execute_script(db, tprint("drop database if exists \"%\"", it));
+        free_error(*dropped);
+    }
+}
+
+// The name of the database for a schema hash.
+//
+// - hash: the schema hash of a set of migrations.
+schema_database_name :: (hash: string) -> string {
+    return tprint("jacket_%", slice(hash, 0, 12));
 }

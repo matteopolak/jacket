@@ -35,25 +35,6 @@ dotenv_value :: (text: string, key: string) -> string, bool {
     return value, found;
 }
 
-// The database URL the project's `.env` file gives: JACKET_DATABASE_URL, else DATABASE_URL. Empty
-// when there is no file or neither is assigned.
-//
-// - root: the project folder that holds `.env`.
-dotenv_database_url :: (root: string) -> string {
-    path := join(root, "/.env",, temp);
-    if !Typed_Files.file_exists(path) return "";
-
-    text, ok := read_entire_file(path, log_errors = false,, temp);
-    if !ok return "";
-
-    url, found := dotenv_value(text, "JACKET_DATABASE_URL");
-    if found && url return url;
-
-    url, found = dotenv_value(text, "DATABASE_URL");
-
-    return url;
-}
-
 #scope_module
 
 dotenv_assignment :: (line: string) -> name: string, value: string, ok: bool {
@@ -124,4 +105,25 @@ dotenv_text :: (text: string) -> string {
     }
 
     return trim(slice(text, 0, end));
+}
+
+#scope_module
+
+// The database URL the project's `.env` file gives: JACKET_DATABASE_URL, else DATABASE_URL. Empty
+// when there is no file or neither is assigned.
+//
+// - root: the project folder that holds `.env`.
+dotenv_database_url :: (root: string) -> string {
+    path := join(root, "/.env",, temp);
+    if !Typed_Files.file_exists(path) return "";
+
+    text, ok := read_entire_file(path, log_errors = false,, temp);
+    if !ok return "";
+
+    url, found := dotenv_value(text, "JACKET_DATABASE_URL");
+    if found && url return url;
+
+    url, found = dotenv_value(text, "DATABASE_URL");
+
+    return url;
 }

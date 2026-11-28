@@ -535,11 +535,6 @@ read_trailing_syncs :: (p: *Pipeline) -> Pg_Error {
     return .{};
 }
 
-Early_Result :: struct {
-    serial: s64;
-    item: Pipeline_Result;
-}
-
 // The result of queued statement `serial`, as a RESULT: errors and skips become the error.
 take_result :: (p: *Pipeline, serial: s64) -> Pipeline_Result, Pg_Error {
     found := -1;
@@ -899,4 +894,11 @@ run_named :: (c: *Connection, step: Pipeline_Step, name: string, kind := #char "
     }
 
     return item, .{};
+}
+
+#scope_module
+
+Early_Result :: struct {
+    serial: s64;
+    item: Pipeline_Result;
 }

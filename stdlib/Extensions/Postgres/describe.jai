@@ -22,24 +22,6 @@ Describe_Request :: struct {
     min_server_version: s64; // the oldest server major version the project supports; 0: any
 }
 
-// The complaint for a server older than the request allows, or an empty string.
-//
-// - db: the connection, read for the server version.
-// - request: its `min_server_version` is the limit.
-server_too_old :: (db: *Connection, request: Describe_Request) -> string {
-    major := db.server_version / VERSION_MAJOR;
-    if major >= request.min_server_version return "";
-
-    return tprint("the server is PostgreSQL %, but this project needs at least % (MIN_SERVER_VERSION)", major, request.min_server_version);
-}
-
-// The request as JSON text.
-//
-// - request: the request to write.
-describe_request_json :: (request: Describe_Request) -> string {
-    return Json_Module.to_json(request);
-}
-
 // Describes `request.sql` on `db` and returns the answer as JSON text:
 //   {"kind":"ok","entry":{...}}                  the cache entry (see entry_to_json)
 //   {"kind":"sql_error","error":{...}}           the server refused the statement
@@ -53,94 +35,6 @@ describe_request_json :: (request: Describe_Request) -> string {
 // - request: what to describe.
 describe_answer :: (db: *Connection, request: Describe_Request) -> string {
     answer := describe_value(db, request);
-    text := Json_Module.to_json(answer);
-    Json_Module.free_json(*answer);
-
-    return text;
-}
-
-// The answer to a `fingerprints` request: {"kind":"ok","server_major":17,"fingerprints":{key: hash}}.
-//
-// - db: the connection to read the fingerprints from.
-// - request: its `keys` are what to fingerprint.
-fingerprints_answer :: (db: *Connection, request: Describe_Request) -> string {
-    answer := json_object();
-    too_old := server_too_old(db, request);
-
-    if too_old {
-        json_set(*answer, "kind", json_string("error"));
-        json_set(*answer, "message", json_string(too_old));
-
-        return Json_Module.to_json(answer);
-    }
-
-    error := apply_search_path(db, request.search_path);
-
-    if error.kind != .NONE {
-        json_set(*answer, "kind", json_string("error"));
-        json_set(*answer, "message", json_string(error_text(error)));
-        free_error(*error);
-
-        return Json_Module.to_json(answer);
-    }
-
-    if request.stale.name return Json_Module.to_json(migration_error_answer(request.stale, request.migrations));
-
-    if request.setup {
-        stale := request.stale;
-        used_setup: string;
-
-        error = begin_with_setup(db, request, *stale, *used_setup);
-
-        if error.kind != .NONE {
-            json_set(*answer, "kind", json_string("error"));
-            json_set(*answer, "message", json_string(error_text(error)));
-            free_error(*error);
-
-            return Json_Module.to_json(answer);
-        }
-
-        // Fingerprints of a schema that is not the project's would pass a stale entry as good.
-        if stale.name {
-            rolled_back := execute_script(db, "rollback");
-            free_error(*rolled_back);
-
-            return Json_Module.to_json(migration_error_answer(stale, request.migrations));
-        }
-    }
-
-    prints, fail := fingerprints(db, request.keys);
-
-    if request.setup {
-        rolled_back := execute_script(db, "rollback");
-        free_error(*rolled_back);
-    }
-
-    if fail.kind != .NONE {
-        json_set(*answer, "kind", json_string("error"));
-        json_set(*answer, "message", json_string(error_text(fail)));
-        free_error(*fail);
-
-        return Json_Module.to_json(answer);
-    }
-
-    json_set(*answer, "kind", json_string("ok"));
-    json_set(*answer, "server_major", json_int(db.server_version / VERSION_MAJOR));
-
-    object := json_object();
-    for request.keys json_set(*object, it, json_string(prints[it_index]));
-
-    json_set(*answer, "fingerprints", object);
-
-    return Json_Module.to_json(answer);
-}
-
-// The answer for migrations that do not build and leave no earlier schema to describe against.
-//
-// - failure: the migration that failed.
-// - folder: the migrations folder the file is in.
-migration_error_text :: (failure: Migration_Failure, folder: string) -> string {
-    answer := migration_error_answer(failure, folder);
     text := Json_Module.to_json(answer);
     Json_Module.free_json(*answer);
 
@@ -1303,3 +1197,111 @@ FUNCTION_FINGERPRINT :: #string DONE
 select encode(sha256(convert_to(pg_get_function_result(p.oid) || '|' || pg_get_function_arguments(p.oid) || '|' || p.prokind::text || '|' || md5(coalesce(p.prosrc, '') || coalesce(pg_get_function_sqlbody(p.oid), '')), 'UTF8')), 'hex')
 from pg_proc p where p.oid = to_regprocedure(substr(k, 3))
 DONE
+
+#scope_module
+
+// The request as JSON text.
+//
+// - request: the request to write.
+describe_request_json :: (request: Describe_Request) -> string {
+    return Json_Module.to_json(request);
+}
+
+// The answer to a `fingerprints` request: {"kind":"ok","server_major":17,"fingerprints":{key: hash}}.
+//
+// - db: the connection to read the fingerprints from.
+// - request: its `keys` are what to fingerprint.
+fingerprints_answer :: (db: *Connection, request: Describe_Request) -> string {
+    answer := json_object();
+    too_old := server_too_old(db, request);
+
+    if too_old {
+        json_set(*answer, "kind", json_string("error"));
+        json_set(*answer, "message", json_string(too_old));
+
+        return Json_Module.to_json(answer);
+    }
+
+    error := apply_search_path(db, request.search_path);
+
+    if error.kind != .NONE {
+        json_set(*answer, "kind", json_string("error"));
+        json_set(*answer, "message", json_string(error_text(error)));
+        free_error(*error);
+
+        return Json_Module.to_json(answer);
+    }
+
+    if request.stale.name return Json_Module.to_json(migration_error_answer(request.stale, request.migrations));
+
+    if request.setup {
+        stale := request.stale;
+        used_setup: string;
+
+        error = begin_with_setup(db, request, *stale, *used_setup);
+
+        if error.kind != .NONE {
+            json_set(*answer, "kind", json_string("error"));
+            json_set(*answer, "message", json_string(error_text(error)));
+            free_error(*error);
+
+            return Json_Module.to_json(answer);
+        }
+
+        // Fingerprints of a schema that is not the project's would pass a stale entry as good.
+        if stale.name {
+            rolled_back := execute_script(db, "rollback");
+            free_error(*rolled_back);
+
+            return Json_Module.to_json(migration_error_answer(stale, request.migrations));
+        }
+    }
+
+    prints, fail := fingerprints(db, request.keys);
+
+    if request.setup {
+        rolled_back := execute_script(db, "rollback");
+        free_error(*rolled_back);
+    }
+
+    if fail.kind != .NONE {
+        json_set(*answer, "kind", json_string("error"));
+        json_set(*answer, "message", json_string(error_text(fail)));
+        free_error(*fail);
+
+        return Json_Module.to_json(answer);
+    }
+
+    json_set(*answer, "kind", json_string("ok"));
+    json_set(*answer, "server_major", json_int(db.server_version / VERSION_MAJOR));
+
+    object := json_object();
+    for request.keys json_set(*object, it, json_string(prints[it_index]));
+
+    json_set(*answer, "fingerprints", object);
+
+    return Json_Module.to_json(answer);
+}
+
+// The answer for migrations that do not build and leave no earlier schema to describe against.
+//
+// - failure: the migration that failed.
+// - folder: the migrations folder the file is in.
+migration_error_text :: (failure: Migration_Failure, folder: string) -> string {
+    answer := migration_error_answer(failure, folder);
+    text := Json_Module.to_json(answer);
+    Json_Module.free_json(*answer);
+
+    return text;
+}
+
+// The complaint for a server older than the request allows, or an empty string.
+//
+// - db: the connection, read for the server version.
+// - request: its `min_server_version` is the limit.
+server_too_old :: (db: *Connection, request: Describe_Request) -> string {
+    major := db.server_version / VERSION_MAJOR;
+    if major >= request.min_server_version return "";
+
+    return tprint("the server is PostgreSQL %, but this project needs at least % (MIN_SERVER_VERSION)", major, request.min_server_version);
+}

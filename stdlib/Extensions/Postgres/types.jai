@@ -115,20 +115,10 @@ Numeric :: struct {
 
 // `infinity` of a `Timestamp` or `Local_Timestamp`, as the server stores it.
 TIMESTAMP_INFINITY :: S64_MAX;
-// `-infinity` of a `Timestamp` or `Local_Timestamp`.
-TIMESTAMP_MINUS_INFINITY :: S64_MIN;
-// `infinity` of a `Date`.
-DATE_INFINITY :: S32_MAX;
 // `-infinity` of a `Date`.
 DATE_MINUS_INFINITY :: S32_MIN;
 
-MICROSECONDS_PER_SECOND :: 1_000_000;
-MICROSECONDS_PER_MINUTE :: 60 * MICROSECONDS_PER_SECOND;
-MICROSECONDS_PER_HOUR :: 60 * MICROSECONDS_PER_MINUTE;
 MICROSECONDS_PER_DAY :: 86_400_000_000;
-
-// Microseconds from 1970-01-01 (the Unix epoch) to 2000-01-01.
-UNIX_TO_POSTGRES_MICROSECONDS :: 946_684_800_000_000;
 
 // - microseconds: microseconds since 1970-01-01 00:00:00 UTC.
 timestamp_from_unix_microseconds :: (microseconds: s64) -> Timestamp {
@@ -422,3 +412,20 @@ hex_value :: (c: u8) -> s64 {
     if c >= #char "A" && c <= #char "F" return c - #char "A" + 10;
     return -1;
 }
+
+#scope_module
+
+// `infinity` of a `Date`.
+DATE_INFINITY :: S32_MAX;
+
+MICROSECONDS_PER_HOUR :: 60 * MICROSECONDS_PER_MINUTE;
+
+MICROSECONDS_PER_MINUTE :: 60 * MICROSECONDS_PER_SECOND;
+
+MICROSECONDS_PER_SECOND :: 1_000_000;
+
+// `-infinity` of a `Timestamp` or `Local_Timestamp`.
+TIMESTAMP_MINUS_INFINITY :: S64_MIN;
+
+// Microseconds from 1970-01-01 (the Unix epoch) to 2000-01-01.
+UNIX_TO_POSTGRES_MICROSECONDS :: 946_684_800_000_000;

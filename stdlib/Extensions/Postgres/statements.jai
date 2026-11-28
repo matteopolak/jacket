@@ -1,12 +1,6 @@
 // Named prepared statements, cached per connection: a typed query is parsed by the server once per
 // connection, and later runs send Bind and Execute only.
 
-// Whether a connection keeps prepared statements (`Config.statement_cache`).
-Statement_Cache_Mode :: enum u8 {
-    ON;
-    OFF; // unnamed statements only, for poolers that do not track named ones
-}
-
 // How the server plans a typed query (`plan = ` on `query`, `execute`, ...).
 Plan :: enum u8 {
     AUTO; // a named statement: the server may switch to a generic plan after five runs
@@ -46,26 +40,6 @@ statement_name :: (sql: string, parameter_types: [] u32 = .[]) -> string {
 }
 
 #scope_module
-
-Cached_Statement :: struct {
-    id: u64;
-    name: string;
-    sql: string;
-    types: [] u32;
-    ready: bool; // the server has it and `columns` are known
-    existing: bool; // the server may have it: send Close before the next Parse
-    returns_rows: bool;
-    columns: [] Column;
-    used: s64; // `Statement_Cache.tick` at its last use
-}
-
-Statement_Cache :: struct {
-    entries: [..] *Cached_Statement;
-    tick: s64;
-    mode: Statement_Cache_Mode;
-    capacity: s64;
-    verify: bool;
-}
 
 // What one request does with the cache.
 Statement_Use :: struct {
@@ -369,4 +343,32 @@ finish_cached :: (c: *Connection, use: *Statement_Use, result: *Result, failure:
     entry.existing = true;
 
     return may_retry && use.hit && c.status != .FAILED;
+}
+
+#scope_module
+
+Cached_Statement :: struct {
+    id: u64;
+    name: string;
+    sql: string;
+    types: [] u32;
+    ready: bool; // the server has it and `columns` are known
+    existing: bool; // the server may have it: send Close before the next Parse
+    returns_rows: bool;
+    columns: [] Column;
+    used: s64; // `Statement_Cache.tick` at its last use
+}
+
+Statement_Cache :: struct {
+    entries: [..] *Cached_Statement;
+    tick: s64;
+    mode: Statement_Cache_Mode;
+    capacity: s64;
+    verify: bool;
+}
+
+// Whether a connection keeps prepared statements (`Config.statement_cache`).
+Statement_Cache_Mode :: enum u8 {
+    ON;
+    OFF; // unnamed statements only, for poolers that do not track named ones
 }
