@@ -322,6 +322,9 @@ pub(crate) struct RunState {
     pub(super) cfgs: RefCell<(Option<FileId>, Cfgs)>,
     pub(crate) lifetime_entry_module: Option<jaic::sema::ModuleId>,
     pub(crate) lifetime_files: jaic::fxhash::HashSet<FileId>,
+    /// The program's unreachable declarations (`unreachable_declaration`), worked out once for
+    /// the compile; `None` inside when it did not finish cleanly.
+    pub(crate) reach: std::cell::OnceCell<Option<super::unreachable_declaration::Reach>>,
     /// The definitions of the `.jai` files around a directory, by directory.
     variants: RefCell<HashMap<PathBuf, Rc<Variants>>>,
     /// Resolved paths.

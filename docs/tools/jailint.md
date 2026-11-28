@@ -505,6 +505,9 @@ An empty statement in a block, a `case`, a procedure body or at the top level of
 ### unpaired_lock
 A statement-level call of a `@Locks` procedure with an argument (`lock(*state.mutex);`) at the top level of a procedure body, followed by a path that reaches a.
 
+### unreachable_declaration
+Off by default. Judges a program's own top-level declarations by following uses from its roots, the programs `jailint` compiles (entries, tests, benches, build files, examples); a file several programs share is reported only when none uses the name. Quiet when the program did not compile cleanly. A module's exported names are never reported. `#run`, `#if`, notes, `#program_export` and the entry point are roots.
+
 ### unreadable_literal
 Off by default: the standard library alone has thousands of such constants.
 

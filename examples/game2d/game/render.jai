@@ -125,13 +125,6 @@ sprite :: (r: *Renderer, cell: Cell, x: float, y: float, size: float, angle := 0
     quad(r, x, y, size, size, angle, uv0, uv1, color);
 }
 
-// A filled rectangle with its top-left corner at (x, y), drawn with the sheet's white cell.
-rect :: (r: *Renderer, x: float, y: float, w: float, h: float, color: Vector4) {
-    uv0, uv1 := cell_uv(*r.sheet, 0, 0, SHEET_COLUMNS, SHEET_ROWS);
-
-    quad(r, x + w / 2, y + h / 2, w, h, 0, uv0 + .{ 0.003, 0.003 }, uv1 - .{ 0.003, 0.003 }, color);
-}
-
 // Text in capitals; `size` is the height of a glyph in world units. Returns the width drawn.
 text :: (r: *Renderer, s: string, x: float, y: float, size := 8.0, color := Vector4.{ 1, 1, 1, 1 }) -> float {
     advance := size * 6.0 / 8.0 * 1.0 + size / 8.0;

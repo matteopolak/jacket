@@ -1,6 +1,6 @@
 # Lint rules
 
-The 108 rules `jailint` checks, by category. [jailint](../tools/jailint.md) says how to run it, configure rules and silence a finding.
+The 109 rules `jailint` checks, by category. [jailint](../tools/jailint.md) says how to run it, configure rules and silence a finding.
 
 A rule's category sets its default level. Name a category wherever a rule name works (`[lint.rules]`, `-W`, `// jailint: allow(...)`). The compiler's warnings are reported too and take levels the same way, by code (`struct-literal-as-dynamic-array`), as `leniencies`, or all at once as `compiler`; `// jailint: allow(...)` does not cover them.
 
@@ -4695,6 +4695,46 @@ Off by default; the repository turns it on for `stdlib/**` outside tests. A unio
 The help names the likely tag: the field the union's members all begin with when there is one (`e.type`, or `p.pong.id` when only struct members share it), else the holder's first enum or integer field outside the union.
 
 Tagged unions are not reported. The check is by shape, so testing the wrong tag value still counts. A helper whose caller checks the tag states it with an `assert` on its first line; a binary-format view that is read as more than one member at once takes an `allow` with the reason.
+
+### unreachable_declaration
+
+Finds a top-level declaration that nothing reachable from the program's roots uses.
+
+Category `pedantic`, `allow` by default.
+
+Off by default; the example is shown with the rule enabled.
+
+```jai example
+#import "Basic";
+
+describe :: (n: int) -> string {
+    return "number";
+}
+
+main :: () {
+    print("hello\n");
+}
+```
+
+```diagnostic
+warning[unreachable_declaration]: `describe` is not used by anything reachable from the program's roots
+  --> example.jai:3:1
+   |
+ 3 | describe :: (n: int) -> string {
+   | ^^^^^^^^
+   |
+   = help: delete it, or use it from code that runs
+```
+
+```jai fixed
+#import "Basic";
+
+main :: () {
+    print("hello\n");
+}
+```
+
+Off by default. Judges a program's own top-level declarations by following uses from its roots, the programs `jailint` compiles (entries, tests, benches, build files, examples); a file several programs share is reported only when none uses the name. Quiet when the program did not compile cleanly. A module's exported names are never reported. `#run`, `#if`, notes, `#program_export` and the entry point are roots.
 
 ### unreadable_literal
 

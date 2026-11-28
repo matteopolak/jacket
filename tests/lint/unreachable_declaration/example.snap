@@ -1,0 +1,11 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unreachable_declaration]: `describe` is not used by anything reachable from the program's roots
+  --> tests/lint/unreachable_declaration/example.jai:3:1
+   |
+ 3 | describe :: (n: int) -> string {
+   | ^^^^^^^^
+   |
+   = help: delete it, or use it from code that runs
+   = note: see https://jacket.matteopolak.com/lint-rules/unreachable_declaration

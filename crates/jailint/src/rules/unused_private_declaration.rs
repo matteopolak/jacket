@@ -60,37 +60,14 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             S::Decl(decl) => decl,
             _ => continue,
         };
-        if scope != ScopeKind::File || decl.using || decl.backtick || !decl.notes.is_empty() {
+        if scope != ScopeKind::File {
             continue;
         }
         let [name] = decl.names.as_slice() else {
             continue;
         };
-        if READ_BY_NAME.contains(&name.name.as_str())
-            || name.name.as_str().starts_with("__")
-            || name.name.as_str() == cx.compiler.options.entry_point
-        {
+        if read_from_outside(decl, name.name.as_str(), &cx.compiler.options.entry_point) {
             continue;
-        }
-        if decl.kind == DeclKind::Const
-            && let Some(value) = &decl.value
-            && let E::Proc(lit) = &value.kind
-        {
-            let f = &lit.header.flags;
-            if f.c_call()
-                || f.expand()
-                || f.compiler()
-                || f.intrinsic()
-                || f.elsewhere.is_some()
-                || f.program_export.is_some()
-                || f.cpp_method()
-                || f.runtime_support()
-                || lit.header.foreign.is_some()
-                || lit.header.operator.is_some()
-                || !lit.header.notes.is_empty()
-            {
-                continue;
-            }
         }
         if cx.mentions(name.name, 0, cx.text.len() as u32, stmt.span) {
             continue;
@@ -104,6 +81,37 @@ pub(crate) fn check(cx: &Cx, out: &mut Vec<Finding>) {
             Some("delete it, or put it under `#scope_export` if another file should use it".into()),
         ));
     }
+}
+
+/// A declaration something outside the program text reads by name or signature, so no use of it
+/// need be written: `using`, noted and `` ` `` declarations, the names in [`READ_BY_NAME`],
+/// `__` names, the entry point, and procedures with a calling convention, a foreign body or
+/// an operator form that others rely on.
+pub(super) fn read_from_outside(decl: &jaic::ast::Decl, name: &str, entry_point: &str) -> bool {
+    if decl.using || decl.backtick || !decl.notes.is_empty() {
+        return true;
+    }
+    if READ_BY_NAME.contains(&name) || name.starts_with("__") || name == entry_point {
+        return true;
+    }
+    if decl.kind == DeclKind::Const
+        && let Some(value) = &decl.value
+        && let E::Proc(lit) = &value.kind
+    {
+        let f = &lit.header.flags;
+        return f.c_call()
+            || f.expand()
+            || f.compiler()
+            || f.intrinsic()
+            || f.elsewhere.is_some()
+            || f.program_export.is_some()
+            || f.cpp_method()
+            || f.runtime_support()
+            || lit.header.foreign.is_some()
+            || lit.header.operator.is_some()
+            || !lit.header.notes.is_empty();
+    }
+    false
 }
 
 /// The file writes code or names out of strings (`#insert`) or leaves a name to be provided

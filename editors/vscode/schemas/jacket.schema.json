@@ -1095,6 +1095,16 @@
               "default": "allow",
               "markdownDescription": "a note that no compile-time code read (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unused_note)"
             },
+            "unreachable_declaration": {
+              "type": "string",
+              "enum": [
+                "allow",
+                "warn",
+                "deny"
+              ],
+              "default": "allow",
+              "markdownDescription": "a top-level declaration that nothing reachable from the program's roots uses (default `allow`). [Docs](https://github.com/matteopolak/jacket/blob/main/docs/tools/jailint.md#unreachable_declaration)"
+            },
             "unused_parameter": {
               "type": "string",
               "enum": [

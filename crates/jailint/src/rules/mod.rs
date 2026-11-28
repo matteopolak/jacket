@@ -183,6 +183,7 @@ rules! {
     unreadable_literal,
     pub(crate) unused_import,
     pub(crate) unused_note,
+    pub(crate) unreachable_declaration,
     unused_parameter,
     unused_private_declaration,
     unused_result,

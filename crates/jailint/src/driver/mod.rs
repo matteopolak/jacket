@@ -120,6 +120,9 @@ pub struct CheckedContext {
     pub complete: bool,
     /// Source files visited by linting; complete=false never establishes full body coverage.
     pub visited_files: Vec<PathBuf>,
+    /// With `unreachable_declaration` on: the declared names (`path`, start, end) this program
+    /// never reaches, or `None` when it did not compile cleanly and cannot say.
+    pub dead: Option<BTreeSet<(String, usize, usize)>>,
 }
 
 impl Options {
@@ -248,6 +251,7 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
             }
         }
     }
+    keep_dead_in_every_program(&mut lints, &contexts);
     leak::leak_pass(
         (&roots, &report),
         options,
@@ -294,4 +298,25 @@ fn run_planned(options: &Options, entries: Option<&[PathBuf]>) -> Outcome {
         config_errors: configs.take_errors(),
         test_note_problems,
     }
+}
+
+/// A declaration is unreachable only when every program that compiled its file leaves it
+/// unreached: a file two programs `#load` is used by what either of them calls.
+fn keep_dead_in_every_program(lints: &mut Vec<Lint>, contexts: &[CheckedContext]) {
+    let rule = crate::rules::unreachable_declaration::INFO.name;
+    lints.retain(|l| {
+        l.rule != rule
+            || contexts
+                .iter()
+                .filter(|c| {
+                    c.visited_files
+                        .iter()
+                        .any(|f| f.to_string_lossy() == l.path)
+                })
+                .all(|c| {
+                    c.dead
+                        .as_ref()
+                        .is_some_and(|dead| dead.contains(&(l.path.clone(), l.start, l.end)))
+                })
+    });
 }

@@ -7,7 +7,6 @@ TICK_RATE :: 60;
 TICK_SECONDS :: 1.0 / 60.0;
 
 PLAYER_SPEED :: 110.0;
-PLAYER_RADIUS :: 5.0;
 SHOT_SPEED :: 260.0;
 SHOT_COOLDOWN_TICKS :: 8;
 START_LIVES :: 3;
@@ -126,10 +125,6 @@ world_free :: (world: *World) {
 
 duration_ms :: (world: *World) -> s64 {
     return world.tick * 1000 / TICK_RATE;
-}
-
-random_unit :: (world: *World) -> float {
-    return random_get_zero_to_one(*world.rng);
 }
 
 random_range :: (world: *World, low: float, high: float) -> float {

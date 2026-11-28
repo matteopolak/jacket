@@ -6,6 +6,7 @@ use super::marked_target::{Marked, marked_target};
 use super::plan::{Notes, canonical};
 use super::{CheckedContext, CompileError, Options};
 use crate::config::Configs;
+use crate::rules::unreachable_declaration as unreachable;
 use crate::{Edit, Fix, Level, Lint, SecondaryLabel, lint_files_with_entry};
 use jaic::paths::CanonCache;
 use jaic::project::Program;
@@ -206,7 +207,30 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
                 ));
             }
         }
+        // Whether anything reaches a declaration is a question for every program that compiles
+        // its file, so each context records what it found dead, owned files or not.
+        let wants_reach = files
+            .iter()
+            .any(|(_, path)| configs.at(path).level_at(&unreachable::INFO, path) != Level::Allow);
+        let reach = wants_reach
+            .then(|| unreachable::analyze(&mut compiler, complete))
+            .flatten();
+        let dead = wants_reach.then(|| {
+            reach
+                .iter()
+                .flat_map(|r| &r.dead)
+                .filter_map(|d| {
+                    let (_, path) = files.iter().find(|(f, _)| *f == d.file)?;
+                    Some((
+                        path.to_string_lossy().into_owned(),
+                        d.name.start as usize,
+                        d.name.end as usize,
+                    ))
+                })
+                .collect::<BTreeSet<_>>()
+        });
         contexts.push(CheckedContext {
+            dead: dead.filter(|_| reach.is_some()),
             root: root.path().to_path_buf(),
             os: compiler.options.os,
             cpu: compiler.options.cpu,
@@ -250,7 +274,8 @@ pub(super) fn lint_root(root: &Program, index: usize, shared: &Shared) -> RootRe
             } else {
                 None
             };
-            let mut found = lint_files_with_entry(&mut compiler, &own, configs, complete, entry);
+            let mut found =
+                lint_files_with_entry(&mut compiler, &own, configs, complete, entry, reach);
             for l in &mut found {
                 l.path = canon
                     .get_or_insert_with(Path::new(&l.path), canonical)

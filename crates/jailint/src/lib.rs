@@ -105,7 +105,7 @@ pub fn lint_files(
     configs: &config::Configs,
     complete: bool,
 ) -> Vec<Lint> {
-    lint_files_with_entry(compiler, files, configs, complete, None)
+    lint_files_with_entry(compiler, files, configs, complete, None, None)
 }
 
 pub(crate) fn lint_files_with_entry(
@@ -114,14 +114,14 @@ pub(crate) fn lint_files_with_entry(
     configs: &config::Configs,
     complete: bool,
     entry: Option<FileId>,
+    reach: Option<rules::unreachable_declaration::Reach>,
 ) -> Vec<Lint> {
     let mut out = Vec::new();
-    let done = lint_each(
+    let done = lint_each_with(
         compiler,
         files,
         configs,
-        complete,
-        entry,
+        (complete, entry, reach),
         &|_| true,
         &mut |_, found| out.extend(found),
     );
@@ -147,6 +147,30 @@ pub fn lint_each(
     pending: &dyn Fn(FileId) -> bool,
     sink: &mut dyn FnMut(FileId, Vec<Lint>),
 ) -> bool {
+    lint_each_with(
+        compiler,
+        files,
+        configs,
+        (complete, entry, None),
+        pending,
+        sink,
+    )
+}
+
+/// [`lint_each`] with the program's unreachable declarations already worked out, when the
+/// caller needed them for itself.
+pub(crate) fn lint_each_with(
+    compiler: &mut Compiler,
+    files: &[FileId],
+    configs: &config::Configs,
+    (complete, entry, reach): (
+        bool,
+        Option<FileId>,
+        Option<rules::unreachable_declaration::Reach>,
+    ),
+    pending: &dyn Fn(FileId) -> bool,
+    sink: &mut dyn FnMut(FileId, Vec<Lint>),
+) -> bool {
     let mut module_facts = rules::unused_import::ModuleFacts::default();
     let mut run = rules::RunState::with_lifetime_entry(entry.and_then(|id| {
         compiler
@@ -157,6 +181,9 @@ pub fn lint_each(
             .map(|f| f.module)
     }));
     run.lifetime_files.extend(files.iter().copied());
+    if let Some(reach) = reach {
+        let _ = run.reach.set(Some(reach));
+    }
     let time_lifetimes = jacket_config::env::LIFETIME_STATS.is_set();
     if !compiler.ed.facts().is_some_and(|ide| ide.lint) {
         for &file in files.iter().filter(|&&f| pending(f)) {
@@ -194,6 +221,13 @@ pub fn lint_each(
         if wanted.is_empty() {
             sink(file, Vec::new());
             continue;
+        }
+        if wanted
+            .iter()
+            .any(|(r, _)| r.name == rules::unreachable_declaration::INFO.name)
+        {
+            run.reach
+                .get_or_init(|| rules::unreachable_declaration::analyze(compiler, complete));
         }
         let imports = if wanted.iter().any(|(r, _)| r.name == "unused_import") {
             rules::unused_import::prepare(compiler, &mut module_facts, file, &ast, &tokens)

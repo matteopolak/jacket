@@ -1,0 +1,74 @@
+---
+source: crates/jailint/tests/rules.rs
+---
+warning[unreachable_declaration]: `LIMIT` is not used by anything reachable from the program's roots
+  --> tests/lint/unreachable_declaration/bad.jai:3:1
+   |
+ 3 | LIMIT :: 64;
+   | ^^^^^
+   |
+   = help: delete it, or use it from code that runs
+   = note: see https://jacket.matteopolak.com/lint-rules/unreachable_declaration
+
+warning[unreachable_declaration]: `Counter` is not used by anything reachable from the program's roots
+  --> tests/lint/unreachable_declaration/bad.jai:5:1
+   |
+ 5 | Counter :: struct {
+   | ^^^^^^^
+   |
+   = help: delete it, or use it from code that runs
+   = note: see https://jacket.matteopolak.com/lint-rules/unreachable_declaration
+
+warning[unreachable_declaration]: `Mode` is not used by anything reachable from the program's roots
+  --> tests/lint/unreachable_declaration/bad.jai:9:1
+   |
+ 9 | Mode :: enum {
+   | ^^^^
+   |
+   = help: delete it, or use it from code that runs
+   = note: see https://jacket.matteopolak.com/lint-rules/unreachable_declaration
+
+warning[unreachable_declaration]: `orphan_count` is not used by anything reachable from the program's roots
+  --> tests/lint/unreachable_declaration/bad.jai:14:1
+   |
+14 | orphan_count: int;
+   | ^^^^^^^^^^^^
+   |
+   = help: delete it, or use it from code that runs
+   = note: see https://jacket.matteopolak.com/lint-rules/unreachable_declaration
+
+warning[unreachable_declaration]: `describe` is not used by anything reachable from the program's roots
+  --> tests/lint/unreachable_declaration/bad.jai:17:1
+   |
+17 | describe :: (n: int) -> string {
+   | ^^^^^^^^
+   |
+   = help: delete it, or use it from code that runs
+   = note: see https://jacket.matteopolak.com/lint-rules/unreachable_declaration
+
+warning[unreachable_declaration]: `report` is not used by anything reachable from the program's roots
+  --> tests/lint/unreachable_declaration/bad.jai:21:1
+   |
+21 | report :: (n: int) {
+   | ^^^^^^
+   |
+   = help: delete it, or use it from code that runs
+   = note: see https://jacket.matteopolak.com/lint-rules/unreachable_declaration
+
+warning[unreachable_declaration]: `ping` is not used by anything reachable from the program's roots
+  --> tests/lint/unreachable_declaration/bad.jai:25:1
+   |
+25 | ping :: (n: int) {
+   | ^^^^
+   |
+   = help: delete it, or use it from code that runs
+   = note: see https://jacket.matteopolak.com/lint-rules/unreachable_declaration
+
+warning[unreachable_declaration]: `pong` is not used by anything reachable from the program's roots
+  --> tests/lint/unreachable_declaration/bad.jai:29:1
+   |
+29 | pong :: (n: int) {
+   | ^^^^
+   |
+   = help: delete it, or use it from code that runs
+   = note: see https://jacket.matteopolak.com/lint-rules/unreachable_declaration
