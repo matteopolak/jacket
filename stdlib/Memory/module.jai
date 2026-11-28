@@ -1,7 +1,7 @@
 // Byte-copying helpers. `copy` is the one to use.
 
 #module_parameters(
-    // Adds `copy_0` and the other competing implementations, for comparing speeds.
+    // Adds `copy_0` and the other numbered copies. Each copies as `copy` does.
     with_candidates := false,
     // Adds the unrolled fixed-size copies, such as `copy_128`.
     with_unwraps := false
@@ -17,50 +17,62 @@
 copy :: Impl.move_bytes;
 
 #if with_candidates {
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_0 :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_10_sse_128 :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_11_sse_256 :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_12_sse_512 :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_13_sse_1024 :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_1_u64 :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_20_avx_256 :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_2_u64_128 :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_3_u64_256 :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_4_u64_256_asm :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_5_asm_rep :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_6_asm_rep_bytes :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
@@ -74,43 +86,53 @@ copy :: Impl.move_bytes;
 
 #if with_unwraps {
     #if CPU == .X64 {
+        // Copies 32 bytes from `source` to `destination`; the ranges may overlap.
         avx_copy_256 :: inline (destination: *void, source: *void) {
             Impl.move_bytes(destination, source, 32);
         }
     }
 
+    // Copies 16 bytes from `source` to `destination`; the ranges may overlap.
     copy_128 :: inline (destination: *void, source: *void) {
         Impl.move_bytes(destination, source, 16);
     }
 
+    // Copies 32 bytes from `source` to `destination`; the ranges may overlap.
     copy_256 :: inline (destination: *void, source: *void) {
         Impl.move_bytes(destination, source, 32);
     }
 
+    // Copies 32 bytes from `source` to `destination`; the ranges may overlap.
     copy_256_expand_array :: (destination: *void, source: *void) #expand {
         Impl.move_bytes(destination, source, 32);
     }
 
+    // Copies 32 bytes from `source` to `destination`; the ranges may overlap.
     copy_256_expand_assign :: (destination: *void, source: *void) #expand {
         Impl.move_bytes(destination, source, 32);
     }
 
+    // Copies 32 bytes from `source` to `destination`; the ranges may overlap.
     copy_256_expand_index :: (destination: *void, source: *void) #expand {
         Impl.move_bytes(destination, source, 32);
     }
 
+    // Copies 32 bytes from `source` to `destination`; the ranges may overlap.
     copy_256_inline_array :: inline (destination: *void, source: *void) {
         Impl.move_bytes(destination, source, 32);
     }
 
+    // Copies 32 bytes from `source` to `destination`; the ranges may overlap.
     copy_256_inline_assign :: inline (destination: *void, source: *void) {
         Impl.move_bytes(destination, source, 32);
     }
 
+    // Copies 32 bytes from `source` to `destination`; the ranges may overlap.
     copy_256_inline_index :: inline (destination: *void, source: *void) {
         Impl.move_bytes(destination, source, 32);
     }
 
+    // Copies `count` bytes in 32-byte blocks with `call`, then the rest with [copy].
     copy_u64_unwrap :: (destination: *void, source: *void, count: s64, $call: type_of(copy_256)) {
         offset: s64;
         while offset + 32 <= count {
@@ -121,34 +143,42 @@ copy :: Impl.move_bytes;
         Impl.move_bytes(cast(*u8) destination + offset, cast(*u8) source + offset, count - offset);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_u64_unwrap_nocall_array :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_u64_unwrap_nocall_asm :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_u64_unwrap_nocall_assign :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies `count` bytes as [copy] does; the ranges may overlap.
     copy_u64_unwrap_nocall_index :: (destination: *void, source: *void, count: s64) {
         Impl.move_bytes(destination, source, count);
     }
 
+    // Copies 128 bytes from `source` to `destination`; the ranges may overlap.
     sse_copy_1024 :: inline (destination: *void, source: *void) {
         Impl.move_bytes(destination, source, 128);
     }
 
+    // Copies 16 bytes from `source` to `destination`; the ranges may overlap.
     sse_copy_128 :: inline (destination: *void, source: *void) {
         Impl.move_bytes(destination, source, 16);
     }
 
+    // Copies 32 bytes from `source` to `destination`; the ranges may overlap.
     sse_copy_256 :: inline (destination: *void, source: *void) {
         Impl.move_bytes(destination, source, 32);
     }
 
+    // Copies 64 bytes from `source` to `destination`; the ranges may overlap.
     sse_copy_512 :: inline (destination: *void, source: *void) {
         Impl.move_bytes(destination, source, 64);
     }

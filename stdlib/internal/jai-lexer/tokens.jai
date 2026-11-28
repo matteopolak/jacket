@@ -41,6 +41,8 @@ set_input_from_file :: (lexer: *J.Lexer, file_path: string) -> bool {
     return true;
 }
 
+// Takes the next free slot in the lexer's ring of tokens, cleared and starting at the current
+// position. Fails an `assert` when `MAX_CONCURRENT_TOKENS` tokens are already queued.
 get_unused_token :: (lexer: *J.Lexer) -> *J.Token {
     Basic.assert(lexer.num_incoming_tokens < J.MAX_CONCURRENT_TOKENS, "lexer lookahead exceeds its public token capacity");
     index := (lexer.token_array_cursor + lexer.num_incoming_tokens) % J.MAX_CONCURRENT_TOKENS;
@@ -91,6 +93,8 @@ get_last_token :: (lexer: *J.Lexer) -> J.Token {
     return lexer.tokens[(lexer.token_array_cursor + J.MAX_CONCURRENT_TOKENS - 1) % J.MAX_CONCURRENT_TOKENS];
 }
 
+// Consumes an identifier, stores its name in `result` and returns the name, which lives in the
+// lexer's atom pool. Reports a parse error when it is longer than `MAX_IDENTIFIER_LENGTH`.
 parse_ident :: (lexer: *J.Lexer, result: *J.Token) -> string {
     start := lexer.input_cursor;
 
@@ -106,6 +110,7 @@ parse_ident :: (lexer: *J.Lexer, result: *J.Token) -> string {
     return name;
 }
 
+// Lexes an identifier, giving keywords their own token type.
 make_ident_or_keyword :: (lexer: *J.Lexer) -> *J.Token {
     result := get_unused_token(lexer);
     result.type = .IDENT;
@@ -115,12 +120,15 @@ make_ident_or_keyword :: (lexer: *J.Lexer) -> *J.Token {
     return result;
 }
 
+// Consumes input up to the next space or control byte and returns a copy of it, allocated with
+// `context.allocator`.
 parse_note :: (lexer: *J.Lexer) -> string {
     start := lexer.input_cursor;
     while look(lexer, 0) > 32 eat_character(lexer);
     return Basic.copy_string(.{ lexer.input_cursor - start, lexer.input.data + start });
 }
 
+// Lexes a note such as `@Cold`; the token's `string_value` holds the text after `@`.
 make_note :: (lexer: *J.Lexer) -> *J.Token {
     result := get_unused_token(lexer);
     result.type = .NOTE;
@@ -132,6 +140,7 @@ make_note :: (lexer: *J.Lexer) -> *J.Token {
     return result;
 }
 
+// Consumes one byte and returns a token of type `c` for it.
 make_one_character_token :: (lexer: *J.Lexer, c: J.Token_Type) -> *J.Token {
     result := get_unused_token(lexer);
     result.type = c;
@@ -141,6 +150,9 @@ make_one_character_token :: (lexer: *J.Lexer, c: J.Token_Type) -> *J.Token {
     return result;
 }
 
+// Lexes an operator that may be followed by `=`: returns `augmented` (such as `+=`) when it is,
+// else `c`. With `eat`, it first consumes the operator's byte; `subtractor` moves the token's start
+// column back by that much, for operators whose first bytes were already consumed.
 check_for_equals :: (lexer: *J.Lexer, c: J.Token_Type, augmented: J.Token_Type, eat := true, subtractor: s32 = 0) -> *J.Token {
     result := get_unused_token(lexer);
     result.type = c;
@@ -157,6 +169,8 @@ check_for_equals :: (lexer: *J.Lexer, c: J.Token_Type, augmented: J.Token_Type, 
     return result;
 }
 
+// Skips spaces, control bytes and comments, then lexes the next token. At the end of the input it
+// returns an `.END_OF_INPUT` token.
 compose_new_token :: (lexer: *J.Lexer) -> *J.Token {
     while true {
         c := look(lexer, 0);

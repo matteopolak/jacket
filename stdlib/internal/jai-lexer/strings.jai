@@ -1,3 +1,5 @@
+// Lexes a `"..."` string literal and stores its value, escapes decoded, in `string_value`,
+// allocated with `context.allocator`. Reports a parse error when it isn't closed.
 make_string_constant :: (lexer: *J.Lexer) -> *J.Token {
     result := get_unused_token(lexer);
     result.type = .STRING;
@@ -221,6 +223,7 @@ parse_here_string :: (lexer: *J.Lexer) -> *J.Token {
     return null;
 }
 
+// Returns the number of newlines in a string token's value, or 0 for a token that isn't a string.
 count_herestring_lines :: (lexer: *J.Lexer, token: *J.Token) -> s64 {
     if !token || token.type != .STRING return 0;
     lines: s64;

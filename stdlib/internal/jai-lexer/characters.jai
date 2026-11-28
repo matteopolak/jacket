@@ -1,8 +1,10 @@
+// Returns the next input byte without consuming it, or -1 at the end of the input.
 peek_next_character :: (lexer: *J.Lexer) -> s16 {
     if lexer.input_cursor >= lexer.input.count return -1;
     return cast(s16) lexer.input[lexer.input_cursor];
 }
 
+// Consumes one input byte and moves the line and column on. Does nothing at the end of the input.
 eat_character :: (using lexer: *J.Lexer) {
     if input_cursor >= input.count return;
 
@@ -18,6 +20,8 @@ eat_character :: (using lexer: *J.Lexer) {
     } else current_character_index += 1;
 }
 
+// Steps back one byte. Rescans the input from the start to recompute the line and column, so it
+// takes time linear in the position.
 unwind_one_character :: (lexer: *J.Lexer) {
     if lexer.input_cursor <= 0 return;
 
@@ -39,14 +43,17 @@ starts_identifier :: inline (c: u8) -> bool {
     return (c >= #char "A" && c <= #char "Z") || (c >= #char "a" && c <= #char "z") || c == #char "_";
 }
 
+// Returns whether `c` can continue an identifier: a letter, digit or `_`.
 continues_identifier :: (c: s32) -> bool {
     return c >= 0 && c <= 255 && (starts_identifier(cast(u8) c) || (c >= #char "0" && c <= #char "9"));
 }
 
+// Returns whether `c` is a decimal digit.
 starts_number :: (c: s32) -> bool {
     return c >= #char "0" && c <= #char "9";
 }
 
+// Sets the token's end line and column to the lexer's position. A null token is ignored.
 set_end_of_token :: (lexer: *J.Lexer, token: *J.Token) {
     if !token return;
     token.l1 = lexer.current_line_number;
@@ -76,6 +83,8 @@ cached_make_atom :: (lexer: *J.Lexer, name: string, token_to_fill: *J.Token) -> 
     return atom;
 }
 
+// Consumes one hexadecimal digit of a `\x`, `\u` or `\U` escape and returns its value. Reports a
+// parse error and returns `success = false` when the next byte isn't one.
 get_hex_digit :: (lexer: *J.Lexer, type: J.Hex_Digit_Type) -> (value: u8, success: bool) {
     c := peek_next_character(lexer);
     value: s16 = -1;
@@ -96,6 +105,8 @@ get_hex_digit :: (lexer: *J.Lexer, type: J.Hex_Digit_Type) -> (value: u8, succes
     return cast(u8) value, true;
 }
 
+// Consumes one decimal digit of a `\d` escape and returns its value. Reports a parse error and
+// returns -1 when the next byte isn't one.
 get_decimal_digit :: (lexer: *J.Lexer) -> s32 {
     c := peek_next_character(lexer);
     if c < #char "0" || c > #char "9" {
@@ -120,14 +131,18 @@ report_parse_error :: (lexer: *J.Lexer, token: *J.Token, format: string, argumen
     else diagnostic(lexer.current_line_number, lexer.current_character_index, format, ..arguments);
 }
 
+// Prints a note at the lexer's current position, formatted like `print`, to standard error.
+// Unlike [report_parse_error], it doesn't mark the lexer as having failed.
 report_detail :: (lexer: *J.Lexer, format: string, arguments: ..Any) {
     diagnostic(lexer.current_line_number, lexer.current_character_index, format, ..arguments);
 }
 
+// Consumes input up to, not including, the next newline.
 eat_until_newline :: (lexer: *J.Lexer) {
     while peek_next_character(lexer) >= 0 && peek_next_character(lexer) != 10 eat_character(lexer);
 }
 
+// Consumes the rest of a block comment whose `/*` was already consumed, counting nested ones.
 eat_input_due_to_block_comment :: (lexer: *J.Lexer) {
     // Entry is just after the opening /*. Jai block comments nest.
     depth: s64 = 1;

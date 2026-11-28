@@ -1,3 +1,5 @@
+// Installs the handlers for crash signals and gives the calling thread an alternate signal
+// stack. Fails an `assert` when the system refuses.
 init :: () {
     error := native_init();
     assert(error == 0, "native crash-handler initialization failed: %", error);
@@ -8,6 +10,8 @@ attach_thread :: () #c_call {
     native_attach();
 }
 
+// The signal handler [init] installs: prints the report, then re-raises `sig` with the default
+// action.
 handle_signal :: (sig: s32, info: *siginfo_t, secret: *void) #c_call {
     native_handle(sig, info, secret);
 }

@@ -431,9 +431,10 @@ def overlay_declarations(overlays):
     return result
 
 
-def generate_facade(module, spec, overlays=None):
+def generate_facade(module, spec, overlays=None, docs=None):
     """The declarations and ledger of `module`. `overlays` are its per-CPU Linux declarations,
-    by default the vendored ones (`linux_overlays`)."""
+    by default the vendored ones (`linux_overlays`); `docs` its item comments, by default
+    `item_docs(module)`."""
     overlays = linux_overlays(module) if overlays is None else overlays
     shapes = defaultdict(list)
     for shape in spec.shapes:
@@ -464,7 +465,7 @@ def generate_facade(module, spec, overlays=None):
                     'cpu':cpu,'verification':'C header/layout assertions; not Android Jai/runtime execution',
                     'layout':{k:shape[k] for k in ('size','alignment','fields')}}
     ledger, output, emitted = [], [], set()
-    docs = item_docs(module)
+    docs = item_docs(module) if docs is None else docs
     constants_path = ROOT/'stdlib/internal/bindings/vendor/constants.json'
     native_constants = json.loads(constants_path.read_text()) if constants_path.exists() else {}
     manual_paths = [ROOT/'stdlib'/module/name for name in MANUAL_FACADE_SOURCES.get(module, ('wrappers.jai',))]
@@ -476,6 +477,7 @@ def generate_facade(module, spec, overlays=None):
                      if re.fullmatch(r'\w+\s*::\s*(\w+)\s*;?',d.code.strip())}
     for d in spec.declarations:
         record = {'name': d.name, 'signature': d.code, 'condition': d.condition, 'spec_line': d.line}
+        shaped = False
         condition = condition_for(module, d, spec)
         if condition != d.condition:
             record['effective_condition'] = condition
@@ -626,8 +628,10 @@ def generate_facade(module, spec, overlays=None):
                     old_header = body[:body.index('{')].strip()
                     if '(' not in old_header and not re.search(r'#(?:align|no_padding)', old_header):
                         body = code + ' ' + body[body.index('{'):]
-                blocks.append(guard(body, s.condition if s.condition != condition else ''))
+                # Each shape carries the comment inside its own guard, where it documents the struct.
+                blocks.append(guard(documented(body, docs.get(d.name)), s.condition if s.condition != condition else ''))
             code = '\n'.join(blocks)
+            shaped = True
             record['status'] = 'partially_declared' if partial else 'declared'
         elif '#foreign' in code or '#elsewhere' in code:
             code += ';' + notes
@@ -656,7 +660,7 @@ def generate_facade(module, spec, overlays=None):
         if exclusions:
             record['redeclared_for'] = exclusions
             condition = ' && '.join((['('+condition+')'] if condition else []) + exclusions)
-        output.append((d, guard(documented(code, docs.get(d.name)), condition)))
+        output.append((d, guard(code if shaped else documented(code, docs.get(d.name)), condition)))
         ledger.append(record)
     output += overlay_declarations(overlays)
     return organize_declarations(output), ledger

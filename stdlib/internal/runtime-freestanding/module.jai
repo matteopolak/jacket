@@ -51,10 +51,12 @@ panic :: (message: string) #no_context {
     halt();
 }
 
+// Fills an array of `num_elements` elements of `size` bytes by copying the first one into the rest.
 __element_duplicate :: (start: *u8, num_elements: s64, size: s64) #c_call #no_aoc {
     for i: 1..num_elements - 1 memcpy(start + i * size, start, size);
 }
 
+// Returns the number of bytes before the first zero byte at `str`, or 0 for null.
 c_style_strlen :: (str: *u8) -> s64 #no_context {
     if !str return 0;
     count: s64 = 0;
@@ -62,23 +64,29 @@ c_style_strlen :: (str: *u8) -> s64 #no_context {
     return count;
 }
 
+// Returns a string viewing the zero-terminated bytes at `c_string`, without copying. Null gives an
+// empty string.
 to_string :: (c_string: *u8) -> string #no_context {
     return .{ c_style_strlen(c_string), c_string };
 }
 
+// Passes `s` to the console hook, or drops it when there is none.
 write_string_unsynchronized :: (s: string, to_standard_error := false) #no_context {
     if console_hook console_hook(s, to_standard_error);
 }
 
-// There are no threads, so there is no lock to take.
+// Passes `s` to the console hook, or drops it when there is none. There are no threads, so
+// there is no lock to take.
 write_string :: (s: string, to_standard_error := false) #no_context #compiler {
     write_string_unsynchronized(s, to_standard_error);
 }
 
+// Writes each string as [write_string] does.
 write_strings :: (strings: ..string, to_standard_error := false) #no_context #compiler {
     for s: strings write_string_unsynchronized(s, to_standard_error);
 }
 
+// Writes `n` in `base`, clamped to 2..16, with lowercase digits and no prefix.
 write_nonnegative_number :: (n: u64, base := 10, to_standard_error := false) #no_context #no_abc #no_aoc {
     radix := base;
     if radix < 2 radix = 2;
@@ -100,6 +108,7 @@ write_nonnegative_number :: (n: u64, base := 10, to_standard_error := false) #no
     write_string(string.{ 64 - cursor, buffer.data + cursor }, to_standard_error);
 }
 
+// Writes `n` in `base`, clamped to 2..16, with a leading `-` when negative.
 write_number :: (n: s64, base := 10, to_standard_error := false) #no_context #no_abc #no_aoc {
     if n < 0 {
         write_string("-", to_standard_error);
@@ -107,6 +116,8 @@ write_number :: (n: s64, base := 10, to_standard_error := false) #no_context #no
     } else write_nonnegative_number(cast(u64) n, base, to_standard_error);
 }
 
+// The default `context.assertion_failed`: writes `file:line: assertion failed: message` as error
+// output, then calls [panic].
 runtime_support_assertion_failed :: (loc: Source_Code_Location, message: string) -> bool {
     write_string(loc.fully_pathed_filename, true);
     write_string(":", true);
@@ -117,6 +128,8 @@ runtime_support_assertion_failed :: (loc: Source_Code_Location, message: string)
     return false;
 } @Cold
 
+// The default `context.logger`: writes the message, as error output when it has `.ERROR`, adding
+// a newline if it lacks one.
 runtime_support_default_logger :: (message: string, data: *void, info: Log_Info) {
     to_error := (info.common_flags & .ERROR) != 0;
 
@@ -127,10 +140,12 @@ runtime_support_default_logger :: (message: string, data: *void, info: Log_Info)
     }
 }
 
+// Executes a trap instruction.
 debug_break :: () #no_context {
     trap();
 }
 
+// [debug_break], callable at compile time.
 compile_time_debug_break :: () #compiler #no_context {
     debug_break();
 }

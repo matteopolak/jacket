@@ -1,9 +1,12 @@
 #if CPU == .ARM64 {
     // Reuse the SDK-shaped Windows binding so register layouts have one owner.
+    // The thread registers saved with an exception, as in the Windows `CONTEXT` record.
     CONTEXT :: struct #align 16 {
         using members: Win.CONTEXT;
     }
 } else {
+    // The thread registers saved with an exception, as in the Windows `CONTEXT` record. Only the
+    // stack, frame and instruction pointers are named.
     CONTEXT :: struct {
         using members: struct {
             before_rax: [152] u8 = ---;
@@ -17,6 +20,7 @@
 
 }
 
+// What went wrong, as in the Windows `EXCEPTION_RECORD`.
 EXCEPTION_RECORD :: struct {
     ExceptionCode: u32;
     ExceptionFlags: u32;
@@ -26,17 +30,20 @@ EXCEPTION_RECORD :: struct {
     ExceptionInformation: [15] u64;
 }
 
+// The record and registers an exception filter receives, as in the Windows `EXCEPTION_POINTERS`.
 EXCEPTION_POINTERS :: struct {
     ExceptionRecord: *EXCEPTION_RECORD;
     ContextRecord: *CONTEXT;
 }
 
+// An address in a stack frame, as in the Windows `ADDRESS64`.
 ADDRESS64 :: struct {
     Offset: u64;
     Segment: u16;
     Mode: s32;
 }
 
+// One frame of a stack walk, as in the Windows `STACKFRAME64`. Only the addresses are named.
 STACKFRAME64 :: struct {
     using members: struct {
         AddrPC: ADDRESS64;

@@ -10,6 +10,12 @@ Allocator_Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = ENAB
 allocator_name: string = "rpmalloc 1.4.4";
 
 #scope_export
+// The allocator procedure for the module, for an `Allocator`. Handles every `Allocator_Mode`.
+//
+// - `.STARTUP` and `.SHUTDOWN` call [initialize] and [finalize]; `.THREAD_START` and `.THREAD_STOP` initialize and finalize the calling thread when the allocator is initialized.
+// - `.ALLOCATE` and `.RESIZE` return null when `requested_size` is negative or the allocator is not initialized. `.FREE` ignores a null pointer.
+// - A non-null `allocator_data` selects the heap that `.CREATE_HEAP` returned. `.CREATE_HEAP` returns null before initialization, and `.DESTROY_HEAP` releases that heap and asserts that `allocator_data` is not the default heap.
+// - `.IS_THIS_YOURS` asks whether `old_memory` belongs to the selected heap, or to the calling thread's heap when none is selected.
 rpmalloc_allocator_proc :: (mode: Allocator_Mode, requested_size: s64, old_size: s64, old_memory: *void, allocator_data: *void) -> *void {
     previous := Allocator_Frames.enter(cast(*void) *context);
 

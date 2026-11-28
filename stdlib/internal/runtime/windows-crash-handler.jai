@@ -1,3 +1,5 @@
+// Loads the symbols for stack traces and installs [handle_exception] as the unhandled exception
+// filter. Fails an `assert` when setup fails.
 init :: () {
     error := native_prepare(CurrentProcess);
     assert(error == 0, "Windows exception-handler initialization failed: %", error);
@@ -10,10 +12,13 @@ attach_thread :: () #c_call {
     native_attach();
 }
 
+// Prints the stack described by `ctx` to standard error, skipping the first `skips` frames.
 backtrace :: (ctx: *CONTEXT, skips: s32) #no_context {
     native_backtrace(ctx, skips, CurrentProcess);
 }
 
+// Returns whether `ptr` is inside a section of the program's image, whether that section is
+// read-only, and its name. The name points into the image; don't free it.
 is_ptr_in_program_section :: (ptr: *void) -> in_program_section: bool, read_only: bool, section_name: string #no_context {
     readonly: s32;
     name: *u8;
@@ -23,6 +28,8 @@ is_ptr_in_program_section :: (ptr: *void) -> in_program_section: bool, read_only
     return found != 0, readonly != 0, string.{ cast(s64) count, name };
 }
 
+// The exception filter [init] installs: prints the report, then lets the exception end the
+// program.
 handle_exception :: (using pExceptionInfo: *EXCEPTION_POINTERS) -> s32 #c_call {
     return native_handle(pExceptionInfo, *windows_context, CurrentProcess);
 }

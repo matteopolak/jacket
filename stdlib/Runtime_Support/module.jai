@@ -1,3 +1,6 @@
+// What every program links: the context, the entry point that sets it up, the handlers that
+// bounds, null and overflow checks call, and unbuffered output for code that can't import Basic.
+
 #module_parameters(
     // Defines the program's system entry point.
     DEFINE_SYSTEM_ENTRY_POINT: bool,
@@ -9,6 +12,7 @@
 
 OS_IS_UNIX :: OS == .MACOS || OS == .LINUX || OS == .PS5 || OS == .IOS || OS == .ANDROID;
 
+// The fields every context has. Modules add more with `#add_context`.
 Context_Base :: struct {
     context_info: *Type_Info_Struct;
     thread_index: u32;
@@ -17,13 +21,15 @@ Context_Base :: struct {
     logger_data: *void;
     log_source_identifier: u64;
     log_level: Log_Level;
-    temporary_storage: *Temporary_Storage;
+    temporary_storage: *Temporary_Storage; // Where `talloc` and `tprint` allocate.
     stack_trace: *Stack_Trace_Node;
     assertion_failed := runtime_support_assertion_failed;
-    handling_assertion_failure := false;
+    handling_assertion_failure := false; // Set by code that is reporting a failure, so what it calls can avoid reporting again.
     default_allocator :: Allocator.{ runtime_support_default_allocator_proc, null };
 }
 
+// The state of temporary storage: a block that allocations take from in order and that
+// `reset_temporary_storage` empties at once. `implementation_data` belongs to the allocator.
 Temporary_Storage :: struct {
     data: *u8;
     size: s64;
@@ -34,7 +40,9 @@ Temporary_Storage :: struct {
 }
 
 synch_initted: s32 = 0;
+// Runs before `main`; empty.
 __instrumentation_first :: () {}
+// Runs before `main`, after [__instrumentation_first]; empty.
 __instrumentation_second :: () {}
 __array_bounds_check_fail :: Impl.__array_bounds_check_fail;
 __cast_bounds_check_fail :: Impl.__cast_bounds_check_fail;

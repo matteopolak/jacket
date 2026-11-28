@@ -1,3 +1,5 @@
+// Called by bounds-checked code when `index` is outside an array of `limit` elements. Prints the
+// location and both numbers to standard error and aborts.
 __array_bounds_check_fail :: (index: s64, limit: s64, line_number: s64, filename: *u8) #no_context {
     report_location(filename, line_number);
     write_string("array index out of bounds: ", true);
@@ -8,18 +10,24 @@ __array_bounds_check_fail :: (index: s64, limit: s64, line_number: s64, filename
     abort_program();
 }
 
+// Called by checked casts when the value doesn't fit the target type. Prints the location to
+// standard error and aborts when `fatal` is set; otherwise the program goes on.
 __cast_bounds_check_fail :: (pre_value: s64, pre_flags: u32, post_value: s64, post_flags: u32, fatal: u8, line_number: s64, filename: *u8) #no_context {
     report_location(filename, line_number);
     write_string("cast out of bounds\n", true);
     if fatal != 0 abort_program();
 }
 
+// Called by null-checked code when it dereferences a null pointer. Prints the location to
+// standard error and aborts.
 __null_pointer_check_fail :: (index: s64, line_number: s64, filename: *u8) #no_context {
     report_location(filename, line_number);
     write_string("null pointer access\n", true);
     abort_program();
 }
 
+// Called by overflow-checked code when `left` and `right` overflow their type. Prints the location
+// and the operation to standard error, and aborts when bit `0x8000` of `type_code` is set.
 __arithmetic_overflow :: (left: s64, right: s64, type_code: u16, line_number: s64, filename: *u8) #no_context #no_aoc {
     report_location(filename, line_number);
     write_string("arithmetic overflow computing ", true);
@@ -44,6 +52,8 @@ __arithmetic_overflow :: (left: s64, right: s64, type_code: u16, line_number: s6
     if (type_code & 0x8000) != 0 abort_program();
 }
 
+// Runs `to_insert` once across all threads that reach it with the same `synch_value`, which starts
+// at 0. Threads that lose the race spin until the winner finishes.
 one_time_init :: (synch_value: *s32, to_insert: Code) #expand {
     won, previous := compare_and_swap(synch_value, cast(s32) 0, cast(s32) 1);
     if won {

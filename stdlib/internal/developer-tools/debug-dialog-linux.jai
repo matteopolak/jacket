@@ -1,3 +1,5 @@
+// Shows an X11 window with the failure and Retry, Ignore and Abort buttons (or the keys r, i
+// and a) and returns the choice. Returns `.Abort` when the window can't be opened or is closed.
 os_show_assert_dialog :: (loc: Source_Code_Location, message: string) -> Assert_Response {
     display := X.XOpenDisplay(null);
     if !display {

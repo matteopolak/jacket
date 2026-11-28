@@ -1,4 +1,6 @@
-// Process handler ownership is implemented by the source-built OS helper.
+// Installs the crash handler and, unless the program set its own, an assert handler:
+// [interactive_assert] with `USE_GRAPHICS`, else [break_assert]. On Windows it also sends log
+// output to the debugger's output window when the default logger is in use.
 init :: () {
     #if OS == .WINDOWS {
         if lifecycle_initialize() == 0 log_error("Debug: DbgHelp initialization failed\n");
@@ -24,15 +26,19 @@ init :: () {
     }
 }
 
+// Installs the handler that prints a stack trace, or calls `crash_handler`, when the program
+// crashes. `interactive` is ignored; use [set_report_mode].
 enable_signal_handler :: (interactive := false) {
     // This argument deliberately does not change the separate report mode.
     os_enable_signal_handler();
 }
 
+// Puts back the crash handling that was there before [enable_signal_handler].
 disable_signal_handler :: () {
     os_disable_signal_handler();
 }
 
+// [enable_signal_handler]; logs an error when the system refuses.
 os_enable_signal_handler :: () {
     if lifecycle_enable(deliver_crash, *context, size_of(#Context)) == 0 {
         log_error("Debug: signal/exception handler installation failed\n");
@@ -41,6 +47,7 @@ os_enable_signal_handler :: () {
 
 }
 
+// [disable_signal_handler]; logs an error when the system refuses.
 os_disable_signal_handler :: () {
     if lifecycle_disable() == 0 {
         log_error("Debug: signal/exception handler restoration failed\n");
@@ -49,14 +56,17 @@ os_disable_signal_handler :: () {
 
 }
 
+// An assert handler that does nothing, so failed asserts are ignored.
 no_assert :: (loc: Source_Code_Location, message: string) {
     // Explicitly selected assertion suppression callback.
 }
 
+// An assert handler that prints `file:line:character: assertion failed: message` and returns.
 print_assert :: (loc: Source_Code_Location, message: string) {
     output(tprint("%:%:%: assertion failed: %\n", loc.fully_pathed_filename, loc.line_number, loc.character_number, message));
 }
 
+// An assert handler that prints the failure and a stack trace, then returns.
 trace_assert :: (loc: Source_Code_Location, message: string) {
     print_assert(loc, message);
     trace := backtrace();

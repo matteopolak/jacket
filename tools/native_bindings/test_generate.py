@@ -260,6 +260,25 @@ Record :: struct { value: u64; }
         self.assertNotIn('Record ::',code)
         self.assertEqual(ledger[0]['status'],'unresolved')
 
+    def test_item_docs_lead_every_shape_of_a_struct(self):
+        page = '''# Example
+## Public declaration inventory
+- `Record :: struct`
+## Public aggregate shapes and enum values
+### `Record`
+Variant 1 (macOS):
+```jai
+Record :: struct { value: u64; }
+```
+Variant 2 (Linux):
+```jai
+Record :: struct { value: u32; }
+```
+'''
+        code, _ = generate_facade('Example', parse_spec(page), docs={'Record': 'A record.'})
+        self.assertEqual(code.count('// A record.\nRecord :: struct'), 2)
+        self.assertNotIn('// A record.\n#if', code)
+
     def test_partial_shape_keeps_supported_branch_and_records_gap(self):
         spec = parse_spec('''# Example
 ## Public declaration inventory

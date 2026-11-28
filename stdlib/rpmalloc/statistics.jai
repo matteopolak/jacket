@@ -9,6 +9,9 @@ Statistics_Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = ENA
 #scope_export
 #if !USE_RAW {
     #if ENABLE_STATISTICS {
+        // Writes a report of the allocator's counters.
+        //
+        // With the default types, `builder` must be a `String_Builder`: the report is appended to it, and its `failed` flag is set when the counters cannot be captured. Without `ENABLE_STATISTICS` the call expands to nothing. With `USE_RAW := true` the argument is a C file pointer, and nothing is written unless the build has statistics and pretty-printing.
         dump_statistics :: (builder: *$T) {
             #assert T == Statistics_Basic.String_Builder, "dump_statistics requires Basic.String_Builder";
 
@@ -69,7 +72,9 @@ Statistics_Bridge :: #import "internal/bindings/rpmalloc-heaps"(STATISTICS = ENA
             if !Statistics_Basic.print_to_builder(builder, "global mapped % peak % cached % huge % huge-peak % mapped-total % unmapped-total %\n", global.mapped, global.mapped_peak, global.cached, global.huge_alloc, global.huge_alloc_peak, global.mapped_total, global.unmapped_total) return;
         }
     } else {
-        // Explicit empty expansion when statistics are disabled.
+        // Writes a report of the allocator's counters.
+        //
+        // With the default types, `builder` must be a `String_Builder`: the report is appended to it, and its `failed` flag is set when the counters cannot be captured. Without `ENABLE_STATISTICS` the call expands to nothing. With `USE_RAW := true` the argument is a C file pointer, and nothing is written unless the build has statistics and pretty-printing.
         dump_statistics :: (builder: *void) #expand {}
     }
 }

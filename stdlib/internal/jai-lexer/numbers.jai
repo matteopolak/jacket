@@ -1,3 +1,5 @@
+// Returns whether `value` is a normal number whose exponent is outside the range of `float32`.
+// Zero, subnormals, infinities and NaN give false.
 has_a_big_exponent :: inline (value: float64) -> bool {
     encoded := ((cast,force(u64) value) >> 52) & 0x7ff;
     if encoded == 0 || encoded == 0x7ff return false;
@@ -5,6 +7,8 @@ has_a_big_exponent :: inline (value: float64) -> bool {
     return exponent > FLOAT32_MAX_EXPONENT || exponent < FLOAT32_MIN_EXPONENT;
 }
 
+// Lexes a `0h` float given by its bits: up to 8 hex digits are read as `float32` bits, more as
+// `float64` bits. A count other than 4, 8 or 16 is a parse error.
 make_hexfloat :: (lexer: *J.Lexer, result: *J.Token) -> *J.Token #no_aoc {
     if look(lexer, 0) == #char "0" && (look(lexer, 1) == #char "h" || look(lexer, 1) == #char "H") {
         eat_character(lexer);
@@ -44,6 +48,7 @@ make_hexfloat :: (lexer: *J.Lexer, result: *J.Token) -> *J.Token #no_aoc {
     return result;
 }
 
+// Lexes a decimal, `0x` hexadecimal, `0b` binary or `0h` float literal.
 make_number :: (lexer: *J.Lexer) -> *J.Token #no_aoc {
     result := get_unused_token(lexer);
     result.type = .NUMBER;
